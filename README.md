@@ -10,12 +10,31 @@ Automate Microsoft Copilot Studio (MCS) agent creation using Claude Code with Pl
 │  (Specs in MD)  │     │  (Orchestrator)  │     │  (via Playwright)│
 └─────────────────┘     └──────────────────┘     └─────────────────┘
                                │
-                        ┌──────┴──────┐
-                        ▼             ▼
-              ┌─────────────┐  ┌─────────────┐
-              │  MS Learn   │  │  Web Search │
-              │    MCP      │  │  (Research) │
-              └─────────────┘  └─────────────┘
+               ┌───────────────┼───────────────┐
+               ▼               ▼               ▼
+     ┌─────────────┐   ┌─────────────┐   ┌─────────────┐
+     │  MS Learn   │   │   WorkIQ    │   │  Web Search │
+     │    MCP      │   │    MCP      │   │  (Research) │
+     │(Docs/APIs)  │   │(M365 Data)  │   │             │
+     └─────────────┘   └─────────────┘   └─────────────┘
+```
+
+### Multi-Agent First Architecture
+
+The framework is designed around the multi-agent pattern:
+
+```
+                    ┌─────────────────────────────┐
+                    │     ORCHESTRATOR AGENT      │  ← Users interact here
+                    │   Routes to specialists     │
+                    └──────────┬──────────────────┘
+                               │
+           ┌───────────────────┼───────────────────┐
+           ▼                   ▼                   ▼
+    ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+    │  Knowledge  │     │ Integration │     │   Process   │
+    │  Specialist │     │  Specialist │     │  Specialist │
+    └─────────────┘     └─────────────┘     └─────────────┘
 ```
 
 ## Prerequisites
@@ -89,12 +108,13 @@ claude --model claude-opus-4-5-20250514
 
 ### Step 3: Configure MCP Servers
 
-MCP (Model Context Protocol) servers extend Claude's capabilities. This project uses two:
+MCP (Model Context Protocol) servers extend Claude's capabilities. This project uses three:
 
-| MCP Server | Purpose |
-|------------|---------|
-| **Playwright** | Browser automation for Copilot Studio UI |
-| **Microsoft Learn** | Research MCS documentation and capabilities |
+| MCP Server | Purpose | Required |
+|------------|---------|----------|
+| **Playwright** | Browser automation for Copilot Studio UI | Yes |
+| **Microsoft Learn** | Research MCS documentation and capabilities | Yes |
+| **WorkIQ** | Access M365 data (emails, docs, meetings) during live builds | Optional |
 
 #### Automatic Configuration (Recommended)
 
@@ -105,9 +125,40 @@ The repository includes `.claude/settings.json` with MCP servers pre-configured.
 Claude Code will ask to enable:
 - playwright (browser automation)
 - microsoft-learn (documentation search)
+- workiq (M365 data access)
 
-Select "Yes" to enable both.
+Select "Yes" to enable.
 ```
+
+#### WorkIQ MCP Setup (Optional but Recommended for Live Meetings)
+
+WorkIQ enables Claude to access your M365 data during live customer meetings - finding emails, documents, meeting notes, etc.
+
+**Prerequisites:**
+- Microsoft 365 subscription with Copilot license
+- Admin consent for WorkIQ app in your Entra tenant
+- Node.js installed
+
+**Setup Steps:**
+
+1. **Accept EULA (one-time):**
+   ```bash
+   npx -y @microsoft/workiq accept-eula
+   ```
+
+2. **Authenticate (first use):**
+   ```bash
+   npx -y @microsoft/workiq ask -q "test"
+   ```
+   This will open a browser for M365 authentication.
+
+3. **Verify in Claude Code:**
+   ```
+   /mcp
+   ```
+   WorkIQ should be listed as connected.
+
+**Note:** WorkIQ is in Public Preview. If your organization hasn't consented to the app, contact your Entra admin.
 
 #### Manual Configuration (if needed)
 
@@ -128,6 +179,13 @@ If MCP servers aren't detected, configure them manually:
    Type: http
    URL: https://learn.microsoft.com/api/mcp
    ```
+5. Add WorkIQ MCP (optional):
+   ```
+   Name: workiq
+   Type: stdio
+   Command: npx
+   Args: -y @microsoft/workiq mcp
+   ```
 
 #### Verify MCP Servers
 
@@ -136,7 +194,7 @@ In Claude Code, type:
 /mcp
 ```
 
-You should see both `playwright` and `microsoft-learn` listed as connected.
+You should see `playwright`, `microsoft-learn`, and optionally `workiq` listed as connected.
 
 ### Step 4: Browser Authentication
 
@@ -237,6 +295,37 @@ python scripts/convert_docs.py path/to/document.docx
 
 Output will be saved as markdown in the same directory.
 
+### Live Meeting Workflow
+
+Build and iterate agents during customer meetings:
+
+1. **Pre-meeting:**
+   - Ensure WorkIQ is authenticated
+   - Open Copilot Studio and confirm environment
+   - Have Build-Guides/[Customer]/ folder ready
+
+2. **During meeting:**
+   ```
+   # Capture requirements as customer speaks
+   "Add to usecase.md: [requirement]"
+
+   # Find customer context via WorkIQ
+   "Find emails from [customer] about [project]"
+   "What documents do I have about [topic]?"
+
+   # Build in real-time (share screen)
+   "Create a specialist agent for [domain]"
+   "Add knowledge source from [SharePoint URL]"
+
+   # Test and iterate
+   "Test the agent with: [question]"
+   "Update the instructions to [change]"
+   ```
+
+3. **Post-meeting:**
+   - Save usecase.md with captured requirements
+   - Document decisions in agent-spec.md
+
 ### Example Prompts
 
 **Analyze a use case:**
@@ -259,6 +348,13 @@ Build the agent specified in Build-Guides/Contoso/agent-spec.md
 **Test an agent:**
 ```
 Test the agent we just built - try asking it about [topic].
+```
+
+**Find context (WorkIQ):**
+```
+Find recent emails about the Contoso project requirements
+What was discussed in yesterday's meeting about the chatbot?
+Find SharePoint documents about [process]
 ```
 
 ## Key Files
@@ -299,6 +395,27 @@ npx playwright install chromium
 **Microsoft Learn MCP not responding:**
 - Check internet connectivity
 - The endpoint may be temporarily unavailable; retry in a few minutes
+
+**WorkIQ MCP not connecting:**
+
+1. **EULA not accepted:**
+   ```bash
+   npx -y @microsoft/workiq accept-eula
+   ```
+
+2. **Not authenticated:**
+   ```bash
+   npx -y @microsoft/workiq ask -q "test"
+   # Complete browser authentication
+   ```
+
+3. **Admin consent required:**
+   - Contact your Entra admin to consent to the WorkIQ app
+   - See: https://learn.microsoft.com/en-us/microsoft-365-copilot/extensibility/workiq-overview
+
+4. **No M365 Copilot license:**
+   - WorkIQ requires M365 Copilot license
+   - Check with your IT admin about license availability
 
 ### Browser Authentication Issues
 

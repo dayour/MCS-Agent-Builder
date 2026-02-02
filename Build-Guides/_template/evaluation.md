@@ -82,7 +82,52 @@
 | Connector: [Name] | Error handling | "[Request that will fail]" | Graceful error message |
 | Topic: [Name] | Trigger | "[Trigger phrase]" | Topic activates |
 | Routing: Escalation | Sensitive topic | "[Escalation trigger]" | Routes to human/specialist |
-| Routing: Child agent | Specialist query | "[Query for child agent]" | Correct child handles |
+
+### Multi-Agent Routing Tests (If applicable)
+
+*Test orchestrator-to-specialist routing and response integration.*
+
+#### Level 1: Specialist Unit Tests
+*Test each specialist agent in isolation (without orchestrator).*
+
+| Specialist | Test Type | User Input | Expected Result |
+|------------|-----------|------------|-----------------|
+| [Specialist Name] | Core function | "[Direct query to specialist]" | Correct, complete response |
+| [Specialist Name] | Edge case | "[Edge case query]" | Handles gracefully |
+| [Specialist Name] | Out of scope | "[Query outside specialist domain]" | Declines appropriately |
+| [Specialist Name] | Knowledge retrieval | "[Query requiring KB lookup]" | Correct source cited |
+| [Specialist Name] | Tool execution | "[Action request]" | Action completes |
+
+#### Level 2: Routing Tests
+*Test orchestrator correctly routes to specialists.*
+
+| Intent | User Input | Expected Routing | Validation |
+|--------|------------|------------------|------------|
+| [Intent 1] | "[Query matching specialist 1]" | → /[Specialist1] | Correct specialist activated |
+| [Intent 2] | "[Query matching specialist 2]" | → /[Specialist2] | Correct specialist activated |
+| [Intent 3] | "[Query matching specialist 3]" | → /[Specialist3] | Correct specialist activated |
+| General | "[General query, no specialist needed]" | → Orchestrator handles | No specialist called |
+| Ambiguous | "[Unclear which specialist]" | → Clarifying question | Orchestrator asks before routing |
+| Multi-domain | "[Query spanning 2 specialists]" | → Sequential or primary | Handled appropriately |
+
+#### Level 3: Context Handoff Tests
+*Test context is properly passed to specialists.*
+
+| Scenario | Setup | User Input | Validation |
+|----------|-------|------------|------------|
+| Context passed | User provides info in turn 1 | Turn 2: "[Query needing turn 1 context]" | Specialist receives context |
+| Entity passed | User mentions customer name | "[Query about that customer]" | Specialist has customer ID |
+| History preserved | Multi-turn conversation | "[Follow-up question]" | Relevant history available |
+
+#### Level 4: Response Integration Tests
+*Test orchestrator properly integrates specialist responses.*
+
+| Scenario | Specialist Response | Expected Orchestrator Behavior |
+|----------|---------------------|--------------------------------|
+| Direct answer | Clear, complete response | Passes through (possibly summarized) |
+| Partial answer | Incomplete response | Orchestrator adds context or asks follow-up |
+| Error response | Specialist fails | Graceful fallback, doesn't expose error |
+| Decline response | Specialist can't handle | Orchestrator tries alternative or handles directly |
 
 ### Edge Cases (15-20 cases)
 
@@ -114,6 +159,28 @@
 | 1 | "[Opening query]" | [Expected response type] | Sets context correctly |
 | 2 | "[Follow-up]" | [Expected response] | Maintains context |
 | 3 | "[Completion or branch]" | [Expected response] | Completes flow correctly |
+
+### Multi-Agent Flow: [Name] (If applicable)
+
+*Test conversations that span multiple specialists.*
+
+| Turn | User | Routing | Response | Validation |
+|------|------|---------|----------|------------|
+| 1 | "[Query for Specialist A]" | → /SpecialistA | [Response] | Correct routing, context set |
+| 2 | "[Follow-up still for A]" | → /SpecialistA | [Response] | Same specialist, context maintained |
+| 3 | "[Switch to Specialist B topic]" | → /SpecialistB | [Response] | Clean switch, relevant context passed |
+| 4 | "[Return to Specialist A topic]" | → /SpecialistA | [Response] | Original context recovered |
+| 5 | "[General question]" | → Orchestrator | [Response] | No specialist needed |
+
+### Specialist Handoff Flow: [Name]
+
+*Test when one specialist needs to hand off to another.*
+
+| Turn | User | Routing | Response | Validation |
+|------|------|---------|----------|------------|
+| 1 | "[Complex query]" | → /SpecialistA | [Partial answer + handoff] | Specialist recognizes limit |
+| 2 | [Automatic] | → /SpecialistB | [Completes answer] | Orchestrator coordinates handoff |
+| 3 | "[Follow-up]" | → [Appropriate] | [Response] | Context from both specialists available |
 
 ---
 

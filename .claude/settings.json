@@ -26,7 +26,8 @@
       "mcp__playwright__browser_tabs",
       "mcp__playwright__browser_take_screenshot",
       "mcp__playwright__browser_type",
-      "mcp__playwright__browser_wait_for"
+      "mcp__playwright__browser_wait_for",
+      "mcp__workiq__*"
     ]
   },
   "mcpServers": {
@@ -40,6 +41,15 @@
     "microsoft-learn": {
       "type": "http",
       "url": "https://learn.microsoft.com/api/mcp"
+    },
+    "workiq": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@microsoft/workiq",
+        "mcp"
+      ]
     }
   }
 }

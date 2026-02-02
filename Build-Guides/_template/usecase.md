@@ -94,3 +94,76 @@
 - [Compliance constraint - e.g., "Cannot store PII beyond session"]
 - [Operational constraint - e.g., "Must work during business hours only"]
 - [Budget constraint - e.g., "Premium connectors not approved"]
+
+---
+
+## Data Sources & Integration
+
+### M365 Copilot Availability
+
+| Question | Answer |
+|----------|--------|
+| Does the customer have M365 Copilot licenses? | Yes / No / Partial |
+| If yes, for which user groups? | [e.g., "All employees" / "Sales team only"] |
+| Admin consent available for new apps? | Yes / No / Unknown |
+
+### Data Sources Needed
+
+| Data Type | Source System | Access Method Options |
+|-----------|---------------|----------------------|
+| Documents | [e.g., SharePoint, OneDrive] | SharePoint Connector / WorkIQ MCP |
+| Emails | [e.g., Outlook/Exchange] | Outlook Connector / WorkIQ MCP |
+| Meetings/Calendar | [e.g., Outlook Calendar] | Calendar Connector / WorkIQ MCP |
+| Teams Messages | [e.g., Teams channels] | Teams Connector / WorkIQ MCP |
+| CRM Data | [e.g., Salesforce, Dynamics] | [Specific connector] |
+| Other | [System] | [Connector/API] |
+
+### Integration Strategy Decision
+
+- [ ] **WorkIQ MCP** - Customer has M365 Copilot, wants unified M365 access (Preview)
+- [ ] **Traditional Connectors** - Separate connectors for each data source (GA, production-ready)
+- [ ] **Hybrid** - WorkIQ for M365 data, traditional connectors for non-M365 systems
+
+*Note: WorkIQ MCP is in Public Preview. For production agents requiring GA stability, use traditional connectors.*
+
+---
+
+## Domain Decomposition (Multi-Agent Analysis)
+
+*Every solution should be designed with multi-agent architecture in mind. Identify specialist domains even if starting with a single agent.*
+
+### Specialist Domain Analysis
+
+| Question | Answer |
+|----------|--------|
+| What distinct knowledge domains are needed? | [List domains - e.g., "Policy knowledge, Product catalog, Customer data"] |
+| What different systems need to be accessed? | [List systems - e.g., "CRM, ERP, Knowledge base"] |
+| What skills require deep expertise? | [List skills - e.g., "Compliance rules, Technical troubleshooting"] |
+| What could be reused by other agents? | [List reusable components - e.g., "Customer lookup, Authentication"] |
+| What needs separate team ownership? | [List team-owned domains - e.g., "Legal content owned by Legal team"] |
+
+### Proposed Agent Architecture
+
+*Choose one:*
+
+**Option A: Multi-Agent (Recommended for 2+ domains)**
+
+| Agent | Role | Owns | Reusable? |
+|-------|------|------|-----------|
+| **Orchestrator:** [Name] | User-facing, routes to specialists | Conversation flow, general guidance | N/A |
+| **Specialist:** [Name] | [Domain expertise] | [Knowledge sources, integrations] | Yes/No |
+| **Specialist:** [Name] | [Domain expertise] | [Knowledge sources, integrations] | Yes/No |
+| **Specialist:** [Name] | [Domain expertise] | [Knowledge sources, integrations] | Yes/No |
+
+**Option B: Single Agent (Multi-Agent Ready)**
+
+| Component | Future Specialist Candidate | Trigger for Split |
+|-----------|----------------------------|-------------------|
+| [Knowledge area 1] | [Potential agent name] | [When to carve out - e.g., "When reused by other agents"] |
+| [Knowledge area 2] | [Potential agent name] | [When to carve out - e.g., "When owned by different team"] |
+| [Integration 1] | [Potential agent name] | [When to carve out - e.g., "When complexity grows"] |
+
+### Architecture Decision
+
+- [ ] **Multi-Agent Now** - Proceeding with orchestrator + specialists
+- [ ] **Single Agent (Multi-Agent Ready)** - Starting simple, documented decomposition points for future
