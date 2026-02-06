@@ -5,7 +5,7 @@ Automate Microsoft Copilot Studio agent creation using Claude Code with browser 
 ## What This Does
 
 - **Intake** customer SDR documents or requirements and extract build-ready specs
-- **Research** MCS components via Microsoft Learn
+- **Research** MCS components broadly (web, MS Learn, GitHub, MCS UI snapshots)
 - **Design** agent architectures with MVP scoping (never assumes)
 - **Build** agents in Copilot Studio UI via browser automation
 - **Evaluate** agents with automated test generation and uploads
@@ -14,8 +14,8 @@ Automate Microsoft Copilot Studio agent creation using Claude Code with browser 
 
 ```bash
 # 1. Clone the repo
-git clone https://github.com/[your-username]/mcs-automation.git
-cd mcs-automation
+git clone https://github.com/damgyeah/MCS-Agent-Automation.git
+cd MCS-Agent-Automation
 
 # 2. Start Claude Code
 claude
@@ -82,7 +82,7 @@ INTAKE → ANALYZE & SPEC → BUILD → EVAL
 |------|------|-------------|
 | **SDR files in folder** | Customer provides .docx/.pdf SDR docs | Convert to .md, analyze, extract agent-spec |
 | **Paste in chat** | User pastes requirements directly | Analyze, create project folder, extract agent-spec |
-| **From scratch** | No requirements yet | Use intake form, gather details, produce agent-spec |
+| **From scratch** | No requirements yet | Interactive interview based on agent-spec template, produce agent-spec |
 
 ### Skill Workflow
 
@@ -106,7 +106,7 @@ INTAKE → ANALYZE & SPEC → BUILD → EVAL
 | Skill | Purpose |
 |-------|---------|
 | `/mcs-init [name]` | Create project, detect SDR files, guide next steps |
-| `/mcs-research [topic]` | Research MCS components via MS Learn |
+| `/mcs-research [topic]` | Research MCS components (web, MS Learn, GitHub, UI) |
 | `/mcs-architect [project]` | Analyze SDR/requirements → agent-spec.md |
 | `/mcs-scenario [project]` | Generate scenarios + evals.csv from spec |
 | `/mcs-build-agent [project]` | Build standalone agent in MCS UI |
@@ -118,10 +118,10 @@ INTAKE → ANALYZE & SPEC → BUILD → EVAL
 
 **What's in this repo (shareable):**
 ```
-mcs-automation/
+MCS-Agent-Automation/
 ├── .claude/
-│   ├── settings.json    # MCP servers pre-configured
-│   └── skills/          # Automation workflows
+│   ├── settings.json       # MCP servers pre-configured
+│   └── skills/             # Automation workflows
 │       ├── mcs-init/
 │       ├── mcs-research/
 │       ├── mcs-architect/
@@ -131,15 +131,17 @@ mcs-automation/
 │       ├── mcs-build-orchestrator/
 │       └── mcs-eval/
 ├── templates/
-│   └── agent-spec.md    # Agent spec template
-├── Build-Guides/
-│   └── _template/       # Extended templates & intake form
-├── CLAUDE.md            # Principles for Claude
-├── README.md            # This file
+│   ├── agent-spec.md       # Agent spec template
+│   ├── scenarios.md        # Scenario conversation template
+│   ├── boundaries.csv      # Boundary test template
+│   ├── golden-examples.csv # Quality benchmark template
+│   └── usecase.md          # Use case template
+├── CLAUDE.md               # Instructions & framework for Claude
+├── README.md
 └── .gitignore
 ```
 
-**What gets created per project (your work):**
+**What gets created locally per project (gitignored):**
 ```
 Build-Guides/ProjectName/
 ├── [source].docx/.md    # Original customer SDR documents
@@ -154,7 +156,7 @@ Build-Guides/ProjectName/
 1. **Spec is the blueprint** - agent-spec.md drives every build
 2. **Evals verify quality** - generated from spec, run after build
 3. **Multi-agent first** - decompose into specialists (score objectively)
-4. **Never assume** - research components, present options, let user choose
+4. **Never assume** - research broadly (web, docs, UI, GitHub), present options, recommend
 5. **MVP first** - build what's possible now, plan what's blocked
 6. **Build specialists first** - children before orchestrator
 
