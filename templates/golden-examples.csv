@@ -1,0 +1,6 @@
+"scenario_id","scenario_name","input","ideal_response_excerpt","quality_notes","response_format","max_length"
+"hp-1","Quick Request","[User input from scenario]","[First 200 chars of ideal response or key excerpt]","Concise, actionable","table + bullets","one screen"
+"hp-2","Standard Request","[User input]","[Ideal response excerpt]","Balanced detail, sourced","sections","medium"
+"pu-1","Power User Combined","[Complex request]","[Comprehensive response excerpt]","Thorough, cross-referenced","full sections","long OK"
+"ec-1","Edge Case","[Unusual request]","[Graceful handling excerpt]","Handles unknown gracefully","adaptive","varies"
+"mt-1","Multi-turn Follow-up","[Follow-up question]","[Contextual response]","Uses prior context","contextual","medium"

@@ -50,7 +50,7 @@ output/
 logs/
 
 # -----------------------------------------------------------------------------
-# Playwright MCP - Session Data
+# Browser MCP - Session Data
 # -----------------------------------------------------------------------------
 .playwright-mcp/
 playwright-report/
@@ -83,8 +83,9 @@ temp/
 *.backup
 
 # -----------------------------------------------------------------------------
-# Customer Data (clean before committing or add specific folders)
+# User Work (not part of shareable repo)
 # -----------------------------------------------------------------------------
-# Uncomment below to exclude all customer folders except template:
-# Build-Guides/*/
-# !Build-Guides/_template/
+Build-Guides/
+learnings/
+docs/
+scripts/
