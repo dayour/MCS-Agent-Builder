@@ -1363,20 +1363,46 @@
     }
 
     function briefBoundariesV(bounds) {
-      const handleList = Array.isArray(bounds.handle) ? bounds.handle : (bounds.handle ? [bounds.handle] : []);
+      const handleList = Array.isArray(bounds.handle) ? bounds.handle.filter(Boolean) : (bounds.handle ? [bounds.handle] : []);
       const declineList = (bounds.decline || []).filter(d => d.topic || (typeof d === 'string' && d));
       const refuseList = (bounds.refuse || []).filter(r => r.topic || (typeof r === 'string' && r));
-      const items = [
-        { label: 'HANDLE', val: handleList.join(', '), badge: 'badge-success' },
-        { label: 'DECLINE', val: declineList.map(d => typeof d === 'object' ? `${d.topic}${d.redirect ? ' → ' + d.redirect : ''}` : d).join('; '), badge: 'badge-warning' },
-        { label: 'REFUSE', val: refuseList.map(r => typeof r === 'object' ? `${r.topic}${r.reason ? ' (' + r.reason + ')' : ''}` : r).join('; '), badge: 'badge-danger' },
-      ];
-      return `<div class="space-y-2.5">${items.map(e => `
-        <div class="flex items-start gap-3">
-          <span class="text-[10px] font-bold px-2.5 py-1 rounded-lg ${e.badge} shrink-0">${e.label}</span>
-          <p class="text-sm leading-relaxed" style="color:var(--text-s)">${e.val || '<span style="color:var(--text-f)" class="italic">Not defined</span>'}</p>
-        </div>
-      `).join('')}</div>`;
+      if (!handleList.length && !declineList.length && !refuseList.length) {
+        return '<p class="text-sm italic" style="color:var(--text-f)">No boundaries defined</p>';
+      }
+      let html = '';
+      // Handle cards
+      if (handleList.length) {
+        html += `<div class="mb-4"><div class="text-[10px] font-bold uppercase tracking-wide mb-2" style="color:var(--green)">Handle — Topics the agent answers confidently</div>
+          <div class="space-y-2">${handleList.map(h => `
+            <div class="rounded-xl p-3" style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2)">
+              <p class="text-sm" style="color:var(--text-s)">${h}</p>
+            </div>`).join('')}</div></div>`;
+      }
+      // Decline cards
+      if (declineList.length) {
+        html += `<div class="mb-4"><div class="text-[10px] font-bold uppercase tracking-wide mb-2" style="color:var(--amber)">Decline — Politely redirect elsewhere</div>
+          <div class="space-y-2">${declineList.map(d => {
+            const topic = typeof d === 'object' ? d.topic : d;
+            const redirect = typeof d === 'object' ? d.redirect : '';
+            return `<div class="rounded-xl p-3" style="background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.2)">
+              <p class="text-sm font-medium" style="color:var(--text)">${topic}</p>
+              ${redirect ? `<p class="text-xs mt-1" style="color:var(--amber)">&rarr; ${redirect}</p>` : ''}
+            </div>`;
+          }).join('')}</div></div>`;
+      }
+      // Refuse cards
+      if (refuseList.length) {
+        html += `<div><div class="text-[10px] font-bold uppercase tracking-wide mb-2" style="color:var(--red)">Refuse — Hard stops, never do these</div>
+          <div class="space-y-2">${refuseList.map(r => {
+            const topic = typeof r === 'object' ? r.topic : r;
+            const reason = typeof r === 'object' ? r.reason : '';
+            return `<div class="rounded-xl p-3" style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.2)">
+              <p class="text-sm font-medium" style="color:var(--text)">${topic}</p>
+              ${reason ? `<p class="text-xs mt-1" style="color:var(--red)">${reason}</p>` : ''}
+            </div>`;
+          }).join('')}</div></div>`;
+      }
+      return html;
     }
 
     function briefArchV(arch) {
@@ -1407,7 +1433,6 @@
       } else {
         html += `<p class="text-sm italic mb-3" style="color:var(--text-f)">Run Research to get architecture recommendation</p>`;
       }
-      if (arch.model) html += `<div class="text-xs mb-3" style="color:var(--text-m)"><span class="font-semibold">Model:</span> ${arch.model}${arch.modelReason ? ' — ' + arch.modelReason : ''}</div>`;
       const triggers = arch.triggers || [];
       const channels = arch.channels || [];
       html += `<div class="flex gap-8">
@@ -1610,19 +1635,49 @@
     }
 
     function briefBoundariesE(bounds) {
-      const handleStr = Array.isArray(bounds.handle) ? bounds.handle.join('\n') : (bounds.handle || '');
-      const declineStr = (bounds.decline || []).map(d => typeof d === 'object' ? `${d.topic}${d.redirect ? ' → ' + d.redirect : ''}` : d).join('\n');
-      const refuseStr = (bounds.refuse || []).map(r => typeof r === 'object' ? `${r.topic}${r.reason ? ' (' + r.reason + ')' : ''}` : r).join('\n');
-      return `<div class="space-y-3">
-        <div><label class="block text-xs font-semibold uppercase mb-0.5" style="color:var(--green)">HANDLE</label>
-          <p class="text-[11px] mb-1" style="color:var(--text-f)">Topics the agent should answer confidently (one per line)</p>
-          <textarea data-field="boundaries.handle" rows="2" class="w-full rounded-lg px-3 py-2 text-sm focus:outline-none" style="border-color:rgba(16,185,129,0.3);background:rgba(16,185,129,0.05)">${esc(handleStr)}</textarea></div>
-        <div><label class="block text-xs font-semibold uppercase mb-0.5" style="color:var(--amber)">DECLINE</label>
-          <p class="text-[11px] mb-1" style="color:var(--text-f)">Requests to politely redirect. Format: "topic → redirect target" (one per line)</p>
-          <textarea data-field="boundaries.decline" rows="2" class="w-full rounded-lg px-3 py-2 text-sm focus:outline-none" style="border-color:rgba(245,158,11,0.3);background:rgba(245,158,11,0.05)">${esc(declineStr)}</textarea></div>
-        <div><label class="block text-xs font-semibold uppercase mb-0.5" style="color:var(--red)">REFUSE</label>
-          <p class="text-[11px] mb-1" style="color:var(--text-f)">Hard stops. Format: "topic (reason)" (one per line)</p>
-          <textarea data-field="boundaries.refuse" rows="2" class="w-full rounded-lg px-3 py-2 text-sm focus:outline-none" style="border-color:rgba(239,68,68,0.3);background:rgba(239,68,68,0.05)">${esc(refuseStr)}</textarea></div>
+      const handleList = Array.isArray(bounds.handle) ? bounds.handle.filter(Boolean) : [];
+      const declineList = (bounds.decline || []).filter(d => d.topic);
+      const refuseList = (bounds.refuse || []).filter(r => r.topic);
+      if (!handleList.length) handleList.push('');
+      if (!declineList.length) declineList.push({ topic: '', redirect: '' });
+      if (!refuseList.length) refuseList.push({ topic: '', reason: '' });
+
+      return `<div class="space-y-5">
+        <!-- Handle -->
+        <div>
+          <div class="text-[10px] font-bold uppercase tracking-wide mb-2" style="color:var(--green)">Handle — Topics the agent answers confidently</div>
+          <div class="space-y-2">
+            ${handleList.map((h, i) => `
+              <div class="rounded-xl p-3 relative group" style="background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.2)">
+                <input type="text" name="handle_${i}" value="${esc(h)}" placeholder="e.g. Order inquiries, shipment tracking" class="w-full bg-transparent text-sm focus:outline-none" style="color:var(--text-s)">
+              </div>`).join('')}
+            <button onclick="addHandleBrief()" style="color:var(--green)" class="text-xs font-medium">+ Add topic</button>
+          </div>
+        </div>
+        <!-- Decline -->
+        <div>
+          <div class="text-[10px] font-bold uppercase tracking-wide mb-2" style="color:var(--amber)">Decline — Politely redirect elsewhere</div>
+          <div class="space-y-2">
+            ${declineList.map((d, i) => `
+              <div class="rounded-xl p-3 relative group" style="background:rgba(245,158,11,0.05);border:1px solid rgba(245,158,11,0.2)">
+                <input type="text" name="decline_topic_${i}" value="${esc(typeof d === 'object' ? d.topic : d)}" placeholder="Request type to decline" class="w-full bg-transparent text-sm font-medium focus:outline-none mb-1" style="color:var(--text)">
+                <input type="text" name="decline_redirect_${i}" value="${esc(typeof d === 'object' ? d.redirect || '' : '')}" placeholder="Where to redirect (e.g. Contact billing team)" class="w-full bg-transparent text-xs focus:outline-none" style="color:var(--amber)">
+              </div>`).join('')}
+            <button onclick="addDeclineBrief()" style="color:var(--amber)" class="text-xs font-medium">+ Add decline</button>
+          </div>
+        </div>
+        <!-- Refuse -->
+        <div>
+          <div class="text-[10px] font-bold uppercase tracking-wide mb-2" style="color:var(--red)">Refuse — Hard stops, never do these</div>
+          <div class="space-y-2">
+            ${refuseList.map((r, i) => `
+              <div class="rounded-xl p-3 relative group" style="background:rgba(239,68,68,0.05);border:1px solid rgba(239,68,68,0.2)">
+                <input type="text" name="refuse_topic_${i}" value="${esc(typeof r === 'object' ? r.topic : r)}" placeholder="Hard boundary" class="w-full bg-transparent text-sm font-medium focus:outline-none mb-1" style="color:var(--text)">
+                <input type="text" name="refuse_reason_${i}" value="${esc(typeof r === 'object' ? r.reason || '' : '')}" placeholder="Why (e.g. GDPR compliance)" class="w-full bg-transparent text-xs focus:outline-none" style="color:var(--red)">
+              </div>`).join('')}
+            <button onclick="addRefuseBrief()" style="color:var(--red)" class="text-xs font-medium">+ Add refusal</button>
+          </div>
+        </div>
       </div>`;
     }
 
@@ -1768,18 +1823,26 @@
         }
         case 'boundaries': {
           const b = wizardState.boundaries = wizardState.boundaries || {};
-          const handleEl = el.querySelector('[data-field="boundaries.handle"]');
-          if (handleEl) b.handle = handleEl.value.split('\n').map(s => s.trim()).filter(Boolean);
-          const declineEl = el.querySelector('[data-field="boundaries.decline"]');
-          if (declineEl) b.decline = declineEl.value.split('\n').filter(s => s.trim()).map(line => {
-            const parts = line.split('→').map(s => s.trim());
-            return { topic: parts[0] || '', redirect: parts[1] || '' };
-          });
-          const refuseEl = el.querySelector('[data-field="boundaries.refuse"]');
-          if (refuseEl) b.refuse = refuseEl.value.split('\n').filter(s => s.trim()).map(line => {
-            const m = line.match(/^(.+?)(?:\s*\((.+)\))?$/);
-            return { topic: (m ? m[1] : line).trim(), reason: (m && m[2]) ? m[2].trim() : '' };
-          });
+          b.handle = []; let hi = 0;
+          while (el.querySelector(`[name="handle_${hi}"]`)) {
+            const v = el.querySelector(`[name="handle_${hi}"]`).value.trim();
+            if (v) b.handle.push(v);
+            hi++;
+          }
+          b.decline = []; let di = 0;
+          while (el.querySelector(`[name="decline_topic_${di}"]`)) {
+            const topic = el.querySelector(`[name="decline_topic_${di}"]`).value.trim();
+            const redirect = el.querySelector(`[name="decline_redirect_${di}"]`).value.trim();
+            if (topic) b.decline.push({ topic, redirect });
+            di++;
+          }
+          b.refuse = []; let ri = 0;
+          while (el.querySelector(`[name="refuse_topic_${ri}"]`)) {
+            const topic = el.querySelector(`[name="refuse_topic_${ri}"]`).value.trim();
+            const reason = el.querySelector(`[name="refuse_reason_${ri}"]`).value.trim();
+            if (topic) b.refuse.push({ topic, reason });
+            ri++;
+          }
           break;
         }
         case 'architecture': {
@@ -1846,6 +1909,27 @@
       collectBriefEdit('integrations');
       wizardState.integrations.push({ name: '', type: 'mcp', purpose: '', phase: 'mvp' });
       renderBrief(); editBriefSection('integrations');
+    }
+    function addHandleBrief() {
+      collectBriefEdit('boundaries');
+      wizardState.boundaries = wizardState.boundaries || {};
+      wizardState.boundaries.handle = wizardState.boundaries.handle || [];
+      wizardState.boundaries.handle.push('');
+      renderBrief(); editBriefSection('boundaries');
+    }
+    function addDeclineBrief() {
+      collectBriefEdit('boundaries');
+      wizardState.boundaries = wizardState.boundaries || {};
+      wizardState.boundaries.decline = wizardState.boundaries.decline || [];
+      wizardState.boundaries.decline.push({ topic: '', redirect: '' });
+      renderBrief(); editBriefSection('boundaries');
+    }
+    function addRefuseBrief() {
+      collectBriefEdit('boundaries');
+      wizardState.boundaries = wizardState.boundaries || {};
+      wizardState.boundaries.refuse = wizardState.boundaries.refuse || [];
+      wizardState.boundaries.refuse.push({ topic: '', reason: '' });
+      renderBrief(); editBriefSection('boundaries');
     }
     function addScenarioBrief() {
       collectBriefEdit('scenarios');
