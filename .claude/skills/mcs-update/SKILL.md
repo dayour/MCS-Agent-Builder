@@ -42,9 +42,9 @@ For each new/changed doc, determine which agent(s) it affects:
 - Read the document content
 - Read each agent's `brief.json` from `Build-Guides/{projectId}/agents/*/brief.json`
 - Score relevance by matching:
-  - Systems mentioned in doc vs `step3.systems` (e.g., doc says "Jira" → agent with Jira)
-  - Problem domain in doc vs `step1.problem` (e.g., "incident management" → matching agent)
-  - Capabilities in doc vs `step2.capabilities` (e.g., "ticket routing" → matching agent)
+  - Systems mentioned in doc vs `integrations[]` (e.g., doc says "Jira" → agent with Jira)
+  - Problem domain in doc vs `business.problemStatement` (e.g., "incident management" → matching agent)
+  - Capabilities in doc vs `capabilities[].name` (e.g., "ticket routing" → matching agent)
 - Present mapping for confirmation:
   ```
   Document "updated-jira-requirements.md" seems relevant to:
@@ -60,7 +60,7 @@ Before proceeding, check if the changes are too large for an incremental update.
 - New agent described in the document (not in current manifest)
 - Architecture would change (single ↔ multi-agent)
 - More than 4 brief sections affected across all agents
-- Problem statement (`step1.problem`) would fundamentally change
+- Problem statement (`business.problemStatement`) would fundamentally change
 - New/changed doc volume > 2x existing docs (more new content than original)
 
 If triggered:
@@ -80,14 +80,15 @@ Read each new/changed document and classify content by brief section:
 
 | Content Signal | Affected Section |
 |----------------|-----------------|
-| Agent purpose, problem, users | `step1` |
-| Capabilities, scenarios, use cases | `step2` |
-| Systems, APIs, connectors, integrations | `step3.systems` |
-| Knowledge sources, SharePoint, docs | `step3.knowledge` |
-| Conversation flows, topics | `step3.topics` |
-| Architecture, multi-agent mentions | `step4` |
-| Triggers, schedules, events | `step4.triggers` |
-| Channels (Teams, web) | `step4.channels` |
+| Agent purpose, problem, users | `business`, `agent` |
+| Capabilities, use cases | `capabilities[]` |
+| Scenarios, user prompts | `scenarios[]` |
+| Systems, APIs, connectors, integrations | `integrations[]` |
+| Knowledge sources, SharePoint, docs | `knowledge[]` |
+| Conversation flows, topics | `conversations.topics[]` |
+| Architecture, multi-agent mentions | `architecture` |
+| Triggers, schedules, events | `architecture.triggers` |
+| Channels (Teams, M365 Copilot, web) | `architecture.channels` |
 | Answers to existing open questions | `openQuestions` |
 
 ### Step 5: Show Impact Summary & Confirm
@@ -102,8 +103,8 @@ Present exact proposed changes per agent before applying:
 ### Agent: {name}
 | Section | Change | Source |
 |---------|--------|--------|
-| step3.systems | +1 new tool (Dynamics 365) | updated-requirements.md |
-| step2.capabilities | +2 capabilities | updated-requirements.md |
+| integrations | +1 new tool (Dynamics 365) | updated-requirements.md |
+| capabilities | +2 capabilities | updated-requirements.md |
 | openQuestions[3] | Resolved: "Which CRM?" → "Dynamics 365" | updated-requirements.md |
 
 Apply these changes?
@@ -119,9 +120,9 @@ Apply changes to each affected agent's `brief.json` using these merge rules:
 |-------|------|
 | `instructions` | **Never overwrite.** If tools changed, add delta note to `notes.instructionsDelta` |
 | `openQuestions[].answer` | **Never overwrite** existing user answers. Can resolve unanswered questions if doc provides the answer |
-| `step2.handle/decline/refuse` | Append new items only, preserve existing |
-| `step3.systems` | Add new tools, don't remove or modify existing ones |
-| `step3.topics` | Add new topics |
+| `boundaries.handle/decline/refuse` | Append new items only, preserve existing |
+| `integrations[]` | Add new tools, don't remove or modify existing ones |
+| `conversations.topics[]` | Add new topics |
 | `evals` | Append new test cases for new capabilities |
 | `notes` | Append with `[update: filename]` prefix |
 | Everything else | Append/merge, flag conflicts in `_updateFlags` |
@@ -130,7 +131,7 @@ Apply changes to each affected agent's `brief.json` using these merge rules:
 ```json
 "_updateFlags": [
   {
-    "section": "step3.systems",
+    "section": "integrations",
     "type": "new_tool",
     "summary": "New doc mentions Dynamics 365, not in current design",
     "source": "updated-requirements.md",
@@ -141,7 +142,7 @@ Apply changes to each affected agent's `brief.json` using these merge rules:
 
 ### Step 7: Append New Evals
 
-If new capabilities were added (new items in `step2.handle` or `step2.capabilities`), generate corresponding eval test cases and append to both the `evals` array in brief.json and the `evals.csv` file.
+If new capabilities were added (new items in `capabilities[]` or `boundaries.handle`), generate corresponding eval test cases and append to both the `evals` array in brief.json and the `evals.csv` file.
 
 ### Step 8: Update Manifest
 
@@ -172,10 +173,10 @@ Rewrite `doc-manifest.json` with:
 
 These rules protect user edits while allowing incremental additions:
 
-- **Append-only fields:** `step2.handle`, `step2.decline`, `step2.refuse`, `step3.systems`, `step3.topics`, `step3.knowledge`, `evals`
+- **Append-only fields:** `capabilities[]`, `boundaries.handle`, `boundaries.decline`, `boundaries.refuse`, `integrations[]`, `conversations.topics[]`, `knowledge[]`, `scenarios[]`, `evals`
 - **Never-overwrite fields:** `instructions`, `openQuestions[].answer` (when already answered)
 - **Resolve fields:** `openQuestions[].answer` (when currently unanswered and doc provides answer)
-- **Flag-on-conflict fields:** `step1.problem`, `step4.architectureRecommendation` — add to `_updateFlags` instead of changing
+- **Flag-on-conflict fields:** `business.problemStatement`, `architecture.type` — add to `_updateFlags` instead of changing
 
 ## Important Rules
 

@@ -84,17 +84,20 @@ For each agent, extract what's in the documents AND cross-reference against `kno
 
 | Field | Where to Look |
 |-------|--------------|
-| `step1.agentName` | Title, agent name field, heading |
-| `step1.problem` | Problem statement, opportunity description, pain points |
-| `step2.capabilities` | Solution ideas, capabilities list, "what it does" sections |
-| `step2.scenarios` | User prompts table, use case scenarios, conversation examples |
-| `step2.handle` | Inferred from capabilities and scope description |
-| `step2.decline` | Out-of-scope mentions, limitations |
-| `step2.refuse` | Hard boundaries, compliance requirements |
-| `step3.systems` | Data sources table, integrations mentioned, connectors listed |
-| `step3.knowledge` | Knowledge sources table, SharePoint sites, document references |
-| `step4.triggers` | Autonomous triggers table, scheduling mentions |
-| `step4.channels` | Deployment targets (Teams, website, etc.) |
+| `agent.name` | Title, agent name field, heading |
+| `business.problemStatement` | Problem statement, opportunity description, pain points |
+| `business.challenges` | Business challenges, inefficiencies, pain points |
+| `business.benefits` | Expected outcomes, ROI, efficiency gains |
+| `agent.description` | Agent purpose, what it does, for whom |
+| `capabilities[].name` | Solution ideas, capabilities list, "what it does" sections |
+| `scenarios[].userSays` | User prompts table, use case scenarios, conversation examples |
+| `boundaries.handle` | Inferred from capabilities and scope description |
+| `boundaries.decline` | Out-of-scope mentions, limitations |
+| `boundaries.refuse` | Hard boundaries, compliance requirements |
+| `integrations[]` | Data sources table, integrations mentioned, connectors listed |
+| `knowledge[]` | Knowledge sources table, SharePoint sites, document references |
+| `architecture.triggers` | Autonomous triggers table, scheduling mentions |
+| `architecture.channels` | Deployment targets (Teams, M365 Copilot, website, etc.) |
 
 **Informed open questions** — use cache knowledge to ask the RIGHT questions:
 - Doc mentions a system → check `knowledge/cache/connectors.md` and `knowledge/cache/mcp-servers.md` → if no native connector, ask: "System X has no native MCS connector. Options: custom connector, Power Automate flow, or HTTP request action. Which applies?"
@@ -187,10 +190,10 @@ These categories are well-documented and change infrequently. Read the cache fil
 | **Knowledge sources** | `knowledge/cache/knowledge-sources.md` | Read cache. Match to data types from Phase A (SharePoint, files, websites). |
 
 Write these directly to `brief.json`:
-- `step4.model` + `step4.modelReason`
-- `step4.channels`
-- `step4.triggers`
-- `step3.knowledge`
+- `architecture.model` + `architecture.modelReason`
+- `architecture.channels` (each with `name` + `reason`)
+- `architecture.triggers` (each with `type` + `description`)
+- `knowledge[]` (each with `name`, `type`, `purpose`, `scope`, `phase`)
 
 ### Step 2: Identify What Needs Live Research
 
@@ -242,12 +245,12 @@ The RA should:
 - **Present options**: For each need, recommend the best option but note alternatives
 - **Flag preview features**: Note GA vs preview status for each recommendation
 
-### Update brief.json step3
+### Update brief.json
 
 After research (live or cache-only), update:
-- `step3.systems` — recommended tools with `toolType` (mcp/connector/flow/ai-tool)
-- `step3.topics` — recommended conversation topics
-- `step3.knowledge` — recommended knowledge sources with types
+- `integrations[]` — recommended tools with `type` (mcp/connector/flow/ai-tool), `purpose`, `dataProvided`, `authMethod`, `phase`
+- `conversations.topics[]` — recommended conversation topics with `triggerType`, `topicType`, `implements[]`
+- `knowledge[]` — recommended knowledge sources with `type`, `purpose`, `scope`, `phase`
 
 ## Phase C: Architecture Design + Instructions
 
@@ -268,16 +271,16 @@ Score single vs multi-agent using the 6-factor framework:
 
 **Score: 0-2 → Single Agent | 3+ → Multi-Agent**
 
-Update `brief.json step4`:
-- `architectureRecommendation` — "Single Agent" or "Multi-Agent"
-- `architectureReason` — explanation with score
-- `architectureScore` — the numeric score
-- `children` — child agents if multi-agent
+Update `brief.json architecture`:
+- `architecture.type` — "Single Agent" or "Multi-Agent" (auto-computed from factors)
+- `architecture.factors` — 6-factor boolean checklist (domainSeparation, dataIsolation, teamOwnership, reusability, instructionSize, knowledgeIsolation)
+- `architecture.score` — count of true factors (0-6)
+- `architecture.children` — child agents if multi-agent
 
 ### Step 2: Instructions — Prompt Engineer (single pass)
 
 Spawn the **Prompt Engineer** teammate to write the agent instructions. Provide the PE with:
-- The agent's complete `brief.json` (step1-4 populated from Phases A-B)
+- The agent's complete `brief.json` (business, agent, capabilities, integrations, knowledge populated from Phases A-B)
 - `knowledge/cache/instructions-authoring.md` for MCS patterns
 
 The PE writes a complete, self-verified draft:
@@ -290,8 +293,8 @@ The PE writes a complete, self-verified draft:
 ### Step 3: QA Review (single pass, no iteration)
 
 Spawn the **QA Challenger** to review the PE's output in a **single pass**:
-- Verify instructions reference only tools that are in step3.systems
-- Verify boundaries match step2 handle/decline/refuse
+- Verify instructions reference only tools that are in `integrations[]`
+- Verify boundaries match `boundaries.handle/decline/refuse`
 - Verify instruction length < 8000 chars
 - Check for vague language, missing edge cases
 
@@ -311,11 +314,11 @@ Write the build-ready data directly to `brief.json`:
 - `mvp.later` — what's deferred and why
 
 Also enrich existing fields with research findings:
-- `step3.systems[].status` — availability status per tool
-- `step3.systems[].notes` — auth details, config notes
-- `step3.knowledge[].scope` — scoping/filtering details
-- `step3.knowledge[].status` — readiness status
-- `step3.topics[].triggerType` — how each topic is triggered
+- `integrations[].status` — availability status per tool
+- `integrations[].notes` — auth details, config notes
+- `knowledge[].scope` — scoping/filtering details
+- `knowledge[].status` — readiness status
+- `conversations.topics[].triggerType` — how each topic is triggered
 - `notes` — any additional context discovered during research
 
 ## Phase D: Scenarios & Evals
@@ -369,14 +372,14 @@ Write evals to `brief.json.evals` array:
 }
 ```
 
-Update `step2.scenarios` with the generated scenarios.
-Update `step3.topics` with topic classifications from QA.
+Update `scenarios[]` with the generated scenarios.
+Update `conversations.topics[]` with topic classifications from QA.
 
 ## Final Output
 
 After all phases complete for each agent:
 
-1. **brief.json** — All fields populated (step1-4, instructions, mvp, evals, openQuestions, notes)
+1. **brief.json** — All fields populated (business, agent, capabilities, integrations, knowledge, conversations, boundaries, architecture, scenarios, evals, mvpSummary, openQuestions, instructions)
 2. **evals.csv** — Evaluation test cases in MCS format
 
 ### Report to User
@@ -448,7 +451,7 @@ This timestamp lets `/mcs-update` know when the last full research was performed
 - **There is no separate agent-spec.md** — everything lives in brief.json including instructions and MVP scope
 - **evals.csv is for testing** — the Eval skill reads it (also mirrored in brief.json evals array)
 - **Only 2 permanent output files per agent**: `brief.json` and `evals.csv`. Nothing else.
-- **No working-paper files**: Do NOT leave intermediate artifacts like instruction drafts, QA reviews, connector research notes, or scenario docs as separate files. All research findings go INTO brief.json fields (instructions, step3.systems[].notes, notes{}, etc.). If teammates generate working documents during collaboration, consolidate their content into brief.json and delete the working files before completing.
+- **No working-paper files**: Do NOT leave intermediate artifacts like instruction drafts, QA reviews, connector research notes, or scenario docs as separate files. All research findings go INTO brief.json fields (instructions, integrations[].notes, notes{}, etc.). If teammates generate working documents during collaboration, consolidate their content into brief.json and delete the working files before completing.
 - **Targeted research, not exhaustive** — only spawn RA for systems that need live lookup. Stable categories (models, channels, triggers, knowledge) use cache.
 - **Single-pass QA** — no PE↔QA iteration loop. PE self-checks, QA reviews once, lead applies fixes.
 - **No Topic Engineer in research** — TE is for `/mcs-build` when actual YAML is needed. QA classifies topic types in Phase D.

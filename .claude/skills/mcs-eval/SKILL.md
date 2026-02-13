@@ -26,7 +26,7 @@ Run evaluation tests for an agent and write results back to `brief.json` so the 
 Reads from:
 - `Build-Guides/{projectId}/agents/{agentId}/brief.json` — evals array + buildStatus
 - `Build-Guides/{projectId}/agents/{agentId}/evals.csv` — if already generated
-- `Build-Guides/{projectId}/agents/{agentId}/brief.json` — fallback for scenario extraction (step2.scenarios)
+- `Build-Guides/{projectId}/agents/{agentId}/brief.json` — fallback for scenario extraction (scenarios[])
 
 Writes to:
 - `Build-Guides/{projectId}/agents/{agentId}/evals.csv` — test cases (if not present)

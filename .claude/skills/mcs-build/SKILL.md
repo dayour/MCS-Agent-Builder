@@ -110,7 +110,7 @@ Proceeding with build...
 
 ## Route: Determine Build Mode
 
-Read `brief.json` → `step4.architectureRecommendation`:
+Read `brief.json` → `architecture.type`:
 
 | Value | Build Path |
 |-------|-----------|

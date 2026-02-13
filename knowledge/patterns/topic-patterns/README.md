@@ -4,7 +4,7 @@ Reusable YAML patterns for Copilot Studio topic authoring via the built-in code 
 
 ## Usage
 
-1. Build skills generate topic YAML from brief.json (step3.topics) using these patterns
+1. Build skills generate topic YAML from brief.json (conversations.topics[]) using these patterns
 2. Playwright opens the MCS topic code editor
 3. Generated YAML is pasted into the code editor
 4. Saved — no canvas clicking required

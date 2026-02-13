@@ -404,7 +404,7 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 
 **Drastic change thresholds** (any triggers recommendation for full `/mcs-research`): new agent described, architecture change, >4 sections affected, problem statement fundamentally changes, new doc volume > 2x existing.
 
-**Merge rules:** Never overwrite `instructions` or answered `openQuestions`. Append-only for `step2.handle/decline/refuse`, `step3.systems`, `step3.topics`, `evals`. Flag conflicts in `_updateFlags` for user review.
+**Merge rules:** Never overwrite `instructions` or answered `openQuestions`. Append-only for `capabilities[]`, `boundaries.handle/decline/refuse`, `integrations[]`, `conversations.topics[]`, `evals`. Flag conflicts in `_updateFlags` for user review.
 
 **No Agent Teams, no web research.** Lightweight document analysis only.
 
