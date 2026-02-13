@@ -64,20 +64,11 @@ const procs = [];
 function startProc(label, cmd, args, color) {
   const p = spawn(cmd, args, {
     cwd: __dirname,
-    stdio: ["ignore", "pipe", "pipe"],
+    stdio: "inherit",
     env: { ...process.env, PORT: String(PORT_APP) },
+    shell: os.platform() === "win32",
   });
 
-  p.stdout.on("data", (d) => {
-    d.toString().split("\n").filter(Boolean).forEach((line) => {
-      console.log(`${color}[${label}]\x1b[0m ${line}`);
-    });
-  });
-  p.stderr.on("data", (d) => {
-    d.toString().split("\n").filter(Boolean).forEach((line) => {
-      console.log(`${color}[${label}]\x1b[0m ${line}`);
-    });
-  });
   p.on("exit", (code) => {
     console.log(`${color}[${label}]\x1b[0m exited (${code})`);
   });
