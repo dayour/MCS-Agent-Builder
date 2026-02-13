@@ -6,6 +6,13 @@
 #
 # Bypass: MCS_CORE_DEV=1 git commit ...
 
+# Auto-bypass for repo owner (use git var to catch auto-detected emails too)
+COMMITTER_EMAIL=$(git var GIT_COMMITTER_IDENT 2>/dev/null | sed 's/.*<\(.*\)>.*/\1/')
+case "$COMMITTER_EMAIL" in
+  kimdennis@microsoft.com|dennis@testtesttoltest*|admin@M365CPI*)
+    exit 0 ;;
+esac
+
 if [ "$MCS_CORE_DEV" = "1" ]; then
   exit 0
 fi
