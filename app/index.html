@@ -2489,7 +2489,12 @@
         ws.send(JSON.stringify({ type: 'init', cols: t.cols, rows: t.rows }));
         updateTabStatus(id, 'running');
       };
-      ws.onmessage = (e) => { t.write(e.data); t.scrollToBottom(); };
+      ws.onmessage = (e) => {
+        // Only auto-scroll if user is already at the bottom; don't interrupt manual scroll-up
+        const atBottom = t.buffer.active.viewportY >= t.buffer.active.baseY;
+        t.write(e.data);
+        if (atBottom) t.scrollToBottom();
+      };
       ws.onclose = () => { updateTabStatus(id, 'stopped'); };
       ws.onerror = () => { updateTabStatus(id, 'error'); };
 
