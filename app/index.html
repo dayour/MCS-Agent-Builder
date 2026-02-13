@@ -6,6 +6,7 @@
   <title>CAD Agent Builder</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css">
   <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js"></script>
@@ -1173,7 +1174,7 @@
           ${readiness !== 'empty'
             ? `<button onclick="exportReport()" class="px-4 py-2 text-xs font-medium rounded-lg transition-all flex items-center gap-1.5" style="color:var(--text-m);border:1px solid var(--border)" onmouseover="this.style.background='var(--bg-s)'" onmouseout="this.style.background=''">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                Export Report
+                Export PDF
               </button>`
             : ''
           }`;
@@ -2038,7 +2039,7 @@
       });
     }
     // =======================================================================
-    // Export Report — generates markdown from brief.json and downloads
+    // Export Report — generates styled HTML and downloads as PDF
     // =======================================================================
 
     function exportReport() {
@@ -2050,168 +2051,205 @@
       const caps = b.capabilities || [];
       const integ = b.integrations || [];
       const know = b.knowledge || [];
-      const convos = b.conversations || {};
       const bounds = b.boundaries || {};
       const arch = b.architecture || {};
       const scenarios = b.scenarios || [];
       const evals = b.evals || [];
       const openQs = b.openQuestions || [];
-      const mvp = b.mvpSummary || {};
       const evalResults = b.evalResults || {};
       const buildStatus = b.buildStatus || {};
-      const notes = b.notes || {};
       const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      const agentName = agent.name || 'Unnamed Agent';
+      const status = buildStatus.status === 'published' ? 'Published' : 'In Development';
 
-      let md = `# Agent Report: ${agent.name || 'Unnamed Agent'}\n\n`;
-      md += `**Date:** ${today}\n`;
-      md += `**Status:** ${buildStatus.status === 'published' ? 'Published' : 'In Development'}\n\n`;
-      md += `---\n\n`;
+      const mvpCaps = caps.filter(c => c.phase !== 'future');
+      const futureCaps = caps.filter(c => c.phase === 'future');
+      const mvpInteg = integ.filter(i => i.name && i.phase !== 'future');
+      const futureInteg = integ.filter(i => i.name && i.phase === 'future');
+      const handleList = Array.isArray(bounds.handle) ? bounds.handle : [];
+      const declineList = (bounds.decline || []).filter(d => d.topic);
+      const refuseList = (bounds.refuse || []).filter(r => r.topic);
+      const unanswered = openQs.filter(q => q.question && !q.answer);
+      const answered = openQs.filter(q => q.question && q.answer);
+      const triggers = (arch.triggers || []).map(t => typeof t === 'object' ? t.type : t);
+      const channels = (arch.channels || []).map(c => typeof c === 'object' ? c.name : c);
 
-      // 1. Business Context
-      md += `## 1. Business Context\n\n`;
-      if (biz.useCase) md += `**Use Case:** ${biz.useCase}\n\n`;
-      md += `**Problem:** ${biz.problemStatement || 'Not defined'}\n\n`;
-      if (agent.primaryUsers) md += `**Primary Users:** ${agent.primaryUsers}\n`;
-      if (agent.secondaryUsers) md += `**Secondary Users:** ${agent.secondaryUsers}\n`;
-      md += `\n`;
-      const challenges = (biz.challenges || []).filter(c => c.challenge);
-      if (challenges.length) {
-        md += `### Challenges\n`;
-        challenges.forEach(c => { md += `- **[${c.impact || 'medium'}]** ${c.challenge}\n`; });
-        md += `\n`;
+      // Helper for table rows
+      const tr = (cells, isHeader) => `<tr>${cells.map(c => `<${isHeader?'th':'td'}>${c}</${isHeader?'th':'td'}>`).join('')}</tr>`;
+
+      let html = `
+      <div style="font-family:'Segoe UI',system-ui,-apple-system,sans-serif;color:#1a1a2e;max-width:800px;margin:0 auto;line-height:1.6">
+        <!-- Cover -->
+        <div style="text-align:center;padding:60px 40px 40px;border-bottom:3px solid #4f46e5">
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:3px;color:#6366f1;font-weight:600;margin-bottom:12px">Agent Design Report</div>
+          <h1 style="font-size:28px;font-weight:700;margin:0 0 8px;color:#1a1a2e">${agentName}</h1>
+          ${agent.description ? `<p style="font-size:14px;color:#64748b;margin:12px auto 0;max-width:600px">${agent.description}</p>` : ''}
+          <div style="margin-top:24px;font-size:12px;color:#94a3b8">
+            <span>${today}</span>
+            <span style="margin:0 12px;color:#cbd5e1">|</span>
+            <span style="color:${status==='Published'?'#10b981':'#f59e0b'};font-weight:600">${status}</span>
+          </div>
+        </div>
+
+        <!-- Executive Summary -->
+        <div style="padding:32px 0;border-bottom:1px solid #e2e8f0">
+          <h2 style="font-size:18px;font-weight:600;color:#4f46e5;margin:0 0 16px">Executive Summary</h2>
+          ${biz.useCase ? `<p style="font-size:15px;font-weight:500;color:#1e293b;margin-bottom:12px">${biz.useCase}</p>` : ''}
+          ${biz.problemStatement ? `<p style="font-size:13px;color:#475569">${biz.problemStatement}</p>` : ''}
+          ${agent.primaryUsers ? `<div style="margin-top:12px;font-size:12px;color:#64748b"><strong>Primary Users:</strong> ${agent.primaryUsers}${agent.secondaryUsers ? ` &nbsp;|&nbsp; <strong>Secondary:</strong> ${agent.secondaryUsers}` : ''}</div>` : ''}
+        </div>`;
+
+      // Challenges & Benefits (side by side)
+      const challengeItems = (biz.challenges || []).filter(c => c.challenge);
+      const benefitItems = (biz.benefits || []).filter(b => b.benefit);
+      if (challengeItems.length || benefitItems.length) {
+        html += `<div style="padding:24px 0;border-bottom:1px solid #e2e8f0;display:flex;gap:32px">`;
+        if (challengeItems.length) {
+          html += `<div style="flex:1"><h3 style="font-size:13px;font-weight:600;color:#ef4444;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px">Challenges</h3>
+            ${challengeItems.map(c => `<div style="font-size:13px;color:#475569;margin-bottom:6px;padding-left:12px;border-left:3px solid ${c.impact==='high'?'#ef4444':c.impact==='medium'?'#f59e0b':'#94a3b8'}">${c.challenge}</div>`).join('')}</div>`;
+        }
+        if (benefitItems.length) {
+          html += `<div style="flex:1"><h3 style="font-size:13px;font-weight:600;color:#10b981;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px">Expected Benefits</h3>
+            ${benefitItems.map(b => `<div style="font-size:13px;color:#475569;margin-bottom:6px;padding-left:12px;border-left:3px solid #10b981">${b.benefit}</div>`).join('')}</div>`;
+        }
+        html += `</div>`;
       }
-      const benefits = (biz.benefits || []).filter(b => b.benefit);
-      if (benefits.length) {
-        md += `### Expected Benefits\n`;
-        benefits.forEach(b => { md += `- **[${b.type || 'efficiency'}]** ${b.benefit}\n`; });
-        md += `\n`;
-      }
 
-      // 2. Agent Description
-      if (agent.description) {
-        md += `## 2. Agent: ${agent.name || 'TBD'}\n\n`;
-        md += `${agent.description}\n\n`;
-        if (agent.persona) md += `**Persona:** ${agent.persona}\n`;
-        if (agent.responseFormat) md += `**Response Format:** ${agent.responseFormat}\n`;
-        md += `\n`;
-      }
-
-      // 3. Capabilities
+      // Capabilities
       if (caps.length) {
-        md += `## 3. Capabilities\n\n`;
-        const mvpCaps = caps.filter(c => c.phase !== 'future');
-        const futureCaps = caps.filter(c => c.phase === 'future');
+        html += `<div style="padding:24px 0;border-bottom:1px solid #e2e8f0">
+          <h2 style="font-size:18px;font-weight:600;color:#4f46e5;margin:0 0 16px">Capabilities</h2>`;
         if (mvpCaps.length) {
-          md += `### MVP\n`;
-          mvpCaps.forEach(c => { md += `- **${c.name}**${c.description ? ': ' + c.description : ''}\n`; });
-          md += `\n`;
+          html += `<div style="margin-bottom:16px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#10b981;margin-bottom:8px">MVP — Build Now</div>
+            ${mvpCaps.map(c => `<div style="font-size:13px;color:#1e293b;padding:6px 0;border-bottom:1px solid #f1f5f9"><strong>${c.name}</strong>${c.description ? ' — ' + c.description : ''}</div>`).join('')}</div>`;
         }
         if (futureCaps.length) {
-          md += `### Future\n`;
-          futureCaps.forEach(c => { md += `- **${c.name}**${c.reason ? ' — ' + c.reason : ''}\n`; });
-          md += `\n`;
+          html += `<div><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#8b5cf6;margin-bottom:8px">Future — Deferred</div>
+            ${futureCaps.map(c => `<div style="font-size:13px;color:#64748b;padding:6px 0;border-bottom:1px solid #f1f5f9">${c.name}${c.reason ? ` <span style="color:#94a3b8">— ${c.reason}</span>` : ''}</div>`).join('')}</div>`;
         }
+        html += `</div>`;
       }
 
-      // 4. Scope & Boundaries
-      const handle = Array.isArray(bounds.handle) ? bounds.handle.join(', ') : (bounds.handle || '');
-      if (handle || (bounds.decline || []).length || (bounds.refuse || []).length) {
-        md += `## 4. Scope & Boundaries\n\n`;
-        if (handle) md += `**Handles:** ${handle}\n\n`;
-        if ((bounds.decline || []).length) {
-          md += `**Declines:**\n`;
-          bounds.decline.forEach(d => { md += `- ${typeof d === 'object' ? d.topic + (d.redirect ? ' → ' + d.redirect : '') : d}\n`; });
-          md += `\n`;
-        }
-        if ((bounds.refuse || []).length) {
-          md += `**Refuses:**\n`;
-          bounds.refuse.forEach(r => { md += `- ${typeof r === 'object' ? r.topic + (r.reason ? ' (' + r.reason + ')' : '') : r}\n`; });
-          md += `\n`;
-        }
+      // Scope & Boundaries
+      if (handleList.length || declineList.length || refuseList.length) {
+        html += `<div style="padding:24px 0;border-bottom:1px solid #e2e8f0">
+          <h2 style="font-size:18px;font-weight:600;color:#4f46e5;margin:0 0 16px">Scope & Boundaries</h2>
+          <div style="display:flex;gap:24px">`;
+        if (handleList.length) html += `<div style="flex:1;padding:12px 16px;border-radius:8px;background:#f0fdf4;border:1px solid #bbf7d0"><div style="font-size:11px;font-weight:700;color:#16a34a;margin-bottom:6px">HANDLES</div>${handleList.map(h => `<div style="font-size:13px;color:#166534">${h}</div>`).join('')}</div>`;
+        if (declineList.length) html += `<div style="flex:1;padding:12px 16px;border-radius:8px;background:#fffbeb;border:1px solid #fde68a"><div style="font-size:11px;font-weight:700;color:#d97706;margin-bottom:6px">DECLINES</div>${declineList.map(d => `<div style="font-size:13px;color:#92400e">${d.topic}${d.redirect ? ` <span style="color:#b45309">&rarr; ${d.redirect}</span>` : ''}</div>`).join('')}</div>`;
+        if (refuseList.length) html += `<div style="flex:1;padding:12px 16px;border-radius:8px;background:#fef2f2;border:1px solid #fecaca"><div style="font-size:11px;font-weight:700;color:#dc2626;margin-bottom:6px">REFUSES</div>${refuseList.map(r => `<div style="font-size:13px;color:#991b1b">${r.topic}${r.reason ? ` <span style="color:#b91c1c">(${r.reason})</span>` : ''}</div>`).join('')}</div>`;
+        html += `</div></div>`;
       }
 
-      // 5. Architecture
-      md += `## 5. Architecture\n\n`;
-      md += `**Type:** ${arch.type || 'TBD'}`;
-      if (arch.score) md += ` (Score: ${arch.score})`;
-      md += `\n`;
-      md += `**Model:** ${arch.model || 'TBD'}`;
-      if (arch.modelReason) md += ` — ${arch.modelReason}`;
-      md += `\n`;
-      if (arch.reason) md += `**Rationale:** ${arch.reason}\n`;
-      md += `\n`;
+      // Architecture
+      html += `<div style="padding:24px 0;border-bottom:1px solid #e2e8f0">
+        <h2 style="font-size:18px;font-weight:600;color:#4f46e5;margin:0 0 16px">Architecture</h2>
+        <div style="display:flex;gap:24px;flex-wrap:wrap">
+          <div style="padding:8px 16px;border-radius:8px;background:#eef2ff;border:1px solid #c7d2fe;font-size:14px;font-weight:600;color:#4338ca">${arch.type || 'TBD'}</div>
+          ${arch.model ? `<div style="padding:8px 16px;border-radius:8px;background:#f8fafc;border:1px solid #e2e8f0;font-size:13px;color:#475569"><strong>Model:</strong> ${arch.model}</div>` : ''}
+        </div>
+        ${triggers.length ? `<div style="margin-top:12px;font-size:12px;color:#64748b"><strong>Triggers:</strong> ${triggers.join(', ')}</div>` : ''}
+        ${channels.length ? `<div style="margin-top:4px;font-size:12px;color:#64748b"><strong>Channels:</strong> ${channels.join(', ')}</div>` : ''}
+      </div>`;
 
-      // 6. Integrations
-      const integFiltered = integ.filter(i => i.name);
-      if (integFiltered.length) {
-        md += `## 6. Integrations\n\n`;
-        md += `| Tool | Type | Purpose | Phase | Status |\n|------|------|---------|-------|--------|\n`;
-        integFiltered.forEach(i => { md += `| ${i.name} | ${i.type || ''} | ${i.purpose || ''} | ${i.phase || 'mvp'} | ${i.status || ''} |\n`; });
-        md += `\n`;
+      // Integrations
+      const integAll = integ.filter(i => i.name);
+      if (integAll.length) {
+        html += `<div style="padding:24px 0;border-bottom:1px solid #e2e8f0">
+          <h2 style="font-size:18px;font-weight:600;color:#4f46e5;margin:0 0 16px">Integrations</h2>
+          <table style="width:100%;border-collapse:collapse;font-size:13px">
+            <thead><tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0">${['System','Type','Purpose','Phase','Status'].map(h => `<th style="text-align:left;padding:8px 12px;font-weight:600;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">${h}</th>`).join('')}</tr></thead>
+            <tbody>${integAll.map(i => `<tr style="border-bottom:1px solid #f1f5f9">
+              <td style="padding:8px 12px;font-weight:500;color:#1e293b">${i.name}</td>
+              <td style="padding:8px 12px"><span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:4px;background:${i.type==='mcp'?'#eef2ff;color:#4338ca':i.type==='connector'?'#eff6ff;color:#2563eb':'#f8fafc;color:#64748b'}">${i.type}</span></td>
+              <td style="padding:8px 12px;color:#475569">${i.purpose || ''}</td>
+              <td style="padding:8px 12px"><span style="font-size:11px;font-weight:600;color:${i.phase==='future'?'#8b5cf6':'#10b981'}">${i.phase || 'mvp'}</span></td>
+              <td style="padding:8px 12px;color:#64748b">${i.status || ''}</td>
+            </tr>`).join('')}</tbody>
+          </table>
+        </div>`;
       }
 
-      // 7. Knowledge Sources
-      const knowFiltered = know.filter(k => k.name);
-      if (knowFiltered.length) {
-        md += `## 7. Knowledge Sources\n\n`;
-        md += `| Source | Type | Purpose | Status |\n|--------|------|---------|--------|\n`;
-        knowFiltered.forEach(k => { md += `| ${k.name} | ${k.type || ''} | ${k.purpose || ''} | ${k.status || ''} |\n`; });
-        md += `\n`;
+      // Knowledge
+      const knowAll = know.filter(k => k.name);
+      if (knowAll.length) {
+        html += `<div style="padding:24px 0;border-bottom:1px solid #e2e8f0">
+          <h2 style="font-size:18px;font-weight:600;color:#4f46e5;margin:0 0 16px">Knowledge Sources</h2>
+          <table style="width:100%;border-collapse:collapse;font-size:13px">
+            <thead><tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0">${['Source','Type','Purpose','Status'].map(h => `<th style="text-align:left;padding:8px 12px;font-weight:600;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">${h}</th>`).join('')}</tr></thead>
+            <tbody>${knowAll.map(k => `<tr style="border-bottom:1px solid #f1f5f9">
+              <td style="padding:8px 12px;font-weight:500;color:#1e293b">${k.name}</td>
+              <td style="padding:8px 12px;color:#475569">${k.type || ''}</td>
+              <td style="padding:8px 12px;color:#475569">${k.purpose || ''}</td>
+              <td style="padding:8px 12px;color:#64748b">${k.status || ''}</td>
+            </tr>`).join('')}</tbody>
+          </table>
+        </div>`;
       }
 
-      // 8. Scenarios
-      const scenarioFiltered = scenarios.filter(s => s.userSays);
-      if (scenarioFiltered.length) {
-        md += `## 8. Sample Scenarios\n\n`;
-        md += `| # | User Says | Agent Does |\n|---|----------|----------|\n`;
-        scenarioFiltered.forEach((s, i) => { md += `| ${i + 1} | ${(s.userSays || '').substring(0, 80)} | ${(s.agentDoes || '').substring(0, 80)} |\n`; });
-        md += `\n`;
+      // Scenarios
+      const scenarioAll = scenarios.filter(s => s.userSays);
+      if (scenarioAll.length) {
+        html += `<div style="padding:24px 0;border-bottom:1px solid #e2e8f0">
+          <h2 style="font-size:18px;font-weight:600;color:#4f46e5;margin:0 0 16px">Sample Scenarios</h2>
+          ${scenarioAll.map((s, i) => `<div style="padding:10px 0;border-bottom:1px solid #f1f5f9;display:flex;gap:12px">
+            <span style="font-size:12px;font-weight:700;color:#94a3b8;min-width:20px">${i+1}</span>
+            <div><div style="font-size:13px;font-weight:500;color:#1e293b">"${s.userSays}"</div><div style="font-size:12px;color:#64748b;margin-top:2px">${s.agentDoes || ''}</div></div>
+          </div>`).join('')}
+        </div>`;
       }
 
-      // 9. Open Questions
-      const unanswered = openQs.filter(q => q.question && !q.answer);
+      // Open Questions
       if (unanswered.length) {
-        md += `## 9. Open Questions — Input Needed\n\n`;
-        md += `| # | Question | Section | Impact |\n|---|---------|---------|--------|\n`;
-        unanswered.forEach((q, i) => {
-          md += `| ${i + 1} | ${(q.question || '').substring(0, 80)} | ${q.section || ''} | ${(q.impact || '').substring(0, 60)} |\n`;
-        });
-        md += `\n`;
+        html += `<div style="padding:24px 0;border-bottom:1px solid #e2e8f0">
+          <h2 style="font-size:18px;font-weight:600;color:#f97316;margin:0 0 4px">Open Questions — Input Needed</h2>
+          <p style="font-size:12px;color:#94a3b8;margin:0 0 16px">${unanswered.length} question${unanswered.length>1?'s':''} requiring customer input before build</p>
+          ${unanswered.map((q, i) => `<div style="padding:12px 16px;margin-bottom:8px;border-radius:8px;background:#fffbeb;border:1px solid #fde68a">
+            <div style="font-size:13px;font-weight:500;color:#92400e">${i+1}. ${q.question}</div>
+            ${q.impact ? `<div style="font-size:11px;color:#b45309;margin-top:4px">Impact: ${q.impact}</div>` : ''}
+          </div>`).join('')}
+        </div>`;
       }
 
-      // 10. Evaluation
+      // Evaluation
       if (evals.length) {
-        md += `## 10. Evaluation Plan\n\n`;
-        md += `**Test Cases:** ${evals.length}\n`;
-        const cats = {};
-        evals.forEach(e => { const c = e.category || 'uncategorized'; cats[c] = (cats[c] || 0) + 1; });
-        md += `**Categories:** ${Object.entries(cats).map(([k, v]) => `${k} (${v})`).join(', ')}\n\n`;
-        if (evalResults.summary && evalResults.summary.total > 0) {
-          md += `### Results\n`;
-          md += `**Overall:** ${evalResults.summary.passed}/${evalResults.summary.total} passed (${evalResults.summary.passRate})\n\n`;
-        }
+        const er = evalResults.summary || {};
+        html += `<div style="padding:24px 0;border-bottom:1px solid #e2e8f0">
+          <h2 style="font-size:18px;font-weight:600;color:#4f46e5;margin:0 0 16px">Evaluation</h2>
+          <div style="font-size:13px;color:#475569;margin-bottom:12px"><strong>${evals.length}</strong> test cases defined</div>
+          ${er.total > 0 ? `<div style="padding:12px 16px;border-radius:8px;background:${parseInt(er.passRate)>=80?'#f0fdf4;border:1px solid #bbf7d0':'#fffbeb;border:1px solid #fde68a'}">
+            <span style="font-size:16px;font-weight:700;color:${parseInt(er.passRate)>=80?'#16a34a':'#d97706'}">${er.passRate}</span>
+            <span style="font-size:13px;color:#64748b;margin-left:8px">${er.passed}/${er.total} passed</span>
+          </div>` : ''}
+        </div>`;
       }
 
-      // Notes
-      const noteKeys = Object.keys(notes).filter(k => k !== '_description' && k !== 'example');
-      if (noteKeys.length) {
-        md += `## Additional Notes\n\n`;
-        noteKeys.forEach(k => { md += `- **${k}:** ${notes[k]}\n`; });
-        md += `\n`;
-      }
+      // Footer
+      html += `<div style="padding:32px 0;text-align:center;color:#94a3b8;font-size:11px">
+          Generated on ${today} &nbsp;|&nbsp; Powered by CAD Agent Builder
+        </div>
+      </div>`;
 
-      md += `---\n\n*Generated from brief.json — ${today}*\n`;
+      // Generate PDF
+      toast('Generating PDF...', 'info');
+      const container = document.createElement('div');
+      container.innerHTML = html;
+      document.body.appendChild(container);
 
-      const blob = new Blob([md], { type: 'text/markdown' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${(agent.name || 'agent').replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}-report.md`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast('Report exported', 'success');
+      html2pdf().set({
+        margin: [12, 16, 12, 16],
+        filename: `${agentName.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}-report.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
+      }).from(container).save().then(() => {
+        document.body.removeChild(container);
+        toast('Report exported as PDF', 'success');
+      }).catch(err => {
+        document.body.removeChild(container);
+        toast('PDF export failed: ' + err.message, 'error');
+      });
     }
 
     // =======================================================================
