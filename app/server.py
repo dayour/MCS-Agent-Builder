@@ -20,9 +20,7 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
-
-from fastapi import FastAPI, Form, HTTPException, Request, UploadFile, File
+from fastapi import FastAPI, HTTPException, Request, UploadFile, File
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
@@ -570,15 +568,14 @@ async def save_agent_state(project_id: str, agent_id: str, request: Request):
 async def upload_document(
     project_id: str,
     file: UploadFile = File(...),
-    agent_id: Optional[str] = Form(None),
 ):
     """Upload a document, convert to markdown via Microsoft MarkItDown.
 
     Supports: .docx .pdf .pptx .xlsx .xls .csv .json .html .txt .md
               .jpg .jpeg .png .gif .bmp .tiff .wav .mp3 .zip .epub
 
-    Optional agent_id form field: when provided and a doc-manifest.json exists,
-    the new file is recorded with targetAgent set to the selected agent.
+    Doc-to-agent mapping is handled automatically by /mcs-research and
+    /mcs-update skills (auto-detection), not at upload time.
     """
     folder = BUILD_GUIDES / project_id
     if not folder.is_dir():
@@ -627,32 +624,11 @@ async def upload_document(
         except Exception as e:
             conversion_error = f"Conversion failed: {str(e)[:200]}"
 
-    # If doc-manifest.json exists, append the new file entry with agent targeting
+    # Check if manifest exists — if so, this is a new unprocessed doc
     brief_outdated = False
     manifest_path = folder / "doc-manifest.json"
     if manifest_path.exists():
-        brief_outdated = True
-        try:
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-            final_name = converted_name or raw_name
-            final_path = docs_dir / final_name
-            file_hash = _file_sha256(final_path) if final_path.exists() else ""
-            # Remove existing entry for this filename (re-upload)
-            manifest["docsProcessed"] = [
-                e for e in manifest.get("docsProcessed", [])
-                if e["filename"] != final_name
-            ]
-            manifest["docsProcessed"].append({
-                "filename": final_name,
-                "sha256": file_hash,
-                "size": final_path.stat().st_size if final_path.exists() else len(content),
-                "processedAt": None,  # Not yet processed by /mcs-update
-                "targetAgent": agent_id if agent_id else None,
-                "source": "tagged" if agent_id else "upload",
-            })
-            manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
-        except Exception:
-            pass  # Don't fail the upload if manifest update fails
+        brief_outdated = True  # Signal dashboard to show "Update Brief" button
 
     return {
         "uploaded": True,

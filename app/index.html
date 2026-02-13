@@ -624,15 +624,6 @@
           `).join('') : ''}
             <!-- Upload section -->
             <div class="px-5 py-3 space-y-3" style="border-top:1px solid var(--border)">
-              <!-- Agent target dropdown (only visible when agents exist) -->
-              ${agents.length ? `
-              <div class="flex items-center gap-2">
-                <label class="text-[10px] font-medium" style="color:var(--text-f)">For agent:</label>
-                <select id="upload-agent-target" class="text-xs rounded-md px-2 py-1 focus:outline-none" style="background:var(--bg-s);color:var(--text-s);border:1px solid var(--border)">
-                  <option value="">All agents</option>
-                  ${agents.map(a => `<option value="${a.id}">${a.name}</option>`).join('')}
-                </select>
-              </div>` : ''}
               <!-- File drop/click zone -->
               <div class="upload-zone py-3" id="upload-zone"
                 ondragover="event.preventDefault(); this.classList.add('dragover')"
@@ -762,10 +753,6 @@
         try {
           const form = new FormData();
           form.append('file', file);
-          const agentTarget = document.getElementById('upload-agent-target');
-          if (agentTarget && agentTarget.value) {
-            form.append('agent_id', agentTarget.value);
-          }
           const res = await fetch(`/api/projects/${currentProject.id}/upload`, { method: 'POST', body: form });
           const result = await res.json();
           if (result.uploaded) {

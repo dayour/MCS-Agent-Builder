@@ -31,14 +31,10 @@ Lightweight skill that detects new/changed documents, resolves which agent(s) th
    - **unchanged**: files with matching hashes
 5. If nothing changed → output "No document changes detected since last research." and exit
 
-### Step 2: Resolve Agent Targeting
+### Step 2: Resolve Agent Targeting (Auto-Detection)
 
-For each new/changed doc, determine which agent(s) it affects:
+For each new/changed doc, auto-detect which agent(s) it affects:
 
-**If `targetAgent` is set in manifest** (user tagged at upload time):
-- Use the tagged agent directly — no auto-detection needed
-
-**If `targetAgent` is null** (no tag, or uploaded before agents existed):
 - Read the document content
 - Read each agent's `brief.json` from `Build-Guides/{projectId}/agents/*/brief.json`
 - Score relevance by matching:
