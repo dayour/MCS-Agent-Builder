@@ -1,0 +1,23 @@
+{
+  "accounts": [
+    {
+      "id": "your-account-id",
+      "label": "you@yourtenant.onmicrosoft.com",
+      "tenant": "YourTenantName",
+      "pacProfileIndex": null,
+      "environments": [
+        {
+          "name": "Your Environment (default)",
+          "environmentId": "Default-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+          "dataverseUrl": "https://orgxxxxxxxx.crm.dynamics.com",
+          "agents": []
+        }
+      ]
+    }
+  ],
+  "sessionDefaults": {
+    "note": "Update this after each session picker selection to track last-used context",
+    "lastAccount": null,
+    "lastEnvironment": null
+  }
+}

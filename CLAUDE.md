@@ -2,9 +2,30 @@
 
 ## Overview
 
-Automate Microsoft Copilot Studio (MCS) agent creation using Claude Code with Playwright MCP for browser automation. Research capabilities broadly, analyze use cases, recommend components, and execute UI automation.
+Automate Microsoft Copilot Studio (MCS) agent creation using a **hybrid build stack**: PAC CLI for lifecycle operations, Dataverse API for configuration, Code Editor YAML for topics, Direct Line API for testing, and Playwright MCP only for operations that have no API alternative.
 
 **CRITICAL: Never assume components. Research BROADLY first (web, GitHub, MS Learn, community — not just one source), recommend based on requirements.**
+
+---
+
+## MANDATORY: Build Discipline — Verify-Then-Mark
+
+**THIS IS A HARD STOP. Every build step must be verified before marking complete.**
+
+### Rules
+
+1. **Atomic tasks**: Every build step is a SEPARATE task in TaskCreate. "Generate CSV" + "upload to MCS" + "run eval" = THREE tasks, not one. Never combine steps that happen in different systems (local file vs MCS UI vs API).
+2. **Verify after every action**: After each change, snapshot/read-back to confirm it worked:
+   - Instructions updated → snapshot confirms text saved (not still in edit mode)
+   - Tool added/removed → snapshot Tools tab confirms tool list matches spec
+   - Trigger created/deleted → snapshot Triggers section confirms expected state
+   - Published → snapshot confirms Published date is today
+   - CSV generated → read file back to confirm content
+   - Eval uploaded → snapshot Evaluation tab confirms test case count
+3. **Never mark complete until verified**: If you can't verify, tell the user "I did X but couldn't verify Y" rather than silently assuming success.
+4. **File ≠ deployment**: Writing a local file is NOT the same as uploading it to MCS. These are ALWAYS separate tasks.
+5. **Environment check**: Before PAC CLI operations, verify the agent's environment matches PAC CLI's active profile (`pac auth list`). If they differ, use browser instead.
+6. **End-of-build reconciliation**: After ALL changes, walk the spec's build checklist and snapshot-verify every item against the actual agent state. Report "Reconciliation: N/N items verified" or "Found M issues: [list]".
 
 ---
 
@@ -48,45 +69,183 @@ Is this correct? Please confirm before I proceed.
 
 ---
 
-## MCP Tools
+## Hybrid Build Stack — Tool Priority
 
-| Tool | Purpose |
-|------|---------|
-| **Playwright MCP** | Browser automation for Copilot Studio UI (`@playwright/mcp`) |
-| **Microsoft Learn MCP** | Official docs, reference, code samples |
-| **WebSearch** | Latest announcements, preview features, community discoveries, GitHub |
-| **WebFetch** | Deep-read blog posts, GitHub READMEs, release notes |
-| **WorkIQ** | M365 data access during live builds (Preview) |
+**Use the best tool for each job. Playwright is the last resort, not the default.**
+
+### Tool Priority Order
+
+| Priority | Tool | Use For |
+|----------|------|---------|
+| 1 | **PAC CLI** | Agent creation, publishing, status checks, solution export/import, listing agents |
+| 2 | **Dataverse API** | Instructions update, knowledge file upload, security settings, agent deletion |
+| 3 | **Code Editor YAML** | Topic authoring, adaptive cards, branching logic, trigger phrases |
+| 4 | **Direct Line API** | Evaluation / testing (send messages, compare responses) |
+| 5 | **Playwright MCP** | Model selection, tool/connector addition, OAuth connections, child agent connection, generative AI settings, MCS-only UI operations |
+
+**Detailed capabilities per layer:** See `knowledge/cache/api-capabilities.md`
+**Decision flow and build phase mapping:** See `knowledge/frameworks/tool-priority.md`
 
 ---
 
-## Learning System
+## Agent Teams (Experimental)
 
-**Capture learnings automatically. Log to `learnings/YYYY-MM-DD.md` when:**
-- Errors occur
-- New patterns discovered
-- MS Learn reveals updates
-- User provides insights
-- Build completes (prompt: "Did anything surprise you?")
+Agent Teams enables bidirectional communication between specialist teammates who challenge each other's work. The lead (you) orchestrates, teammates do the reasoning/generation, and the lead handles MCS execution (Playwright, PAC CLI, Dataverse).
 
-**Format:**
-```markdown
-### HH:MM - [Title]
-**Context:** [Scenario]
-**What Happened:** [Issue/discovery]
-**Resolution:** [What we learned]
-**Tags:** #tag1 #tag2
+**Enabled via:** `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` in `.claude/settings.json`
+
+### Teammates
+
+| Teammate | Role | Key Strength |
+|----------|------|-------------|
+| **Research Analyst** | Discover MCS capabilities across multiple sources | Prevents false limitation claims |
+| **Prompt Engineer** | Write MCS agent instructions + review/sharpen our own skill files and agent definitions when quality drops | Sharp instructions, correct `/` references |
+| **Topic Engineer** | Generate validated YAML topics + adaptive cards | Syntax-correct YAML, channel-safe cards |
+| **QA Challenger** | Review ALL outputs, find gaps, challenge claims | Catches errors before they hit MCS |
+| **Repo Checker** | Validate repo integrity after changes | Catches broken paths, stale docs, drift |
+
+Definitions: `.claude/agents/` (research-analyst.md, prompt-engineer.md, topic-engineer.md, qa-challenger.md, repo-checker.md)
+
+### When to Use Agent Teams
+
+**During MCS workflow skills:**
+- **Research phase** (`/mcs-research`): Research Analyst searches 4+ sources in parallel, Prompt Engineer writes instructions, Topic Engineer identifies topics, QA Challenger reviews all outputs
+- **Build phase** (`/mcs-build`): Topic Engineer generates YAML, QA Challenger reviews before execution
+- **Eval phase** (`/mcs-eval`): QA Challenger analyzes failures, maps back to root causes
+
+**During general development (Tier 2-3 checks):**
+- **Tier 2**: Repo Checker in background after 3+ file changes or code changes
+- **Tier 3**: QA Challenger before irreversible decisions (schema, workflow, architecture)
+
+### Workflow: Lead + Teammates
+
 ```
+Lead spawns team for build:
+  Research Analyst → discovers components (parallel)
+  Prompt Engineer → writes instructions
+  Topic Engineer → generates topic YAML + adaptive cards
+  QA Challenger → reviews all outputs, challenges, finds gaps
+
+  Teammates communicate directly:
+    QA → Prompt Engineer: "Instructions reference /ToolName that isn't configured"
+    QA → Topic Engineer: "YAML node ID duplicated on line 14"
+    Topic Engineer → Prompt Engineer: "Your instructions expect Topic.orderStatus but no topic initializes it"
+
+Lead executes validated outputs:
+  - Pastes YAML into MCS code editor (Playwright)
+  - Sets instructions via Dataverse API
+  - Configures tools/model (Playwright)
+  - Publishes (PAC CLI)
+```
+
+### Rules
+
+- **Lead does NOT generate instructions, YAML, or cards directly.** Delegate to teammates.
+- **Lead DOES handle all MCS execution** (Playwright, PAC CLI, Dataverse API) since MCP access in teammates is unreliable.
+- **QA Challenger reviews EVERY teammate output** before the lead executes it.
+- **Teammates challenge each other** — bidirectional communication is the point.
+- **All generated artifacts go to files** (Build-Guides/[Project]/topics/, instructions, etc.) so the lead can read and execute them.
+
+### Proactive Quality Checks — 3 Tiers
+
+Quality checks scale with risk. Not every response needs a full team debate.
+
+**Tier 1: Self-Check (always, after any edits)**
+After any batch of edits, do a quick inline verification: grep for broken references, re-read changed files, verify cross-references. Takes 10-20 seconds, catches obvious issues. No teammate needed.
+
+**Tier 2: Background Repo Check (after significant changes)**
+After changing 3+ files or any code changes, spawn Repo Checker in background. It runs async — don't block, keep working. Results come back in ~60 seconds. Fix issues if found.
+
+**Tier 3: QA Challenge (before irreversible decisions only)**
+Before committing to designs that are hard to undo — schema changes, workflow redesign, architecture decisions affecting multiple files. QA Challenger reviews and challenges the approach. This blocks work but is worth the wait for big decisions.
+
+| Trigger | Tier | Blocks Work? |
+|---------|------|-------------|
+| Any file edits | Tier 1: self-check (grep + re-read) | No — inline, 10 sec |
+| 3+ file changes or code changes | Tier 2: Repo Checker in background | No — runs async |
+| Schema change, workflow redesign, architecture decision | Tier 3: QA Challenger | Yes — worth the 2-3 min |
+| Before any commit | Tier 2: Repo Checker | No — runs async |
+| Simple answer, status check, brainstorming | None | — |
+
+---
+
+## Available Tools
+
+| Tool | Purpose |
+|------|---------|
+| **PAC CLI** | Agent lifecycle: create, publish, list, status, solution ALM (`pac copilot`, `pac solution`) |
+| **Dataverse API** | Agent config: instructions, knowledge, settings, publish (via HTTP/PowerShell) |
+| **Code Editor YAML** | Topic authoring: conversations, cards, branching (paste into MCS code editor) |
+| **Direct Line API** | Agent testing: send messages, compare responses (`tools/direct-line-test.js`) |
+| **Playwright MCP** | MCS UI automation for operations with no API (`@playwright/mcp`) |
+| **WorkIQ MCP** | M365 context: emails, meetings, documents, Teams, people (`workiq mcp`) |
+| **Microsoft Learn MCP** | Official docs, reference, code samples |
+| **WebSearch** | Latest announcements, preview features, community discoveries, GitHub |
+| **WebFetch** | Deep-read blog posts, GitHub READMEs, release notes |
+
+---
+
+## Learning System — Continuous Improvement
+
+The system captures learnings from every build and makes them available in future research. This creates a **feedback loop**: builds generate insights → insights improve future research → better specs → better builds.
+
+### Knowledge Layers
+
+| Layer | Location | What | Refresh |
+|-------|----------|------|---------|
+| **Official cache** | `knowledge/cache/` | MCS capabilities from MS Learn + WebSearch | Auto (session start + before research) |
+| **Experience learnings** | `knowledge/learnings/` | Insights from past builds, user feedback, failures | After every build/research/eval |
+| **Stable patterns** | `knowledge/patterns/` | YAML syntax, Playwright patterns, Dataverse API | Manual (rarely changes) |
+| **Decision frameworks** | `knowledge/frameworks/` | Component selection, architecture scoring | Manual (rarely changes) |
+
+### Learnings Capture Points
+
+| When | What Gets Captured | How |
+|------|-------------------|-----|
+| **Post-build** | Spec vs actual diff, errors & fixes, new discoveries, build method insights | Structured summary → user confirms → written to topic files |
+| **Post-research** | New components found, cache corrections, customer/industry patterns | Summary if discoveries exist → user confirms |
+| **Post-eval** | Failure patterns, eval method insights, scoring calibration | Summary if insights exist → user confirms |
+| **Anytime** | User says "remember that X" or provides feedback | Write directly to relevant topic file |
+
+### Learnings Topic Files (`knowledge/learnings/`)
+
+| File | Consulted During |
+|------|-----------------|
+| `connectors.md` | `/mcs-research` Phase B (component research) |
+| `integrations.md` | `/mcs-research` Phase B (system integration choices) |
+| `architecture.md` | `/mcs-research` Phase C (architecture scoring) |
+| `instructions.md` | `/mcs-research` Phase C (Prompt Engineer) |
+| `topics-triggers.md` | `/mcs-research` Phase D + `/mcs-build` Step 4 |
+| `eval-testing.md` | `/mcs-research` Phase D + `/mcs-eval` |
+| `build-methods.md` | `/mcs-build` (tool selection per step) |
+| `customer-patterns.md` | `/mcs-research` Phase A (document comprehension) |
+
+### How Learnings Are Used
+
+During research, learnings are presented as **additional options, not defaults**:
+
+> "Official docs recommend Connector X. However, in a past build for [customer], we found Y works better because [reason] (confirmed in 3 builds). Consider both options."
+
+Higher `Confirmed` count = higher weight, but the user always decides.
+
+### Confidence Levels
+
+| Confirmed In | Weight | Presentation |
+|-------------|--------|-------------|
+| 1 build | Low | "In one past build, we observed..." |
+| 2-3 builds | Medium | "Based on multiple builds, we recommend considering..." |
+| 4+ builds | High | "Consistently confirmed: ..." |
 
 ---
 
 ## Core Philosophy
 
-### 1. Spec-Driven Build
-The **agent-spec.md** is the single source of truth. Everything flows from it:
-- SDR/intake → **agent-spec.md** → Build → Eval
-- The spec contains everything needed to execute a build without stopping to ask questions
-- If the spec has gaps, fill them BEFORE building
+### 1. Brief-Driven Build
+The **brief.json** is the single source of truth. Everything flows from it:
+- SDR/intake → **brief.json** → Build → Eval
+- The brief contains everything needed to execute a build (instructions, tools, model, topics, MVP scope)
+- If the brief has gaps, fill them BEFORE building (research catches gaps early)
+- The dashboard reads/writes brief.json. The build skill reads it. Reports are generated from it.
 
 ### 2. Eval-Verified Quality
 Evals are generated from the spec and verify the build works:
@@ -111,6 +270,9 @@ Research EVERY TIME before recommending components. Do NOT rely on a static list
 
 **When to research:** Every Phase 1 component selection. Every time you encounter a capability you haven't verified recently. Every error you can't explain.
 
+### 5. Minimize Playwright — Use APIs First
+Every browser interaction is fragile. Before using Playwright, check if PAC CLI, Dataverse API, Code Editor YAML, or Direct Line API can handle the operation. See "Hybrid Build Stack" section above.
+
 ---
 
 ## Intake Paths
@@ -122,390 +284,161 @@ Customer provides Solution Discovery Report (SDR) documents (`.docx`, `.md`, `.p
 
 1. Check `Build-Guides/[ProjectName]/` for SDR files
 2. Convert `.docx` files to `.md` using pandoc if needed
-3. Read and analyze SDR content
-4. Extract into `agent-spec.md` (see Phase 1)
+3. **(Optional) Run `/mcs-context [CustomerName]`** → pull M365 history via WorkIQ
+4. Run **Research** (`/mcs-research`) → reads docs, identifies agents, researches components, enriches brief.json + generates evals
 
 ### Path B: Pasted in Chat
 User pastes requirements, SDR content, or use case description directly in conversation.
 
-1. Analyze the pasted content
-2. Create project folder: `Build-Guides/[ProjectName]/`
-3. Save raw input as `sdr-raw.md` for reference
-4. Extract into `agent-spec.md` (see Phase 1)
+1. Create project folder: `Build-Guides/[ProjectName]/`
+2. Save raw input as `sdr-raw.md` in `docs/` for reference
+3. **(Optional) Run `/mcs-context [CustomerName]`** → pull M365 history via WorkIQ
+4. Run **Research** (`/mcs-research`) → reads docs, identifies agents, full enrichment
 
 ### Path C: No Input — Ask User
 No SDR or requirements available.
 
 1. Ask: "What are we building? Describe the agent's purpose, users, and key scenarios."
-2. Use `templates/agent-spec.md` sections as a guide for what to ask
-3. Gather enough detail to produce an `agent-spec.md`
+2. **(Recommended) Run `/mcs-context [CustomerName]`** → pull M365 history via WorkIQ
+3. Create project folder and save user input as `sdr-raw.md`
+4. Run **Research** → **Build** → **Evaluate**
 
 ---
 
 ## Workflow
 
 ```
-INTAKE → PHASE 1: Analyze & Spec → PHASE 2: Build → PHASE 3: Eval & Validate
+CREATE → UPLOAD → RESEARCH → BUILD → EVALUATE
+                  /mcs-research  /mcs-build  /mcs-eval
 ```
+
+| Step | Skill | Input | Output | Agent Teams |
+|------|-------|-------|--------|-------------|
+| **Init** | `/mcs-init` | Project name | Folder structure | None |
+| **Context** | `/mcs-context` | Customer name | customer-context.md | None |
+| **Research** | `/mcs-research {projectId}` | docs/ | brief.json (fully enriched) + evals.csv per agent | RA + PE + TE + QA |
+| **Build** | `/mcs-build {projectId} {agentId}` | brief.json | MCS agent (published) + build-report.md | TE + QA |
+| **Evaluate** | `/mcs-eval {projectId} {agentId}` | brief.json evals | brief.json evalResults | QA |
+
+> **`/mcs-context`** is optional but recommended — it pulls all M365 history for a customer via WorkIQ MCP and pre-fills 60-80% of research.
 
 ---
 
-## PHASE 1: Analyze & Spec
+## Skills (6 total)
 
-**Goal:** Produce a complete `agent-spec.md` that can be executed as a build without questions.
-
-### From SDR: Extract These Fields
-
-| Field | Where in SDR | Notes |
-|-------|-------------|-------|
-| Agent name & description | Title / opportunity scope | Clear, concise |
-| Problem statement | "What is the problem" section | 1-2 sentences |
-| Personas | "Key personas" section | Primary + secondary |
-| User prompts & expected results | "User Prompts" section | Become scenarios |
-| Autonomous triggers | "Autonomous Agent" section | If applicable |
-| Data sources (read) | "Knowledge / data sources" table | Note connector status |
-| Actions (write) | "Actions" table | Note auth requirements |
-| Solution approach | "Solution ideas" section | Customer's preference |
-| Dependencies/blockers | "Dependencies" section | Critical for MVP scoping |
-| Contacts | "Key personnel" section | Who to escalate to |
-
-### Architecture Decision
-
-Score single vs multi-agent:
-
-| Factor | Single Agent (0 pts) | Multi-Agent (1 pt) |
-|--------|---------------------|-------------------|
-| **Domain** | Same domain | Truly separate domains |
-| **Data sources** | Shared data | Different systems per capability |
-| **Team ownership** | Same team | Different teams own parts |
-| **Reusability** | One-off agent | Specialists reusable elsewhere |
-| **Instruction size** | Fits in 8000 chars | Would exceed 8000 chars |
-| **Knowledge isolation** | Shared KB | Each needs own deep KB |
-
-**Score: 0-2 → Single Agent | 3+ → Multi-Agent**
-
-### MVP Scoping
-
-Analyze dependencies and recommend what's buildable NOW vs. later:
-
-```markdown
-## MVP (Build Now)
-- [Capabilities with available connectors/data]
-- [Core user prompts that work with current access]
-
-## Phase 2 (Build Later)
-- [Capabilities blocked by connector/access dependencies]
-- [Autonomous triggers requiring Power Automate flows]
-
-## Blockers to Resolve
-- [Missing connectors, TBD access, undefined rules]
-```
-
-### Gap Analysis
-
-Flag anything missing that blocks a build:
-
-| Required | Status | Action |
-|----------|--------|--------|
-| Scope boundaries (HANDLE/DECLINE/REFUSE) | Missing? | Infer from SDR context, flag for customer validation |
-| Connector availability | TBD? | Flag as blocker or MVP limitation |
-| Concrete definitions (e.g., "high-impact") | Vague? | Propose a definition, flag for validation |
-| Instructions/persona | Missing? | Draft from SDR context |
-| Model selection | Missing? | Recommend based on complexity |
-
-### Generate agent-spec.md
-
-Write `Build-Guides/[ProjectName]/agent-spec.md` using template from `templates/agent-spec.md`. The spec must include:
-
-1. **Identity**: Name, description, model recommendation
-2. **Instructions**: Full system prompt ready to paste into MCS
-3. **Scope boundaries**: HANDLE / DECLINE / REFUSE table
-4. **Knowledge sources**: With connector status (ready / not ready / TBD)
-5. **Actions**: With connector status
-6. **Scenarios**: 6-10 covering happy path, edge case, boundary, multi-turn
-7. **Evals**: Input → expected output pairs ready for CSV generation
-8. **MVP scope**: What to build now vs. later
-9. **Build checklist**: Step-by-step execution plan
-
-### Present to User
-
-Before building, present:
-1. Architecture recommendation with score
-2. MVP scope recommendation
-3. Any gaps/blockers found
-4. Ask user to confirm or adjust
+| Skill | Purpose | Dashboard Button |
+|-------|---------|-----------------|
+| **mcs-init** | Create project folder structure | None (API) |
+| **mcs-context** | Pull M365 history via WorkIQ | None (CLI) |
+| **mcs-research** | Read docs, identify agents, research components, design architecture, enrich brief.json + generate evals | **Research** |
+| **mcs-build** | Build agent(s) in MCS via hybrid stack | **Build** |
+| **mcs-eval** | Run eval tests, write results to brief.json | **Evaluate** |
+| **mcs-refresh** | Refresh knowledge cache files | None (CLI) |
 
 ---
 
-## PHASE 2: Build
+## INIT: Initialize Project (`/mcs-init`)
 
-### Pre-Build (CRITICAL)
-
-**ALWAYS verify environment on every browser session:**
-1. Navigate to copilotstudio.microsoft.com
-2. Snapshot
-3. Check environment in header
-4. If wrong → switch
-5. Confirm with user
-
-### Build Order (Multi-Agent)
-
-**Build Specialists First:**
-1. Create agent (name, description, instructions from spec)
-2. Add Knowledge Sources
-3. Add Tools/Connectors
-4. Enable "Allow other agents to connect" in Security
-5. Test in isolation
-6. Publish
-
-**Then Build Orchestrator:**
-1. Create orchestrator agent
-2. Connect child agents (Agents tab → Add agent)
-3. Configure routing in Instructions (`/AgentName` syntax)
-4. Test routing
-5. Publish
-
-### Specialist Verification (Before Publishing)
-- [ ] Tools tab has required connectors
-- [ ] Knowledge tab has required sources
-- [ ] Instructions match spec
-- [ ] Security → "Allow other agents" enabled
-- [ ] Quick test passes
+Create project folder, detect SDR files, convert `.docx` → `.md`, guide user to next step.
 
 ---
 
-## PHASE 3: Eval & Validate
+## CONTEXT: Pull Customer History (`/mcs-context`)
 
-### Generate evals.csv
+Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, people) for a customer name. Compiles findings into:
 
-From agent-spec.md scenarios and boundaries:
+- **`customer-context.md`** — Narrative summary: stakeholders, history, requirements, decisions, pain points, documents, gaps
+- **`customer-interactions.csv`** — Structured timeline: date, type, participants, summary, source
 
-```csv
-"question","expectedResponse","testMethodType","passingScore"
-```
+**Prerequisites:** WorkIQ CLI authenticated (`workiq ask -q "test"` in terminal for first-time setup).
 
-**Test method types (MCS-supported):**
-- `GeneralQuality` - Overall response quality assessment
-- `TextSimilarity` - Text similarity scoring (needs passingScore)
-- `CompareMeaning` - Semantic meaning comparison (needs passingScore)
-- `PartialMatch` - Response must contain expected text
-- `ExactMatch` - Response must exactly match
+---
 
-**Passing scores:** Integer format ("70" not "0.7"), only for TextSimilarity and CompareMeaning.
+## RESEARCH: Read Docs + Full Enrichment (`/mcs-research`)
 
-**Mapping from spec:**
-- Happy path scenarios → `GeneralQuality` or `CompareMeaning` with score "70"
-- Boundary DECLINE scenarios → `PartialMatch` (must contain decline phrase)
-- Boundary REFUSE scenarios → `PartialMatch` (must contain refusal phrase)
+**Goal:** Read all project documents, identify agents, research MCS components, and produce fully enriched brief.json (the single source of truth) + evals.csv per agent.
 
-### Upload & Run
+**Input:** `/mcs-research {projectId}` (first run) or `/mcs-research {projectId} {agentId}` (re-run after feedback)
+**Reads:** `Build-Guides/{projectId}/docs/` + `customer-context.md` (if exists) + `knowledge/cache/` + `knowledge/learnings/`
+**Writes:** `brief.json` (all fields including instructions) + `evals.csv` per agent
 
-1. Navigate to agent's Evaluation tab
-2. Import evals.csv (automated via hidden file input — see Playwright Patterns below)
-3. Click Evaluate (runs async)
+**4 phases:**
+1. **Document comprehension & agent identification** — read all docs, cross-reference, identify agents, extract data, generate informed open questions using MCS cache knowledge
+2. **Component research** — Research Analyst searches MCP servers, connectors, models, triggers, channels, knowledge sources
+3. **Architecture design** — Score single vs multi-agent, Prompt Engineer writes instructions, QA Challenger reviews
+4. **Scenarios + evals** — QA Challenger generates test cases, Topic Engineer identifies topics
+
+**Uses Agent Teams:** Research Analyst (parallel searches), Prompt Engineer (instructions), Topic Engineer (YAML topics), QA Challenger (review all outputs).
+
+**Iteration:** Customer reviews brief in the dashboard, answers open questions, then user re-runs `/mcs-research {projectId} {agentId}` to re-enrich.
+
+---
+
+## BUILD: Construct Agent (`/mcs-build`)
+
+**Goal:** Build and publish agent(s) in Copilot Studio using the hybrid stack.
+
+**Input:** `/mcs-build {projectId} {agentId}`
+**Reads:** `brief.json` (the single source of truth — architecture, instructions, tools, model, everything)
+**Writes:** `brief.json` buildStatus field
+
+**Build Account & Environment Gate (MANDATORY FIRST STEP):**
+1. Read `tools/session-config.json` for available accounts/environments
+2. Ask user to explicitly pick account + environment via `AskUserQuestion`
+3. Set PAC CLI profile to match (`pac auth select --index N`)
+4. Output build stamp with confirmed target before proceeding
+
+**Routes by architecture:**
+- `Single Agent` → standalone build (PAC CLI + Dataverse + Playwright + YAML)
+- `Multi-Agent` → specialists first, then orchestrator with child connections
+
+**Build steps:** Account Gate → Cache Check → Scaffold (PAC CLI) → Instructions & Knowledge (Dataverse API) → Tools & Model (Playwright) → Topics (Code Editor YAML) → Publish (PAC CLI) → Reconciliation → `build-report.md` → Learnings Capture → Update brief.json buildStatus
+
+**Preflight Gate required** before any Playwright interaction (verifies browser matches the account gate selection).
+
+---
+
+## EVAL: Test & Validate (`/mcs-eval`)
+
+**Goal:** Run evaluation tests and write results back to brief.json for dashboard display.
+
+**Input:** `/mcs-eval {projectId} {agentId}`
+**Reads:** `brief.json` evals array or `evals.csv`
+**Writes:** `brief.json` evalResults + `evals-results.json`
+
+**Preferred method:** Direct Line API (`tools/direct-line-test.js`)
+**Fallback:** Native MCS eval via Playwright
+
+**Test method types:** See `knowledge/cache/eval-methods.md`
 
 ### Failure Analysis
 
 | Type | Fix |
 |------|-----|
-| Knowledge Gap | Update sources |
-| Retrieval Failure | Improve search terms |
-| Grounding Violation | Strengthen instructions |
-| Routing Failure | Expand trigger phrases |
+| Knowledge Gap | Update knowledge sources |
+| Retrieval Failure | Improve search terms in instructions |
+| Grounding Violation | Strengthen boundaries in instructions |
+| Routing Failure | Expand trigger phrases, clarify routing rules |
 
 ---
 
-## Component Selection — Live Research Framework
+## Component Selection & Architecture Decisions
 
-**CRITICAL: The categories below are a CHECKLIST of where to look, NOT a static inventory. MCS ships continuously — preview features, new MCP servers, new connectors, and UI changes can appear at any time. You MUST research broadly at decision time, not rely on cached knowledge.**
+**Component selection framework:** See `knowledge/frameworks/component-selection.md`
+**Architecture scoring (single vs multi-agent):** See `knowledge/frameworks/architecture-scoring.md`
+**Current inventories:** See `knowledge/cache/` (MCP servers, connectors, models, triggers, etc.)
 
-### Research Protocol (Run EVERY Phase 1)
-
-For each agent capability, ask: **"What's the best way to implement this?"** then:
-
-1. **WebSearch** for the capability + "Copilot Studio" + current year (catch preview/new features)
-2. **MS Learn MCP** for official docs and code samples
-3. **MCS UI snapshot** — browse the actual Add Tool / Add Knowledge / Model picker UI to see what's available RIGHT NOW (preview badges, new entries)
-4. **GitHub search** if relevant (custom connectors, community MCP servers, sample repos)
-5. Cross-reference findings across sources — if something shows in the UI but not in docs, it's likely preview. Note it.
-
-**The goal: know every option that exists TODAY, not just what was documented last month.**
-
-### Component Categories (Checklist — not exhaustive)
-
-Evaluate across ALL of these for every capability. Items listed are examples to orient you — always verify current availability via research.
-
-**1. MCP Servers (PREFERRED for M365)**
-When a connector offers an MCP server, prefer MCP — gives agent full operation set via single tool. Research what MCP servers exist now (new ones ship regularly). Known examples: Outlook (email, calendar, contacts), SharePoint, Teams. But ALWAYS check for new ones.
-
-Only use individual connector actions when no MCP exists or you need a single deterministic operation.
-
-**2. Standard Connectors**
-Built-in Power Platform connectors (Dataverse, Office 365 Users, OneDrive, Planner, etc.). Research the full connector catalog — don't assume you know every connector.
-
-**3. Computer Use Tool**
-Agent controls desktop via virtual mouse/keyboard. Research current status (preview/GA), supported models, cost, regions. Good for tasks with no API.
-
-**4. Power Automate Flows**
-Scheduling, loops, conditions, multi-step orchestration, HTTP calls, approval flows. Research current triggers and actions available.
-
-**5. AI Builder / AI Tools**
-Prompt actions, AI-powered extraction, classification, etc. Research what AI tools are available in the MCS "Add tool" menu now.
-
-**6. Third-Party Premium Connectors**
-Encodian, Plumsail, Muhimbi, Adobe, Salesforce, ServiceNow, etc. Research availability, cost, and whether a native option has appeared since last check.
-
-**7. Custom Code**
-Azure Functions, Custom Connectors, Open XML SDK. Last resort — high dev cost.
-
-**8. Custom MCP Servers**
-For external systems. Research community MCP servers on GitHub.
-
-**9. Knowledge Sources**
-SharePoint, uploaded files, Dataverse, public websites, Graph connectors, etc. Research what knowledge source types the MCS UI currently supports — new types appear in preview.
-
-**10. Channels & Deployment**
-Teams, web, custom canvas, telephony/voice, etc. Research current channel options.
-
-**11. Agent Settings & Security**
-Auth modes, access control, "allow other agents to connect", generative AI settings. Snapshot the Settings pages to see current options.
-
-### UI Discovery Pattern
-
-When researching components, **snapshot the actual MCS UI** to see what exists now:
-- **Tools tab → "Add a tool"** — see all tool categories (connectors, MCP, Computer Use, AI tools, etc.)
-- **Knowledge tab → "Add knowledge"** — see all knowledge source types
-- **Model picker** — see all available models
-- **Settings pages** — see all configuration options
-- **Channels** — see deployment targets
-
-This catches preview features that aren't in docs yet.
-
-### Selection Output
-
-For each capability in the spec, document:
-1. **Research performed** (what sources checked, what was found)
-2. **Options considered** (minimum 2, with current status: GA/Preview/Private Preview)
-3. **What was selected and why**
-4. **What was rejected and why**
-5. **Status** (ready / needs setup / blocked)
+**CRITICAL:** Always check cache freshness before using. If > 7 days old, run `/mcs-refresh` or do live research before deciding.
 
 ---
 
-## Architecture Decision: Agent vs MCP vs Computer Use
+## Patterns & References
 
-**Key question:** Is this a **tool**, an **expert**, or a **desktop task**?
-
-| Type | Characteristics | Implementation |
-|------|-----------------|----------------|
-| **Tool** | Fetches data, executes actions, stateless | MCP Server / Connector |
-| **Expert** | Has knowledge, makes judgments, has persona | Child Agent |
-| **Desktop task** | No API available, human could do it in a GUI app | Computer Use tool |
-
----
-
-## Multi-Agent Setup
-
-### 1. Create Specialist
-```
-Create → New agent → name, description, instructions (focused on domain)
-```
-
-### 2. Enable Sharing
-```
-Settings → Security → "Allow other agents to connect" → Save → Publish
-```
-
-### 3. Connect to Orchestrator
-```
-Orchestrator → Agents tab → Add agent → Select specialist
-```
-
-### 4. Configure Routing
-```
-## Connected Specialists
-/KYCAgent - Customer lookups
-/QuotingAgent - Pricing, quotes
-
-## Routing Rules
-- Customer questions → /KYCAgent
-- Pricing questions → /QuotingAgent
-- Unclear → Ask clarifying question
-```
-
----
-
-## Playwright Automation Patterns (MCS UI)
-
-**GOAL: Full automation. Minimize human-in-the-loop. The only required human step is the Preflight Gate confirmation.**
-
-### File Upload (Dropzones)
-MCS uses custom dropzones (not standard file inputs), but they have hidden `<input type="file">` elements underneath. **Do NOT ask the user to upload manually.**
-
-```javascript
-// Pattern: Find hidden file input and set files directly
-await page.locator('input[type="file"]').first().setInputFiles('C:\\path\\to\\file.csv');
-// Works for: eval uploads, knowledge file uploads, any dropzone
-```
-
-### Auth Popups (New Tab)
-When creating connector connections, auth opens in a new tab.
-
-```javascript
-// Pattern: Wait for new tab → switch → select account → switch back
-// 1. Click "Create" on connection dialog
-// 2. Wait 3-5 seconds for popup
-// 3. browser_tabs action=select index=1
-// 4. browser_snapshot → find "Pick an account"
-// 5. Click the correct account (match to environment)
-// 6. Wait for redirect, tab auto-closes or switch back to tab 0
-```
-
-### Connector Connection Creation
-```
-Click "Not connected" → menu appears → "Create new connection" →
-  Connection dialog → "Create" → handle auth popup →
-  Back on tool page → "Add and configure"
-```
-
-### MCP Server Addition
-```
-Add tool → search/select from "Create new" → "Model Context Protocol" →
-  Search for MCP name → Select → Add and configure
-```
-
-### Computer Use Tool Addition
-```
-Add tool → "Create new" → "Computer use" →
-  Write instructions → "Add and configure" →
-  Rename, update description → Save
-```
-
-### Model Selection
-```
-Click model combobox → snapshot to see options → click desired model →
-  Wait for "Processing your request..." → wait for "completed successfully"
-```
-
-### Instructions (Lexical Editor)
-```
-Click "Edit" on Instructions → fill textbox with full text →
-  Click "Save" → wait for confirmation
-```
-
-### Publishing
-```
-Click "Publish" → dialog appears → click "Publish" again →
-  "Publishing in background" → click "Close"
-```
-
-### Evaluation Upload + Run (Full Automation)
-```
-Navigate to Evaluation tab (via +8 menu) → "Create a test set" →
-  page.locator('input[type="file"]').first().setInputFiles(path) →
-  Wait for "uploaded successfully" → click "Evaluate" →
-  "Manage connections" dialog → select account → click "Run"
-```
+**Playwright UI patterns:** See `knowledge/patterns/playwright-patterns.md`
+**Code Editor YAML reference:** See `knowledge/patterns/yaml-reference.md`
+**Topic YAML templates:** See `knowledge/patterns/topic-patterns/`
+**Dataverse API patterns:** See `knowledge/patterns/dataverse-patterns.md`
+**Trigger types:** See `knowledge/cache/triggers.md`
 
 ---
 
@@ -520,7 +453,7 @@ Navigate to Evaluation tab (via +8 menu) → "Create a test set" →
    - MS Learn MCP for official troubleshooting
    - GitHub issues for known bugs / workarounds
    - MCS UI snapshot to verify current state
-3. Log significant findings to learnings/
+3. Log significant findings to knowledge/learnings/
 4. Retry with researched approach
 ```
 
@@ -528,31 +461,133 @@ Navigate to Evaluation tab (via +8 menu) → "Create a test set" →
 
 ## Key Principles
 
-1. **Spec is the blueprint** - agent-spec.md drives the build
-2. **Evals verify quality** - generate from spec, run after build
-3. **Multi-agent first** - decompose into specialists (score objectively)
-4. **Never assume** - research broadly (web + docs + UI + GitHub), present options
-5. **MVP first** - build what's possible now, plan what's blocked
-6. **Build specialists first** - children before orchestrator
-7. **Verify environment** - every browser session
-8. **Research errors** - don't blindly retry
-9. **Capture learnings** - every build makes next build smarter
-10. **Fill gaps before building** - incomplete spec → incomplete agent
-11. **Full automation** - never ask user to do something manually that can be automated
-12. **MCP over connectors** - prefer MCP servers over individual connector actions
-13. **Research broadly** - use WebSearch, GitHub, MS Learn, and MCS UI snapshots — not just one source. Features ship continuously including undocumented previews
+1. **Brief is the blueprint** — brief.json drives the build (single source of truth)
+2. **Evals verify quality** — generate from spec, run after build
+3. **Multi-agent first** — decompose into specialists (score objectively)
+4. **Never assume** — research broadly (web + docs + UI + GitHub), present options
+5. **MVP first** — build what's possible now, plan what's blocked
+6. **Build specialists first** — children before orchestrator
+7. **Verify environment** — every browser session (Preflight Gate)
+8. **Research errors** — don't blindly retry
+9. **Capture learnings** — every build makes next build smarter
+10. **Fill gaps before building** — incomplete brief → incomplete agent
+11. **Minimize Playwright** — use PAC CLI, Dataverse API, Code Editor YAML, Direct Line first
+12. **MCP over connectors** — prefer MCP servers over individual connector actions
+13. **Research broadly** — use WebSearch, GitHub, MS Learn, and MCS UI snapshots
+14. **API first, browser last** — every Playwright interaction is a fragility risk; prefer API alternatives
+
+---
+
+## Knowledge System
+
+Cached inventories, stable patterns, and decision frameworks live in `knowledge/`:
+
+- **`knowledge/cache/`** — 18 quick-reference cheat sheets covering MCS capabilities: options, limits, gotchas, and decision tables. For step-by-step details, use MS Learn MCP. Each file has freshness metadata. Check before architecture decisions.
+- **`knowledge/patterns/`** — Stable HOW-TO references (YAML syntax, Playwright patterns, Dataverse API patterns, topic templates).
+- **`knowledge/frameworks/`** — Decision frameworks (component selection, architecture scoring, tool priority).
+
+**Tiered refresh:**
+- **Tier 1 (build-critical):** triggers, models, mcp-servers, connectors, knowledge-sources, channels — auto-refreshed at session start if > 7 days old
+- **Tier 2 (build-phase):** api-capabilities, instructions-authoring, generative-orchestration, adaptive-cards, ai-tools-computer-use, power-automate-integration — refreshed before `/mcs-build` if stale
+- **Tier 3 (reference):** eval-methods, security-auth, agent-lifecycle, limits-licensing, powerfx-variables, conversation-design — refreshed on demand via `/mcs-refresh`
+
+**Freshness rules:**
+- < 7 days old → use as-is
+- 7-30 days old → Tier 1: auto-refresh. Tier 2-3: flag, refresh on demand
+- > 30 days old → refresh immediately regardless of tier
+
+**After live research, always UPDATE the cache file** with findings + new `last_verified` date.
+
+See `knowledge/README.md` for full details.
 
 ---
 
 ## Project Structure
 
 ```
-Build-Guides/[Project]/
-├── sdr-raw.md          # Raw SDR content (if from customer docs)
-├── agent-spec.md       # THE build blueprint (extracted from SDR)
-├── evals.csv           # Generated from spec for MCS upload
-└── [source].docx/.md   # Original customer documents
+.claude/
+├── settings.json           # MCP servers, permissions, Agent Teams env flag
+├── skills/                 # 6 automation skills
+│   ├── mcs-init/           # Create project folder
+│   ├── mcs-context/        # Pull M365 history via WorkIQ
+│   ├── mcs-research/       # Read docs + full enrichment → brief.json + evals
+│   ├── mcs-build/          # Build agent(s) in MCS via hybrid stack
+│   ├── mcs-eval/           # Run eval tests → brief.json evalResults
+│   └── mcs-refresh/        # Refresh knowledge cache
+└── agents/                 # Agent Teams teammate definitions
+    ├── research-analyst.md # MCS capability researcher
+    ├── prompt-engineer.md  # Instructions & Custom Prompt specialist
+    ├── topic-engineer.md   # YAML, adaptive cards & flow specialist
+    ├── qa-challenger.md    # Adversarial reviewer & gap finder
+    └── repo-checker.md     # Cross-reference & sync validator
 
-learnings/
-└── YYYY-MM-DD.md       # Daily learnings
+app/                        # Dashboard web application
+├── index.html              # Single-page dashboard UI
+├── server.py               # FastAPI backend (project CRUD, file upload)
+├── terminal-server.js      # Node-pty WebSocket server (embedded Claude Code terminal)
+└── generate-data.py        # Build-Guides scanner for dashboard data
+
+knowledge/
+├── learnings/              # Experience-based insights from past builds (8 topic files)
+├── cache/                  # 18 quick-reference cheat sheets (with freshness metadata)
+│   ├── triggers.md, models.md, mcp-servers.md, connectors.md
+│   ├── knowledge-sources.md, channels.md, api-capabilities.md, eval-methods.md
+│   ├── generative-orchestration.md, security-auth.md, instructions-authoring.md
+│   ├── powerfx-variables.md, agent-lifecycle.md, power-automate-integration.md
+│   └── adaptive-cards.md, ai-tools-computer-use.md, limits-licensing.md, conversation-design.md
+├── patterns/               # Stable HOW-TO references
+│   ├── yaml-reference.md, playwright-patterns.md, dataverse-patterns.md
+│   └── topic-patterns/     # 9 reusable YAML templates
+└── frameworks/             # Decision frameworks
+    ├── component-selection.md, architecture-scoring.md
+    └── tool-priority.md
+
+templates/                  # Project scaffolding templates
+├── brief.json              # Agent brief schema — THE single source of truth
+
+tools/
+├── direct-line-test.js     # Direct Line API test runner
+├── dataverse-helper.ps1    # PowerShell Dataverse Web API helper
+├── fetch-instructions.ps1  # Fetch agent instructions from Dataverse
+├── pac-mcp-wrapper.js      # PAC CLI MCP server wrapper
+└── session-config.example.json  # Account/environment config template
+
+Build-Guides/[Project]/     # Per-project work (gitignored)
+├── agents/[name]/
+│   ├── brief.json          # THE source of truth — design, instructions, tools, evals, build status
+│   ├── build-report.md     # Customer-shareable build summary (generated after /mcs-build)
+│   ├── evals.csv           # Evaluation test cases (from /mcs-research)
+│   ├── evals-results.json  # Direct Line test results (from /mcs-eval)
+│   └── topics/             # Generated topic YAML files
+├── docs/                   # Uploaded customer documents
+└── customer-context.md     # M365 history (from /mcs-context, optional)
+
+```
+
+---
+
+## PAC CLI Reference (Quick)
+
+```powershell
+# List agents
+pac copilot list
+
+# Create from template
+pac copilot create --displayName "Name" --schemaName "cr_name" --solution "SolutionName" --templateFileName template.yaml
+
+# Publish
+pac copilot publish --bot <bot-id-or-schema-name>
+
+# Check status
+pac copilot status --bot-id <bot-id>
+
+# Extract template from existing agent
+pac copilot extract-template --bot <bot-id> --templateFileName output.yaml
+
+# Solution export/import (ALM)
+pac solution export --name "SolutionName" --path "Solution.zip"
+pac solution import --path "Solution.zip" --publish-changes
+
+# Check auth
+pac auth list
 ```

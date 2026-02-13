@@ -1,0 +1,120 @@
+{
+  "_description": "Single source of truth for agent design and build. The dashboard reads/writes this. The build skill reads this. Reports are generated from this. No separate agent-spec.md needed.",
+  "step1": {
+    "agentName": "Professional agent name",
+    "problem": "2-3 sentence problem statement — what pain this agent solves, for whom",
+    "users": {
+      "primary": "Main user group who will interact most frequently",
+      "secondary": "Supporting user group with occasional use"
+    }
+  },
+  "step2": {
+    "capabilities": "Newline-separated list of what the agent can do",
+    "scenarios": [
+      {
+        "userSays": "Example user message or question",
+        "agentShould": "What the agent does in response"
+      }
+    ],
+    "handle": "Topics the agent should answer confidently",
+    "decline": "Requests the agent should politely redirect",
+    "refuse": "Hard stops — agent must never do these"
+  },
+  "step3": {
+    "systems": [
+      {
+        "name": "Tool or integration name (e.g. SharePoint/OneDrive, Salesforce)",
+        "toolType": "mcp | connector | flow | ai-tool | custom-connector",
+        "purpose": "What this tool does for the agent",
+        "status": "available | needs-setup | needs-custom | blocked",
+        "notes": "Optional — auth method, scoping, config details, why this choice"
+      }
+    ],
+    "topics": [
+      {
+        "name": "Topic name",
+        "description": "What this conversation flow handles",
+        "triggerType": "phrases | agent-chooses | event | auto-start",
+        "yaml": "Optional — generated YAML content for this topic"
+      }
+    ],
+    "knowledge": [
+      {
+        "name": "Source name or URL",
+        "type": "SharePoint | Uploaded files | Dataverse | Public websites | Graph connectors",
+        "scope": "Optional — what content to index, filters, space/site scoping",
+        "status": "available | needs-setup | needs-scoping | blocked"
+      }
+    ]
+  },
+  "step4": {
+    "architectureRecommendation": "Single Agent | Multi-Agent | Connected Agent",
+    "architectureReason": "Why this architecture fits the use case",
+    "architectureScore": "0-6 score from the 6-factor framework",
+    "model": "GPT-4o | GPT-4o mini | GPT-5 Auto (Preview) | o1 | o1 mini | o3-mini",
+    "modelReason": "Why this model was chosen",
+    "triggers": ["Trigger types — e.g. Conversational (user message), Recurrence, Event"],
+    "channels": ["Channel names — e.g. Microsoft Teams, Custom website"],
+    "children": [
+      {
+        "name": "Child agent name (for multi-agent only)",
+        "role": "What this specialist handles",
+        "routingRule": "When to route to this specialist"
+      }
+    ]
+  },
+  "instructions": "Full agent instructions text (up to 8000 chars). Written by Prompt Engineer, reviewed by QA Challenger. This is what gets pasted into MCS.",
+  "mvp": {
+    "now": ["Capabilities to build in the current sprint"],
+    "later": ["Capabilities deferred to future iterations with reason"]
+  },
+  "evals": [
+    {
+      "question": "Test question to ask the agent",
+      "expected": "What the response should contain or convey",
+      "method": "GeneralQuality | TextSimilarity | ExactMatch | PartialMatch | CompareMeaning",
+      "score": "70",
+      "category": "happy-path | edge-case | boundary-decline | boundary-refuse | error-recovery | multi-turn"
+    }
+  ],
+  "evalResults": {
+    "lastRun": "ISO timestamp of last eval run",
+    "method": "DirectLine | MCSNative",
+    "summary": {
+      "total": 0,
+      "passed": 0,
+      "failed": 0,
+      "passRate": "0%"
+    },
+    "results": [
+      {
+        "question": "Test question",
+        "expected": "Expected response",
+        "actual": "Actual agent response",
+        "pass": true,
+        "score": 85,
+        "method": "CompareMeaning"
+      }
+    ]
+  },
+  "buildStatus": {
+    "status": "not_started | in_progress | published | failed",
+    "lastBuild": "ISO timestamp of last build attempt",
+    "mcsAgentId": "MCS bot ID after creation",
+    "environment": "MCS environment name",
+    "account": "Account used for build",
+    "publishedAt": "ISO timestamp of last successful publish"
+  },
+  "openQuestions": [
+    {
+      "question": "Unresolved question that needs customer/stakeholder input",
+      "impact": "What this blocks or affects if unanswered",
+      "suggestedDefault": "Optional — our best guess if the customer doesn't answer",
+      "answer": "Leave empty if unanswered. Fill in when resolved."
+    }
+  ],
+  "notes": {
+    "_description": "Flexible key-value store for anything discovered during research or build that doesn't fit above. Keys are freeform. Use this for customer-specific details, integration notes, discovered constraints, etc.",
+    "example": "Any string value — research findings, customer preferences, technical constraints"
+  }
+}

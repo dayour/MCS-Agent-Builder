@@ -1,4 +1,7 @@
 {
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
   "permissions": {
     "allow": [
       "Bash(*)",
@@ -14,7 +17,8 @@
       "NotebookEdit",
       "mcp__playwright__*",
       "mcp__microsoft-learn__*",
-      "mcp__workiq__*"
+      "mcp__workiq__*",
+      "mcp__pac-cli__*"
     ]
   },
   "mcpServers": {
@@ -23,7 +27,9 @@
       "command": "npx",
       "args": [
         "-y",
-        "@playwright/mcp@latest"
+        "@playwright/mcp@latest",
+        "--browser",
+        "msedge"
       ]
     },
     "microsoft-learn": {
@@ -37,6 +43,13 @@
         "-y",
         "@microsoft/workiq",
         "mcp"
+      ]
+    },
+    "pac-cli": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "tools/pac-mcp-wrapper.js"
       ]
     }
   }

@@ -1,195 +1,158 @@
-# MCS Automation with Claude Code
+# MCS Agent Builder
 
-Automate Microsoft Copilot Studio agent creation using Claude Code with browser automation.
-
-## What This Does
-
-- **Intake** customer SDR documents or requirements and extract build-ready specs
-- **Research** MCS components broadly (web, MS Learn, GitHub, MCS UI snapshots)
-- **Design** agent architectures with MVP scoping (never assumes)
-- **Build** agents in Copilot Studio UI via browser automation
-- **Evaluate** agents with automated test generation and uploads
+Automate end-to-end Microsoft Copilot Studio agent builds — from customer intake through architecture, build, and evaluation. Uses Claude Code with a hybrid build stack and AI teammate peer review.
 
 ## Quick Start
 
 ```bash
-# 1. Clone the repo
+# 1. Clone and install
 git clone https://github.com/damgyeah/MCS-Agent-Automation.git
 cd MCS-Agent-Automation
+npm install
+pip install fastapi uvicorn markitdown
 
-# 2. Start Claude Code
-claude
+# 2. Configure your account
+cp tools/session-config.example.json tools/session-config.json
+# Edit with your tenant, environment, and Dataverse URL
 
-# 3. Initialize a new agent project
-> /mcs-init MyAgentProject
+# 3. Auth
+pac auth create --environment https://yourorg.crm.dynamics.com
+
+# 4. Run the dashboard
+python app/server.py
+# Open http://localhost:8000
 ```
-
-That's it. MCP servers are pre-configured in `.claude/settings.json`.
 
 ## Prerequisites
 
-| Requirement | Notes |
-|-------------|-------|
-| **Claude Code** | [Install](https://docs.anthropic.com/claude-code) |
-| **Node.js 18+** | For MCP servers (npx) |
-| **Microsoft Account** | Access to copilotstudio.microsoft.com |
-| **Pandoc** (optional) | For converting .docx SDR files to markdown |
+| Requirement | Install |
+|-------------|---------|
+| **Claude Code** | [anthropic.com/claude-code](https://docs.anthropic.com/claude-code) |
+| **Node.js 18+** | [nodejs.org](https://nodejs.org) |
+| **Python 3.10+** | [python.org](https://www.python.org) |
+| **PAC CLI** | [MS Learn](https://learn.microsoft.com/en-us/power-platform/developer/cli/introduction) |
+| **Microsoft Account** | Access to [copilotstudio.microsoft.com](https://copilotstudio.microsoft.com) |
 
-## First-Time Setup
+## How It Works
 
-### 1. Browser Authentication
+### Dashboard (Browser)
 
-Before building agents:
-1. Open your browser manually
-2. Navigate to https://copilotstudio.microsoft.com
-3. Sign in with your Microsoft account
-4. Verify you can access your target environment
+The dashboard at `http://localhost:8000` provides project management with an embedded Claude Code terminal:
 
-Claude will use this authenticated session for automation.
+1. **Create project** — name it, upload customer documents (SDR, requirements, etc.)
+2. **Research** — reads docs, identifies agents, discovers MCS components, scores architecture, enriches brief.json + generates evals
+3. **Build** — executes the full build using the hybrid stack
+4. **Evaluate** — runs automated tests, writes results to brief.json for dashboard display
 
-### 2. Approve MCP Servers
+Each button triggers a Claude Code skill in the embedded terminal. You watch it work in real-time.
 
-On first run, Claude Code will prompt you to approve the MCP servers:
-- **playwright** - Browser automation (`@playwright/mcp`)
-- **microsoft-learn** - Documentation search
-- **workiq** - M365 data access (optional)
+### Claude Code CLI (Terminal)
 
-Select "Yes" to enable.
-
-### 3. WorkIQ Setup (Optional)
-
-If you want M365 data access during builds:
-
-```bash
-# Accept EULA (one-time)
-npx -y @microsoft/workiq accept-eula
-
-# Authenticate
-npx -y @microsoft/workiq ask -q "test"
-```
-
-Requires M365 Copilot license and admin consent.
-
-## Workflow
+You can also run skills directly in Claude Code:
 
 ```
-INTAKE → ANALYZE & SPEC → BUILD → EVAL
+/mcs-init ProjectName                    Create project, detect SDR files
+/mcs-context CustomerName                Pull M365 history (emails, meetings, docs, Teams)
+/mcs-research ProjectName                Read docs, identify agents, full enrichment → brief.json + evals
+/mcs-research ProjectName agentId        Re-enrich a specific agent after user feedback
+/mcs-build ProjectName agentId           Build agent(s) in MCS (hybrid stack)
+/mcs-eval ProjectName agentId            Run evals, write results to brief.json
+/mcs-refresh                             Refresh knowledge cache
 ```
 
-### Three Intake Paths
+## Hybrid Build Stack
 
-| Path | When | What Happens |
-|------|------|-------------|
-| **SDR files in folder** | Customer provides .docx/.pdf SDR docs | Convert to .md, analyze, extract agent-spec |
-| **Paste in chat** | User pastes requirements directly | Analyze, create project folder, extract agent-spec |
-| **From scratch** | No requirements yet | Interactive interview based on agent-spec template, produce agent-spec |
+Each build step uses the best tool, minimizing fragile browser automation:
 
-### Skill Workflow
+| Priority | Tool | Handles |
+|----------|------|---------|
+| 1 | **PAC CLI** | Agent create, publish, status, solution export/import |
+| 2 | **Dataverse API** | Instructions, knowledge upload, security settings |
+| 3 | **Code Editor YAML** | Topic authoring, adaptive cards, branching logic |
+| 4 | **Direct Line API** | Evaluation testing (send messages, compare responses) |
+| 5 | **Playwright** | Model selection, tool/connector addition, OAuth (last resort) |
 
-```
-/mcs-init ProjectName              # Create project, detect SDR files
-    ↓
-/mcs-architect ProjectName         # Analyze SDR → generate agent-spec.md
-    ↓
-/mcs-scenario ProjectName          # Generate scenarios + evals.csv from spec
-    ↓
-/mcs-build-agent ProjectName       # Build in MCS UI (single agent)
-  OR
-/mcs-build-specialist ProjectName  # Build specialist (multi-agent)
-/mcs-build-orchestrator ProjectName # Build orchestrator + connect children
-    ↓
-/mcs-eval ProjectName              # Upload evals, run evaluation
-```
+## Agent Teams
 
-## Skills
+Complex builds use 5 AI teammates (Opus 4.6) that challenge each other's work before execution:
 
-| Skill | Purpose |
-|-------|---------|
-| `/mcs-init [name]` | Create project, detect SDR files, guide next steps |
-| `/mcs-research [topic]` | Research MCS components (web, MS Learn, GitHub, UI) |
-| `/mcs-architect [project]` | Analyze SDR/requirements → agent-spec.md |
-| `/mcs-scenario [project]` | Generate scenarios + evals.csv from spec |
-| `/mcs-build-agent [project]` | Build standalone agent in MCS UI |
-| `/mcs-build-specialist [project]` | Build specialist agent in MCS UI |
-| `/mcs-build-orchestrator [project]` | Build orchestrator + connect children |
-| `/mcs-eval [project]` | Generate evals.csv and upload to MCS |
+| Teammate | What They Do |
+|----------|-------------|
+| **Research Analyst** | Discovers MCS capabilities, prevents false limitation claims |
+| **Prompt Engineer** | Writes instructions + Custom Prompt actions, validates `/` references |
+| **Topic Engineer** | Generates YAML topics + adaptive cards, validates syntax |
+| **QA Challenger** | Reviews all outputs, challenges claims, generates evals |
+| **Repo Checker** | Validates repo integrity after changes (paths, docs, app sync) |
+
+You interact with the lead only. The lead delegates to teammates, they debate and iterate, then the lead executes validated outputs in MCS.
+
+## Account Setup
+
+On first launch, Claude Code prompts you to select your account and environment:
+
+1. Copy `tools/session-config.example.json` to `tools/session-config.json`
+2. Add your tenant, environment ID, and Dataverse URL
+3. Run `pac auth create` for your environment
+4. Sign into [copilotstudio.microsoft.com](https://copilotstudio.microsoft.com) in your browser
+
+Claude verifies the correct account/environment before every browser operation (Preflight Gate).
 
 ## Project Structure
 
-**What's in this repo (shareable):**
 ```
-MCS-Agent-Automation/
-├── .claude/
-│   ├── settings.json       # MCP servers pre-configured
-│   └── skills/             # Automation workflows
-│       ├── mcs-init/
-│       ├── mcs-research/
-│       ├── mcs-architect/
-│       ├── mcs-scenario/
-│       ├── mcs-build-agent/
-│       ├── mcs-build-specialist/
-│       ├── mcs-build-orchestrator/
-│       └── mcs-eval/
-├── templates/
-│   ├── agent-spec.md       # Agent spec template
-│   ├── scenarios.md        # Scenario conversation template
-│   ├── boundaries.csv      # Boundary test template
-│   ├── golden-examples.csv # Quality benchmark template
-│   └── usecase.md          # Use case template
-├── CLAUDE.md               # Instructions & framework for Claude
-├── README.md
-└── .gitignore
-```
+.claude/
+  settings.json             MCP servers, permissions, Agent Teams flag
+  skills/                   6 automation skills
+    mcs-init/               Create project folder
+    mcs-context/            Pull M365 history via WorkIQ
+    mcs-research/           Read docs + full enrichment → brief.json + evals
+    mcs-build/              Build agent(s) in MCS via hybrid stack
+    mcs-eval/               Run eval tests → brief.json evalResults
+    mcs-refresh/            Refresh knowledge cache
+  agents/                   5 AI teammate definitions
 
-**What gets created locally per project (gitignored):**
-```
-Build-Guides/ProjectName/
-├── [source].docx/.md    # Original customer SDR documents
-├── agent-spec.md        # THE build blueprint (extracted from SDR)
-├── scenarios.md         # Generated conversation scenarios
-├── evals.csv            # Generated for MCS upload
-└── sdr-raw.md           # Raw SDR content (if pasted)
+app/
+  index.html                Dashboard UI
+  server.py                 FastAPI backend (CRUD, file upload, doc conversion)
+  terminal-server.js        Claude Code terminal (WebSocket + node-pty)
+  generate-data.py          Build-Guides scanner
+
+knowledge/
+  learnings/                8 experience-based topic files (grows with each build)
+  cache/                    18 MCS capability cheat sheets (refreshable)
+  patterns/                 YAML reference, Playwright patterns, Dataverse API patterns
+    topic-patterns/         9 reusable topic YAML templates
+  frameworks/               Component selection, architecture scoring, tool priority
+
+templates/                  brief.json (single source of truth schema)
+tools/                      direct-line-test.js, dataverse-helper.ps1, pac-mcp-wrapper.js
+Build-Guides/               Per-project work (gitignored, private per user)
 ```
 
-## Core Principles
+## MCP Servers
 
-1. **Spec is the blueprint** - agent-spec.md drives every build
-2. **Evals verify quality** - generated from spec, run after build
-3. **Multi-agent first** - decompose into specialists (score objectively)
-4. **Never assume** - research broadly (web, docs, UI, GitHub), present options, recommend
-5. **MVP first** - build what's possible now, plan what's blocked
-6. **Build specialists first** - children before orchestrator
+Pre-configured in `.claude/settings.json`:
 
-## MCP Configuration
-
-Already configured in `.claude/settings.json`:
-
-| MCP Server | Package | Purpose |
-|------------|---------|---------|
-| playwright | `@playwright/mcp` | Browser automation |
-| microsoft-learn | `https://learn.microsoft.com/api/mcp` | Documentation |
-| workiq | `@microsoft/workiq` | M365 data (optional) |
-
-If you need to reconfigure, edit `.claude/settings.json` or use `/mcp` in Claude Code.
+| Server | Purpose |
+|--------|---------|
+| `playwright` | Browser automation for MCS UI (Edge) |
+| `microsoft-learn` | Official Microsoft documentation search |
+| `workiq` | M365 data search (emails, meetings, docs, Teams) |
+| `pac-cli` | PAC CLI operations via MCP protocol |
 
 ## Troubleshooting
 
-**Browser not opening:**
-```bash
-npx -y @playwright/mcp@latest
-```
+| Problem | Fix |
+|---------|-----|
+| Dashboard won't start | `pip install fastapi uvicorn markitdown` then `python app/server.py` |
+| PAC CLI not connecting | `pac auth list` to check profiles, `pac copilot list` to test |
+| Wrong MCS environment | Claude checks via Preflight Gate — it will prompt you to switch |
+| .docx files not converting | `pip install 'markitdown[all]'` |
+| Terminal not spawning | `npm install` in repo root (needs node-pty + ws) |
 
-**Wrong MCS environment:**
-- Claude always verifies environment before building
-- If wrong, it will prompt you to switch
+## Feedback
 
-**MCP not connecting:**
-- Run `/mcp` in Claude Code to check status
-- Restart Claude Code if needed
-
-**.docx files not converting:**
-- Install pandoc: `winget install pandoc` or download from pandoc.org
-- Pandoc path may be: `C:\Users\[username]\AppData\Local\Pandoc\pandoc.exe`
+Found a bug or have a suggestion? [Open an issue](https://github.com/damgyeah/MCS-Agent-Automation/issues/new).
 
 ## License
 

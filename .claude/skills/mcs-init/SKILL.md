@@ -29,7 +29,7 @@ Check what's already in the folder:
 Found SDR files in Build-Guides/[ProjectName]/:
 - [list files]
 
-Next step: Run `/mcs-architect ProjectName` to analyze SDR and generate agent-spec.md
+Next step: Run `/mcs-research ProjectName` to identify agents and research components
 ```
 
 If `.docx` files exist, convert them to `.md` using pandoc:
@@ -39,8 +39,8 @@ pandoc "file.docx" -t gfm -o "file.md"
 Note: pandoc may be at `C:\Users\kimdennis\AppData\Local\Pandoc\pandoc.exe` on this machine.
 
 **Path B: No SDR files, start from scratch**
-Copy `templates/agent-spec.md` → Project folder.
-Replace `[Agent Name]` with the project name.
+No template needed — `/mcs-research` will create brief.json during Phase A (agent identification).
+Guide the user to describe the agent or upload docs, then run research.
 
 ### Step 3: Guide User
 
@@ -54,10 +54,10 @@ Replace `[Agent Name]` with the project name.
 - [list of converted .md files]
 
 **Workflow:**
-1. Run `/mcs-architect [ProjectName]` → Analyzes SDR, generates agent-spec.md
-2. Review agent-spec.md, fill any gaps
-3. Run `/mcs-build-agent` or `/mcs-build-specialist` + `/mcs-build-orchestrator`
-4. Run `/mcs-eval [ProjectName]` → Generate and upload evals
+1. (Optional) Run `/mcs-context [CustomerName]` → Pull M365 history via WorkIQ
+2. Click **Research** or run `/mcs-research [ProjectName]` → Read docs, identify agents, research components, enrich brief.json + generate evals
+3. Click **Build** or run `/mcs-build [ProjectName] [agentId]` → Build in MCS
+4. Click **Evaluate** or run `/mcs-eval [ProjectName] [agentId]` → Run tests
 ```
 
 **If starting from scratch:**
@@ -67,13 +67,13 @@ Replace `[Agent Name]` with the project name.
 **Location:** Build-Guides/[ProjectName]/
 
 **Files Created:**
-- agent-spec.md - The build blueprint (fill out or paste requirements)
+- (brief.json will be created when you run /mcs-research)
 
 **Workflow:**
-1. Paste SDR/requirements into chat, or fill out agent-spec.md directly
-2. Run `/mcs-architect [ProjectName]` to design architecture
-3. Run `/mcs-build-agent` or `/mcs-build-specialist` + `/mcs-build-orchestrator`
-4. Run `/mcs-eval [ProjectName]` → Generate and upload evals
+1. (Recommended) Run `/mcs-context [CustomerName]` → Pull M365 history via WorkIQ
+2. Click **Research** or run `/mcs-research [ProjectName]` → Read docs, identify agents, research components, enrich brief.json + generate evals
+3. Click **Build** or run `/mcs-build [ProjectName] [agentId]` → Build in MCS
+4. Click **Evaluate** or run `/mcs-eval [ProjectName] [agentId]` → Run tests
 ```
 
 ## Output

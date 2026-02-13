@@ -1,0 +1,147 @@
+#!/usr/bin/env node
+/**
+ * Terminal WebSocket server using node-pty.
+ * Spawns Claude Code directly on connect (no cmd.exe shell).
+ *
+ * Port 8001, WebSocket at /ws.
+ *
+ * Protocol:
+ *   Client → Server:
+ *     {"type":"init","cols":N,"rows":N}       → spawn Claude Code
+ *     {"type":"resize","cols":N,"rows":N}     → resize PTY
+ *     {"type":"command","text":"..."}          → type prompt + submit
+ *     plain text                               → raw terminal input
+ *   Server → Client:
+ *     plain text                               → terminal output
+ */
+
+const pty = require("node-pty");
+const WebSocket = require("ws");
+const path = require("path");
+const os = require("os");
+
+const PORT = 8001;
+const BASE_DIR = path.resolve(__dirname, "..");
+
+// Resolve Claude Code entry point directly (skip .cmd batch wrapper)
+const CLAUDE_CLI = path.join(
+  os.homedir(),
+  "AppData", "Roaming", "npm",
+  "node_modules", "@anthropic-ai", "claude-code", "cli.js"
+);
+const NODE_EXE = process.execPath; // same node that runs this server
+
+const wss = new WebSocket.Server({ port: PORT });
+console.log(`Terminal server listening on ws://localhost:${PORT}`);
+console.log(`  Claude CLI: ${CLAUDE_CLI}`);
+console.log(`  Node: ${NODE_EXE}`);
+console.log(`  CWD: ${BASE_DIR}`);
+
+wss.on("connection", (ws) => {
+  let ptyProc = null;
+  let initialized = false;
+  let ready = false;
+  let pending = null; // queued command waiting for Claude to be ready
+
+  function spawn(cols, rows) {
+    try {
+      // Spawn node directly with Claude's CLI entry point — no cmd.exe, no .cmd wrapper
+      ptyProc = pty.spawn(NODE_EXE, [CLAUDE_CLI], {
+        name: "xterm-256color",
+        cols,
+        rows,
+        cwd: BASE_DIR,
+        env: {
+          ...process.env,
+          TERM: "xterm-256color",
+          COLORTERM: "truecolor",
+        },
+      });
+    } catch (err) {
+      ws.send(`\r\nFailed to start Claude Code: ${err.message}\r\n`);
+      return;
+    }
+
+    ptyProc.onData((data) => {
+      if (ws.readyState === WebSocket.OPEN) ws.send(data);
+
+      // Detect Claude's input prompt to know when it's ready
+      if (!ready && (data.includes("\u276f") || data.includes("/help"))) {
+        ready = true;
+        flush();
+      }
+    });
+
+    ptyProc.onExit(({ exitCode }) => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(`\r\n\x1b[90m[Claude Code exited ${exitCode}]\x1b[0m\r\n`);
+      }
+      ptyProc = null;
+      initialized = false;
+      ready = false;
+    });
+
+    // Fallback: if prompt detection misses, mark ready after 6s
+    setTimeout(() => {
+      if (!ready) { ready = true; flush(); }
+    }, 6000);
+  }
+
+  function flush() {
+    if (pending && ptyProc) {
+      submit(pending);
+      pending = null;
+    }
+  }
+
+  function submit(text) {
+    if (!ptyProc) return;
+    ptyProc.write(text);
+    // Small delay then Enter — lets Claude's TUI ingest the text first
+    setTimeout(() => { if (ptyProc) ptyProc.write("\r"); }, 120);
+  }
+
+  ws.on("message", (raw) => {
+    const msg = raw.toString();
+
+    if (msg.startsWith("{")) {
+      try {
+        const m = JSON.parse(msg);
+
+        // Resize
+        if (m.type === "resize" && ptyProc) {
+          ptyProc.resize(m.cols || 120, m.rows || 30);
+          return;
+        }
+
+        // Command — type into Claude and press Enter
+        if (m.type === "command" && m.text) {
+          if (ptyProc && ready) {
+            submit(m.text);
+          } else if (ptyProc) {
+            pending = m.text;           // Claude starting, queue it
+          } else {
+            pending = m.text;           // Nothing running, start + queue
+            initialized = true;
+            spawn(m.cols || 120, m.rows || 30);
+          }
+          return;
+        }
+
+        // Init — start Claude Code
+        if (m.type === "init" && !initialized) {
+          initialized = true;
+          spawn(m.cols || 120, m.rows || 30);
+          return;
+        }
+      } catch { /* not JSON, fall through */ }
+    }
+
+    // Raw keystrokes from xterm.js
+    if (ptyProc) ptyProc.write(msg);
+  });
+
+  ws.on("close", () => {
+    if (ptyProc) try { ptyProc.kill(); } catch {}
+  });
+});
