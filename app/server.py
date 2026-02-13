@@ -92,7 +92,11 @@ def _scan_docs(folder: Path) -> list[dict]:
 
 
 def _calc_readiness(brief: dict | None) -> int:
-    """Calculate brief readiness as a percentage (0-100)."""
+    """Calculate brief readiness as a percentage (0-100).
+
+    Uses 12 checks — same as the client-side renderReadinessPanel — so the
+    percentage shown on the project page matches the agent design page ring.
+    """
     if not brief:
         return 0
     s1 = brief.get("step1", {})
@@ -102,20 +106,52 @@ def _calc_readiness(brief: dict | None) -> int:
     evals = brief.get("evals", [])
     open_qs = brief.get("openQuestions", [])
     unanswered = [q for q in open_qs if q.get("question") and not q.get("answer")]
+    build_status = brief.get("buildStatus", {})
+    eval_results = brief.get("evalResults", {})
 
     checks = [
-        bool(s1.get("problem")),
-        bool(s4.get("architectureRecommendation")),
-        len([s for s in s3.get("systems", []) if s.get("name")]) > 0,
+        bool(s1.get("problem")),                                                        # Problem statement
+        bool(s4.get("architectureRecommendation")),                                     # Architecture
+        bool(brief.get("instructions")),                                                # Instructions
+        len([s for s in s3.get("systems", []) if s.get("name")]) + len(s3.get("topics", [])) > 0,  # Components
+        len([k for k in s3.get("knowledge", []) if k.get("name")]) > 0,                # Knowledge
+        len([s for s in s2.get("scenarios", []) if s.get("userSays")]) >= 3,            # Scenarios
+        len(evals) > 0,                                                                 # Evals defined
+        bool(s2.get("handle") or s2.get("decline") or s2.get("refuse")),                # Boundaries
+        len(s4.get("channels", [])) > 0,                                                # Channels
+        len(unanswered) == 0,                                                           # Questions resolved
+        build_status.get("status") == "published",                                      # Build published
+        bool(eval_results.get("summary", {}).get("total", 0) > 0),                     # Eval results
+    ]
+    return round(sum(checks) / len(checks) * 100)
+
+
+def _is_build_ready(brief: dict | None) -> bool:
+    """All 10 pre-build design checks must pass before build is allowed.
+
+    Excludes 'Build published' and 'Eval results' (those happen AFTER build).
+    """
+    if not brief:
+        return False
+    s1 = brief.get("step1", {})
+    s2 = brief.get("step2", {})
+    s3 = brief.get("step3", {})
+    s4 = brief.get("step4", {})
+    evals = brief.get("evals", [])
+    open_qs = brief.get("openQuestions", [])
+    unanswered = [q for q in open_qs if q.get("question") and not q.get("answer")]
+    return all([
+        s1.get("problem"),
+        s4.get("architectureRecommendation"),
+        brief.get("instructions"),
+        len([s for s in s3.get("systems", []) if s.get("name")]) + len(s3.get("topics", [])) > 0,
         len([k for k in s3.get("knowledge", []) if k.get("name")]) > 0,
         len([s for s in s2.get("scenarios", []) if s.get("userSays")]) >= 3,
         len(evals) > 0,
-        bool(s2.get("handle") or s2.get("decline") or s2.get("refuse")),
+        s2.get("handle") or s2.get("decline") or s2.get("refuse"),
         len(s4.get("channels", [])) > 0,
         len(unanswered) == 0,
-        bool(brief.get("instructions")),
-    ]
-    return round(sum(checks) / len(checks) * 100)
+    ])
 
 
 def _scan_agents(folder: Path) -> list[dict]:
@@ -142,6 +178,7 @@ def _scan_agents(folder: Path) -> list[dict]:
                 "has_evals": (agent_dir / "evals.csv").exists(),
                 "has_build_report": (agent_dir / "build-report.md").exists(),
                 "readiness": _calc_readiness(brief),
+                "build_ready": _is_build_ready(brief),
                 "folder": str(agent_dir.relative_to(folder)),
             })
     return agents

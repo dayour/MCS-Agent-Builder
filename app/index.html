@@ -573,7 +573,7 @@
               </div>
               <div class="flex items-center gap-1.5 shrink-0">
                 <button onclick="openWizard('${p.id}','${a.id}')" class="text-[11px] font-medium px-3 py-1.5 rounded-md transition-colors" style="color:var(--accent);background:var(--accent-bg)">Design</button>
-                <button onclick="triggerBuildForAgent('${p.id}','${a.id}','${a.name.replace(/'/g, "\\'")}')" class="text-[11px] font-medium px-3 py-1.5 rounded-md transition-colors ${a.readiness >= 60 ? '' : 'opacity-30 cursor-not-allowed'}" style="${a.readiness >= 60 ? 'color:var(--green);background:rgba(16,185,129,0.1)' : 'color:var(--text-f)'}" ${a.readiness < 60 ? 'disabled' : ''}>Build</button>
+                <button onclick="triggerBuildForAgent('${p.id}','${a.id}','${a.name.replace(/'/g, "\\'")}')" class="text-[11px] font-medium px-3 py-1.5 rounded-md transition-colors ${a.build_ready ? '' : 'opacity-30 cursor-not-allowed'}" style="${a.build_ready ? 'color:var(--green);background:rgba(16,185,129,0.1)' : 'color:var(--text-f)'}" ${a.build_ready ? '' : 'disabled'}>Build</button>
                 <button onclick="deleteAgent('${p.id}','${a.id}','${a.name.replace(/'/g, "\\'")}')" class="p-1.5 rounded-md transition-colors hover:opacity-100 opacity-30" style="color:var(--red)" title="Delete">
                   <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                 </button>
@@ -993,6 +993,7 @@
 
     function getBriefReadiness(s1, s2, s3, s4, evals) {
       // Categorize: empty → basic (doc-extracted) → enriched (researched)
+      // Used for banner display only — does NOT gate the Build button.
       const hasBasic = !!(s1?.problem);
       const hasComponents = (s3?.systems || []).filter(s => s.name).length > 0;
       const hasArchReason = !!(s4?.architectureReason);
@@ -1003,6 +1004,22 @@
       if (!hasBasic) return 'empty';
       if (hasComponents && hasArchReason && hasEvals && hasScenarios && hasInstructions) return 'enriched';
       return 'basic';
+    }
+
+    function isBuildReady(s1, s2, s3, s4, evals, openQs) {
+      // All 10 pre-build design checks must pass. Mirrors server-side _is_build_ready().
+      // Excludes "Build published" and "Eval results" (those happen AFTER build).
+      const unanswered = (openQs || []).filter(q => q.question && !q.answer);
+      return !!(s1?.problem)
+        && !!(s4?.architectureRecommendation)
+        && !!(wizardState.instructions)
+        && ((s3?.systems || []).filter(s => s.name).length + (s3?.topics || []).length) > 0
+        && (s3?.knowledge || []).filter(k => k.name).length > 0
+        && (s2?.scenarios || []).filter(s => s.userSays).length >= 3
+        && (evals || []).length > 0
+        && !!(s2?.handle || s2?.decline || s2?.refuse)
+        && (s4?.channels || []).length > 0
+        && unanswered.length === 0;
     }
 
     function renderBrief() {
@@ -1052,15 +1069,15 @@
 
       renderReadinessPanel(s1, s2, s3, s4, evals, openQs);
 
-      // Show action buttons in header — Build only after research
+      // Show action buttons in header — Build only when all 10 pre-build checks pass
       const actionsEl = document.getElementById('brief-actions');
       if (actionsEl && readiness !== 'empty') {
-        const buildEnabled = readiness === 'enriched';
+        const buildEnabled = isBuildReady(s1, s2, s3, s4, evals, openQs);
         const isPublished = (wizardState.buildStatus || {}).status === 'published';
         actionsEl.innerHTML = `
           <button onclick="researchAndEnrich()" class="px-4 py-2 text-xs font-medium rounded-lg transition-all flex items-center gap-1.5" style="color:var(--accent);border:1px solid color-mix(in srgb, var(--accent) 30%, transparent)" onmouseover="this.style.background='var(--accent-bg)'" onmouseout="this.style.background=''">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-            Research
+            Re-research
           </button>
           ${buildEnabled
             ? `<button onclick="triggerBuild()" class="px-5 py-2.5 text-sm font-semibold rounded-xl transition-all flex items-center gap-2" style="background:var(--accent);color:white;box-shadow:0 4px 14px -2px color-mix(in srgb, var(--accent) 40%, transparent)">
