@@ -339,7 +339,7 @@ CREATE → UPLOAD → RESEARCH → [UPDATE] → BUILD → EVALUATE
 
 ---
 
-## Skills (7 total)
+## Skills (9 total — 7 workflow + 2 utility)
 
 | Skill | Purpose | Dashboard Button |
 |-------|---------|-----------------|
@@ -350,6 +350,8 @@ CREATE → UPLOAD → RESEARCH → [UPDATE] → BUILD → EVALUATE
 | **mcs-build** | Build agent(s) in MCS via hybrid stack | **Build** |
 | **mcs-eval** | Run eval tests, write results to brief.json | **Evaluate** |
 | **mcs-refresh** | Refresh knowledge cache files | None (CLI) |
+| **bug** | File bug reports via `gh` CLI | Sidebar button |
+| **suggest** | File feature suggestions via `gh` CLI | Sidebar button |
 
 ---
 
@@ -541,20 +543,24 @@ See `knowledge/README.md` for full details.
 ## Project Structure
 
 ```
-.github/ISSUE_TEMPLATE/     # Bug report & feedback templates
+.github/
+├── ISSUE_TEMPLATE/         # Bug report, feedback & suggestion templates (3)
+└── CODEOWNERS              # Code ownership rules
 start.js                    # One-command launcher (npm start)
 package.json                # Node dependencies & scripts
 
 .claude/
 ├── settings.json           # MCP servers, permissions, Agent Teams env flag
-├── skills/                 # 7 automation skills
+├── skills/                 # 9 skills (7 workflow + 2 utility)
 │   ├── mcs-init/           # Create project folder
 │   ├── mcs-context/        # Pull M365 history via WorkIQ
 │   ├── mcs-research/       # Read docs + full enrichment → brief.json + evals
 │   ├── mcs-update/         # Incremental brief update from new/changed docs
 │   ├── mcs-build/          # Build agent(s) in MCS via hybrid stack
 │   ├── mcs-eval/           # Run eval tests → brief.json evalResults
-│   └── mcs-refresh/        # Refresh knowledge cache
+│   ├── mcs-refresh/        # Refresh knowledge cache
+│   ├── bug/                # File bug reports via gh CLI
+│   └── suggest/            # File feature suggestions via gh CLI
 └── agents/                 # Agent Teams teammate definitions
     ├── research-analyst.md # MCS capability researcher
     ├── prompt-engineer.md  # Instructions & Custom Prompt specialist
@@ -591,7 +597,8 @@ tools/
 ├── dataverse-helper.ps1    # PowerShell Dataverse Web API helper
 ├── fetch-instructions.ps1  # Fetch agent instructions from Dataverse
 ├── pac-mcp-wrapper.js      # PAC CLI MCP server wrapper
-└── session-config.example.json  # Account/environment config template
+├── session-config.example.json  # Account/environment config template
+└── git-hooks/pre-commit    # Core file protection hook (installed by start.js)
 
 Build-Guides/[Project]/     # Per-project work (gitignored)
 ├── agents/[name]/

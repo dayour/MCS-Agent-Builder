@@ -54,15 +54,20 @@ def humanize_name(folder_name):
     return name.title()
 
 
+def _is_v2(brief):
+    """Check if brief uses v2 schema (named sections) vs v1 (step1-4)."""
+    return brief.get("_schema") == "2.0" or "agent" in brief
+
+
 def determine_stage(agents):
     """Determine the furthest pipeline stage from agent data.
 
     Stage progression: discovery → context → research → build → eval → deployed
+    Supports both v1 (step1-4) and v2 (named sections) brief schemas.
     """
     if not agents:
         return "discovery"
 
-    # Check the most advanced agent
     best_stage = "discovery"
     stage_order = ["discovery", "context", "research", "build", "eval", "deployed"]
 
@@ -79,13 +84,22 @@ def determine_stage(agents):
         elif brief.get("buildStatus", {}).get("status") in ("published", "in_progress"):
             agent_stage = "build"
         # Check if fully researched (has instructions + architecture)
-        elif brief.get("instructions") and brief.get("step4", {}).get("architectureRecommendation"):
-            agent_stage = "research"
-        # Check if has basic data
-        elif brief.get("step1", {}).get("problem"):
-            agent_stage = "context"
+        elif _is_v2(brief):
+            arch = brief.get("architecture", {})
+            if brief.get("instructions") and arch.get("type"):
+                agent_stage = "research"
+            elif brief.get("business", {}).get("problemStatement") or brief.get("agent", {}).get("name"):
+                agent_stage = "context"
+            else:
+                agent_stage = "discovery"
         else:
-            agent_stage = "discovery"
+            # v1 fallback
+            if brief.get("instructions") and brief.get("step4", {}).get("architectureRecommendation"):
+                agent_stage = "research"
+            elif brief.get("step1", {}).get("problem"):
+                agent_stage = "context"
+            else:
+                agent_stage = "discovery"
 
         if stage_order.index(agent_stage) > stage_order.index(best_stage):
             best_stage = agent_stage
@@ -108,7 +122,10 @@ def count_csv_rows(filepath):
 # ---------------------------------------------------------------------------
 
 def scan_agents(project_folder):
-    """Scan agents/ subfolder for per-agent brief.json files."""
+    """Scan agents/ subfolder for per-agent brief.json files.
+
+    Supports both v1 (step1-4) and v2 (named sections) brief schemas.
+    """
     agents_dir = project_folder / "agents"
     agents = []
 
@@ -127,12 +144,6 @@ def scan_agents(project_folder):
             except Exception:
                 pass
 
-        s1 = brief.get("step1", {}) if brief else {}
-        s2 = brief.get("step2", {}) if brief else {}
-        s3 = brief.get("step3", {}) if brief else {}
-        s4 = brief.get("step4", {}) if brief else {}
-        evals = brief.get("evals", []) if brief else []
-
         # Readiness calculation
         readiness = calc_readiness(brief) if brief else 0
 
@@ -144,15 +155,53 @@ def scan_agents(project_folder):
         # Eval count from per-agent evals.csv
         eval_count = count_csv_rows(agent_dir / "evals.csv") if agent_files.get("evals_csv") else 0
 
+        # Extract data from v2 or v1 schema
+        if brief and _is_v2(brief):
+            agent_sec = brief.get("agent", {})
+            biz = brief.get("business", {})
+            arch = brief.get("architecture", {})
+            integ = brief.get("integrations", [])
+            know = brief.get("knowledge", [])
+            evals = brief.get("evals", [])
+
+            agent_name = agent_sec.get("name", "") or humanize_name(agent_dir.name)
+            description = (biz.get("problemStatement", "") or biz.get("useCase", ""))[:300]
+            architecture = arch.get("type", "tbd")
+            architecture_score = arch.get("score", "TBD")
+            model = arch.get("model", "TBD")
+            tools = [i.get("name", "") for i in integ if i.get("name")][:10]
+            knowledge = [k.get("name", "") for k in know if k.get("name")][:10]
+        elif brief:
+            # v1 fallback
+            s1 = brief.get("step1", {})
+            s3 = brief.get("step3", {})
+            s4 = brief.get("step4", {})
+
+            agent_name = s1.get("agentName", humanize_name(agent_dir.name))
+            description = s1.get("problem", "")[:300]
+            architecture = s4.get("architectureRecommendation", "tbd")
+            architecture_score = s4.get("architectureScore", "TBD")
+            model = s4.get("model", "TBD")
+            tools = [s.get("name", "") for s in s3.get("systems", []) if s.get("name")][:10]
+            knowledge = [k.get("name", "") for k in s3.get("knowledge", []) if k.get("name")][:10]
+        else:
+            agent_name = humanize_name(agent_dir.name)
+            description = ""
+            architecture = "tbd"
+            architecture_score = "TBD"
+            model = "TBD"
+            tools = []
+            knowledge = []
+
         agents.append({
             "id": agent_dir.name,
-            "name": s1.get("agentName", humanize_name(agent_dir.name)),
-            "description": s1.get("problem", "")[:300],
-            "architecture": s4.get("architectureRecommendation", "tbd"),
-            "architecture_score": s4.get("architectureScore", "TBD"),
-            "model": s4.get("model", "TBD"),
-            "tools": [s.get("name", "") for s in s3.get("systems", []) if s.get("name")][:10],
-            "knowledge": [k.get("name", "") for k in s3.get("knowledge", []) if k.get("name")][:10],
+            "name": agent_name,
+            "description": description,
+            "architecture": architecture,
+            "architecture_score": architecture_score,
+            "model": model,
+            "tools": tools,
+            "knowledge": knowledge,
             "has_brief": brief is not None,
             "has_instructions": bool(brief.get("instructions")) if brief else False,
             "has_evals": agent_files.get("evals_csv", False),
@@ -167,29 +216,62 @@ def scan_agents(project_folder):
 
 
 def calc_readiness(brief):
-    """Calculate brief readiness as a percentage (0-100)."""
+    """Calculate brief readiness as a percentage (0-100).
+
+    Supports both v1 (step1-4) and v2 (named sections) brief schemas.
+    Matches server.py _calc_readiness() logic.
+    """
     if not brief:
         return 0
-    s1 = brief.get("step1", {})
-    s2 = brief.get("step2", {})
-    s3 = brief.get("step3", {})
-    s4 = brief.get("step4", {})
+
     evals = brief.get("evals", [])
     open_qs = brief.get("openQuestions", [])
     unanswered = [q for q in open_qs if q.get("question") and not q.get("answer")]
+    build_status = brief.get("buildStatus", {})
+    eval_results = brief.get("evalResults", {})
 
-    checks = [
-        bool(s1.get("problem")),
-        bool(s4.get("architectureRecommendation")),
-        len([s for s in s3.get("systems", []) if s.get("name")]) > 0,
-        len([k for k in s3.get("knowledge", []) if k.get("name")]) > 0,
-        len([s for s in s2.get("scenarios", []) if s.get("userSays")]) >= 3,
-        len(evals) > 0,
-        bool(s2.get("handle") or s2.get("decline") or s2.get("refuse")),
-        len(s4.get("channels", [])) > 0,
-        len(unanswered) == 0,
-        bool(brief.get("instructions")),  # instructions written
-    ]
+    if _is_v2(brief):
+        biz = brief.get("business", {})
+        arch = brief.get("architecture", {})
+        integ = brief.get("integrations", [])
+        know = brief.get("knowledge", [])
+        convos = brief.get("conversations", {})
+        bounds = brief.get("boundaries", {})
+        scenarios = brief.get("scenarios", [])
+
+        checks = [
+            bool(biz.get("problemStatement") or biz.get("useCase")),
+            bool(arch.get("type")),
+            bool(brief.get("instructions")),
+            len([i for i in integ if i.get("name")]) + len(convos.get("topics", [])) > 0,
+            len([k for k in know if k.get("name")]) > 0,
+            len([s for s in scenarios if s.get("userSays")]) >= 3,
+            len(evals) > 0,
+            bool(bounds.get("handle") or bounds.get("decline") or bounds.get("refuse")),
+            len([c for c in arch.get("channels", []) if (c.get("name") if isinstance(c, dict) else c)]) > 0,
+            len(unanswered) == 0,
+            build_status.get("status") == "published",
+            bool(eval_results.get("summary", {}).get("total", 0) > 0),
+        ]
+    else:
+        # v1 fallback
+        s1 = brief.get("step1", {})
+        s2 = brief.get("step2", {})
+        s3 = brief.get("step3", {})
+        s4 = brief.get("step4", {})
+
+        checks = [
+            bool(s1.get("problem")),
+            bool(s4.get("architectureRecommendation")),
+            len([s for s in s3.get("systems", []) if s.get("name")]) > 0,
+            len([k for k in s3.get("knowledge", []) if k.get("name")]) > 0,
+            len([s for s in s2.get("scenarios", []) if s.get("userSays")]) >= 3,
+            len(evals) > 0,
+            bool(s2.get("handle") or s2.get("decline") or s2.get("refuse")),
+            len(s4.get("channels", [])) > 0,
+            len(unanswered) == 0,
+            bool(brief.get("instructions")),
+        ]
     return round(sum(checks) / len(checks) * 100)
 
 

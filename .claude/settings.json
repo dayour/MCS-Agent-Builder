@@ -24,8 +24,10 @@
   "mcpServers": {
     "playwright": {
       "type": "stdio",
-      "command": "npx",
+      "command": "cmd",
       "args": [
+        "/c",
+        "npx",
         "-y",
         "@playwright/mcp@latest",
         "--browser",
@@ -38,8 +40,10 @@
     },
     "workiq": {
       "type": "stdio",
-      "command": "npx",
+      "command": "cmd",
       "args": [
+        "/c",
+        "npx",
         "-y",
         "@microsoft/workiq",
         "mcp"

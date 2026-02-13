@@ -106,7 +106,7 @@ start.js                    One-command launcher (npm start)
 
 .claude/
   settings.json             MCP servers, permissions, Agent Teams flag
-  skills/                   7 automation skills
+  skills/                   9 skills (7 workflow + 2 utility)
   agents/                   5 AI teammate definitions
 
 app/
