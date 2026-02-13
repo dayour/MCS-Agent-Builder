@@ -322,8 +322,8 @@ No SDR or requirements available.
 ## Workflow
 
 ```
-CREATE → UPLOAD → RESEARCH → BUILD → EVALUATE
-                  /mcs-research  /mcs-build  /mcs-eval
+CREATE → UPLOAD → RESEARCH → [UPDATE] → BUILD → EVALUATE
+                  /mcs-research  /mcs-update  /mcs-build  /mcs-eval
 ```
 
 | Step | Skill | Input | Output | Agent Teams |
@@ -331,6 +331,7 @@ CREATE → UPLOAD → RESEARCH → BUILD → EVALUATE
 | **Init** | `/mcs-init` | Project name | Folder structure | None |
 | **Context** | `/mcs-context` | Customer name | customer-context.md | None |
 | **Research** | `/mcs-research {projectId}` | docs/ | brief.json (fully enriched) + evals.csv per agent | RA + PE + TE + QA |
+| **Update** | `/mcs-update {projectId}` | new/changed docs/ | brief.json (sections updated) | None |
 | **Build** | `/mcs-build {projectId} {agentId}` | brief.json | MCS agent (published) + build-report.md | TE + QA |
 | **Evaluate** | `/mcs-eval {projectId} {agentId}` | brief.json evals | brief.json evalResults | QA |
 
@@ -338,13 +339,14 @@ CREATE → UPLOAD → RESEARCH → BUILD → EVALUATE
 
 ---
 
-## Skills (6 total)
+## Skills (7 total)
 
 | Skill | Purpose | Dashboard Button |
 |-------|---------|-----------------|
 | **mcs-init** | Create project folder structure | None (API) |
 | **mcs-context** | Pull M365 history via WorkIQ | None (CLI) |
 | **mcs-research** | Read docs, identify agents, research components, design architecture, enrich brief.json + generate evals | **Research** |
+| **mcs-update** | Incremental brief update — analyzes new/changed docs, maps to agents, updates affected brief.json sections | **Update Brief** |
 | **mcs-build** | Build agent(s) in MCS via hybrid stack | **Build** |
 | **mcs-eval** | Run eval tests, write results to brief.json | **Evaluate** |
 | **mcs-refresh** | Refresh knowledge cache files | None (CLI) |
@@ -385,6 +387,26 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 **Uses Agent Teams:** Research Analyst (parallel searches), Prompt Engineer (instructions), Topic Engineer (YAML topics), QA Challenger (review all outputs).
 
 **Iteration:** Customer reviews brief in the dashboard, answers open questions, then user re-runs `/mcs-research {projectId} {agentId}` to re-enrich.
+
+---
+
+## UPDATE: Incremental Brief Update (`/mcs-update`)
+
+**Goal:** Detect new/changed documents, resolve which agent(s) they affect, and surgically update only the affected brief.json sections — preserving user edits.
+
+**Input:** `/mcs-update {projectId}`
+**Reads:** `doc-manifest.json` + new/changed docs in `docs/`
+**Writes:** `brief.json` (affected sections only) + updated `doc-manifest.json`
+
+**When to use:** After `/mcs-research` has completed and user uploads 1-2 more documents. Avoids the full 4-phase research pipeline.
+
+**Flow:** Diff docs vs manifest → resolve agent targeting (tagged or auto-detected) → check drastic change thresholds → analyze new content → show impact summary → user confirms → merge changes preserving user edits → update manifest
+
+**Drastic change thresholds** (any triggers recommendation for full `/mcs-research`): new agent described, architecture change, >4 sections affected, problem statement fundamentally changes, new doc volume > 2x existing.
+
+**Merge rules:** Never overwrite `instructions` or answered `openQuestions`. Append-only for `step2.handle/decline/refuse`, `step3.systems`, `step3.topics`, `evals`. Flag conflicts in `_updateFlags` for user review.
+
+**No Agent Teams, no web research.** Lightweight document analysis only.
 
 ---
 
@@ -525,10 +547,11 @@ package.json                # Node dependencies & scripts
 
 .claude/
 ├── settings.json           # MCP servers, permissions, Agent Teams env flag
-├── skills/                 # 6 automation skills
+├── skills/                 # 7 automation skills
 │   ├── mcs-init/           # Create project folder
 │   ├── mcs-context/        # Pull M365 history via WorkIQ
 │   ├── mcs-research/       # Read docs + full enrichment → brief.json + evals
+│   ├── mcs-update/         # Incremental brief update from new/changed docs
 │   ├── mcs-build/          # Build agent(s) in MCS via hybrid stack
 │   ├── mcs-eval/           # Run eval tests → brief.json evalResults
 │   └── mcs-refresh/        # Refresh knowledge cache
@@ -578,6 +601,7 @@ Build-Guides/[Project]/     # Per-project work (gitignored)
 │   ├── evals-results.json  # Direct Line test results (from /mcs-eval)
 │   └── topics/             # Generated topic YAML files
 ├── docs/                   # Uploaded customer documents
+├── doc-manifest.json       # Document hash manifest (from /mcs-research, for /mcs-update)
 └── customer-context.md     # M365 history (from /mcs-context, optional)
 
 ```

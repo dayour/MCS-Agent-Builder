@@ -45,6 +45,7 @@ You can also run skills directly in Claude Code:
 /mcs-context CustomerName                Pull M365 history (emails, meetings, docs, Teams)
 /mcs-research ProjectName                Read docs, identify agents, full enrichment
 /mcs-research ProjectName agentId        Re-enrich a specific agent after feedback
+/mcs-update ProjectName                  Incremental brief update from new/changed docs
 /mcs-build ProjectName agentId           Build agent(s) in Copilot Studio
 /mcs-eval ProjectName agentId            Run evals, write results
 /mcs-refresh                             Refresh knowledge cache
@@ -105,7 +106,7 @@ start.js                    One-command launcher (npm start)
 
 .claude/
   settings.json             MCP servers, permissions, Agent Teams flag
-  skills/                   6 automation skills
+  skills/                   7 automation skills
   agents/                   5 AI teammate definitions
 
 app/

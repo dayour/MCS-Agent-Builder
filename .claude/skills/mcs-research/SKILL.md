@@ -140,6 +140,36 @@ Proceeding to full MCS component research for all {count} agents...
 
 Then continue directly to Phase B. **Do not stop and wait** — this is a single-pass skill. The user will provide feedback after the full research is complete.
 
+### Step 6.5: Write Document Manifest
+
+Write `doc-manifest.json` to `Build-Guides/{projectId}/` containing every document read during Phase A. This is the baseline for future `/mcs-update` runs.
+
+```json
+{
+  "projectId": "{projectId}",
+  "lastResearchAt": null,
+  "docsProcessed": [
+    {
+      "filename": "sdr-agent-1.md",
+      "sha256": "a1b2c3...",
+      "size": 4520,
+      "processedAt": "2026-02-13T10:30:00Z",
+      "targetAgent": null,
+      "source": "research",
+      "matchedAgents": ["incident-management", "confluence-knowledge"]
+    }
+  ]
+}
+```
+
+For each file in `docs/`:
+- Compute SHA-256 hash of file contents
+- Set `targetAgent: null` (initial research reads everything for all agents)
+- Set `matchedAgents` to all identified agent slugs
+- Set `source: "research"`
+
+This manifest enables `/mcs-update` to detect new/changed documents without re-running the full pipeline.
+
 ## Phase B: Component Research — Use Agent Teams
 
 **Goal:** Research MCS components and recommend the best tools, knowledge sources, model, triggers, and channels for each agent.
@@ -366,6 +396,16 @@ After the terminal output, check if there are learnings worth capturing. This is
 Present to user. If confirmed, write to `knowledge/learnings/{category}.md`.
 
 If the research was routine and nothing surprising was found, skip the summary — don't generate empty learnings.
+
+### Update Document Manifest
+
+After all phases complete, update `doc-manifest.json` with the final `lastResearchAt` timestamp:
+
+```python
+manifest["lastResearchAt"] = datetime.now().isoformat()
+```
+
+This timestamp lets `/mcs-update` know when the last full research was performed.
 
 ---
 

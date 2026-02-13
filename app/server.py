@@ -11,6 +11,7 @@ Usage:
     python app/server.py
 """
 
+import hashlib
 import json
 import os
 import re
@@ -19,8 +20,9 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Request, UploadFile, File
+from fastapi import FastAPI, Form, HTTPException, Request, UploadFile, File
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
@@ -68,18 +70,57 @@ def _ensure_dirs(folder: Path):
     (folder / "docs").mkdir(exist_ok=True)
 
 
+def _file_sha256(fp: Path) -> str:
+    """Compute SHA-256 hex digest of a file."""
+    h = hashlib.sha256()
+    with open(fp, "rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _load_manifest(folder: Path) -> dict | None:
+    """Load doc-manifest.json if it exists."""
+    manifest_path = folder / "doc-manifest.json"
+    if manifest_path.exists():
+        try:
+            return json.loads(manifest_path.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    return None
+
+
 def _scan_docs(folder: Path) -> list[dict]:
-    """Scan docs/ folder for shared customer documents."""
+    """Scan docs/ folder for shared customer documents.
+
+    If doc-manifest.json exists, annotates each doc with isNew (not in manifest
+    or hash changed) so the dashboard can show a badge without a separate API call.
+    """
     docs_dir = folder / "docs"
     docs = []
+
+    # Load manifest for newness annotation
+    manifest = _load_manifest(folder)
+    manifest_hashes = {}
+    if manifest:
+        for entry in manifest.get("docsProcessed", []):
+            manifest_hashes[entry["filename"]] = entry.get("sha256")
+
     if docs_dir.exists():
         for fp in sorted(docs_dir.iterdir()):
             if fp.is_file() and fp.suffix in (".md", ".csv", ".json", ".txt", ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".webp"):
-                docs.append({
+                doc_entry = {
                     "key": fp.stem.replace("-", "_").replace(" ", "_").lower(),
                     "filename": fp.name,
                     "size": fp.stat().st_size,
-                })
+                }
+                # Annotate newness if manifest exists
+                if manifest is not None:
+                    current_hash = _file_sha256(fp)
+                    known_hash = manifest_hashes.get(fp.name)
+                    doc_entry["isNew"] = known_hash is None or known_hash != current_hash
+                docs.append(doc_entry)
+
     # Also check legacy files in project root (backwards compat)
     for fp in sorted(folder.glob("*.md")) + sorted(folder.glob("*.csv")):
         if fp.parent == folder and not fp.name.startswith("build-log"):
@@ -352,11 +393,18 @@ async def save_agent_state(project_id: str, agent_id: str, request: Request):
 
 
 @app.post("/api/projects/{project_id}/upload")
-async def upload_document(project_id: str, file: UploadFile = File(...)):
+async def upload_document(
+    project_id: str,
+    file: UploadFile = File(...),
+    agent_id: Optional[str] = Form(None),
+):
     """Upload a document, convert to markdown via Microsoft MarkItDown.
 
     Supports: .docx .pdf .pptx .xlsx .xls .csv .json .html .txt .md
               .jpg .jpeg .png .gif .bmp .tiff .wav .mp3 .zip .epub
+
+    Optional agent_id form field: when provided and a doc-manifest.json exists,
+    the new file is recorded with targetAgent set to the selected agent.
     """
     folder = BUILD_GUIDES / project_id
     if not folder.is_dir():
@@ -405,6 +453,33 @@ async def upload_document(project_id: str, file: UploadFile = File(...)):
         except Exception as e:
             conversion_error = f"Conversion failed: {str(e)[:200]}"
 
+    # If doc-manifest.json exists, append the new file entry with agent targeting
+    brief_outdated = False
+    manifest_path = folder / "doc-manifest.json"
+    if manifest_path.exists():
+        brief_outdated = True
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            final_name = converted_name or raw_name
+            final_path = docs_dir / final_name
+            file_hash = _file_sha256(final_path) if final_path.exists() else ""
+            # Remove existing entry for this filename (re-upload)
+            manifest["docsProcessed"] = [
+                e for e in manifest.get("docsProcessed", [])
+                if e["filename"] != final_name
+            ]
+            manifest["docsProcessed"].append({
+                "filename": final_name,
+                "sha256": file_hash,
+                "size": final_path.stat().st_size if final_path.exists() else len(content),
+                "processedAt": None,  # Not yet processed by /mcs-update
+                "targetAgent": agent_id if agent_id else None,
+                "source": "tagged" if agent_id else "upload",
+            })
+            manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+        except Exception:
+            pass  # Don't fail the upload if manifest update fails
+
     return {
         "uploaded": True,
         "filename": raw_name,
@@ -412,6 +487,7 @@ async def upload_document(project_id: str, file: UploadFile = File(...)):
         "conversion_error": conversion_error,
         "size": len(content),
         "path": f"Build-Guides/{project_id}/docs/{converted_name or raw_name}",
+        "briefOutdated": brief_outdated,
     }
 
 
@@ -449,6 +525,69 @@ async def paste_text(project_id: str, request: Request):
         "filename": md_name,
         "size": len(text),
         "path": f"Build-Guides/{project_id}/docs/{md_name}",
+    }
+
+
+@app.get("/api/projects/{project_id}/doc-status")
+async def doc_status(project_id: str):
+    """Compare current docs/ against doc-manifest.json to find new/changed/deleted docs.
+
+    Returns whether an incremental update is needed (for the dashboard badge/button).
+    """
+    folder = BUILD_GUIDES / project_id
+    if not folder.is_dir():
+        raise HTTPException(404, f"Project '{project_id}' not found")
+
+    manifest = _load_manifest(folder)
+    if not manifest:
+        return {
+            "hasManifest": False,
+            "lastResearchAt": None,
+            "newDocs": [],
+            "changedDocs": [],
+            "deletedDocs": [],
+            "needsUpdate": False,
+        }
+
+    # Build lookup of manifest entries by filename
+    manifest_entries = {}
+    for entry in manifest.get("docsProcessed", []):
+        manifest_entries[entry["filename"]] = entry
+
+    docs_dir = folder / "docs"
+    new_docs = []
+    changed_docs = []
+    current_filenames = set()
+
+    if docs_dir.exists():
+        for fp in sorted(docs_dir.iterdir()):
+            if not fp.is_file():
+                continue
+            if fp.suffix not in (".md", ".csv", ".json", ".txt", ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".webp"):
+                continue
+            current_filenames.add(fp.name)
+            entry = manifest_entries.get(fp.name)
+            if entry is None:
+                new_docs.append(fp.name)
+            else:
+                current_hash = _file_sha256(fp)
+                if current_hash != entry.get("sha256"):
+                    changed_docs.append(fp.name)
+
+    deleted_docs = [
+        name for name in manifest_entries
+        if name not in current_filenames
+    ]
+
+    needs_update = len(new_docs) > 0 or len(changed_docs) > 0
+
+    return {
+        "hasManifest": True,
+        "lastResearchAt": manifest.get("lastResearchAt"),
+        "newDocs": new_docs,
+        "changedDocs": changed_docs,
+        "deletedDocs": deleted_docs,
+        "needsUpdate": needs_update,
     }
 
 
