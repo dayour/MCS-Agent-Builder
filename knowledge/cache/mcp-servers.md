@@ -145,6 +145,18 @@ Requires Playwright (no API alternative):
 | Availability | Check MCS UI catalog (~25 servers) | Larger catalog (1,400+ connectors) |
 | Custom servers | Build scenario-focused MCP servers via MCP Management Server | Use Power Platform custom connectors |
 
+## Connector-Embedded MCP Servers (Feb 2026 Discovery)
+
+Some Power Platform connectors now include MCP server actions as built-in operations. These are **distinct from the MCS catalog MCP servers** listed above. They appear as actions on the connector reference page with `mcp_` prefixed operation IDs.
+
+| Connector | MCP Operation ID | Description |
+|-----------|-----------------|-------------|
+| **Salesforce** | `mcp_SalesforceManagement` | MCP server for Salesforce management via JSON-RPC. Uses same Salesforce connector auth. |
+
+This is a new pattern where Microsoft embeds MCP server endpoints inside existing connectors. More connectors may have these -- check connector reference pages for `mcp_` operations.
+
+Source: https://learn.microsoft.com/en-us/connectors/salesforce/ (Actions section)
+
 ## Key Facts
 
 - MCP went GA in May 2025 in Copilot Studio
@@ -155,6 +167,7 @@ Requires Playwright (no API alternative):
 - Custom MCP servers: use MCP onboarding wizard or create custom connector in Power Apps
 - ISVs can certify and publish MCP servers to the catalog
 - MCP Management Server enables programmatic creation of custom MCP servers
+- Some connectors now embed MCP server actions (e.g., Salesforce `mcp_SalesforceManagement`) — these are accessed as connector actions, not via the MCP catalog
 
 ## Refresh Notes
 
