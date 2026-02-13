@@ -20,16 +20,47 @@ const WebSocket = require("ws");
 const path = require("path");
 const os = require("os");
 
+const fs = require("fs");
+
 const PORT = 8001;
 const BASE_DIR = path.resolve(__dirname, "..");
 
-// Resolve Claude Code entry point directly (skip .cmd batch wrapper)
-const CLAUDE_CLI = path.join(
-  os.homedir(),
-  "AppData", "Roaming", "npm",
-  "node_modules", "@anthropic-ai", "claude-code", "cli.js"
-);
-const NODE_EXE = process.execPath; // same node that runs this server
+// Resolve Claude Code — supports native install, npm global, or PATH fallback
+function resolveClaude() {
+  // 1. Native installation: ~/.claude-cli/<version>/claude.exe
+  const nativeDir = path.join(os.homedir(), ".claude-cli");
+  if (fs.existsSync(nativeDir)) {
+    try {
+      const versions = fs.readdirSync(nativeDir)
+        .filter(d => fs.statSync(path.join(nativeDir, d)).isDirectory())
+        .sort(); // lexicographic — latest version last
+      if (versions.length > 0) {
+        const latest = versions[versions.length - 1];
+        const exe = path.join(nativeDir, latest, "claude.exe");
+        if (fs.existsSync(exe)) {
+          return { exe, args: [], mode: "native" };
+        }
+      }
+    } catch { /* scan failed, try next */ }
+  }
+
+  // 2. npm global installation: ~/AppData/Roaming/npm/node_modules/@anthropic-ai/claude-code/cli.js
+  const npmCli = path.join(
+    os.homedir(), "AppData", "Roaming", "npm",
+    "node_modules", "@anthropic-ai", "claude-code", "cli.js"
+  );
+  if (fs.existsSync(npmCli)) {
+    return { exe: process.execPath, args: [npmCli], mode: "npm" };
+  }
+
+  // 3. Fallback: assume 'claude' is on PATH (spawned via cmd /c on Windows)
+  if (os.platform() === "win32") {
+    return { exe: "cmd.exe", args: ["/c", "claude"], mode: "path" };
+  }
+  return { exe: "claude", args: [], mode: "path" };
+}
+
+const CLAUDE = resolveClaude();
 
 // Create server with error handling for port conflicts
 const wss = new WebSocket.Server({ port: PORT });
@@ -45,8 +76,7 @@ wss.on("error", (err) => {
 
 wss.on("listening", () => {
   console.log(`Terminal server listening on ws://localhost:${PORT}`);
-  console.log(`  Claude CLI: ${CLAUDE_CLI}`);
-  console.log(`  Node: ${NODE_EXE}`);
+  console.log(`  Claude: ${CLAUDE.exe} ${CLAUDE.args.join(" ")} (${CLAUDE.mode})`);
   console.log(`  CWD: ${BASE_DIR}`);
 });
 
@@ -58,8 +88,8 @@ wss.on("connection", (ws) => {
 
   function spawn(cols, rows) {
     try {
-      // Spawn node directly with Claude's CLI entry point — no cmd.exe, no .cmd wrapper
-      ptyProc = pty.spawn(NODE_EXE, [CLAUDE_CLI], {
+      // Spawn Claude Code — native exe, node+cli.js, or PATH fallback
+      ptyProc = pty.spawn(CLAUDE.exe, CLAUDE.args, {
         name: "xterm-256color",
         cols,
         rows,
