@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CAD Agent Builder — Lightweight CRUD Backend
+"""MCS Agent Builder — Lightweight CRUD Backend
 
 FastAPI server that serves the dashboard, provides project/agent/doc CRUD APIs,
 handles file uploads with conversion, and launches the node-pty terminal sidecar.
@@ -51,7 +51,7 @@ SKIP_FOLDERS = _gen.SKIP_FOLDERS
 # ---------------------------------------------------------------------------
 # App setup
 # ---------------------------------------------------------------------------
-app = FastAPI(title="CAD Agent Builder", version="3.0")
+app = FastAPI(title="MCS Agent Builder", version="3.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -849,7 +849,7 @@ async def serve_dashboard_data():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
-    print(f"CAD Agent Builder — starting on http://localhost:{port}")
+    print(f"MCS Agent Builder — starting on http://localhost:{port}")
     print(f"  Base dir: {BASE_DIR}")
     print(f"  Build Guides: {BUILD_GUIDES}")
     print(f"  Engine: Claude Code terminal (ws://localhost:8001)")
