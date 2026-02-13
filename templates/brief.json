@@ -35,7 +35,7 @@
   "agent": {
     "_meeting": "Section 2 — 'What is this agent?'",
     "name": "Professional agent name",
-    "description": "2-3 sentence plain-English description of what the agent does, for whom, and why",
+    "description": "MCS agent description — what the agent does, for whom (this is what appears in Copilot Studio)",
     "persona": "Tone and personality (e.g., professional, concise, uses bullet points)",
     "responseFormat": "How the agent formats responses (e.g., bullet points, max 3 items, tables for data, confirm before actions)",
     "primaryUsers": "Main user group who will interact most frequently",

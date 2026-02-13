@@ -1254,7 +1254,7 @@
     }
 
     function briefAgentV(agent) {
-      let html = `<p class="text-sm leading-relaxed" style="color:var(--text-s)">${agent.description || '<span style="color:var(--text-f)" class="italic">No description</span>'}</p>`;
+      let html = `<p class="text-sm leading-relaxed" style="color:var(--text-s)">${agent.description || '<span style="color:var(--text-f)" class="italic">No agent description — this is what appears in Copilot Studio</span>'}</p>`;
       if (agent.persona) html += `<div class="mt-2 text-xs" style="color:var(--text-m)"><span class="font-semibold">Persona:</span> ${agent.persona}</div>`;
       if (agent.responseFormat) html += `<div class="text-xs" style="color:var(--text-m)"><span class="font-semibold">Format:</span> ${agent.responseFormat}</div>`;
       if (agent.primaryUsers) html += `<div class="text-xs" style="color:var(--text-m)"><span class="font-semibold">Users:</span> ${agent.primaryUsers}</div>`;
@@ -1513,8 +1513,8 @@
       return `<div class="space-y-3">
         <div><label class="block text-xs font-semibold uppercase mb-1" style="color:var(--text-f)">Agent Name</label>
           <input type="text" data-field="agent.name" value="${esc(agent.name)}" class="w-full rounded-lg px-3 py-2 text-sm focus:outline-none"></div>
-        <div><label class="block text-xs font-semibold uppercase mb-1" style="color:var(--text-f)">Description</label>
-          <textarea data-field="agent.description" rows="3" class="w-full rounded-lg px-3 py-2 text-sm focus:outline-none" placeholder="What the agent does, for whom, and why">${esc(agent.description)}</textarea></div>
+        <div><label class="block text-xs font-semibold uppercase mb-1" style="color:var(--text-f)">Agent Description <span class="font-normal normal-case" style="color:var(--text-f)">— appears in Copilot Studio</span></label>
+          <textarea data-field="agent.description" rows="3" class="w-full rounded-lg px-3 py-2 text-sm focus:outline-none" placeholder="e.g. An AI assistant that helps support staff check order status, track shipments, and resolve delivery issues by connecting to SAP and the support knowledge base.">${esc(agent.description)}</textarea></div>
         <div><label class="block text-xs font-semibold uppercase mb-1" style="color:var(--text-f)">Persona / Tone</label>
           <input type="text" data-field="agent.persona" value="${esc(agent.persona)}" placeholder="e.g. Professional, concise, uses bullet points" class="w-full rounded-lg px-3 py-2 text-sm focus:outline-none"></div>
         <div><label class="block text-xs font-semibold uppercase mb-1" style="color:var(--text-f)">Response Format</label>

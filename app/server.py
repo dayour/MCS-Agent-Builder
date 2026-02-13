@@ -156,7 +156,7 @@ def _migrate_brief(brief: dict) -> dict:
     # Section 2: agent
     brief["agent"] = {
         "name": s1.get("agentName", ""),
-        "description": s1.get("problem", ""),
+        "description": "",  # Left blank — this is the MCS agent description, not the problem statement
         "persona": "",
         "responseFormat": "",
         "primaryUsers": (s1.get("users") or {}).get("primary", ""),
