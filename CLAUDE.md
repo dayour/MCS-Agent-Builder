@@ -185,6 +185,20 @@ Before committing to designs that are hard to undo — schema changes, workflow 
 
 ---
 
+## Bug Reports & Suggestions
+
+Users file bugs and suggestions via the sidebar buttons, which invoke `/bug` and `/suggest` skills through the embedded terminal.
+
+**Issue creation rules:**
+- Repo: always `damgyeah/MCS-Agent-Automation`
+- Labels: `bug` for bugs, `enhancement` for suggestions
+- Always preview title + body before submitting — never auto-submit
+- Use HEREDOC for the `--body` argument to preserve markdown formatting
+- Auto-enrich with session context (project, environment, skill, errors) when available
+- Keep titles under 70 characters (`Bug: ...` or `Suggestion: ...`)
+
+---
+
 ## Learning System — Continuous Improvement
 
 The system captures learnings from every build and makes them available in future research. This creates a **feedback loop**: builds generate insights → insights improve future research → better specs → better builds.

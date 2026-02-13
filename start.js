@@ -141,6 +141,27 @@ function ensurePythonDeps() {
 }
 
 // ---------------------------------------------------------------------------
+// Preflight: install git hooks for core file protection
+// ---------------------------------------------------------------------------
+
+function ensureGitHooks() {
+  const src = path.join(__dirname, "tools", "git-hooks", "pre-commit");
+  const dst = path.join(__dirname, ".git", "hooks", "pre-commit");
+  if (!fs.existsSync(src)) return;
+  try {
+    const srcContent = fs.readFileSync(src, "utf8");
+    const dstExists = fs.existsSync(dst);
+    if (!dstExists || fs.readFileSync(dst, "utf8") !== srcContent) {
+      fs.mkdirSync(path.dirname(dst), { recursive: true });
+      fs.writeFileSync(dst, srcContent, { mode: 0o755 });
+      log("Git hooks installed \u2014 core files protected");
+    }
+  } catch {
+    warn("Could not install git hooks (non-critical)");
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Wait for server to respond
 // ---------------------------------------------------------------------------
 
@@ -197,7 +218,10 @@ if (!ok.every(Boolean)) {
 ensureNodeModules();
 ensurePythonDeps();
 
-// 3. Kill anything still holding our ports from a previous run
+// 3. Install git hooks
+ensureGitHooks();
+
+// 4. Kill anything still holding our ports from a previous run
 log("Checking for stale processes...");
 killPort(PORT_APP);
 killPort(PORT_TERMINAL);
@@ -208,7 +232,7 @@ while (Date.now() - startTime < 500) {
   // busy-wait for socket release
 }
 
-// 4. Start the dashboard server (it manages terminal-server.js as a sidecar)
+// 5. Start the dashboard server (it manages terminal-server.js as a sidecar)
 //    Use spawn without shell to avoid DEP0190 deprecation warning.
 //    On Windows, resolve python to its full path to avoid needing shell: true.
 let pythonCmd = "python";
@@ -242,7 +266,7 @@ server.on("exit", (code) => {
   process.exit(code || 0);
 });
 
-// 5. Wait for dashboard to respond, then open browser
+// 6. Wait for dashboard to respond, then open browser
 waitForReady(URL)
   .then(() => {
     console.log(
@@ -255,7 +279,7 @@ waitForReady(URL)
     warn(`Dashboard may still be starting. Open manually: ${URL}`);
   });
 
-// 6. Graceful shutdown
+// 7. Graceful shutdown
 function shutdown() {
   console.log("\n\x1b[90m  Shutting down...\x1b[0m");
   try {
