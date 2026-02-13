@@ -2380,7 +2380,7 @@
         ws.send(JSON.stringify({ type: 'init', cols: t.cols, rows: t.rows }));
         updateTabStatus(id, 'running');
       };
-      ws.onmessage = (e) => { t.write(e.data); };
+      ws.onmessage = (e) => { t.write(e.data); t.scrollToBottom(); };
       ws.onclose = () => { updateTabStatus(id, 'stopped'); };
       ws.onerror = () => { updateTabStatus(id, 'error'); };
 
