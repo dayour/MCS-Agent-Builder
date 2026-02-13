@@ -31,15 +31,14 @@ Single-pass pipeline: read documents, identify agents, research components, desi
 
 **That's it. Two files.** No research report (future: on-demand export from dashboard). No working-paper files.
 
-## Before Research — Knowledge Cache Check
+## Before Research — Load Frameworks
 
-1. Read ALL cache files in `knowledge/cache/` — check `last_verified` dates
-2. If any file is > 7 days old, run quick refresh:
-   - WebSearch for "[capability] Copilot Studio 2026"
-   - MS Learn MCP for official docs
-   - Update cache file with findings + new date
-3. Read `knowledge/frameworks/component-selection.md` for the research protocol
-4. Read `knowledge/frameworks/architecture-scoring.md` for scoring criteria
+The session startup protocol already checks cache freshness and refreshes stale Tier 1 files. Do NOT re-check all 18 cache files here.
+
+1. Read `knowledge/frameworks/component-selection.md` for the research protocol
+2. Read `knowledge/frameworks/architecture-scoring.md` for scoring criteria
+
+**Cache files are read on-demand** in Phase A (for informed questions) and Phase B (for component research). Only read the specific files needed, not all 18.
 
 ## Phase A: Document Comprehension & Agent Identification
 
@@ -170,65 +169,91 @@ For each file in `docs/`:
 
 This manifest enables `/mcs-update` to detect new/changed documents without re-running the full pipeline.
 
-## Phase B: Component Research — Use Agent Teams
+## Phase B: Component Research — Targeted
 
 **Goal:** Research MCS components and recommend the best tools, knowledge sources, model, triggers, and channels for each agent.
 
-### Check Past Learnings First
+**Key principle:** Don't research all 6 categories live for every agent. Stable categories use cache directly. Only dispatch live research for the agent's specific integration systems.
 
-Before live research, read relevant `knowledge/learnings/` files for experience-based insights:
+### Step 1: Resolve Stable Categories from Cache (Lead)
 
-- `knowledge/learnings/connectors.md` — past connector experiences
-- `knowledge/learnings/integrations.md` — system integration lessons
-- `knowledge/learnings/architecture.md` — architecture decision outcomes
-- `knowledge/learnings/customer-patterns.md` — industry-specific patterns
+These categories are well-documented and change infrequently. Read the cache files directly — no live research needed unless the doc mentions something unusual:
+
+| Category | Cache File | Lead Action |
+|----------|-----------|-------------|
+| **Models** | `knowledge/cache/models.md` | Read cache. Pick model based on agent complexity. |
+| **Channels** | `knowledge/cache/channels.md` | Read cache. Default Teams + Web Chat unless docs say otherwise. |
+| **Triggers** | `knowledge/cache/triggers.md` | Read cache. Match trigger type to agent's activation needs from Phase A. |
+| **Knowledge sources** | `knowledge/cache/knowledge-sources.md` | Read cache. Match to data types from Phase A (SharePoint, files, websites). |
+
+Write these directly to `brief.json`:
+- `step4.model` + `step4.modelReason`
+- `step4.channels`
+- `step4.triggers`
+- `step3.knowledge`
+
+### Step 2: Identify What Needs Live Research
+
+From Phase A extraction, list the agent's **specific external systems** that need MCP/connector lookup:
+
+```
+Example: Agent needs Jira, ServiceNow, Confluence
+→ Research task: "Find MCS MCP servers or connectors for Jira, ServiceNow, Confluence"
+```
+
+**Skip live research if:**
+- The agent only uses Microsoft-native tools (Outlook, SharePoint, Teams) — these are well-documented in cache
+- The agent has no external system integrations (pure knowledge agent)
+- All systems are already in `knowledge/cache/connectors.md` or `knowledge/cache/mcp-servers.md` with recent `last_verified` dates
+
+### Step 3: Check Past Learnings (only relevant files)
+
+Read learnings files only if they're relevant to this agent's systems and non-empty:
+
+- `knowledge/learnings/connectors.md` — if the agent has external connectors
+- `knowledge/learnings/integrations.md` — if the agent has complex integrations
+- `knowledge/learnings/customer-patterns.md` — if there's a matching industry
 
 **How to use learnings:**
-- If a learning matches the current agent's needs (same system, similar use case), note it
-- Present as an additional option: "Official docs recommend X. However, in a past build for [context], we found Y works better because [reason]."
-- Higher `Confirmed` count = higher weight, but never override official docs silently
-- Learnings are options, not defaults — let the user decide
+- Present as an additional option alongside official recommendations
+- Higher `Confirmed` count = higher weight, but user always decides
 
-### Spawn Agent Team
+### Step 4: Live Research via Research Analyst (only if needed)
 
-Create a team and use the **Research Analyst** teammate:
+**If Step 2 identified systems needing live research**, spawn the **Research Analyst** teammate with **targeted tasks only**:
 
 ```
-Research Analyst tasks (run in parallel):
-1. Search for MCP servers matching the agent's integration needs
-2. Search for connectors matching the agent's data sources
-3. Research model options (GPT-4o, GPT-4o mini, GPT-5 Auto, etc.)
-4. Research trigger types matching the agent's activation needs
-5. Research knowledge source options for the agent's data
-6. Research channel deployment options
+Research Analyst tasks (ONLY for systems not resolved from cache):
+- "Find MCS MCP servers or connectors for [System A], [System B]"
+- "What connector auth modes does [System C] support in MCS?"
 ```
 
-For each component category, the Research Analyst should:
-- Check `knowledge/cache/` for baseline
-- WebSearch for latest capabilities
-- MS Learn MCP for official documentation
-- GitHub for community examples
-- Present options with pros/cons
+The RA should:
+- Check `knowledge/cache/connectors.md` + `knowledge/cache/mcp-servers.md` for baseline
+- WebSearch for "[system] Copilot Studio connector" + current year
+- MS Learn MCP for official docs
+- Cross-reference and present options with pros/cons
+
+**If Step 2 found nothing needing live research**, skip the RA entirely — proceed to Phase C.
 
 ### Component Selection Rules
 
 - **MCP > individual connector actions**: When a connector offers an MCP server, ALWAYS prefer MCP
-- **Research broadly**: Don't rely on cache alone — MCS ships features continuously
 - **Present options**: For each need, recommend the best option but note alternatives
 - **Flag preview features**: Note GA vs preview status for each recommendation
 
 ### Update brief.json step3
 
-After research, update:
+After research (live or cache-only), update:
 - `step3.systems` — recommended tools with `toolType` (mcp/connector/flow/ai-tool)
 - `step3.topics` — recommended conversation topics
 - `step3.knowledge` — recommended knowledge sources with types
 
-## Phase C: Architecture Design — Use Agent Teams
+## Phase C: Architecture Design + Instructions
 
 **Goal:** Score architecture, write instructions, and update brief.json with build-ready data.
 
-### Architecture Decision
+### Step 1: Architecture Decision (Lead)
 
 Score single vs multi-agent using the 6-factor framework:
 
@@ -246,37 +271,42 @@ Score single vs multi-agent using the 6-factor framework:
 Update `brief.json step4`:
 - `architectureRecommendation` — "Single Agent" or "Multi-Agent"
 - `architectureReason` — explanation with score
-- `triggers` — recommended trigger types
-- `channels` — recommended deployment channels
+- `architectureScore` — the numeric score
+- `children` — child agents if multi-agent
 
-### Instructions — Use Prompt Engineer
+### Step 2: Instructions — Prompt Engineer (single pass)
 
-Spawn the **Prompt Engineer** teammate to write the agent instructions:
+Spawn the **Prompt Engineer** teammate to write the agent instructions. Provide the PE with:
+- The agent's complete `brief.json` (step1-4 populated from Phases A-B)
+- `knowledge/cache/instructions-authoring.md` for MCS patterns
+
+The PE writes a complete, self-verified draft:
 - Full system prompt ready for MCS (max 8000 chars)
-- Follows MCS instruction patterns from `knowledge/cache/instructions-authoring.md`
+- Follows MCS instruction patterns
 - References tools by their MCS names (e.g., `/SharePointOneDrive`, `/OutlookCalendar`)
 - Includes: identity, capabilities, workflow, response guidelines, boundaries
+- PE runs their own review checklist before returning (char count, reference validity, boundary coverage)
 
-### QA Review
+### Step 3: QA Review (single pass, no iteration)
 
-Spawn the **QA Challenger** to review the Prompt Engineer's output:
+Spawn the **QA Challenger** to review the PE's output in a **single pass**:
 - Verify instructions reference only tools that are in step3.systems
 - Verify boundaries match step2 handle/decline/refuse
 - Verify instruction length < 8000 chars
 - Check for vague language, missing edge cases
-- Challenge any claims about MCS limitations
 
-**Iterate** until QA Challenger approves.
+**QA produces a verdict:**
+- **PASS** — instructions are ready as-is
+- **PASS WITH FIXES** — instructions are good but have specific issues. QA outputs the exact fixes needed (e.g., "Line 4: change `/JiraConnector` to `/Jira`", "Remove reference to `/TopicX` — not configured")
+- **FAIL** — fundamental problems requiring rewrite (rare — only if PE missed something major)
 
-### Write Instructions + Model to brief.json
+**No iteration loop.** If QA returns PASS WITH FIXES, the lead applies the specific fixes directly. If QA returns FAIL, the lead spawns PE again with QA's feedback for one more attempt, then accepts the result.
 
-After QA approval, write the build-ready data directly to `brief.json`:
+### Step 4: Write to brief.json
 
-- `instructions` — full system prompt text (QA-approved, up to 8000 chars)
-- `step4.model` — recommended model with reason
-- `step4.modelReason` — why this model
-- `step4.architectureScore` — score from 6-factor framework
-- `step4.children` — child agents if multi-agent
+Write the build-ready data directly to `brief.json`:
+
+- `instructions` — full system prompt text (QA-reviewed, up to 8000 chars)
 - `mvp.now` — what to build this sprint
 - `mvp.later` — what's deferred and why
 
@@ -288,13 +318,15 @@ Also enrich existing fields with research findings:
 - `step3.topics[].triggerType` — how each topic is triggered
 - `notes` — any additional context discovered during research
 
-## Phase D: Scenarios & Evals — Use Agent Teams
+## Phase D: Scenarios & Evals
 
-**Goal:** Generate test scenarios and evaluation CSV.
+**Goal:** Generate test scenarios, classify topic needs, and produce evaluation CSV.
 
-### Scenarios — Use QA Challenger + Topic Engineer
+### Step 1: Generate Scenarios + Classify Topics — QA Challenger (single pass)
 
-Spawn **QA Challenger** to generate scenarios:
+Spawn **QA Challenger** to generate scenarios AND classify which need custom topics vs. generative orchestration in one pass. No separate Topic Engineer needed — TE is used during `/mcs-build` when actual YAML is generated.
+
+QA produces:
 
 | Type | Count | Purpose |
 |------|-------|---------|
@@ -305,11 +337,13 @@ Spawn **QA Challenger** to generate scenarios:
 | Error recovery | 1 | Graceful failure handling |
 | Multi-turn | 1 | Conversation continuity |
 
-Spawn **Topic Engineer** to identify which scenarios need custom topics vs. generative orchestration.
+For each scenario, QA also notes:
+- **Topic type**: `generative` (handled by orchestration) or `custom` (needs dedicated topic YAML)
+- **Trigger type**: `by-agent` (AI routes) or `phrases` (explicit triggers) or `event` (autonomous)
 
-### Generate evals.csv
+### Step 2: Generate evals.csv (Lead)
 
-From scenarios, create `Build-Guides/{projectId}/agents/{agentId}/evals.csv`:
+From QA's scenarios, create `Build-Guides/{projectId}/agents/{agentId}/evals.csv`:
 
 ```csv
 "question","expectedResponse","testMethodType","passingScore"
@@ -323,9 +357,9 @@ Reference `knowledge/cache/eval-methods.md` for valid test method types and scor
 - Boundary REFUSE → `PartialMatch` with expected refusal phrase
 - Specific factual answers → `PartialMatch` with key facts
 
-### Update brief.json evals
+### Step 3: Update brief.json
 
-Write the eval test cases to `brief.json.evals` array so the dashboard can display them:
+Write evals to `brief.json.evals` array:
 ```json
 {
   "question": "...",
@@ -335,9 +369,8 @@ Write the eval test cases to `brief.json.evals` array so the dashboard can displ
 }
 ```
 
-### Update brief.json scenarios
-
-Ensure `step2.scenarios` is populated with the generated scenarios.
+Update `step2.scenarios` with the generated scenarios.
+Update `step3.topics` with topic classifications from QA.
 
 ## Final Output
 
@@ -416,8 +449,22 @@ This timestamp lets `/mcs-update` know when the last full research was performed
 - **evals.csv is for testing** — the Eval skill reads it (also mirrored in brief.json evals array)
 - **Only 2 permanent output files per agent**: `brief.json` and `evals.csv`. Nothing else.
 - **No working-paper files**: Do NOT leave intermediate artifacts like instruction drafts, QA reviews, connector research notes, or scenario docs as separate files. All research findings go INTO brief.json fields (instructions, step3.systems[].notes, notes{}, etc.). If teammates generate working documents during collaboration, consolidate their content into brief.json and delete the working files before completing.
-- **Agent Teams improve quality** — Research Analyst prevents false claims, Prompt Engineer writes sharp instructions, QA Challenger catches errors
+- **Targeted research, not exhaustive** — only spawn RA for systems that need live lookup. Stable categories (models, channels, triggers, knowledge) use cache.
+- **Single-pass QA** — no PE↔QA iteration loop. PE self-checks, QA reviews once, lead applies fixes.
+- **No Topic Engineer in research** — TE is for `/mcs-build` when actual YAML is needed. QA classifies topic types in Phase D.
 - **Never assume components** — always research, always present options
 - **Update cache** — after live research, update relevant `knowledge/cache/` files
 - **Iteration comes from the user** — present open questions, let the customer/user resolve them, then re-run with `{agentId}` to re-enrich
 - **Don't stop between phases** — this is a single-pass skill. Run A→B→C→D continuously.
+
+## Teammate Usage Summary
+
+| Phase | Teammates | When Spawned |
+|-------|-----------|-------------|
+| A | None | Lead reads docs, extracts data, creates stubs |
+| B | **Research Analyst** | Only if agent has external systems needing live MCP/connector lookup |
+| C | **Prompt Engineer** | Always — writes instructions (single pass) |
+| C | **QA Challenger** | Always — reviews instructions (single pass, no iteration) |
+| D | **QA Challenger** | Always — generates scenarios + classifies topics (single pass) |
+
+**Maximum teammates per research run:** 3 (RA + PE + QA). Often just 2 (PE + QA) for Microsoft-native agents.

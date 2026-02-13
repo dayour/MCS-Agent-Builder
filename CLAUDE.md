@@ -109,7 +109,7 @@ Definitions: `.claude/agents/` (research-analyst.md, prompt-engineer.md, topic-e
 ### When to Use Agent Teams
 
 **During MCS workflow skills:**
-- **Research phase** (`/mcs-research`): Research Analyst searches 4+ sources in parallel, Prompt Engineer writes instructions, Topic Engineer identifies topics, QA Challenger reviews all outputs
+- **Research phase** (`/mcs-research`): Research Analyst searches for external connectors/MCP (only if needed), Prompt Engineer writes instructions (single pass), QA Challenger reviews instructions + generates scenarios (single pass each). Topic Engineer is NOT used in research.
 - **Build phase** (`/mcs-build`): Topic Engineer generates YAML, QA Challenger reviews before execution
 - **Eval phase** (`/mcs-eval`): QA Challenger analyzes failures, maps back to root causes
 
@@ -330,7 +330,7 @@ CREATE → UPLOAD → RESEARCH → [UPDATE] → BUILD → EVALUATE
 |------|-------|-------|--------|-------------|
 | **Init** | `/mcs-init` | Project name | Folder structure | None |
 | **Context** | `/mcs-context` | Customer name | customer-context.md | None |
-| **Research** | `/mcs-research {projectId}` | docs/ | brief.json (fully enriched) + evals.csv per agent | RA + PE + TE + QA |
+| **Research** | `/mcs-research {projectId}` | docs/ | brief.json (fully enriched) + evals.csv per agent | RA (if needed) + PE + QA |
 | **Update** | `/mcs-update {projectId}` | new/changed docs/ | brief.json (sections updated) | None |
 | **Build** | `/mcs-build {projectId} {agentId}` | brief.json | MCS agent (published) + build-report.md | TE + QA |
 | **Evaluate** | `/mcs-eval {projectId} {agentId}` | brief.json evals | brief.json evalResults | QA |
@@ -378,13 +378,13 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 **Reads:** `Build-Guides/{projectId}/docs/` + `customer-context.md` (if exists) + `knowledge/cache/` + `knowledge/learnings/`
 **Writes:** `brief.json` (all fields including instructions) + `evals.csv` per agent
 
-**4 phases:**
-1. **Document comprehension & agent identification** — read all docs, cross-reference, identify agents, extract data, generate informed open questions using MCS cache knowledge
-2. **Component research** — Research Analyst searches MCP servers, connectors, models, triggers, channels, knowledge sources
-3. **Architecture design** — Score single vs multi-agent, Prompt Engineer writes instructions, QA Challenger reviews
-4. **Scenarios + evals** — QA Challenger generates test cases, Topic Engineer identifies topics
+**4 phases (optimized — targeted research, single-pass QA):**
+1. **Document comprehension & agent identification** — lead reads all docs, cross-references, identifies agents, extracts data, generates informed open questions using MCS cache
+2. **Component research (targeted)** — lead resolves stable categories from cache (models, channels, triggers, knowledge). Research Analyst spawned ONLY for external systems needing live MCP/connector lookup
+3. **Architecture + instructions (single-pass)** — lead scores architecture, Prompt Engineer writes instructions (self-verified), QA Challenger reviews once (no iteration loop)
+4. **Scenarios + evals** — QA Challenger generates test cases AND classifies topic types in one pass
 
-**Uses Agent Teams:** Research Analyst (parallel searches), Prompt Engineer (instructions), Topic Engineer (YAML topics), QA Challenger (review all outputs).
+**Uses Agent Teams:** Research Analyst (only if external systems need lookup), Prompt Engineer (instructions), QA Challenger (review + scenarios). Topic Engineer is NOT used in research — reserved for `/mcs-build`.
 
 **Iteration:** Customer reviews brief in the dashboard, answers open questions, then user re-runs `/mcs-research {projectId} {agentId}` to re-enrich.
 
