@@ -101,6 +101,8 @@ The tool continuously learns and improves:
 ## Project Structure
 
 ```
+start.js                    One-command launcher (npm start)
+
 .claude/
   settings.json             MCP servers, permissions, Agent Teams flag
   skills/                   6 automation skills

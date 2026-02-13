@@ -505,6 +505,10 @@ See `knowledge/README.md` for full details.
 ## Project Structure
 
 ```
+.github/ISSUE_TEMPLATE/     # Bug report & feedback templates
+start.js                    # One-command launcher (npm start)
+package.json                # Node dependencies & scripts
+
 .claude/
 ├── settings.json           # MCP servers, permissions, Agent Teams env flag
 ├── skills/                 # 6 automation skills

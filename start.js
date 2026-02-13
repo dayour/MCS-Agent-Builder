@@ -2,8 +2,14 @@
 /**
  * MCS Agent Builder — Launcher
  *
- * Starts both servers, opens the dashboard in the browser,
- * and shuts everything down cleanly on exit.
+ * Starts the dashboard server (which manages the terminal sidecar),
+ * opens the browser, and shuts everything down cleanly on exit.
+ *
+ * Handles:
+ *   - Killing stale processes on ports 8000/8001
+ *   - Auto-installing npm + pip dependencies if missing
+ *   - Opening the browser once the dashboard responds
+ *   - Graceful shutdown on Ctrl+C
  *
  * Usage: npm start
  */
@@ -12,79 +18,133 @@ const { spawn, execSync } = require("child_process");
 const http = require("http");
 const path = require("path");
 const os = require("os");
+const fs = require("fs");
 
 const PORT_APP = 8000;
 const PORT_TERMINAL = 8001;
 const URL = `http://localhost:${PORT_APP}`;
 
 // ---------------------------------------------------------------------------
-// Preflight checks
+// Helpers
 // ---------------------------------------------------------------------------
 
-function check(cmd, name, hint) {
+function log(msg) {
+  console.log(`\x1b[36m[launcher]\x1b[0m ${msg}`);
+}
+
+function warn(msg) {
+  console.log(`\x1b[33m[launcher]\x1b[0m ${msg}`);
+}
+
+function err(msg) {
+  console.error(`\x1b[31m[launcher]\x1b[0m ${msg}`);
+}
+
+// ---------------------------------------------------------------------------
+// Kill stale processes on a port (Windows + Unix)
+// ---------------------------------------------------------------------------
+
+function killPort(port) {
   try {
-    execSync(cmd, { stdio: "ignore" });
+    if (os.platform() === "win32") {
+      const result = execSync(`netstat -ano -p TCP`, {
+        encoding: "utf8",
+        timeout: 5000,
+      });
+      for (const line of result.split("\n")) {
+        if (line.includes(`:${port}`) && line.includes("LISTENING")) {
+          const pid = line.trim().split(/\s+/).pop();
+          if (pid && /^\d+$/.test(pid) && pid !== "0") {
+            try {
+              execSync(`taskkill /F /PID ${pid}`, {
+                stdio: "ignore",
+                timeout: 5000,
+              });
+              log(`Killed stale process on port ${port} (pid ${pid})`);
+            } catch {
+              // Process may have already exited
+            }
+          }
+        }
+      }
+    } else {
+      // macOS / Linux
+      try {
+        const pid = execSync(`lsof -ti:${port}`, {
+          encoding: "utf8",
+          timeout: 5000,
+        }).trim();
+        if (pid) {
+          execSync(`kill -9 ${pid}`, { stdio: "ignore", timeout: 5000 });
+          log(`Killed stale process on port ${port} (pid ${pid})`);
+        }
+      } catch {
+        // No process on port — fine
+      }
+    }
+  } catch {
+    // netstat/lsof failed — not critical
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Preflight: check required tools exist
+// ---------------------------------------------------------------------------
+
+function checkCommand(cmd, name, hint) {
+  try {
+    execSync(cmd, { stdio: "ignore", timeout: 10000 });
     return true;
   } catch {
-    console.error(`\x1b[31m✗ ${name} not found.\x1b[0m ${hint}`);
+    err(`${name} not found. ${hint}`);
     return false;
   }
 }
 
-console.log("\x1b[36mMCS Agent Builder\x1b[0m — starting...\n");
+// ---------------------------------------------------------------------------
+// Preflight: auto-install dependencies
+// ---------------------------------------------------------------------------
 
-const checks = [
-  check("node --version", "Node.js", "Install from https://nodejs.org"),
-  check("python --version", "Python", "Install from https://python.org"),
-];
-
-// Check if node_modules exists
-const fs = require("fs");
-if (!fs.existsSync(path.join(__dirname, "node_modules"))) {
-  console.log("\x1b[33m⚠ node_modules not found. Running npm install...\x1b[0m\n");
-  try {
-    execSync("npm install", { stdio: "inherit", cwd: __dirname });
-  } catch {
-    console.error("\x1b[31m✗ npm install failed.\x1b[0m");
-    process.exit(1);
+function ensureNodeModules() {
+  if (!fs.existsSync(path.join(__dirname, "node_modules"))) {
+    warn("node_modules not found — running npm install...");
+    try {
+      execSync("npm install", { stdio: "inherit", cwd: __dirname });
+      log("npm install complete");
+    } catch {
+      err("npm install failed");
+      process.exit(1);
+    }
   }
 }
 
-if (!checks.every(Boolean)) {
-  console.error("\nFix the above issues and try again.");
-  process.exit(1);
+function ensurePythonDeps() {
+  // Check if fastapi and uvicorn are importable
+  try {
+    execSync('python -c "import fastapi; import uvicorn"', {
+      stdio: "ignore",
+      timeout: 15000,
+    });
+  } catch {
+    warn("Python deps missing — running pip install fastapi uvicorn...");
+    try {
+      execSync("pip install fastapi uvicorn python-multipart", {
+        stdio: "inherit",
+        timeout: 120000,
+      });
+      log("pip install complete");
+    } catch {
+      err("pip install failed. Run manually: pip install fastapi uvicorn python-multipart");
+      process.exit(1);
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
-// Start servers
+// Wait for server to respond
 // ---------------------------------------------------------------------------
 
-const procs = [];
-
-function startProc(label, cmd, args, color) {
-  const p = spawn(cmd, args, {
-    cwd: __dirname,
-    stdio: "inherit",
-    env: { ...process.env, PORT: String(PORT_APP) },
-    shell: os.platform() === "win32",
-  });
-
-  p.on("exit", (code) => {
-    console.log(`${color}[${label}]\x1b[0m exited (${code})`);
-  });
-
-  procs.push(p);
-  return p;
-}
-
-const app = startProc("dashboard", "python", ["app/server.py"], "\x1b[36m");
-const terminal = startProc("terminal", "node", ["app/terminal-server.js"], "\x1b[35m");
-
-// ---------------------------------------------------------------------------
-// Wait for dashboard to be ready, then open browser
-// ---------------------------------------------------------------------------
-
-function waitForReady(url, timeout = 15000) {
+function waitForReady(url, timeout = 30000) {
   const start = Date.now();
   return new Promise((resolve, reject) => {
     const poll = () => {
@@ -101,42 +161,109 @@ function waitForReady(url, timeout = 15000) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Open browser
+// ---------------------------------------------------------------------------
+
 function openBrowser(url) {
-  const platform = os.platform();
   try {
-    if (platform === "win32") execSync(`start "" "${url}"`, { stdio: "ignore" });
-    else if (platform === "darwin") execSync(`open "${url}"`, { stdio: "ignore" });
+    if (os.platform() === "win32")
+      execSync(`start "" "${url}"`, { stdio: "ignore" });
+    else if (os.platform() === "darwin")
+      execSync(`open "${url}"`, { stdio: "ignore" });
     else execSync(`xdg-open "${url}"`, { stdio: "ignore" });
   } catch {
-    console.log(`\n\x1b[33mOpen in your browser:\x1b[0m ${url}\n`);
+    log(`Open in your browser: ${url}`);
   }
 }
 
+// ---------------------------------------------------------------------------
+// Main
+// ---------------------------------------------------------------------------
+
+console.log("\n\x1b[36m  MCS Agent Builder\x1b[0m\n");
+
+// 1. Check required tools
+const ok = [
+  checkCommand("node --version", "Node.js", "https://nodejs.org"),
+  checkCommand("python --version", "Python", "https://python.org"),
+];
+if (!ok.every(Boolean)) {
+  err("Fix the above issues and try again.");
+  process.exit(1);
+}
+
+// 2. Auto-install dependencies
+ensureNodeModules();
+ensurePythonDeps();
+
+// 3. Kill anything still holding our ports from a previous run
+log("Checking for stale processes...");
+killPort(PORT_APP);
+killPort(PORT_TERMINAL);
+
+// Small delay to let OS release the sockets
+const startTime = Date.now();
+while (Date.now() - startTime < 500) {
+  // busy-wait for socket release
+}
+
+// 4. Start the dashboard server (it manages terminal-server.js as a sidecar)
+//    Use spawn without shell to avoid DEP0190 deprecation warning.
+//    On Windows, resolve python to its full path to avoid needing shell: true.
+let pythonCmd = "python";
+try {
+  pythonCmd = execSync(
+    os.platform() === "win32" ? "where python" : "which python",
+    { encoding: "utf8", timeout: 5000 }
+  )
+    .split("\n")[0]
+    .trim();
+} catch {
+  // Fall back to "python" and hope it's on PATH
+}
+
+const serverScript = path.join(__dirname, "app", "server.py");
+const server = spawn(pythonCmd, [serverScript], {
+  cwd: __dirname,
+  stdio: "inherit",
+  env: { ...process.env, PORT: String(PORT_APP) },
+});
+
+server.on("error", (e) => {
+  err(`Failed to start server: ${e.message}`);
+  process.exit(1);
+});
+
+server.on("exit", (code) => {
+  if (code !== null && code !== 0) {
+    err(`Server exited with code ${code}`);
+  }
+  process.exit(code || 0);
+});
+
+// 5. Wait for dashboard to respond, then open browser
 waitForReady(URL)
   .then(() => {
-    console.log(`\n\x1b[32m✓ Dashboard ready at ${URL}\x1b[0m`);
-    console.log("\x1b[90mPress Ctrl+C to stop\x1b[0m\n");
+    console.log(
+      `\n\x1b[32m  ✓ Dashboard ready at ${URL}\x1b[0m`
+    );
+    console.log("\x1b[90m  Press Ctrl+C to stop\x1b[0m\n");
     openBrowser(URL);
   })
   .catch(() => {
-    console.log(`\n\x1b[33m⚠ Dashboard may still be starting. Open manually: ${URL}\x1b[0m\n`);
+    warn(`Dashboard may still be starting. Open manually: ${URL}`);
   });
 
-// ---------------------------------------------------------------------------
-// Graceful shutdown
-// ---------------------------------------------------------------------------
-
+// 6. Graceful shutdown
 function shutdown() {
-  console.log("\n\x1b[90mShutting down...\x1b[0m");
-  procs.forEach((p) => {
-    try { p.kill(); } catch {}
-  });
-  setTimeout(() => process.exit(0), 1000);
+  console.log("\n\x1b[90m  Shutting down...\x1b[0m");
+  try {
+    server.kill();
+  } catch {}
+  // Give server a moment to clean up its sidecar, then force exit
+  setTimeout(() => process.exit(0), 2000);
 }
 
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
-
-// If either server dies, shut down both
-app.on("exit", () => { terminal.kill(); setTimeout(() => process.exit(1), 500); });
-terminal.on("exit", () => { app.kill(); setTimeout(() => process.exit(1), 500); });

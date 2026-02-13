@@ -31,11 +31,24 @@ const CLAUDE_CLI = path.join(
 );
 const NODE_EXE = process.execPath; // same node that runs this server
 
+// Create server with error handling for port conflicts
 const wss = new WebSocket.Server({ port: PORT });
-console.log(`Terminal server listening on ws://localhost:${PORT}`);
-console.log(`  Claude CLI: ${CLAUDE_CLI}`);
-console.log(`  Node: ${NODE_EXE}`);
-console.log(`  CWD: ${BASE_DIR}`);
+
+wss.on("error", (err) => {
+  if (err.code === "EADDRINUSE") {
+    console.error(`Port ${PORT} already in use — another terminal server may be running.`);
+    console.error("The parent process should have cleaned this up. Exiting gracefully.");
+    process.exit(1);
+  }
+  throw err;
+});
+
+wss.on("listening", () => {
+  console.log(`Terminal server listening on ws://localhost:${PORT}`);
+  console.log(`  Claude CLI: ${CLAUDE_CLI}`);
+  console.log(`  Node: ${NODE_EXE}`);
+  console.log(`  CWD: ${BASE_DIR}`);
+});
 
 wss.on("connection", (ws) => {
   let ptyProc = null;

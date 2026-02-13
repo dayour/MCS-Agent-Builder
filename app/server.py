@@ -16,6 +16,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -491,6 +492,8 @@ def _ensure_terminal_server():
 
     # Kill any orphaned process from a previous run
     _kill_stale_terminal_server()
+
+    time.sleep(0.5)  # Let OS release the socket after killing stale process
 
     try:
         _terminal_server_proc = subprocess.Popen(
