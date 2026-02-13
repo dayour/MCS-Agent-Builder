@@ -5,22 +5,22 @@ Automate end-to-end Microsoft Copilot Studio agent builds — from customer inta
 ## Quick Start
 
 ```bash
-# 1. Clone and install
+# 1. Clone the repo
 git clone https://github.com/damgyeah/MCS-Agent-Automation.git
 cd MCS-Agent-Automation
-npm install
-pip install fastapi uvicorn markitdown
 
-# 2. Configure your account
+# 2. Start (installs dependencies automatically on first run)
+npm start
+# Dashboard opens in your browser
+```
+
+That's it. `npm start` handles everything — installs dependencies, starts servers, opens the dashboard.
+
+**First-time only:** Configure your account and PAC CLI auth:
+```bash
 cp tools/session-config.example.json tools/session-config.json
 # Edit with your tenant, environment, and Dataverse URL
-
-# 3. Auth
 pac auth create --environment https://yourorg.crm.dynamics.com
-
-# 4. Run the dashboard
-python app/server.py
-# Open http://localhost:8000
 ```
 
 ## Prerequisites
@@ -152,7 +152,10 @@ Pre-configured in `.claude/settings.json`:
 
 ## Feedback
 
-Found a bug or have a suggestion? [Open an issue](https://github.com/damgyeah/MCS-Agent-Automation/issues/new).
+Found a bug or have a suggestion? Use the **Feedback** button in the dashboard or:
+
+- [Report a bug](https://github.com/damgyeah/MCS-Agent-Automation/issues/new?template=bug.md)
+- [Share feedback](https://github.com/damgyeah/MCS-Agent-Automation/issues/new?template=feedback.md)
 
 ## License
 

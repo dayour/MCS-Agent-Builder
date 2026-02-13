@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Microsoft Copilot Studio agent build automation with Claude Code",
   "scripts": {
+    "start": "node start.js",
     "app": "python app/server.py",
     "terminal": "node app/terminal-server.js",
     "test": "node tools/direct-line-test.js"
