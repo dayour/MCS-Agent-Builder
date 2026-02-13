@@ -5,60 +5,61 @@ Automate end-to-end Microsoft Copilot Studio agent builds — from customer inta
 ## Quick Start
 
 ```bash
-# 1. Clone the repo
 git clone https://github.com/damgyeah/MCS-Agent-Automation.git
 cd MCS-Agent-Automation
-
-# 2. Start (installs dependencies automatically on first run)
 npm start
-# Dashboard opens in your browser
 ```
 
-That's it. `npm start` handles everything — installs dependencies, starts servers, opens the dashboard.
-
-**First-time only:** Configure your account and PAC CLI auth:
-```bash
-cp tools/session-config.example.json tools/session-config.json
-# Edit with your tenant, environment, and Dataverse URL
-pac auth create --environment https://yourorg.crm.dynamics.com
-```
+That's it. `npm start` installs dependencies, starts the dashboard, and opens your browser. Claude Code handles everything else — account setup, PAC CLI auth, environment selection — through conversation when you first open the terminal.
 
 ## Prerequisites
 
-| Requirement | Install |
-|-------------|---------|
-| **Claude Code** | [anthropic.com/claude-code](https://docs.anthropic.com/claude-code) |
-| **Node.js 18+** | [nodejs.org](https://nodejs.org) |
-| **Python 3.10+** | [python.org](https://www.python.org) |
-| **PAC CLI** | [MS Learn](https://learn.microsoft.com/en-us/power-platform/developer/cli/introduction) |
-| **Microsoft Account** | Access to [copilotstudio.microsoft.com](https://copilotstudio.microsoft.com) |
+| Requirement | Why |
+|-------------|-----|
+| **Node.js 18+** | Dashboard and terminal server |
+| **Python 3.10+** | Backend API |
+| **Claude Code** | AI agent that runs the builds (org-provided) |
+| **PAC CLI** | Power Platform operations (Claude will auth for you) |
+| **Microsoft Account** | Access to Copilot Studio |
 
 ## How It Works
 
-### Dashboard (Browser)
+### Dashboard
 
-The dashboard at `http://localhost:8000` provides project management with an embedded Claude Code terminal:
+The dashboard provides project management with an embedded Claude Code terminal:
 
-1. **Create project** — name it, upload customer documents (SDR, requirements, etc.)
-2. **Research** — reads docs, identifies agents, discovers MCS components, scores architecture, enriches brief.json + generates evals
-3. **Build** — executes the full build using the hybrid stack
-4. **Evaluate** — runs automated tests, writes results to brief.json for dashboard display
+1. **Create project** — upload customer documents (SDR, requirements, etc.)
+2. **Research** — Claude reads docs, identifies agents, researches MCS components, generates the full design
+3. **Build** — Claude builds the agent in Copilot Studio using the hybrid stack
+4. **Evaluate** — Claude runs automated tests against the published agent
+5. **Export Report** — download a customer-shareable summary from the design
 
-Each button triggers a Claude Code skill in the embedded terminal. You watch it work in real-time.
+Each button runs a Claude Code skill in the embedded terminal. You watch it work in real-time. Multiple terminal tabs let you work on several agents in parallel.
 
-### Claude Code CLI (Terminal)
+### CLI
 
 You can also run skills directly in Claude Code:
 
 ```
 /mcs-init ProjectName                    Create project, detect SDR files
 /mcs-context CustomerName                Pull M365 history (emails, meetings, docs, Teams)
-/mcs-research ProjectName                Read docs, identify agents, full enrichment → brief.json + evals
-/mcs-research ProjectName agentId        Re-enrich a specific agent after user feedback
-/mcs-build ProjectName agentId           Build agent(s) in MCS (hybrid stack)
-/mcs-eval ProjectName agentId            Run evals, write results to brief.json
+/mcs-research ProjectName                Read docs, identify agents, full enrichment
+/mcs-research ProjectName agentId        Re-enrich a specific agent after feedback
+/mcs-build ProjectName agentId           Build agent(s) in Copilot Studio
+/mcs-eval ProjectName agentId            Run evals, write results
 /mcs-refresh                             Refresh knowledge cache
 ```
+
+## What Happens on First Use
+
+When you open the Claude Code terminal for the first time, Claude will:
+
+1. Ask you to pick your **account** (which tenant)
+2. Ask you to pick your **environment** (which Copilot Studio environment)
+3. Set up **PAC CLI auth** for you (opens a browser sign-in — just click through)
+4. Check the **knowledge cache** is fresh (auto-refreshes if stale)
+
+After that, you're ready to build. Claude remembers your selection for the session.
 
 ## Hybrid Build Stack
 
@@ -74,28 +75,28 @@ Each build step uses the best tool, minimizing fragile browser automation:
 
 ## Agent Teams
 
-Complex builds use 5 AI teammates (Opus 4.6) that challenge each other's work before execution:
+Complex builds use 5 AI teammates that challenge each other's work before execution:
 
 | Teammate | What They Do |
 |----------|-------------|
 | **Research Analyst** | Discovers MCS capabilities, prevents false limitation claims |
-| **Prompt Engineer** | Writes instructions + Custom Prompt actions, validates `/` references |
+| **Prompt Engineer** | Writes agent instructions, reviews system prompt quality |
 | **Topic Engineer** | Generates YAML topics + adaptive cards, validates syntax |
 | **QA Challenger** | Reviews all outputs, challenges claims, generates evals |
-| **Repo Checker** | Validates repo integrity after changes (paths, docs, app sync) |
+| **Repo Checker** | Validates repo integrity after changes |
 
-You interact with the lead only. The lead delegates to teammates, they debate and iterate, then the lead executes validated outputs in MCS.
+You interact with the lead only. The lead delegates to teammates, they debate and iterate, then the lead executes validated outputs in Copilot Studio.
 
-## Account Setup
+## Knowledge System
 
-On first launch, Claude Code prompts you to select your account and environment:
+The tool continuously learns and improves:
 
-1. Copy `tools/session-config.example.json` to `tools/session-config.json`
-2. Add your tenant, environment ID, and Dataverse URL
-3. Run `pac auth create` for your environment
-4. Sign into [copilotstudio.microsoft.com](https://copilotstudio.microsoft.com) in your browser
-
-Claude verifies the correct account/environment before every browser operation (Preflight Gate).
+| Layer | What | How It Stays Current |
+|-------|------|---------------------|
+| **Cache** (18 files) | MCS capabilities — models, connectors, MCP servers, triggers, etc. | Auto-refreshed at session start + before builds |
+| **Learnings** (8 files) | Experience from past builds — what worked, what didn't | Captured after each build/eval, user-confirmed |
+| **Patterns** | YAML syntax, Playwright patterns, Dataverse API patterns | Stable reference (manually updated) |
+| **Frameworks** | Component selection, architecture scoring, tool priority | Stable reference (manually updated) |
 
 ## Project Structure
 
@@ -103,52 +104,34 @@ Claude verifies the correct account/environment before every browser operation (
 .claude/
   settings.json             MCP servers, permissions, Agent Teams flag
   skills/                   6 automation skills
-    mcs-init/               Create project folder
-    mcs-context/            Pull M365 history via WorkIQ
-    mcs-research/           Read docs + full enrichment → brief.json + evals
-    mcs-build/              Build agent(s) in MCS via hybrid stack
-    mcs-eval/               Run eval tests → brief.json evalResults
-    mcs-refresh/            Refresh knowledge cache
   agents/                   5 AI teammate definitions
 
 app/
   index.html                Dashboard UI
-  server.py                 FastAPI backend (CRUD, file upload, doc conversion)
-  terminal-server.js        Claude Code terminal (WebSocket + node-pty)
-  generate-data.py          Build-Guides scanner
+  server.py                 FastAPI backend
+  terminal-server.js        Claude Code terminal (multi-tab, WebSocket)
+  generate-data.py          Project scanner
 
 knowledge/
-  learnings/                8 experience-based topic files (grows with each build)
-  cache/                    18 MCS capability cheat sheets (refreshable)
-  patterns/                 YAML reference, Playwright patterns, Dataverse API patterns
-    topic-patterns/         9 reusable topic YAML templates
-  frameworks/               Component selection, architecture scoring, tool priority
+  learnings/                Experience from past builds (grows over time)
+  cache/                    18 MCS capability cheat sheets (auto-refreshed)
+  patterns/                 YAML, Playwright, Dataverse API patterns
+  frameworks/               Decision frameworks
 
 templates/                  brief.json (single source of truth schema)
-tools/                      direct-line-test.js, dataverse-helper.ps1, pac-mcp-wrapper.js
-Build-Guides/               Per-project work (gitignored, private per user)
+tools/                      Direct Line test runner, Dataverse helper, PAC CLI wrapper
+Build-Guides/               Per-project work (gitignored)
 ```
-
-## MCP Servers
-
-Pre-configured in `.claude/settings.json`:
-
-| Server | Purpose |
-|--------|---------|
-| `playwright` | Browser automation for MCS UI (Edge) |
-| `microsoft-learn` | Official Microsoft documentation search |
-| `workiq` | M365 data search (emails, meetings, docs, Teams) |
-| `pac-cli` | PAC CLI operations via MCP protocol |
 
 ## Troubleshooting
 
 | Problem | Fix |
 |---------|-----|
-| Dashboard won't start | `pip install fastapi uvicorn markitdown` then `python app/server.py` |
-| PAC CLI not connecting | `pac auth list` to check profiles, `pac copilot list` to test |
-| Wrong MCS environment | Claude checks via Preflight Gate — it will prompt you to switch |
-| .docx files not converting | `pip install 'markitdown[all]'` |
-| Terminal not spawning | `npm install` in repo root (needs node-pty + ws) |
+| `npm start` fails | Make sure Node.js 18+ and Python 3.10+ are installed |
+| Dashboard won't load | Check terminal output for errors — both servers must be running |
+| PAC CLI not working | Ask Claude: "set up PAC CLI auth for me" |
+| Wrong MCS environment | Claude checks before every build (Preflight Gate) — it will prompt you to switch |
+| Terminal not connecting | Close the tab and click "+" to create a new terminal session |
 
 ## Feedback
 
