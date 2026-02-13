@@ -132,18 +132,161 @@ def _scan_docs(folder: Path) -> list[dict]:
     return docs
 
 
+def _migrate_brief(brief: dict) -> dict:
+    """Migrate v1 brief (step1-4) to v2 (named sections). Returns brief unchanged if already v2."""
+    if brief.get("_schema") == "2.0" or "agent" in brief:
+        return brief  # Already v2
+
+    s1 = brief.pop("step1", {})
+    s2 = brief.pop("step2", {})
+    s3 = brief.pop("step3", {})
+    s4 = brief.pop("step4", {})
+    old_mvp = brief.pop("mvp", {})
+
+    # Section 1: business (new — seed from old problem)
+    brief.setdefault("business", {
+        "useCase": "",
+        "problemStatement": s1.get("problem", ""),
+        "challenges": [],
+        "benefits": [],
+        "successCriteria": [],
+        "stakeholders": {"sponsor": "", "owner": "", "users": ""},
+    })
+
+    # Section 2: agent
+    brief["agent"] = {
+        "name": s1.get("agentName", ""),
+        "description": s1.get("problem", ""),
+        "persona": "",
+        "responseFormat": "",
+        "primaryUsers": (s1.get("users") or {}).get("primary", ""),
+        "secondaryUsers": (s1.get("users") or {}).get("secondary", ""),
+    }
+
+    # Section 3: capabilities (from s2.capabilities text + scenarios)
+    caps_text = s2.get("capabilities", "")
+    caps = []
+    if caps_text:
+        for line in caps_text.strip().split("\n"):
+            line = line.strip().lstrip("- ").strip()
+            if line:
+                caps.append({"name": line, "phase": "mvp", "reason": "", "dataSources": []})
+    brief["capabilities"] = caps
+
+    # Section 4: integrations (from s3.systems)
+    brief["integrations"] = [
+        {
+            "name": s.get("name", ""),
+            "type": s.get("toolType", "connector"),
+            "purpose": s.get("purpose", ""),
+            "dataProvided": "",
+            "authMethod": "",
+            "status": s.get("status", "available"),
+            "phase": "mvp",
+            "notes": s.get("notes", ""),
+        }
+        for s in s3.get("systems", [])
+    ]
+
+    # Section 5: knowledge (from s3.knowledge)
+    brief["knowledge"] = [
+        {
+            "name": k.get("name", ""),
+            "type": k.get("type", "SharePoint"),
+            "purpose": "",
+            "scope": k.get("scope", ""),
+            "status": k.get("status", "available"),
+            "phase": "mvp",
+        }
+        for k in s3.get("knowledge", [])
+    ]
+
+    # Section 6: conversations (from s3.topics)
+    brief["conversations"] = {
+        "topics": [
+            {
+                "name": t.get("name", ""),
+                "schemaName": "",
+                "description": t.get("description", ""),
+                "triggerType": t.get("triggerType", "agent-chooses"),
+                "triggerPhrases": [],
+                "topicType": "custom",
+                "phase": "mvp",
+                "implements": [],
+                "variables": [],
+                "connectedIntegrations": [],
+                "outputFormat": "text",
+                "yaml": t.get("yaml"),
+            }
+            for t in s3.get("topics", [])
+        ]
+    }
+
+    # Section 7: boundaries (from s2)
+    handle = s2.get("handle", "")
+    brief["boundaries"] = {
+        "handle": [h.strip() for h in handle.split("\n") if h.strip()] if isinstance(handle, str) else (handle or []),
+        "decline": [{"topic": d, "redirect": ""} for d in (s2.get("decline", "").split("\n") if isinstance(s2.get("decline"), str) else [])] if s2.get("decline") else [],
+        "refuse": [{"topic": r, "reason": ""} for r in (s2.get("refuse", "").split("\n") if isinstance(s2.get("refuse"), str) else [])] if s2.get("refuse") else [],
+    }
+
+    # Section 8: architecture (from s4)
+    brief["architecture"] = {
+        "type": s4.get("architectureRecommendation", ""),
+        "reason": s4.get("architectureReason", ""),
+        "score": s4.get("architectureScore", 0),
+        "model": s4.get("model", ""),
+        "modelReason": s4.get("modelReason", ""),
+        "triggers": [{"type": t, "description": ""} for t in (s4.get("triggers") or [])],
+        "channels": [{"name": c, "reason": ""} for c in (s4.get("channels") or [])],
+        "children": s4.get("children", []),
+    }
+
+    # Section 9: scenarios (from s2.scenarios — now top-level)
+    brief["scenarios"] = [
+        {
+            "name": f"Scenario {i+1}",
+            "category": "happy-path",
+            "userSays": sc.get("userSays", ""),
+            "agentDoes": sc.get("agentShould", ""),
+            "capabilities": [],
+        }
+        for i, sc in enumerate(s2.get("scenarios", []))
+    ]
+
+    # mvpSummary (computed from old mvp)
+    brief["mvpSummary"] = {
+        "now": old_mvp.get("now", []),
+        "future": old_mvp.get("later", []),
+        "blockers": [],
+    }
+
+    brief["_schema"] = "2.0"
+    return brief
+
+
 def _calc_readiness(brief: dict | None) -> int:
     """Calculate brief readiness as a percentage (0-100).
 
-    Uses 12 checks — same as the client-side renderReadinessPanel — so the
-    percentage shown on the project page matches the agent design page ring.
+    Uses 12 checks matching the client-side renderReadinessPanel.
+    Supports both v1 (step1-4) and v2 (named sections) schemas.
     """
     if not brief:
         return 0
-    s1 = brief.get("step1", {})
-    s2 = brief.get("step2", {})
-    s3 = brief.get("step3", {})
-    s4 = brief.get("step4", {})
+
+    # Auto-migrate if v1
+    if "step1" in brief and "agent" not in brief:
+        brief = _migrate_brief(brief)
+
+    agent = brief.get("agent", {})
+    biz = brief.get("business", {})
+    caps = brief.get("capabilities", [])
+    integ = brief.get("integrations", [])
+    know = brief.get("knowledge", [])
+    convos = brief.get("conversations", {})
+    bounds = brief.get("boundaries", {})
+    arch = brief.get("architecture", {})
+    scenarios = brief.get("scenarios", [])
     evals = brief.get("evals", [])
     open_qs = brief.get("openQuestions", [])
     unanswered = [q for q in open_qs if q.get("question") and not q.get("answer")]
@@ -151,18 +294,18 @@ def _calc_readiness(brief: dict | None) -> int:
     eval_results = brief.get("evalResults", {})
 
     checks = [
-        bool(s1.get("problem")),                                                        # Problem statement
-        bool(s4.get("architectureRecommendation")),                                     # Architecture
-        bool(brief.get("instructions")),                                                # Instructions
-        len([s for s in s3.get("systems", []) if s.get("name")]) + len(s3.get("topics", [])) > 0,  # Components
-        len([k for k in s3.get("knowledge", []) if k.get("name")]) > 0,                # Knowledge
-        len([s for s in s2.get("scenarios", []) if s.get("userSays")]) >= 3,            # Scenarios
-        len(evals) > 0,                                                                 # Evals defined
-        bool(s2.get("handle") or s2.get("decline") or s2.get("refuse")),                # Boundaries
-        len(s4.get("channels", [])) > 0,                                                # Channels
-        len(unanswered) == 0,                                                           # Questions resolved
-        build_status.get("status") == "published",                                      # Build published
-        bool(eval_results.get("summary", {}).get("total", 0) > 0),                     # Eval results
+        bool(biz.get("problemStatement") or biz.get("useCase")),                        # Business context
+        bool(arch.get("type")),                                                          # Architecture
+        bool(brief.get("instructions")),                                                 # Instructions
+        len([i for i in integ if i.get("name")]) + len(convos.get("topics", [])) > 0,   # Components
+        len([k for k in know if k.get("name")]) > 0,                                    # Knowledge
+        len([s for s in scenarios if s.get("userSays")]) >= 3,                           # Scenarios
+        len(evals) > 0,                                                                  # Evals defined
+        bool(bounds.get("handle") or bounds.get("decline") or bounds.get("refuse")),     # Boundaries
+        len([c for c in arch.get("channels", []) if (c.get("name") if isinstance(c, dict) else c)]) > 0,  # Channels
+        len(unanswered) == 0,                                                            # Questions resolved
+        build_status.get("status") == "published",                                       # Build published
+        bool(eval_results.get("summary", {}).get("total", 0) > 0),                      # Eval results
     ]
     return round(sum(checks) / len(checks) * 100)
 
@@ -174,23 +317,33 @@ def _is_build_ready(brief: dict | None) -> bool:
     """
     if not brief:
         return False
-    s1 = brief.get("step1", {})
-    s2 = brief.get("step2", {})
-    s3 = brief.get("step3", {})
-    s4 = brief.get("step4", {})
+
+    # Auto-migrate if v1
+    if "step1" in brief and "agent" not in brief:
+        brief = _migrate_brief(brief)
+
+    agent = brief.get("agent", {})
+    biz = brief.get("business", {})
+    caps = brief.get("capabilities", [])
+    integ = brief.get("integrations", [])
+    know = brief.get("knowledge", [])
+    convos = brief.get("conversations", {})
+    bounds = brief.get("boundaries", {})
+    arch = brief.get("architecture", {})
+    scenarios = brief.get("scenarios", [])
     evals = brief.get("evals", [])
     open_qs = brief.get("openQuestions", [])
     unanswered = [q for q in open_qs if q.get("question") and not q.get("answer")]
     return all([
-        s1.get("problem"),
-        s4.get("architectureRecommendation"),
+        biz.get("problemStatement") or biz.get("useCase"),
+        arch.get("type"),
         brief.get("instructions"),
-        len([s for s in s3.get("systems", []) if s.get("name")]) + len(s3.get("topics", [])) > 0,
-        len([k for k in s3.get("knowledge", []) if k.get("name")]) > 0,
-        len([s for s in s2.get("scenarios", []) if s.get("userSays")]) >= 3,
+        len([i for i in integ if i.get("name")]) + len(convos.get("topics", [])) > 0,
+        len([k for k in know if k.get("name")]) > 0,
+        len([s for s in scenarios if s.get("userSays")]) >= 3,
         len(evals) > 0,
-        s2.get("handle") or s2.get("decline") or s2.get("refuse"),
-        len(s4.get("channels", [])) > 0,
+        bounds.get("handle") or bounds.get("decline") or bounds.get("refuse"),
+        len([c for c in arch.get("channels", []) if (c.get("name") if isinstance(c, dict) else c)]) > 0,
         len(unanswered) == 0,
     ])
 
@@ -210,10 +363,20 @@ def _scan_agents(folder: Path) -> list[dict]:
                     brief = json.loads(brief_file.read_text(encoding="utf-8"))
                 except Exception:
                     pass
+            # Support both v1 (step1) and v2 (agent) schemas
+            if brief and "step1" in brief and "agent" not in brief:
+                agent_name = brief.get("step1", {}).get("agentName", humanize_name(agent_dir.name))
+                agent_desc = brief.get("step1", {}).get("problem", "")[:150]
+            elif brief:
+                agent_name = brief.get("agent", {}).get("name", humanize_name(agent_dir.name))
+                agent_desc = (brief.get("agent", {}).get("description") or brief.get("business", {}).get("useCase") or "")[:150]
+            else:
+                agent_name = humanize_name(agent_dir.name)
+                agent_desc = ""
             agents.append({
                 "id": agent_dir.name,
-                "name": brief.get("step1", {}).get("agentName", humanize_name(agent_dir.name)) if brief else humanize_name(agent_dir.name),
-                "description": brief.get("step1", {}).get("problem", "")[:150] if brief else "",
+                "name": agent_name,
+                "description": agent_desc,
                 "has_brief": brief is not None,
                 "has_instructions": bool(brief.get("instructions")) if brief else False,
                 "has_evals": (agent_dir / "evals.csv").exists(),
@@ -351,11 +514,22 @@ async def get_agent(project_id: str, agent_id: str):
     if brief_file.exists():
         try:
             brief = json.loads(brief_file.read_text(encoding="utf-8"))
+            # Auto-migrate v1 → v2 on read
+            if brief and "step1" in brief and "agent" not in brief:
+                brief = _migrate_brief(brief)
+                brief_file.write_text(json.dumps(brief, indent=2), encoding="utf-8")
         except Exception:
             pass
+    # Support both v1 and v2 for name extraction
+    if brief and brief.get("agent", {}).get("name"):
+        name = brief["agent"]["name"]
+    elif brief and brief.get("step1", {}).get("agentName"):
+        name = brief["step1"]["agentName"]
+    else:
+        name = humanize_name(agent_id)
     return {
         "id": agent_id,
-        "name": brief.get("step1", {}).get("agentName", humanize_name(agent_id)) if brief else humanize_name(agent_id),
+        "name": name,
         "brief": brief,
         "has_instructions": bool(brief.get("instructions")) if brief else False,
         "has_evals": (agent_dir / "evals.csv").exists(),

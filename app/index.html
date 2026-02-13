@@ -1042,10 +1042,10 @@
         wizardState = { project_id: projectId, agent_id: agentId };
       }
 
-      // Ensure agent name is set
-      if (agentName && !wizardState.step1?.agentName) {
-        wizardState.step1 = wizardState.step1 || {};
-        wizardState.step1.agentName = agentName;
+      // Ensure agent name is set (v2 schema)
+      if (agentName && !wizardState.agent?.name) {
+        wizardState.agent = wizardState.agent || {};
+        wizardState.agent.name = agentName;
       }
 
       // Just render what we have — empty/basic/complete states handled in renderBrief
@@ -1060,14 +1060,13 @@
 
     let briefEditSection = null; // which section is in edit mode (null = all view mode)
 
-    function getBriefReadiness(s1, s2, s3, s4, evals) {
+    function getBriefReadiness(biz, agent, caps, integ, know, convos, bounds, arch, scenarios, evals) {
       // Categorize: empty → basic (doc-extracted) → enriched (researched)
-      // Used for banner display only — does NOT gate the Build button.
-      const hasBasic = !!(s1?.problem);
-      const hasComponents = (s3?.systems || []).filter(s => s.name).length > 0;
-      const hasArchReason = !!(s4?.architectureReason);
+      const hasBasic = !!(biz?.problemStatement || biz?.useCase);
+      const hasComponents = (integ || []).filter(i => i.name).length > 0;
+      const hasArchReason = !!(arch?.reason);
       const hasEvals = (evals || []).length >= 3;
-      const hasScenarios = (s2?.scenarios || []).filter(s => s.userSays).length >= 3;
+      const hasScenarios = (scenarios || []).filter(s => s.userSays).length >= 3;
       const hasInstructions = !!(wizardState.instructions);
 
       if (!hasBasic) return 'empty';
@@ -1075,31 +1074,35 @@
       return 'basic';
     }
 
-    function isBuildReady(s1, s2, s3, s4, evals, openQs) {
-      // All 10 pre-build design checks must pass. Mirrors server-side _is_build_ready().
-      // Excludes "Build published" and "Eval results" (those happen AFTER build).
+    function isBuildReady(biz, agent, caps, integ, know, convos, bounds, arch, scenarios, evals, openQs) {
       const unanswered = (openQs || []).filter(q => q.question && !q.answer);
-      return !!(s1?.problem)
-        && !!(s4?.architectureRecommendation)
+      const chanLen = (arch?.channels || []).filter(c => (typeof c === 'object' ? c.name : c)).length;
+      return !!(biz?.problemStatement || biz?.useCase)
+        && !!(arch?.type)
         && !!(wizardState.instructions)
-        && ((s3?.systems || []).filter(s => s.name).length + (s3?.topics || []).length) > 0
-        && (s3?.knowledge || []).filter(k => k.name).length > 0
-        && (s2?.scenarios || []).filter(s => s.userSays).length >= 3
+        && ((integ || []).filter(i => i.name).length + (convos?.topics || []).length) > 0
+        && (know || []).filter(k => k.name).length > 0
+        && (scenarios || []).filter(s => s.userSays).length >= 3
         && (evals || []).length > 0
-        && !!(s2?.handle || s2?.decline || s2?.refuse)
-        && (s4?.channels || []).length > 0
+        && !!(bounds?.handle?.length || bounds?.decline?.length || bounds?.refuse?.length)
+        && chanLen > 0
         && unanswered.length === 0;
     }
 
     function renderBrief() {
-      const s1 = wizardState.step1 || {};
-      const s2 = wizardState.step2 || {};
-      const s3 = wizardState.step3 || {};
-      const s4 = wizardState.step4 || {};
+      const biz = wizardState.business || {};
+      const agent = wizardState.agent || {};
+      const caps = wizardState.capabilities || [];
+      const integ = wizardState.integrations || [];
+      const know = wizardState.knowledge || [];
+      const convos = wizardState.conversations || {};
+      const bounds = wizardState.boundaries || {};
+      const arch = wizardState.architecture || {};
+      const scenarios = wizardState.scenarios || [];
       const evals = wizardState.evals || [];
       const openQs = wizardState.openQuestions || [];
 
-      const readiness = getBriefReadiness(s1, s2, s3, s4, evals);
+      const readiness = getBriefReadiness(biz, agent, caps, integ, know, convos, bounds, arch, scenarios, evals);
 
       // === EMPTY: no data at all ===
       if (readiness === 'empty') {
@@ -1125,23 +1128,25 @@
       }
 
       document.getElementById('brief-content').innerHTML = researchBanner + [
-        bCard('overview', '#6366f1', 'Overview', briefOverviewV(s1), briefOverviewE(s1)),
-        bCard('architecture', '#8b5cf6', 'Recommended Architecture', briefArchV(s4), briefArchE(s4)),
-        bCard('components', '#3b82f6', 'Components', briefComponentsV(s3), briefComponentsE(s3)),
-        bCard('knowledge', '#10b981', 'Knowledge Sources', briefKnowledgeV(s3), briefKnowledgeE(s3)),
-        bCard('scenarios', '#f59e0b', 'Scenarios', briefScenariosV(s2), briefScenariosE(s2)),
+        bCard('business', '#6366f1', 'Business Context', briefBusinessV(biz), briefBusinessE(biz)),
+        bCard('agent', '#8b5cf6', 'Agent Identity', briefAgentV(agent), briefAgentE(agent)),
+        bCard('capabilities', '#f59e0b', 'Capabilities', briefCapsV(caps), briefCapsE(caps)),
+        bCard('integrations', '#3b82f6', 'Integrations', briefIntegV(integ), briefIntegE(integ)),
+        bCard('knowledge', '#10b981', 'Knowledge Sources', briefKnowledgeV(know), briefKnowledgeE(know)),
+        bCard('conversations', '#06b6d4', 'Conversation Topics', briefConvosV(convos), briefConvosE(convos)),
+        bCard('boundaries', '#ef4444', 'Scope & Boundaries', briefBoundariesV(bounds), briefBoundariesE(bounds)),
+        bCard('architecture', '#8b5cf6', 'Architecture', briefArchV(arch), briefArchE(arch)),
+        bCard('scenarios', '#f59e0b', 'Scenarios', briefScenariosV(scenarios), briefScenariosE(scenarios)),
         bCard('evals', '#06b6d4', 'Evaluation Tests', briefEvalsV(evals), briefEvalsE(evals)),
-        bCard('boundaries', '#ef4444', 'Scope & Boundaries', briefBoundariesV(s2), briefBoundariesE(s2)),
-        bCard('deployment', '#8b5cf6', 'Triggers & Channels', briefDeployV(s4), briefDeployE(s4)),
         bCard('questions', '#f97316', 'Open Questions', briefQuestionsV(openQs), briefQuestionsE(openQs)),
       ].join('');
 
-      renderReadinessPanel(s1, s2, s3, s4, evals, openQs);
+      renderReadinessPanel(biz, agent, caps, integ, know, convos, bounds, arch, scenarios, evals, openQs);
 
       // Show action buttons in header — Build only when all 10 pre-build checks pass
       const actionsEl = document.getElementById('brief-actions');
       if (actionsEl && readiness !== 'empty') {
-        const buildEnabled = isBuildReady(s1, s2, s3, s4, evals, openQs);
+        const buildEnabled = isBuildReady(biz, agent, caps, integ, know, convos, bounds, arch, scenarios, evals, openQs);
         const isPublished = (wizardState.buildStatus || {}).status === 'published';
         actionsEl.innerHTML = `
           <button onclick="researchAndEnrich()" class="px-4 py-2 text-xs font-medium rounded-lg transition-all flex items-center gap-1.5" style="color:var(--accent);border:1px solid color-mix(in srgb, var(--accent) 30%, transparent)" onmouseover="this.style.background='var(--accent-bg)'" onmouseout="this.style.background=''">
@@ -1232,62 +1237,92 @@
       saveBriefState();
     }
 
-    // ---- View renderers ----
+    // ---- View renderers (v2 schema) ----
 
-    function briefOverviewV(s1) {
-      return `<p class="text-sm leading-relaxed" style="color:var(--text-s)">${s1.problem || '<span style="color:var(--text-f)" class="italic">No problem statement</span>'}</p>`;
+    function briefBusinessV(biz) {
+      const ps = biz.problemStatement || biz.useCase || '';
+      let html = `<p class="text-sm leading-relaxed" style="color:var(--text-s)">${ps || '<span style="color:var(--text-f)" class="italic">No problem statement</span>'}</p>`;
+      const challenges = (biz.challenges || []).filter(c => c.challenge);
+      if (challenges.length) {
+        html += `<div class="mt-3"><span class="text-[10px] font-bold uppercase" style="color:var(--text-f)">Challenges</span><div class="mt-1 space-y-1">${challenges.map(c => `<div class="flex items-center gap-2"><span class="text-[10px] font-bold px-1.5 py-0.5 rounded ${c.impact==='high'?'badge-danger':c.impact==='medium'?'badge-warning':'badge-info'}">${c.impact||'medium'}</span><span class="text-xs" style="color:var(--text-s)">${c.challenge}</span></div>`).join('')}</div></div>`;
+      }
+      const benefits = (biz.benefits || []).filter(b => b.benefit);
+      if (benefits.length) {
+        html += `<div class="mt-3"><span class="text-[10px] font-bold uppercase" style="color:var(--text-f)">Benefits</span><div class="mt-1 space-y-1">${benefits.map(b => `<div class="flex items-center gap-2"><span class="text-[10px] font-bold px-1.5 py-0.5 rounded badge-success">${b.type||'efficiency'}</span><span class="text-xs" style="color:var(--text-s)">${b.benefit}</span></div>`).join('')}</div></div>`;
+      }
+      return html;
     }
 
-    function briefArchV(s4) {
-      const rec = s4.architectureRecommendation || 'Single Agent';
-      const reason = s4.architectureReason || '';
-      const badgeClass = { 'Single Agent': 'badge-info', 'Multi-Agent': 'badge-violet', 'Connected Agent': 'badge-blue' };
-      return `
-        <div class="flex items-start gap-4">
-          <span class="text-xs font-bold px-3 py-1.5 rounded-lg ${badgeClass[rec] || 'badge-info'} shrink-0">${rec}</span>
-          <p class="text-sm leading-relaxed" style="color:var(--text-s)">${reason || 'Architecture recommendation will be generated from project analysis.'}</p>
-        </div>`;
+    function briefAgentV(agent) {
+      let html = `<p class="text-sm leading-relaxed" style="color:var(--text-s)">${agent.description || '<span style="color:var(--text-f)" class="italic">No description</span>'}</p>`;
+      if (agent.persona) html += `<div class="mt-2 text-xs" style="color:var(--text-m)"><span class="font-semibold">Persona:</span> ${agent.persona}</div>`;
+      if (agent.responseFormat) html += `<div class="text-xs" style="color:var(--text-m)"><span class="font-semibold">Format:</span> ${agent.responseFormat}</div>`;
+      if (agent.primaryUsers) html += `<div class="text-xs" style="color:var(--text-m)"><span class="font-semibold">Users:</span> ${agent.primaryUsers}</div>`;
+      return html;
     }
 
-    function briefComponentsV(s3) {
-      const systems = s3.systems || [];
-      const topics = s3.topics || [];
-      const all = [...systems.map(s => ({...s, cat: s.toolType})), ...topics.map(t => ({name: t.name, purpose: t.description || '', cat: 'topic'}))];
-      if (!all.length) return '<p class="text-sm italic" style="color:var(--text-f)">No components configured</p>';
-      return `<div class="flex flex-wrap gap-2">${all.map(c => `
-        <div class="comp-pill ${c.cat}" title="${esc(c.purpose)}">
-          <span class="text-[10px] font-bold uppercase opacity-60">${c.cat}</span>
-          <span class="font-medium">${c.name}</span>
+    function briefCapsV(caps) {
+      if (!caps.length) return '<p class="text-sm italic" style="color:var(--text-f)">No capabilities defined</p>';
+      const mvp = caps.filter(c => c.phase !== 'future');
+      const future = caps.filter(c => c.phase === 'future');
+      let html = '';
+      if (mvp.length) {
+        html += `<div class="space-y-1.5">${mvp.map(c => `<div class="flex items-center gap-2"><span class="text-[10px] font-bold px-1.5 py-0.5 rounded badge-success">MVP</span><span class="text-sm font-medium" style="color:var(--text)">${c.name}</span></div>`).join('')}</div>`;
+      }
+      if (future.length) {
+        html += `<div class="mt-3 pt-2" style="border-top:1px solid var(--border-s)"><span class="text-[10px] font-bold uppercase" style="color:var(--text-f)">Future</span><div class="mt-1.5 space-y-1.5">${future.map(c => `<div class="flex items-center gap-2"><span class="text-[10px] font-bold px-1.5 py-0.5 rounded badge-violet">FUTURE</span><span class="text-sm" style="color:var(--text-m)">${c.name}</span>${c.reason ? `<span class="text-xs" style="color:var(--text-f)">— ${c.reason}</span>` : ''}</div>`).join('')}</div></div>`;
+      }
+      return html;
+    }
+
+    function briefIntegV(integ) {
+      if (!integ.filter(i => i.name).length) return '<p class="text-sm italic" style="color:var(--text-f)">No integrations configured</p>';
+      return `<div class="flex flex-wrap gap-2">${integ.filter(i => i.name).map(i => `
+        <div class="comp-pill ${i.type}" title="${esc(i.purpose)}${i.dataProvided ? '\\nData: ' + esc(i.dataProvided) : ''}">
+          <span class="text-[10px] font-bold uppercase opacity-60">${i.type}</span>
+          <span class="font-medium">${i.name}</span>
+          ${i.phase === 'future' ? '<span class="text-[9px] px-1 rounded badge-violet">future</span>' : ''}
         </div>
       `).join('')}</div>`;
     }
 
-    function briefKnowledgeV(s3) {
-      const knowledge = (s3.knowledge || []).filter(k => k.name);
+    function briefKnowledgeV(know) {
+      const knowledge = (know || []).filter(k => k.name);
       if (!knowledge.length) return '<p class="text-sm italic" style="color:var(--text-f)">No knowledge sources</p>';
       return `<div class="flex flex-wrap gap-2">${knowledge.map(k => `
         <div class="comp-pill badge-success" style="border-left:3px solid var(--green)">
           <span class="text-[10px] font-bold uppercase opacity-60">${(k.type || '').split(' ')[0]}</span>
           <span class="font-medium">${k.name}</span>
+          ${k.purpose ? '<span class="text-[10px] ml-1" style="color:var(--text-f)">— ' + k.purpose + '</span>' : ''}
         </div>
       `).join('')}</div>`;
     }
 
-    function briefScenariosV(s2) {
-      const caps = (s2.capabilities || '').split('\n').filter(c => c.trim());
-      const scenarios = (s2.scenarios || []).filter(s => s.userSays);
-      let html = '';
-      if (caps.length) {
-        html += `<div class="mb-4"><div class="flex flex-wrap gap-1.5">${caps.map(c => `<span class="text-xs px-2.5 py-1 rounded-lg" style="background:var(--bg-s2);color:var(--text-s);border:1px solid var(--border)">${c.trim()}</span>`).join('')}</div></div>`;
-      }
-      if (!scenarios.length) return html + '<p class="text-sm italic" style="color:var(--text-f)">No scenarios defined</p>';
-      return html + `<div class="space-y-2">${scenarios.map((sc, i) => `
+    function briefConvosV(convos) {
+      const topics = (convos.topics || []).filter(t => t.name);
+      if (!topics.length) return '<p class="text-sm italic" style="color:var(--text-f)">No conversation topics</p>';
+      return `<div class="space-y-1.5">${topics.map(t => `
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="text-[10px] font-bold px-1.5 py-0.5 rounded ${t.topicType === 'system' ? 'badge-info' : t.topicType === 'generative' ? 'badge-violet' : 'badge-cyan'}">${t.topicType || 'custom'}</span>
+          <span class="text-sm font-medium" style="color:var(--text)">${t.name}</span>
+          <span class="text-[10px] px-1.5 py-0.5 rounded" style="background:var(--bg-s2);color:var(--text-f)">${t.triggerType || 'agent-chooses'}</span>
+          ${t.phase === 'future' ? '<span class="text-[9px] px-1 rounded badge-violet">future</span>' : ''}
+          ${t.description ? '<span class="text-xs" style="color:var(--text-m)">— ' + t.description + '</span>' : ''}
+        </div>
+      `).join('')}</div>`;
+    }
+
+    function briefScenariosV(scenarios) {
+      const filtered = (scenarios || []).filter(s => s.userSays);
+      if (!filtered.length) return '<p class="text-sm italic" style="color:var(--text-f)">No scenarios defined</p>';
+      return `<div class="space-y-2">${filtered.map((sc, i) => `
         <div class="scenario-card">
           <div class="flex items-start gap-3">
             <span class="flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold shrink-0 badge-warning">${i+1}</span>
             <div class="min-w-0">
               <p class="text-sm font-medium" style="color:var(--text)">"${sc.userSays}"</p>
-              <p class="text-xs mt-1" style="color:var(--text-m)">${sc.agentShould}</p>
+              <p class="text-xs mt-1" style="color:var(--text-m)">${sc.agentDoes || sc.agentShould || ''}</p>
+              ${sc.category ? '<span class="text-[9px] px-1.5 py-0.5 rounded" style="background:var(--bg-s2);color:var(--text-f)">' + sc.category + '</span>' : ''}
             </div>
           </div>
         </div>
@@ -1339,11 +1374,14 @@
       `;
     }
 
-    function briefBoundariesV(s2) {
+    function briefBoundariesV(bounds) {
+      const handleList = Array.isArray(bounds.handle) ? bounds.handle : (bounds.handle ? [bounds.handle] : []);
+      const declineList = (bounds.decline || []).filter(d => d.topic || (typeof d === 'string' && d));
+      const refuseList = (bounds.refuse || []).filter(r => r.topic || (typeof r === 'string' && r));
       const items = [
-        { label: 'HANDLE', val: s2.handle, badge: 'badge-success' },
-        { label: 'DECLINE', val: s2.decline, badge: 'badge-warning' },
-        { label: 'REFUSE', val: s2.refuse, badge: 'badge-danger' },
+        { label: 'HANDLE', val: handleList.join(', '), badge: 'badge-success' },
+        { label: 'DECLINE', val: declineList.map(d => typeof d === 'object' ? `${d.topic}${d.redirect ? ' → ' + d.redirect : ''}` : d).join('; '), badge: 'badge-warning' },
+        { label: 'REFUSE', val: refuseList.map(r => typeof r === 'object' ? `${r.topic}${r.reason ? ' (' + r.reason + ')' : ''}` : r).join('; '), badge: 'badge-danger' },
       ];
       return `<div class="space-y-2.5">${items.map(e => `
         <div class="flex items-start gap-3">
@@ -1353,17 +1391,54 @@
       `).join('')}</div>`;
     }
 
-    function briefDeployV(s4) {
-      const triggers = s4.triggers || [];
-      const channels = s4.channels || [];
-      return `<div class="flex gap-8">
-        <div class="flex-1"><span class="text-xs font-semibold uppercase" style="color:var(--text-f)">Triggers</span>
-          ${triggers.length ? `<div class="mt-2 flex flex-wrap gap-1.5">${triggers.map(t => `<span class="text-xs px-2.5 py-1 rounded-lg font-medium badge-violet">${t}</span>`).join('')}</div>` : '<p class="text-sm italic mt-1" style="color:var(--text-f)">None</p>'}
+    function briefArchV(arch) {
+      const rec = arch.type || '';
+      const badgeClass = { 'Single Agent': 'badge-info', 'Multi-Agent': 'badge-violet', 'Connected Agent': 'badge-blue' };
+      const factors = arch.factors || {};
+      const factorLabels = [
+        ['domainSeparation', 'Different problem domains'],
+        ['dataIsolation', 'Different data sources per capability'],
+        ['teamOwnership', 'Different teams own different parts'],
+        ['reusability', 'Specialists reusable by other agents'],
+        ['instructionSize', 'Instructions would exceed 8000 chars'],
+        ['knowledgeIsolation', 'Each capability needs its own knowledge'],
+      ];
+      const score = factorLabels.filter(([k]) => factors[k]).length;
+      let html = '';
+      if (rec) {
+        html += `<div class="flex items-center gap-3 mb-3">
+          <span class="text-xs font-bold px-3 py-1.5 rounded-lg ${badgeClass[rec] || 'badge-info'}">${rec}</span>
+          <span class="text-xs font-bold tabular-nums" style="color:var(--text-m)">Score: ${score}/6</span>
+          <span class="text-xs" style="color:var(--text-f)">${score <= 2 ? '(0-2 = Single Agent)' : '(3+ = Multi-Agent)'}</span>
+        </div>`;
+        if (factorLabels.some(([k]) => factors[k])) {
+          html += `<div class="grid grid-cols-2 gap-x-4 gap-y-1 mb-3">${factorLabels.map(([k, label]) => `<div class="flex items-center gap-1.5 text-xs" style="color:${factors[k] ? 'var(--text-s)' : 'var(--text-f)'}">
+            ${factors[k] ? '<svg class="w-3 h-3 shrink-0" style="color:var(--accent)" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>' : '<svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-width="2"/></svg>'}
+            ${label}</div>`).join('')}</div>`;
+        }
+      } else {
+        html += `<p class="text-sm italic mb-3" style="color:var(--text-f)">Run Research to get architecture recommendation</p>`;
+      }
+      if (arch.model) html += `<div class="text-xs mb-3" style="color:var(--text-m)"><span class="font-semibold">Model:</span> ${arch.model}${arch.modelReason ? ' — ' + arch.modelReason : ''}</div>`;
+      const triggers = arch.triggers || [];
+      const channels = arch.channels || [];
+      html += `<div class="flex gap-8">
+        <div class="flex-1"><span class="text-[10px] font-bold uppercase" style="color:var(--text-f)">Triggers</span>
+          ${triggers.length ? `<div class="mt-1.5 space-y-1">${triggers.map(t => {
+            const type = typeof t === 'object' ? t.type : t;
+            const desc = typeof t === 'object' ? t.description : '';
+            return `<div class="text-xs"><span class="font-semibold" style="color:var(--text-s)">${type}</span>${desc ? ` <span style="color:var(--text-f)">— ${desc}</span>` : ''}</div>`;
+          }).join('')}</div>` : '<p class="text-xs italic mt-1" style="color:var(--text-f)">None selected</p>'}
         </div>
-        <div class="flex-1"><span class="text-xs font-semibold uppercase" style="color:var(--text-f)">Channels</span>
-          ${channels.length ? `<div class="mt-2 flex flex-wrap gap-1.5">${channels.map(c => `<span class="text-xs px-2.5 py-1 rounded-lg font-medium badge-violet">${c}</span>`).join('')}</div>` : '<p class="text-sm italic mt-1" style="color:var(--text-f)">None</p>'}
+        <div class="flex-1"><span class="text-[10px] font-bold uppercase" style="color:var(--text-f)">Channels</span>
+          ${channels.length ? `<div class="mt-1.5 space-y-1">${channels.map(c => {
+            const name = typeof c === 'object' ? c.name : c;
+            const reason = typeof c === 'object' ? c.reason : '';
+            return `<div class="text-xs"><span class="font-semibold" style="color:var(--text-s)">${name}</span>${reason ? ` <span style="color:var(--text-f)">— ${reason}</span>` : ''}</div>`;
+          }).join('')}</div>` : '<p class="text-xs italic mt-1" style="color:var(--text-f)">None selected</p>'}
         </div>
       </div>`;
+      return html;
     }
 
     function nl2br(s) { return (s||'').replace(/\n/g, '<br>'); }
@@ -1423,93 +1498,104 @@
       </div>`;
     }
 
-    // ---- Edit renderers ----
+    // ---- Edit renderers (v2 schema) ----
 
-    function briefOverviewE(s1) {
+    function briefBusinessE(biz) {
+      return `<div class="space-y-3">
+        <div><label class="block text-xs font-semibold uppercase mb-1" style="color:var(--text-f)">Use Case (one-liner)</label>
+          <input type="text" data-field="business.useCase" value="${esc(biz.useCase)}" placeholder="e.g. Automate order status inquiries for support team" class="w-full rounded-lg px-3 py-2 text-sm focus:outline-none"></div>
+        <div><label class="block text-xs font-semibold uppercase mb-1" style="color:var(--text-f)">Problem Statement</label>
+          <textarea data-field="business.problemStatement" rows="3" class="w-full rounded-lg px-3 py-2 text-sm focus:outline-none" placeholder="2-3 sentences: what pain, for whom, why now">${esc(biz.problemStatement)}</textarea></div>
+      </div>`;
+    }
+
+    function briefAgentE(agent) {
       return `<div class="space-y-3">
         <div><label class="block text-xs font-semibold uppercase mb-1" style="color:var(--text-f)">Agent Name</label>
-          <input type="text" data-field="step1.agentName" value="${esc(s1.agentName)}" class="w-full rounded-lg px-3 py-2 text-sm focus:outline-none"></div>
-        <div><label class="block text-xs font-semibold uppercase mb-1" style="color:var(--text-f)">Problem Statement</label>
-          <textarea data-field="step1.problem" rows="4" class="w-full rounded-lg px-3 py-2 text-sm focus:outline-none">${esc(s1.problem)}</textarea></div>
-      </div>`;
-    }
-
-    function briefArchE(s4) {
-      const opts = [
-        { val: 'Single Agent', desc: 'One agent handles everything. Best when all capabilities share the same knowledge and follow similar patterns.' },
-        { val: 'Multi-Agent', desc: 'An orchestrator routes to specialist agents. Best when domains are distinct, require separate knowledge, or different teams own different parts.' },
-        { val: 'Connected Agent', desc: 'An external agent (e.g. Azure AI Foundry) connects to Copilot Studio for channels and tools. Best for complex AI logic that needs pro-code control.' },
-      ];
-      return `<div class="space-y-4">
-        <div><label class="block text-xs font-semibold uppercase mb-2" style="color:var(--text-f)">Architecture Type</label>
-          <div class="space-y-2">${opts.map(o => `
-            <label class="flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-colors" style="border:1px solid ${s4.architectureRecommendation===o.val?'var(--accent)':'var(--border)'};background:${s4.architectureRecommendation===o.val?'var(--accent-bg)':'transparent'}">
-              <input type="radio" name="arch_type" value="${o.val}" ${s4.architectureRecommendation===o.val?'checked':''} class="mt-0.5">
-              <div><div class="text-sm font-medium" style="color:var(--text)">${o.val}</div><div class="text-xs mt-0.5" style="color:var(--text-m)">${o.desc}</div></div>
-            </label>
-          `).join('')}</div></div>
-        <div><label class="block text-xs font-semibold uppercase mb-1" style="color:var(--text-f)">Reasoning</label>
-          <p class="text-xs mb-1.5" style="color:var(--text-f)">Explain why this architecture fits the use case</p>
-          <textarea data-field="step4.architectureReason" rows="3" class="w-full rounded-lg px-3 py-2 text-sm focus:outline-none">${esc(s4.architectureReason)}</textarea></div>
-      </div>`;
-    }
-
-    function briefComponentsE(s3) {
-      const systems = s3.systems || [];
-      const topics = s3.topics || [];
-      return `<div class="space-y-5">
-        <div>
-          <label class="block text-xs font-semibold uppercase mb-1" style="color:var(--text-f)">Tools & Integrations</label>
-          <div class="grid grid-cols-2 gap-2 mb-3 text-[11px]" style="color:var(--text-m)">
-            <div class="flex items-start gap-1.5"><span class="font-bold" style="color:#818cf8">MCP</span> — Full M365 access (read, write, search). Richer than connectors.</div>
-            <div class="flex items-start gap-1.5"><span class="font-bold" style="color:#60a5fa">Connector</span> — Pre-built integration to external systems (Salesforce, ServiceNow, etc.)</div>
-            <div class="flex items-start gap-1.5"><span class="font-bold" style="color:var(--orange)">Flow</span> — Power Automate flow for multi-step actions or approvals.</div>
-            <div class="flex items-start gap-1.5"><span class="font-bold" style="color:#c084fc">AI Tool</span> — AI-powered capability (summarizer, classifier, computer use).</div>
-          </div>
-          <div class="space-y-2">${systems.map((s, i) => `<div class="flex gap-2">
-            <input type="text" name="sys_name_${i}" value="${esc(s.name)}" placeholder="e.g. SharePoint/OneDrive, Salesforce" class="flex-1 rounded-lg px-3 py-1.5 text-sm focus:outline-none">
-            <select name="sys_type_${i}" class="w-28 rounded-lg px-2 py-1.5 text-sm"><option value="mcp" ${s.toolType==='mcp'?'selected':''}>MCP</option><option value="connector" ${s.toolType==='connector'?'selected':''}>Connector</option><option value="flow" ${s.toolType==='flow'?'selected':''}>Flow</option><option value="ai-tool" ${s.toolType==='ai-tool'?'selected':''}>AI Tool</option></select>
-            <input type="text" name="sys_purpose_${i}" value="${esc(s.purpose)}" placeholder="What it does for the agent" class="flex-1 rounded-lg px-3 py-1.5 text-sm focus:outline-none">
-          </div>`).join('')}
-          <button onclick="addToolBrief()" style="color:var(--accent)" class="text-xs font-medium">+ Add tool</button></div>
-        </div>
-        <div>
-          <label class="block text-xs font-semibold uppercase mb-1" style="color:var(--text-f)">Topics</label>
-          <p class="text-[11px] mb-2" style="color:var(--text-m)">Conversation flows the agent can follow. Each topic handles a specific type of request.</p>
-          <div class="space-y-2">${topics.map((t, i) => `<div class="flex gap-2">
-            <input type="text" name="topic_name_${i}" value="${esc(t.name)}" placeholder="e.g. Policy Lookup, Leave Guide" class="flex-1 rounded-lg px-3 py-1.5 text-sm focus:outline-none">
-            <input type="text" name="topic_desc_${i}" value="${esc(t.description)}" placeholder="What this topic handles" class="flex-1 rounded-lg px-3 py-1.5 text-sm focus:outline-none">
-          </div>`).join('')}
-          <button onclick="addTopicBrief()" style="color:var(--accent)" class="text-xs font-medium">+ Add topic</button></div>
+          <input type="text" data-field="agent.name" value="${esc(agent.name)}" class="w-full rounded-lg px-3 py-2 text-sm focus:outline-none"></div>
+        <div><label class="block text-xs font-semibold uppercase mb-1" style="color:var(--text-f)">Description</label>
+          <textarea data-field="agent.description" rows="3" class="w-full rounded-lg px-3 py-2 text-sm focus:outline-none" placeholder="What the agent does, for whom, and why">${esc(agent.description)}</textarea></div>
+        <div><label class="block text-xs font-semibold uppercase mb-1" style="color:var(--text-f)">Persona / Tone</label>
+          <input type="text" data-field="agent.persona" value="${esc(agent.persona)}" placeholder="e.g. Professional, concise, uses bullet points" class="w-full rounded-lg px-3 py-2 text-sm focus:outline-none"></div>
+        <div><label class="block text-xs font-semibold uppercase mb-1" style="color:var(--text-f)">Response Format</label>
+          <input type="text" data-field="agent.responseFormat" value="${esc(agent.responseFormat)}" placeholder="e.g. Bullet points, max 3 items, tables for data" class="w-full rounded-lg px-3 py-2 text-sm focus:outline-none"></div>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="block text-xs font-semibold uppercase mb-1" style="color:var(--text-f)">Primary Users</label>
+            <input type="text" data-field="agent.primaryUsers" value="${esc(agent.primaryUsers)}" class="w-full rounded-lg px-3 py-1.5 text-sm focus:outline-none"></div>
+          <div><label class="block text-xs font-semibold uppercase mb-1" style="color:var(--text-f)">Secondary Users</label>
+            <input type="text" data-field="agent.secondaryUsers" value="${esc(agent.secondaryUsers)}" class="w-full rounded-lg px-3 py-1.5 text-sm focus:outline-none"></div>
         </div>
       </div>`;
     }
 
-    function briefKnowledgeE(s3) {
-      const knowledge = s3.knowledge || [];
+    function briefCapsE(caps) {
+      const rows = caps.length ? caps : [{ name: '', phase: 'mvp' }];
+      return `<div class="space-y-2">
+        <p class="text-[11px] mb-1" style="color:var(--text-m)">List what the agent should do. Flag each as MVP (build now) or Future (deferred).</p>
+        ${rows.map((c, i) => `<div class="flex gap-2 items-center">
+          <input type="text" name="cap_name_${i}" value="${esc(c.name)}" placeholder="e.g. Look up order status" class="flex-1 rounded-lg px-3 py-1.5 text-sm focus:outline-none">
+          <select name="cap_phase_${i}" class="w-24 rounded-lg px-2 py-1.5 text-xs font-medium" style="${c.phase==='future' ? 'color:var(--text-f)' : 'color:var(--green)'}"><option value="mvp" ${c.phase!=='future'?'selected':''}>MVP</option><option value="future" ${c.phase==='future'?'selected':''}>Future</option></select>
+          ${c.phase === 'future' ? `<input type="text" name="cap_reason_${i}" value="${esc(c.reason || '')}" placeholder="Why deferred?" class="w-48 rounded-lg px-3 py-1.5 text-xs focus:outline-none" style="color:var(--text-f)">` : `<span class="w-48"></span>`}
+        </div>`).join('')}
+        <button onclick="addCapBrief()" style="color:var(--accent)" class="text-xs font-medium">+ Add capability</button>
+      </div>`;
+    }
+
+    function briefIntegE(integ) {
+      const systems = integ.length ? integ : [{ name: '', type: 'mcp', purpose: '' }];
+      return `<div class="space-y-2">
+        <div class="grid grid-cols-2 gap-2 mb-2 text-[11px]" style="color:var(--text-m)">
+          <div><span class="font-bold" style="color:#818cf8">MCP</span> — Full M365 access (read, write, search)</div>
+          <div><span class="font-bold" style="color:#60a5fa">Connector</span> — Pre-built integration to external systems</div>
+          <div><span class="font-bold" style="color:var(--orange)">Flow</span> — Power Automate flow for multi-step actions</div>
+          <div><span class="font-bold" style="color:#c084fc">AI Tool</span> — AI-powered capability</div>
+        </div>
+        ${systems.map((s, i) => `<div class="flex gap-2">
+          <input type="text" name="integ_name_${i}" value="${esc(s.name)}" placeholder="e.g. SharePoint, SAP" class="flex-1 rounded-lg px-3 py-1.5 text-sm focus:outline-none">
+          <select name="integ_type_${i}" class="w-28 rounded-lg px-2 py-1.5 text-sm"><option value="mcp" ${s.type==='mcp'?'selected':''}>MCP</option><option value="connector" ${s.type==='connector'?'selected':''}>Connector</option><option value="flow" ${s.type==='flow'?'selected':''}>Flow</option><option value="ai-tool" ${s.type==='ai-tool'?'selected':''}>AI Tool</option></select>
+          <input type="text" name="integ_purpose_${i}" value="${esc(s.purpose)}" placeholder="What it does" class="flex-1 rounded-lg px-3 py-1.5 text-sm focus:outline-none">
+          <select name="integ_phase_${i}" class="w-24 rounded-lg px-2 py-1.5 text-xs"><option value="mvp" ${s.phase!=='future'?'selected':''}>MVP</option><option value="future" ${s.phase==='future'?'selected':''}>Future</option></select>
+        </div>`).join('')}
+        <button onclick="addIntegBrief()" style="color:var(--accent)" class="text-xs font-medium">+ Add integration</button>
+      </div>`;
+    }
+
+    function briefKnowledgeE(know) {
+      const knowledge = know.length ? know : [{ name: '', type: 'SharePoint', purpose: '' }];
       const types = ['SharePoint','Uploaded files','Dataverse','Public websites','Graph connectors'];
       return `<div class="space-y-2">
         ${knowledge.map((k, i) => `<div class="flex gap-2">
           <input type="text" name="k_name_${i}" value="${esc(k.name)}" placeholder="Source name" class="flex-1 rounded-lg px-3 py-1.5 text-sm focus:outline-none">
           <select name="k_type_${i}" class="w-36 rounded-lg px-2 py-1.5 text-sm">${types.map(t => `<option value="${t}" ${k.type===t?'selected':''}>${t}</option>`).join('')}</select>
+          <input type="text" name="k_purpose_${i}" value="${esc(k.purpose || '')}" placeholder="What questions it answers" class="flex-1 rounded-lg px-3 py-1.5 text-sm focus:outline-none">
         </div>`).join('')}
         <button onclick="addKnowledgeBrief()" style="color:var(--accent)" class="text-xs font-medium">+ Add source</button>
       </div>`;
     }
 
-    function briefScenariosE(s2) {
-      const scenarios = s2.scenarios || [{ userSays: '', agentShould: '' }];
-      return `<div class="space-y-4">
-        <div><label class="block text-xs font-semibold uppercase mb-1" style="color:var(--text-f)">Capabilities (one per line)</label>
-          <textarea data-field="step2.capabilities" rows="3" class="w-full rounded-lg px-3 py-2 text-sm focus:outline-none">${esc(s2.capabilities)}</textarea></div>
-        <div><label class="block text-xs font-semibold uppercase mb-1" style="color:var(--text-f)">Scenarios</label><div class="space-y-2">
-        ${scenarios.map((sc, i) => `<div class="flex gap-2 items-start">
+    function briefConvosE(convos) {
+      const topics = (convos.topics || []).length ? convos.topics : [{ name: '', description: '', triggerType: 'agent-chooses', topicType: 'custom' }];
+      return `<div class="space-y-2">
+        ${topics.map((t, i) => `<div class="flex gap-2">
+          <input type="text" name="topic_name_${i}" value="${esc(t.name)}" placeholder="Topic name" class="flex-1 rounded-lg px-3 py-1.5 text-sm focus:outline-none">
+          <input type="text" name="topic_desc_${i}" value="${esc(t.description)}" placeholder="What it handles" class="flex-1 rounded-lg px-3 py-1.5 text-sm focus:outline-none">
+          <select name="topic_trigger_${i}" class="w-32 rounded-lg px-2 py-1.5 text-xs"><option value="agent-chooses" ${t.triggerType==='agent-chooses'?'selected':''}>Agent chooses</option><option value="phrases" ${t.triggerType==='phrases'?'selected':''}>Phrases</option><option value="fallback" ${t.triggerType==='fallback'?'selected':''}>Fallback</option><option value="event" ${t.triggerType==='event'?'selected':''}>Event</option><option value="auto-start" ${t.triggerType==='auto-start'?'selected':''}>Auto-start</option><option value="redirect" ${t.triggerType==='redirect'?'selected':''}>Redirect</option><option value="escalation" ${t.triggerType==='escalation'?'selected':''}>Escalation</option><option value="inactivity" ${t.triggerType==='inactivity'?'selected':''}>Inactivity</option></select>
+          <select name="topic_type_${i}" class="w-28 rounded-lg px-2 py-1.5 text-xs"><option value="custom" ${t.topicType==='custom'?'selected':''}>Custom</option><option value="generative" ${t.topicType==='generative'?'selected':''}>Generative</option><option value="system" ${t.topicType==='system'?'selected':''}>System</option></select>
+        </div>`).join('')}
+        <button onclick="addTopicBrief()" style="color:var(--accent)" class="text-xs font-medium">+ Add topic</button>
+      </div>`;
+    }
+
+    function briefScenariosE(scenarios) {
+      const rows = scenarios.length ? scenarios : [{ userSays: '', agentDoes: '' }];
+      return `<div class="space-y-2">
+        ${rows.map((sc, i) => `<div class="flex gap-2 items-start">
           <span class="text-xs font-bold mt-2.5 w-4 shrink-0" style="color:var(--text-f)">${i+1}</span>
           <input type="text" name="scenario_user_${i}" value="${esc(sc.userSays)}" placeholder="User says..." class="flex-1 rounded-lg px-3 py-1.5 text-sm focus:outline-none">
-          <input type="text" name="scenario_agent_${i}" value="${esc(sc.agentShould)}" placeholder="Agent should..." class="flex-1 rounded-lg px-3 py-1.5 text-sm focus:outline-none">
+          <input type="text" name="scenario_agent_${i}" value="${esc(sc.agentDoes || sc.agentShould || '')}" placeholder="Agent does..." class="flex-1 rounded-lg px-3 py-1.5 text-sm focus:outline-none">
         </div>`).join('')}
         <button onclick="addScenarioBrief()" style="color:var(--accent)" class="text-xs font-medium ml-4">+ Add scenario</button>
-      </div></div></div>`;
+      </div>`;
     }
 
     function briefEvalsE(evals) {
@@ -1535,28 +1621,82 @@
       </div>`;
     }
 
-    function briefBoundariesE(s2) {
+    function briefBoundariesE(bounds) {
+      const handleStr = Array.isArray(bounds.handle) ? bounds.handle.join('\n') : (bounds.handle || '');
+      const declineStr = (bounds.decline || []).map(d => typeof d === 'object' ? `${d.topic}${d.redirect ? ' → ' + d.redirect : ''}` : d).join('\n');
+      const refuseStr = (bounds.refuse || []).map(r => typeof r === 'object' ? `${r.topic}${r.reason ? ' (' + r.reason + ')' : ''}` : r).join('\n');
       return `<div class="space-y-3">
         <div><label class="block text-xs font-semibold uppercase mb-0.5" style="color:var(--green)">HANDLE</label>
-          <p class="text-[11px] mb-1" style="color:var(--text-f)">Topics the agent should answer confidently</p>
-          <textarea data-field="step2.handle" rows="2" class="w-full rounded-lg px-3 py-2 text-sm focus:outline-none" style="border-color:rgba(16,185,129,0.3);background:rgba(16,185,129,0.05)">${esc(s2.handle)}</textarea></div>
+          <p class="text-[11px] mb-1" style="color:var(--text-f)">Topics the agent should answer confidently (one per line)</p>
+          <textarea data-field="boundaries.handle" rows="2" class="w-full rounded-lg px-3 py-2 text-sm focus:outline-none" style="border-color:rgba(16,185,129,0.3);background:rgba(16,185,129,0.05)">${esc(handleStr)}</textarea></div>
         <div><label class="block text-xs font-semibold uppercase mb-0.5" style="color:var(--amber)">DECLINE</label>
-          <p class="text-[11px] mb-1" style="color:var(--text-f)">Requests to politely redirect elsewhere (e.g. "I can't help with that, but you can contact...")</p>
-          <textarea data-field="step2.decline" rows="2" class="w-full rounded-lg px-3 py-2 text-sm focus:outline-none" style="border-color:rgba(245,158,11,0.3);background:rgba(245,158,11,0.05)">${esc(s2.decline)}</textarea></div>
+          <p class="text-[11px] mb-1" style="color:var(--text-f)">Requests to politely redirect. Format: "topic → redirect target" (one per line)</p>
+          <textarea data-field="boundaries.decline" rows="2" class="w-full rounded-lg px-3 py-2 text-sm focus:outline-none" style="border-color:rgba(245,158,11,0.3);background:rgba(245,158,11,0.05)">${esc(declineStr)}</textarea></div>
         <div><label class="block text-xs font-semibold uppercase mb-0.5" style="color:var(--red)">REFUSE</label>
-          <p class="text-[11px] mb-1" style="color:var(--text-f)">Hard stops — agent must never do these under any circumstances</p>
-          <textarea data-field="step2.refuse" rows="2" class="w-full rounded-lg px-3 py-2 text-sm focus:outline-none" style="border-color:rgba(239,68,68,0.3);background:rgba(239,68,68,0.05)">${esc(s2.refuse)}</textarea></div>
+          <p class="text-[11px] mb-1" style="color:var(--text-f)">Hard stops. Format: "topic (reason)" (one per line)</p>
+          <textarea data-field="boundaries.refuse" rows="2" class="w-full rounded-lg px-3 py-2 text-sm focus:outline-none" style="border-color:rgba(239,68,68,0.3);background:rgba(239,68,68,0.05)">${esc(refuseStr)}</textarea></div>
       </div>`;
     }
 
-    function briefDeployE(s4) {
-      const triggerTypes = ['Conversational (user message)','Recurrence (scheduled)','Event (SharePoint/Dataverse/Email)','System redirect','Fallback/Unknown intent'];
-      const channelOptions = ['Microsoft Teams','Custom website','Mobile app','Direct Line','Slack','Telephony'];
-      return `<div class="grid grid-cols-2 gap-4">
-        <div><label class="block text-xs font-semibold uppercase mb-1" style="color:var(--text-f)">Triggers</label>
-          ${triggerTypes.map(t => `<label class="flex items-center gap-2 text-xs py-0.5" style="color:var(--text-s)"><input type="checkbox" name="trigger" value="${t}" ${(s4.triggers||[]).includes(t)?'checked':''}>${t}</label>`).join('')}</div>
-        <div><label class="block text-xs font-semibold uppercase mb-1" style="color:var(--text-f)">Channels</label>
-          ${channelOptions.map(c => `<label class="flex items-center gap-2 text-xs py-0.5" style="color:var(--text-s)"><input type="checkbox" name="channel" value="${c}" ${(s4.channels||[]).includes(c)?'checked':''}>${c}</label>`).join('')}</div>
+    function briefArchE(arch) {
+      const factors = arch.factors || {};
+      const factorDefs = [
+        ['domainSeparation', 'Domain separation', 'Are capabilities in truly different domains?'],
+        ['dataIsolation', 'Data isolation', 'Does each capability need different data systems?'],
+        ['teamOwnership', 'Team ownership', 'Do different teams own different capabilities?'],
+        ['reusability', 'Reusability', 'Would specialist agents be reusable by other orchestrators?'],
+        ['instructionSize', 'Instruction size', 'Would all instructions exceed 8000 chars in one agent?'],
+        ['knowledgeIsolation', 'Knowledge isolation', 'Does each capability need its own deep knowledge base?'],
+      ];
+      const score = factorDefs.filter(([k]) => factors[k]).length;
+
+      const triggerDefs = [
+        ['Conversational', 'User sends a message in Teams or web chat'],
+        ['Scheduled', 'Runs on a timer — daily, hourly, etc. (no user input)'],
+        ['Event-driven', 'Fires when something happens — new email, SharePoint change, Dataverse update'],
+        ['Autonomous', 'Agent plans and executes multi-step tasks independently'],
+      ];
+      const channelDefs = [
+        ['Microsoft Teams', 'Chat within Teams — cards, tabs, adaptive cards'],
+        ['M365 Copilot', 'Appears as a plugin inside Microsoft 365 Copilot'],
+        ['Web chat', 'Embedded chat widget on a website'],
+        ['Direct Line', 'API-only channel for custom app integrations'],
+        ['Slack', 'Cross-posted via connector to Slack workspaces'],
+        ['Mobile app', 'Embedded in a native mobile application'],
+      ];
+      const curTriggers = (arch.triggers || []).map(t => typeof t === 'object' ? t.type : t);
+      const curChannels = (arch.channels || []).map(c => typeof c === 'object' ? c.name : c);
+
+      return `<div class="space-y-5">
+        <div>
+          <label class="block text-xs font-semibold uppercase mb-2" style="color:var(--text-f)">Architecture Decision — Walk through with customer</label>
+          <p class="text-[11px] mb-3" style="color:var(--text-m)">Check each factor that applies. 0-2 checked = Single Agent, 3+ = Multi-Agent.</p>
+          <div class="space-y-2">${factorDefs.map(([key, label, question]) => `
+            <label class="flex items-start gap-3 p-2.5 rounded-lg cursor-pointer transition-colors" style="border:1px solid ${factors[key]?'var(--accent)':'var(--border)'};background:${factors[key]?'var(--accent-bg)':'transparent'}">
+              <input type="checkbox" name="factor_${key}" ${factors[key]?'checked':''} class="mt-0.5">
+              <div><div class="text-sm font-medium" style="color:var(--text)">${label}</div><div class="text-xs" style="color:var(--text-m)">${question}</div></div>
+            </label>
+          `).join('')}</div>
+          <div class="mt-2 text-xs font-semibold" style="color:var(--accent)">Score: ${score}/6 → ${score <= 2 ? 'Single Agent' : 'Multi-Agent'}</div>
+        </div>
+        <div class="grid grid-cols-2 gap-5">
+          <div>
+            <label class="block text-xs font-semibold uppercase mb-2" style="color:var(--text-f)">How does the agent activate?</label>
+            <div class="space-y-1.5">${triggerDefs.map(([type, desc]) => `
+              <label class="flex items-start gap-2 text-xs py-0.5 cursor-pointer">
+                <input type="checkbox" name="trigger" value="${type}" ${curTriggers.includes(type)?'checked':''} class="mt-0.5">
+                <div><span class="font-semibold" style="color:var(--text-s)">${type}</span><div class="text-[10px]" style="color:var(--text-f)">${desc}</div></div>
+              </label>`).join('')}</div>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold uppercase mb-2" style="color:var(--text-f)">Where do users interact?</label>
+            <div class="space-y-1.5">${channelDefs.map(([name, desc]) => `
+              <label class="flex items-start gap-2 text-xs py-0.5 cursor-pointer">
+                <input type="checkbox" name="channel" value="${name}" ${curChannels.includes(name)?'checked':''} class="mt-0.5">
+                <div><span class="font-semibold" style="color:var(--text-s)">${name}</span><div class="text-[10px]" style="color:var(--text-f)">${desc}</div></div>
+              </label>`).join('')}</div>
+          </div>
+        </div>
       </div>`;
     }
 
@@ -1568,48 +1708,119 @@
       const el = document.getElementById(`section-${id}`);
       if (!el) return;
       switch (id) {
-        case 'overview': {
-          const s = wizardState.step1 = wizardState.step1 || {};
-          el.querySelectorAll('[data-field]').forEach(f => { s[f.dataset.field.split('.')[1]] = f.value; });
+        case 'business': {
+          const s = wizardState.business = wizardState.business || {};
+          el.querySelectorAll('[data-field]').forEach(f => {
+            const key = f.dataset.field.split('.')[1];
+            s[key] = f.value;
+          });
           break;
         }
-        case 'architecture': {
-          const s = wizardState.step4 = wizardState.step4 || {};
-          s.architectureRecommendation = el.querySelector('[name="arch_type"]:checked')?.value || 'Single Agent';
-          const r = el.querySelector('[data-field="step4.architectureReason"]');
-          if (r) s.architectureReason = r.value;
+        case 'agent': {
+          const s = wizardState.agent = wizardState.agent || {};
+          el.querySelectorAll('[data-field]').forEach(f => {
+            const key = f.dataset.field.split('.')[1];
+            s[key] = f.value;
+          });
           break;
         }
-        case 'components': {
-          const s = wizardState.step3 = wizardState.step3 || {};
-          s.systems = []; let i = 0;
-          while (el.querySelector(`[name="sys_name_${i}"]`)) {
-            s.systems.push({ name: el.querySelector(`[name="sys_name_${i}"]`).value, toolType: el.querySelector(`[name="sys_type_${i}"]`).value, purpose: el.querySelector(`[name="sys_purpose_${i}"]`).value });
+        case 'capabilities': {
+          wizardState.capabilities = []; let i = 0;
+          while (el.querySelector(`[name="cap_name_${i}"]`)) {
+            const phase = el.querySelector(`[name="cap_phase_${i}"]`).value;
+            const reasonEl = el.querySelector(`[name="cap_reason_${i}"]`);
+            wizardState.capabilities.push({
+              name: el.querySelector(`[name="cap_name_${i}"]`).value,
+              phase: phase,
+              reason: (phase === 'future' && reasonEl) ? reasonEl.value : '',
+              dataSources: [],
+            });
             i++;
           }
-          s.topics = []; i = 0;
-          while (el.querySelector(`[name="topic_name_${i}"]`)) {
-            s.topics.push({ name: el.querySelector(`[name="topic_name_${i}"]`).value, description: el.querySelector(`[name="topic_desc_${i}"]`).value });
+          break;
+        }
+        case 'integrations': {
+          wizardState.integrations = []; let i = 0;
+          while (el.querySelector(`[name="integ_name_${i}"]`)) {
+            wizardState.integrations.push({
+              name: el.querySelector(`[name="integ_name_${i}"]`).value,
+              type: el.querySelector(`[name="integ_type_${i}"]`).value,
+              purpose: el.querySelector(`[name="integ_purpose_${i}"]`).value,
+              phase: el.querySelector(`[name="integ_phase_${i}"]`).value,
+            });
             i++;
           }
           break;
         }
         case 'knowledge': {
-          const s = wizardState.step3 = wizardState.step3 || {};
-          s.knowledge = []; let i = 0;
+          wizardState.knowledge = []; let i = 0;
           while (el.querySelector(`[name="k_name_${i}"]`)) {
-            s.knowledge.push({ name: el.querySelector(`[name="k_name_${i}"]`).value, type: el.querySelector(`[name="k_type_${i}"]`).value });
+            wizardState.knowledge.push({
+              name: el.querySelector(`[name="k_name_${i}"]`).value,
+              type: el.querySelector(`[name="k_type_${i}"]`).value,
+              purpose: (el.querySelector(`[name="k_purpose_${i}"]`) || {}).value || '',
+            });
             i++;
           }
           break;
         }
+        case 'conversations': {
+          const c = wizardState.conversations = wizardState.conversations || {};
+          c.topics = []; let i = 0;
+          while (el.querySelector(`[name="topic_name_${i}"]`)) {
+            c.topics.push({
+              name: el.querySelector(`[name="topic_name_${i}"]`).value,
+              description: el.querySelector(`[name="topic_desc_${i}"]`).value,
+              triggerType: el.querySelector(`[name="topic_trigger_${i}"]`).value,
+              topicType: el.querySelector(`[name="topic_type_${i}"]`).value,
+            });
+            i++;
+          }
+          break;
+        }
+        case 'boundaries': {
+          const b = wizardState.boundaries = wizardState.boundaries || {};
+          const handleEl = el.querySelector('[data-field="boundaries.handle"]');
+          if (handleEl) b.handle = handleEl.value.split('\n').map(s => s.trim()).filter(Boolean);
+          const declineEl = el.querySelector('[data-field="boundaries.decline"]');
+          if (declineEl) b.decline = declineEl.value.split('\n').filter(s => s.trim()).map(line => {
+            const parts = line.split('→').map(s => s.trim());
+            return { topic: parts[0] || '', redirect: parts[1] || '' };
+          });
+          const refuseEl = el.querySelector('[data-field="boundaries.refuse"]');
+          if (refuseEl) b.refuse = refuseEl.value.split('\n').filter(s => s.trim()).map(line => {
+            const m = line.match(/^(.+?)(?:\s*\((.+)\))?$/);
+            return { topic: (m ? m[1] : line).trim(), reason: (m && m[2]) ? m[2].trim() : '' };
+          });
+          break;
+        }
+        case 'architecture': {
+          const a = wizardState.architecture = wizardState.architecture || {};
+          // Collect 6-factor checkboxes
+          const factorKeys = ['domainSeparation','dataIsolation','teamOwnership','reusability','instructionSize','knowledgeIsolation'];
+          a.factors = a.factors || {};
+          factorKeys.forEach(k => { a.factors[k] = !!el.querySelector(`[name="factor_${k}"]`)?.checked; });
+          const score = factorKeys.filter(k => a.factors[k]).length;
+          a.score = score;
+          a.type = score <= 2 ? 'Single Agent' : 'Multi-Agent';
+          // Triggers with descriptions
+          const triggerDescs = { 'Conversational': 'User sends a message', 'Scheduled': 'Runs on a timer', 'Event-driven': 'Fires on system events', 'Autonomous': 'Multi-step independent execution' };
+          a.triggers = [...el.querySelectorAll('[name="trigger"]:checked')].map(e => ({ type: e.value, description: triggerDescs[e.value] || '' }));
+          // Channels with descriptions
+          const channelDescs = { 'Microsoft Teams': 'Chat within Teams', 'M365 Copilot': 'Plugin in M365 Copilot', 'Web chat': 'Embedded on website', 'Direct Line': 'API-only', 'Slack': 'Via connector', 'Mobile app': 'Embedded in app' };
+          a.channels = [...el.querySelectorAll('[name="channel"]:checked')].map(e => ({ name: e.value, reason: channelDescs[e.value] || '' }));
+          break;
+        }
         case 'scenarios': {
-          const s = wizardState.step2 = wizardState.step2 || {};
-          const capEl = el.querySelector('[data-field="step2.capabilities"]');
-          if (capEl) s.capabilities = capEl.value;
-          s.scenarios = []; let i = 0;
+          wizardState.scenarios = []; let i = 0;
           while (el.querySelector(`[name="scenario_user_${i}"]`)) {
-            s.scenarios.push({ userSays: el.querySelector(`[name="scenario_user_${i}"]`).value, agentShould: el.querySelector(`[name="scenario_agent_${i}"]`).value });
+            wizardState.scenarios.push({
+              name: `Scenario ${i+1}`,
+              userSays: el.querySelector(`[name="scenario_user_${i}"]`).value,
+              agentDoes: el.querySelector(`[name="scenario_agent_${i}"]`).value,
+              category: 'happy-path',
+              capabilities: [],
+            });
             i++;
           }
           break;
@@ -1620,17 +1831,6 @@
             wizardState.evals.push({ question: el.querySelector(`[name="eval_q_${i}"]`).value, expected: el.querySelector(`[name="eval_exp_${i}"]`).value, method: el.querySelector(`[name="eval_method_${i}"]`).value, score: el.querySelector(`[name="eval_score_${i}"]`).value });
             i++;
           }
-          break;
-        }
-        case 'boundaries': {
-          const s = wizardState.step2 = wizardState.step2 || {};
-          el.querySelectorAll('[data-field]').forEach(f => { s[f.dataset.field.split('.')[1]] = f.value; });
-          break;
-        }
-        case 'deployment': {
-          const s = wizardState.step4 = wizardState.step4 || {};
-          s.triggers = [...el.querySelectorAll('[name="trigger"]:checked')].map(e => e.value);
-          s.channels = [...el.querySelectorAll('[name="channel"]:checked')].map(e => e.value);
           break;
         }
         case 'questions': {
@@ -1649,9 +1849,19 @@
 
     // --- Inline add helpers ---
 
+    function addCapBrief() {
+      collectBriefEdit('capabilities');
+      wizardState.capabilities.push({ name: '', phase: 'mvp', dataSources: [] });
+      renderBrief(); editBriefSection('capabilities');
+    }
+    function addIntegBrief() {
+      collectBriefEdit('integrations');
+      wizardState.integrations.push({ name: '', type: 'mcp', purpose: '', phase: 'mvp' });
+      renderBrief(); editBriefSection('integrations');
+    }
     function addScenarioBrief() {
       collectBriefEdit('scenarios');
-      wizardState.step2.scenarios.push({ userSays: '', agentShould: '' });
+      wizardState.scenarios.push({ name: '', userSays: '', agentDoes: '', category: 'happy-path', capabilities: [] });
       renderBrief(); editBriefSection('scenarios');
     }
     function addEvalBrief() {
@@ -1659,20 +1869,17 @@
       wizardState.evals.push({ question: '', expected: '', method: 'Semantic', score: '70' });
       renderBrief(); editBriefSection('evals');
     }
-    function addToolBrief() {
-      collectBriefEdit('components');
-      wizardState.step3.systems.push({ name: '', toolType: 'mcp', purpose: '' });
-      renderBrief(); editBriefSection('components');
-    }
     function addTopicBrief() {
-      collectBriefEdit('components');
-      wizardState.step3.topics = wizardState.step3.topics || [];
-      wizardState.step3.topics.push({ name: '', description: '' });
-      renderBrief(); editBriefSection('components');
+      collectBriefEdit('conversations');
+      const c = wizardState.conversations = wizardState.conversations || {};
+      c.topics = c.topics || [];
+      c.topics.push({ name: '', description: '', triggerType: 'agent-chooses', topicType: 'custom' });
+      renderBrief(); editBriefSection('conversations');
     }
     function addKnowledgeBrief() {
       collectBriefEdit('knowledge');
-      wizardState.step3.knowledge.push({ name: '', type: 'SharePoint' });
+      wizardState.knowledge = wizardState.knowledge || [];
+      wizardState.knowledge.push({ name: '', type: 'SharePoint', purpose: '' });
       renderBrief(); editBriefSection('knowledge');
     }
     function addQuestionBrief() {
@@ -1719,25 +1926,26 @@
 
     // --- Readiness panel ---
 
-    function renderReadinessPanel(s1, s2, s3, s4, evals, openQs) {
-      const scenarios = (s2?.scenarios || []).filter(s => s.userSays);
-      const systems = (s3?.systems || []).filter(s => s.name);
-      const topics = s3?.topics || [];
-      const knowledge = (s3?.knowledge || []).filter(k => k.name);
+    function renderReadinessPanel(biz, agent, caps, integ, know, convos, bounds, arch, scenarios, evals, openQs) {
+      const scenarioList = (scenarios || []).filter(s => s.userSays);
+      const integList = (integ || []).filter(i => i.name);
+      const topics = convos?.topics || [];
+      const knowledge = (know || []).filter(k => k.name);
       const unanswered = (openQs || []).filter(q => q.question && !q.answer);
       const evalResults = wizardState.evalResults || {};
       const buildStatus = wizardState.buildStatus || {};
+      const chanLen = (arch?.channels || []).filter(c => (typeof c === 'object' ? c.name : c)).length;
 
       const checks = [
-        { label: 'Problem statement', ok: !!s1?.problem },
-        { label: 'Architecture', ok: !!s4?.architectureRecommendation },
+        { label: 'Business context', ok: !!(biz?.problemStatement || biz?.useCase) },
+        { label: 'Architecture', ok: !!(arch?.type) },
         { label: 'Instructions', ok: !!wizardState.instructions },
-        { label: 'Components', ok: (systems.length + topics.length) > 0 },
+        { label: 'Integrations', ok: (integList.length + topics.length) > 0 },
         { label: 'Knowledge', ok: knowledge.length > 0 },
-        { label: 'Scenarios', ok: scenarios.length >= 3 },
+        { label: 'Scenarios', ok: scenarioList.length >= 3 },
         { label: 'Evals defined', ok: (evals || []).length > 0 },
-        { label: 'Boundaries', ok: !!(s2?.handle || s2?.decline || s2?.refuse) },
-        { label: 'Channels', ok: (s4?.channels || []).length > 0 },
+        { label: 'Boundaries', ok: !!(bounds?.handle?.length || bounds?.decline?.length || bounds?.refuse?.length) },
+        { label: 'Channels', ok: chanLen > 0 },
         { label: 'Questions resolved', ok: unanswered.length === 0 },
         { label: 'Build published', ok: buildStatus.status === 'published' },
         { label: 'Eval results', ok: !!(evalResults.summary && evalResults.summary.total > 0) },
@@ -1837,135 +2045,168 @@
       const b = wizardState;
       if (!b) { toast('No brief data to export', 'error'); return; }
 
-      const s1 = b.step1 || {};
-      const s2 = b.step2 || {};
-      const s3 = b.step3 || {};
-      const s4 = b.step4 || {};
+      const biz = b.business || {};
+      const agent = b.agent || {};
+      const caps = b.capabilities || [];
+      const integ = b.integrations || [];
+      const know = b.knowledge || [];
+      const convos = b.conversations || {};
+      const bounds = b.boundaries || {};
+      const arch = b.architecture || {};
+      const scenarios = b.scenarios || [];
       const evals = b.evals || [];
       const openQs = b.openQuestions || [];
-      const mvp = b.mvp || {};
+      const mvp = b.mvpSummary || {};
       const evalResults = b.evalResults || {};
       const buildStatus = b.buildStatus || {};
       const notes = b.notes || {};
       const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
-      // Build the markdown report
-      let md = `# Agent Report: ${s1.agentName || 'Unnamed Agent'}\n\n`;
+      let md = `# Agent Report: ${agent.name || 'Unnamed Agent'}\n\n`;
       md += `**Date:** ${today}\n`;
       md += `**Status:** ${buildStatus.status === 'published' ? 'Published' : 'In Development'}\n\n`;
       md += `---\n\n`;
 
-      // 1. Problem & Users
-      md += `## 1. Problem & Users\n\n`;
-      md += `**Problem:** ${s1.problem || 'Not defined'}\n\n`;
-      if (s1.users) {
-        md += `**Primary Users:** ${s1.users.primary || 'TBD'}\n`;
-        md += `**Secondary Users:** ${s1.users.secondary || 'TBD'}\n\n`;
+      // 1. Business Context
+      md += `## 1. Business Context\n\n`;
+      if (biz.useCase) md += `**Use Case:** ${biz.useCase}\n\n`;
+      md += `**Problem:** ${biz.problemStatement || 'Not defined'}\n\n`;
+      if (agent.primaryUsers) md += `**Primary Users:** ${agent.primaryUsers}\n`;
+      if (agent.secondaryUsers) md += `**Secondary Users:** ${agent.secondaryUsers}\n`;
+      md += `\n`;
+      const challenges = (biz.challenges || []).filter(c => c.challenge);
+      if (challenges.length) {
+        md += `### Challenges\n`;
+        challenges.forEach(c => { md += `- **[${c.impact || 'medium'}]** ${c.challenge}\n`; });
+        md += `\n`;
       }
-
-      // 2. Architecture
-      md += `## 2. Architecture\n\n`;
-      md += `**Type:** ${s4.architectureRecommendation || 'TBD'}`;
-      if (s4.architectureScore) md += ` (Score: ${s4.architectureScore})`;
-      md += `\n`;
-      md += `**Model:** ${s4.model || 'TBD'}`;
-      if (s4.modelReason) md += ` — ${s4.modelReason}`;
-      md += `\n`;
-      if (s4.architectureReason) md += `**Rationale:** ${s4.architectureReason}\n`;
-      md += `\n`;
-
-      // 3. Capabilities & Scope
-      md += `## 3. Capabilities & Scope\n\n`;
-      md += `### What This Agent Does\n`;
-      (s2.capabilities || '').split('\n').filter(Boolean).forEach(c => { md += `- ${c.trim()}\n`; });
-      md += `\n`;
-      if (s2.handle) md += `### Handles\n${s2.handle}\n\n`;
-      if (s2.decline) md += `### Declines\n${s2.decline}\n\n`;
-      if (s2.refuse) md += `### Hard Boundaries\n${s2.refuse}\n\n`;
-
-      // 4. Tools & Integrations
-      const systems = (s3.systems || []).filter(s => s.name);
-      if (systems.length) {
-        md += `## 4. Tools & Integrations\n\n`;
-        md += `| Tool | Type | Purpose | Status |\n|------|------|---------|--------|\n`;
-        systems.forEach(s => { md += `| ${s.name} | ${s.toolType || ''} | ${s.purpose || ''} | ${s.status || ''} |\n`; });
+      const benefits = (biz.benefits || []).filter(b => b.benefit);
+      if (benefits.length) {
+        md += `### Expected Benefits\n`;
+        benefits.forEach(b => { md += `- **[${b.type || 'efficiency'}]** ${b.benefit}\n`; });
         md += `\n`;
       }
 
-      // 5. Knowledge Sources
-      const knowledge = (s3.knowledge || []).filter(k => k.name);
-      if (knowledge.length) {
-        md += `## 5. Knowledge Sources\n\n`;
-        md += `| Source | Type | Scope | Status |\n|--------|------|-------|--------|\n`;
-        knowledge.forEach(k => { md += `| ${k.name} | ${k.type || ''} | ${(k.scope || '').substring(0, 80)} | ${k.status || ''} |\n`; });
+      // 2. Agent Description
+      if (agent.description) {
+        md += `## 2. Agent: ${agent.name || 'TBD'}\n\n`;
+        md += `${agent.description}\n\n`;
+        if (agent.persona) md += `**Persona:** ${agent.persona}\n`;
+        if (agent.responseFormat) md += `**Response Format:** ${agent.responseFormat}\n`;
         md += `\n`;
       }
 
-      // 6. Scenarios
-      const scenarios = (s2.scenarios || []).filter(s => s.userSays);
-      if (scenarios.length) {
-        md += `## 6. Sample Scenarios\n\n`;
-        md += `| # | User Says | Agent Should |\n|---|----------|-------------|\n`;
-        scenarios.forEach((s, i) => { md += `| ${i + 1} | ${s.userSays.substring(0, 80)} | ${s.agentShould.substring(0, 80)} |\n`; });
+      // 3. Capabilities
+      if (caps.length) {
+        md += `## 3. Capabilities\n\n`;
+        const mvpCaps = caps.filter(c => c.phase !== 'future');
+        const futureCaps = caps.filter(c => c.phase === 'future');
+        if (mvpCaps.length) {
+          md += `### MVP\n`;
+          mvpCaps.forEach(c => { md += `- **${c.name}**${c.description ? ': ' + c.description : ''}\n`; });
+          md += `\n`;
+        }
+        if (futureCaps.length) {
+          md += `### Future\n`;
+          futureCaps.forEach(c => { md += `- **${c.name}**${c.reason ? ' — ' + c.reason : ''}\n`; });
+          md += `\n`;
+        }
+      }
+
+      // 4. Scope & Boundaries
+      const handle = Array.isArray(bounds.handle) ? bounds.handle.join(', ') : (bounds.handle || '');
+      if (handle || (bounds.decline || []).length || (bounds.refuse || []).length) {
+        md += `## 4. Scope & Boundaries\n\n`;
+        if (handle) md += `**Handles:** ${handle}\n\n`;
+        if ((bounds.decline || []).length) {
+          md += `**Declines:**\n`;
+          bounds.decline.forEach(d => { md += `- ${typeof d === 'object' ? d.topic + (d.redirect ? ' → ' + d.redirect : '') : d}\n`; });
+          md += `\n`;
+        }
+        if ((bounds.refuse || []).length) {
+          md += `**Refuses:**\n`;
+          bounds.refuse.forEach(r => { md += `- ${typeof r === 'object' ? r.topic + (r.reason ? ' (' + r.reason + ')' : '') : r}\n`; });
+          md += `\n`;
+        }
+      }
+
+      // 5. Architecture
+      md += `## 5. Architecture\n\n`;
+      md += `**Type:** ${arch.type || 'TBD'}`;
+      if (arch.score) md += ` (Score: ${arch.score})`;
+      md += `\n`;
+      md += `**Model:** ${arch.model || 'TBD'}`;
+      if (arch.modelReason) md += ` — ${arch.modelReason}`;
+      md += `\n`;
+      if (arch.reason) md += `**Rationale:** ${arch.reason}\n`;
+      md += `\n`;
+
+      // 6. Integrations
+      const integFiltered = integ.filter(i => i.name);
+      if (integFiltered.length) {
+        md += `## 6. Integrations\n\n`;
+        md += `| Tool | Type | Purpose | Phase | Status |\n|------|------|---------|-------|--------|\n`;
+        integFiltered.forEach(i => { md += `| ${i.name} | ${i.type || ''} | ${i.purpose || ''} | ${i.phase || 'mvp'} | ${i.status || ''} |\n`; });
         md += `\n`;
       }
 
-      // 7. Open Questions
+      // 7. Knowledge Sources
+      const knowFiltered = know.filter(k => k.name);
+      if (knowFiltered.length) {
+        md += `## 7. Knowledge Sources\n\n`;
+        md += `| Source | Type | Purpose | Status |\n|--------|------|---------|--------|\n`;
+        knowFiltered.forEach(k => { md += `| ${k.name} | ${k.type || ''} | ${k.purpose || ''} | ${k.status || ''} |\n`; });
+        md += `\n`;
+      }
+
+      // 8. Scenarios
+      const scenarioFiltered = scenarios.filter(s => s.userSays);
+      if (scenarioFiltered.length) {
+        md += `## 8. Sample Scenarios\n\n`;
+        md += `| # | User Says | Agent Does |\n|---|----------|----------|\n`;
+        scenarioFiltered.forEach((s, i) => { md += `| ${i + 1} | ${(s.userSays || '').substring(0, 80)} | ${(s.agentDoes || '').substring(0, 80)} |\n`; });
+        md += `\n`;
+      }
+
+      // 9. Open Questions
       const unanswered = openQs.filter(q => q.question && !q.answer);
       if (unanswered.length) {
-        md += `## 7. Open Questions — Input Needed\n\n`;
-        md += `| # | Question | Impact | Suggested Default |\n|---|---------|--------|-------------------|\n`;
+        md += `## 9. Open Questions — Input Needed\n\n`;
+        md += `| # | Question | Section | Impact |\n|---|---------|---------|--------|\n`;
         unanswered.forEach((q, i) => {
-          md += `| ${i + 1} | ${q.question.substring(0, 80)} | ${(q.impact || '').substring(0, 60)} | ${(q.suggestedDefault || '').substring(0, 60)} |\n`;
+          md += `| ${i + 1} | ${(q.question || '').substring(0, 80)} | ${q.section || ''} | ${(q.impact || '').substring(0, 60)} |\n`;
         });
         md += `\n`;
       }
 
-      // 8. MVP Scope
-      if ((mvp.now || []).length || (mvp.later || []).length) {
-        md += `## 8. MVP Scope\n\n`;
-        if ((mvp.now || []).length) {
-          md += `### Build Now\n`;
-          mvp.now.forEach(item => { md += `- ${item}\n`; });
-          md += `\n`;
-        }
-        if ((mvp.later || []).length) {
-          md += `### Deferred\n`;
-          mvp.later.forEach(item => { md += `- ${item}\n`; });
-          md += `\n`;
-        }
-      }
-
-      // 9. Evaluation
+      // 10. Evaluation
       if (evals.length) {
-        md += `## 9. Evaluation Plan\n\n`;
+        md += `## 10. Evaluation Plan\n\n`;
         md += `**Test Cases:** ${evals.length}\n`;
         const cats = {};
         evals.forEach(e => { const c = e.category || 'uncategorized'; cats[c] = (cats[c] || 0) + 1; });
         md += `**Categories:** ${Object.entries(cats).map(([k, v]) => `${k} (${v})`).join(', ')}\n\n`;
-
         if (evalResults.summary && evalResults.summary.total > 0) {
           md += `### Results\n`;
           md += `**Overall:** ${evalResults.summary.passed}/${evalResults.summary.total} passed (${evalResults.summary.passRate})\n\n`;
         }
       }
 
-      // 10. Notes
+      // Notes
       const noteKeys = Object.keys(notes).filter(k => k !== '_description' && k !== 'example');
       if (noteKeys.length) {
-        md += `## 10. Additional Notes\n\n`;
+        md += `## Additional Notes\n\n`;
         noteKeys.forEach(k => { md += `- **${k}:** ${notes[k]}\n`; });
         md += `\n`;
       }
 
       md += `---\n\n*Generated from brief.json — ${today}*\n`;
 
-      // Download as file
       const blob = new Blob([md], { type: 'text/markdown' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${(s1.agentName || 'agent').replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}-report.md`;
+      a.download = `${(agent.name || 'agent').replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}-report.md`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

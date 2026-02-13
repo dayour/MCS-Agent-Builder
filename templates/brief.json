@@ -1,60 +1,155 @@
 {
-  "_description": "Single source of truth for agent design and build. The dashboard reads/writes this. The build skill reads this. Reports are generated from this. No separate agent-spec.md needed.",
-  "step1": {
-    "agentName": "Professional agent name",
-    "problem": "2-3 sentence problem statement — what pain this agent solves, for whom",
-    "users": {
-      "primary": "Main user group who will interact most frequently",
-      "secondary": "Supporting user group with occasional use"
+  "_schema": "2.0",
+  "_description": "Single source of truth for agent design, build, and customer reporting. Sections follow the customer meeting flow. Every dropdown has a mapped purpose.",
+
+  "business": {
+    "_meeting": "Section 1 — 'Why are we building this?'",
+    "useCase": "One-line use case for headers, report titles, and exec summaries",
+    "problemStatement": "2-3 sentence problem statement — what pain this agent solves, for whom, and why now",
+    "challenges": [
+      {
+        "challenge": "Description of the business challenge",
+        "impact": "high | medium | low"
+      }
+    ],
+    "benefits": [
+      {
+        "benefit": "Expected benefit or outcome",
+        "type": "efficiency | quality | cost | experience"
+      }
+    ],
+    "successCriteria": [
+      {
+        "metric": "Measurable outcome (e.g., first-contact resolution rate)",
+        "target": "Target value (e.g., >80%)",
+        "measurement": "How this will be measured"
+      }
+    ],
+    "stakeholders": {
+      "sponsor": "Executive sponsor / champion",
+      "owner": "Day-to-day agent owner",
+      "users": "Primary user group description"
     }
   },
-  "step2": {
-    "capabilities": "Newline-separated list of what the agent can do",
-    "scenarios": [
-      {
-        "userSays": "Example user message or question",
-        "agentShould": "What the agent does in response"
-      }
-    ],
-    "handle": "Topics the agent should answer confidently",
-    "decline": "Requests the agent should politely redirect",
-    "refuse": "Hard stops — agent must never do these"
+
+  "agent": {
+    "_meeting": "Section 2 — 'What is this agent?'",
+    "name": "Professional agent name",
+    "description": "2-3 sentence plain-English description of what the agent does, for whom, and why",
+    "persona": "Tone and personality (e.g., professional, concise, uses bullet points)",
+    "responseFormat": "How the agent formats responses (e.g., bullet points, max 3 items, tables for data, confirm before actions)",
+    "primaryUsers": "Main user group who will interact most frequently",
+    "secondaryUsers": "Supporting user group with occasional use"
   },
-  "step3": {
-    "systems": [
-      {
-        "name": "Tool or integration name (e.g. SharePoint/OneDrive, Salesforce)",
-        "toolType": "mcp | connector | flow | ai-tool | custom-connector",
-        "purpose": "What this tool does for the agent",
-        "status": "available | needs-setup | needs-custom | blocked",
-        "notes": "Optional — auth method, scoping, config details, why this choice"
-      }
-    ],
+
+  "capabilities": [
+    {
+      "_meeting": "Section 3 — 'What should it do?' (each flagged MVP or Future)",
+      "name": "Capability name (e.g., Look up order status)",
+      "phase": "mvp | future",
+      "reason": "Why MVP or why deferred — shown next to Future items (e.g., pending security approval)",
+      "description": "Optional detail for the build — PE uses this for instruction writing",
+      "dataSources": ["Systems this capability reads from or writes to"]
+    }
+  ],
+
+  "integrations": [
+    {
+      "_meeting": "Section 4 — 'What systems does it connect to?'",
+      "name": "Tool or integration name (e.g., SAP, SharePoint/OneDrive)",
+      "type": "mcp | connector | flow | ai-tool | custom-connector",
+      "purpose": "What data/actions this provides to the agent",
+      "dataProvided": "Specific data fields: order number, status, ETA, tracking number",
+      "authMethod": "OAuth 2.0 | API Key | Service Principal | User delegated | None",
+      "status": "available | needs-setup | needs-custom | blocked",
+      "phase": "mvp | future",
+      "notes": "Config details, scoping, constraints"
+    }
+  ],
+
+  "knowledge": [
+    {
+      "_meeting": "Section 5 — 'What does it need to know?'",
+      "name": "Source name or URL",
+      "type": "SharePoint | Uploaded files | Dataverse | Public websites | Graph connectors",
+      "purpose": "What questions this knowledge source answers",
+      "scope": "URL, site, or filter criteria",
+      "status": "available | needs-setup | needs-scoping | blocked",
+      "phase": "mvp | future"
+    }
+  ],
+
+  "conversations": {
+    "_meeting": "Section 6 — 'How does it interact?'",
     "topics": [
       {
-        "name": "Topic name",
-        "description": "What this conversation flow handles",
-        "triggerType": "phrases | agent-chooses | event | auto-start",
-        "yaml": "Optional — generated YAML content for this topic"
-      }
-    ],
-    "knowledge": [
-      {
-        "name": "Source name or URL",
-        "type": "SharePoint | Uploaded files | Dataverse | Public websites | Graph connectors",
-        "scope": "Optional — what content to index, filters, space/site scoping",
-        "status": "available | needs-setup | needs-scoping | blocked"
+        "name": "Topic name (e.g., Order Lookup)",
+        "schemaName": "MCS schema name (e.g., cr_orderlookup) — generated during build",
+        "description": "What this conversation flow does (used by 'agent chooses' trigger matching)",
+        "triggerType": "agent-chooses | phrases | fallback | redirect | escalation | event | auto-start | inactivity",
+        "triggerPhrases": ["Trigger phrases (only for triggerType: phrases)"],
+        "topicType": "generative | custom | system",
+        "phase": "mvp | future",
+        "implements": ["Capability names this topic implements (links to capabilities[].name)"],
+        "variables": [
+          {
+            "name": "Variable name (e.g., orderNumber)",
+            "type": "string | number | boolean | choice | date | entity",
+            "prompt": "Question to ask the user (e.g., What's your order number?)",
+            "required": true
+          }
+        ],
+        "connectedIntegrations": ["Integration names this topic calls (links to integrations[].name)"],
+        "outputFormat": "text | adaptive-card | knowledge | redirect | escalate",
+        "yaml": null
       }
     ]
   },
-  "step4": {
-    "architectureRecommendation": "Single Agent | Multi-Agent | Connected Agent",
-    "architectureReason": "Why this architecture fits the use case",
-    "architectureScore": "0-6 score from the 6-factor framework",
+
+  "boundaries": {
+    "_meeting": "Section 7 — 'What should it NOT do?'",
+    "handle": ["Topics the agent should answer confidently"],
+    "decline": [
+      {
+        "topic": "Request type to politely redirect",
+        "redirect": "Where to redirect (e.g., Transfer to billing team via ServiceNow)"
+      }
+    ],
+    "refuse": [
+      {
+        "topic": "Hard stop — agent must never do this",
+        "reason": "Why this is refused (e.g., GDPR compliance)"
+      }
+    ]
+  },
+
+  "architecture": {
+    "_meeting": "Section 8 — 'How is it built?' Walk through 6 factors with the customer.",
+    "type": "Single Agent | Multi-Agent | Connected Agent",
+    "factors": {
+      "_description": "6-factor scoring — check each with the customer. 0-2 checked = Single Agent, 3+ = Multi-Agent.",
+      "domainSeparation": false,
+      "dataIsolation": false,
+      "teamOwnership": false,
+      "reusability": false,
+      "instructionSize": false,
+      "knowledgeIsolation": false
+    },
+    "score": 0,
     "model": "GPT-4o | GPT-4o mini | GPT-5 Auto (Preview) | o1 | o1 mini | o3-mini",
     "modelReason": "Why this model was chosen",
-    "triggers": ["Trigger types — e.g. Conversational (user message), Recurrence, Event"],
-    "channels": ["Channel names — e.g. Microsoft Teams, Custom website"],
+    "triggers": [
+      {
+        "type": "Conversational | Scheduled | Event-driven | Autonomous",
+        "description": "When and why this trigger fires"
+      }
+    ],
+    "channels": [
+      {
+        "name": "Microsoft Teams | M365 Copilot | Web chat | Direct Line | Slack | Mobile app",
+        "reason": "Why this channel was chosen"
+      }
+    ],
     "children": [
       {
         "name": "Child agent name (for multi-agent only)",
@@ -63,20 +158,48 @@
       }
     ]
   },
-  "instructions": "Full agent instructions text (up to 8000 chars). Written by Prompt Engineer, reviewed by QA Challenger. This is what gets pasted into MCS.",
-  "mvp": {
-    "now": ["Capabilities to build in the current sprint"],
-    "later": ["Capabilities deferred to future iterations with reason"]
-  },
+
+  "scenarios": [
+    {
+      "_meeting": "Section 9 — 'How do we test it?'",
+      "name": "Scenario name (e.g., Happy path: order lookup)",
+      "category": "happy-path | edge-case | boundary-decline | boundary-refuse | error-recovery | multi-turn",
+      "userSays": "Example user message",
+      "agentDoes": "What the agent does in response",
+      "capabilities": ["Which capabilities this exercises (optional, links to capabilities[].name)"]
+    }
+  ],
+
   "evals": [
     {
       "question": "Test question to ask the agent",
       "expected": "What the response should contain or convey",
       "method": "GeneralQuality | TextSimilarity | ExactMatch | PartialMatch | CompareMeaning",
       "score": "70",
-      "category": "happy-path | edge-case | boundary-decline | boundary-refuse | error-recovery | multi-turn"
+      "category": "happy-path | edge-case | boundary-decline | boundary-refuse | error-recovery | multi-turn",
+      "capability": "Which capability this tests (links to capabilities[].name)"
     }
   ],
+
+  "mvpSummary": {
+    "_description": "Computed summary of all phase-flagged items. Generated by /mcs-research, used by /mcs-build as a quick checklist.",
+    "now": ["MVP items to build this sprint (names from capabilities, integrations, topics)"],
+    "future": ["Deferred items with reasons"],
+    "blockers": ["What blocks future items (e.g., pending security approval)"]
+  },
+
+  "openQuestions": [
+    {
+      "question": "Unresolved question that needs customer/stakeholder input",
+      "impact": "What this blocks or affects if unanswered",
+      "section": "Which brief section this affects (e.g., integrations, capabilities)",
+      "suggestedDefault": "Our best guess if the customer doesn't answer",
+      "answer": ""
+    }
+  ],
+
+  "instructions": "Full agent instructions text (up to 8000 chars). Written by Prompt Engineer, reviewed by QA Challenger. This is what gets pasted into MCS.",
+
   "evalResults": {
     "lastRun": "ISO timestamp of last eval run",
     "method": "DirectLine | MCSNative",
@@ -97,6 +220,7 @@
       }
     ]
   },
+
   "buildStatus": {
     "status": "not_started | in_progress | published | failed",
     "lastBuild": "ISO timestamp of last build attempt",
@@ -105,16 +229,10 @@
     "account": "Account used for build",
     "publishedAt": "ISO timestamp of last successful publish"
   },
-  "openQuestions": [
-    {
-      "question": "Unresolved question that needs customer/stakeholder input",
-      "impact": "What this blocks or affects if unanswered",
-      "suggestedDefault": "Optional — our best guess if the customer doesn't answer",
-      "answer": "Leave empty if unanswered. Fill in when resolved."
-    }
-  ],
+
   "notes": {
-    "_description": "Flexible key-value store for anything discovered during research or build that doesn't fit above. Keys are freeform. Use this for customer-specific details, integration notes, discovered constraints, etc.",
-    "example": "Any string value — research findings, customer preferences, technical constraints"
-  }
+    "_description": "Flexible key-value store for anything that doesn't fit above. Keys are freeform."
+  },
+
+  "_updateFlags": []
 }
