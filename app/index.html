@@ -34,7 +34,7 @@
     [data-theme="dark"] {
       --bg: #09090b; --bg-s: #111113; --bg-s2: #18181b; --bg-s3: #27272a;
       --border: #27272a; --border-s: #1e1e22;
-      --text: #fafafa; --text-s: #a1a1aa; --text-m: #71717a; --text-f: #52525b;
+      --text: #fafafa; --text-s: #a1a1aa; --text-m: #8a8a94; --text-f: #6b6b75;
       --accent: #818cf8; --accent-h: #a5b4fc; --accent-bg: rgba(99,102,241,0.12);
       --sidebar-bg: #111113; --sidebar-text: #fafafa; --sidebar-border: #27272a; --sidebar-hover: rgba(255,255,255,0.06); --sidebar-muted: #a1a1aa; --sidebar-faint: #52525b; --sidebar-icon-bg: rgba(255,255,255,0.08); --sidebar-icon: #a1a1aa; --sidebar-section-border: #1e1e22;
     }
@@ -71,7 +71,12 @@
     /* ============ Brief cards ============ */
     .brief-card { background: var(--bg-s); border-radius: 0.75rem; border: 1px solid var(--border); transition: all 0.2s; overflow: hidden; position: relative; }
     .brief-card:hover { border-color: var(--bg-s3); }
-    .brief-card-header { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--border-s); }
+    .brief-card-header { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--border-s); cursor: pointer; user-select: none; }
+    .brief-card-header:hover { background: var(--bg-s2); }
+    .brief-card-body { transition: max-height 0.25s ease, opacity 0.2s ease, padding 0.25s ease; overflow: hidden; }
+    .brief-card-body.collapsed { max-height: 0 !important; opacity: 0; padding-top: 0 !important; padding-bottom: 0 !important; }
+    .brief-card-chevron { transition: transform 0.2s ease; width: 1rem; height: 1rem; flex-shrink: 0; color: var(--text-f); }
+    .brief-card-chevron.collapsed { transform: rotate(-90deg); }
     .brief-accent { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; border-radius: 3px 0 0 3px; }
     .scenario-card { background: var(--bg-s2); border: 1px solid var(--border-s); border-radius: 0.625rem; padding: 0.875rem; transition: all 0.15s; }
     .scenario-card:hover { border-color: var(--border); }
@@ -81,14 +86,39 @@
     .readiness-ring svg { transform: rotate(-90deg); }
     .glass-panel { background: var(--bg-s); backdrop-filter: blur(12px); border: 1px solid var(--border); }
 
-    /* ============ Component pills ============ */
-    .comp-pill { display: inline-flex; align-items: center; gap: 0.375rem; padding: 0.375rem 0.75rem; border-radius: 0.5rem; font-size: 0.75rem; font-weight: 500; transition: all 0.15s; background: var(--bg-s2); color: var(--text-s); border: 1px solid var(--border); }
-    .comp-pill:hover { border-color: var(--accent); }
-    .comp-pill.mcp { border-left: 3px solid #818cf8; }
-    .comp-pill.connector { border-left: 3px solid #60a5fa; }
-    .comp-pill.topic { border-left: 3px solid #4ade80; }
-    .comp-pill.flow { border-left: 3px solid #fb923c; }
-    .comp-pill.ai-tool { border-left: 3px solid #c084fc; }
+    /* ============ Sticky brief toolbar ============ */
+    .brief-toolbar {
+      position: sticky;
+      top: 3rem;
+      z-index: 9;
+      background: color-mix(in srgb, var(--bg) 85%, transparent);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 0.75rem 0;
+      margin: -2rem -2rem 1.5rem;
+      padding-left: 2rem;
+      padding-right: 2rem;
+    }
+    .brief-toolbar-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .readiness-ring-sm {
+      width: 2.25rem; height: 2.25rem;
+      border-radius: 9999px;
+      display: flex; align-items: center; justify-content: center;
+      position: relative; cursor: pointer; flex-shrink: 0;
+    }
+    .readiness-ring-sm svg { transform: rotate(-90deg); }
+    .readiness-dropdown {
+      position: absolute; top: calc(100% + 0.5rem); left: 0;
+      width: 18rem; background: var(--bg-s); border: 1px solid var(--border);
+      border-radius: 0.75rem; padding: 1rem; box-shadow: 0 12px 32px -4px rgba(0,0,0,0.3);
+      z-index: 20; display: none;
+    }
+    .readiness-dropdown.open { display: block; }
 
     /* ============ Upload ============ */
     .upload-zone { border: 2px dashed var(--border); border-radius: 0.75rem; padding: 1rem; text-align: center; cursor: pointer; transition: all 0.2s; }
@@ -155,6 +185,64 @@
     .badge-cyan { background: rgba(6,182,212,0.1); color: #22d3ee; border: 1px solid rgba(6,182,212,0.2); }
     .badge-orange { background: rgba(249,115,22,0.1); color: var(--orange); border: 1px solid rgba(249,115,22,0.2); }
 
+    /* ============ Brief editor shared classes ============ */
+    .brief-empty { font-size: 0.875rem; font-style: italic; color: var(--text-m); }
+    .brief-item-name { font-size: 0.875rem; font-weight: 500; color: var(--text); }
+    .brief-item-detail { font-size: 0.8125rem; color: var(--text-s); }
+    .brief-help-text { font-size: 0.8125rem; color: var(--text-s); margin-bottom: 0.5rem; }
+    .brief-kbd-hint { font-size: 0.75rem; color: var(--text-m); margin-bottom: 0.75rem; }
+    .brief-kbd { background: var(--bg-s3); padding: 2px 6px; border-radius: 3px; font-size: 0.6875rem; font-family: monospace; }
+    .brief-add-btn { font-size: 0.8125rem; font-weight: 500; display: inline-flex; align-items: center; gap: 0.375rem; cursor: pointer; background: none; border: none; padding: 0.25rem 0; }
+    .brief-add-btn svg { width: 1rem; height: 1rem; }
+    .brief-del-btn { flex-shrink: 0; width: 1.5rem; height: 1.5rem; display: flex; align-items: center; justify-content: center; border-radius: 0.375rem; opacity: 0.25; transition: all 0.15s; color: var(--red); background: none; border: none; cursor: pointer; }
+    .brief-del-btn:hover { opacity: 1; background: rgba(239,68,68,0.1); }
+    .brief-del-btn svg { width: 0.875rem; height: 0.875rem; }
+    .brief-remove-btn { position: absolute; top: 0.5rem; right: 0.5rem; padding: 0.25rem; border-radius: 0.375rem; opacity: 0.2; transition: all 0.15s; color: var(--red); background: none; border: none; cursor: pointer; }
+    .brief-remove-btn:hover { opacity: 1; background: rgba(239,68,68,0.1); }
+    .brief-remove-btn svg { width: 0.875rem; height: 0.875rem; }
+    .brief-edit-row { position: relative; }
+    .brief-edit-card { border-radius: 0.75rem; padding: 1rem; position: relative; background: var(--bg-s2); border: 1px solid var(--border-s); }
+    .brief-footer { margin-top: 0.75rem; padding-top: 0.5rem; font-size: 0.6875rem; border-top: 1px solid var(--border-s); color: var(--text-m); }
+    .brief-group-separator { margin-top: 0.75rem; padding-top: 0.5rem; border-top: 1px solid var(--border-s); }
+    .brief-section-label { font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+    .brief-grid-header { display: grid; font-size: 0.6875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; padding-bottom: 0.5rem; margin-bottom: 0.25rem; color: var(--text-m); border-bottom: 1px solid var(--border); }
+    .brief-instructions-view { font-size: 0.875rem; line-height: 1.65; color: var(--text-s); }
+    .brief-instructions-view h1,.brief-instructions-view h2,.brief-instructions-view h3 { color: var(--text); margin: 0.75rem 0 0.375rem; }
+    .brief-instructions-view ul,.brief-instructions-view ol { padding-left: 1.25rem; margin: 0.375rem 0; }
+    .brief-instructions-view li { margin: 0.125rem 0; }
+    .brief-instructions-view code { background: var(--bg-s2); padding: 0.125rem 0.375rem; border-radius: 0.25rem; font-size: 0.8125rem; color: var(--accent); }
+    .brief-char-count { font-size: 0.6875rem; text-align: right; margin-top: 0.25rem; color: var(--text-m); }
+
+    /* ============ Brief rows (unified list layout) ============ */
+    .brief-rows {
+      display: grid;
+      column-gap: 0.75rem;
+      align-items: baseline;
+    }
+    .brief-row {
+      display: contents;
+    }
+    .brief-row > span {
+      padding: 0.5rem 0;
+      border-bottom: 1px solid var(--border-s);
+    }
+    .brief-row:last-child > span {
+      border-bottom: none;
+    }
+    .brief-row-type {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.625rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      padding: 0.15rem 0.5rem;
+      border-radius: 0.25rem;
+      white-space: nowrap;
+      min-width: 3.5rem;
+    }
+
     /* ============ Misc ============ */
     .save-indicator { transition: opacity 0.3s; }
   </style>
@@ -172,7 +260,7 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
           </svg>
         </div>
-        <div class="font-semibold text-sm tracking-tight" style="color:var(--sidebar-text)">CAD Builder</div>
+        <div class="font-semibold text-sm tracking-tight" style="color:var(--sidebar-text)">MCS Agent Builder</div>
       </div>
       <button onclick="toggleTheme()" class="w-7 h-7 rounded-lg flex items-center justify-center transition-colors" style="color:var(--sidebar-faint)" onmouseover="this.style.background='var(--sidebar-hover)'" onmouseout="this.style.background=''" title="Toggle theme">
         <svg id="theme-icon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
@@ -240,24 +328,27 @@
 
       <!-- ============== BRIEF VIEW ============== -->
       <div id="wizard-view" class="hidden">
-        <!-- Brief header -->
-        <div class="flex items-end justify-between mb-6">
-          <div>
-            <div class="text-[10px] font-semibold uppercase tracking-wider mb-1" style="color:var(--accent)" id="wizard-subtitle">Architecture Brief</div>
-            <h1 id="wizard-title" class="text-lg font-semibold" style="color:var(--text)">Agent Name</h1>
+        <!-- Sticky toolbar -->
+        <div class="brief-toolbar" id="brief-toolbar">
+          <div class="brief-toolbar-row">
+            <!-- Left: ring + title -->
+            <div class="flex items-center gap-3 min-w-0">
+              <div class="relative" id="readiness-ring-wrapper">
+                <div id="readiness-ring-compact"></div>
+                <div id="readiness-dropdown" class="readiness-dropdown"></div>
+              </div>
+              <div class="min-w-0">
+                <div class="text-[10px] font-semibold uppercase tracking-wider" style="color:var(--accent)" id="wizard-subtitle">Architecture Brief</div>
+                <h1 id="wizard-title" class="text-base font-semibold truncate" style="color:var(--text)">Agent Name</h1>
+              </div>
+            </div>
+            <!-- Right: action buttons -->
+            <div id="brief-actions" class="flex items-center gap-2 shrink-0"></div>
           </div>
-          <div id="brief-actions" class="flex items-center gap-2"></div>
         </div>
 
-        <!-- Two-column: brief + readiness panel -->
-        <div class="flex gap-6">
-          <div class="flex-1 min-w-0 space-y-5" id="brief-content"></div>
-          <div class="w-72 shrink-0">
-            <div class="sticky top-20 space-y-5">
-              <div id="readiness-panel" class="glass-panel rounded-xl p-5"></div>
-            </div>
-          </div>
-        </div>
+        <!-- Brief cards — full width, no sidebar -->
+        <div class="space-y-5" id="brief-content"></div>
       </div>
     </div>
   </main>
@@ -1077,6 +1168,734 @@
         && unanswered.length === 0;
     }
 
+    // ============================================================
+    // BRIEF_SECTIONS registry — declarative config for list sections
+    // ============================================================
+
+    const BRIEF_SECTIONS = {
+      instructions: {
+        type: 'textarea',
+        accent: '#a855f7',
+        title: 'Instructions',
+        dataPath: 'instructions',
+        description: 'The system prompt sent to the AI model. Write in second person ("You are...").',
+        maxChars: 8000,
+      },
+      capabilities: {
+        type: 'list',
+        accent: '#f59e0b',
+        title: 'Capabilities',
+        dataPath: 'capabilities',
+        description: 'What the agent can do. Flag each as MVP (build now) or Future (deferred).',
+        emptyText: 'No capabilities defined',
+        defaultItem: { name: '', phase: 'mvp', dataSources: [] },
+        viewLayout: 'rows',
+        gridTemplate: '1fr auto',
+        viewItem: (c) => `<div class="brief-row">
+          <span class="brief-item-name${c.phase==='future'?' !font-normal':''}" style="${c.phase==='future'?'color:var(--text-m)':''}">${c.name}</span>
+          <span><span class="text-[10px] font-bold px-1.5 py-0.5 rounded ${c.phase==='future'?'badge-violet':'badge-success'}">${c.phase==='future'?'FUTURE':'MVP'}</span></span>
+        </div>`,
+        editFields: [
+          { name: 'cap_name', key: 'name', placeholder: 'e.g. Look up order status', class: 'flex-1 rounded-lg px-3 py-1.5 text-sm focus:outline-none' },
+          { name: 'cap_phase', key: 'phase', type: 'select', options: [{v:'mvp',l:'MVP'},{v:'future',l:'Future'}], class: 'w-24 rounded-lg px-2 py-1.5 text-xs font-medium', styleFromValue: v => v==='future'?'color:var(--text-f)':'color:var(--green)' },
+        ],
+        collectItem: (el, i) => {
+          const phase = el.querySelector(`[name="cap_phase_${i}"]`).value;
+          return { name: el.querySelector(`[name="cap_name_${i}"]`).value, phase, dataSources: [] };
+        },
+        footerText: items => `${items.filter(c=>c.name).length} capability${items.filter(c=>c.name).length!==1?'ies':'y'}`,
+      },
+      integrations: {
+        type: 'list',
+        accent: '#3b82f6',
+        title: 'Integrations',
+        dataPath: 'integrations',
+        description: '',
+        emptyText: 'No integrations configured',
+        defaultItem: { name: '', type: 'mcp', purpose: '', phase: 'mvp' },
+        viewLayout: 'rows',
+        gridTemplate: 'auto auto 1fr auto',
+        viewItem: (i) => {
+          const tc = {mcp:{bg:'rgba(129,140,248,0.12)',text:'#818cf8'},connector:{bg:'rgba(96,165,250,0.12)',text:'#60a5fa'},flow:{bg:'rgba(251,146,60,0.12)',text:'#fb923c'},'ai-tool':{bg:'rgba(192,132,252,0.12)',text:'#c084fc'}};
+          const c = tc[i.type]||{bg:'var(--bg-s2)',text:'var(--text-m)'};
+          return `<div class="brief-row">
+            <span><span class="brief-row-type" style="background:${c.bg};color:${c.text}">${i.type}</span></span>
+            <span class="brief-item-name">${i.name}</span>
+            <span class="brief-item-detail">${i.purpose || ''}</span>
+            <span><span class="text-[10px] font-bold px-1.5 py-0.5 rounded ${i.phase==='future'?'badge-violet':'badge-success'}">${i.phase==='future'?'FUTURE':'MVP'}</span></span>
+          </div>`;
+        },
+        filterView: i => !!i.name,
+        preEditHtml: `<div class="grid grid-cols-2 gap-2 mb-2 text-[11px]" style="color:var(--text-m)"><div><span class="font-bold" style="color:#818cf8">MCP</span> — Full M365 access (read, write, search)</div><div><span class="font-bold" style="color:#60a5fa">Connector</span> — Pre-built integration to external systems</div><div><span class="font-bold" style="color:var(--orange)">Flow</span> — Power Automate flow for multi-step actions</div><div><span class="font-bold" style="color:#c084fc">AI Tool</span> — AI-powered capability</div></div>`,
+        editFields: [
+          { name: 'integ_name', key: 'name', placeholder: 'e.g. SharePoint, SAP', class: 'flex-1 rounded-lg px-3 py-1.5 text-sm focus:outline-none' },
+          { name: 'integ_type', key: 'type', type: 'select', options: [{v:'mcp',l:'MCP'},{v:'connector',l:'Connector'},{v:'flow',l:'Flow'},{v:'ai-tool',l:'AI Tool'}], class: 'w-28 rounded-lg px-2 py-1.5 text-sm' },
+          { name: 'integ_purpose', key: 'purpose', placeholder: 'What it does', class: 'flex-1 rounded-lg px-3 py-1.5 text-sm focus:outline-none' },
+          { name: 'integ_phase', key: 'phase', type: 'select', options: [{v:'mvp',l:'MVP'},{v:'future',l:'Future'}], class: 'w-24 rounded-lg px-2 py-1.5 text-xs' },
+        ],
+        collectItem: (el, i) => ({ name: el.querySelector(`[name="integ_name_${i}"]`).value, type: el.querySelector(`[name="integ_type_${i}"]`).value, purpose: el.querySelector(`[name="integ_purpose_${i}"]`).value, phase: el.querySelector(`[name="integ_phase_${i}"]`).value }),
+        addLabel: '+ Add integration',
+      },
+      knowledge: {
+        type: 'list',
+        accent: '#10b981',
+        title: 'Knowledge Sources',
+        dataPath: 'knowledge',
+        emptyText: 'No knowledge sources',
+        defaultItem: { name: '', type: 'SharePoint', purpose: '' },
+        viewLayout: 'rows',
+        gridTemplate: 'auto auto 1fr',
+        viewItem: (k) => `<div class="brief-row">
+          <span><span class="brief-row-type" style="background:rgba(16,185,129,0.1);color:var(--green)">${(k.type||'').split(' ')[0]}</span></span>
+          <span class="brief-item-name">${k.name}</span>
+          <span class="brief-item-detail">${k.purpose || ''}</span>
+        </div>`,
+        filterView: k => !!k.name,
+        editFields: [
+          { name: 'k_name', key: 'name', placeholder: 'Source name', class: 'flex-1 rounded-lg px-3 py-1.5 text-sm focus:outline-none' },
+          { name: 'k_type', key: 'type', type: 'select', options: [{v:'SharePoint',l:'SharePoint'},{v:'Uploaded files',l:'Uploaded files'},{v:'Dataverse',l:'Dataverse'},{v:'Public websites',l:'Public websites'},{v:'Graph connectors',l:'Graph connectors'}], class: 'w-36 rounded-lg px-2 py-1.5 text-sm' },
+          { name: 'k_purpose', key: 'purpose', placeholder: 'What questions it answers', class: 'flex-1 rounded-lg px-3 py-1.5 text-sm focus:outline-none' },
+        ],
+        collectItem: (el, i) => ({ name: el.querySelector(`[name="k_name_${i}"]`).value, type: el.querySelector(`[name="k_type_${i}"]`).value, purpose: (el.querySelector(`[name="k_purpose_${i}"]`)||{}).value||'' }),
+        addLabel: '+ Add source',
+      },
+      conversations: {
+        type: 'list',
+        accent: '#06b6d4',
+        title: 'Conversation Topics',
+        dataPath: 'conversations.topics',
+        emptyText: 'No conversation topics',
+        defaultItem: { name: '', description: '', triggerType: 'agent-chooses', topicType: 'custom' },
+        viewLayout: 'rows',
+        gridTemplate: 'auto auto 1fr auto',
+        viewItem: (t) => `<div class="brief-row">
+          <span><span class="brief-row-type ${t.topicType==='system'?'badge-info':t.topicType==='generative'?'badge-violet':'badge-cyan'}">${t.topicType||'custom'}</span></span>
+          <span class="brief-item-name">${t.name}</span>
+          <span class="brief-item-detail">${t.description || ''}</span>
+          <span><span class="text-[10px] px-1.5 py-0.5 rounded" style="background:var(--bg-s2);color:var(--text-f)">${t.triggerType||'agent-chooses'}</span>${t.phase==='future'?' <span class="text-[9px] px-1 rounded badge-violet">future</span>':''}</span>
+        </div>`,
+        filterView: t => !!t.name,
+        editFields: [
+          { name: 'topic_name', key: 'name', placeholder: 'Topic name', class: 'flex-1 rounded-lg px-3 py-1.5 text-sm focus:outline-none' },
+          { name: 'topic_desc', key: 'description', placeholder: 'What it handles', class: 'flex-1 rounded-lg px-3 py-1.5 text-sm focus:outline-none' },
+          { name: 'topic_trigger', key: 'triggerType', type: 'select', options: [{v:'agent-chooses',l:'Agent chooses'},{v:'phrases',l:'Phrases'},{v:'fallback',l:'Fallback'},{v:'event',l:'Event'},{v:'auto-start',l:'Auto-start'},{v:'redirect',l:'Redirect'},{v:'escalation',l:'Escalation'},{v:'inactivity',l:'Inactivity'}], class: 'w-32 rounded-lg px-2 py-1.5 text-xs' },
+          { name: 'topic_type', key: 'topicType', type: 'select', options: [{v:'custom',l:'Custom'},{v:'generative',l:'Generative'},{v:'system',l:'System'}], class: 'w-28 rounded-lg px-2 py-1.5 text-xs' },
+        ],
+        collectItem: (el, i) => ({ name: el.querySelector(`[name="topic_name_${i}"]`).value, description: el.querySelector(`[name="topic_desc_${i}"]`).value, triggerType: el.querySelector(`[name="topic_trigger_${i}"]`).value, topicType: el.querySelector(`[name="topic_type_${i}"]`).value }),
+        addLabel: '+ Add topic',
+      },
+      scenarios: {
+        type: 'list',
+        accent: '#f59e0b',
+        title: 'Scenarios',
+        dataPath: 'scenarios',
+        emptyText: 'No scenarios defined',
+        defaultItem: { name: '', userSays: '', agentDoes: '', category: 'happy-path', capabilities: [] },
+        showIndex: true,
+        viewItem: (sc, i) => `<div class="scenario-card"><div class="flex items-start gap-3"><span class="flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold shrink-0 badge-warning">${i+1}</span><div class="min-w-0"><p class="brief-item-name">"${sc.userSays}"</p><p class="brief-item-detail mt-1">${sc.agentDoes||sc.agentShould||''}</p>${sc.category?'<span class="text-[9px] px-1.5 py-0.5 rounded" style="background:var(--bg-s2);color:var(--text-f)">'+sc.category+'</span>':''}</div></div></div>`,
+        filterView: s => !!s.userSays,
+        editFields: [
+          { name: 'scenario_user', key: 'userSays', placeholder: 'User says...', class: 'flex-1 rounded-lg px-3 py-1.5 text-sm focus:outline-none' },
+          { name: 'scenario_agent', key: 'agentDoes', placeholder: 'Agent does...', class: 'flex-1 rounded-lg px-3 py-1.5 text-sm focus:outline-none' },
+        ],
+        editRowPrefix: (item, i) => `<span class="text-xs font-bold mt-2.5 w-4 shrink-0" style="color:var(--text-f)">${i+1}</span>`,
+        collectItem: (el, i) => ({ name: `Scenario ${i+1}`, userSays: el.querySelector(`[name="scenario_user_${i}"]`).value, agentDoes: el.querySelector(`[name="scenario_agent_${i}"]`).value, category: 'happy-path', capabilities: [] }),
+        addLabel: '+ Add scenario',
+        footerText: items => `${items.filter(s=>s.userSays).length} scenario${items.filter(s=>s.userSays).length!==1?'s':''}`,
+      },
+      evals: {
+        type: 'list',
+        accent: '#06b6d4',
+        title: 'Evaluation Tests',
+        dataPath: 'evals',
+        description: 'Test cases that verify the agent responds correctly. Run after each build to catch regressions.',
+        emptyText: 'No evaluation tests defined',
+        defaultItem: { question: '', expected: '', method: 'Semantic', score: '70' },
+        viewLayout: 'grid',
+        gridCols: '1fr 1fr auto auto',
+        headerRow: ['Question', 'Expected Response', 'Method', 'Pass'],
+        preViewHtml: () => {
+          const er = wizardState.evalResults || {};
+          const hasResults = er.summary && er.summary.total > 0;
+          if (!hasResults) return '';
+          const s = er.summary;
+          const pct = parseInt(s.passRate) || 0;
+          const rColor = pct >= 80 ? 'var(--green)' : pct >= 60 ? 'var(--amber)' : 'var(--red)';
+          let h = `<div class="rounded-xl px-4 py-3 mb-4" style="background:var(--bg-s2);border:1px solid var(--border)"><div class="flex items-center gap-3 mb-2"><span class="text-xs font-bold px-2.5 py-1 rounded-lg" style="color:${rColor};background:color-mix(in srgb, ${rColor} 12%, transparent);border:1px solid color-mix(in srgb, ${rColor} 25%, transparent)">${s.passRate} pass rate</span><span class="text-xs" style="color:var(--text-m)">${s.passed}/${s.total} passed</span><span class="text-[10px]" style="color:var(--text-f)">via ${er.method||'Direct Line'} — ${er.lastRun?new Date(er.lastRun).toLocaleString():''}</span></div>`;
+          const failed = (er.results||[]).filter(r=>!r.pass);
+          if (failed.length) { h += `<div class="text-[10px] font-semibold uppercase mb-1" style="color:var(--red)">Failed</div>${failed.map(r=>`<div class="text-xs mb-1" style="color:var(--text-s)"><span style="color:var(--text)">"${r.question}"</span> — expected "${r.expected}", got "${(r.actual||'').substring(0,80)}${(r.actual||'').length>80?'...':''}"</div>`).join('')}`; }
+          h += '</div>';
+          return h;
+        },
+        viewItem: (e) => `<div class="eval-row"><span class="brief-item-name">${e.question}</span><span class="text-sm" style="color:var(--text-s)">${e.expected}</span><span class="text-[10px] font-semibold px-2 py-0.5 rounded-full badge-cyan self-start">${e.method||'Semantic'}</span><span class="text-xs font-bold self-start" style="color:var(--text-m)">${e.score||'70'}%</span></div>`,
+        preEditHtml: `<div class="grid grid-cols-2 gap-2 text-[11px] rounded-lg p-3 mb-3" style="color:var(--text-m);background:var(--bg-s2)"><div><span class="font-semibold" style="color:var(--text-s)">Semantic</span> — AI judges if the meaning matches (recommended)</div><div><span class="font-semibold" style="color:var(--text-s)">TextSimilarity</span> — Compares word overlap, scored 0-100</div><div><span class="font-semibold" style="color:var(--text-s)">ExactMatch</span> — Response must match exactly (strict)</div><div><span class="font-semibold" style="color:var(--text-s)">CompareMeaning</span> — Like semantic but with custom pass threshold</div></div>`,
+        editHeaderRow: ['Question', 'Expected Response', 'Method', 'Pass %'],
+        editGridCols: '1fr 1fr 8rem 4rem',
+        editFields: [
+          { name: 'eval_q', key: 'question', placeholder: 'What to ask the agent', class: 'rounded-lg px-3 py-1.5 text-sm focus:outline-none' },
+          { name: 'eval_exp', key: 'expected', placeholder: 'What the response should contain', class: 'rounded-lg px-3 py-1.5 text-sm focus:outline-none' },
+          { name: 'eval_method', key: 'method', type: 'select', options: [{v:'Semantic',l:'Semantic'},{v:'TextSimilarity',l:'TextSimilarity'},{v:'ExactMatch',l:'ExactMatch'},{v:'PartialMatch',l:'PartialMatch'},{v:'CompareMeaning',l:'CompareMeaning'}], class: 'rounded-lg px-2 py-1.5 text-xs' },
+          { name: 'eval_score', key: 'score', placeholder: '70', class: 'rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none' },
+        ],
+        editLayout: 'grid',
+        collectItem: (el, i) => ({ question: el.querySelector(`[name="eval_q_${i}"]`).value, expected: el.querySelector(`[name="eval_exp_${i}"]`).value, method: el.querySelector(`[name="eval_method_${i}"]`).value, score: el.querySelector(`[name="eval_score_${i}"]`).value }),
+        addLabel: '+ Add test',
+        footerText: items => `${items.length} test${items.length!==1?'s':''} — Semantic matching compares meaning, not exact words`,
+      },
+      boundaries: {
+        type: 'composite',
+        accent: '#ef4444',
+        title: 'Scope & Boundaries',
+        dataPath: 'boundaries',
+        emptyText: 'No boundaries defined',
+        sublists: {
+          handle: {
+            label: 'Handle — Topics the agent answers confidently',
+            color: 'var(--green)',
+            bgColor: 'rgba(16,185,129,0.06)',
+            borderColor: 'rgba(16,185,129,0.2)',
+            editBg: 'rgba(16,185,129,0.05)',
+            isSimple: true,
+            defaultItem: '',
+            placeholder: 'e.g. Order inquiries, shipment tracking',
+            addLabel: '+ Add topic',
+          },
+          decline: {
+            label: 'Decline — Politely redirect elsewhere',
+            color: 'var(--amber)',
+            bgColor: 'rgba(245,158,11,0.06)',
+            borderColor: 'rgba(245,158,11,0.2)',
+            editBg: 'rgba(245,158,11,0.05)',
+            isSimple: false,
+            fields: [
+              { key: 'topic', placeholder: 'Request type to decline' },
+              { key: 'redirect', placeholder: 'Where to redirect (e.g. Contact billing team)', detailPrefix: '→ ' },
+            ],
+            defaultItem: { topic: '', redirect: '' },
+            addLabel: '+ Add decline',
+          },
+          refuse: {
+            label: 'Refuse — Hard stops, never do these',
+            color: 'var(--red)',
+            bgColor: 'rgba(239,68,68,0.06)',
+            borderColor: 'rgba(239,68,68,0.2)',
+            editBg: 'rgba(239,68,68,0.05)',
+            isSimple: false,
+            fields: [
+              { key: 'topic', placeholder: 'Hard boundary' },
+              { key: 'reason', placeholder: 'Why (e.g. GDPR compliance)' },
+            ],
+            defaultItem: { topic: '', reason: '' },
+            addLabel: '+ Add refusal',
+          },
+        },
+      },
+      questions: {
+        type: 'list',
+        accent: '#f97316',
+        title: 'Open Questions',
+        dataPath: 'openQuestions',
+        emptyText: 'No open questions — all clear for build',
+        defaultItem: { question: '', answer: '' },
+        editLayout: 'cards',
+        addColor: 'var(--orange)',
+        addLabel: 'Add question',
+        kbdHint: true,
+        customView: true,
+        viewItem: null,
+        editCardFields: [
+          { name: 'oq_q', key: 'question', label: 'Question', placeholder: 'What do we need to know?', labelStyle: 'color:var(--text-f)', textarea: true },
+          { name: 'oq_a', key: 'answer', label: 'Answer', labelSuffix: ' — fill in when resolved', labelStyle: 'color:var(--green)', suffixStyle: 'color:var(--text-f)', placeholder: 'Leave empty until answered', textarea: true, inputStyle: 'border-color:rgba(16,185,129,0.3);background:rgba(16,185,129,0.05)' },
+        ],
+        collectItem: (el, i) => {
+          const q = (el.querySelector(`[name="oq_q_${i}"]`)||{}).value||'';
+          const a = (el.querySelector(`[name="oq_a_${i}"]`)||{}).value||'';
+          return (q.trim()||a.trim()) ? { question: q.trim(), answer: a.trim() } : null;
+        },
+        footerText: items => {
+          const open = items.filter(q=>q.question&&!q.answer).length;
+          const total = items.filter(q=>q.question).length;
+          return `${open} open / ${total} total${open>0?' — resolve before building':' — all resolved'}`;
+        },
+      },
+    };
+
+    // ============================================================
+    // Generic renderer functions
+    // ============================================================
+
+    function getNestedValue(obj, path) {
+      return path.split('.').reduce((o, k) => (o||{})[k], obj);
+    }
+    function setNestedValue(obj, path, value) {
+      const keys = path.split('.');
+      let cur = obj;
+      for (let i = 0; i < keys.length - 1; i++) {
+        cur[keys[i]] = cur[keys[i]] || {};
+        cur = cur[keys[i]];
+      }
+      cur[keys[keys.length - 1]] = value;
+    }
+
+    function genericListView(sectionId) {
+      const cfg = BRIEF_SECTIONS[sectionId];
+      const rawData = getNestedValue(wizardState, cfg.dataPath);
+      const items = Array.isArray(rawData) ? rawData : [];
+      const filtered = cfg.filterView ? items.filter(cfg.filterView) : items.filter(x => x);
+      if (!filtered.length) return `<p class="brief-empty">${cfg.emptyText}</p>`;
+
+      // Custom view for questions
+      if (cfg.customView) return questionsCustomView(items);
+
+      let html = '';
+      const preView = typeof cfg.preViewHtml === 'function' ? cfg.preViewHtml() : (cfg.preViewHtml || '');
+      html += preView;
+
+      if (cfg.description && cfg.viewLayout !== 'grid') {
+        html += `<p class="brief-help-text">${cfg.description}</p>`;
+      }
+
+      // Grid header
+      if (cfg.viewLayout === 'grid' && cfg.headerRow) {
+        if (cfg.description) html += `<p class="brief-help-text">${cfg.description}</p>`;
+        html += `<div class="brief-grid-header" style="grid-template-columns:${cfg.gridCols}">${cfg.headerRow.map(h => `<span>${h}</span>`).join('')}</div>`;
+      }
+
+      // Group support
+      if (cfg.groupBy) {
+        const groups = {};
+        filtered.forEach((item, i) => {
+          const key = cfg.groupBy(item);
+          if (!groups[key]) groups[key] = [];
+          groups[key].push({ item, index: i });
+        });
+        const groupOrder = Object.keys(cfg.groups);
+        let first = true;
+        groupOrder.forEach(gk => {
+          if (!groups[gk] || !groups[gk].length) return;
+          const gCfg = cfg.groups[gk];
+          if (!first && gCfg.label) html += `<div class="brief-group-separator"><span class="brief-section-label" style="color:var(--text-f)">${gCfg.label}</span></div>`;
+          html += `<div class="space-y-1.5 ${!first?'mt-1.5':''}">`;
+          groups[gk].forEach(({item, index}) => { html += cfg.viewItem(item, index); });
+          html += '</div>';
+          first = false;
+        });
+      } else if (cfg.viewLayout === 'rows') {
+        const cols = cfg.gridTemplate || '1fr';
+        html += `<div class="brief-rows" style="grid-template-columns:${cols}">${filtered.map((item, i) => cfg.viewItem(item, i)).join('')}</div>`;
+      } else {
+        html += `<div class="space-y-${cfg.viewLayout==='grid'?'0':'1.5'}">${filtered.map((item, i) => cfg.viewItem(item, i)).join('')}</div>`;
+      }
+
+      if (cfg.footerText) {
+        html += `<div class="brief-footer">${cfg.footerText(items)}</div>`;
+      }
+      return html;
+    }
+
+    function questionsCustomView(openQs) {
+      const open = openQs.filter(q => q.question && !q.answer);
+      const answered = openQs.filter(q => q.question && q.answer);
+      if (!openQs.length || !openQs.some(q => q.question)) return '<p class="brief-empty">No open questions — all clear for build</p>';
+      let html = '';
+      if (open.length) {
+        html += `<div class="space-y-3 mb-4">${open.map(q => `
+          <div class="badge-orange rounded-xl p-3.5"><div class="flex items-start gap-2.5">
+            <svg class="w-4 h-4 shrink-0 mt-0.5" style="color:var(--orange)" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <p class="brief-item-name min-w-0">${nl2br(q.question)}</p>
+          </div></div>`).join('')}</div>`;
+      }
+      if (answered.length) {
+        html += `<div class="space-y-2">${answered.map(q => `
+          <div class="badge-success rounded-xl p-3.5">
+            <p class="brief-item-name">${nl2br(q.question)}</p>
+            <p class="text-sm mt-1.5" style="color:var(--green)">${nl2br(q.answer)}</p>
+          </div>`).join('')}</div>`;
+      }
+      const openCount = open.length;
+      const totalCount = openQs.filter(q => q.question).length;
+      html += `<div class="brief-footer">${openCount} open / ${totalCount} total${openCount > 0 ? ' — resolve before building' : ' — all resolved'}</div>`;
+      return html;
+    }
+
+    function genericListEdit(sectionId) {
+      const cfg = BRIEF_SECTIONS[sectionId];
+      const rawData = getNestedValue(wizardState, cfg.dataPath);
+      let items = Array.isArray(rawData) ? rawData : [];
+      if (!items.length) items = [{ ...cfg.defaultItem }];
+
+      let html = '<div class="space-y-2">';
+      const preEdit = typeof cfg.preEditHtml === 'function' ? cfg.preEditHtml() : (cfg.preEditHtml || '');
+      html += preEdit;
+      if (cfg.description) html += `<p class="brief-help-text">${cfg.description}</p>`;
+      if (cfg.kbdHint) html += `<p class="brief-kbd-hint">Press <kbd class="brief-kbd">Enter</kbd> on last row to add. <kbd class="brief-kbd">Ctrl+Delete</kbd> to remove.</p>`;
+      else html += `<p class="brief-kbd-hint">Press <kbd class="brief-kbd">Enter</kbd> on last row to add. <kbd class="brief-kbd">Ctrl+Delete</kbd> to remove.</p>`;
+
+      // Grid header for eval-style
+      if (cfg.editLayout === 'grid' && cfg.editHeaderRow) {
+        html += `<div class="brief-grid-header" style="grid-template-columns:${cfg.editGridCols}">${cfg.editHeaderRow.map(h => `<span>${h}</span>`).join('')}</div>`;
+      }
+
+      if (cfg.editLayout === 'cards') {
+        html += items.map((item, i) => renderEditCard(cfg, sectionId, item, i, items.length)).join('');
+      } else if (cfg.editLayout === 'grid') {
+        html += items.map((item, i) => renderEditGridRow(cfg, sectionId, item, i, items.length)).join('');
+      } else {
+        html += items.map((item, i) => renderEditRow(cfg, sectionId, item, i, items.length)).join('');
+      }
+
+      const addColor = cfg.addColor || 'var(--accent)';
+      html += `<button onclick="genericAdd('${sectionId}')" class="brief-add-btn" style="color:${addColor}${cfg.editRowPrefix?';margin-left:1rem':''}">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        ${cfg.addLabel || '+ Add'}
+      </button>`;
+      html += '</div>';
+      return html;
+    }
+
+    function renderEditRow(cfg, sectionId, item, i, total) {
+      let html = `<div class="flex gap-2 items-center brief-edit-row" data-row="${i}">`;
+      if (cfg.editRowPrefix) html += cfg.editRowPrefix(item, i);
+      cfg.editFields.forEach(f => {
+        if (f.showIf && !f.showIf(item)) {
+          html += `<span class="${f.class || 'w-48'}"></span>`;
+          return;
+        }
+        const val = (typeof item === 'object' ? item[f.key] : item) || '';
+        if (f.type === 'select') {
+          const style = f.styleFromValue ? f.styleFromValue(val) : '';
+          html += `<select name="${f.name}_${i}" class="${f.class}"${style?` style="${style}"`:''}>${f.options.map(o => `<option value="${o.v}"${val===o.v?' selected':''}>${o.l}</option>`).join('')}</select>`;
+        } else {
+          html += `<input type="text" name="${f.name}_${i}" value="${esc(val)}" placeholder="${f.placeholder||''}" class="${f.class}"${f.style?` style="${f.style}"`:''} onkeydown="genericRowKeydown(event,'${sectionId}',${i},${total})">`;
+        }
+      });
+      html += `<button onclick="genericRemove('${sectionId}',${i})" class="brief-del-btn" title="Remove"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>`;
+      html += '</div>';
+      return html;
+    }
+
+    function renderEditGridRow(cfg, sectionId, item, i, total) {
+      let html = `<div class="brief-edit-row" data-row="${i}" style="display:grid;grid-template-columns:${cfg.editGridCols} 1.5rem;gap:0.5rem;align-items:start">`;
+      cfg.editFields.forEach(f => {
+        const val = (typeof item === 'object' ? item[f.key] : item) || '';
+        if (f.type === 'select') {
+          html += `<select name="${f.name}_${i}" class="${f.class}">${f.options.map(o => `<option value="${o.v}"${val===o.v?' selected':''}>${o.l}</option>`).join('')}</select>`;
+        } else {
+          html += `<input type="text" name="${f.name}_${i}" value="${esc(val)}" placeholder="${f.placeholder||''}" class="${f.class}" onkeydown="genericRowKeydown(event,'${sectionId}',${i},${total})">`;
+        }
+      });
+      html += `<button onclick="genericRemove('${sectionId}',${i})" class="brief-del-btn" title="Remove"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>`;
+      html += '</div>';
+      return html;
+    }
+
+    function renderEditCard(cfg, sectionId, item, i, total) {
+      let html = `<div class="brief-edit-card" id="card-${sectionId}-${i}">`;
+      html += `<button onclick="genericRemove('${sectionId}',${i})" class="brief-remove-btn" title="Remove"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>`;
+      (cfg.editCardFields || []).forEach(f => {
+        const val = (typeof item === 'object' ? item[f.key] : item) || '';
+        html += '<div class="mb-2">';
+        html += `<label class="block text-xs font-bold uppercase mb-1" style="${f.labelStyle||'color:var(--text-m)'}">${f.label}${f.labelSuffix?`<span class="font-normal normal-case" style="${f.suffixStyle||''}">${f.labelSuffix}</span>`:''}</label>`;
+        if (f.textarea) {
+          html += `<textarea name="${f.name}_${i}" rows="1" placeholder="${f.placeholder||''}" class="w-full rounded-lg px-3 py-2 text-sm focus:outline-none resize-none"${f.inputStyle?` style="${f.inputStyle}"`:''} onkeydown="genericRowKeydown(event,'${sectionId}',${i},${total})" oninput="autoGrow(this)">${esc(val)}</textarea>`;
+        } else {
+          html += `<input type="text" name="${f.name}_${i}" value="${esc(val)}" placeholder="${f.placeholder||''}" class="w-full rounded-lg px-3 py-2 text-sm focus:outline-none"${f.inputStyle?` style="${f.inputStyle}"`:''} onkeydown="genericRowKeydown(event,'${sectionId}',${i},${total})">`;
+        }
+        html += '</div>';
+      });
+      html += '</div>';
+      return html;
+    }
+
+    function genericCollect(sectionId) {
+      const cfg = BRIEF_SECTIONS[sectionId];
+      const el = document.getElementById(`section-${sectionId}`);
+      if (!el || !cfg) return;
+
+      if (cfg.type === 'textarea') {
+        const ta = el.querySelector('textarea[name="instructions_text"]');
+        if (ta) wizardState.instructions = ta.value;
+        return;
+      }
+      if (cfg.type === 'composite') {
+        collectComposite(sectionId, el);
+        return;
+      }
+      const collected = [];
+      let i = 0;
+      const firstFieldName = cfg.editLayout === 'cards'
+        ? (cfg.editCardFields || [])[0]?.name
+        : cfg.editFields[0]?.name;
+      if (!firstFieldName) return;
+      while (el.querySelector(`[name="${firstFieldName}_${i}"]`)) {
+        const item = cfg.collectItem(el, i);
+        if (item !== null) collected.push(item);
+        i++;
+      }
+      setNestedValue(wizardState, cfg.dataPath, collected);
+    }
+
+    function collectComposite(sectionId, el) {
+      const cfg = BRIEF_SECTIONS[sectionId];
+      const parent = {};
+      Object.entries(cfg.sublists).forEach(([subKey, sub]) => {
+        const items = [];
+        let i = 0;
+        if (sub.isSimple) {
+          while (el.querySelector(`[name="${subKey}_${i}"]`)) {
+            const v = el.querySelector(`[name="${subKey}_${i}"]`).value.trim();
+            if (v) items.push(v);
+            i++;
+          }
+        } else {
+          const firstKey = sub.fields[0].key;
+          while (el.querySelector(`[name="${subKey}_${firstKey}_${i}"]`)) {
+            const obj = {};
+            let hasData = false;
+            sub.fields.forEach(f => {
+              obj[f.key] = (el.querySelector(`[name="${subKey}_${f.key}_${i}"]`)||{}).value?.trim()||'';
+              if (obj[f.key]) hasData = true;
+            });
+            if (hasData) items.push(obj);
+            i++;
+          }
+        }
+        parent[subKey] = items;
+      });
+      setNestedValue(wizardState, cfg.dataPath, parent);
+    }
+
+    function compositeView(sectionId) {
+      const cfg = BRIEF_SECTIONS[sectionId];
+      const data = getNestedValue(wizardState, cfg.dataPath) || {};
+      let anyItems = false;
+      Object.entries(cfg.sublists).forEach(([subKey, sub]) => {
+        const list = sub.isSimple
+          ? (Array.isArray(data[subKey]) ? data[subKey].filter(Boolean) : (data[subKey] ? [data[subKey]] : []))
+          : (data[subKey] || []).filter(d => d[sub.fields[0].key] || (typeof d === 'string' && d));
+        if (list.length) anyItems = true;
+      });
+      if (!anyItems) return `<p class="brief-empty">${cfg.emptyText}</p>`;
+
+      let html = '<div class="space-y-4">';
+      Object.entries(cfg.sublists).forEach(([subKey, sub]) => {
+        const rawList = data[subKey] || [];
+        const list = sub.isSimple
+          ? (Array.isArray(rawList) ? rawList.filter(Boolean) : (rawList ? [rawList] : []))
+          : rawList.filter(d => (typeof d === 'object' ? d[sub.fields[0].key] : d));
+        if (!list.length) return;
+
+        html += `<div>
+          <div class="brief-section-label mb-1.5" style="color:${sub.color}">${sub.label}</div>
+          <div class="space-y-0.5">`;
+        list.forEach(item => {
+          if (sub.isSimple) {
+            html += `<div class="flex items-center gap-2 text-sm py-0.5" style="color:var(--text-s)">
+              <span style="color:${sub.color}">&#9679;</span>${item}</div>`;
+          } else {
+            const primary = typeof item === 'object' ? item[sub.fields[0].key] : item;
+            const detail = sub.fields.length > 1 && typeof item === 'object' ? item[sub.fields[1].key] : '';
+            html += `<div class="flex items-center gap-2 text-sm py-0.5">
+              <span style="color:${sub.color}">&#9679;</span>
+              <span style="color:var(--text-s)">${primary}</span>
+              ${detail ? `<span style="color:${sub.color}">${sub.fields[1].detailPrefix||'— '}${detail}</span>` : ''}
+            </div>`;
+          }
+        });
+        html += '</div></div>';
+      });
+      html += '</div>';
+      return html;
+    }
+
+    function compositeEdit(sectionId) {
+      const cfg = BRIEF_SECTIONS[sectionId];
+      const data = getNestedValue(wizardState, cfg.dataPath) || {};
+      let html = '<div class="space-y-5">';
+      html += `<p class="brief-kbd-hint">Press <kbd class="brief-kbd">Enter</kbd> on last row to add. <kbd class="brief-kbd">Ctrl+Delete</kbd> to remove.</p>`;
+      Object.entries(cfg.sublists).forEach(([subKey, sub]) => {
+        let items;
+        if (sub.isSimple) {
+          items = Array.isArray(data[subKey]) ? data[subKey].filter(Boolean) : [];
+          if (!items.length) items = [sub.defaultItem];
+        } else {
+          items = (data[subKey] || []).filter(d => typeof d === 'object' ? d[sub.fields[0].key] : d);
+          if (!items.length) items = [{ ...sub.defaultItem }];
+        }
+        html += `<div><div class="brief-section-label mb-2" style="color:${sub.color}">${sub.label}</div><div class="space-y-2">`;
+        items.forEach((item, i) => {
+          const total = items.length;
+          html += `<div class="rounded-xl p-3 brief-edit-row" style="background:${sub.editBg};border:1px solid ${sub.borderColor}">`;
+          html += `<button onclick="genericRemoveSub('${sectionId}','${subKey}',${i})" class="brief-remove-btn" title="Remove"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>`;
+          if (sub.isSimple) {
+            html += `<input type="text" name="${subKey}_${i}" value="${esc(typeof item === 'string' ? item : '')}" placeholder="${sub.placeholder||''}" class="w-full bg-transparent text-sm focus:outline-none" style="color:var(--text-s)" onkeydown="genericSubKeydown(event,'${sectionId}','${subKey}',${i},${total})">`;
+          } else {
+            const primaryVal = typeof item === 'object' ? item[sub.fields[0].key] : item;
+            html += `<input type="text" name="${subKey}_${sub.fields[0].key}_${i}" value="${esc(primaryVal)}" placeholder="${sub.fields[0].placeholder||''}" class="w-full bg-transparent text-sm font-medium focus:outline-none mb-1" style="color:var(--text)" onkeydown="genericSubKeydown(event,'${sectionId}','${subKey}',${i},${total})">`;
+            if (sub.fields.length > 1) {
+              const secVal = typeof item === 'object' ? (item[sub.fields[1].key]||'') : '';
+              html += `<input type="text" name="${subKey}_${sub.fields[1].key}_${i}" value="${esc(secVal)}" placeholder="${sub.fields[1].placeholder||''}" class="w-full bg-transparent text-xs focus:outline-none" style="color:${sub.color}" onkeydown="genericSubKeydown(event,'${sectionId}','${subKey}',${i},${total})">`;
+            }
+          }
+          html += '</div>';
+        });
+        html += `<button onclick="genericAddSub('${sectionId}','${subKey}')" class="brief-add-btn" style="color:${sub.color}">${sub.addLabel||'+ Add'}</button>`;
+        html += '</div></div>';
+      });
+      html += '</div>';
+      return html;
+    }
+
+    function instructionsView() {
+      const text = wizardState.instructions || '';
+      if (!text) return '<p class="brief-empty">No instructions written yet — run Research or write manually</p>';
+      try {
+        return `<div class="brief-instructions-view">${marked.parse(text)}</div>`;
+      } catch (e) {
+        return `<div class="brief-instructions-view" style="white-space:pre-wrap">${esc(text)}</div>`;
+      }
+    }
+
+    function instructionsEdit() {
+      const cfg = BRIEF_SECTIONS.instructions;
+      const text = wizardState.instructions || '';
+      const charCount = text.length;
+      const overLimit = charCount > cfg.maxChars;
+      return `<div>
+        <p class="brief-help-text">${cfg.description}</p>
+        <textarea name="instructions_text" rows="12" class="w-full rounded-lg px-4 py-3 text-sm focus:outline-none resize-y" style="font-family:monospace;line-height:1.6" oninput="updateCharCount(this)">${esc(text)}</textarea>
+        <div class="brief-char-count" style="color:${overLimit?'var(--red)':'var(--text-f)'}"><span id="instr-char-count">${charCount}</span> / ${cfg.maxChars} characters</div>
+      </div>`;
+    }
+
+    function updateCharCount(textarea) {
+      const counter = document.getElementById('instr-char-count');
+      if (counter) {
+        const len = textarea.value.length;
+        counter.textContent = len;
+        counter.parentElement.style.color = len > 8000 ? 'var(--red)' : 'var(--text-f)';
+      }
+    }
+
+    function genericAdd(sectionId) {
+      const cfg = BRIEF_SECTIONS[sectionId];
+      genericCollect(sectionId);
+      const current = getNestedValue(wizardState, cfg.dataPath) || [];
+      current.push(typeof cfg.defaultItem === 'object' ? { ...cfg.defaultItem } : cfg.defaultItem);
+      setNestedValue(wizardState, cfg.dataPath, current);
+      briefEditSection = null;
+      renderBrief();
+      editBriefSection(sectionId);
+      // Focus the new last row's first input
+      setTimeout(() => {
+        const section = document.getElementById(`section-${sectionId}`);
+        const inputs = section?.querySelectorAll('input[type="text"], textarea');
+        if (inputs?.length) inputs[inputs.length - (cfg.editLayout === 'cards' ? 2 : 1)].focus();
+      }, 100);
+    }
+
+    function genericRemove(sectionId, idx) {
+      const cfg = BRIEF_SECTIONS[sectionId];
+      genericCollect(sectionId);
+      const current = getNestedValue(wizardState, cfg.dataPath) || [];
+      current.splice(idx, 1);
+      if (!current.length) current.push(typeof cfg.defaultItem === 'object' ? { ...cfg.defaultItem } : cfg.defaultItem);
+      setNestedValue(wizardState, cfg.dataPath, current);
+      briefEditSection = null;
+      renderBrief();
+      editBriefSection(sectionId);
+    }
+
+    function genericAddSub(sectionId, subKey) {
+      const cfg = BRIEF_SECTIONS[sectionId];
+      genericCollect(sectionId);
+      const data = getNestedValue(wizardState, cfg.dataPath) || {};
+      data[subKey] = data[subKey] || [];
+      const sub = cfg.sublists[subKey];
+      data[subKey].push(typeof sub.defaultItem === 'object' ? { ...sub.defaultItem } : sub.defaultItem);
+      setNestedValue(wizardState, cfg.dataPath, data);
+      briefEditSection = null;
+      renderBrief();
+      editBriefSection(sectionId);
+    }
+
+    function genericRemoveSub(sectionId, subKey, idx) {
+      const cfg = BRIEF_SECTIONS[sectionId];
+      genericCollect(sectionId);
+      const data = getNestedValue(wizardState, cfg.dataPath) || {};
+      if (data[subKey]) {
+        data[subKey].splice(idx, 1);
+        setNestedValue(wizardState, cfg.dataPath, data);
+      }
+      briefEditSection = null;
+      renderBrief();
+      editBriefSection(sectionId);
+    }
+
+    function genericRowKeydown(event, sectionId, idx, total) {
+      // Shift+Enter or Ctrl+Enter = new line for textareas
+      if (event.key === 'Enter' && (event.shiftKey || event.ctrlKey) && event.target.tagName === 'TEXTAREA') return;
+      // Ctrl+Delete = remove row
+      if (event.key === 'Delete' && event.ctrlKey) {
+        event.preventDefault();
+        genericRemove(sectionId, idx);
+        return;
+      }
+      // Enter on last row = add new
+      if (event.key === 'Enter' && idx === total - 1) {
+        event.preventDefault();
+        genericAdd(sectionId);
+        return;
+      }
+      // Enter on non-last row = flash + focus next
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        const card = event.target.closest('.brief-edit-card, .brief-edit-row');
+        if (card) {
+          card.style.borderColor = 'var(--green)';
+          setTimeout(() => { card.style.borderColor = ''; }, 600);
+        }
+        // Focus next row's first input
+        const section = document.getElementById(`section-${sectionId}`);
+        const nextRow = section?.querySelector(`[data-row="${idx+1}"], #card-${sectionId}-${idx+1}`);
+        const nextInput = nextRow?.querySelector('input[type="text"], textarea');
+        if (nextInput) nextInput.focus();
+      }
+    }
+
+    function genericSubKeydown(event, sectionId, subKey, idx, total) {
+      if (event.key === 'Delete' && event.ctrlKey) {
+        event.preventDefault();
+        genericRemoveSub(sectionId, subKey, idx);
+        return;
+      }
+      if (event.key === 'Enter' && idx === total - 1) {
+        event.preventDefault();
+        genericAddSub(sectionId, subKey);
+        return;
+      }
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        event.target.blur();
+      }
+    }
+
+    // Registry-based dispatch helpers
+    function regView(sectionId) {
+      const cfg = BRIEF_SECTIONS[sectionId];
+      if (!cfg) return '';
+      if (cfg.type === 'textarea') return instructionsView();
+      if (cfg.type === 'composite') return compositeView(sectionId);
+      return genericListView(sectionId);
+    }
+    function regEdit(sectionId) {
+      const cfg = BRIEF_SECTIONS[sectionId];
+      if (!cfg) return '';
+      if (cfg.type === 'textarea') return instructionsEdit();
+      if (cfg.type === 'composite') return compositeEdit(sectionId);
+      return genericListEdit(sectionId);
+    }
+
     function renderBrief() {
       const biz = wizardState.business || {};
       const agent = wizardState.agent || {};
@@ -1101,7 +1920,8 @@
             <p class="text-sm mb-4" style="color:var(--text-m)">This agent hasn't been researched yet. Go back to the project and run <strong>Research</strong> to identify agents and generate specs from your documents.</p>
             <p class="text-xs mt-3" style="color:var(--text-f)">Or type directly in the Claude Code terminal panel</p>
           </div>`;
-        document.getElementById('readiness-panel').innerHTML = '';
+        document.getElementById('readiness-ring-compact').innerHTML = '';
+        document.getElementById('readiness-dropdown').innerHTML = '';
         return;
       }
 
@@ -1115,21 +1935,26 @@
           </div>`;
       }
 
+      // Registry sections use regView/regEdit; custom sections use direct functions
+      const regCard = (id) => { const c = BRIEF_SECTIONS[id]; return bCard(id, c.accent, c.title, regView(id), regEdit(id)); };
+
       document.getElementById('brief-content').innerHTML = researchBanner + [
         bCard('business', '#6366f1', 'Business Context', briefBusinessV(biz), briefBusinessE(biz)),
         bCard('agent', '#8b5cf6', 'Agent Identity', briefAgentV(agent), briefAgentE(agent)),
-        bCard('capabilities', '#f59e0b', 'Capabilities', briefCapsV(caps), briefCapsE(caps)),
-        bCard('integrations', '#3b82f6', 'Integrations', briefIntegV(integ), briefIntegE(integ)),
-        bCard('knowledge', '#10b981', 'Knowledge Sources', briefKnowledgeV(know), briefKnowledgeE(know)),
-        bCard('conversations', '#06b6d4', 'Conversation Topics', briefConvosV(convos), briefConvosE(convos)),
-        bCard('boundaries', '#ef4444', 'Scope & Boundaries', briefBoundariesV(bounds), briefBoundariesE(bounds)),
+        regCard('instructions'),
+        regCard('capabilities'),
+        regCard('integrations'),
+        regCard('knowledge'),
+        regCard('conversations'),
+        regCard('boundaries'),
         bCard('architecture', '#8b5cf6', 'Architecture', briefArchV(arch), briefArchE(arch)),
-        bCard('scenarios', '#f59e0b', 'Scenarios', briefScenariosV(scenarios), briefScenariosE(scenarios)),
-        bCard('evals', '#06b6d4', 'Evaluation Tests', briefEvalsV(evals), briefEvalsE(evals)),
-        bCard('questions', '#f97316', 'Open Questions', briefQuestionsV(openQs), briefQuestionsE(openQs)),
+        regCard('scenarios'),
+        regCard('evals'),
+        regCard('questions'),
       ].join('');
 
-      renderReadinessPanel(biz, agent, caps, integ, know, convos, bounds, arch, scenarios, evals, openQs);
+      renderReadinessCompact(biz, agent, caps, integ, know, convos, bounds, arch, scenarios, evals, openQs);
+      renderReadinessDropdown(biz, agent, caps, integ, know, convos, bounds, arch, scenarios, evals, openQs);
 
       // Show action buttons in header — Build only when all 10 pre-build checks pass
       const actionsEl = document.getElementById('brief-actions');
@@ -1164,7 +1989,11 @@
                 Export PDF
               </button>`
             : ''
-          }`;
+          }
+          <button onclick="toggleCollapseAll()" class="px-3 py-2 text-xs font-medium rounded-lg transition-all flex items-center gap-1.5" style="color:var(--text-m);border:1px solid var(--border)" onmouseover="this.style.background='var(--bg-s)'" onmouseout="this.style.background=''">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            <span id="collapse-all-label">Collapse</span>
+          </button>`;
       } else if (actionsEl) {
         actionsEl.innerHTML = '';
       }
@@ -1187,27 +2016,62 @@
       });
     }
 
+    // Collapse state — persisted per session
+    const briefCollapsed = {};
+
+    function toggleBriefCollapse(id, event) {
+      // Don't collapse if clicking Edit/Done buttons
+      if (event.target.closest('button')) return;
+      briefCollapsed[id] = !briefCollapsed[id];
+      const body = document.querySelector(`#section-${id} .brief-card-body`);
+      const chevron = document.querySelector(`#section-${id} .brief-card-chevron`);
+      if (body) body.classList.toggle('collapsed', briefCollapsed[id]);
+      if (chevron) chevron.classList.toggle('collapsed', briefCollapsed[id]);
+    }
+
+    function toggleCollapseAll() {
+      const sectionIds = ['business','agent','instructions','capabilities','integrations','knowledge','conversations','boundaries','architecture','scenarios','evals','questions'];
+      const anyExpanded = sectionIds.some(id => !briefCollapsed[id]);
+      sectionIds.forEach(id => {
+        if (briefEditSection === id) return; // don't collapse editing section
+        briefCollapsed[id] = anyExpanded;
+        const body = document.querySelector(`#section-${id} .brief-card-body`);
+        const chevron = document.querySelector(`#section-${id} .brief-card-chevron`);
+        if (body) body.classList.toggle('collapsed', anyExpanded);
+        if (chevron) chevron.classList.toggle('collapsed', anyExpanded);
+      });
+      const label = document.getElementById('collapse-all-label');
+      if (label) label.textContent = anyExpanded ? 'Expand' : 'Collapse';
+    }
+
     function bCard(id, accent, title, viewContent, editContent) {
       const editing = briefEditSection === id;
+      const isCollapsed = briefCollapsed[id] && !editing;
       return `
         <div class="brief-card relative" id="section-${id}">
           <div class="brief-accent" style="background:${accent}"></div>
-          <div class="brief-card-header">
-            <h3 class="font-semibold text-sm pl-2" style="color:var(--text)">${title}</h3>
-            ${editing
-              ? `<button onclick="saveBriefSection('${id}')" class="text-xs font-medium transition-colors flex items-center gap-1" style="color:var(--green)">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>Done</button>`
-              : `<button onclick="editBriefSection('${id}')" class="text-xs transition-colors flex items-center gap-1" style="color:var(--text-f)" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-f)'">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>Edit</button>`
-            }
+          <div class="brief-card-header" onclick="toggleBriefCollapse('${id}', event)">
+            <div class="flex items-center gap-2">
+              <svg class="brief-card-chevron${isCollapsed ? ' collapsed' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+              <h3 class="font-semibold text-sm" style="color:var(--text)">${title}</h3>
+            </div>
+            <div class="flex items-center gap-2" onclick="event.stopPropagation()">
+              ${editing
+                ? `<button onclick="saveBriefSection('${id}')" class="text-xs font-medium transition-colors flex items-center gap-1.5 px-2.5 py-1 rounded-md" style="color:var(--green);background:rgba(16,185,129,0.1)">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>Done</button>`
+                : `<button onclick="editBriefSection('${id}')" class="text-xs transition-colors flex items-center gap-1.5 px-2.5 py-1 rounded-md" style="color:var(--text-m)" onmouseover="this.style.color='var(--accent)';this.style.background='var(--accent-bg)'" onmouseout="this.style.color='var(--text-m)';this.style.background=''">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>Edit</button>`
+              }
+            </div>
           </div>
-          <div class="p-5">${editing ? editContent : viewContent}</div>
+          <div class="brief-card-body p-5${isCollapsed ? ' collapsed' : ''}">${editing ? editContent : viewContent}</div>
         </div>`;
     }
 
     function editBriefSection(id) {
       if (briefEditSection && briefEditSection !== id) saveBriefSection(briefEditSection);
       briefEditSection = id;
+      briefCollapsed[id] = false; // auto-expand on edit
       renderBrief();
       const section = document.getElementById(`section-${id}`);
       const first = section?.querySelector('input, textarea, select');
@@ -1229,7 +2093,7 @@
 
     function briefBusinessV(biz) {
       const ps = biz.problemStatement || biz.useCase || '';
-      let html = `<p class="text-sm leading-relaxed" style="color:var(--text-s)">${ps || '<span style="color:var(--text-f)" class="italic">No problem statement</span>'}</p>`;
+      let html = `<p class="text-sm leading-relaxed" style="color:var(--text-s)">${ps || '<span class="brief-empty">No problem statement</span>'}</p>`;
       const challenges = (biz.challenges || []).filter(c => c.challenge);
       if (challenges.length) {
         html += `<div class="mt-3"><span class="text-[10px] font-bold uppercase" style="color:var(--text-f)">Challenges</span><div class="mt-1 space-y-1">${challenges.map(c => `<div class="flex items-center gap-2"><span class="text-[10px] font-bold px-1.5 py-0.5 rounded ${c.impact==='high'?'badge-danger':c.impact==='medium'?'badge-warning':'badge-info'}">${c.impact||'medium'}</span><span class="text-xs" style="color:var(--text-s)">${c.challenge}</span></div>`).join('')}</div></div>`;
@@ -1242,166 +2106,10 @@
     }
 
     function briefAgentV(agent) {
-      let html = `<p class="text-sm leading-relaxed" style="color:var(--text-s)">${agent.description || '<span style="color:var(--text-f)" class="italic">No agent description — this is what appears in Copilot Studio</span>'}</p>`;
+      let html = `<p class="text-sm leading-relaxed" style="color:var(--text-s)">${agent.description || '<span class="brief-empty">No agent description — this is what appears in Copilot Studio</span>'}</p>`;
       if (agent.persona) html += `<div class="mt-2 text-xs" style="color:var(--text-m)"><span class="font-semibold">Persona:</span> ${agent.persona}</div>`;
       if (agent.responseFormat) html += `<div class="text-xs" style="color:var(--text-m)"><span class="font-semibold">Format:</span> ${agent.responseFormat}</div>`;
       if (agent.primaryUsers) html += `<div class="text-xs" style="color:var(--text-m)"><span class="font-semibold">Users:</span> ${agent.primaryUsers}</div>`;
-      return html;
-    }
-
-    function briefCapsV(caps) {
-      if (!caps.length) return '<p class="text-sm italic" style="color:var(--text-f)">No capabilities defined</p>';
-      const mvp = caps.filter(c => c.phase !== 'future');
-      const future = caps.filter(c => c.phase === 'future');
-      let html = '';
-      if (mvp.length) {
-        html += `<div class="space-y-1.5">${mvp.map(c => `<div class="flex items-center gap-2"><span class="text-[10px] font-bold px-1.5 py-0.5 rounded badge-success">MVP</span><span class="text-sm font-medium" style="color:var(--text)">${c.name}</span></div>`).join('')}</div>`;
-      }
-      if (future.length) {
-        html += `<div class="mt-3 pt-2" style="border-top:1px solid var(--border-s)"><span class="text-[10px] font-bold uppercase" style="color:var(--text-f)">Future</span><div class="mt-1.5 space-y-1.5">${future.map(c => `<div class="flex items-center gap-2"><span class="text-[10px] font-bold px-1.5 py-0.5 rounded badge-violet">FUTURE</span><span class="text-sm" style="color:var(--text-m)">${c.name}</span>${c.reason ? `<span class="text-xs" style="color:var(--text-f)">— ${c.reason}</span>` : ''}</div>`).join('')}</div></div>`;
-      }
-      return html;
-    }
-
-    function briefIntegV(integ) {
-      if (!integ.filter(i => i.name).length) return '<p class="text-sm italic" style="color:var(--text-f)">No integrations configured</p>';
-      return `<div class="flex flex-wrap gap-2">${integ.filter(i => i.name).map(i => `
-        <div class="comp-pill ${i.type}" title="${esc(i.purpose)}${i.dataProvided ? '\\nData: ' + esc(i.dataProvided) : ''}">
-          <span class="text-[10px] font-bold uppercase opacity-60">${i.type}</span>
-          <span class="font-medium">${i.name}</span>
-          ${i.phase === 'future' ? '<span class="text-[9px] px-1 rounded badge-violet">future</span>' : ''}
-        </div>
-      `).join('')}</div>`;
-    }
-
-    function briefKnowledgeV(know) {
-      const knowledge = (know || []).filter(k => k.name);
-      if (!knowledge.length) return '<p class="text-sm italic" style="color:var(--text-f)">No knowledge sources</p>';
-      return `<div class="flex flex-wrap gap-2">${knowledge.map(k => `
-        <div class="comp-pill badge-success" style="border-left:3px solid var(--green)">
-          <span class="text-[10px] font-bold uppercase opacity-60">${(k.type || '').split(' ')[0]}</span>
-          <span class="font-medium">${k.name}</span>
-          ${k.purpose ? '<span class="text-[10px] ml-1" style="color:var(--text-f)">— ' + k.purpose + '</span>' : ''}
-        </div>
-      `).join('')}</div>`;
-    }
-
-    function briefConvosV(convos) {
-      const topics = (convos.topics || []).filter(t => t.name);
-      if (!topics.length) return '<p class="text-sm italic" style="color:var(--text-f)">No conversation topics</p>';
-      return `<div class="space-y-1.5">${topics.map(t => `
-        <div class="flex items-center gap-2 flex-wrap">
-          <span class="text-[10px] font-bold px-1.5 py-0.5 rounded ${t.topicType === 'system' ? 'badge-info' : t.topicType === 'generative' ? 'badge-violet' : 'badge-cyan'}">${t.topicType || 'custom'}</span>
-          <span class="text-sm font-medium" style="color:var(--text)">${t.name}</span>
-          <span class="text-[10px] px-1.5 py-0.5 rounded" style="background:var(--bg-s2);color:var(--text-f)">${t.triggerType || 'agent-chooses'}</span>
-          ${t.phase === 'future' ? '<span class="text-[9px] px-1 rounded badge-violet">future</span>' : ''}
-          ${t.description ? '<span class="text-xs" style="color:var(--text-m)">— ' + t.description + '</span>' : ''}
-        </div>
-      `).join('')}</div>`;
-    }
-
-    function briefScenariosV(scenarios) {
-      const filtered = (scenarios || []).filter(s => s.userSays);
-      if (!filtered.length) return '<p class="text-sm italic" style="color:var(--text-f)">No scenarios defined</p>';
-      return `<div class="space-y-2">${filtered.map((sc, i) => `
-        <div class="scenario-card">
-          <div class="flex items-start gap-3">
-            <span class="flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold shrink-0 badge-warning">${i+1}</span>
-            <div class="min-w-0">
-              <p class="text-sm font-medium" style="color:var(--text)">"${sc.userSays}"</p>
-              <p class="text-xs mt-1" style="color:var(--text-m)">${sc.agentDoes || sc.agentShould || ''}</p>
-              ${sc.category ? '<span class="text-[9px] px-1.5 py-0.5 rounded" style="background:var(--bg-s2);color:var(--text-f)">' + sc.category + '</span>' : ''}
-            </div>
-          </div>
-        </div>
-      `).join('')}</div>`;
-    }
-
-    function briefEvalsV(evals) {
-      const er = wizardState.evalResults || {};
-      const hasResults = er.summary && er.summary.total > 0;
-
-      if (!evals.length && !hasResults) return '<p class="text-sm italic" style="color:var(--text-f)">No evaluation tests defined</p>';
-
-      let resultsHtml = '';
-      if (hasResults) {
-        const s = er.summary;
-        const pct = parseInt(s.passRate) || 0;
-        const rColor = pct >= 80 ? 'var(--green)' : pct >= 60 ? 'var(--amber)' : 'var(--red)';
-        resultsHtml = `
-          <div class="rounded-xl px-4 py-3 mb-4" style="background:var(--bg-s2);border:1px solid var(--border)">
-            <div class="flex items-center gap-3 mb-2">
-              <span class="text-xs font-bold px-2.5 py-1 rounded-lg" style="color:${rColor};background:color-mix(in srgb, ${rColor} 12%, transparent);border:1px solid color-mix(in srgb, ${rColor} 25%, transparent)">${s.passRate} pass rate</span>
-              <span class="text-xs" style="color:var(--text-m)">${s.passed}/${s.total} passed</span>
-              <span class="text-[10px]" style="color:var(--text-f)">via ${er.method || 'Direct Line'} — ${er.lastRun ? new Date(er.lastRun).toLocaleString() : ''}</span>
-            </div>
-            ${(er.results || []).filter(r => !r.pass).length > 0 ? `
-              <div class="text-[10px] font-semibold uppercase mb-1" style="color:var(--red)">Failed</div>
-              ${(er.results || []).filter(r => !r.pass).map(r => `
-                <div class="text-xs mb-1" style="color:var(--text-s)"><span style="color:var(--text)">"${r.question}"</span> — expected "${r.expected}", got "${(r.actual || '').substring(0, 80)}${(r.actual || '').length > 80 ? '...' : ''}"</div>
-              `).join('')}
-            ` : ''}
-          </div>`;
-      }
-
-      return `
-        <p class="text-xs mb-3" style="color:var(--text-m)">Test cases that verify the agent responds correctly. Run after each build to catch regressions.</p>
-        ${resultsHtml}
-        <div class="eval-row text-[10px] font-semibold uppercase tracking-wide pb-2 mb-1" style="color:var(--text-f);border-bottom:1px solid var(--border)">
-          <span>Question</span><span>Expected Response</span><span>Method</span><span>Pass</span>
-        </div>
-        ${evals.map(e => `
-          <div class="eval-row">
-            <span class="text-sm" style="color:var(--text)">${e.question}</span>
-            <span class="text-sm" style="color:var(--text-s)">${e.expected}</span>
-            <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full badge-cyan self-start">${e.method || 'Semantic'}</span>
-            <span class="text-xs font-bold self-start" style="color:var(--text-m)">${e.score || '70'}%</span>
-          </div>
-        `).join('')}
-        <div class="mt-3 pt-2 text-[10px]" style="border-top:1px solid var(--border-s);color:var(--text-f)">${evals.length} test${evals.length !== 1 ? 's' : ''} — Semantic matching compares meaning, not exact words</div>
-      `;
-    }
-
-    function briefBoundariesV(bounds) {
-      const handleList = Array.isArray(bounds.handle) ? bounds.handle.filter(Boolean) : (bounds.handle ? [bounds.handle] : []);
-      const declineList = (bounds.decline || []).filter(d => d.topic || (typeof d === 'string' && d));
-      const refuseList = (bounds.refuse || []).filter(r => r.topic || (typeof r === 'string' && r));
-      if (!handleList.length && !declineList.length && !refuseList.length) {
-        return '<p class="text-sm italic" style="color:var(--text-f)">No boundaries defined</p>';
-      }
-      let html = '';
-      // Handle cards
-      if (handleList.length) {
-        html += `<div class="mb-4"><div class="text-[10px] font-bold uppercase tracking-wide mb-2" style="color:var(--green)">Handle — Topics the agent answers confidently</div>
-          <div class="space-y-2">${handleList.map(h => `
-            <div class="rounded-xl p-3" style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2)">
-              <p class="text-sm" style="color:var(--text-s)">${h}</p>
-            </div>`).join('')}</div></div>`;
-      }
-      // Decline cards
-      if (declineList.length) {
-        html += `<div class="mb-4"><div class="text-[10px] font-bold uppercase tracking-wide mb-2" style="color:var(--amber)">Decline — Politely redirect elsewhere</div>
-          <div class="space-y-2">${declineList.map(d => {
-            const topic = typeof d === 'object' ? d.topic : d;
-            const redirect = typeof d === 'object' ? d.redirect : '';
-            return `<div class="rounded-xl p-3" style="background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.2)">
-              <p class="text-sm font-medium" style="color:var(--text)">${topic}</p>
-              ${redirect ? `<p class="text-xs mt-1" style="color:var(--amber)">&rarr; ${redirect}</p>` : ''}
-            </div>`;
-          }).join('')}</div></div>`;
-      }
-      // Refuse cards
-      if (refuseList.length) {
-        html += `<div><div class="text-[10px] font-bold uppercase tracking-wide mb-2" style="color:var(--red)">Refuse — Hard stops, never do these</div>
-          <div class="space-y-2">${refuseList.map(r => {
-            const topic = typeof r === 'object' ? r.topic : r;
-            const reason = typeof r === 'object' ? r.reason : '';
-            return `<div class="rounded-xl p-3" style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.2)">
-              <p class="text-sm font-medium" style="color:var(--text)">${topic}</p>
-              ${reason ? `<p class="text-xs mt-1" style="color:var(--red)">${reason}</p>` : ''}
-            </div>`;
-          }).join('')}</div></div>`;
-      }
       return html;
     }
 
@@ -1431,7 +2139,7 @@
             ${label}</div>`).join('')}</div>`;
         }
       } else {
-        html += `<p class="text-sm italic mb-3" style="color:var(--text-f)">Run Research to get architecture recommendation</p>`;
+        html += `<p class="brief-empty mb-3">Run Research to get architecture recommendation</p>`;
       }
       const triggers = arch.triggers || [];
       const channels = arch.channels || [];
@@ -1456,62 +2164,7 @@
 
     function nl2br(s) { return (s||'').replace(/\n/g, '<br>'); }
 
-    function briefQuestionsV(openQs) {
-      const open = openQs.filter(q => q.question && !q.answer);
-      const answered = openQs.filter(q => q.question && q.answer);
-      if (!openQs.length || !openQs.some(q => q.question)) return '<p class="text-sm italic" style="color:var(--text-f)">No open questions — all clear for build</p>';
-      let html = '';
-      if (open.length) {
-        html += `<div class="space-y-3 mb-4">${open.map(q => `
-          <div class="badge-orange rounded-xl p-3.5">
-            <div class="flex items-start gap-2.5">
-              <svg class="w-4 h-4 shrink-0 mt-0.5" style="color:var(--orange)" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-              <p class="text-sm font-medium min-w-0" style="color:var(--text)">${nl2br(q.question)}</p>
-            </div>
-          </div>
-        `).join('')}</div>`;
-      }
-      if (answered.length) {
-        html += `<div class="space-y-2">${answered.map(q => `
-          <div class="badge-success rounded-xl p-3.5">
-            <p class="text-sm font-medium" style="color:var(--text)">${nl2br(q.question)}</p>
-            <p class="text-sm mt-1.5" style="color:var(--green)">${nl2br(q.answer)}</p>
-          </div>
-        `).join('')}</div>`;
-      }
-      const openCount = open.length;
-      const totalCount = openQs.filter(q => q.question).length;
-      html += `<div class="mt-3 pt-2 text-[10px]" style="border-top:1px solid var(--border-s);color:var(--text-f)">${openCount} open / ${totalCount} total${openCount > 0 ? ' — resolve before building' : ' — all resolved'}</div>`;
-      return html;
-    }
-
-    function briefQuestionsE(openQs) {
-      const rows = openQs.length ? openQs : [{ question: '', answer: '' }];
-      return `<div class="space-y-3">
-        <p class="text-[11px]" style="color:var(--text-m)">Press <kbd style="background:var(--bg-s3);padding:1px 4px;border-radius:3px;font-size:10px">Enter</kbd> to save a question. <kbd style="background:var(--bg-s3);padding:1px 4px;border-radius:3px;font-size:10px">Shift+Enter</kbd> or <kbd style="background:var(--bg-s3);padding:1px 4px;border-radius:3px;font-size:10px">Ctrl+Enter</kbd> for new line.</p>
-        ${rows.map((q, i) => `
-          <div class="rounded-xl p-4 relative group" style="background:var(--bg-s2);border:1px solid var(--border-s)" id="oq-card-${i}">
-            <button onclick="removeQuestionBrief(${i})" class="absolute top-2 right-2 p-1 rounded-md opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity" style="color:var(--red)" title="Remove">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-            </button>
-            <div class="mb-2">
-              <label class="block text-[10px] font-bold uppercase mb-1" style="color:var(--text-f)">Question</label>
-              <textarea name="oq_q_${i}" rows="1" placeholder="What do we need to know?" class="w-full rounded-lg px-3 py-2 text-sm focus:outline-none resize-none" onkeydown="handleQSave(event, ${i})" oninput="autoGrow(this)">${esc(q.question)}</textarea>
-            </div>
-            <div>
-              <label class="block text-[10px] font-bold uppercase mb-1" style="color:var(--green)">Answer <span class="font-normal normal-case" style="color:var(--text-f)">— fill in when resolved</span></label>
-              <textarea name="oq_a_${i}" rows="1" placeholder="Leave empty until answered" class="w-full rounded-lg px-3 py-2 text-sm focus:outline-none resize-none" style="border-color:rgba(16,185,129,0.3);background:rgba(16,185,129,0.05)" onkeydown="handleQSave(event, ${i})" oninput="autoGrow(this)">${esc(q.answer || '')}</textarea>
-            </div>
-          </div>
-        `).join('')}
-        <button onclick="addQuestionBrief()" class="text-xs font-medium flex items-center gap-1" style="color:var(--orange)">
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-          Add question
-        </button>
-      </div>`;
-    }
-
-    // ---- Edit renderers (v2 schema) ----
+    // ---- Edit renderers (v2 schema — custom form sections only) ----
 
     function briefBusinessE(biz) {
       return `<div class="space-y-3">
@@ -1537,146 +2190,6 @@
             <input type="text" data-field="agent.primaryUsers" value="${esc(agent.primaryUsers)}" class="w-full rounded-lg px-3 py-1.5 text-sm focus:outline-none"></div>
           <div><label class="block text-xs font-semibold uppercase mb-1" style="color:var(--text-f)">Secondary Users</label>
             <input type="text" data-field="agent.secondaryUsers" value="${esc(agent.secondaryUsers)}" class="w-full rounded-lg px-3 py-1.5 text-sm focus:outline-none"></div>
-        </div>
-      </div>`;
-    }
-
-    function briefCapsE(caps) {
-      const rows = caps.length ? caps : [{ name: '', phase: 'mvp' }];
-      return `<div class="space-y-2">
-        <p class="text-[11px] mb-1" style="color:var(--text-m)">List what the agent should do. Flag each as MVP (build now) or Future (deferred).</p>
-        ${rows.map((c, i) => `<div class="flex gap-2 items-center">
-          <input type="text" name="cap_name_${i}" value="${esc(c.name)}" placeholder="e.g. Look up order status" class="flex-1 rounded-lg px-3 py-1.5 text-sm focus:outline-none">
-          <select name="cap_phase_${i}" class="w-24 rounded-lg px-2 py-1.5 text-xs font-medium" style="${c.phase==='future' ? 'color:var(--text-f)' : 'color:var(--green)'}"><option value="mvp" ${c.phase!=='future'?'selected':''}>MVP</option><option value="future" ${c.phase==='future'?'selected':''}>Future</option></select>
-          ${c.phase === 'future' ? `<input type="text" name="cap_reason_${i}" value="${esc(c.reason || '')}" placeholder="Why deferred?" class="w-48 rounded-lg px-3 py-1.5 text-xs focus:outline-none" style="color:var(--text-f)">` : `<span class="w-48"></span>`}
-        </div>`).join('')}
-        <button onclick="addCapBrief()" style="color:var(--accent)" class="text-xs font-medium">+ Add capability</button>
-      </div>`;
-    }
-
-    function briefIntegE(integ) {
-      const systems = integ.length ? integ : [{ name: '', type: 'mcp', purpose: '' }];
-      return `<div class="space-y-2">
-        <div class="grid grid-cols-2 gap-2 mb-2 text-[11px]" style="color:var(--text-m)">
-          <div><span class="font-bold" style="color:#818cf8">MCP</span> — Full M365 access (read, write, search)</div>
-          <div><span class="font-bold" style="color:#60a5fa">Connector</span> — Pre-built integration to external systems</div>
-          <div><span class="font-bold" style="color:var(--orange)">Flow</span> — Power Automate flow for multi-step actions</div>
-          <div><span class="font-bold" style="color:#c084fc">AI Tool</span> — AI-powered capability</div>
-        </div>
-        ${systems.map((s, i) => `<div class="flex gap-2">
-          <input type="text" name="integ_name_${i}" value="${esc(s.name)}" placeholder="e.g. SharePoint, SAP" class="flex-1 rounded-lg px-3 py-1.5 text-sm focus:outline-none">
-          <select name="integ_type_${i}" class="w-28 rounded-lg px-2 py-1.5 text-sm"><option value="mcp" ${s.type==='mcp'?'selected':''}>MCP</option><option value="connector" ${s.type==='connector'?'selected':''}>Connector</option><option value="flow" ${s.type==='flow'?'selected':''}>Flow</option><option value="ai-tool" ${s.type==='ai-tool'?'selected':''}>AI Tool</option></select>
-          <input type="text" name="integ_purpose_${i}" value="${esc(s.purpose)}" placeholder="What it does" class="flex-1 rounded-lg px-3 py-1.5 text-sm focus:outline-none">
-          <select name="integ_phase_${i}" class="w-24 rounded-lg px-2 py-1.5 text-xs"><option value="mvp" ${s.phase!=='future'?'selected':''}>MVP</option><option value="future" ${s.phase==='future'?'selected':''}>Future</option></select>
-        </div>`).join('')}
-        <button onclick="addIntegBrief()" style="color:var(--accent)" class="text-xs font-medium">+ Add integration</button>
-      </div>`;
-    }
-
-    function briefKnowledgeE(know) {
-      const knowledge = know.length ? know : [{ name: '', type: 'SharePoint', purpose: '' }];
-      const types = ['SharePoint','Uploaded files','Dataverse','Public websites','Graph connectors'];
-      return `<div class="space-y-2">
-        ${knowledge.map((k, i) => `<div class="flex gap-2">
-          <input type="text" name="k_name_${i}" value="${esc(k.name)}" placeholder="Source name" class="flex-1 rounded-lg px-3 py-1.5 text-sm focus:outline-none">
-          <select name="k_type_${i}" class="w-36 rounded-lg px-2 py-1.5 text-sm">${types.map(t => `<option value="${t}" ${k.type===t?'selected':''}>${t}</option>`).join('')}</select>
-          <input type="text" name="k_purpose_${i}" value="${esc(k.purpose || '')}" placeholder="What questions it answers" class="flex-1 rounded-lg px-3 py-1.5 text-sm focus:outline-none">
-        </div>`).join('')}
-        <button onclick="addKnowledgeBrief()" style="color:var(--accent)" class="text-xs font-medium">+ Add source</button>
-      </div>`;
-    }
-
-    function briefConvosE(convos) {
-      const topics = (convos.topics || []).length ? convos.topics : [{ name: '', description: '', triggerType: 'agent-chooses', topicType: 'custom' }];
-      return `<div class="space-y-2">
-        ${topics.map((t, i) => `<div class="flex gap-2">
-          <input type="text" name="topic_name_${i}" value="${esc(t.name)}" placeholder="Topic name" class="flex-1 rounded-lg px-3 py-1.5 text-sm focus:outline-none">
-          <input type="text" name="topic_desc_${i}" value="${esc(t.description)}" placeholder="What it handles" class="flex-1 rounded-lg px-3 py-1.5 text-sm focus:outline-none">
-          <select name="topic_trigger_${i}" class="w-32 rounded-lg px-2 py-1.5 text-xs"><option value="agent-chooses" ${t.triggerType==='agent-chooses'?'selected':''}>Agent chooses</option><option value="phrases" ${t.triggerType==='phrases'?'selected':''}>Phrases</option><option value="fallback" ${t.triggerType==='fallback'?'selected':''}>Fallback</option><option value="event" ${t.triggerType==='event'?'selected':''}>Event</option><option value="auto-start" ${t.triggerType==='auto-start'?'selected':''}>Auto-start</option><option value="redirect" ${t.triggerType==='redirect'?'selected':''}>Redirect</option><option value="escalation" ${t.triggerType==='escalation'?'selected':''}>Escalation</option><option value="inactivity" ${t.triggerType==='inactivity'?'selected':''}>Inactivity</option></select>
-          <select name="topic_type_${i}" class="w-28 rounded-lg px-2 py-1.5 text-xs"><option value="custom" ${t.topicType==='custom'?'selected':''}>Custom</option><option value="generative" ${t.topicType==='generative'?'selected':''}>Generative</option><option value="system" ${t.topicType==='system'?'selected':''}>System</option></select>
-        </div>`).join('')}
-        <button onclick="addTopicBrief()" style="color:var(--accent)" class="text-xs font-medium">+ Add topic</button>
-      </div>`;
-    }
-
-    function briefScenariosE(scenarios) {
-      const rows = scenarios.length ? scenarios : [{ userSays: '', agentDoes: '' }];
-      return `<div class="space-y-2">
-        ${rows.map((sc, i) => `<div class="flex gap-2 items-start">
-          <span class="text-xs font-bold mt-2.5 w-4 shrink-0" style="color:var(--text-f)">${i+1}</span>
-          <input type="text" name="scenario_user_${i}" value="${esc(sc.userSays)}" placeholder="User says..." class="flex-1 rounded-lg px-3 py-1.5 text-sm focus:outline-none">
-          <input type="text" name="scenario_agent_${i}" value="${esc(sc.agentDoes || sc.agentShould || '')}" placeholder="Agent does..." class="flex-1 rounded-lg px-3 py-1.5 text-sm focus:outline-none">
-        </div>`).join('')}
-        <button onclick="addScenarioBrief()" style="color:var(--accent)" class="text-xs font-medium ml-4">+ Add scenario</button>
-      </div>`;
-    }
-
-    function briefEvalsE(evals) {
-      const rows = evals.length ? evals : [{ question: '', expected: '', method: 'Semantic', score: '70' }];
-      const methods = ['Semantic','TextSimilarity','ExactMatch','PartialMatch','CompareMeaning'];
-      return `<div class="space-y-3">
-        <div class="grid grid-cols-2 gap-2 text-[11px] rounded-lg p-3" style="color:var(--text-m);background:var(--bg-s2)">
-          <div><span class="font-semibold" style="color:var(--text-s)">Semantic</span> — AI judges if the meaning matches (recommended)</div>
-          <div><span class="font-semibold" style="color:var(--text-s)">TextSimilarity</span> — Compares word overlap, scored 0-100</div>
-          <div><span class="font-semibold" style="color:var(--text-s)">ExactMatch</span> — Response must match exactly (strict)</div>
-          <div><span class="font-semibold" style="color:var(--text-s)">CompareMeaning</span> — Like semantic but with custom pass threshold</div>
-        </div>
-        <div class="eval-row text-[10px] font-semibold uppercase tracking-wide pb-1" style="color:var(--text-f)">
-          <span>Question</span><span>Expected Response</span><span>Method</span><span>Pass %</span>
-        </div>
-        ${rows.map((e, i) => `<div class="grid grid-cols-[1fr_1fr_8rem_4rem] gap-2 items-start">
-          <input type="text" name="eval_q_${i}" value="${esc(e.question)}" placeholder="What to ask the agent" class="rounded-lg px-3 py-1.5 text-sm focus:outline-none">
-          <input type="text" name="eval_exp_${i}" value="${esc(e.expected)}" placeholder="What the response should contain" class="rounded-lg px-3 py-1.5 text-sm focus:outline-none">
-          <select name="eval_method_${i}" class="rounded-lg px-2 py-1.5 text-xs">${methods.map(m => `<option value="${m}" ${e.method===m?'selected':''}>${m}</option>`).join('')}</select>
-          <input type="text" name="eval_score_${i}" value="${esc(e.score)}" placeholder="70" class="rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none">
-        </div>`).join('')}
-        <button onclick="addEvalBrief()" style="color:var(--accent)" class="text-xs font-medium">+ Add test</button>
-      </div>`;
-    }
-
-    function briefBoundariesE(bounds) {
-      const handleList = Array.isArray(bounds.handle) ? bounds.handle.filter(Boolean) : [];
-      const declineList = (bounds.decline || []).filter(d => d.topic);
-      const refuseList = (bounds.refuse || []).filter(r => r.topic);
-      if (!handleList.length) handleList.push('');
-      if (!declineList.length) declineList.push({ topic: '', redirect: '' });
-      if (!refuseList.length) refuseList.push({ topic: '', reason: '' });
-
-      return `<div class="space-y-5">
-        <!-- Handle -->
-        <div>
-          <div class="text-[10px] font-bold uppercase tracking-wide mb-2" style="color:var(--green)">Handle — Topics the agent answers confidently</div>
-          <div class="space-y-2">
-            ${handleList.map((h, i) => `
-              <div class="rounded-xl p-3 relative group" style="background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.2)">
-                <input type="text" name="handle_${i}" value="${esc(h)}" placeholder="e.g. Order inquiries, shipment tracking" class="w-full bg-transparent text-sm focus:outline-none" style="color:var(--text-s)">
-              </div>`).join('')}
-            <button onclick="addHandleBrief()" style="color:var(--green)" class="text-xs font-medium">+ Add topic</button>
-          </div>
-        </div>
-        <!-- Decline -->
-        <div>
-          <div class="text-[10px] font-bold uppercase tracking-wide mb-2" style="color:var(--amber)">Decline — Politely redirect elsewhere</div>
-          <div class="space-y-2">
-            ${declineList.map((d, i) => `
-              <div class="rounded-xl p-3 relative group" style="background:rgba(245,158,11,0.05);border:1px solid rgba(245,158,11,0.2)">
-                <input type="text" name="decline_topic_${i}" value="${esc(typeof d === 'object' ? d.topic : d)}" placeholder="Request type to decline" class="w-full bg-transparent text-sm font-medium focus:outline-none mb-1" style="color:var(--text)">
-                <input type="text" name="decline_redirect_${i}" value="${esc(typeof d === 'object' ? d.redirect || '' : '')}" placeholder="Where to redirect (e.g. Contact billing team)" class="w-full bg-transparent text-xs focus:outline-none" style="color:var(--amber)">
-              </div>`).join('')}
-            <button onclick="addDeclineBrief()" style="color:var(--amber)" class="text-xs font-medium">+ Add decline</button>
-          </div>
-        </div>
-        <!-- Refuse -->
-        <div>
-          <div class="text-[10px] font-bold uppercase tracking-wide mb-2" style="color:var(--red)">Refuse — Hard stops, never do these</div>
-          <div class="space-y-2">
-            ${refuseList.map((r, i) => `
-              <div class="rounded-xl p-3 relative group" style="background:rgba(239,68,68,0.05);border:1px solid rgba(239,68,68,0.2)">
-                <input type="text" name="refuse_topic_${i}" value="${esc(typeof r === 'object' ? r.topic : r)}" placeholder="Hard boundary" class="w-full bg-transparent text-sm font-medium focus:outline-none mb-1" style="color:var(--text)">
-                <input type="text" name="refuse_reason_${i}" value="${esc(typeof r === 'object' ? r.reason || '' : '')}" placeholder="Why (e.g. GDPR compliance)" class="w-full bg-transparent text-xs focus:outline-none" style="color:var(--red)">
-              </div>`).join('')}
-            <button onclick="addRefuseBrief()" style="color:var(--red)" class="text-xs font-medium">+ Add refusal</button>
-          </div>
         </div>
       </div>`;
     }
@@ -1750,244 +2263,34 @@
     function collectBriefEdit(id) {
       const el = document.getElementById(`section-${id}`);
       if (!el) return;
-      switch (id) {
-        case 'business': {
-          const s = wizardState.business = wizardState.business || {};
-          el.querySelectorAll('[data-field]').forEach(f => {
-            const key = f.dataset.field.split('.')[1];
-            s[key] = f.value;
-          });
-          break;
-        }
-        case 'agent': {
-          const s = wizardState.agent = wizardState.agent || {};
-          el.querySelectorAll('[data-field]').forEach(f => {
-            const key = f.dataset.field.split('.')[1];
-            s[key] = f.value;
-          });
-          break;
-        }
-        case 'capabilities': {
-          wizardState.capabilities = []; let i = 0;
-          while (el.querySelector(`[name="cap_name_${i}"]`)) {
-            const phase = el.querySelector(`[name="cap_phase_${i}"]`).value;
-            const reasonEl = el.querySelector(`[name="cap_reason_${i}"]`);
-            wizardState.capabilities.push({
-              name: el.querySelector(`[name="cap_name_${i}"]`).value,
-              phase: phase,
-              reason: (phase === 'future' && reasonEl) ? reasonEl.value : '',
-              dataSources: [],
-            });
-            i++;
-          }
-          break;
-        }
-        case 'integrations': {
-          wizardState.integrations = []; let i = 0;
-          while (el.querySelector(`[name="integ_name_${i}"]`)) {
-            wizardState.integrations.push({
-              name: el.querySelector(`[name="integ_name_${i}"]`).value,
-              type: el.querySelector(`[name="integ_type_${i}"]`).value,
-              purpose: el.querySelector(`[name="integ_purpose_${i}"]`).value,
-              phase: el.querySelector(`[name="integ_phase_${i}"]`).value,
-            });
-            i++;
-          }
-          break;
-        }
-        case 'knowledge': {
-          wizardState.knowledge = []; let i = 0;
-          while (el.querySelector(`[name="k_name_${i}"]`)) {
-            wizardState.knowledge.push({
-              name: el.querySelector(`[name="k_name_${i}"]`).value,
-              type: el.querySelector(`[name="k_type_${i}"]`).value,
-              purpose: (el.querySelector(`[name="k_purpose_${i}"]`) || {}).value || '',
-            });
-            i++;
-          }
-          break;
-        }
-        case 'conversations': {
-          const c = wizardState.conversations = wizardState.conversations || {};
-          c.topics = []; let i = 0;
-          while (el.querySelector(`[name="topic_name_${i}"]`)) {
-            c.topics.push({
-              name: el.querySelector(`[name="topic_name_${i}"]`).value,
-              description: el.querySelector(`[name="topic_desc_${i}"]`).value,
-              triggerType: el.querySelector(`[name="topic_trigger_${i}"]`).value,
-              topicType: el.querySelector(`[name="topic_type_${i}"]`).value,
-            });
-            i++;
-          }
-          break;
-        }
-        case 'boundaries': {
-          const b = wizardState.boundaries = wizardState.boundaries || {};
-          b.handle = []; let hi = 0;
-          while (el.querySelector(`[name="handle_${hi}"]`)) {
-            const v = el.querySelector(`[name="handle_${hi}"]`).value.trim();
-            if (v) b.handle.push(v);
-            hi++;
-          }
-          b.decline = []; let di = 0;
-          while (el.querySelector(`[name="decline_topic_${di}"]`)) {
-            const topic = el.querySelector(`[name="decline_topic_${di}"]`).value.trim();
-            const redirect = el.querySelector(`[name="decline_redirect_${di}"]`).value.trim();
-            if (topic) b.decline.push({ topic, redirect });
-            di++;
-          }
-          b.refuse = []; let ri = 0;
-          while (el.querySelector(`[name="refuse_topic_${ri}"]`)) {
-            const topic = el.querySelector(`[name="refuse_topic_${ri}"]`).value.trim();
-            const reason = el.querySelector(`[name="refuse_reason_${ri}"]`).value.trim();
-            if (topic) b.refuse.push({ topic, reason });
-            ri++;
-          }
-          break;
-        }
-        case 'architecture': {
-          const a = wizardState.architecture = wizardState.architecture || {};
-          // Collect 6-factor checkboxes
-          const factorKeys = ['domainSeparation','dataIsolation','teamOwnership','reusability','instructionSize','knowledgeIsolation'];
-          a.factors = a.factors || {};
-          factorKeys.forEach(k => { a.factors[k] = !!el.querySelector(`[name="factor_${k}"]`)?.checked; });
-          const score = factorKeys.filter(k => a.factors[k]).length;
-          a.score = score;
-          a.type = score <= 2 ? 'Single Agent' : 'Multi-Agent';
-          // Triggers with descriptions
-          const triggerDescs = { 'Conversational': 'User sends a message', 'Scheduled': 'Runs on a timer', 'Event-driven': 'Fires on system events', 'Autonomous': 'Multi-step independent execution' };
-          a.triggers = [...el.querySelectorAll('[name="trigger"]:checked')].map(e => ({ type: e.value, description: triggerDescs[e.value] || '' }));
-          // Channels with descriptions
-          const channelDescs = { 'Microsoft Teams': 'Chat within Teams', 'M365 Copilot': 'Plugin in M365 Copilot', 'Web chat': 'Embedded on website', 'Direct Line': 'API-only', 'Slack': 'Via connector', 'Mobile app': 'Embedded in app' };
-          a.channels = [...el.querySelectorAll('[name="channel"]:checked')].map(e => ({ name: e.value, reason: channelDescs[e.value] || '' }));
-          break;
-        }
-        case 'scenarios': {
-          wizardState.scenarios = []; let i = 0;
-          while (el.querySelector(`[name="scenario_user_${i}"]`)) {
-            wizardState.scenarios.push({
-              name: `Scenario ${i+1}`,
-              userSays: el.querySelector(`[name="scenario_user_${i}"]`).value,
-              agentDoes: el.querySelector(`[name="scenario_agent_${i}"]`).value,
-              category: 'happy-path',
-              capabilities: [],
-            });
-            i++;
-          }
-          break;
-        }
-        case 'evals': {
-          wizardState.evals = []; let i = 0;
-          while (el.querySelector(`[name="eval_q_${i}"]`)) {
-            wizardState.evals.push({ question: el.querySelector(`[name="eval_q_${i}"]`).value, expected: el.querySelector(`[name="eval_exp_${i}"]`).value, method: el.querySelector(`[name="eval_method_${i}"]`).value, score: el.querySelector(`[name="eval_score_${i}"]`).value });
-            i++;
-          }
-          break;
-        }
-        case 'questions': {
-          const collected = []; let i = 0;
-          while (el.querySelector(`[name="oq_q_${i}"]`)) {
-            const q = el.querySelector(`[name="oq_q_${i}"]`).value.trim();
-            const a = el.querySelector(`[name="oq_a_${i}"]`).value.trim();
-            if (q || a) collected.push({ question: q, answer: a });
-            i++;
-          }
-          wizardState.openQuestions = collected;
-          break;
-        }
+      // Custom form sections
+      if (id === 'business') {
+        const s = wizardState.business = wizardState.business || {};
+        el.querySelectorAll('[data-field]').forEach(f => { s[f.dataset.field.split('.')[1]] = f.value; });
+        return;
       }
-    }
-
-    // --- Inline add helpers ---
-
-    function addCapBrief() {
-      collectBriefEdit('capabilities');
-      wizardState.capabilities.push({ name: '', phase: 'mvp', dataSources: [] });
-      renderBrief(); editBriefSection('capabilities');
-    }
-    function addIntegBrief() {
-      collectBriefEdit('integrations');
-      wizardState.integrations.push({ name: '', type: 'mcp', purpose: '', phase: 'mvp' });
-      renderBrief(); editBriefSection('integrations');
-    }
-    function addHandleBrief() {
-      collectBriefEdit('boundaries');
-      wizardState.boundaries = wizardState.boundaries || {};
-      wizardState.boundaries.handle = wizardState.boundaries.handle || [];
-      wizardState.boundaries.handle.push('');
-      renderBrief(); editBriefSection('boundaries');
-    }
-    function addDeclineBrief() {
-      collectBriefEdit('boundaries');
-      wizardState.boundaries = wizardState.boundaries || {};
-      wizardState.boundaries.decline = wizardState.boundaries.decline || [];
-      wizardState.boundaries.decline.push({ topic: '', redirect: '' });
-      renderBrief(); editBriefSection('boundaries');
-    }
-    function addRefuseBrief() {
-      collectBriefEdit('boundaries');
-      wizardState.boundaries = wizardState.boundaries || {};
-      wizardState.boundaries.refuse = wizardState.boundaries.refuse || [];
-      wizardState.boundaries.refuse.push({ topic: '', reason: '' });
-      renderBrief(); editBriefSection('boundaries');
-    }
-    function addScenarioBrief() {
-      collectBriefEdit('scenarios');
-      wizardState.scenarios.push({ name: '', userSays: '', agentDoes: '', category: 'happy-path', capabilities: [] });
-      renderBrief(); editBriefSection('scenarios');
-    }
-    function addEvalBrief() {
-      collectBriefEdit('evals');
-      wizardState.evals.push({ question: '', expected: '', method: 'Semantic', score: '70' });
-      renderBrief(); editBriefSection('evals');
-    }
-    function addTopicBrief() {
-      collectBriefEdit('conversations');
-      const c = wizardState.conversations = wizardState.conversations || {};
-      c.topics = c.topics || [];
-      c.topics.push({ name: '', description: '', triggerType: 'agent-chooses', topicType: 'custom' });
-      renderBrief(); editBriefSection('conversations');
-    }
-    function addKnowledgeBrief() {
-      collectBriefEdit('knowledge');
-      wizardState.knowledge = wizardState.knowledge || [];
-      wizardState.knowledge.push({ name: '', type: 'SharePoint', purpose: '' });
-      renderBrief(); editBriefSection('knowledge');
-    }
-    function addQuestionBrief() {
-      if (briefEditSection === 'questions') collectBriefEdit('questions');
-      wizardState.openQuestions = wizardState.openQuestions || [];
-      wizardState.openQuestions.push({ question: '', answer: '' });
-      briefEditSection = null;
-      renderBrief(); editBriefSection('questions');
-      setTimeout(() => {
-        const idx = wizardState.openQuestions.length - 1;
-        const el = document.querySelector(`[name="oq_q_${idx}"]`);
-        if (el) el.focus();
-      }, 100);
-    }
-
-    function removeQuestionBrief(idx) {
-      if (briefEditSection === 'questions') collectBriefEdit('questions');
-      wizardState.openQuestions = wizardState.openQuestions || [];
-      wizardState.openQuestions.splice(idx, 1);
-      if (!wizardState.openQuestions.length) wizardState.openQuestions.push({ question: '', answer: '' });
-      briefEditSection = null;
-      renderBrief(); editBriefSection('questions');
-    }
-
-    function handleQSave(e, idx) {
-      // Shift+Enter or Ctrl+Enter = new line (default textarea behavior)
-      if (e.key === 'Enter' && (e.shiftKey || e.ctrlKey)) return;
-      // Plain Enter = save this question (flash green border, blur)
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        const card = document.getElementById(`oq-card-${idx}`);
-        if (card) {
-          card.style.borderColor = 'var(--green)';
-          setTimeout(() => { card.style.borderColor = ''; }, 800);
-        }
-        e.target.blur();
+      if (id === 'agent') {
+        const s = wizardState.agent = wizardState.agent || {};
+        el.querySelectorAll('[data-field]').forEach(f => { s[f.dataset.field.split('.')[1]] = f.value; });
+        return;
+      }
+      if (id === 'architecture') {
+        const a = wizardState.architecture = wizardState.architecture || {};
+        const factorKeys = ['domainSeparation','dataIsolation','teamOwnership','reusability','instructionSize','knowledgeIsolation'];
+        a.factors = a.factors || {};
+        factorKeys.forEach(k => { a.factors[k] = !!el.querySelector(`[name="factor_${k}"]`)?.checked; });
+        const score = factorKeys.filter(k => a.factors[k]).length;
+        a.score = score;
+        a.type = score <= 2 ? 'Single Agent' : 'Multi-Agent';
+        const triggerDescs = { 'Conversational': 'User sends a message', 'Scheduled': 'Runs on a timer', 'Event-driven': 'Fires on system events', 'Autonomous': 'Multi-step independent execution' };
+        a.triggers = [...el.querySelectorAll('[name="trigger"]:checked')].map(e => ({ type: e.value, description: triggerDescs[e.value] || '' }));
+        const channelDescs = { 'Microsoft Teams': 'Chat within Teams', 'M365 Copilot': 'Plugin in M365 Copilot', 'Web chat': 'Embedded on website', 'Direct Line': 'API-only', 'Slack': 'Via connector', 'Mobile app': 'Embedded in app' };
+        a.channels = [...el.querySelectorAll('[name="channel"]:checked')].map(e => ({ name: e.value, reason: channelDescs[e.value] || '' }));
+        return;
+      }
+      // All registry sections use genericCollect
+      if (BRIEF_SECTIONS[id]) {
+        genericCollect(id);
       }
     }
 
@@ -1996,9 +2299,9 @@
       el.style.height = el.scrollHeight + 'px';
     }
 
-    // --- Readiness panel ---
+    // --- Readiness (compact ring + dropdown) ---
 
-    function renderReadinessPanel(biz, agent, caps, integ, know, convos, bounds, arch, scenarios, evals, openQs) {
+    function getReadinessChecks(biz, agent, caps, integ, know, convos, bounds, arch, scenarios, evals, openQs) {
       const scenarioList = (scenarios || []).filter(s => s.userSays);
       const integList = (integ || []).filter(i => i.name);
       const topics = convos?.topics || [];
@@ -2008,7 +2311,7 @@
       const buildStatus = wizardState.buildStatus || {};
       const chanLen = (arch?.channels || []).filter(c => (typeof c === 'object' ? c.name : c)).length;
 
-      const checks = [
+      return [
         { label: 'Business context', ok: !!(biz?.problemStatement || biz?.useCase) },
         { label: 'Architecture', ok: !!(arch?.type) },
         { label: 'Instructions', ok: !!wizardState.instructions },
@@ -2022,22 +2325,47 @@
         { label: 'Build published', ok: buildStatus.status === 'published' },
         { label: 'Eval results', ok: !!(evalResults.summary && evalResults.summary.total > 0) },
       ];
+    }
+
+    function renderReadinessCompact(biz, agent, caps, integ, know, convos, bounds, arch, scenarios, evals, openQs) {
+      const checks = getReadinessChecks(biz, agent, caps, integ, know, convos, bounds, arch, scenarios, evals, openQs);
       const done = checks.filter(c => c.ok).length;
       const total = checks.length;
       const pct = Math.round((done / total) * 100);
       const color = pct >= 80 ? '#10b981' : pct >= 50 ? '#f59e0b' : '#ef4444';
-      const circumference = 2 * Math.PI * 30;
+      const circumference = 2 * Math.PI * 14;
       const offset = circumference - (pct / 100) * circumference;
 
-      document.getElementById('readiness-panel').innerHTML = `
-        <div class="text-center mb-4">
-          <div class="readiness-ring mx-auto">
-            <svg width="72" height="72"><circle cx="36" cy="36" r="30" fill="none" stroke="var(--bg-s3)" stroke-width="5"/><circle cx="36" cy="36" r="30" fill="none" stroke="${color}" stroke-width="5" stroke-linecap="round" stroke-dasharray="${circumference}" stroke-dashoffset="${offset}" style="transition:stroke-dashoffset 0.6s ease"/></svg>
-            <div class="absolute inset-0 flex items-center justify-center"><span class="text-lg font-bold" style="color:${color}">${pct}%</span></div>
+      document.getElementById('readiness-ring-compact').innerHTML = `
+        <div style="display:flex;align-items:center;gap:0.5rem;cursor:pointer" onclick="toggleReadinessDropdown(event)">
+          <div class="readiness-ring-sm">
+            <svg width="36" height="36">
+              <circle cx="18" cy="18" r="14" fill="none" stroke="var(--bg-s3)" stroke-width="3"/>
+              <circle cx="18" cy="18" r="14" fill="none" stroke="${color}" stroke-width="3"
+                      stroke-linecap="round" stroke-dasharray="${circumference}" stroke-dashoffset="${offset}" style="transition:stroke-dashoffset 0.6s ease"/>
+            </svg>
+            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">
+              <span class="text-[10px] font-bold" style="color:${color}">${pct}%</span>
+            </div>
           </div>
-          <div class="text-xs font-semibold mt-1" style="color:var(--text-m)">Build Readiness</div>
+          <span class="text-xs font-medium" style="color:${color}">${done}/${total}</span>
         </div>
-        <div class="space-y-1">
+      `;
+    }
+
+    function renderReadinessDropdown(biz, agent, caps, integ, know, convos, bounds, arch, scenarios, evals, openQs) {
+      const checks = getReadinessChecks(biz, agent, caps, integ, know, convos, bounds, arch, scenarios, evals, openQs);
+      const done = checks.filter(c => c.ok).length;
+      const total = checks.length;
+      const pct = Math.round((done / total) * 100);
+      const color = pct >= 80 ? '#10b981' : pct >= 50 ? '#f59e0b' : '#ef4444';
+
+      document.getElementById('readiness-dropdown').innerHTML = `
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs font-semibold" style="color:var(--text)">Build Readiness</span>
+          <span class="text-xs font-bold" style="color:${color}">${done}/${total} (${pct}%)</span>
+        </div>
+        <div class="space-y-1.5">
           ${checks.map(c => `
             <div class="flex items-center gap-2 text-xs" style="color:${c.ok ? 'var(--green)' : 'var(--text-f)'}">
               ${c.ok
@@ -2047,9 +2375,22 @@
             </div>
           `).join('')}
         </div>
-        ${wizardState.prefilled_at ? `<div class="mt-4 pt-3 text-[10px] text-center" style="border-top:1px solid var(--border-s);color:var(--text-f)">AI-generated ${new Date(wizardState.prefilled_at).toLocaleTimeString()}</div>` : ''}
+        ${wizardState.prefilled_at ? `<div class="mt-3 pt-2 text-[10px] text-center" style="border-top:1px solid var(--border-s);color:var(--text-f)">AI-generated ${new Date(wizardState.prefilled_at).toLocaleTimeString()}</div>` : ''}
       `;
     }
+
+    function toggleReadinessDropdown(e) {
+      e.stopPropagation();
+      const dd = document.getElementById('readiness-dropdown');
+      dd.classList.toggle('open');
+    }
+
+    document.addEventListener('click', (e) => {
+      const dd = document.getElementById('readiness-dropdown');
+      if (dd && dd.classList.contains('open') && !e.target.closest('#readiness-ring-wrapper')) {
+        dd.classList.remove('open');
+      }
+    });
 
     // --- Brief auto-save ---
 

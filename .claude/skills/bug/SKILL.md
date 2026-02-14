@@ -44,7 +44,7 @@ File a bug report on GitHub without leaving the dashboard.
 
 6. **On confirmation** — run:
    ```
-   gh issue create --repo damgyeah/MCS-Agent-Automation --title "Bug: ..." --label bug --body "$(cat <<'EOF'
+   gh issue create --repo microsoft/CAD-MCS-Builder --title "Bug: ..." --label bug --body "$(cat <<'EOF'
    <body>
    EOF
    )"
@@ -54,7 +54,7 @@ File a bug report on GitHub without leaving the dashboard.
 
 ## Rules
 
-- Repo is always `damgyeah/MCS-Agent-Automation`
+- Repo is always `microsoft/CAD-MCS-Builder`
 - Label is always `bug`
 - NEVER submit without user confirmation
 - Use HEREDOC for the body to preserve formatting

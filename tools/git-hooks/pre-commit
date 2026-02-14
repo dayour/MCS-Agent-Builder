@@ -17,7 +17,7 @@ if [ "$MCS_CORE_DEV" = "1" ]; then
   exit 0
 fi
 
-REPO_URL="https://github.com/damgyeah/MCS-Agent-Automation/issues/new"
+REPO_URL="https://github.com/microsoft/CAD-MCS-Builder/issues/new"
 
 # Protected path prefixes and exact files
 PROTECTED_DIRS="app/ knowledge/ tools/ .claude/ .github/ templates/"

@@ -5,8 +5,8 @@ Automate end-to-end Microsoft Copilot Studio agent builds — from customer inta
 ## Quick Start
 
 ```bash
-git clone https://github.com/damgyeah/MCS-Agent-Automation.git
-cd MCS-Agent-Automation
+git clone https://github.com/microsoft/CAD-MCS-Builder.git
+cd CAD-MCS-Builder
 npm start
 ```
 
@@ -140,8 +140,8 @@ Build-Guides/               Per-project work (gitignored)
 
 Found a bug or have a suggestion? Use the **Feedback** button in the dashboard or:
 
-- [Report a bug](https://github.com/damgyeah/MCS-Agent-Automation/issues/new?template=bug.md)
-- [Share feedback](https://github.com/damgyeah/MCS-Agent-Automation/issues/new?template=feedback.md)
+- [Report a bug](https://github.com/microsoft/CAD-MCS-Builder/issues/new?template=bug.md)
+- [Share feedback](https://github.com/microsoft/CAD-MCS-Builder/issues/new?template=feedback.md)
 
 ## License
 
