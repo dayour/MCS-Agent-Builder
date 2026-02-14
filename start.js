@@ -221,6 +221,26 @@ ensurePythonDeps();
 // 3. Install git hooks
 ensureGitHooks();
 
+// 3b. Auto-build frontend if dist is missing
+const frontendDir = path.join(__dirname, "app", "frontend");
+const distIndex = path.join(__dirname, "app", "dist", "index.html");
+if (fs.existsSync(path.join(frontendDir, "package.json")) && !fs.existsSync(distIndex)) {
+  log("Frontend not built — building app/frontend...");
+  if (!fs.existsSync(path.join(frontendDir, "node_modules"))) {
+    try {
+      execSync("npm install", { stdio: "inherit", cwd: frontendDir, timeout: 120000 });
+    } catch {
+      warn("npm install failed in app/frontend — frontend may not work");
+    }
+  }
+  try {
+    execSync("npm run build", { stdio: "inherit", cwd: frontendDir, timeout: 120000 });
+    log("Frontend build complete");
+  } catch {
+    warn("Frontend build failed — dashboard may show placeholder page");
+  }
+}
+
 // 4. Kill anything still holding our ports from a previous run
 log("Checking for stale processes...");
 killPort(PORT_APP);

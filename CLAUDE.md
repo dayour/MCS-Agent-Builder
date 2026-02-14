@@ -568,11 +568,21 @@ package.json                # Node dependencies & scripts
     ├── qa-challenger.md    # Adversarial reviewer & gap finder
     └── repo-checker.md     # Cross-reference & sync validator
 
-app/                        # Dashboard web application
-├── index.html              # Single-page dashboard UI
-├── server.py               # FastAPI backend (project CRUD, file upload)
+app/                        # Dashboard application
+├── server.py               # FastAPI backend (CRUD, file upload, SPA serving)
 ├── terminal-server.js      # Node-pty WebSocket server (embedded Claude Code terminal)
-└── generate-data.py        # Build-Guides scanner for dashboard data
+├── generate-data.py        # Build-Guides scanner (used by server.py)
+├── dist/                   # Vite production build output (gitignored)
+└── frontend/               # React + TypeScript SPA (Vite + shadcn/ui)
+    ├── src/
+    │   ├── pages/          # Route pages (Index, ProjectPage, BriefEditor, etc.)
+    │   ├── components/     # UI components (brief sections, terminal, layout)
+    │   ├── stores/         # Zustand stores (projects, project, brief, terminal)
+    │   ├── lib/            # Utilities (api client, transforms, readiness, reports)
+    │   ├── types/          # TypeScript types (domain + API response shapes)
+    │   └── config/         # App config (brief sections)
+    ├── package.json        # Frontend dependencies
+    └── vite.config.ts      # Build config (outputs to app/dist/)
 
 knowledge/
 ├── learnings/              # Experience-based insights from past builds (8 topic files)

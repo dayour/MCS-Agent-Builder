@@ -1,0 +1,161 @@
+import { useState, useEffect } from "react";
+import { useParams, Link } from "react-router-dom";
+import { Bot, Plus, Microscope, Hammer, FlaskConical, Trash2, Loader2 } from "lucide-react";
+import Layout from "@/components/Layout";
+import StatusBadge from "@/components/StatusBadge";
+import ReadinessRing from "@/components/ReadinessRing";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import type { TerminalSession } from "@/types";
+import { useProjectStore } from "@/stores/projectStore";
+import { useTerminalStore } from "@/stores/terminalStore";
+import DocumentDropZone from "@/components/DocumentDropZone";
+
+const ProjectPage = () => {
+  const { id } = useParams<{ id: string }>();
+  const {
+    projectName, agents, loading, loadProject, removeAgent,
+  } = useProjectStore();
+  const { addSession: addTerminalSession, findOrActivateSession } = useTerminalStore();
+  const [showAgentForm, setShowAgentForm] = useState(false);
+  const [agentName, setAgentName] = useState("");
+  const [agentDesc, setAgentDesc] = useState("");
+
+  useEffect(() => {
+    if (id) loadProject(id);
+  }, [id, loadProject]);
+
+  // Poll for changes every 10s
+  useEffect(() => {
+    if (!id) return;
+    const interval = setInterval(() => {
+      useProjectStore.getState().refresh();
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [id]);
+
+  const launchTerminal = (type: "research" | "build" | "evaluate", agentName: string) => {
+    if (!id) return;
+    if (findOrActivateSession(id, agentName)) return;
+
+    const session: TerminalSession = {
+      id: `${id}-${agentName}-${crypto.randomUUID()}`,
+      label: agentName,
+      type,
+      projectId: id,
+      agentName,
+      status: "connecting",
+      wsUrl: "ws://localhost:8001/ws",
+    };
+    addTerminalSession(session);
+  };
+
+  if (loading && agents.length === 0) {
+    return (
+      <Layout breadcrumbs={[{ label: "Loading..." }]}>
+        <div className="flex items-center justify-center py-20 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading project...
+        </div>
+      </Layout>
+    );
+  }
+
+  return (
+    <Layout breadcrumbs={[{ label: projectName || id || "" }]}>
+      <div className="px-6 py-8">
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">{projectName}</h1>
+        </div>
+
+        <div className="space-y-8">
+          {/* Agents */}
+          <div>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-foreground">Agents ({agents.length})</h2>
+              <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-muted-foreground" onClick={() => setShowAgentForm(true)}>
+                <Plus className="h-3 w-3" /> Add Agent
+              </Button>
+            </div>
+
+            {showAgentForm && (
+              <div className="mb-3 rounded-lg border border-border bg-card p-4 space-y-3">
+                <Input placeholder="Agent name" value={agentName} onChange={(e) => setAgentName(e.target.value)} />
+                <Input placeholder="Description" value={agentDesc} onChange={(e) => setAgentDesc(e.target.value)} />
+                <div className="flex gap-2 justify-end">
+                  <Button variant="ghost" size="sm" onClick={() => { setShowAgentForm(false); setAgentName(""); setAgentDesc(""); }}>Cancel</Button>
+                  <Button size="sm" onClick={() => { setShowAgentForm(false); setAgentName(""); setAgentDesc(""); }}>Add</Button>
+                </div>
+              </div>
+            )}
+
+            {agents.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground text-xs">
+                No agents yet. Run <code>/mcs-research</code> to discover agents from your documents.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {agents.map((agent) => (
+                  <div key={agent.id} className="group rounded-lg border border-border bg-card p-4 transition-all hover:border-primary/30 hover:bg-surface-2">
+                    <div className="flex items-center gap-4">
+                      <Link
+                        to={`/project/${id}/agent/${agent.id}`}
+                        className="flex items-center gap-4 flex-1 min-w-0"
+                      >
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-surface-3">
+                          <Bot className="h-5 w-5 text-primary" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
+                              {agent.name}
+                            </h3>
+                            <StatusBadge status={agent.status} />
+                          </div>
+                          <p className="mt-0.5 text-xs text-muted-foreground truncate">{agent.description}</p>
+                        </div>
+                      </Link>
+                      <ReadinessRing value={agent.readiness} size={36} />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-destructive shrink-0"
+                        onClick={(e) => { e.preventDefault(); removeAgent(agent.id); }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                    <div className="mt-3 flex items-center gap-2 pl-14">
+                      {(() => {
+                        const researched = agent.status === "researched" || agent.status === "built" || agent.status === "ready";
+                        const built = agent.status === "built" || agent.status === "ready";
+                        const evaluated = agent.status === "ready";
+                        return (
+                          <>
+                            <Button variant="outline" size="sm" className={`h-6 gap-1 text-[11px] ${researched ? "bg-info/15 border-info/40 text-info" : "border-border text-muted-foreground opacity-60"}`} onClick={() => launchTerminal("research", agent.name)}>
+                              <Microscope className="h-3 w-3" /> Research
+                            </Button>
+                            <Button variant="outline" size="sm" className={`h-6 gap-1 text-[11px] ${built ? "bg-warning/15 border-warning/40 text-warning" : "border-border text-muted-foreground opacity-60"}`} onClick={() => launchTerminal("build", agent.name)}>
+                              <Hammer className="h-3 w-3" /> Build
+                            </Button>
+                            <Button variant="outline" size="sm" className={`h-6 gap-1 text-[11px] ${evaluated ? "bg-success/15 border-success/40 text-success" : "border-border text-muted-foreground opacity-60"}`} onClick={() => launchTerminal("evaluate", agent.name)}>
+                              <FlaskConical className="h-3 w-3" /> Evaluate
+                            </Button>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Documents */}
+          {id && <DocumentDropZone projectId={id} />}
+        </div>
+      </div>
+    </Layout>
+  );
+};
+
+export default ProjectPage;

@@ -73,6 +73,8 @@ logs/
 # Build Outputs & Artifacts
 # -----------------------------------------------------------------------------
 output/
+app/dist/
+app/frontend/node_modules/
 
 # -----------------------------------------------------------------------------
 # Browser MCP - Session Data

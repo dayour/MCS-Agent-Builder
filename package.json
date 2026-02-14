@@ -6,7 +6,9 @@
     "start": "node start.js",
     "app": "python app/server.py",
     "terminal": "node app/terminal-server.js",
-    "test": "node tools/direct-line-test.js"
+    "test": "node tools/direct-line-test.js",
+    "frontend:dev": "npm --prefix app/frontend run dev",
+    "frontend:build": "npm --prefix app/frontend run build"
   },
   "dependencies": {
     "node-pty": "^1.1.0",

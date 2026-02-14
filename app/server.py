@@ -22,6 +22,7 @@ from datetime import datetime
 from pathlib import Path
 from fastapi import FastAPI, HTTPException, Request, UploadFile, File
 from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
@@ -31,7 +32,7 @@ import uvicorn
 SCRIPT_DIR = Path(__file__).parent.resolve()
 BASE_DIR = SCRIPT_DIR.parent
 BUILD_GUIDES = BASE_DIR / "Build-Guides"
-DASHBOARD_HTML = SCRIPT_DIR / "index.html"
+DIST_DIR = SCRIPT_DIR / "dist"
 
 # ---------------------------------------------------------------------------
 # Import scanner functions from generate-data.py
@@ -455,11 +456,16 @@ def _get_project(project_id: str) -> dict:
 # ---------------------------------------------------------------------------
 
 @app.get("/", response_class=HTMLResponse)
-async def serve_dashboard():
-    """Serve the dashboard HTML."""
-    if not DASHBOARD_HTML.exists():
-        raise HTTPException(404, "dashboard.html not found")
-    return HTMLResponse(DASHBOARD_HTML.read_text(encoding="utf-8"))
+async def serve_index():
+    """Serve the SPA index.html."""
+    index = DIST_DIR / "index.html"
+    if not index.exists():
+        return HTMLResponse(
+            "<h2>Frontend not built</h2>"
+            "<p>Run <code>npm run frontend:build</code> from the repo root, then refresh.</p>",
+            status_code=200,
+        )
+    return HTMLResponse(index.read_text(encoding="utf-8"))
 
 
 @app.get("/api/projects")
@@ -832,15 +838,26 @@ def _ensure_terminal_server():
 
 
 # ---------------------------------------------------------------------------
-# Static file serving
+# Static file serving — SPA with catch-all
 # ---------------------------------------------------------------------------
 
-@app.get("/dashboard-data.js")
-async def serve_dashboard_data():
-    f = BASE_DIR / "dashboard-data.js"
-    if f.exists():
-        return FileResponse(str(f), media_type="application/javascript")
-    raise HTTPException(404)
+# Mount dist/assets/ for JS/CSS bundles (must come before SPA catch-all)
+if DIST_DIR.exists():
+    app.mount("/assets", StaticFiles(directory=str(DIST_DIR / "assets")), name="assets")
+
+
+@app.get("/{full_path:path}")
+async def spa_catchall(full_path: str):
+    """SPA catch-all — serve static file if it exists, else index.html."""
+    # Try serving a static file from dist/
+    static_file = DIST_DIR / full_path
+    if static_file.is_file() and DIST_DIR.exists():
+        return FileResponse(str(static_file))
+    # Fall back to index.html for client-side routing
+    index = DIST_DIR / "index.html"
+    if index.exists():
+        return HTMLResponse(index.read_text(encoding="utf-8"))
+    return HTMLResponse("<h2>Frontend not built</h2>", status_code=200)
 
 
 # ---------------------------------------------------------------------------
