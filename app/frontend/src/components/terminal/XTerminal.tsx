@@ -26,8 +26,12 @@ const XTerminal = ({ session, visible }: XTerminalProps) => {
 
     ws.onopen = () => {
       updateStatus(session.id, "running");
-      termRef.current?.writeln(`\x1b[32m● Connected to ${session.wsUrl}\x1b[0m`);
-      termRef.current?.writeln(`\x1b[90m── ${session.type.toUpperCase()}: ${session.agentName} ──\x1b[0m\n`);
+
+      // Send init message to spawn Claude Code on the server
+      const term = termRef.current;
+      const cols = term?.cols ?? 120;
+      const rows = term?.rows ?? 30;
+      ws.send(JSON.stringify({ type: "init", cols, rows }));
     };
 
     ws.onmessage = (event) => {
@@ -36,15 +40,15 @@ const XTerminal = ({ session, visible }: XTerminalProps) => {
 
     ws.onerror = () => {
       updateStatus(session.id, "error");
-      termRef.current?.writeln(`\n\x1b[31m✖ Connection error\x1b[0m`);
+      termRef.current?.writeln(`\r\n\x1b[31m● Connection error — is the terminal server running on ${session.wsUrl}?\x1b[0m`);
     };
 
     ws.onclose = () => {
       updateStatus(session.id, "stopped");
-      termRef.current?.writeln(`\n\x1b[33m● Disconnected\x1b[0m`);
+      termRef.current?.writeln(`\r\n\x1b[33m● Disconnected\x1b[0m`);
       wsRef.current = null;
     };
-  }, [session.id, session.wsUrl, session.type, session.agentName, updateStatus]);
+  }, [session.id, session.wsUrl, updateStatus]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -89,6 +93,22 @@ const XTerminal = ({ session, visible }: XTerminalProps) => {
     termRef.current = term;
     fitRef.current = fitAddon;
 
+    // Forward keystrokes from xterm to the WebSocket (PTY)
+    term.onData((data) => {
+      const ws = wsRef.current;
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(data);
+      }
+    });
+
+    // Forward binary data (for things like ctrl+c)
+    term.onBinary((data) => {
+      const ws = wsRef.current;
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(data);
+      }
+    });
+
     // Initial fit
     requestAnimationFrame(() => {
       try { fitAddon.fit(); } catch {}
@@ -115,12 +135,20 @@ const XTerminal = ({ session, visible }: XTerminalProps) => {
     }
   }, [visible]);
 
-  // Resize observer
+  // Resize observer — refit terminal and notify server of new dimensions
   useEffect(() => {
     if (!containerRef.current) return;
     const observer = new ResizeObserver(() => {
       if (visible && fitRef.current) {
-        try { fitRef.current.fit(); } catch {}
+        try {
+          fitRef.current.fit();
+          // Notify server of new terminal size
+          const term = termRef.current;
+          const ws = wsRef.current;
+          if (term && ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
+          }
+        } catch {}
       }
     });
     observer.observe(containerRef.current);

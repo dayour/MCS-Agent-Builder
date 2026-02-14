@@ -1,17 +1,26 @@
 /**
- * Terminal session store — manages the bottom terminal panel.
+ * Terminal session store — manages the right-side terminal panel.
  *
  * Each session connects to a WebSocket backend for agent
  * research / build / evaluate workflows.
- *
- * Usage:
- *   const { sessions, addSession, panelOpen } = useTerminalStore();
  */
 import { create } from "zustand";
 import type { TerminalSession } from "@/types";
 
 // Re-export for convenience
 export type { TerminalSession } from "@/types";
+
+function createDefaultSession(): TerminalSession {
+  return {
+    id: "main-" + crypto.randomUUID(),
+    label: "Terminal",
+    type: "research" as const,
+    projectId: "system",
+    agentName: "System",
+    status: "connecting" as const,
+    wsUrl: "ws://localhost:8001/ws",
+  };
+}
 
 interface TerminalStore {
   sessions: TerminalSession[];
@@ -27,29 +36,25 @@ interface TerminalStore {
   updateSessionStatus: (id: string, status: TerminalSession["status"]) => void;
   setPanelOpen: (open: boolean) => void;
   setPanelWidth: (width: number) => void;
+  /** Open panel, creating a default session if none exist. */
+  openOrCreate: () => void;
 }
 
+const defaultSession = createDefaultSession();
+
 export const useTerminalStore = create<TerminalStore>((set, get) => ({
-  sessions: [
-    {
-      id: "main",
-      label: "Terminal",
-      type: "research" as const,
-      projectId: "system",
-      agentName: "System",
-      status: "connecting" as const,
-      wsUrl: "ws://localhost:8001/ws",
-    },
-  ],
-  activeSessionId: "main",
-  panelOpen: true,
+  sessions: [defaultSession],
+  activeSessionId: defaultSession.id,
+  panelOpen: false,
   panelWidth: 500,
+
   addSession: (session) =>
     set((s) => ({
       sessions: [...s.sessions, session],
       activeSessionId: session.id,
       panelOpen: true,
     })),
+
   findOrActivateSession: (projectId, agentName) => {
     const existing = get().sessions.find(
       (s) => s.projectId === projectId && s.agentName === agentName
@@ -60,6 +65,7 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
     }
     return false;
   },
+
   removeSession: (id) =>
     set((s) => {
       const sessions = s.sessions.filter((sess) => sess.id !== id);
@@ -70,16 +76,42 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
       return {
         sessions,
         activeSessionId,
-        panelOpen: sessions.length > 0,
+        // Keep panel open even if empty — openOrCreate will handle re-creation
+        panelOpen: sessions.length > 0 ? s.panelOpen : false,
       };
     }),
+
   setActiveSession: (id) => set({ activeSessionId: id }),
+
   updateSessionStatus: (id, status) =>
     set((s) => ({
       sessions: s.sessions.map((sess) =>
         sess.id === id ? { ...sess, status } : sess
       ),
     })),
-  setPanelOpen: (open) => set({ panelOpen: open }),
+
+  setPanelOpen: (open) => {
+    if (open) {
+      // If opening but no sessions, create one
+      get().openOrCreate();
+    } else {
+      set({ panelOpen: false });
+    }
+  },
+
   setPanelWidth: (width) => set({ panelWidth: Math.max(300, Math.min(900, width)) }),
+
+  openOrCreate: () => {
+    const { sessions } = get();
+    if (sessions.length === 0) {
+      const session = createDefaultSession();
+      set({
+        sessions: [session],
+        activeSessionId: session.id,
+        panelOpen: true,
+      });
+    } else {
+      set({ panelOpen: true });
+    }
+  },
 }));
