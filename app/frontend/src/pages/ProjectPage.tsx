@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import { Bot, Plus, Microscope, Hammer, FlaskConical, Trash2, Loader2 } from "lucide-react";
+import { Bot, Plus, Microscope, Hammer, FlaskConical, Trash2, Loader2, Sparkles } from "lucide-react";
 import Layout from "@/components/Layout";
 import StatusBadge from "@/components/StatusBadge";
 import ReadinessRing from "@/components/ReadinessRing";
@@ -40,12 +40,12 @@ const ProjectPage = () => {
     evaluate: (pid, aid) => `/mcs-eval ${pid} ${aid}`,
   };
 
+  /** Launch a command in a per-agent terminal tab. */
   const launchTerminal = (type: "research" | "build" | "evaluate", agent: { id: string; name: string }) => {
     if (!id) return;
     const store = useTerminalStore.getState();
     const command = skillCommands[type](id, agent.id);
 
-    // Reuse existing session for this agent — send command to it
     const existingId = store.findSession(id, agent.id);
     if (existingId) {
       store.setActiveSession(existingId);
@@ -54,13 +54,41 @@ const ProjectPage = () => {
       return;
     }
 
-    // No session for this agent — create one with the command
     const session: TerminalSession = {
       id: `${id}-${agent.id}-${Date.now()}`,
       label: agent.name,
       type,
       projectId: id,
       agentName: agent.name,
+      status: "connecting",
+      wsUrl: "ws://localhost:8001/ws",
+      command,
+    };
+    addTerminalSession(session);
+  };
+
+  /** Launch project-level research (analyzes docs, discovers agents). */
+  const launchProjectResearch = () => {
+    if (!id) return;
+    const store = useTerminalStore.getState();
+    const command = `/mcs-research ${id}`;
+    const sessionKey = `${id}-research`;
+
+    // Reuse existing project research session
+    const existing = store.sessions.find((s) => s.id.startsWith(sessionKey));
+    if (existing) {
+      store.setActiveSession(existing.id);
+      store.setPanelOpen(true);
+      store.sendCommand(existing.id, command);
+      return;
+    }
+
+    const session: TerminalSession = {
+      id: `${sessionKey}-${Date.now()}`,
+      label: `${projectName || id} — research`,
+      type: "research",
+      projectId: id,
+      agentName: projectName || id,
       status: "connecting",
       wsUrl: "ws://localhost:8001/ws",
       command,
@@ -81,8 +109,11 @@ const ProjectPage = () => {
   return (
     <Layout breadcrumbs={[{ label: projectName || id || "" }]}>
       <div className="px-6 py-8">
-        <div className="mb-8">
+        <div className="mb-8 flex items-center justify-between">
           <h1 className="text-2xl font-bold tracking-tight text-foreground">{projectName}</h1>
+          <Button size="sm" className="gap-1.5" onClick={launchProjectResearch}>
+            <Sparkles className="h-3.5 w-3.5" /> Research
+          </Button>
         </div>
 
         <div className="space-y-8">
@@ -108,7 +139,7 @@ const ProjectPage = () => {
 
             {agents.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground text-xs">
-                No agents yet. Run <code>/mcs-research</code> to discover agents from your documents.
+                No agents yet. Upload documents and click Research above.
               </div>
             ) : (
               <div className="space-y-2">
