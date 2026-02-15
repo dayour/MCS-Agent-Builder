@@ -27,11 +27,17 @@ const XTerminal = ({ session, visible }: XTerminalProps) => {
     ws.onopen = () => {
       updateStatus(session.id, "running");
 
-      // Send init message to spawn Claude Code on the server
       const term = termRef.current;
       const cols = term?.cols ?? 120;
       const rows = term?.rows ?? 30;
-      ws.send(JSON.stringify({ type: "init", cols, rows }));
+
+      if (session.command) {
+        // Send command — server spawns Claude Code and queues the command
+        ws.send(JSON.stringify({ type: "command", text: session.command, cols, rows }));
+      } else {
+        // Just spawn Claude Code
+        ws.send(JSON.stringify({ type: "init", cols, rows }));
+      }
     };
 
     ws.onmessage = (event) => {

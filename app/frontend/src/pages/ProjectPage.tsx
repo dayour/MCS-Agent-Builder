@@ -16,7 +16,7 @@ const ProjectPage = () => {
   const {
     projectName, agents, loading, loadProject, removeAgent,
   } = useProjectStore();
-  const { addSession: addTerminalSession, findOrActivateSession } = useTerminalStore();
+  const { addSession: addTerminalSession } = useTerminalStore();
   const [showAgentForm, setShowAgentForm] = useState(false);
   const [agentName, setAgentName] = useState("");
   const [agentDesc, setAgentDesc] = useState("");
@@ -34,18 +34,34 @@ const ProjectPage = () => {
     return () => clearInterval(interval);
   }, [id]);
 
-  const launchTerminal = (type: "research" | "build" | "evaluate", agentName: string) => {
-    if (!id) return;
-    if (findOrActivateSession(id, agentName)) return;
+  const skillCommands: Record<string, (projectId: string, agentId: string) => string> = {
+    research: (pid, aid) => `/mcs-research ${pid} ${aid}`,
+    build: (pid, aid) => `/mcs-build ${pid} ${aid}`,
+    evaluate: (pid, aid) => `/mcs-eval ${pid} ${aid}`,
+  };
 
+  const launchTerminal = (type: "research" | "build" | "evaluate", agent: { id: string; name: string }) => {
+    if (!id) return;
+
+    // Reuse existing session for this project+agent+type combo
+    const existingKey = `${id}-${agent.id}-${type}`;
+    const existing = useTerminalStore.getState().sessions.find((s) => s.id.startsWith(existingKey));
+    if (existing) {
+      useTerminalStore.getState().setActiveSession(existing.id);
+      useTerminalStore.getState().setPanelOpen(true);
+      return;
+    }
+
+    const command = skillCommands[type](id, agent.id);
     const session: TerminalSession = {
-      id: `${id}-${agentName}-${crypto.randomUUID()}`,
-      label: agentName,
+      id: `${existingKey}-${Date.now()}`,
+      label: `${agent.name} — ${type}`,
       type,
       projectId: id,
-      agentName,
+      agentName: agent.name,
       status: "connecting",
       wsUrl: "ws://localhost:8001/ws",
+      command,
     };
     addTerminalSession(session);
   };
@@ -131,13 +147,13 @@ const ProjectPage = () => {
                         const evaluated = agent.status === "ready";
                         return (
                           <>
-                            <Button variant="outline" size="sm" className={`h-6 gap-1 text-[11px] ${researched ? "bg-info/15 border-info/40 text-info" : "border-border text-muted-foreground opacity-60"}`} onClick={() => launchTerminal("research", agent.name)}>
+                            <Button variant="outline" size="sm" className={`h-6 gap-1 text-[11px] ${researched ? "bg-info/15 border-info/40 text-info" : "border-border text-muted-foreground opacity-60"}`} onClick={() => launchTerminal("research", agent)}>
                               <Microscope className="h-3 w-3" /> Research
                             </Button>
-                            <Button variant="outline" size="sm" className={`h-6 gap-1 text-[11px] ${built ? "bg-warning/15 border-warning/40 text-warning" : "border-border text-muted-foreground opacity-60"}`} onClick={() => launchTerminal("build", agent.name)}>
+                            <Button variant="outline" size="sm" className={`h-6 gap-1 text-[11px] ${built ? "bg-warning/15 border-warning/40 text-warning" : "border-border text-muted-foreground opacity-60"}`} onClick={() => launchTerminal("build", agent)}>
                               <Hammer className="h-3 w-3" /> Build
                             </Button>
-                            <Button variant="outline" size="sm" className={`h-6 gap-1 text-[11px] ${evaluated ? "bg-success/15 border-success/40 text-success" : "border-border text-muted-foreground opacity-60"}`} onClick={() => launchTerminal("evaluate", agent.name)}>
+                            <Button variant="outline" size="sm" className={`h-6 gap-1 text-[11px] ${evaluated ? "bg-success/15 border-success/40 text-success" : "border-border text-muted-foreground opacity-60"}`} onClick={() => launchTerminal("evaluate", agent)}>
                               <FlaskConical className="h-3 w-3" /> Evaluate
                             </Button>
                           </>

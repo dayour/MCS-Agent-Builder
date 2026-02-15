@@ -13,7 +13,7 @@ const statusColors: Record<string, string> = {
 };
 
 const statusLabels: Record<string, string> = {
-  connecting: "Connecting…",
+  connecting: "Connecting...",
   running: "Running",
   stopped: "Stopped",
   error: "Error",
@@ -87,9 +87,12 @@ const TerminalPanel = () => {
                 )}
               >
                 <Circle className={cn("h-2 w-2 fill-current", statusColors[session.status])} />
-                <span className={cn("inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium", typeColors[session.type])}>
-                  {session.type}
-                </span>
+                {/* Only show type badge for workflow sessions, not plain terminals */}
+                {session.type !== "system" && (
+                  <span className={cn("inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium", typeColors[session.type])}>
+                    {session.type}
+                  </span>
+                )}
                 <span className="max-w-[100px] truncate">{session.agentName}</span>
                 <button
                   onClick={(e) => { e.stopPropagation(); removeSession(session.id); }}
@@ -115,9 +118,9 @@ const TerminalPanel = () => {
                 const session: TerminalSession = {
                   id: crypto.randomUUID(),
                   label: "Terminal",
-                  type: "research",
+                  type: "system",
                   projectId: "system",
-                  agentName: "System",
+                  agentName: "Terminal",
                   status: "connecting",
                   wsUrl: "ws://localhost:8001/ws",
                 };

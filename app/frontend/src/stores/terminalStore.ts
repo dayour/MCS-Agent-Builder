@@ -14,9 +14,9 @@ function createDefaultSession(): TerminalSession {
   return {
     id: "main-" + crypto.randomUUID(),
     label: "Terminal",
-    type: "research" as const,
+    type: "system" as const,
     projectId: "system",
-    agentName: "System",
+    agentName: "Terminal",
     status: "connecting" as const,
     wsUrl: "ws://localhost:8001/ws",
   };

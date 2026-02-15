@@ -66,7 +66,7 @@ export interface BriefSection {
 
 // ─── Terminal ───────────────────────────────────────────────────────
 
-export type TerminalSessionType = "research" | "build" | "evaluate";
+export type TerminalSessionType = "system" | "research" | "build" | "evaluate";
 export type TerminalSessionStatus = "connecting" | "running" | "stopped" | "error";
 
 export interface TerminalSession {
@@ -77,6 +77,8 @@ export interface TerminalSession {
   agentName: string;
   status: TerminalSessionStatus;
   wsUrl: string;
+  /** Optional command to send to Claude Code after it's ready. */
+  command?: string;
 }
 
 // ─── Brief Data Shapes (section payloads) ───────────────────────────
