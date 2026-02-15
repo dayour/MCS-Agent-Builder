@@ -1,14 +1,28 @@
 /**
  * Terminal session store — manages the right-side terminal panel.
  *
- * Each session connects to a WebSocket backend for agent
- * research / build / evaluate workflows.
+ * Sessions are per-agent (one tab per project+agent combo).
+ * Research/Build/Evaluate buttons send commands to the agent's existing session.
  */
 import { create } from "zustand";
 import type { TerminalSession } from "@/types";
 
-// Re-export for convenience
 export type { TerminalSession } from "@/types";
+
+// Registry of live WebSocket refs — XTerminal registers on connect, unregisters on unmount.
+const wsRegistry = new Map<string, WebSocket>();
+
+export function registerSessionWs(sessionId: string, ws: WebSocket) {
+  wsRegistry.set(sessionId, ws);
+}
+
+export function unregisterSessionWs(sessionId: string) {
+  wsRegistry.delete(sessionId);
+}
+
+export function getSessionWs(sessionId: string): WebSocket | undefined {
+  return wsRegistry.get(sessionId);
+}
 
 function createDefaultSession(): TerminalSession {
   return {
@@ -26,18 +40,18 @@ interface TerminalStore {
   sessions: TerminalSession[];
   activeSessionId: string | null;
   panelOpen: boolean;
-  /** Panel width in px (clamped 300–900). */
   panelWidth: number;
   addSession: (session: TerminalSession) => void;
   removeSession: (id: string) => void;
   setActiveSession: (id: string) => void;
-  /** Activate an existing session for a project+agent combo. Returns true if found. */
-  findOrActivateSession: (projectId: string, agentName: string) => boolean;
+  /** Find existing session for a project+agent. Returns session ID or null. */
+  findSession: (projectId: string, agentId: string) => string | null;
   updateSessionStatus: (id: string, status: TerminalSession["status"]) => void;
   setPanelOpen: (open: boolean) => void;
   setPanelWidth: (width: number) => void;
-  /** Open panel, creating a default session if none exist. */
   openOrCreate: () => void;
+  /** Send a command to an existing session's WebSocket. */
+  sendCommand: (sessionId: string, command: string) => void;
 }
 
 const defaultSession = createDefaultSession();
@@ -55,18 +69,14 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
       panelOpen: true,
     })),
 
-  findOrActivateSession: (projectId, agentName) => {
-    const existing = get().sessions.find(
-      (s) => s.projectId === projectId && s.agentName === agentName
-    );
-    if (existing) {
-      set({ activeSessionId: existing.id, panelOpen: true });
-      return true;
-    }
-    return false;
+  findSession: (projectId, agentId) => {
+    const key = `${projectId}-${agentId}`;
+    const existing = get().sessions.find((s) => s.id.startsWith(key));
+    return existing?.id ?? null;
   },
 
-  removeSession: (id) =>
+  removeSession: (id) => {
+    wsRegistry.delete(id);
     set((s) => {
       const sessions = s.sessions.filter((sess) => sess.id !== id);
       const activeSessionId =
@@ -76,10 +86,10 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
       return {
         sessions,
         activeSessionId,
-        // Keep panel open even if empty — openOrCreate will handle re-creation
         panelOpen: sessions.length > 0 ? s.panelOpen : false,
       };
-    }),
+    });
+  },
 
   setActiveSession: (id) => set({ activeSessionId: id }),
 
@@ -92,7 +102,6 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
 
   setPanelOpen: (open) => {
     if (open) {
-      // If opening but no sessions, create one
       get().openOrCreate();
     } else {
       set({ panelOpen: false });
@@ -105,13 +114,16 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
     const { sessions } = get();
     if (sessions.length === 0) {
       const session = createDefaultSession();
-      set({
-        sessions: [session],
-        activeSessionId: session.id,
-        panelOpen: true,
-      });
+      set({ sessions: [session], activeSessionId: session.id, panelOpen: true });
     } else {
       set({ panelOpen: true });
+    }
+  },
+
+  sendCommand: (sessionId, command) => {
+    const ws = wsRegistry.get(sessionId);
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: "command", text: command }));
     }
   },
 }));

@@ -42,20 +42,22 @@ const ProjectPage = () => {
 
   const launchTerminal = (type: "research" | "build" | "evaluate", agent: { id: string; name: string }) => {
     if (!id) return;
+    const store = useTerminalStore.getState();
+    const command = skillCommands[type](id, agent.id);
 
-    // Reuse existing session for this project+agent+type combo
-    const existingKey = `${id}-${agent.id}-${type}`;
-    const existing = useTerminalStore.getState().sessions.find((s) => s.id.startsWith(existingKey));
-    if (existing) {
-      useTerminalStore.getState().setActiveSession(existing.id);
-      useTerminalStore.getState().setPanelOpen(true);
+    // Reuse existing session for this agent — send command to it
+    const existingId = store.findSession(id, agent.id);
+    if (existingId) {
+      store.setActiveSession(existingId);
+      store.setPanelOpen(true);
+      store.sendCommand(existingId, command);
       return;
     }
 
-    const command = skillCommands[type](id, agent.id);
+    // No session for this agent — create one with the command
     const session: TerminalSession = {
-      id: `${existingKey}-${Date.now()}`,
-      label: `${agent.name} — ${type}`,
+      id: `${id}-${agent.id}-${Date.now()}`,
+      label: agent.name,
       type,
       projectId: id,
       agentName: agent.name,

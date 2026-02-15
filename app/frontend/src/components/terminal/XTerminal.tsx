@@ -3,7 +3,7 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import "@xterm/xterm/css/xterm.css";
-import { useTerminalStore, type TerminalSession } from "@/stores/terminalStore";
+import { useTerminalStore, registerSessionWs, unregisterSessionWs, type TerminalSession } from "@/stores/terminalStore";
 
 interface XTerminalProps {
   session: TerminalSession;
@@ -26,6 +26,7 @@ const XTerminal = ({ session, visible }: XTerminalProps) => {
 
     ws.onopen = () => {
       updateStatus(session.id, "running");
+      registerSessionWs(session.id, ws);
 
       const term = termRef.current;
       const cols = term?.cols ?? 120;
@@ -124,6 +125,7 @@ const XTerminal = ({ session, visible }: XTerminalProps) => {
     connect();
 
     return () => {
+      unregisterSessionWs(session.id);
       wsRef.current?.close();
       wsRef.current = null;
       term.dispose();
