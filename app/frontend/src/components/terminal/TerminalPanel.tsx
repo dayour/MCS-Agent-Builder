@@ -56,14 +56,18 @@ const TerminalPanel = () => {
     [panelWidth, setPanelWidth]
   );
 
-  if (!panelOpen || sessions.length === 0) return null;
+  if (sessions.length === 0) return null;
 
   const activeSession = sessions.find((s) => s.id === activeSessionId);
 
   return (
     <div
-      className="fixed top-14 right-0 bottom-0 z-40 flex border-l border-border bg-[#0a0e14] shadow-2xl transition-[width] duration-200"
-      style={{ width: panelWidth }}
+      className="fixed top-14 right-0 bottom-0 z-40 flex border-l border-border bg-[#0a0e14] shadow-2xl transition-[width,transform] duration-200"
+      style={{
+        width: panelWidth,
+        transform: panelOpen ? "translateX(0)" : "translateX(100%)",
+        pointerEvents: panelOpen ? "auto" : "none",
+      }}
     >
       {/* Resize handle */}
       <div
