@@ -151,8 +151,6 @@ export interface ApiBrief {
     factors?: Record<string, boolean>;
     score?: number;
     reason?: string;
-    model?: string;
-    modelReason?: string;
     triggers?: Array<{ type: string; description: string }>;
     channels?: Array<{ name: string; reason?: string }>;
     children?: Array<{ name: string; role: string; routingRule?: string }>;

@@ -91,7 +91,7 @@ export function sectionCompletion(data: BriefData): Record<string, boolean> {
   return {
     "business-context": Boolean(bc.problemStatement),
     "agent-identity": Boolean(ai.name && ai.description),
-    architecture: Boolean(arch.pattern && arch.model),
+    architecture: Boolean(arch.pattern),
     instructions: Boolean(data.instructions?.systemPrompt),
     capabilities: data["capabilities"]?.items?.some((c) => c.name) ?? false,
     tools: tools.some((t) => t.name),

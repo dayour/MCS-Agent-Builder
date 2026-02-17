@@ -168,7 +168,6 @@ def scan_agents(project_folder):
             description = (biz.get("problemStatement", "") or biz.get("useCase", ""))[:300]
             architecture = arch.get("type", "tbd")
             architecture_score = arch.get("score", "TBD")
-            model = arch.get("model", "TBD")
             tools = [i.get("name", "") for i in integ if i.get("name")][:10]
             knowledge = [k.get("name", "") for k in know if k.get("name")][:10]
         elif brief:
@@ -181,7 +180,6 @@ def scan_agents(project_folder):
             description = s1.get("problem", "")[:300]
             architecture = s4.get("architectureRecommendation", "tbd")
             architecture_score = s4.get("architectureScore", "TBD")
-            model = s4.get("model", "TBD")
             tools = [s.get("name", "") for s in s3.get("systems", []) if s.get("name")][:10]
             knowledge = [k.get("name", "") for k in s3.get("knowledge", []) if k.get("name")][:10]
         else:
@@ -189,7 +187,6 @@ def scan_agents(project_folder):
             description = ""
             architecture = "tbd"
             architecture_score = "TBD"
-            model = "TBD"
             tools = []
             knowledge = []
 
@@ -199,7 +196,6 @@ def scan_agents(project_folder):
             "description": description,
             "architecture": architecture,
             "architecture_score": architecture_score,
-            "model": model,
             "tools": tools,
             "knowledge": knowledge,
             "has_brief": brief is not None,
@@ -317,7 +313,6 @@ def scan_project(folder):
             "description": "",
             "architecture": "tbd",
             "architecture_score": "TBD",
-            "model": "TBD",
             "tools": [],
             "knowledge": [],
             "has_brief": False,

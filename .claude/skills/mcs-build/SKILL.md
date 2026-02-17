@@ -104,8 +104,7 @@ Proceeding with build...
 1. Read `knowledge/cache/api-capabilities.md` — check `last_verified` date
 2. If stale (> 7 days), refresh: WebSearch + MS Learn for "Copilot Studio API"
 3. Check if any Playwright-only operations now have API alternatives
-4. Read `knowledge/cache/models.md` if spec requires model selection
-5. Read `knowledge/patterns/dataverse-patterns.md` for API call patterns
+4. Read `knowledge/patterns/dataverse-patterns.md` for API call patterns
 6. Update cache files if new findings
 
 ## Route: Determine Build Mode
@@ -230,7 +229,7 @@ pac copilot publish --bot <bot-id>
 4. **WAIT for user confirmation**
 
 Then configure:
-- **Model**: Click combobox → select → auto-saves
+- **Model**: Always select the latest available model. In the MCS model combobox, pick the newest option (typically the top preview model). Do not read architecture.model from brief.json.
 - **MCP servers**: Tools → Add tool → Model Context Protocol → search → add
 - **Connectors**: Tools → Add tool → search connector → select action → create connection
 - **Computer Use**: Tools → Add tool → Computer use → configure
@@ -327,7 +326,7 @@ After ALL changes, walk the brief's component list and snapshot-verify each item
 | Check | How to verify |
 |-------|--------------|
 | Agent exists with correct name | Overview heading |
-| Model matches spec | Model combobox |
+| Latest model selected | Model combobox |
 | Instructions match spec | Instructions text read-back |
 | Knowledge sources match spec | Knowledge section |
 | Tools match spec | Tools tab |

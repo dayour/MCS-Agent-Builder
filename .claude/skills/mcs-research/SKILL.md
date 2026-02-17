@@ -352,13 +352,11 @@ These categories are well-documented and change infrequently. Read the cache fil
 
 | Category | Cache File | Lead Action |
 |----------|-----------|-------------|
-| **Models** | `knowledge/cache/models.md` | Read cache. Pick model based on agent complexity. |
 | **Channels** | `knowledge/cache/channels.md` | Read cache. Default Teams + Web Chat unless docs say otherwise. |
 | **Triggers** | `knowledge/cache/triggers.md` | Read cache. Match trigger type to agent's activation needs from Phase A. |
 | **Knowledge sources** | `knowledge/cache/knowledge-sources.md` | Read cache. Match to data types from Phase A (SharePoint, files, websites). |
 
 Write these directly to `brief.json`:
-- `architecture.model` + `architecture.modelReason`
 - `architecture.channels` (each with `name` + `reason`)
 - `architecture.triggers` (each with `type` + `description`)
 - `knowledge[]` (each with `name`, `type`, `purpose`, `scope`, `phase`)
@@ -666,9 +664,9 @@ When `processingPath == "incremental"`, use this format:
 
 **Agents:** {count} | **Open Questions:** {count}
 
-| Agent | Architecture | Model | Tools | Evals |
-|-------|-------------|-------|-------|-------|
-| {name} | {Single/Multi} | {model} | {N} | {N} |
+| Agent | Architecture | Tools | Evals |
+|-------|-------------|-------|-------|
+| {name} | {Single/Multi} | {N} | {N} |
 
 Files: brief.json + evals.csv per agent
 

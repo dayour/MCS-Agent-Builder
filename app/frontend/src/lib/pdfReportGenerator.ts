@@ -287,8 +287,6 @@ export function generateBriefPDF(agent: Agent, briefData: Record<string, any>): 
     y = heading(doc, "Architecture", y, n);
     y = kv(doc, "Pattern", arch.pattern, y);
     if (arch.patternReasoning) y = callout(doc, arch.patternReasoning, y);
-    y = kv(doc, "Model", arch.model, y);
-    if (arch.modelRationale) y = callout(doc, arch.modelRationale, y);
     if (arch.triggers?.length) {
       y = subheading(doc, "Triggers", y);
       y = bullets(doc, arch.triggers.map((t: any) => `${t.type}: ${t.description}`), y);

@@ -28,8 +28,6 @@ const ArchitectureSection = ({ data, onChange }: Props) => {
     setMetaDraft({
       pattern: data.pattern,
       patternReasoning: data.patternReasoning || "",
-      model: data.model,
-      modelRationale: data.modelRationale || "",
     });
     setEditingMeta(true);
   };
@@ -101,36 +99,26 @@ const ArchitectureSection = ({ data, onChange }: Props) => {
     <div className="space-y-6">
       <div>
         <h2 className="text-lg font-semibold text-foreground mb-1">Architecture</h2>
-        <p className="text-xs text-muted-foreground">How the agent is structured — type, model, triggers, and specialist agents</p>
+        <p className="text-xs text-muted-foreground">How the agent is structured — type, triggers, and specialist agents</p>
       </div>
 
-      {/* Type & Model */}
+      {/* Type */}
       {editingMeta && metaDraft ? (
         <div className="rounded-lg border border-border bg-card p-4 space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Architecture Type</label>
-              <Select value={metaDraft.pattern} onValueChange={(v) => setMetaDraft({ ...metaDraft, pattern: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="single-agent">Single Agent</SelectItem>
-                  <SelectItem value="multi-agent">Multi-Agent</SelectItem>
-                  <SelectItem value="connected-agent">Connected Agent</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Recommended Model</label>
-              <Input value={metaDraft.model} onChange={(e) => setMetaDraft({ ...metaDraft, model: e.target.value })} />
-            </div>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">Architecture Type</label>
+            <Select value={metaDraft.pattern} onValueChange={(v) => setMetaDraft({ ...metaDraft, pattern: v })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="single-agent">Single Agent</SelectItem>
+                <SelectItem value="multi-agent">Multi-Agent</SelectItem>
+                <SelectItem value="connected-agent">Connected Agent</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div>
             <label className="text-xs text-muted-foreground mb-1 block">Type Reasoning</label>
             <Textarea rows={2} placeholder="Why this architecture type?" value={metaDraft.patternReasoning} onChange={(e) => setMetaDraft({ ...metaDraft, patternReasoning: e.target.value })} />
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground mb-1 block">Model Rationale</label>
-            <Textarea rows={2} placeholder="Why this model?" value={metaDraft.modelRationale} onChange={(e) => setMetaDraft({ ...metaDraft, modelRationale: e.target.value })} />
           </div>
           <div className="flex gap-2 justify-end">
             <Button variant="ghost" size="sm" onClick={() => { setEditingMeta(false); setMetaDraft(null); }}><X className="h-3.5 w-3.5" /></Button>
@@ -138,16 +126,11 @@ const ArchitectureSection = ({ data, onChange }: Props) => {
           </div>
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 cursor-pointer" onClick={startMetaEdit}>
+        <div className="cursor-pointer" onClick={startMetaEdit}>
           <div className="rounded-lg border border-border bg-card p-4 hover:border-primary/40 transition-colors">
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Architecture Type</h3>
             <p className="text-lg font-bold text-primary capitalize">{data.pattern?.replace("-", " ")}</p>
             {data.patternReasoning && <p className="text-xs text-muted-foreground mt-1">{data.patternReasoning}</p>}
-          </div>
-          <div className="rounded-lg border border-border bg-card p-4 hover:border-primary/40 transition-colors">
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Recommended Model</h3>
-            <p className="text-lg font-bold text-foreground">{data.model}</p>
-            {data.modelRationale && <p className="text-xs text-muted-foreground mt-1">{data.modelRationale}</p>}
           </div>
         </div>
       )}

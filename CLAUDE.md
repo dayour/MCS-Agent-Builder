@@ -81,7 +81,7 @@ Is this correct? Please confirm before I proceed.
 | 2 | **Dataverse API** | Instructions update, knowledge file upload, security settings, agent deletion |
 | 3 | **Code Editor YAML** | Topic authoring, adaptive cards, branching logic, trigger phrases |
 | 4 | **Direct Line API** | Evaluation / testing (send messages, compare responses) |
-| 5 | **Playwright MCP** | Model selection, tool/connector addition, OAuth connections, child agent connection, generative AI settings, MCS-only UI operations |
+| 5 | **Playwright MCP** | Model selection (always latest), tool/connector addition, OAuth connections, child agent connection, generative AI settings, MCS-only UI operations |
 
 **Detailed capabilities per layer:** See `knowledge/cache/api-capabilities.md`
 **Decision flow and build phase mapping:** See `knowledge/frameworks/tool-priority.md`
@@ -135,7 +135,7 @@ Lead spawns team for build:
 Lead executes validated outputs:
   - Pastes YAML into MCS code editor (Playwright)
   - Sets instructions via Dataverse API
-  - Configures tools/model (Playwright)
+  - Configures tools (Playwright)
   - Publishes (PAC CLI)
 ```
 
@@ -385,7 +385,7 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 
 **4 phases (optimized — targeted research, single-pass QA):**
 1. **Document comprehension & agent identification** — lead reads all docs, cross-references, identifies agents, extracts data, generates informed open questions using MCS cache
-2. **Component research (targeted)** — lead resolves stable categories from cache (models, channels, triggers, knowledge). Research Analyst spawned ONLY for external systems needing live MCP/connector lookup
+2. **Component research (targeted)** — lead resolves stable categories from cache (channels, triggers, knowledge). Research Analyst spawned ONLY for external systems needing live MCP/connector lookup
 3. **Architecture + instructions (single-pass)** — lead scores architecture, Prompt Engineer writes instructions (self-verified), QA Challenger reviews once (no iteration loop)
 4. **Scenarios + evals** — QA Challenger generates test cases, **Topic Engineer validates feasibility**, classifies topic types
 
@@ -413,7 +413,7 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 - `Single Agent` → standalone build (PAC CLI + Dataverse + Playwright + YAML)
 - `Multi-Agent` → specialists first, then orchestrator with child connections
 
-**Build steps:** Account Gate → Cache Check → Scaffold (PAC CLI) → Instructions & Knowledge (Dataverse API) → Tools & Model (Playwright) → Topics (Code Editor YAML) → Publish (PAC CLI) → Reconciliation → `build-report.md` → Learnings Capture → Update brief.json buildStatus
+**Build steps:** Account Gate → Cache Check → Scaffold (PAC CLI) → Instructions & Knowledge (Dataverse API) → Tools (Playwright) → Topics (Code Editor YAML) → Publish (PAC CLI) → Reconciliation → `build-report.md` → Learnings Capture → Update brief.json buildStatus
 
 **On-demand teammates:** Research Analyst (when tool configuration hits issues) and Prompt Engineer (when instructions need adjustment for actual tool names)
 
@@ -526,9 +526,9 @@ Cached inventories, stable patterns, and decision frameworks live in `knowledge/
 - **`knowledge/frameworks/`** — Decision frameworks (component selection, architecture scoring, tool priority).
 
 **Tiered refresh:**
-- **Tier 1 (build-critical):** triggers, models, mcp-servers, connectors, knowledge-sources, channels — auto-refreshed at session start if > 7 days old
+- **Tier 1 (build-critical):** triggers, mcp-servers, connectors, knowledge-sources, channels — auto-refreshed at session start if > 7 days old
 - **Tier 2 (build-phase):** api-capabilities, instructions-authoring, generative-orchestration, adaptive-cards, ai-tools-computer-use, power-automate-integration — refreshed before `/mcs-build` if stale
-- **Tier 3 (reference):** eval-methods, security-auth, agent-lifecycle, limits-licensing, powerfx-variables, conversation-design — refreshed on demand via `/mcs-refresh`
+- **Tier 3 (reference):** eval-methods, security-auth, agent-lifecycle, limits-licensing, powerfx-variables, conversation-design, models — refreshed on demand via `/mcs-refresh`
 
 **Freshness rules:**
 - < 7 days old → use as-is

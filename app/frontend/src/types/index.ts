@@ -184,8 +184,6 @@ export interface ArchitectureScoring {
 export interface Architecture {
   pattern: string;
   patternReasoning: string;
-  model: string;
-  modelRationale: string;
   triggers: ArchitectureTrigger[];
   childAgents: ChildAgent[];
   scoring: ArchitectureScoring[];

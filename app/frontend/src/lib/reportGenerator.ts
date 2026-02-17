@@ -64,8 +64,6 @@ export function generateBriefReport(agent: Agent, briefData: Record<string, any>
     lines.push("## Architecture\n");
     lines.push(`**Pattern:** ${arch.pattern}\n`);
     if (arch.patternReasoning) lines.push(`> ${arch.patternReasoning}\n`);
-    lines.push(`**Model:** ${arch.model}\n`);
-    if (arch.modelRationale) lines.push(`> ${arch.modelRationale}\n`);
     if (arch.triggers?.length) {
       lines.push("### Triggers");
       arch.triggers.forEach((t: any) => lines.push(`- **${t.type}:** ${t.description}`));

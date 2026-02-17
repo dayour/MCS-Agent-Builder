@@ -94,8 +94,6 @@ export function briefFromApi(raw: ApiBrief): BriefData {
     architecture: {
       pattern: arch.type ?? "",
       patternReasoning: arch.reason ?? "",
-      model: arch.model ?? "",
-      modelRationale: arch.modelReason ?? "",
       triggers: (arch.triggers ?? []).map((t) => ({
         type: t.type ?? "",
         description: t.description ?? "",
@@ -247,8 +245,6 @@ export function briefToApi(ui: BriefData, raw: ApiBrief): ApiBrief {
     ...result.architecture,
     type: arch.pattern,
     reason: arch.patternReasoning,
-    model: arch.model,
-    modelReason: arch.modelRationale,
     triggers: arch.triggers,
     children: arch.childAgents.map((c) => {
       const existing = (raw.architecture?.children ?? []).find((e) => e.name === c.name);
