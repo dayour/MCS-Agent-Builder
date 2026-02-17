@@ -4,7 +4,7 @@ import type { Agent } from "@/types";
 
 // ── Layout ─────────────────────────────────────────────────
 const ML = 22;           // margin left
-const MR = 18;           // margin right
+const MR = 22;           // margin right
 const MT = 28;           // margin top (after header)
 const PW = 210;          // page width
 const PH = 297;          // page height
@@ -97,10 +97,11 @@ function heading(doc: jsPDF, text: string, y: number, num: number): number {
   doc.setFontSize(13);
   doc.setTextColor(...rgb(C.navy));
   doc.text(text, ML + 10, y);
-  // Underline
+  // Underline — dynamic width matching title
+  const tw = doc.getTextWidth(text);
   doc.setDrawColor(...rgb(C.navy));
   doc.setLineWidth(0.4);
-  doc.line(ML, y + 3, ML + 45, y + 3);
+  doc.line(ML + 10, y + 3, ML + 10 + tw + 2, y + 3);
   return y + 10;
 }
 
@@ -108,7 +109,7 @@ function subheading(doc: jsPDF, text: string, y: number): number {
   y = needPage(doc, y, 10);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9.5);
-  doc.setTextColor(...rgb(C.s700));
+  doc.setTextColor(...rgb(C.navy));
   doc.text(text, ML, y);
   return y + 5.5;
 }
@@ -130,9 +131,10 @@ function para(doc: jsPDF, text: string, y: number, opts?: {
 }
 
 function callout(doc: jsPDF, text: string, y: number): number {
-  y = needPage(doc, y, 14);
-  const lines = doc.setFontSize(8.5).splitTextToSize(text, CW - 14);
+  const lines: string[] = doc.setFontSize(8.5).splitTextToSize(text, CW - 14);
   const h = Math.max(10, lines.length * 4 + 6);
+  // Force to next page if box won't fit
+  y = needPage(doc, y, h + 6);
   doc.setFillColor(...rgb(C.navyBg));
   doc.roundedRect(ML, y - 2, CW, h, 1.5, 1.5, "F");
   doc.setDrawColor(...rgb(C.navy));
@@ -141,7 +143,7 @@ function callout(doc: jsPDF, text: string, y: number): number {
   doc.setFont("helvetica", "italic");
   doc.setFontSize(8.5);
   doc.setTextColor(...rgb(C.s700));
-  doc.text(doc.splitTextToSize(text, CW - 14), ML + 6, y + 3);
+  doc.text(lines, ML + 6, y + 3);
   return y + h + 4;
 }
 
@@ -185,15 +187,24 @@ function kv(doc: jsPDF, label: string, value: string, y: number): number {
   doc.setFontSize(7.5);
   doc.setTextColor(...rgb(C.s500));
   doc.text(label.toUpperCase(), ML, y);
-  const lw = doc.getTextWidth(label.toUpperCase());
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9.5);
   doc.setTextColor(...rgb(C.s900));
-  doc.text(value, ML + lw + 4, y);
+  doc.text(safe(value), ML + 28, y);
   return y + 5.5;
 }
 
 function spacer(y: number, h = 4) { return y + h; }
+
+function divider(doc: jsPDF, y: number): number {
+  y = needPage(doc, y, 6);
+  doc.setDrawColor(...rgb(C.s200));
+  doc.setLineWidth(0.2);
+  doc.line(ML, y, PW - MR, y);
+  return y + 6;
+}
+
+const safe = (v: any): string => (v != null && v !== "") ? String(v) : "\u2014";
 
 // ── Main export ────────────────────────────────────────────
 
@@ -209,7 +220,7 @@ export function generateBriefPDF(agent: Agent, briefData: Record<string, any>): 
   doc.text(agent.name, ML, y);
   y += 7;
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
+  doc.setFontSize(11);
   doc.setTextColor(...rgb(C.s500));
   doc.text("Agent Brief", ML, y);
   y += 5;
@@ -219,12 +230,17 @@ export function generateBriefPDF(agent: Agent, briefData: Record<string, any>): 
   doc.text(desc, ML, y);
   y += desc.length * 4.2 + 3;
 
-  // Status line
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
-  doc.setTextColor(...rgb(C.s500));
-  doc.text(`Status: ${agent.status.toUpperCase()}  ·  Readiness: ${agent.readiness}%`, ML, y);
-  y += 4;
+  // Status pill
+  y = needPage(doc, y, 10);
+  const statusText = `${agent.status.toUpperCase()}  \u00b7  ${agent.readiness}%`;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7.5);
+  const pillW = doc.getTextWidth(statusText) + 8;
+  doc.setFillColor(...rgb(C.navy));
+  doc.roundedRect(ML, y - 3.5, pillW, 6, 1.5, 1.5, "F");
+  doc.setTextColor(...rgb(C.white));
+  doc.text(statusText, ML + 4, y);
+  y += 6;
 
   doc.setDrawColor(...rgb(C.s200));
   doc.setLineWidth(0.3);
@@ -252,14 +268,14 @@ export function generateBriefPDF(agent: Agent, briefData: Record<string, any>): 
     if (bc.successCriteria?.length) {
       y = subheading(doc, "Success Criteria", y);
       y = table(doc, ["Metric", "Target", "Current"],
-        bc.successCriteria.map((s: any) => [s.metric, s.target, s.current]), y);
+        bc.successCriteria.map((s: any) => [safe(s.metric), safe(s.target), safe(s.current)]), y);
     }
     if (bc.stakeholders?.length) {
       y = subheading(doc, "Stakeholders", y);
       y = table(doc, ["Name", "Role", "Type"],
-        bc.stakeholders.map((s: any) => [s.name, s.role, s.type]), y);
+        bc.stakeholders.map((s: any) => [safe(s.name), safe(s.role), safe(s.type)]), y);
     }
-    y = spacer(y, 6);
+    y = divider(doc, y);
   }
 
   // 2. Agent Identity
@@ -277,7 +293,7 @@ export function generateBriefPDF(agent: Agent, briefData: Record<string, any>): 
       y = subheading(doc, "Target Users", y);
       y = bullets(doc, ai.targetUsers, y);
     }
-    y = spacer(y, 6);
+    y = divider(doc, y);
   }
 
   // 3. Architecture
@@ -294,14 +310,14 @@ export function generateBriefPDF(agent: Agent, briefData: Record<string, any>): 
     if (arch.childAgents?.length) {
       y = subheading(doc, "Child Agents", y);
       y = table(doc, ["Agent", "Role"],
-        arch.childAgents.map((c: any) => [c.name, c.role]), y);
+        arch.childAgents.map((c: any) => [safe(c.name), safe(c.role)]), y);
     }
     if (arch.scoring?.length) {
       y = subheading(doc, "Complexity Scoring", y);
       y = table(doc, ["Factor", "Score", "Notes"],
-        arch.scoring.map((s: any) => [s.factor, `${s.score}/10`, s.notes]), y);
+        arch.scoring.map((s: any) => [safe(s.factor), `${safe(s.score)}/10`, safe(s.notes)]), y);
     }
-    y = spacer(y, 6);
+    y = divider(doc, y);
   }
 
   // 4. Instructions
@@ -310,21 +326,24 @@ export function generateBriefPDF(agent: Agent, briefData: Record<string, any>): 
     n++;
     y = heading(doc, "Instructions", y, n);
     y = needPage(doc, y, 20);
-    const promptLines = doc.setFontSize(7.5).splitTextToSize(inst.systemPrompt, CW - 10);
-    const bh = Math.min(promptLines.length * 3.5 + 6, PH - 30 - y);
-    doc.setFillColor(...rgb(C.s100));
-    doc.roundedRect(ML, y - 2, CW, bh, 1.5, 1.5, "F");
-    doc.setFont("courier", "normal");
-    doc.setFontSize(7.5);
-    doc.setTextColor(...rgb(C.s700));
-    let py = y + 3;
-    for (const line of promptLines) {
-      py = needPage(doc, py, 4);
-      doc.text(line, ML + 5, py);
-      py += 3.5;
-    }
-    y = py + 4;
-    y = spacer(y, 4);
+    autoTable(doc, {
+      startY: y,
+      head: [],
+      body: [[inst.systemPrompt]],
+      margin: { left: ML, right: MR },
+      styles: {
+        fontSize: 7.5,
+        font: "courier",
+        cellPadding: { top: 4, right: 5, bottom: 4, left: 5 },
+        textColor: rgb(C.s700),
+        lineColor: rgb(C.s200),
+        lineWidth: 0.15,
+        fillColor: rgb(C.s100),
+      },
+      theme: "plain",
+      tableWidth: CW,
+    });
+    y = (doc as any).lastAutoTable.finalY + 6;
   }
 
   // 5. Capabilities
@@ -333,8 +352,8 @@ export function generateBriefPDF(agent: Agent, briefData: Record<string, any>): 
     n++;
     y = heading(doc, "Capabilities", y, n);
     y = table(doc, ["Capability", "Description", "Phase", "Enabled"],
-      caps.items.map((c: any) => [c.name, c.description, c.tag, c.enabled ? "✓" : "—"]), y);
-    y = spacer(y, 4);
+      caps.items.map((c: any) => [safe(c.name), safe(c.description), safe(c.tag), c.enabled ? "\u2713" : "\u2014"]), y);
+    y = divider(doc, y);
   }
 
   // 6. Integrations
@@ -343,8 +362,8 @@ export function generateBriefPDF(agent: Agent, briefData: Record<string, any>): 
     n++;
     y = heading(doc, "Integrations", y, n);
     y = table(doc, ["Tool", "Type", "Auth"],
-      tools.items.map((t: any) => [t.name, t.type, t.auth]), y);
-    y = spacer(y, 4);
+      tools.items.map((t: any) => [safe(t.name), safe(t.type), safe(t.auth)]), y);
+    y = divider(doc, y);
   }
 
   // 7. Knowledge Sources
@@ -353,8 +372,8 @@ export function generateBriefPDF(agent: Agent, briefData: Record<string, any>): 
     n++;
     y = heading(doc, "Knowledge Sources", y, n);
     y = table(doc, ["Source", "Purpose", "Location", "Phase", "Status"],
-      ks.items.map((k: any) => [k.name, k.purpose, k.location, k.phase, k.status]), y);
-    y = spacer(y, 4);
+      ks.items.map((k: any) => [safe(k.name), safe(k.purpose), safe(k.location), safe(k.phase), safe(k.status)]), y);
+    y = divider(doc, y);
   }
 
   // 8. Conversation Topics
@@ -363,12 +382,12 @@ export function generateBriefPDF(agent: Agent, briefData: Record<string, any>): 
     n++;
     y = heading(doc, "Conversation Topics", y, n);
     for (const t of ct.items) {
-      y = subheading(doc, `${t.name}  ·  ${t.type}  ·  ${t.phase}`, y);
+      y = subheading(doc, [t.name, t.type, t.phase].filter(Boolean).join("  \u00b7  "), y);
       y = para(doc, t.description, y);
       if (t.flowDescription) y = callout(doc, t.flowDescription, y);
       y = spacer(y, 2);
     }
-    y = spacer(y, 4);
+    y = divider(doc, y);
   }
 
   // 9. Scope & Boundaries
@@ -388,7 +407,7 @@ export function generateBriefPDF(agent: Agent, briefData: Record<string, any>): 
       y = subheading(doc, "Hard Refuses", y);
       y = bullets(doc, sb.hardRefuses, y);
     }
-    y = spacer(y, 4);
+    y = divider(doc, y);
   }
 
   // 10. Scenarios
@@ -398,16 +417,19 @@ export function generateBriefPDF(agent: Agent, briefData: Record<string, any>): 
     y = heading(doc, "Scenarios", y, n);
     for (const [i, s] of sc.items.entries()) {
       y = subheading(doc, `${i + 1}. ${s.title}`, y);
-      // Category label
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(7);
-      doc.setTextColor(...rgb(s.category === "Happy Path" ? C.green : s.category === "Edge Case" ? C.amber : C.red));
-      doc.text(s.category.toUpperCase(), ML + doc.getTextWidth(`${i + 1}. ${s.title}`) + 14, y - 5.5);
+      // Category label on its own line
+      if (s.category) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7);
+        doc.setTextColor(...rgb(s.category === "Happy Path" ? C.green : s.category === "Edge Case" ? C.amber : C.red));
+        doc.text(s.category.toUpperCase(), ML, y);
+        y += 4;
+      }
       y = para(doc, `User: "${s.userMessage}"`, y, { bold: true });
       y = para(doc, `Expected: "${s.expectedResponse}"`, y, { italic: true, color: C.s500 });
       y = spacer(y, 3);
     }
-    y = spacer(y, 4);
+    y = divider(doc, y);
   }
 
   // 11. Evaluation Tests
@@ -416,8 +438,8 @@ export function generateBriefPDF(agent: Agent, briefData: Record<string, any>): 
     n++;
     y = heading(doc, "Evaluation Tests", y, n);
     y = table(doc, ["Test", "Input", "Expected", "Scoring", "Status"],
-      ev.items.map((t: any) => [t.name, t.input, t.expectedOutput, t.scoringMethod, t.status]), y);
-    y = spacer(y, 4);
+      ev.items.map((t: any) => [safe(t.name), safe(t.input), safe(t.expectedOutput), safe(t.scoringMethod), safe(t.status)]), y);
+    y = divider(doc, y);
   }
 
   // 12. Open Questions
@@ -426,19 +448,36 @@ export function generateBriefPDF(agent: Agent, briefData: Record<string, any>): 
     n++;
     y = heading(doc, "Open Questions", y, n);
     for (const q of oq.items) {
-      y = needPage(doc, y, 10);
       const resolved = q.status === "resolved";
+      // Calculate actual height from question text
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8.5);
+      const qLines: string[] = doc.splitTextToSize(q.question || "", CW - 10);
+      const metaText = `${q.assignee || "Unassigned"}${resolved ? `  \u00b7  ${q.resolution}` : ""}`;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      const metaLines: string[] = doc.splitTextToSize(metaText, CW - 10);
+      const cardH = qLines.length * 4 + metaLines.length * 3.5 + 8;
+      y = needPage(doc, y, cardH + 4);
       doc.setFillColor(...rgb(resolved ? C.navyBg : C.s50));
-      doc.roundedRect(ML, y - 3, CW, 14, 1.5, 1.5, "F");
+      doc.roundedRect(ML, y - 3, CW, cardH, 1.5, 1.5, "F");
       doc.setFont("helvetica", "bold");
       doc.setFontSize(8.5);
       doc.setTextColor(...rgb(C.s900));
-      doc.text(doc.splitTextToSize(q.question, CW - 10)[0], ML + 4, y + 2);
+      let qy = y + 2;
+      for (const line of qLines) {
+        doc.text(line, ML + 4, qy);
+        qy += 4;
+      }
+      qy += 1;
       doc.setFont("helvetica", "normal");
       doc.setFontSize(7);
       doc.setTextColor(...rgb(C.s500));
-      doc.text(`${q.assignee}${resolved ? `  ·  ${q.resolution}` : ""}`, ML + 4, y + 7);
-      y += 18;
+      for (const line of metaLines) {
+        doc.text(line, ML + 4, qy);
+        qy += 3.5;
+      }
+      y += cardH + 4;
     }
   }
 
