@@ -2,7 +2,7 @@
 #
 # Pre-commit hook — protects core MCS Agent Builder files.
 # Users should only modify Build-Guides/ (gitignored) and personal configs.
-# Changes to core engine files should go through GitHub issues/PRs.
+# Changes to core engine files should go through ADO work items/PRs.
 #
 # Bypass: MCS_CORE_DEV=1 git commit ...
 
@@ -17,7 +17,7 @@ if [ "$MCS_CORE_DEV" = "1" ]; then
   exit 0
 fi
 
-REPO_URL="https://github.com/microsoft/CAD-MCS-Builder/issues/new"
+REPO_URL="https://dev.azure.com/powercatteam/_git/FDE"
 
 # Protected path prefixes and exact files
 PROTECTED_DIRS="app/ knowledge/ tools/ .claude/ .github/ templates/"
@@ -47,9 +47,8 @@ if [ -n "$blocked" ]; then
   echo "BLOCKED: The following core files are protected:"
   printf "$blocked"
   echo ""
-  echo "To request changes, file a GitHub issue:"
-  echo "  Bug:        ${REPO_URL}?template=bug.md"
-  echo "  Suggestion: ${REPO_URL}?template=suggestion.md"
+  echo "To request changes, file a work item in ADO:"
+  echo "  ${REPO_URL}"
   echo ""
   echo "Authorized developers: set MCS_CORE_DEV=1 to bypass."
   echo ""

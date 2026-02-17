@@ -191,7 +191,7 @@ Before committing to designs that are hard to undo — schema changes, workflow 
 Users file bugs and suggestions via the sidebar buttons, which invoke `/bug` and `/suggest` skills through the embedded terminal.
 
 **Issue creation rules:**
-- Repo: always `microsoft/CAD-MCS-Builder`
+- Repo: ADO `powercatteam/FDE` (https://dev.azure.com/powercatteam/_git/FDE)
 - Labels: `bug` for bugs, `enhancement` for suggestions
 - Always preview title + body before submitting — never auto-submit
 - Use HEREDOC for the `--body` argument to preserve markdown formatting
