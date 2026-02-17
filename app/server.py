@@ -11,10 +11,12 @@ Usage:
     python app/server.py
 """
 
+import asyncio
 import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -53,6 +55,7 @@ SKIP_FOLDERS = _gen.SKIP_FOLDERS
 # App setup
 # ---------------------------------------------------------------------------
 app = FastAPI(title="MCS Agent Builder", version="3.0")
+# CORS: permissive for local development. Restrict if deploying beyond localhost.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -269,6 +272,11 @@ def _calc_readiness(brief: dict | None) -> int:
 
     Uses 12 checks matching the client-side renderReadinessPanel.
     Supports both v1 (step1-4) and v2 (named sections) schemas.
+
+    TODO: DRY — this duplicates generate-data.py:calc_readiness(). Difference:
+    this version auto-migrates v1→v2 first (always 12 checks), while
+    generate-data.py handles v1 inline (10 checks). Extract to shared module
+    once all v1 briefs are migrated.
     """
     if not brief:
         return 0
@@ -372,6 +380,26 @@ def _scan_agents(folder: Path) -> list[dict]:
             else:
                 agent_name = humanize_name(agent_dir.name)
                 agent_desc = ""
+            # Extract eval pass rate from evalResults if available
+            eval_pass_rate = None
+            if brief:
+                er = brief.get("evalResults", {})
+                if isinstance(er, dict):
+                    summary = er.get("summary", {})
+                    if summary.get("total", 0) > 0:
+                        # Try passRate string first (e.g. "85%"), fall back to computing
+                        pr = summary.get("passRate", "")
+                        if isinstance(pr, str) and pr.endswith("%"):
+                            try:
+                                eval_pass_rate = float(pr.rstrip("%"))
+                            except ValueError:
+                                pass
+                        if eval_pass_rate is None:
+                            total = summary.get("total", 0)
+                            passed = summary.get("passed", 0)
+                            if total > 0:
+                                eval_pass_rate = round(passed / total * 100)
+
             agents.append({
                 "id": agent_dir.name,
                 "name": agent_name,
@@ -382,6 +410,7 @@ def _scan_agents(folder: Path) -> list[dict]:
                 "has_build_report": (agent_dir / "build-report.md").exists(),
                 "readiness": _calc_readiness(brief),
                 "build_ready": _is_build_ready(brief),
+                "eval_pass_rate": eval_pass_rate,
                 "folder": str(agent_dir.relative_to(folder)),
             })
     return agents
@@ -580,8 +609,8 @@ async def upload_document(
     Supports: .docx .pdf .pptx .xlsx .xls .csv .json .html .txt .md
               .jpg .jpeg .png .gif .bmp .tiff .wav .mp3 .zip .epub
 
-    Doc-to-agent mapping is handled automatically by /mcs-research and
-    /mcs-update skills (auto-detection), not at upload time.
+    Doc-to-agent mapping is handled automatically by /mcs-research
+    (auto-detection), not at upload time.
     """
     folder = BUILD_GUIDES / project_id
     if not folder.is_dir():
@@ -616,7 +645,9 @@ async def upload_document(
         try:
             from markitdown import MarkItDown
             converter = MarkItDown(enable_plugins=False)
-            result = converter.convert(str(raw_path))
+            # Run blocking conversion in thread pool to avoid blocking the event loop
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(None, converter.convert, str(raw_path))
 
             if result.text_content and result.text_content.strip():
                 md_name = f"{safe_base}.md"
@@ -754,7 +785,6 @@ async def delete_agent(project_id: str, agent_id: str):
     agent_dir = folder / "agents" / agent_id
     if not agent_dir.is_dir():
         raise HTTPException(404, f"Agent '{agent_id}' not found")
-    import shutil
     shutil.rmtree(str(agent_dir))
     return {"deleted": True, "agent_id": agent_id}
 
@@ -767,21 +797,23 @@ async def delete_doc(project_id: str, filename: str):
         raise HTTPException(404, f"Project '{project_id}' not found")
 
     safe = re.sub(r"[^\w\-.]", "_", filename)
-    target = folder / "docs" / safe
+    docs_dir = folder / "docs"
+    target = docs_dir / safe
     if not target.exists():
-        target = folder / safe
-    if not target.exists():
-        raise HTTPException(404, f"File '{safe}' not found")
+        raise HTTPException(404, f"File '{safe}' not found in docs/")
+
+    # Verify resolved path stays within docs/ (defense in depth)
+    if not target.resolve().is_relative_to(docs_dir.resolve()):
+        raise HTTPException(400, "Invalid file path")
 
     target.unlink()
 
-    # Also delete the raw counterpart
+    # Also delete the raw counterpart (e.g., original .docx alongside converted .md)
     stem = Path(safe).stem
     for ext in [".pdf", ".docx", ".txt"]:
-        for search_dir in [folder / "docs", folder]:
-            raw = search_dir / f"{stem}{ext}"
-            if raw.exists():
-                raw.unlink()
+        raw = docs_dir / f"{stem}{ext}"
+        if raw.exists():
+            raw.unlink()
 
     return {"deleted": True, "filename": safe}
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import { Bot, Plus, Microscope, Hammer, FlaskConical, Trash2, Loader2, Sparkles } from "lucide-react";
+import { Bot, Plus, Microscope, Hammer, FlaskConical, Wrench, Trash2, Loader2, Sparkles } from "lucide-react";
 import Layout from "@/components/Layout";
 import StatusBadge from "@/components/StatusBadge";
 import ReadinessRing from "@/components/ReadinessRing";
@@ -38,10 +38,11 @@ const ProjectPage = () => {
     research: (pid, aid) => `/mcs-research ${pid} ${aid}`,
     build: (pid, aid) => `/mcs-build ${pid} ${aid}`,
     evaluate: (pid, aid) => `/mcs-eval ${pid} ${aid}`,
+    fix: (pid, aid) => `/mcs-fix ${pid} ${aid}`,
   };
 
   /** Launch a command in a per-agent terminal tab. */
-  const launchTerminal = (type: "research" | "build" | "evaluate", agent: { id: string; name: string }) => {
+  const launchTerminal = (type: "research" | "build" | "evaluate" | "fix", agent: { id: string; name: string }) => {
     if (!id) return;
     const store = useTerminalStore.getState();
     const command = skillCommands[type](id, agent.id);
@@ -178,6 +179,7 @@ const ProjectPage = () => {
                         const researched = agent.status === "researched" || agent.status === "built" || agent.status === "ready";
                         const built = agent.status === "built" || agent.status === "ready";
                         const evaluated = agent.status === "ready";
+                        const hasFailures = agent.evalPassRate !== null && agent.evalPassRate < 70;
                         return (
                           <>
                             <Button variant="outline" size="sm" className={`h-6 gap-1 text-[11px] ${researched ? "bg-info/15 border-info/40 text-info" : "border-border text-muted-foreground opacity-60"}`} onClick={() => launchTerminal("research", agent)}>
@@ -189,6 +191,16 @@ const ProjectPage = () => {
                             <Button variant="outline" size="sm" className={`h-6 gap-1 text-[11px] ${evaluated ? "bg-success/15 border-success/40 text-success" : "border-border text-muted-foreground opacity-60"}`} onClick={() => launchTerminal("evaluate", agent)}>
                               <FlaskConical className="h-3 w-3" /> Evaluate
                             </Button>
+                            {agent.evalPassRate !== null && (
+                              <span className={`text-[10px] font-medium ${agent.evalPassRate >= 70 ? "text-success" : "text-destructive"}`}>
+                                {agent.evalPassRate}%
+                              </span>
+                            )}
+                            {hasFailures && (
+                              <Button variant="outline" size="sm" className="h-6 gap-1 text-[11px] bg-destructive/15 border-destructive/40 text-destructive animate-in fade-in" onClick={() => launchTerminal("fix", agent)}>
+                                <Wrench className="h-3 w-3" /> Fix Failures
+                              </Button>
+                            )}
                           </>
                         );
                       })()}

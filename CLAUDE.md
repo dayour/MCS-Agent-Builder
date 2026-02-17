@@ -109,9 +109,10 @@ Definitions: `.claude/agents/` (research-analyst.md, prompt-engineer.md, topic-e
 ### When to Use Agent Teams
 
 **During MCS workflow skills:**
-- **Research phase** (`/mcs-research`): Research Analyst searches for external connectors/MCP (only if needed), Prompt Engineer writes instructions (single pass), QA Challenger reviews instructions + generates scenarios (single pass each). Topic Engineer is NOT used in research.
-- **Build phase** (`/mcs-build`): Topic Engineer generates YAML, QA Challenger reviews before execution
+- **Research phase** (`/mcs-research`): Research Analyst searches for external connectors/MCP (only if needed), Prompt Engineer writes instructions (single pass), **Topic Engineer validates topic feasibility (Phase D)**, QA Challenger reviews instructions + generates scenarios (single pass each)
+- **Build phase** (`/mcs-build`): Topic Engineer generates YAML, QA Challenger reviews before execution, **Research Analyst on-demand (connector issues)**, **Prompt Engineer on-demand (instruction adjustments)**
 - **Eval phase** (`/mcs-eval`): QA Challenger analyzes failures, maps back to root causes
+- **Fix phase** (`/mcs-fix`): QA Challenger classifies failures, Prompt Engineer fixes instructions, Topic Engineer fixes topics
 
 **During general development (Tier 2-3 checks):**
 - **Tier 2**: Repo Checker in background after 3+ file changes or code changes
@@ -322,18 +323,18 @@ No SDR or requirements available.
 ## Workflow
 
 ```
-CREATE → UPLOAD → RESEARCH → [UPDATE] → BUILD → EVALUATE
-                  /mcs-research  /mcs-update  /mcs-build  /mcs-eval
+CREATE → UPLOAD → RESEARCH → BUILD → EVALUATE → [FIX]
+                  /mcs-research  /mcs-build  /mcs-eval  /mcs-fix
 ```
 
 | Step | Skill | Input | Output | Agent Teams |
 |------|-------|-------|--------|-------------|
 | **Init** | `/mcs-init` | Project name | Folder structure | None |
 | **Context** | `/mcs-context` | Customer name | customer-context.md | None |
-| **Research** | `/mcs-research {projectId}` | docs/ | brief.json (fully enriched) + evals.csv per agent | RA (if needed) + PE + QA |
-| **Update** | `/mcs-update {projectId}` | new/changed docs/ | brief.json (sections updated) | None |
-| **Build** | `/mcs-build {projectId} {agentId}` | brief.json | MCS agent (published) + build-report.md | TE + QA |
+| **Research** | `/mcs-research {projectId}` or `/mcs-research {projectId} {agentId}` | docs/ | brief.json (fully enriched) + evals.csv per agent | RA (if needed) + PE + QA + TE |
+| **Build** | `/mcs-build {projectId} {agentId}` | brief.json | MCS agent (published) + build-report.md | TE + QA (+ RA/PE on-demand) |
 | **Evaluate** | `/mcs-eval {projectId} {agentId}` | brief.json evals | brief.json evalResults | QA |
+| **Fix** | `/mcs-fix {projectId} {agentId}` | brief.json evalResults | brief.json (fixed) + re-eval results | PE + TE + QA |
 
 > **`/mcs-context`** is optional but recommended — it pulls all M365 history for a customer via WorkIQ MCP and pre-fills 60-80% of research.
 
@@ -345,10 +346,10 @@ CREATE → UPLOAD → RESEARCH → [UPDATE] → BUILD → EVALUATE
 |-------|---------|-----------------|
 | **mcs-init** | Create project folder structure | None (API) |
 | **mcs-context** | Pull M365 history via WorkIQ | None (CLI) |
-| **mcs-research** | Read docs, identify agents, research components, design architecture, enrich brief.json + generate evals | **Research** |
-| **mcs-update** | Incremental brief update — analyzes new/changed docs, maps to agents, updates affected brief.json sections | **Update Brief** |
+| **mcs-research** | Read docs, identify agents, research components, design architecture, enrich brief.json + generate evals. Smart incremental at both project and agent level. | **Research** |
 | **mcs-build** | Build agent(s) in MCS via hybrid stack | **Build** |
 | **mcs-eval** | Run eval tests, write results to brief.json | **Evaluate** |
+| **mcs-fix** | Analyze eval failures, apply fixes (instructions/topics/evals), re-evaluate | **Fix Failures** (conditional — appears when eval < 70%) |
 | **mcs-refresh** | Refresh knowledge cache files | None (CLI) |
 | **bug** | File bug reports via `gh` CLI | Sidebar button |
 | **suggest** | File feature suggestions via `gh` CLI | Sidebar button |
@@ -376,39 +377,21 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 
 **Goal:** Read all project documents, identify agents, research MCS components, and produce fully enriched brief.json (the single source of truth) + evals.csv per agent.
 
-**Input:** `/mcs-research {projectId}` (first run) or `/mcs-research {projectId} {agentId}` (re-run after feedback)
+**Input:** `/mcs-research {projectId}` (project-level) or `/mcs-research {projectId} {agentId}` (agent-level)
 **Reads:** `Build-Guides/{projectId}/docs/` + `customer-context.md` (if exists) + `knowledge/cache/` + `knowledge/learnings/`
 **Writes:** `brief.json` (all fields including instructions) + `evals.csv` per agent
+
+**Smart at both levels:** Phase 0 runs for ALL invocations — detects new/changed docs, brief edits, and manually created agents. Routes to full, incremental, re-enrich, or full-agent processing as appropriate.
 
 **4 phases (optimized — targeted research, single-pass QA):**
 1. **Document comprehension & agent identification** — lead reads all docs, cross-references, identifies agents, extracts data, generates informed open questions using MCS cache
 2. **Component research (targeted)** — lead resolves stable categories from cache (models, channels, triggers, knowledge). Research Analyst spawned ONLY for external systems needing live MCP/connector lookup
 3. **Architecture + instructions (single-pass)** — lead scores architecture, Prompt Engineer writes instructions (self-verified), QA Challenger reviews once (no iteration loop)
-4. **Scenarios + evals** — QA Challenger generates test cases AND classifies topic types in one pass
+4. **Scenarios + evals** — QA Challenger generates test cases, **Topic Engineer validates feasibility**, classifies topic types
 
-**Uses Agent Teams:** Research Analyst (only if external systems need lookup), Prompt Engineer (instructions), QA Challenger (review + scenarios). Topic Engineer is NOT used in research — reserved for `/mcs-build`.
+**Uses Agent Teams:** Research Analyst (only if external systems need lookup), Prompt Engineer (instructions), QA Challenger (review + scenarios), Topic Engineer (feasibility validation in Phase D).
 
-**Iteration:** Customer reviews brief in the dashboard, answers open questions, then user re-runs `/mcs-research {projectId} {agentId}` to re-enrich.
-
----
-
-## UPDATE: Incremental Brief Update (`/mcs-update`)
-
-**Goal:** Detect new/changed documents, resolve which agent(s) they affect, and surgically update only the affected brief.json sections — preserving user edits.
-
-**Input:** `/mcs-update {projectId}`
-**Reads:** `doc-manifest.json` + new/changed docs in `docs/`
-**Writes:** `brief.json` (affected sections only) + updated `doc-manifest.json`
-
-**When to use:** After `/mcs-research` has completed and user uploads 1-2 more documents. Avoids the full 4-phase research pipeline.
-
-**Flow:** Diff docs vs manifest → resolve agent targeting (tagged or auto-detected) → check drastic change thresholds → analyze new content → show impact summary → user confirms → merge changes preserving user edits → update manifest
-
-**Drastic change thresholds** (any triggers recommendation for full `/mcs-research`): new agent described, architecture change, >4 sections affected, problem statement fundamentally changes, new doc volume > 2x existing.
-
-**Merge rules:** Never overwrite `instructions` or answered `openQuestions`. Append-only for `capabilities[]`, `boundaries.handle/decline/refuse`, `integrations[]`, `conversations.topics[]`, `evals`. Flag conflicts in `_updateFlags` for user review.
-
-**No Agent Teams, no web research.** Lightweight document analysis only.
+**Iteration:** Customer reviews brief in the dashboard, answers open questions, then user re-runs `/mcs-research {projectId} {agentId}` to re-enrich (Phase 0 detects brief edits automatically).
 
 ---
 
@@ -431,6 +414,8 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 - `Multi-Agent` → specialists first, then orchestrator with child connections
 
 **Build steps:** Account Gate → Cache Check → Scaffold (PAC CLI) → Instructions & Knowledge (Dataverse API) → Tools & Model (Playwright) → Topics (Code Editor YAML) → Publish (PAC CLI) → Reconciliation → `build-report.md` → Learnings Capture → Update brief.json buildStatus
+
+**On-demand teammates:** Research Analyst (when tool configuration hits issues) and Prompt Engineer (when instructions need adjustment for actual tool names)
 
 **Preflight Gate required** before any Playwright interaction (verifies browser matches the account gate selection).
 
@@ -457,6 +442,22 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 | Retrieval Failure | Improve search terms in instructions |
 | Grounding Violation | Strengthen boundaries in instructions |
 | Routing Failure | Expand trigger phrases, clarify routing rules |
+
+---
+
+## FIX: Post-Eval Fix & Re-Evaluate (`/mcs-fix`)
+
+**Goal:** Analyze eval failures, classify root causes, apply targeted fixes, and re-evaluate to measure improvement. Closes the eval→fix→re-eval loop.
+
+**Input:** `/mcs-fix {projectId} {agentId}`
+**Reads:** `brief.json` (evalResults, instructions, integrations, capabilities, conversations.topics)
+**Writes:** `brief.json` (instructions, conversations.topics, notes.fixHistory), agent in MCS (via hybrid stack)
+
+**5 root cause categories:** instruction gap, boundary violation, routing failure, knowledge gap (manual — can't auto-fix), scoring issue
+
+**Flow:** Read eval results → QA classifies failures → User approves classification → PE fixes instructions + TE fixes topics (parallel) → Lead applies via hybrid stack → Re-evaluate via Direct Line → Compare before/after
+
+**Uses Agent Teams:** QA Challenger (failure classification), Prompt Engineer (instruction fixes), Topic Engineer (topic/trigger fixes). Max 2 fix iterations per invocation.
 
 ---
 
@@ -555,9 +556,9 @@ package.json                # Node dependencies & scripts
 │   ├── mcs-init/           # Create project folder
 │   ├── mcs-context/        # Pull M365 history via WorkIQ
 │   ├── mcs-research/       # Read docs + full enrichment → brief.json + evals
-│   ├── mcs-update/         # Incremental brief update from new/changed docs
 │   ├── mcs-build/          # Build agent(s) in MCS via hybrid stack
 │   ├── mcs-eval/           # Run eval tests → brief.json evalResults
+│   ├── mcs-fix/            # Post-eval fix → re-eval loop
 │   ├── mcs-refresh/        # Refresh knowledge cache
 │   ├── bug/                # File bug reports via gh CLI
 │   └── suggest/            # File feature suggestions via gh CLI
@@ -618,7 +619,7 @@ Build-Guides/[Project]/     # Per-project work (gitignored)
 │   ├── evals-results.json  # Direct Line test results (from /mcs-eval)
 │   └── topics/             # Generated topic YAML files
 ├── docs/                   # Uploaded customer documents
-├── doc-manifest.json       # Document hash manifest (from /mcs-research, for /mcs-update)
+├── doc-manifest.json       # Document hash manifest (from /mcs-research)
 └── customer-context.md     # M365 history (from /mcs-context, optional)
 
 ```

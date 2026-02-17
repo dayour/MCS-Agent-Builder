@@ -231,7 +231,15 @@
   },
 
   "notes": {
-    "_description": "Flexible key-value store for anything that doesn't fit above. Keys are freeform."
+    "_description": "Flexible key-value store for anything that doesn't fit above. Keys are freeform.",
+    "fixHistory": [
+      {
+        "date": "ISO timestamp of fix run",
+        "beforePassRate": "60%",
+        "afterPassRate": "85%",
+        "fixesApplied": ["description of each fix applied"]
+      }
+    ]
   },
 
   "_updateFlags": []

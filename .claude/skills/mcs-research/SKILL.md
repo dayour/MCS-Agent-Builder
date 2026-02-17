@@ -10,19 +10,18 @@ Single-pass pipeline: read documents, identify agents, research components, desi
 ## Input
 
 ```
-/mcs-research {projectId}              # First run: read docs, identify agents, full enrichment for all
-/mcs-research {projectId} {agentId}    # Re-run: re-enrich a specific agent (after user feedback)
+/mcs-research {projectId}              # Project-level: all agents
+/mcs-research {projectId} {agentId}    # Agent-level: scoped to one agent
 ```
 
-**First run** (no agentId):
-- Reads `Build-Guides/{projectId}/docs/`
-- Identifies all agents
-- Creates and enriches `brief.json` + `evals.csv` for each
+**Project-level** (no agentId):
+- First run: reads all docs, identifies agents, deep research, creates brief.json + evals.csv
+- Subsequent runs: smart-detects new/changed docs, routes to full or incremental
 
-**Re-run** (with agentId):
-- Reads existing `Build-Guides/{projectId}/agents/{agentId}/brief.json`
-- Re-enriches based on updated brief or new docs
-- Skips agent identification (already done)
+**Agent-level** (with agentId):
+- After project research: smart-detects new/changed docs relevant to this agent, incremental enrichment
+- Manually created agent (no prior research): full deep research scoped to this agent
+- Brief edited (open questions answered): re-enriches with new context even without new docs
 
 ## Output Files (per agent)
 
@@ -40,11 +39,165 @@ The session startup protocol already checks cache freshness and refreshes stale 
 
 **Cache files are read on-demand** in Phase A (for informed questions) and Phase B (for component research). Only read the specific files needed, not all 18.
 
+## Phase 0: Smart Research Routing (Unified)
+
+**Goal:** Determine the optimal processing path for ANY invocation — project or agent level. Detects new/changed docs, brief edits, and manually created agents.
+
+**This phase runs for ALL invocations.** No bypass, no skip.
+
+### Step 0.1: Determine Scope
+
+- `/mcs-research {projectId}` → `scope = "project"`
+- `/mcs-research {projectId} {agentId}` → `scope = "agent"`
+
+### Step 0.2: Check Preconditions (Manifest + Brief)
+
+| Scope | Manifest? | Brief? | Result |
+|-------|-----------|--------|--------|
+| project | No | — | `processingPath = "full"` (first run) |
+| project | Yes | — | Proceed to Step 0.3 (diff docs) |
+| agent | — | No / empty stub | `processingPath = "full-agent"` (manually created, deep research scoped to this agent) |
+| agent | — | Yes + enriched | Proceed to Step 0.3 (diff docs) |
+
+Read `Build-Guides/{projectId}/doc-manifest.json` for manifest check.
+Read `Build-Guides/{projectId}/agents/{agentId}/brief.json` for brief check (agent scope only).
+
+"Empty stub" = brief.json exists but `instructions` is empty AND `capabilities` is empty (never been through research).
+
+### Step 0.3: Diff Documents Against Manifest
+
+1. List all files in `Build-Guides/{projectId}/docs/` matching supported extensions: `.md`, `.csv`, `.json`, `.txt`, `.jpg`, `.jpeg`, `.png`, `.gif`, `.bmp`, `.tiff`, `.webp`, `.docx`, `.pdf`
+2. For each file, compute SHA-256 hash via PowerShell:
+   ```powershell
+   (Get-FileHash -Path "file" -Algorithm SHA256).Hash
+   ```
+3. Compare against `manifest.docsProcessed[]` entries by filename + sha256:
+   - **`newDocs[]`** — files in docs/ not in manifest
+   - **`changedDocs[]`** — files in manifest whose hash differs
+   - **`deletedDocs[]`** — files in manifest not present in docs/
+4. **Agent-scoped filtering:**
+   - If `scope = "project"`: diff ALL docs (current behavior)
+   - If `scope = "agent"`: diff docs where `matchedAgents` includes this agentId, PLUS any new docs (not yet in manifest)
+   - If no manifest exists (agent scope, brief exists): treat ALL project docs as candidates, filter by relevance in Step 0.4
+5. If changes exist → proceed to Step 0.4
+6. If no changes → proceed to Step 0.5 (check brief modifications)
+
+### Step 0.4: Document-to-Agent Mapping (when new/changed docs exist)
+
+For each new/changed doc, determine which agent(s) it belongs to:
+
+1. Read each doc content, score relevance against every agent's `brief.json`:
+   - Systems mentioned → match `integrations[]`
+   - Domain keywords → match `business.problemStatement`
+   - Capabilities → match `capabilities[].name`
+   - Agent name explicitly mentioned → direct match
+2. **Auto-map** if relevance is clear (matches one agent strongly)
+3. **Ask user** via AskUserQuestion if ambiguous (matches multiple equally, or matches none)
+4. **Cross-cutting docs** (org policies, IT standards) → apply to all agents
+5. **Agent-scoped invocation**: assume new docs are for this agent (user clicked Research on specific agent), but flag if doc seems irrelevant to this agent's domain
+
+Output the mapping:
+```
+## Document → Agent Mapping
+| Document | Agent(s) | Confidence |
+|----------|----------|-----------|
+| new-jira-reqs.md | incident-manager | High (mentions Jira, tickets) |
+| company-policy.md | All agents | Cross-cutting |
+```
+
+Then proceed to Step 0.6 (drastic change detection).
+
+### Step 0.5: Check for Brief Modifications (when no doc changes detected)
+
+**For agent scope only** — if no doc changes were detected for this agent:
+- Compare brief.json file modification time vs `manifest.lastResearchAt`
+- If brief is newer → set `processingPath = "re-enrich"` (brief was edited, re-run Phase B→C→D)
+- If brief is NOT newer → set `processingPath = "none"` (truly nothing to do)
+
+**For project scope** — if no doc changes at all:
+- Output: `No document changes since last research ({manifest.lastResearchAt}). Nothing new to process.`
+- **Exit** the skill.
+
+### Step 0.6: Drastic Change Detection (scope-aware)
+
+Only run when processing new/changed docs (from Step 0.4).
+
+Read new/changed docs and check 5 thresholds. **Any one** triggers a fallback to full research:
+
+| Threshold | How to Detect | Scope |
+|-----------|--------------|-------|
+| New agent described | Content describes an agent not in `Build-Guides/{projectId}/agents/` | Project only |
+| Architecture change | Content implies single ↔ multi-agent switch | Project only |
+| >4 brief sections affected | Map content to brief sections; count > 4 | Both |
+| Problem statement shift | Content fundamentally changes `business.problemStatement` | Both |
+| Volume ratio >2x | Total bytes of new/changed docs > 2x total bytes of existing processed docs | Both |
+
+At agent scope, skip "new agent described" and "architecture change" thresholds (those are project-level concerns).
+
+### Step 0.7: Route and Report
+
+| Condition | `processingPath` | Phases |
+|-----------|-----------------|--------|
+| First project run (no manifest) | `full` | A → B → C → D (all docs, deep research) |
+| First agent run (empty brief) | `full-agent` | A → B → C → D (scoped to agent, reads all project docs for relevance) |
+| No changes, brief not edited | `none` | Exit with message |
+| Brief edited, no new docs | `re-enrich` | B → C → D (skip A, re-enrich with current brief context) |
+| Changes exist, not drastic | `incremental` | A-inc → B-inc → C-inc → D-inc |
+| Changes exist, drastic | `full` | Warning → A → B → C → D |
+
+**Output to user before proceeding:**
+
+```
+## Research: {projectId} [{agentId if scoped}]
+**Scope:** {Project / Agent: agentName}
+**New docs:** {N} | **Changed:** {N} | **Deleted:** {N}
+**Mode:** {Full / Full-Agent / Incremental / Re-enrich / Nothing new}
+{If incremental: doc→agent mapping table}
+```
+
+Then proceed to Phase A with the determined `processingPath`.
+
 ## Phase A: Document Comprehension & Agent Identification
 
 **Goal:** Read ALL project documents, build a unified understanding, identify every agent to build, and create brief.json stubs with informed open questions.
 
 **This is NOT dumb extraction — it's deep comprehension.**
+
+### Incremental Path (processingPath == "incremental")
+
+When `processingPath == "incremental"`, Phase A operates on new/changed docs only, merging into the existing brief:
+
+1. **Read ONLY `newDocs` + `changedDocs`** (not all docs). Also read each existing `brief.json` under `Build-Guides/{projectId}/agents/*/brief.json` for context.
+2. **Agent-scoped filtering:** If `scope = "agent"`, only process docs mapped to this agent in Step 0.4. Write changes only to this agent's brief.
+3. **Cross-reference** new content against existing brief fields. Look for: new systems, new capabilities, answers to existing open questions, contradictions with existing data.
+4. **Check for new agents.** If new docs describe an agent not in `agents/`, the drastic threshold should have caught it in Phase 0 — escalate to `processingPath = "full"` if missed.
+5. **Extract data only from new/changed docs.** Map to agents using the doc→agent mapping from Step 0.4.
+6. **Apply merge rules:**
+   - **Append-only:** `capabilities[]`, `boundaries.handle/decline/refuse`, `integrations[]`, `conversations.topics[]`, `knowledge[]`, `scenarios[]`, `evals`
+   - **Never overwrite:** `instructions`, answered `openQuestions[].answer`
+   - **Resolve:** unanswered `openQuestions` if doc provides the answer
+   - **Flag conflicts:** `business.problemStatement`, `architecture.type` → add to `_updateFlags`
+7. **Show summary** of what was extracted and which agents were affected.
+8. **Update manifest incrementally:** Add new entries, update hashes for changed docs, remove deleted docs, preserve unchanged entries. Set `processedAt` for each processed file. Update `matchedAgents` for new docs.
+
+Then proceed to Phase B (incremental).
+
+### Full-Agent Path (processingPath == "full-agent")
+
+When `processingPath == "full-agent"` (manually created agent, empty brief):
+
+1. **Read ALL project docs** in `Build-Guides/{projectId}/docs/`, but only extract/write data for this specific agent.
+2. **Skip agent identification** — agent already exists (user created it manually).
+3. **Score relevance** of each doc against this agent's name/description. Filter out clearly irrelevant docs.
+4. **Extract per-agent data** — same as full path Step 4 below, but only for this one agent.
+5. **Create manifest entries** with `matchedAgents` for this agent.
+6. **Write brief.json stub** with all extracted data (same as full path Step 5).
+
+Then proceed to Phase B (full path — this agent needs deep research).
+
+### Full Path (processingPath == "full")
+
+Existing behavior — process all documents as described below.
 
 ### Step 1: Read All Documents
 
@@ -144,7 +297,7 @@ Then continue directly to Phase B. **Do not stop and wait** — this is a single
 
 ### Step 6.5: Write Document Manifest
 
-Write `doc-manifest.json` to `Build-Guides/{projectId}/` containing every document read during Phase A. This is the baseline for future `/mcs-update` runs.
+Write `doc-manifest.json` to `Build-Guides/{projectId}/` containing every document read during Phase A. This is the baseline for future incremental runs.
 
 ```json
 {
@@ -170,13 +323,28 @@ For each file in `docs/`:
 - Set `matchedAgents` to all identified agent slugs
 - Set `source: "research"`
 
-This manifest enables `/mcs-update` to detect new/changed documents without re-running the full pipeline.
+This manifest enables incremental research to detect new/changed documents without re-running the full pipeline.
 
 ## Phase B: Component Research — Targeted
 
 **Goal:** Research MCS components and recommend the best tools, knowledge sources, model, triggers, and channels for each agent.
 
 **Key principle:** Don't research all 6 categories live for every agent. Stable categories use cache directly. Only dispatch live research for the agent's specific integration systems.
+
+### Incremental Path (processingPath == "incremental")
+
+When `processingPath == "incremental"`, Phase B is scoped to only what's new:
+
+1. **Skip stable category resolution** unless Phase A-inc found new architecture-relevant data (new channels, triggers, knowledge types not already in the brief). If all new content maps to existing categories, skip directly to Step 3.
+2. **Only research NEW external systems** from the new docs that aren't already in `integrations[]`. If a doc mentions "Jira" and the agent already has Jira in integrations, skip it.
+3. **Check learnings** (same as full — quick read of relevant `knowledge/learnings/` files).
+4. **Spawn Research Analyst only if new external systems were found** that need live MCP/connector lookup. If everything maps to existing integrations or Microsoft-native tools, skip RA entirely.
+
+Then proceed to Phase C (incremental).
+
+### Full Path (processingPath == "full" or "full-agent")
+
+Existing behavior — research all categories as described below.
 
 ### Step 1: Resolve Stable Categories from Cache (Lead)
 
@@ -256,6 +424,35 @@ After research (live or cache-only), update:
 
 **Goal:** Score architecture, write instructions, and update brief.json with build-ready data.
 
+### Re-enrich Path (processingPath == "re-enrich")
+
+When `processingPath == "re-enrich"` (brief was edited, no new docs — e.g., user answered open questions):
+
+Phase A was skipped (no new docs to process). Go straight to:
+
+1. **Re-score architecture** if answered questions affect the 6-factor scoring (e.g., answered "Which teams own this?" could change teamOwnership factor). If score changes, update `architecture.score` and `architecture.factors`.
+2. **Generate `instructionsDelta`** noting what changed from answered questions. If `instructions` is empty (never written), write from scratch via Prompt Engineer (same as full mode). If instructions exist, generate delta and flag for review.
+3. **QA reviews consistency** — do the answered questions create contradictions with existing brief fields? Are there new integration needs revealed by the answers?
+4. **Update MVP fields** if applicable — answered questions may clarify what's now vs later.
+
+Then proceed to Phase D (re-enrich — QA generates new evals only if answered questions affect eval coverage).
+
+### Incremental Path (processingPath == "incremental")
+
+When `processingPath == "incremental"`, Phase C preserves existing architecture and instructions:
+
+1. **Re-score architecture only if** Phase A-inc added new capabilities or integrations that affect the 6-factor scoring. If the score changes, add to `_updateFlags` with the old and new score — do NOT automatically switch architecture type.
+2. **Do NOT rewrite instructions.** Instead, generate an `instructionsDelta` describing what changed (new capabilities, new tools, new boundaries) and store in `notes.instructionsDelta`. Flag for the user: "Instructions may need updating — review delta in dashboard."
+   - **Exception:** If the `instructions` field is currently empty (never written), write from scratch via Prompt Engineer (same as full mode).
+3. **QA reviews incremental changes only** — consistency check of new fields against existing brief (do new integrations conflict with existing architecture? do new capabilities overlap with existing ones?). No full instruction review.
+4. **Merge new fields only** — append to `mvp.now`/`mvp.later` where appropriate, don't overwrite existing MVP decisions.
+
+Then proceed to Phase D (incremental).
+
+### Full Path (processingPath == "full" or "full-agent")
+
+Existing behavior — full architecture scoring + instructions as described below.
+
 ### Step 1: Architecture Decision (Lead)
 
 Score single vs multi-agent using the 6-factor framework:
@@ -325,9 +522,24 @@ Also enrich existing fields with research findings:
 
 **Goal:** Generate test scenarios, classify topic needs, and produce evaluation CSV.
 
+### Incremental Path (processingPath == "incremental")
+
+When `processingPath == "incremental"`, Phase D generates evals only for what's new:
+
+1. **Generate scenarios only for NEW capabilities** added during Phase A-inc. Do not regenerate scenarios for existing capabilities.
+2. **Append new eval rows** to existing `evals.csv` and `brief.json.evals[]`. Never remove or modify existing eval entries.
+3. **Preserve existing scenarios** — existing `scenarios[]` entries are untouched. New scenarios are appended.
+4. **QA reviews new scenarios only** — verify they don't duplicate existing test coverage.
+
+Then proceed to Final Output (incremental format).
+
+### Full Path (processingPath == "full" or "full-agent")
+
+Existing behavior — generate all scenarios and evals as described below.
+
 ### Step 1: Generate Scenarios + Classify Topics — QA Challenger (single pass)
 
-Spawn **QA Challenger** to generate scenarios AND classify which need custom topics vs. generative orchestration in one pass. No separate Topic Engineer needed — TE is used during `/mcs-build` when actual YAML is generated.
+Spawn **QA Challenger** to generate scenarios AND classify which need custom topics vs. generative orchestration in one pass.
 
 QA produces:
 
@@ -343,6 +555,50 @@ QA produces:
 For each scenario, QA also notes:
 - **Topic type**: `generative` (handled by orchestration) or `custom` (needs dedicated topic YAML)
 - **Trigger type**: `by-agent` (AI routes) or `phrases` (explicit triggers) or `event` (autonomous)
+
+### Step 1.5: Topic Feasibility Review — Topic Engineer (single pass)
+
+Spawn **Topic Engineer** to validate the proposed topic structure before evals are generated. This catches structural issues early — before build — reducing rework.
+
+Provide TE with:
+- `brief.json.conversations.topics[]` (topic list with types and triggers from QA)
+- `brief.json.capabilities[]` (what each topic needs to do)
+- `brief.json.integrations[]` (available tools)
+- `knowledge/cache/adaptive-cards.md` + `knowledge/cache/conversation-design.md`
+
+TE reviews each proposed topic and produces a **per-topic feasibility assessment:**
+
+| Check | What TE Validates |
+|-------|------------------|
+| **Complexity** | Can this be a single topic, or needs splitting? (Rule of thumb: >8 nodes or >3 branch levels → split) |
+| **Node types** | Are the required node types available? (e.g., HttpRequest for API calls, InvokeConnectorAction for connectors) |
+| **Card feasibility** | If topic needs adaptive cards — will they work on target channels? Size < 28KB? No Action.Execute? |
+| **Variable flow** | Do inputs chain to outputs correctly? Any circular dependencies? |
+| **Trigger viability** | Is the trigger type appropriate? "By agent" description specific enough for AI routing? |
+
+**TE output format:**
+
+```
+## Topic Feasibility Review
+
+| Topic | Verdict | Notes |
+|-------|---------|-------|
+| check-order-status | OK | Simple query + display, single topic fine |
+| create-incident | SPLIT | Needs form collection + API call + confirmation. Recommend: collect-incident-form (card) → submit-incident (HTTP) → confirm-incident (display) |
+| daily-summary | OK with caveat | Recurrence trigger + multi-source aggregation. Card may exceed 28KB for large datasets — add pagination |
+
+### Recommendations
+- Split "create-incident" into 3 sub-topics connected via BeginDialog
+- Add fallback text for daily-summary card (in case of Teams 28KB limit)
+```
+
+**What happens with TE's output:**
+- **OK** topics → no change to brief
+- **SPLIT** recommendations → update `conversations.topics[]` to reflect the split (add sub-topics, mark original as parent)
+- **Caveats** → add to `conversations.topics[].notes` field
+- QA does NOT re-review TE's output (this is a single-pass addition, not an iteration loop)
+
+**When to skip TE:** If the agent has no custom topics (all generative), skip this step — there's nothing structural to validate.
 
 ### Step 2: Generate evals.csv (Lead)
 
@@ -384,7 +640,26 @@ After all phases complete for each agent:
 
 ### Report to User
 
-#### Terminal Output
+#### Terminal Output — Incremental Mode
+
+When `processingPath == "incremental"`, use this format:
+
+```
+## Incremental Research Complete: {projectId}
+
+**Mode:** Incremental ({N} new/changed docs processed)
+**Agents updated:** {count}
+
+| Agent | +Capabilities | +Integrations | +Evals | Flags |
+|-------|--------------|---------------|--------|-------|
+| {name} | +{N} | +{M} | +{K} | {F} |
+
+{If _updateFlags exist: "Review flagged items in dashboard. Instructions delta in notes."}
+
+**Next:** Review changes in dashboard. If instructions need updating, edit in dashboard or re-run with agentId.
+```
+
+#### Terminal Output — Full Mode
 
 ```
 ## Research Complete: {projectId}
@@ -441,7 +716,7 @@ After all phases complete, update `doc-manifest.json` with the final `lastResear
 manifest["lastResearchAt"] = datetime.now().isoformat()
 ```
 
-This timestamp lets `/mcs-update` know when the last full research was performed.
+This timestamp lets incremental research know when the last full research was performed.
 
 ---
 
@@ -454,20 +729,30 @@ This timestamp lets `/mcs-update` know when the last full research was performed
 - **No working-paper files**: Do NOT leave intermediate artifacts like instruction drafts, QA reviews, connector research notes, or scenario docs as separate files. All research findings go INTO brief.json fields (instructions, integrations[].notes, notes{}, etc.). If teammates generate working documents during collaboration, consolidate their content into brief.json and delete the working files before completing.
 - **Targeted research, not exhaustive** — only spawn RA for systems that need live lookup. Stable categories (models, channels, triggers, knowledge) use cache.
 - **Single-pass QA** — no PE↔QA iteration loop. PE self-checks, QA reviews once, lead applies fixes.
-- **No Topic Engineer in research** — TE is for `/mcs-build` when actual YAML is needed. QA classifies topic types in Phase D.
+- **Topic Engineer validates feasibility in Phase D** but does NOT generate YAML. Full YAML authoring is reserved for `/mcs-build`. TE checks structural feasibility (complexity, node types, card limits, variable flow, triggers) and recommends splits where needed.
 - **Never assume components** — always research, always present options
 - **Update cache** — after live research, update relevant `knowledge/cache/` files
 - **Iteration comes from the user** — present open questions, let the customer/user resolve them, then re-run with `{agentId}` to re-enrich
 - **Don't stop between phases** — this is a single-pass skill. Run A→B→C→D continuously.
+- **Phase 0 runs for ALL invocations** — project and agent level. No bypass, no skip.
+- **Document-to-agent mapping is auto-detected.** Ask user only when ambiguous.
+- **Brief edits trigger re-enrichment.** If brief was modified since last research (answered questions), re-enrich even without new docs.
+- **`full-agent` for manually created agents.** Empty brief + agent scope = full research scoped to that agent.
+- **Incremental by default** — when a manifest exists and docs changed but no drastic thresholds are triggered, prefer the incremental path. Don't re-process unchanged documents.
+- **brief.json IS the context** — the existing brief contains all prior research. During incremental processing, read the brief for context instead of re-reading unchanged docs.
+- **Merge rules are sacred** — during incremental processing, follow incremental merge rules exactly. Never overwrite `instructions` or answered `openQuestions`. Append-only for arrays. Flag conflicts in `_updateFlags`.
+- **Manifest consistency** — after ANY path (full, full-agent, incremental, or re-enrich), the manifest must reflect the current `docs/` state with accurate hashes and timestamps.
 
 ## Teammate Usage Summary
 
-| Phase | Teammates | When Spawned |
-|-------|-----------|-------------|
-| A | None | Lead reads docs, extracts data, creates stubs |
-| B | **Research Analyst** | Only if agent has external systems needing live MCP/connector lookup |
-| C | **Prompt Engineer** | Always — writes instructions (single pass) |
-| C | **QA Challenger** | Always — reviews instructions (single pass, no iteration) |
-| D | **QA Challenger** | Always — generates scenarios + classifies topics (single pass) |
+| Phase | Full | Full-Agent | Incremental | Re-enrich |
+|-------|------|-----------|-------------|-----------|
+| 0 | Lead | Lead | Lead | Lead |
+| A | Lead (all docs, all agents) | Lead (all docs, one agent) | Lead (new docs only) | Skipped |
+| B | Lead + **RA** (if needed) | Lead + **RA** (if needed) | Lead + **RA** (new systems only) | Lead only |
+| C | Lead + **PE** + **QA** | Lead + **PE** + **QA** | Lead + **QA** (PE skipped unless instructions empty) | Lead + **QA** |
+| D | Lead + **QA** + **TE** | Lead + **QA** + **TE** | Lead + **QA** (new caps) + **TE** (if new topics) | Lead + **QA** + **TE** (if answered questions affect topics) |
 
-**Maximum teammates per research run:** 3 (RA + PE + QA). Often just 2 (PE + QA) for Microsoft-native agents.
+**Maximum teammates per full/full-agent run:** 4 (RA + PE + QA + TE). Often just 3 (PE + QA + TE) for Microsoft-native agents.
+**Maximum teammates per incremental run:** 3 (RA + QA + TE). Often just 1-2 (QA, or QA + TE when new topics added).
+**Maximum teammates per re-enrich run:** 2 (QA + TE). PE only if instructions are empty. TE only if answered questions affect topics.

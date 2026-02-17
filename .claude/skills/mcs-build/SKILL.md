@@ -120,6 +120,52 @@ Read `brief.json` → `architecture.type`:
 
 ---
 
+## On-Demand Teammates During Build
+
+In addition to Topic Engineer (YAML authoring, Step 4) and QA Challenger (review, Step 4), two teammates are available on-demand when issues arise during build. They are NOT spawned at build start — only when specific conditions trigger them. This keeps simple builds fast while making complex builds resilient.
+
+### Research Analyst — When Tool Configuration Fails
+
+**Trigger conditions (Step 2 or Step 3):**
+- Connector/MCP server not found by expected name in MCS UI
+- Auth mode in MCS differs from what brief.json specifies
+- Tool behavior doesn't match documentation (unexpected parameters, missing actions)
+- Any error during Playwright tool configuration that the lead can't resolve in 1 attempt
+
+**What RA does:**
+- WebSearch for "[connector name] Copilot Studio" + current year
+- MS Learn MCP for official connector docs
+- Check if connector was renamed, deprecated, or moved to preview
+- Report back: correct name, auth requirements, alternative approaches
+
+**After RA reports:**
+- Lead applies the fix (correct connector name, different auth mode, etc.)
+- Update `brief.json.integrations[].notes` with the finding
+- Update `knowledge/cache/connectors.md` if the discovery is broadly useful
+- RA is dismissed (not kept alive for the whole build)
+
+### Prompt Engineer — When Instructions Need Adjustment
+
+**Trigger conditions (Step 2, after tools are configured):**
+- Tool names in MCS differ from brief.json (e.g., brief says "Jira" but MCS connector is "Atlassian Jira Cloud (Preview)")
+- A planned tool couldn't be added (not available, auth failed) → instructions reference non-existent tool
+- Connector actions have different parameter names than expected → instructions reference wrong action names
+- Instructions exceed 8000 chars after adding tool-specific guidance
+
+**What PE does:**
+- Read current instructions from brief.json
+- Read actual tool configuration (names, action names) from the build session
+- Produce revised instructions with corrected tool references
+- Self-verify: char count < 8000, all referenced tools exist, boundaries intact
+
+**After PE reports:**
+- QA Challenger does a quick consistency check (existing QA teammate, already active in Step 4)
+- Lead applies revised instructions via Dataverse API
+- Update `brief.json.instructions` with the revised version
+- PE is dismissed (not kept alive for the whole build)
+
+---
+
 ## Standalone Build (Single Agent)
 
 ### Step 0: Environment Verification
@@ -163,6 +209,8 @@ pac copilot publish --bot <bot-id>
 
 **VERIFY:** Snapshot Overview → instructions text matches spec, knowledge sources listed.
 
+**On-demand PE trigger:** After Step 3 configures tools, if tool names in MCS differ from brief.json, spawn Prompt Engineer to adjust instructions (see "On-Demand Teammates" section above). Re-apply instructions via Dataverse API after PE revises them.
+
 ### Step 3: Configure Tools & Model (Playwright — browser required)
 
 **Run MCS Preflight Gate FIRST (MANDATORY).**
@@ -187,6 +235,8 @@ Then configure:
 - **Connectors**: Tools → Add tool → search connector → select action → create connection
 - **Computer Use**: Tools → Add tool → Computer use → configure
 - **Security**: Settings → "Allow other agents to connect" (if specialist)
+
+**On-demand RA trigger:** If a connector/MCP server is not found by expected name, or auth mode differs from spec, spawn Research Analyst to investigate (see "On-Demand Teammates" section above). Apply RA's findings before continuing.
 
 **VERIFY:** Snapshot Tools tab → all tools listed. Snapshot Overview → model correct.
 

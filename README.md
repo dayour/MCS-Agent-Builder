@@ -45,9 +45,9 @@ You can also run skills directly in Claude Code:
 /mcs-context CustomerName                Pull M365 history (emails, meetings, docs, Teams)
 /mcs-research ProjectName                Read docs, identify agents, full enrichment
 /mcs-research ProjectName agentId        Re-enrich a specific agent after feedback
-/mcs-update ProjectName                  Incremental brief update from new/changed docs
 /mcs-build ProjectName agentId           Build agent(s) in Copilot Studio
 /mcs-eval ProjectName agentId            Run evals, write results
+/mcs-fix ProjectName agentId             Fix eval failures and re-evaluate
 /mcs-refresh                             Refresh knowledge cache
 ```
 
@@ -110,10 +110,10 @@ start.js                    One-command launcher (npm start)
   agents/                   5 AI teammate definitions
 
 app/
-  index.html                Dashboard UI
-  server.py                 FastAPI backend
+  server.py                 FastAPI backend (serves SPA from dist/)
   terminal-server.js        Claude Code terminal (multi-tab, WebSocket)
   generate-data.py          Project scanner
+  frontend/                 React + TypeScript SPA (Vite + shadcn/ui)
 
 knowledge/
   learnings/                Experience from past builds (grows over time)

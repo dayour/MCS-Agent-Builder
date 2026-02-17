@@ -33,6 +33,7 @@ export interface ApiAgentSummary {
   has_build_report: boolean;
   readiness: number;
   build_ready: boolean;
+  eval_pass_rate: number | null;
   folder: string;
 }
 

@@ -34,6 +34,8 @@ export interface Agent {
   readiness: number;
   /** Map of brief section ID → completion boolean. */
   sectionCompletion: Record<string, boolean>;
+  /** Eval pass rate (0–100) or null if evals haven't run. */
+  evalPassRate: number | null;
 }
 
 // ─── Document ───────────────────────────────────────────────────────

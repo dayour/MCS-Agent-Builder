@@ -48,6 +48,7 @@ function apiAgentToAgent(a: ApiAgentSummary): Agent {
     status,
     readiness: a.readiness,
     sectionCompletion: {},
+    evalPassRate: a.eval_pass_rate ?? null,
   };
 }
 
