@@ -1,6 +1,6 @@
 # MCS Agent Builder
 
-Automate end-to-end Microsoft Copilot Studio agent builds — from customer intake through architecture, build, and evaluation. Uses Claude Code with a hybrid build stack and AI teammate peer review.
+Automate end-to-end Microsoft Copilot Studio agent builds — from customer intake through architecture, build, evaluation, and automated fix loops. Uses Claude Code with a hybrid build stack and AI teammate peer review.
 
 ## Quick Start
 
@@ -32,9 +32,12 @@ The dashboard provides project management with an embedded Claude Code terminal:
 2. **Research** — Claude reads docs, identifies agents, researches MCS components, generates the full design
 3. **Build** — Claude builds the agent in Copilot Studio using the hybrid stack
 4. **Evaluate** — Claude runs automated tests against the published agent
-5. **Export Report** — download a customer-shareable summary from the design
+5. **Fix** — if eval pass rate is below 70%, a "Fix Failures" button appears. Claude classifies root causes, fixes instructions/topics, and re-evaluates automatically
+6. **Export Report** — download a customer-shareable summary from the design
 
 Each button runs a Claude Code skill in the embedded terminal. You watch it work in real-time. Multiple terminal tabs let you work on several agents in parallel.
+
+The workflow is iterative: Research → Build → Evaluate → Fix → re-Evaluate until the agent meets quality bar.
 
 ### CLI
 
@@ -78,13 +81,13 @@ Each build step uses the best tool, minimizing fragile browser automation:
 
 Complex builds use 5 AI teammates that challenge each other's work before execution:
 
-| Teammate | What They Do |
-|----------|-------------|
-| **Research Analyst** | Discovers MCS capabilities, prevents false limitation claims |
-| **Prompt Engineer** | Writes agent instructions, reviews system prompt quality |
-| **Topic Engineer** | Generates YAML topics + adaptive cards, validates syntax |
-| **QA Challenger** | Reviews all outputs, challenges claims, generates evals |
-| **Repo Checker** | Validates repo integrity after changes |
+| Teammate | What They Do | Used In |
+|----------|-------------|---------|
+| **Research Analyst** | Discovers MCS capabilities, prevents false limitation claims | Research, Build (on-demand) |
+| **Prompt Engineer** | Writes agent instructions, reviews system prompt quality | Research, Build (on-demand), Fix |
+| **Topic Engineer** | Validates topic feasibility, generates YAML topics + adaptive cards | Research (feasibility), Build (YAML), Fix |
+| **QA Challenger** | Reviews all outputs, challenges claims, classifies failures | Research, Build, Fix |
+| **Repo Checker** | Validates repo integrity after changes | Development |
 
 You interact with the lead only. The lead delegates to teammates, they debate and iterate, then the lead executes validated outputs in Copilot Studio.
 
