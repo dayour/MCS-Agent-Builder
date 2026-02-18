@@ -49,6 +49,8 @@ function apiAgentToAgent(a: ApiAgentSummary): Agent {
     readiness: a.readiness,
     sectionCompletion: {},
     evalPassRate: a.eval_pass_rate ?? null,
+    architectureType: a.architecture_type || undefined,
+    childAgentIds: a.architecture_children?.length ? a.architecture_children : undefined,
   };
 }
 

@@ -36,6 +36,10 @@ export interface Agent {
   sectionCompletion: Record<string, boolean>;
   /** Eval pass rate (0–100) or null if evals haven't run. */
   evalPassRate: number | null;
+  /** Architecture type from brief (e.g. "multi-agent"). */
+  architectureType?: string;
+  /** Agent folder IDs of children (for multi-agent orchestrators). */
+  childAgentIds?: string[];
 }
 
 // ─── Document ───────────────────────────────────────────────────────
@@ -173,6 +177,14 @@ export interface ArchitectureTrigger {
 export interface ChildAgent {
   name: string;
   role: string;
+  routingRule: string;
+  model: string;
+  agentFolderId: string;
+}
+
+export interface Channel {
+  name: string;
+  reason: string;
 }
 
 export interface ArchitectureScoring {
@@ -185,6 +197,7 @@ export interface Architecture {
   pattern: string;
   patternReasoning: string;
   triggers: ArchitectureTrigger[];
+  channels: Channel[];
   childAgents: ChildAgent[];
   scoring: ArchitectureScoring[];
 }

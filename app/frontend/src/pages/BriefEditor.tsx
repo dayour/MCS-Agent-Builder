@@ -38,7 +38,7 @@ const iconMap: Record<string, React.ElementType> = {
   MessageSquare, Shield, Network, PlayCircle, TestTube, HelpCircle,
 };
 
-const sectionComponents: Record<string, React.ComponentType<{ data: any; onChange?: (data: any) => void }>> = {
+const sectionComponents: Record<string, React.ComponentType<{ data: any; onChange?: (data: any) => void; context?: any }>> = {
   "business-context": BusinessContextSection,
   "agent-identity": AgentIdentitySection,
   instructions: InstructionsSection,
@@ -215,7 +215,16 @@ const BriefEditor = () => {
               </div>
             )}
             {ActiveComponent && sectionData && (
-              <ActiveComponent data={sectionData} onChange={(d: any) => handleSectionChange(activeSection, d)} />
+              <ActiveComponent
+                data={sectionData}
+                onChange={(d: any) => handleSectionChange(activeSection, d)}
+                {...(activeSection === "architecture" ? {
+                  context: {
+                    projectId,
+                    agents: agents.map((a) => ({ id: a.id, name: a.name })),
+                  },
+                } : {})}
+              />
             )}
             {!data && !loading && (
               <div className="text-center py-20 text-muted-foreground text-sm">

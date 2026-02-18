@@ -357,6 +357,18 @@ def _scan_agents(folder: Path) -> list[dict]:
                             if total > 0:
                                 eval_pass_rate = round(passed / total * 100)
 
+            # Extract architecture metadata for hierarchy display
+            arch_type = ""
+            arch_children = []
+            if brief:
+                arch = brief.get("architecture", {})
+                if isinstance(arch, dict):
+                    arch_type = arch.get("type", "")
+                    for child in arch.get("children", []):
+                        fid = child.get("agentFolderId", "")
+                        if fid:
+                            arch_children.append(fid)
+
             agents.append({
                 "id": agent_dir.name,
                 "name": agent_name,
@@ -369,6 +381,8 @@ def _scan_agents(folder: Path) -> list[dict]:
                 "build_ready": _is_build_ready(brief),
                 "eval_pass_rate": eval_pass_rate,
                 "folder": str(agent_dir.relative_to(folder)),
+                "architecture_type": arch_type,
+                "architecture_children": arch_children,
             })
     return agents
 
@@ -561,6 +575,100 @@ async def save_agent_state(project_id: str, agent_id: str, request: Request):
     state_file.write_text(json.dumps(existing, indent=2), encoding="utf-8")
 
     return {"saved": True}
+
+
+@app.post("/api/projects/{project_id}/agents/{agent_id}/scaffold-children")
+async def scaffold_children(project_id: str, agent_id: str):
+    """Create agent folders for each unlinked child in the parent's architecture.
+
+    For each child in architecture.children without an agentFolderId:
+    1. Generate folder name from child name (kebab-case)
+    2. Create agents/{folder}/brief.json with minimal v2 brief
+    3. Set agentFolderId on the child entry in the parent's brief
+    Returns list of created folders.
+    """
+    folder = BUILD_GUIDES / project_id
+    if not folder.is_dir():
+        raise HTTPException(404, f"Project '{project_id}' not found")
+
+    agent_dir = folder / "agents" / agent_id
+    brief_file = agent_dir / "brief.json"
+    if not brief_file.exists():
+        raise HTTPException(404, f"Agent '{agent_id}' has no brief.json")
+
+    try:
+        brief = json.loads(brief_file.read_text(encoding="utf-8-sig"))
+    except Exception as e:
+        raise HTTPException(500, f"Failed to read brief: {e}")
+
+    children = brief.get("architecture", {}).get("children", [])
+    if not children:
+        return {"created": [], "message": "No children defined in architecture"}
+
+    created = []
+    agents_dir = folder / "agents"
+    agents_dir.mkdir(exist_ok=True)
+
+    for child in children:
+        if child.get("agentFolderId"):
+            continue  # Already linked
+
+        child_name = child.get("name", "").strip()
+        if not child_name:
+            continue
+
+        # Generate kebab-case folder name
+        folder_name = re.sub(r"[^\w\-]", "", child_name.lower().replace(" ", "-"))
+        if not folder_name:
+            folder_name = f"agent-{len(created) + 1}"
+
+        # Avoid collision with existing folders
+        base_name = folder_name
+        counter = 1
+        while (agents_dir / folder_name).exists():
+            folder_name = f"{base_name}-{counter}"
+            counter += 1
+
+        child_dir = agents_dir / folder_name
+        child_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create minimal v2 brief
+        child_brief = {
+            "_schema": "2.0",
+            "agent": {
+                "name": child_name,
+                "description": child.get("role", ""),
+                "persona": "",
+                "responseFormat": "",
+                "primaryUsers": "",
+                "secondaryUsers": "",
+            },
+            "business": {
+                "useCase": child.get("role", ""),
+                "problemStatement": "",
+                "challenges": [],
+                "benefits": [],
+                "successCriteria": [],
+                "stakeholders": {"sponsor": "", "owner": "", "users": ""},
+            },
+            "architecture": {
+                "type": "single-agent",
+                "reason": f"Specialist agent — child of {brief.get('agent', {}).get('name', agent_id)}",
+            },
+            "updated_at": datetime.now().isoformat(),
+        }
+        child_brief_file = child_dir / "brief.json"
+        child_brief_file.write_text(json.dumps(child_brief, indent=2), encoding="utf-8")
+
+        # Link the child back to the parent
+        child["agentFolderId"] = folder_name
+        created.append(folder_name)
+
+    # Save updated parent brief with agentFolderIds
+    brief["updated_at"] = datetime.now().isoformat()
+    brief_file.write_text(json.dumps(brief, indent=2), encoding="utf-8")
+
+    return {"created": created, "message": f"Created {len(created)} agent folder(s)"}
 
 
 @app.post("/api/projects/{project_id}/upload")

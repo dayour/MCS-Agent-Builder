@@ -27,7 +27,7 @@ export function calcReadiness(data: BriefData): number {
     scenarios.filter((s) => s.userMessage).length >= 3,                   // 6. Scenarios (3+)
     evals.length > 0,                                                     // 7. Evals defined
     Boolean(bounds.handles.length || bounds.politelyDeclines.length || bounds.hardRefuses.length), // 8. Boundaries
-    Boolean(arch.triggers?.length),                                       // 9. Channels/Triggers
+    Boolean(arch.channels?.length || arch.triggers?.length),               // 9. Channels/Triggers
     unanswered.length === 0,                                              // 10. Questions resolved
     false,                                                                // 11. Build published (set externally)
     false,                                                                // 12. Eval results (set externally)

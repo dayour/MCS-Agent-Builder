@@ -35,6 +35,8 @@ export interface ApiAgentSummary {
   build_ready: boolean;
   eval_pass_rate: number | null;
   folder: string;
+  architecture_type?: string;
+  architecture_children?: string[];
 }
 
 export interface ApiAgentDetail {
@@ -154,7 +156,7 @@ export interface ApiBrief {
     reason?: string;
     triggers?: Array<{ type: string; description: string }>;
     channels?: Array<{ name: string; reason?: string }>;
-    children?: Array<{ name: string; role: string; routingRule?: string }>;
+    children?: Array<{ name: string; role: string; routingRule?: string; model?: string; agentFolderId?: string }>;
   };
   scenarios?: Array<{
     name?: string;

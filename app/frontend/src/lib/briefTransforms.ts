@@ -98,9 +98,16 @@ export function briefFromApi(raw: ApiBrief): BriefData {
         type: t.type ?? "",
         description: t.description ?? "",
       })),
+      channels: (arch.channels ?? []).map((ch) => ({
+        name: typeof ch === "string" ? ch : ch.name ?? "",
+        reason: typeof ch === "string" ? "" : ch.reason ?? "",
+      })),
       childAgents: (arch.children ?? []).map((c) => ({
         name: c.name ?? "",
         role: c.role ?? "",
+        routingRule: c.routingRule ?? "",
+        model: c.model ?? "",
+        agentFolderId: c.agentFolderId ?? "",
       })),
       scoring: factorsToScoring(arch.factors, arch.score),
     },
@@ -246,9 +253,17 @@ export function briefToApi(ui: BriefData, raw: ApiBrief): ApiBrief {
     type: arch.pattern,
     reason: arch.patternReasoning,
     triggers: arch.triggers,
+    channels: arch.channels.map((ch) => ({ name: ch.name, reason: ch.reason })),
     children: arch.childAgents.map((c) => {
       const existing = (raw.architecture?.children ?? []).find((e) => e.name === c.name);
-      return { ...existing, name: c.name, role: c.role };
+      return {
+        ...existing,
+        name: c.name,
+        role: c.role,
+        routingRule: c.routingRule,
+        model: c.model,
+        agentFolderId: c.agentFolderId,
+      };
     }),
     factors: scoringToFactors(arch.scoring),
     score: arch.scoring.reduce((sum, s) => sum + s.score, 0),

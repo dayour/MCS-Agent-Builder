@@ -82,6 +82,15 @@ export async function deleteAgent(
   });
 }
 
+export async function scaffoldChildren(
+  projectId: string,
+  agentId: string
+): Promise<{ created: string[]; message: string }> {
+  return request(`/projects/${projectId}/agents/${agentId}/scaffold-children`, {
+    method: "POST",
+  });
+}
+
 // ─── Documents ────────────────────────────────────────────────────
 
 export async function uploadDocument(

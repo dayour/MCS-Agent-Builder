@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import { Bot, Plus, Microscope, Hammer, FlaskConical, Wrench, Trash2, Loader2, Sparkles } from "lucide-react";
+import { Bot, Plus, Microscope, Hammer, FlaskConical, Wrench, Trash2, Loader2, Sparkles, Network } from "lucide-react";
 import Layout from "@/components/Layout";
 import StatusBadge from "@/components/StatusBadge";
 import ReadinessRing from "@/components/ReadinessRing";
@@ -151,69 +151,116 @@ const ProjectPage = () => {
               </div>
             ) : (
               <div className="space-y-2">
-                {agents.map((agent) => (
-                  <div key={agent.id} className="group rounded-lg border border-border bg-card p-4 transition-all hover:border-primary/30 hover:bg-surface-2">
-                    <div className="flex items-center gap-4">
-                      <Link
-                        to={`/project/${id}/agent/${agent.id}`}
-                        className="flex items-center gap-4 flex-1 min-w-0"
+                {(() => {
+                  // Build hierarchy: orchestrators → children → standalone
+                  const childSet = new Set<string>();
+                  const orchestrators = agents.filter((a) =>
+                    a.architectureType?.includes("multi") && a.childAgentIds && a.childAgentIds.length > 0
+                  );
+                  orchestrators.forEach((o) => o.childAgentIds?.forEach((cid) => childSet.add(cid)));
+
+                  const renderAgentCard = (agent: typeof agents[0], indent: boolean, badge?: string) => {
+                    const isOrch = badge === "Orchestrator";
+                    const AgentIcon = isOrch ? Network : Bot;
+                    return (
+                      <div
+                        key={agent.id}
+                        className={`group rounded-lg border border-border bg-card p-4 transition-all hover:border-primary/30 hover:bg-surface-2 ${
+                          indent ? "ml-8 border-l-2 border-l-primary/20" : ""
+                        } ${badge === "Specialist" ? "bg-surface-1" : ""}`}
                       >
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-surface-3">
-                          <Bot className="h-5 w-5 text-primary" />
+                        <div className="flex items-center gap-4">
+                          <Link
+                            to={`/project/${id}/agent/${agent.id}`}
+                            className="flex items-center gap-4 flex-1 min-w-0"
+                          >
+                            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${isOrch ? "bg-primary/10" : "bg-surface-3"}`}>
+                              <AgentIcon className={`h-5 w-5 ${isOrch ? "text-primary" : "text-primary"}`} />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <h3 className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
+                                  {agent.name}
+                                </h3>
+                                <StatusBadge status={agent.status} />
+                                {badge && (
+                                  <span className={`text-[10px] font-medium rounded px-1.5 py-0.5 ${
+                                    badge === "Orchestrator"
+                                      ? "bg-primary/15 text-primary border border-primary/30"
+                                      : "bg-muted text-muted-foreground border border-border"
+                                  }`}>
+                                    {badge}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="mt-0.5 text-xs text-muted-foreground truncate">{agent.description}</p>
+                            </div>
+                          </Link>
+                          <ReadinessRing value={agent.readiness} size={36} />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-destructive shrink-0"
+                            onClick={(e) => { e.preventDefault(); removeAgent(agent.id); }}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <h3 className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
-                              {agent.name}
-                            </h3>
-                            <StatusBadge status={agent.status} />
-                          </div>
-                          <p className="mt-0.5 text-xs text-muted-foreground truncate">{agent.description}</p>
+                        <div className={`mt-3 flex items-center gap-2 ${indent ? "pl-14" : "pl-14"}`}>
+                          {(() => {
+                            const researched = agent.status === "researched" || agent.status === "built" || agent.status === "ready";
+                            const built = agent.status === "built" || agent.status === "ready";
+                            const evaluated = agent.status === "ready";
+                            const hasFailures = agent.evalPassRate !== null && agent.evalPassRate < 70;
+                            return (
+                              <>
+                                <Button variant="outline" size="sm" className={`h-6 gap-1 text-[11px] ${researched ? "bg-info/15 border-info/40 text-info" : "border-border text-muted-foreground opacity-60"}`} onClick={() => launchTerminal("research", agent)}>
+                                  <Microscope className="h-3 w-3" /> Research
+                                </Button>
+                                <Button variant="outline" size="sm" className={`h-6 gap-1 text-[11px] ${built ? "bg-warning/15 border-warning/40 text-warning" : "border-border text-muted-foreground opacity-60"}`} onClick={() => launchTerminal("build", agent)}>
+                                  <Hammer className="h-3 w-3" /> Build
+                                </Button>
+                                <Button variant="outline" size="sm" className={`h-6 gap-1 text-[11px] ${evaluated ? "bg-success/15 border-success/40 text-success" : "border-border text-muted-foreground opacity-60"}`} onClick={() => launchTerminal("evaluate", agent)}>
+                                  <FlaskConical className="h-3 w-3" /> Evaluate
+                                </Button>
+                                {agent.evalPassRate !== null && (
+                                  <span className={`text-[10px] font-medium ${agent.evalPassRate >= 70 ? "text-success" : "text-destructive"}`}>
+                                    {agent.evalPassRate}%
+                                  </span>
+                                )}
+                                {hasFailures && (
+                                  <Button variant="outline" size="sm" className="h-6 gap-1 text-[11px] bg-destructive/15 border-destructive/40 text-destructive animate-in fade-in" onClick={() => launchTerminal("fix", agent)}>
+                                    <Wrench className="h-3 w-3" /> Fix Failures
+                                  </Button>
+                                )}
+                              </>
+                            );
+                          })()}
                         </div>
-                      </Link>
-                      <ReadinessRing value={agent.readiness} size={36} />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-destructive shrink-0"
-                        onClick={(e) => { e.preventDefault(); removeAgent(agent.id); }}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                    <div className="mt-3 flex items-center gap-2 pl-14">
-                      {(() => {
-                        const researched = agent.status === "researched" || agent.status === "built" || agent.status === "ready";
-                        const built = agent.status === "built" || agent.status === "ready";
-                        const evaluated = agent.status === "ready";
-                        const hasFailures = agent.evalPassRate !== null && agent.evalPassRate < 70;
-                        return (
-                          <>
-                            <Button variant="outline" size="sm" className={`h-6 gap-1 text-[11px] ${researched ? "bg-info/15 border-info/40 text-info" : "border-border text-muted-foreground opacity-60"}`} onClick={() => launchTerminal("research", agent)}>
-                              <Microscope className="h-3 w-3" /> Research
-                            </Button>
-                            <Button variant="outline" size="sm" className={`h-6 gap-1 text-[11px] ${built ? "bg-warning/15 border-warning/40 text-warning" : "border-border text-muted-foreground opacity-60"}`} onClick={() => launchTerminal("build", agent)}>
-                              <Hammer className="h-3 w-3" /> Build
-                            </Button>
-                            <Button variant="outline" size="sm" className={`h-6 gap-1 text-[11px] ${evaluated ? "bg-success/15 border-success/40 text-success" : "border-border text-muted-foreground opacity-60"}`} onClick={() => launchTerminal("evaluate", agent)}>
-                              <FlaskConical className="h-3 w-3" /> Evaluate
-                            </Button>
-                            {agent.evalPassRate !== null && (
-                              <span className={`text-[10px] font-medium ${agent.evalPassRate >= 70 ? "text-success" : "text-destructive"}`}>
-                                {agent.evalPassRate}%
-                              </span>
-                            )}
-                            {hasFailures && (
-                              <Button variant="outline" size="sm" className="h-6 gap-1 text-[11px] bg-destructive/15 border-destructive/40 text-destructive animate-in fade-in" onClick={() => launchTerminal("fix", agent)}>
-                                <Wrench className="h-3 w-3" /> Fix Failures
-                              </Button>
-                            )}
-                          </>
-                        );
-                      })()}
-                    </div>
-                  </div>
-                ))}
+                      </div>
+                    );
+                  };
+
+                  // Render orchestrators with children grouped under them
+                  const rendered: React.ReactNode[] = [];
+                  for (const orch of orchestrators) {
+                    rendered.push(renderAgentCard(orch, false, "Orchestrator"));
+                    const childIds = orch.childAgentIds ?? [];
+                    for (const cid of childIds) {
+                      const child = agents.find((a) => a.id === cid);
+                      if (child) {
+                        rendered.push(renderAgentCard(child, true, "Specialist"));
+                      }
+                    }
+                  }
+                  // Standalone agents (not orchestrators, not children)
+                  for (const agent of agents) {
+                    if (orchestrators.includes(agent)) continue;
+                    if (childSet.has(agent.id)) continue;
+                    rendered.push(renderAgentCard(agent, false));
+                  }
+                  return rendered;
+                })()}
               </div>
             )}
           </div>
