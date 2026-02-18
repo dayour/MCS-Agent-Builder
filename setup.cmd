@@ -1,0 +1,3 @@
+@echo off
+echo Starting MCS Agent Builder setup...
+powershell -ExecutionPolicy Bypass -File "%~dp0setup.ps1"

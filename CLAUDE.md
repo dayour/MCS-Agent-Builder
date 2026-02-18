@@ -352,8 +352,8 @@ CREATE → UPLOAD → RESEARCH → BUILD → EVALUATE → [FIX]
 | **mcs-eval** | Run eval tests, write results to brief.json | **Evaluate** |
 | **mcs-fix** | Analyze eval failures, apply fixes (instructions/topics/evals), re-evaluate | **Fix Failures** (conditional — appears when eval < 70%) |
 | **mcs-refresh** | Refresh knowledge cache files | None (CLI) |
-| **bug** | File bug reports via `gh` CLI | Sidebar button |
-| **suggest** | File feature suggestions via `gh` CLI | Sidebar button |
+| **bug** | File bug reports via `az` CLI | Sidebar button |
+| **suggest** | File feature suggestions via `az` CLI | Sidebar button |
 
 ---
 
@@ -561,8 +561,8 @@ package.json                # Node dependencies & scripts
 │   ├── mcs-eval/           # Run eval tests → brief.json evalResults
 │   ├── mcs-fix/            # Post-eval fix → re-eval loop
 │   ├── mcs-refresh/        # Refresh knowledge cache
-│   ├── bug/                # File bug reports via gh CLI
-│   └── suggest/            # File feature suggestions via gh CLI
+│   ├── bug/                # File bug reports via az CLI
+│   └── suggest/            # File feature suggestions via az CLI
 └── agents/                 # Agent Teams teammate definitions
     ├── research-analyst.md # MCS capability researcher
     ├── prompt-engineer.md  # Instructions & Custom Prompt specialist

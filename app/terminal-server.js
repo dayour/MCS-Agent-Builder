@@ -84,9 +84,15 @@ wss.on("connection", (ws) => {
   let ptyProc = null;
   let initialized = false;
   let ready = false;
+  let inShell = false; // true when running a plain shell (post-exit)
   let pending = null; // queued command waiting for Claude to be ready
+  let lastCols = 120;
+  let lastRows = 30;
 
   function spawn(cols, rows) {
+    lastCols = cols;
+    lastRows = rows;
+
     try {
       // Spawn Claude Code — native exe, node+cli.js, or PATH fallback
       ptyProc = pty.spawn(CLAUDE.exe, CLAUDE.args, {
@@ -116,18 +122,56 @@ wss.on("connection", (ws) => {
     });
 
     ptyProc.onExit(({ exitCode }) => {
+      ptyProc = null;
+      ready = false;
+
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(`\r\n\x1b[90m[Claude Code exited ${exitCode}]\x1b[0m\r\n`);
+        // Drop into a shell so the user can keep typing
+        spawnShell(lastCols, lastRows);
       }
-      ptyProc = null;
-      initialized = false;
-      ready = false;
     });
 
     // Fallback: if prompt detection misses, mark ready after 6s
     setTimeout(() => {
       if (!ready) { ready = true; flush(); }
     }, 6000);
+  }
+
+  function spawnShell(cols, rows) {
+    const shellExe = os.platform() === "win32" ? "powershell.exe" : (process.env.SHELL || "/bin/bash");
+    const shellArgs = os.platform() === "win32" ? ["-NoLogo"] : [];
+
+    try {
+      ptyProc = pty.spawn(shellExe, shellArgs, {
+        name: "xterm-256color",
+        cols,
+        rows,
+        cwd: BASE_DIR,
+        env: {
+          ...process.env,
+          TERM: "xterm-256color",
+          COLORTERM: "truecolor",
+        },
+      });
+    } catch (err) {
+      ws.send(`\r\n\x1b[31mFailed to start shell: ${err.message}\x1b[0m\r\n`);
+      return;
+    }
+
+    inShell = true;
+    ready = true;
+
+    ptyProc.onData((data) => {
+      if (ws.readyState === WebSocket.OPEN) ws.send(data);
+    });
+
+    ptyProc.onExit(() => {
+      ptyProc = null;
+      inShell = false;
+      initialized = false;
+      ready = false;
+    });
   }
 
   function flush() {
@@ -153,13 +197,18 @@ wss.on("connection", (ws) => {
 
         // Resize
         if (m.type === "resize" && ptyProc) {
-          ptyProc.resize(m.cols || 120, m.rows || 30);
+          lastCols = m.cols || 120;
+          lastRows = m.rows || 30;
+          ptyProc.resize(lastCols, lastRows);
           return;
         }
 
         // Command — type into Claude and press Enter
         if (m.type === "command" && m.text) {
-          if (ptyProc && ready) {
+          if (inShell && ptyProc) {
+            // Plain shell — write text + Enter directly
+            ptyProc.write(m.text + "\r");
+          } else if (ptyProc && ready) {
             submit(m.text);
           } else if (ptyProc) {
             pending = m.text;           // Claude starting, queue it

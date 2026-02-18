@@ -195,6 +195,42 @@ function checkCommand(cmd, name, hint) {
   }
 }
 
+function checkClaudeCode() {
+  // 1. Native installation: ~/.claude-cli/<version>/claude.exe
+  const nativeDir = path.join(os.homedir(), ".claude-cli");
+  if (fs.existsSync(nativeDir)) {
+    try {
+      const versions = fs.readdirSync(nativeDir)
+        .filter(d => fs.statSync(path.join(nativeDir, d)).isDirectory())
+        .sort();
+      if (versions.length > 0) {
+        const latest = versions[versions.length - 1];
+        if (fs.existsSync(path.join(nativeDir, latest, "claude.exe"))) {
+          return true;
+        }
+      }
+    } catch { /* scan failed */ }
+  }
+
+  // 2. npm global installation
+  const npmCli = path.join(
+    os.homedir(), "AppData", "Roaming", "npm",
+    "node_modules", "@anthropic-ai", "claude-code", "cli.js"
+  );
+  if (fs.existsSync(npmCli)) return true;
+
+  // 3. PATH fallback
+  try {
+    execSync(os.platform() === "win32" ? "where claude" : "which claude", {
+      stdio: "ignore",
+      timeout: 5000,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Preflight: auto-install dependencies
 // ---------------------------------------------------------------------------
@@ -213,22 +249,22 @@ function ensureNodeModules() {
 }
 
 function ensurePythonDeps() {
-  // Check if fastapi and uvicorn are importable
+  // Check if fastapi, uvicorn, and markitdown are importable
   try {
-    execSync('python -c "import fastapi; import uvicorn"', {
+    execSync('python -c "import fastapi; import uvicorn; import markitdown"', {
       stdio: "ignore",
       timeout: 15000,
     });
   } catch {
-    warn("Python deps missing — running pip install fastapi uvicorn...");
+    warn("Python deps missing — running pip install...");
     try {
-      execSync("pip install fastapi uvicorn python-multipart", {
+      execSync('pip install fastapi uvicorn python-multipart "markitdown[all]"', {
         stdio: "inherit",
-        timeout: 120000,
+        timeout: 180000,
       });
       log("pip install complete");
     } catch {
-      err("pip install failed. Run manually: pip install fastapi uvicorn python-multipart");
+      err('pip install failed. Run manually: pip install fastapi uvicorn python-multipart "markitdown[all]"');
       process.exit(1);
     }
   }
@@ -244,7 +280,7 @@ function ensureAzDevOps() {
     execSync("az --version", { stdio: "ignore", timeout: 15000 });
   } catch {
     warn("Azure CLI not found — bug/suggest buttons won't work until installed.");
-    warn("Install: https://aka.ms/installazurecli");
+    warn("Run setup.cmd to install, or: https://aka.ms/installazurecli");
     return; // Non-blocking — the rest of the app works fine
   }
 
@@ -328,12 +364,18 @@ console.log("\n\x1b[36m  MCS Agent Builder\x1b[0m\n");
 
 // 1. Check required tools
 const ok = [
-  checkCommand("node --version", "Node.js", "https://nodejs.org"),
-  checkCommand("python --version", "Python", "https://python.org"),
+  checkCommand("node --version", "Node.js", "Run setup.cmd to install"),
+  checkCommand("python --version", "Python", "Run setup.cmd to install"),
 ];
 if (!ok.every(Boolean)) {
-  err("Fix the above issues and try again.");
+  err("Fix the above issues and try again. Run setup.cmd for automatic installation.");
   process.exit(1);
+}
+
+// 1b. Check Claude Code (non-blocking — dashboard works without it)
+if (!checkClaudeCode()) {
+  warn("Claude Code not found — the embedded terminal won't work until installed.");
+  warn("Run setup.cmd or: npm install -g @anthropic-ai/claude-code");
 }
 
 // 2. Auto-update from remote

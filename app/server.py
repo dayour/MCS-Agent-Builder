@@ -124,7 +124,7 @@ def _scan_docs(folder: Path) -> list[dict]:
                     current_hash = _file_sha256(fp)
                     known_hash = manifest_hashes.get(fp.name)
                     in_manifest = known_hash is not None
-                    hash_matches = in_manifest and known_hash == current_hash
+                    hash_matches = in_manifest and known_hash.lower() == current_hash
                     doc_entry["isNew"] = not in_manifest
                     doc_entry["isModified"] = in_manifest and not hash_matches
                 docs.append(doc_entry)
@@ -147,7 +147,7 @@ def _scan_docs(folder: Path) -> list[dict]:
                 current_hash = _file_sha256(fp)
                 known_hash = manifest_hashes.get(fp.name)
                 in_manifest = known_hash is not None
-                hash_matches = in_manifest and known_hash == current_hash
+                hash_matches = in_manifest and known_hash.lower() == current_hash
                 doc_entry["isNew"] = not in_manifest
                 doc_entry["isModified"] = in_manifest and not hash_matches
             docs.append(doc_entry)
@@ -778,7 +778,7 @@ async def doc_status(project_id: str):
                 new_docs.append(fp.name)
             else:
                 current_hash = _file_sha256(fp)
-                if current_hash != entry.get("sha256"):
+                if current_hash != (entry.get("sha256") or "").lower():
                     changed_docs.append(fp.name)
 
     deleted_docs = [
