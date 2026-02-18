@@ -11,13 +11,22 @@ export type { TerminalSession } from "@/types";
 
 // Registry of live WebSocket refs — XTerminal registers on connect, unregisters on unmount.
 const wsRegistry = new Map<string, WebSocket>();
+// Pending commands — queued when sendCommand is called before the WS is open.
+const pendingCommands = new Map<string, string>();
 
 export function registerSessionWs(sessionId: string, ws: WebSocket) {
   wsRegistry.set(sessionId, ws);
+  // Flush any command that was queued before the WS opened
+  const queued = pendingCommands.get(sessionId);
+  if (queued && ws.readyState === WebSocket.OPEN) {
+    pendingCommands.delete(sessionId);
+    ws.send(JSON.stringify({ type: "command", text: queued }));
+  }
 }
 
 export function unregisterSessionWs(sessionId: string) {
   wsRegistry.delete(sessionId);
+  pendingCommands.delete(sessionId);
 }
 
 export function getSessionWs(sessionId: string): WebSocket | undefined {
@@ -124,6 +133,9 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
     const ws = wsRegistry.get(sessionId);
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ type: "command", text: command }));
+    } else {
+      // WS not open yet — queue so it's sent when registerSessionWs fires
+      pendingCommands.set(sessionId, command);
     }
   },
 }));

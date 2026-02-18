@@ -68,16 +68,12 @@ export default function FeedbackDialog({ type, open, onOpenChange }: FeedbackDia
     const skill = isBug ? "/bug" : "/suggest";
     const command = `${skill} ${contextString}`;
 
-    // Open terminal and send command
+    // Open terminal and send command (queued if WS not open yet)
     openOrCreate();
-
-    // Small delay to ensure terminal is ready before sending
-    setTimeout(() => {
-      const sessionId = useTerminalStore.getState().activeSessionId;
-      if (sessionId) {
-        sendCommand(sessionId, command);
-      }
-    }, 300);
+    const sessionId = useTerminalStore.getState().activeSessionId;
+    if (sessionId) {
+      sendCommand(sessionId, command);
+    }
 
     // Reset and close
     setDescription("");

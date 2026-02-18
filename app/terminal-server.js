@@ -114,8 +114,9 @@ wss.on("connection", (ws) => {
     ptyProc.onData((data) => {
       if (ws.readyState === WebSocket.OPEN) ws.send(data);
 
-      // Detect Claude's input prompt to know when it's ready
-      if (!ready && (data.includes("\u276f") || data.includes("/help"))) {
+      // Detect Claude's input prompt to know when it's ready.
+      // Check every chunk (not just the first) so we re-detect after each response.
+      if (!inShell && (data.includes("\u276f") || data.includes("/help"))) {
         ready = true;
         flush();
       }
@@ -191,9 +192,10 @@ wss.on("connection", (ws) => {
 
   function submit(text) {
     if (!ptyProc) return;
+    ready = false; // Mark busy — re-enabled when next prompt appears
     ptyProc.write(text);
     // Small delay then Enter — lets Claude's TUI ingest the text first
-    setTimeout(() => { if (ptyProc) ptyProc.write("\r"); }, 120);
+    setTimeout(() => { if (ptyProc) ptyProc.write("\r"); }, 150);
   }
 
   ws.on("message", (raw) => {
