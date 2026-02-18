@@ -545,9 +545,6 @@ See `knowledge/README.md` for full details.
 ## Project Structure
 
 ```
-.github/
-├── ISSUE_TEMPLATE/         # Bug report, feedback & suggestion templates (3)
-└── CODEOWNERS              # Code ownership rules
 start.js                    # One-command launcher (npm start)
 package.json                # Node dependencies & scripts
 
