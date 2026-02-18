@@ -4,15 +4,15 @@ Automate end-to-end Microsoft Copilot Studio agent builds — from customer inta
 
 ## Quick Start
 
-```bash
+```powershell
 git clone https://dev.azure.com/powercatteam/_git/FDE
 cd FDE
-start.cmd
+.\start.cmd
 ```
 
-That's it. Double-click `start.cmd` (or run it from a terminal). On first run it installs Node.js, Python, Git, Claude Code, and all dependencies via winget — no admin needed. On subsequent runs it detects everything is present and launches instantly (~1 second). Every launch auto-updates from the repo, builds the frontend if needed, and opens your browser.
+That's it. Double-click `start.cmd` or run `.\start.cmd` from a terminal. On first run it installs Node.js, Python, Git, Claude Code, and all dependencies via winget — no admin needed. On subsequent runs it detects everything is present and launches instantly (~1 second). Every launch auto-updates from the repo, builds the frontend if needed, and opens your browser.
 
-Use `start.cmd --full` to force a full dependency check and upgrade pass.
+Use `.\start.cmd --full` to force a full dependency check and upgrade pass.
 
 If you already have Node.js and Python installed, `npm start` still works as a direct launcher.
 
@@ -153,9 +153,9 @@ Both servers bind to `127.0.0.1` (localhost only). No ports are exposed to the n
 
 | Problem | Fix |
 |---------|-----|
-| `start.cmd` fails | Make sure winget is available (built into Windows 11). Try `start.cmd --full` to force a re-check |
-| `npm start` fails | Run `start.cmd` instead — it installs missing dependencies automatically |
-| Bug/Suggest buttons not working | Run `start.cmd --full` to install Azure CLI, or install manually and run `az login` |
+| `start.cmd` fails | Make sure winget is available (built into Windows 11). Try `.\start.cmd --full` to force a re-check |
+| `npm start` fails | Run `.\start.cmd` instead — it installs missing dependencies automatically |
+| Bug/Suggest buttons not working | Run `.\start.cmd --full` to install Azure CLI, or install manually and run `az login` |
 | Dashboard won't load | Check terminal output for errors — both servers must be running |
 | Firewall prompt on startup | Should not happen (localhost-only binding). If it does, you can safely deny it |
 | PAC CLI not working | Ask Claude: "set up PAC CLI auth for me" |
