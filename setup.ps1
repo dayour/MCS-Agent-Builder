@@ -1,9 +1,10 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    MCS Agent Builder — Zero-prereq bootstrap.
-    Installs all dependencies via winget/npm/pip, then launches the dashboard.
-    Safe to re-run: upgrades existing tools, installs missing ones, skips current.
+    MCS Agent Builder - Single entry point.
+    First run: installs all dependencies via winget/npm/pip, then launches.
+    Daily use: detects tools already present, skips straight to launch (~1 sec).
+    Safe to re-run anytime. Use --full to force dependency checks.
 
 .NOTES
     Run via setup.cmd (double-click) or: powershell -ExecutionPolicy Bypass -File setup.ps1
@@ -12,6 +13,7 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Continue'
 $script:ExitCode = 0
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -29,7 +31,6 @@ function Test-Cmd {
 }
 
 function Refresh-Path {
-    # Reload PATH from registry so newly-installed tools are immediately available
     $machinePath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
     $userPath    = [Environment]::GetEnvironmentVariable('Path', 'User')
     $env:Path = "$machinePath;$userPath"
@@ -44,23 +45,20 @@ function Install-Winget {
 
     Write-Step "Checking $DisplayName..."
 
-    # Check if winget is available
     if (-not (Test-Cmd 'winget')) {
         if ($Optional) {
-            Write-Warn "winget not available — skipping $DisplayName (optional)"
+            Write-Warn "winget not available - skipping $DisplayName (optional)"
             return
         }
-        Write-Err "winget not available — cannot install $DisplayName"
+        Write-Err "winget not available - cannot install $DisplayName"
         Write-Err "Install winget from the Microsoft Store (App Installer) and re-run setup.cmd"
         $script:ExitCode = 1
         return
     }
 
-    # Check if already installed
     $listOutput = & winget list --id $PackageId --accept-source-agreements 2>&1 | Out-String
     if ($listOutput -match [regex]::Escape($PackageId)) {
-        # Already installed — try upgrade (no-ops if current)
-        Write-Step "  $DisplayName found — checking for updates..."
+        Write-Step "  $DisplayName found - checking for updates..."
         $upgradeOutput = & winget upgrade --id $PackageId --accept-package-agreements --accept-source-agreements 2>&1 | Out-String
         if ($upgradeOutput -match 'No applicable update found' -or $upgradeOutput -match 'No installed package found') {
             Write-Ok "$DisplayName is up to date"
@@ -68,14 +66,12 @@ function Install-Winget {
             Refresh-Path
             Write-Ok "$DisplayName updated"
         } else {
-            Write-Warn "$DisplayName upgrade returned non-zero — may already be current"
+            Write-Warn "$DisplayName upgrade returned non-zero - may already be current"
         }
     } else {
-        # Not installed — install fresh
         Write-Step "  Installing $DisplayName..."
         $installArgs = @('install', '--id', $PackageId, '--accept-package-agreements', '--accept-source-agreements')
 
-        # Use --scope user when possible (no admin needed), except for packages that require machine scope
         $machineOnly = @('Microsoft.DotNet.SDK.8')
         if ($PackageId -notin $machineOnly) {
             $installArgs += '--scope'
@@ -85,7 +81,7 @@ function Install-Winget {
         & winget @installArgs 2>&1 | Out-String | Write-Host
         if ($LASTEXITCODE -ne 0) {
             if ($Optional) {
-                Write-Warn "Could not install $DisplayName (optional) — continuing"
+                Write-Warn "Could not install $DisplayName (optional) - continuing"
                 return
             }
             Write-Err "Failed to install $DisplayName"
@@ -102,14 +98,45 @@ function Install-Winget {
 # ---------------------------------------------------------------------------
 
 Write-Host ""
-Write-Host "  MCS Agent Builder — Setup" -ForegroundColor Cyan
+Write-Host "  MCS Agent Builder" -ForegroundColor Cyan
 Write-Host ""
 
 # ---------------------------------------------------------------------------
-# Phase 1: Core tools via winget (dependency order)
+# Fast path: if all core tools exist, skip straight to npm start
 # ---------------------------------------------------------------------------
 
-Write-Host ""
+$forceFullSetup = $args -contains '--full'
+
+if (-not $forceFullSetup) {
+    $hasNode   = Test-Cmd 'node'
+    $hasPython = Test-Cmd 'python'
+    $hasGit    = Test-Cmd 'git'
+
+    if ($hasNode -and $hasPython -and $hasGit) {
+        Write-Ok "All tools present - launching..."
+        Write-Host ""
+        Push-Location $scriptDir
+        try {
+            & npm start
+        } finally {
+            Pop-Location
+        }
+        exit $LASTEXITCODE
+    }
+
+    # Something missing - fall through to full setup
+    $missingList = @()
+    if (-not $hasNode)   { $missingList += 'Node.js' }
+    if (-not $hasPython) { $missingList += 'Python' }
+    if (-not $hasGit)    { $missingList += 'Git' }
+    Write-Step "Missing: $($missingList -join ', ') - running first-time setup..."
+    Write-Host ""
+}
+
+# ---------------------------------------------------------------------------
+# Full setup: install everything
+# ---------------------------------------------------------------------------
+
 Write-Host "  Phase 1: Core tools" -ForegroundColor Cyan
 Write-Host "  -------------------"
 
@@ -117,7 +144,6 @@ Install-Winget -PackageId 'Git.Git'            -DisplayName 'Git'
 Install-Winget -PackageId 'OpenJS.NodeJS.LTS'  -DisplayName 'Node.js LTS'
 Install-Winget -PackageId 'Python.Python.3.12' -DisplayName 'Python 3.12'
 
-# Refresh PATH after Phase 1 to pick up node/python/git
 Refresh-Path
 
 # Verify critical tools are now available
@@ -127,14 +153,12 @@ if (-not (Test-Cmd 'python')) { $criticalMissing += 'Python' }
 if (-not (Test-Cmd 'git'))    { $criticalMissing += 'Git' }
 
 if ($criticalMissing.Count -gt 0) {
-    Write-Err "The following critical tools are not available after install: $($criticalMissing -join ', ')"
-    Write-Err "You may need to close and re-open this terminal, then run setup.cmd again."
+    Write-Err "Still missing after install: $($criticalMissing -join ', ')"
+    Write-Err "Close this terminal, re-open, and run setup.cmd again."
     Read-Host "Press Enter to exit"
     exit 1
 }
 
-# ---------------------------------------------------------------------------
-# Phase 2: Claude Code via npm
 # ---------------------------------------------------------------------------
 
 Write-Host ""
@@ -144,7 +168,6 @@ Write-Host "  --------------------"
 Write-Step "Checking Claude Code..."
 $claudeInstalled = $false
 
-# Check native installation
 $claudeCliDir = Join-Path $env:USERPROFILE '.claude-cli'
 if (Test-Path $claudeCliDir) {
     $versions = Get-ChildItem $claudeCliDir -Directory -ErrorAction SilentlyContinue | Sort-Object Name
@@ -157,7 +180,6 @@ if (Test-Path $claudeCliDir) {
     }
 }
 
-# Check npm global installation
 if (-not $claudeInstalled) {
     $npmCli = Join-Path $env:USERPROFILE 'AppData\Roaming\npm\node_modules\@anthropic-ai\claude-code\cli.js'
     if (Test-Path $npmCli) {
@@ -166,7 +188,6 @@ if (-not $claudeInstalled) {
     }
 }
 
-# Check PATH
 if (-not $claudeInstalled -and (Test-Cmd 'claude')) {
     $claudeInstalled = $true
     Write-Ok "Claude Code found (PATH)"
@@ -179,11 +200,10 @@ if (-not $claudeInstalled) {
         Refresh-Path
         Write-Ok "Claude Code installed"
     } else {
-        Write-Warn "Claude Code install failed — dashboard will work but the embedded terminal won't."
-        Write-Warn "Install manually: npm install -g @anthropic-ai/claude-code"
+        Write-Warn "Claude Code install failed - dashboard works but embedded terminal will not."
+        Write-Warn "Install manually later: npm install -g @anthropic-ai/claude-code"
     }
 } else {
-    # Try updating
     Write-Step "Checking for Claude Code updates..."
     & npm update -g @anthropic-ai/claude-code 2>&1 | Out-String | Write-Host
     if ($LASTEXITCODE -eq 0) {
@@ -191,8 +211,6 @@ if (-not $claudeInstalled) {
     }
 }
 
-# ---------------------------------------------------------------------------
-# Phase 3: Python packages via pip
 # ---------------------------------------------------------------------------
 
 Write-Host ""
@@ -225,8 +243,6 @@ if ($missing.Count -eq 0) {
 }
 
 # ---------------------------------------------------------------------------
-# Phase 4: Optional tools
-# ---------------------------------------------------------------------------
 
 Write-Host ""
 Write-Host "  Phase 4: Optional tools" -ForegroundColor Cyan
@@ -236,41 +252,17 @@ Install-Winget -PackageId 'Microsoft.AzureCLI'     -DisplayName 'Azure CLI'     
 Install-Winget -PackageId 'Microsoft.DotNet.SDK.8'  -DisplayName '.NET SDK 8'    -Optional
 
 # ---------------------------------------------------------------------------
-# npm install (project dependencies)
-# ---------------------------------------------------------------------------
-
-Write-Host ""
-Write-Host "  Phase 5: Project dependencies" -ForegroundColor Cyan
-Write-Host "  -----------------------------"
-
-$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-Write-Step "Installing npm packages..."
-Push-Location $scriptDir
-try {
-    & npm install 2>&1 | Out-String | Write-Host
-    if ($LASTEXITCODE -eq 0) {
-        Write-Ok "npm packages installed"
-    } else {
-        Write-Warn "npm install had issues — dashboard may still work"
-    }
-} finally {
-    Pop-Location
-}
-
-# ---------------------------------------------------------------------------
-# Summary & Launch
-# ---------------------------------------------------------------------------
 
 Write-Host ""
 if ($script:ExitCode -ne 0) {
-    Write-Err "Setup completed with errors — check messages above."
+    Write-Err "Setup completed with errors - check messages above."
     Read-Host "Press Enter to exit"
     exit $script:ExitCode
 }
 
 Write-Host "  Setup complete!" -ForegroundColor Green
 Write-Host ""
-Write-Step "Launching MCS Agent Builder..."
+Write-Step "Launching..."
 Write-Host ""
 
 Push-Location $scriptDir
