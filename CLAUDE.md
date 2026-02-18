@@ -4,7 +4,7 @@
 
 Automate Microsoft Copilot Studio (MCS) agent creation using a **hybrid build stack**: PAC CLI for lifecycle operations, Dataverse API for configuration, Code Editor YAML for topics, Direct Line API for testing, and Playwright MCP only for operations that have no API alternative.
 
-**CRITICAL: Never assume components. Research BROADLY first (web, GitHub, MS Learn, community — not just one source), recommend based on requirements.**
+**CRITICAL: Never assume components. Research BROADLY first (web, MS Learn, community — not just one source), recommend based on requirements.**
 
 ---
 
@@ -181,8 +181,8 @@ Before committing to designs that are hard to undo — schema changes, workflow 
 | **Playwright MCP** | MCS UI automation for operations with no API (`@playwright/mcp`) |
 | **WorkIQ MCP** | M365 context: emails, meetings, documents, Teams, people (`workiq mcp`) |
 | **Microsoft Learn MCP** | Official docs, reference, code samples |
-| **WebSearch** | Latest announcements, preview features, community discoveries, GitHub |
-| **WebFetch** | Deep-read blog posts, GitHub READMEs, release notes |
+| **WebSearch** | Latest announcements, preview features, community discoveries |
+| **WebFetch** | Deep-read blog posts, READMEs, release notes |
 
 ---
 
@@ -280,7 +280,7 @@ Research EVERY TIME before recommending components. Do NOT rely on a static list
 **Research sources (use ALL, not just one):**
 - **WebSearch** — latest announcements, blog posts, preview features, community discoveries
 - **MS Learn MCP** — official docs, reference, code samples
-- **GitHub** — repos, issues, discussions, sample projects
+- **Community** — repos, discussions, sample projects, MVP blogs
 - **MCS UI itself** — snapshot the actual UI to see what's available now (tools, models, knowledge types, settings)
 - **Community** — Power Platform community, MVP blogs, X/Twitter from product teams
 
@@ -491,7 +491,7 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 2. Research across ALL sources:
    - WebSearch for the error message + "Copilot Studio"
    - MS Learn MCP for official troubleshooting
-   - GitHub issues for known bugs / workarounds
+   - Community forums for known bugs / workarounds
    - MCS UI snapshot to verify current state
 3. Log significant findings to knowledge/learnings/
 4. Retry with researched approach
@@ -504,7 +504,7 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 1. **Brief is the blueprint** — brief.json drives the build (single source of truth)
 2. **Evals verify quality** — generate from spec, run after build
 3. **Multi-agent first** — decompose into specialists (score objectively)
-4. **Never assume** — research broadly (web + docs + UI + GitHub), present options
+4. **Never assume** — research broadly (web + docs + UI + community), present options
 5. **MVP first** — build what's possible now, plan what's blocked
 6. **Build specialists first** — children before orchestrator
 7. **Verify environment** — every browser session (Preflight Gate)
@@ -513,7 +513,7 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 10. **Fill gaps before building** — incomplete brief → incomplete agent
 11. **Minimize Playwright** — use PAC CLI, Dataverse API, Code Editor YAML, Direct Line first
 12. **MCP over connectors** — prefer MCP servers over individual connector actions
-13. **Research broadly** — use WebSearch, GitHub, MS Learn, and MCS UI snapshots
+13. **Research broadly** — use WebSearch, MS Learn, community sources, and MCS UI snapshots
 14. **API first, browser last** — every Playwright interaction is a fragility risk; prefer API alternatives
 
 ---

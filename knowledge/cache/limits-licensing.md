@@ -219,4 +219,4 @@ refresh_trigger: weekly
 - Watch for throttling quota adjustments
 - Check for Teams plan feature expansion
 - Monitor pay-as-you-go rate changes
-- Tool: [Copilot Studio Agent Usage Estimator](https://microsoft.github.io/copilot-studio-estimator/)
+- Tool: Copilot Studio Agent Usage Estimator (search MS Learn for latest URL)

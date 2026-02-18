@@ -57,31 +57,25 @@ Source: https://learn.microsoft.com/en-us/microsoft-copilot-studio/mcp-microsoft
 |------------|-------------|--------|
 | **Kusto Query** | Run KQL queries against Azure Data Explorer clusters. Schema discovery, natural language to KQL (NL2KQL). Real-time data access. | Preview |
 
-### Category 6: GitHub
-
-| MCP Server | Description | Status |
-|------------|-------------|--------|
-| **GitHub** | Repository management, issues, pull requests, code search. GitHub-provided MCP server. Available to all GitHub users (tool access follows GitHub plan). | GA |
-
-### Category 7: Learn Docs MCP
+### Category 6: Learn Docs MCP
 
 | MCP Server | Description | Status |
 |------------|-------------|--------|
 | **Learn docs MCP** | Search Microsoft Learn documentation, fetch complete articles, search code samples. Free, no auth required. Streamable HTTP transport. Native in Copilot Studio since Aug 2025. | GA |
 
-### Category 8: Box.com
+### Category 7: Box.com
 
 | MCP Server | Description | Status |
 |------------|-------------|--------|
 | **Box.com** | Cloud content management — file access, search, sharing via Box platform. Third-party certified MCP connector. | GA |
 
-### Category 9: Gieni Actions
+### Category 8: Gieni Actions
 
 | MCP Server | Description | Status |
 |------------|-------------|--------|
 | **Gieni Actions for fetching answers** | Third-party MCP connector for fetching answers/insights. ISV-certified connector. | GA |
 
-### Category 10: Microsoft MCP Servers (Agent 365)
+### Category 9: Microsoft MCP Servers (Agent 365)
 
 These are enterprise-grade MCP servers under the Agent 365 umbrella. Require Microsoft 365 Copilot license + Frontier program enrollment for full access.
 
@@ -118,7 +112,7 @@ Alternatives for news/web search capabilities:
 | Timeframe | What Was Added |
 |-----------|---------------|
 | **May 2025** | MCP GA in Copilot Studio. Initial servers: Outlook Mail, Calendar, SharePoint/OneDrive, Teams |
-| **Jul-Aug 2025** | Learn docs MCP added natively (no custom connector needed). GitHub MCP added. |
+| **Jul-Aug 2025** | Learn docs MCP added natively (no custom connector needed). |
 | **Sep 2025** | MCP onboarding wizard, connector certification pipeline |
 | **Oct 2025** | Dynamics 365 Sales MCP (GA). Dynamics 365 ERP MCP (new dynamic version). |
 | **Nov 2025 (Ignite)** | MCP resources support (preview). Dataverse MCP advances. Agent 365 servers expanded (Word, SharePoint Lists, Admin Center, User Profile, M365 Copilot Search). Dynamics 365 Service MCP (new, old deprecated). Fabric MCP. Box.com, Gieni, Kusto added to catalog. MCP Management Server preview. |
@@ -174,5 +168,5 @@ Source: https://learn.microsoft.com/en-us/connectors/salesforce/ (Actions sectio
 - New MCP servers appear in MCS UI before documentation
 - Check "Add tool" → "Model Context Protocol" section for current list
 - The official catalog at learn.microsoft.com/microsoft-copilot-studio/mcp-microsoft-mcp-servers is the authoritative source
-- Search GitHub for community MCP servers for non-M365 systems
+- Search community sources for MCP servers for non-M365 systems
 - Agent 365 tooling servers overview: learn.microsoft.com/microsoft-agent-365/tooling-servers-overview

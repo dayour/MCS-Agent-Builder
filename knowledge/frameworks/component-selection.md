@@ -15,7 +15,7 @@ For each agent capability, ask: **"What's the best way to implement this?"** the
 3. **WebSearch** for the capability + "Copilot Studio" + current year (catch preview/new features)
 4. **MS Learn MCP** for official docs and code samples
 5. **MCS UI snapshot** — browse the actual Add Tool / Add Knowledge / Model picker UI to see what's available RIGHT NOW (preview badges, new entries)
-6. **GitHub search** if relevant (custom connectors, community MCP servers, sample repos)
+6. **Community search** if relevant (custom connectors, community MCP servers, sample repos)
 7. **Update cache** with any new findings
 8. Cross-reference findings across sources — if something shows in the UI but not in docs, it's likely preview. Note it.
 
@@ -32,7 +32,7 @@ These are CATEGORIES of where to look, not a static inventory. Check each cache 
 | AI Builder / AI Tools | — | Does this need prompt actions, extraction, or classification? |
 | Third-Party Connectors | `knowledge/cache/connectors.md` | Is there a premium connector? |
 | Custom Code | — | Is Azure Functions / Custom Connector the only option? |
-| Custom MCP Servers | — | Does a community MCP server exist on GitHub? |
+| Custom MCP Servers | — | Does a community MCP server exist? |
 | Knowledge Sources | `knowledge/cache/knowledge-sources.md` | What data does the agent need to read? |
 | Channels | `knowledge/cache/channels.md` | Where will users interact with this agent? |
 | Agent Settings | — | What auth mode, access control, AI settings? |
