@@ -248,6 +248,7 @@ Write-Host ""
 Write-Host "  Phase 4: Optional tools" -ForegroundColor Cyan
 Write-Host "  -----------------------"
 
+Install-Winget -PackageId 'Microsoft.PowerShell'    -DisplayName 'PowerShell 7'  -Optional
 Install-Winget -PackageId 'Microsoft.AzureCLI'     -DisplayName 'Azure CLI'     -Optional
 Install-Winget -PackageId 'Microsoft.DotNet.SDK.8'  -DisplayName '.NET SDK 8'    -Optional
 

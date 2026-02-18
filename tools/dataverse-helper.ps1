@@ -74,7 +74,10 @@ function Connect-Dataverse {
             Connect-AzAccount | Out-Null
         }
         $secureToken = (Get-AzAccessToken -ResourceUrl $OrgUrl -AsSecureString).Token
-        $token = ConvertFrom-SecureString -SecureString $secureToken -AsPlainText
+        # Convert SecureString to plain text (PS 5.1 compatible — -AsPlainText requires PS 7+)
+        $BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($secureToken)
+        try { $token = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR) }
+        finally { [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($BSTR) }
     }
 
     if (-not $token) {
