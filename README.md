@@ -7,18 +7,18 @@ Automate end-to-end Microsoft Copilot Studio agent builds — from customer inta
 ```bash
 git clone https://dev.azure.com/powercatteam/_git/FDE
 cd FDE
-setup.cmd
+start.cmd
 ```
 
-That's it. Double-click `setup.cmd` (or run it from a terminal). On first run it installs Node.js, Python, Git, Claude Code, and all dependencies via winget — no admin needed. On subsequent runs it detects everything is present and launches instantly (~1 second). Every launch auto-updates from the repo, builds the frontend if needed, and opens your browser.
+That's it. Double-click `start.cmd` (or run it from a terminal). On first run it installs Node.js, Python, Git, Claude Code, and all dependencies via winget — no admin needed. On subsequent runs it detects everything is present and launches instantly (~1 second). Every launch auto-updates from the repo, builds the frontend if needed, and opens your browser.
 
-Use `setup.cmd --full` to force a full dependency check and upgrade pass.
+Use `start.cmd --full` to force a full dependency check and upgrade pass.
 
 If you already have Node.js and Python installed, `npm start` still works as a direct launcher.
 
 ## Prerequisites
 
-**None** — `setup.cmd` installs everything automatically via winget (Windows 11 built-in).
+**None** — `start.cmd` installs everything automatically via winget (Windows 11 built-in).
 
 If you prefer to install manually:
 
@@ -114,9 +114,9 @@ The tool continuously learns and improves:
 ## Project Structure
 
 ```
-setup.cmd                   Double-click entry point (installs deps + launches)
+start.cmd                   Double-click entry point (installs deps + launches)
 setup.ps1                   Bootstrap script (winget/npm/pip)
-start.js                    Launcher (npm start) — called by setup.cmd
+start.js                    Launcher (npm start) — called by start.cmd
 
 .claude/
   settings.json             MCP servers, permissions, Agent Teams flag
@@ -153,9 +153,9 @@ Both servers bind to `127.0.0.1` (localhost only). No ports are exposed to the n
 
 | Problem | Fix |
 |---------|-----|
-| `setup.cmd` fails | Make sure winget is available (built into Windows 11). Try `setup.cmd --full` to force a re-check |
-| `npm start` fails | Run `setup.cmd` instead — it installs missing dependencies automatically |
-| Bug/Suggest buttons not working | Run `setup.cmd --full` to install Azure CLI, or install manually and run `az login` |
+| `start.cmd` fails | Make sure winget is available (built into Windows 11). Try `start.cmd --full` to force a re-check |
+| `npm start` fails | Run `start.cmd` instead — it installs missing dependencies automatically |
+| Bug/Suggest buttons not working | Run `start.cmd --full` to install Azure CLI, or install manually and run `az login` |
 | Dashboard won't load | Check terminal output for errors — both servers must be running |
 | Firewall prompt on startup | Should not happen (localhost-only binding). If it does, you can safely deny it |
 | PAC CLI not working | Ask Claude: "set up PAC CLI auth for me" |

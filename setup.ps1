@@ -7,7 +7,7 @@
     Safe to re-run anytime. Use --full to force dependency checks.
 
 .NOTES
-    Run via setup.cmd (double-click) or: powershell -ExecutionPolicy Bypass -File setup.ps1
+    Run via start.cmd (double-click) or: powershell -ExecutionPolicy Bypass -File setup.ps1
 #>
 
 Set-StrictMode -Version Latest
@@ -51,7 +51,7 @@ function Install-Winget {
             return
         }
         Write-Err "winget not available - cannot install $DisplayName"
-        Write-Err "Install winget from the Microsoft Store (App Installer) and re-run setup.cmd"
+        Write-Err "Install winget from the Microsoft Store (App Installer) and re-run start.cmd"
         $script:ExitCode = 1
         return
     }
@@ -100,6 +100,18 @@ function Install-Winget {
 Write-Host ""
 Write-Host "  MCS Agent Builder" -ForegroundColor Cyan
 Write-Host ""
+
+# ---------------------------------------------------------------------------
+# Agent Teams: ensure env var is set (user-level, persists across sessions)
+# ---------------------------------------------------------------------------
+
+$agentTeamsVar = 'CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS'
+$currentVal = [Environment]::GetEnvironmentVariable($agentTeamsVar, 'User')
+if ($currentVal -ne '1') {
+    [Environment]::SetEnvironmentVariable($agentTeamsVar, '1', 'User')
+    $env:CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = '1'
+    Write-Ok "Agent Teams enabled ($agentTeamsVar=1)"
+}
 
 # ---------------------------------------------------------------------------
 # Fast path: if all core tools exist, skip straight to npm start
@@ -154,7 +166,7 @@ if (-not (Test-Cmd 'git'))    { $criticalMissing += 'Git' }
 
 if ($criticalMissing.Count -gt 0) {
     Write-Err "Still missing after install: $($criticalMissing -join ', ')"
-    Write-Err "Close this terminal, re-open, and run setup.cmd again."
+    Write-Err "Close this terminal, re-open, and run start.cmd again."
     Read-Host "Press Enter to exit"
     exit 1
 }

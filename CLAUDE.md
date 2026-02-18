@@ -545,7 +545,7 @@ See `knowledge/README.md` for full details.
 ## Project Structure
 
 ```
-setup.cmd                   # Double-click entry point (installs deps + launches)
+start.cmd                   # Double-click entry point (installs deps + launches)
 setup.ps1                   # Bootstrap script (winget/npm/pip)
 start.js                    # One-command launcher (npm start)
 package.json                # Node dependencies & scripts

@@ -280,7 +280,7 @@ function ensureAzDevOps() {
     execSync("az --version", { stdio: "ignore", timeout: 15000 });
   } catch {
     warn("Azure CLI not found — bug/suggest buttons won't work until installed.");
-    warn("Run setup.cmd to install, or: https://aka.ms/installazurecli");
+    warn("Run start.cmd to install, or: https://aka.ms/installazurecli");
     return; // Non-blocking — the rest of the app works fine
   }
 
@@ -364,18 +364,18 @@ console.log("\n\x1b[36m  MCS Agent Builder\x1b[0m\n");
 
 // 1. Check required tools
 const ok = [
-  checkCommand("node --version", "Node.js", "Run setup.cmd to install"),
-  checkCommand("python --version", "Python", "Run setup.cmd to install"),
+  checkCommand("node --version", "Node.js", "Run start.cmd to install"),
+  checkCommand("python --version", "Python", "Run start.cmd to install"),
 ];
 if (!ok.every(Boolean)) {
-  err("Fix the above issues and try again. Run setup.cmd for automatic installation.");
+  err("Fix the above issues and try again. Run start.cmd for automatic installation.");
   process.exit(1);
 }
 
 // 1b. Check Claude Code (non-blocking — dashboard works without it)
 if (!checkClaudeCode()) {
   warn("Claude Code not found — the embedded terminal won't work until installed.");
-  warn("Run setup.cmd or: npm install -g @anthropic-ai/claude-code");
+  warn("Run start.cmd or: npm install -g @anthropic-ai/claude-code");
 }
 
 // 2. Auto-update from remote
