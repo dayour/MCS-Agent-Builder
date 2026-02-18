@@ -105,21 +105,6 @@ function autoUpdate() {
     return false;
   }
 
-  // Skip if working tree is dirty (don't clobber user's local changes)
-  try {
-    const status = execSync("git status --porcelain", {
-      encoding: "utf8",
-      cwd: __dirname,
-      timeout: 10000,
-    }).trim();
-    if (status) {
-      warn("Local changes detected — skipping auto-update. Run 'git pull' manually to get latest.");
-      return false;
-    }
-  } catch {
-    return false;
-  }
-
   // Fetch latest from remote
   try {
     log("Checking for updates...");
@@ -149,10 +134,42 @@ function autoUpdate() {
       timeout: 5000,
     }).trim();
 
+    // Stash local changes if working tree is dirty
+    let stashed = false;
+    const status = execSync("git status --porcelain", {
+      encoding: "utf8",
+      cwd: __dirname,
+      timeout: 10000,
+    }).trim();
+    if (status) {
+      try {
+        execSync('git stash push --quiet -m "auto-stash before update"', {
+          cwd: __dirname,
+          stdio: "ignore",
+          timeout: 10000,
+        });
+        stashed = true;
+        log("Stashed local changes.");
+      } catch {
+        warn("Could not stash local changes — skipping update.");
+        return false;
+      }
+    }
+
     // Fast-forward only — never create merge commits
     log(`${behind} new commit(s) available — updating...`);
     execSync("git pull --ff-only", { cwd: __dirname, stdio: "inherit", timeout: 60000 });
     log("Updated to latest version.");
+
+    // Restore stashed changes
+    if (stashed) {
+      try {
+        execSync("git stash pop --quiet", { cwd: __dirname, stdio: "ignore", timeout: 10000 });
+        log("Restored local changes.");
+      } catch {
+        warn("Could not restore local changes — run 'git stash pop' manually.");
+      }
+    }
 
     // Check if frontend files changed (triggers rebuild)
     try {

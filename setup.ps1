@@ -114,6 +114,61 @@ if ($currentVal -ne '1') {
 }
 
 # ---------------------------------------------------------------------------
+# Auto-update: pull latest from remote before anything else
+# ---------------------------------------------------------------------------
+
+if (Test-Cmd 'git') {
+    $gitDir = Join-Path $scriptDir '.git'
+    if (Test-Path $gitDir) {
+        Write-Step "Checking for updates..."
+        try {
+            & git -C $scriptDir fetch --quiet 2>$null
+            $behind = (& git -C $scriptDir rev-list --count 'HEAD..@{upstream}' 2>$null | Out-String).Trim()
+            if ($behind -and $behind -ne '0') {
+                $headBefore = (& git -C $scriptDir rev-parse HEAD 2>$null | Out-String).Trim()
+
+                # Stash local changes so pull can proceed
+                $dirty = (& git -C $scriptDir status --porcelain 2>$null | Out-String).Trim()
+                $stashed = $false
+                if ($dirty) {
+                    & git -C $scriptDir stash push --quiet -m 'auto-stash before update' 2>$null
+                    $stashed = $LASTEXITCODE -eq 0
+                    if ($stashed) { Write-Step "Stashed local changes" }
+                }
+
+                Write-Step "$behind new commit(s) - updating..."
+                & git -C $scriptDir pull --ff-only --quiet 2>$null
+
+                if ($stashed) {
+                    & git -C $scriptDir stash pop --quiet 2>$null
+                    if ($LASTEXITCODE -ne 0) {
+                        Write-Warn "Could not restore local changes - run 'git stash pop' manually"
+                    } else {
+                        Write-Step "Restored local changes"
+                    }
+                }
+
+                Write-Ok "Updated to latest version"
+
+                # Trigger frontend rebuild if frontend files changed
+                try {
+                    $changed = & git -C $scriptDir diff --name-only $headBefore HEAD 2>$null | Out-String
+                    if ($changed -match 'app/frontend/') {
+                        $distIdx = Join-Path $scriptDir 'app\dist\index.html'
+                        if (Test-Path $distIdx) { Remove-Item $distIdx -Force }
+                        Write-Step "Frontend changes detected - will rebuild"
+                    }
+                } catch { }
+            } else {
+                Write-Ok "Already up to date"
+            }
+        } catch {
+            Write-Warn "Could not reach remote - starting with current version"
+        }
+    }
+}
+
+# ---------------------------------------------------------------------------
 # Fast path: if all core tools exist, skip straight to npm start
 # ---------------------------------------------------------------------------
 
@@ -124,25 +179,45 @@ if (-not $forceFullSetup) {
     $hasPython = Test-Cmd 'python'
     $hasGit    = Test-Cmd 'git'
 
-    if ($hasNode -and $hasPython -and $hasGit) {
-        Write-Ok "All tools present - launching..."
-        Write-Host ""
-        Push-Location $scriptDir
+    # Also check Python version — 3.10+ needed for modern type hints
+    $pythonOk = $false
+    $pyVer = ''
+    if ($hasPython) {
         try {
-            & npm start
-        } finally {
-            Pop-Location
-        }
-        exit $LASTEXITCODE
+            $pyVer = (& python -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>$null | Out-String).Trim()
+            if ($pyVer -and [version]$pyVer -ge [version]'3.10') {
+                $pythonOk = $true
+            }
+        } catch { }
     }
 
-    # Something missing - fall through to full setup
-    $missingList = @()
-    if (-not $hasNode)   { $missingList += 'Node.js' }
-    if (-not $hasPython) { $missingList += 'Python' }
-    if (-not $hasGit)    { $missingList += 'Git' }
-    Write-Step "Missing: $($missingList -join ', ') - running first-time setup..."
-    Write-Host ""
+    if ($hasNode -and $hasPython -and $hasGit) {
+        if (-not $pythonOk -and $pyVer) {
+            # Version detected but too old — fall through to full setup to upgrade
+            Write-Warn "Python $pyVer is below 3.10 - running setup to upgrade..."
+            Write-Host ""
+        } else {
+            # All good — version OK or couldn't detect (from __future__ handles older)
+            $verInfo = if ($pyVer) { " (Python $pyVer)" } else { "" }
+            Write-Ok "All tools present$verInfo - launching..."
+            Write-Host ""
+            Push-Location $scriptDir
+            try {
+                & npm start
+            } finally {
+                Pop-Location
+            }
+            exit $LASTEXITCODE
+        }
+    } else {
+        # Something missing - fall through to full setup
+        $missingList = @()
+        if (-not $hasNode)   { $missingList += 'Node.js' }
+        if (-not $hasPython) { $missingList += 'Python' }
+        if (-not $hasGit)    { $missingList += 'Git' }
+        Write-Step "Missing: $($missingList -join ', ') - running first-time setup..."
+        Write-Host ""
+    }
 }
 
 # ---------------------------------------------------------------------------
