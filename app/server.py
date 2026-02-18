@@ -10,6 +10,7 @@ Usage:
     pip install fastapi uvicorn
     python app/server.py
 """
+from __future__ import annotations  # PEP 604 union types on Python <3.10
 
 import asyncio
 import copy

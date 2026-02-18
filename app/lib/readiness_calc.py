@@ -3,6 +3,7 @@
 Used by server.py for the API layer. Single source of truth for
 readiness calculation, stage detection, and project scanning.
 """
+from __future__ import annotations  # PEP 604 union types on Python <3.10
 
 import csv
 import json
