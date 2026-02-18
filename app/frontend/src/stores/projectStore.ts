@@ -68,7 +68,7 @@ function apiDocToDocument(d: ApiDoc): Document {
     uploadedAt: "",
     content: "",
     contentHash: "",
-    changeStatus: d.isNew ? "new" : "processed",
+    changeStatus: d.isModified ? "modified" : d.isNew ? "new" : "processed",
   };
 }
 

@@ -116,11 +116,17 @@ def _scan_docs(folder: Path) -> list[dict]:
                     "filename": fp.name,
                     "size": fp.stat().st_size,
                 }
-                # Annotate newness if manifest exists
-                if manifest is not None:
+                # Annotate newness / modified status
+                if manifest is None:
+                    doc_entry["isNew"] = True
+                    doc_entry["isModified"] = False
+                else:
                     current_hash = _file_sha256(fp)
                     known_hash = manifest_hashes.get(fp.name)
-                    doc_entry["isNew"] = known_hash is None or known_hash != current_hash
+                    in_manifest = known_hash is not None
+                    hash_matches = in_manifest and known_hash == current_hash
+                    doc_entry["isNew"] = not in_manifest
+                    doc_entry["isModified"] = in_manifest and not hash_matches
                 docs.append(doc_entry)
 
     # Also check legacy files in project root (backwards compat)
@@ -776,6 +782,16 @@ async def doc_status(project_id: str):
         "deletedDocs": deleted_docs,
         "needsUpdate": needs_update,
     }
+
+
+@app.delete("/api/projects/{project_id}")
+async def delete_project(project_id: str):
+    """Delete an entire project and all its contents."""
+    folder = BUILD_GUIDES / project_id
+    if not folder.is_dir():
+        raise HTTPException(404, f"Project '{project_id}' not found")
+    shutil.rmtree(str(folder))
+    return {"deleted": True, "project_id": project_id}
 
 
 @app.delete("/api/projects/{project_id}/agents/{agent_id}")

@@ -5,7 +5,7 @@
 import { create } from "zustand";
 import type { Project } from "@/types";
 import type { ApiProject } from "@/types/api";
-import { fetchProjects, createProject as apiCreate } from "@/lib/api";
+import { fetchProjects, createProject as apiCreate, deleteProject as apiDelete } from "@/lib/api";
 
 interface ProjectsStore {
   projects: Project[];
@@ -15,6 +15,8 @@ interface ProjectsStore {
   load: () => Promise<void>;
   /** Create a new project via API. Returns the new project ID. */
   createProject: (name: string) => Promise<string>;
+  /** Delete a project via API. */
+  deleteProject: (id: string) => Promise<void>;
 }
 
 function apiToProject(p: ApiProject): Project {
@@ -59,5 +61,9 @@ export const useProjectsStore = create<ProjectsStore>((set) => ({
     const raw = await fetchProjects();
     set({ projects: raw.map(apiToProject) });
     return result.id;
+  },
+  deleteProject: async (id: string) => {
+    await apiDelete(id);
+    set((s) => ({ projects: s.projects.filter((p) => p.id !== id) }));
   },
 }));

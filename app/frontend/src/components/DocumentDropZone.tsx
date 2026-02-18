@@ -1,9 +1,10 @@
-import { useState, useCallback, useRef } from "react";
-import { Upload, PenLine, FileText, Trash2, Loader2 } from "lucide-react";
+import { useState, useCallback, useRef, useEffect } from "react";
+import { Upload, PenLine, FileText, Trash2, Loader2, Image } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import type { DocChangeStatus } from "@/types";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import type { DocChangeStatus, Document } from "@/types";
 import { useProjectStore } from "@/stores/projectStore";
 import { cn } from "@/lib/utils";
 
@@ -19,13 +20,64 @@ const STATUS_CONFIG: Record<DocChangeStatus, { label: string; className: string 
 
 const ACCEPTED_EXTENSIONS = ".md,.csv,.txt,.json,.png,.jpg,.jpeg,.gif,.webp,.docx,.pdf,.pptx";
 
+function DocumentPreview({ doc, projectId, content }: { doc: Document; projectId: string; content: string }) {
+  if (doc.type === "image") {
+    return (
+      <img
+        src={`/api/projects/${projectId}/docs/${encodeURIComponent(doc.name)}/raw`}
+        alt={doc.name}
+        className="max-w-full rounded"
+      />
+    );
+  }
+
+  if (doc.type === "csv" && content) {
+    const lines = content.trim().split("\n");
+    const headers = lines[0]?.split(",") ?? [];
+    const rows = lines.slice(1).map((l) => l.split(","));
+    return (
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-border">
+              {headers.map((h, i) => (
+                <th key={i} className="px-2 py-1.5 text-left font-semibold text-muted-foreground">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, i) => (
+              <tr key={i} className="border-b border-border/50">
+                {row.map((cell, j) => (
+                  <td key={j} className="px-2 py-1.5 text-foreground">{cell}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
+  if (content) {
+    return (
+      <pre className="text-xs leading-relaxed text-muted-foreground whitespace-pre-wrap font-mono">
+        {content}
+      </pre>
+    );
+  }
+
+  return <p className="text-xs text-muted-foreground">No preview available for this file type.</p>;
+}
+
 const DocumentDropZone = ({ projectId }: DocumentDropZoneProps) => {
-  const { documents, uploadFile, pasteText, removeDocument } = useProjectStore();
+  const { documents, docContent, uploadFile, pasteText, removeDocument } = useProjectStore();
   const [dragOver, setDragOver] = useState(false);
   const [showTextForm, setShowTextForm] = useState(false);
   const [textTitle, setTextTitle] = useState("");
   const [textContent, setTextContent] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFiles = useCallback(async (files: FileList | File[]) => {
@@ -39,6 +91,31 @@ const DocumentDropZone = ({ projectId }: DocumentDropZoneProps) => {
     }
     setUploading(false);
   }, [uploadFile]);
+
+  // Global paste handler — captures Ctrl+V images from clipboard
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      // Don't intercept paste if user is typing in an input/textarea
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+
+      const files: File[] = [];
+      if (e.clipboardData?.items) {
+        for (const item of Array.from(e.clipboardData.items)) {
+          if (item.kind === "file") {
+            const file = item.getAsFile();
+            if (file) files.push(file);
+          }
+        }
+      }
+      if (files.length > 0) {
+        e.preventDefault();
+        handleFiles(files);
+      }
+    };
+    document.addEventListener("paste", handlePaste);
+    return () => document.removeEventListener("paste", handlePaste);
+  }, [handleFiles]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -164,11 +241,16 @@ const DocumentDropZone = ({ projectId }: DocumentDropZoneProps) => {
       <div className="space-y-2">
         {documents.map((doc) => {
           const statusCfg = STATUS_CONFIG[doc.changeStatus];
+          const DocIcon = doc.type === "image" ? Image : FileText;
           return (
-            <div key={doc.id} className="group flex items-center gap-3 rounded-lg border border-border bg-card p-3 transition-all hover:border-primary/30 hover:bg-surface-2">
+            <div
+              key={doc.id}
+              className="group flex items-center gap-3 rounded-lg border border-border bg-card p-3 transition-all cursor-pointer hover:border-primary/30 hover:bg-surface-2"
+              onClick={() => setSelectedDoc(doc)}
+            >
               <div className="flex items-center gap-3 flex-1 min-w-0">
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-surface-3">
-                  <FileText className="h-4 w-4 text-muted-foreground" />
+                  <DocIcon className="h-4 w-4 text-muted-foreground" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
@@ -188,7 +270,7 @@ const DocumentDropZone = ({ projectId }: DocumentDropZoneProps) => {
                 variant="ghost"
                 size="icon"
                 className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-destructive shrink-0"
-                onClick={() => removeDocument(doc.name)}
+                onClick={(e) => { e.stopPropagation(); removeDocument(doc.name); if (selectedDoc?.id === doc.id) setSelectedDoc(null); }}
               >
                 <Trash2 className="h-3 w-3" />
               </Button>
@@ -196,6 +278,25 @@ const DocumentDropZone = ({ projectId }: DocumentDropZoneProps) => {
           );
         })}
       </div>
+
+      {/* Preview modal */}
+      <Dialog open={!!selectedDoc} onOpenChange={(open) => { if (!open) setSelectedDoc(null); }}>
+        <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-medium truncate pr-8">
+              {selectedDoc?.name}
+            </DialogTitle>
+            {selectedDoc && (
+              <p className="text-xs text-muted-foreground">{selectedDoc.size}</p>
+            )}
+          </DialogHeader>
+          <div className="flex-1 overflow-auto min-h-0">
+            {selectedDoc && (
+              <DocumentPreview doc={selectedDoc} projectId={projectId} content={docContent[selectedDoc.id] ?? ""} />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

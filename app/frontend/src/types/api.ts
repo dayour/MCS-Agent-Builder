@@ -51,6 +51,7 @@ export interface ApiDoc {
   filename: string;
   size: number;
   isNew?: boolean;
+  isModified?: boolean;
   location?: string;
 }
 

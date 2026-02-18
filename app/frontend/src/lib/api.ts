@@ -48,6 +48,14 @@ export async function createProject(name: string): Promise<{ id: string; name: s
   });
 }
 
+export async function deleteProject(
+  projectId: string
+): Promise<{ deleted: boolean }> {
+  return request(`/projects/${projectId}`, {
+    method: "DELETE",
+  });
+}
+
 // ─── Agents ───────────────────────────────────────────────────────
 
 export async function fetchAgent(projectId: string, agentId: string): Promise<ApiAgentDetail> {
