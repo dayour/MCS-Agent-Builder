@@ -31,7 +31,9 @@
         "-y",
         "@playwright/mcp@latest",
         "--browser",
-        "msedge"
+        "msedge",
+        "--user-data-dir",
+        "C:\\Users\\kimdennis\\.playwright-mcp-edge"
       ]
     },
     "microsoft-learn": {
