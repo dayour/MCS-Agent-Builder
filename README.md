@@ -10,7 +10,7 @@ cd FDE
 npm start
 ```
 
-That's it. `npm start` installs dependencies, starts the dashboard, and opens your browser. Claude Code handles everything else — account setup, PAC CLI auth, environment selection — through conversation when you first open the terminal.
+That's it. `npm start` auto-updates from the repo, installs dependencies, builds the frontend, and opens your browser. Every launch pulls the latest — no manual `git pull` needed. Claude Code handles everything else — account setup, PAC CLI auth, environment selection — through conversation when you first open the terminal.
 
 ## Prerequisites
 

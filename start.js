@@ -6,6 +6,7 @@
  * opens the browser, and shuts everything down cleanly on exit.
  *
  * Handles:
+ *   - Auto-updating from the remote repo (git pull)
  *   - Killing stale processes on ports 8000/8001
  *   - Auto-installing npm + pip dependencies if missing
  *   - Opening the browser once the dashboard responds
@@ -84,6 +85,99 @@ function killPort(port) {
     }
   } catch {
     // netstat/lsof failed — not critical
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Auto-update: pull latest from remote if possible
+// ---------------------------------------------------------------------------
+
+function autoUpdate() {
+  // Skip if not a git repo
+  if (!fs.existsSync(path.join(__dirname, ".git"))) {
+    return false;
+  }
+
+  // Skip if git isn't available
+  try {
+    execSync("git --version", { stdio: "ignore", timeout: 5000 });
+  } catch {
+    return false;
+  }
+
+  // Skip if working tree is dirty (don't clobber user's local changes)
+  try {
+    const status = execSync("git status --porcelain", {
+      encoding: "utf8",
+      cwd: __dirname,
+      timeout: 10000,
+    }).trim();
+    if (status) {
+      warn("Local changes detected — skipping auto-update. Run 'git pull' manually to get latest.");
+      return false;
+    }
+  } catch {
+    return false;
+  }
+
+  // Fetch latest from remote
+  try {
+    log("Checking for updates...");
+    execSync("git fetch --quiet", { cwd: __dirname, stdio: "ignore", timeout: 30000 });
+  } catch {
+    warn("Could not reach remote — starting with current version.");
+    return false;
+  }
+
+  // Check if we're behind
+  try {
+    const behind = execSync("git rev-list --count HEAD..@{upstream}", {
+      encoding: "utf8",
+      cwd: __dirname,
+      timeout: 5000,
+    }).trim();
+
+    if (behind === "0") {
+      log("Already up to date.");
+      return false;
+    }
+
+    // Record current HEAD to detect what changed
+    const headBefore = execSync("git rev-parse HEAD", {
+      encoding: "utf8",
+      cwd: __dirname,
+      timeout: 5000,
+    }).trim();
+
+    // Fast-forward only — never create merge commits
+    log(`${behind} new commit(s) available — updating...`);
+    execSync("git pull --ff-only", { cwd: __dirname, stdio: "inherit", timeout: 60000 });
+    log("Updated to latest version.");
+
+    // Check if frontend files changed (triggers rebuild)
+    try {
+      const changed = execSync(`git diff --name-only ${headBefore} HEAD`, {
+        encoding: "utf8",
+        cwd: __dirname,
+        timeout: 5000,
+      });
+      if (changed.includes("app/frontend/")) {
+        log("Frontend changes detected — will rebuild.");
+        // Remove dist/index.html so the existing build step (3b) triggers
+        const distIdx = path.join(__dirname, "app", "dist", "index.html");
+        if (fs.existsSync(distIdx)) {
+          fs.unlinkSync(distIdx);
+        }
+      }
+    } catch {
+      // If diff fails, just let the user rebuild manually
+    }
+
+    return true;
+  } catch (e) {
+    warn("Auto-update failed (merge conflict?) — starting with current version.");
+    warn("Run 'git pull' manually to resolve.");
+    return false;
   }
 }
 
@@ -242,15 +336,18 @@ if (!ok.every(Boolean)) {
   process.exit(1);
 }
 
-// 2. Auto-install dependencies
+// 2. Auto-update from remote
+autoUpdate();
+
+// 3. Auto-install dependencies
 ensureNodeModules();
 ensurePythonDeps();
 
-// 3. Install git hooks + ensure az devops
+// 4. Install git hooks + ensure az devops
 ensureGitHooks();
 ensureAzDevOps();
 
-// 3b. Auto-build frontend if dist is missing
+// 5. Auto-build frontend if dist is missing or stale (cleared by auto-update)
 const frontendDir = path.join(__dirname, "app", "frontend");
 const distIndex = path.join(__dirname, "app", "dist", "index.html");
 if (fs.existsSync(path.join(frontendDir, "package.json")) && !fs.existsSync(distIndex)) {
@@ -270,7 +367,7 @@ if (fs.existsSync(path.join(frontendDir, "package.json")) && !fs.existsSync(dist
   }
 }
 
-// 4. Kill anything still holding our ports from a previous run
+// 6. Kill anything still holding our ports from a previous run
 log("Checking for stale processes...");
 killPort(PORT_APP);
 killPort(PORT_TERMINAL);
@@ -281,7 +378,7 @@ while (Date.now() - startTime < 500) {
   // busy-wait for socket release
 }
 
-// 5. Start the dashboard server (it manages terminal-server.js as a sidecar)
+// 7. Start the dashboard server (it manages terminal-server.js as a sidecar)
 //    Use spawn without shell to avoid DEP0190 deprecation warning.
 //    On Windows, resolve python to its full path to avoid needing shell: true.
 let pythonCmd = "python";
@@ -315,7 +412,7 @@ server.on("exit", (code) => {
   process.exit(code || 0);
 });
 
-// 6. Wait for dashboard to respond, then open browser
+// 8. Wait for dashboard to respond, then open browser
 waitForReady(URL)
   .then(() => {
     console.log(
@@ -328,7 +425,7 @@ waitForReady(URL)
     warn(`Dashboard may still be starting. Open manually: ${URL}`);
   });
 
-// 7. Graceful shutdown
+// 9. Graceful shutdown
 function shutdown() {
   console.log("\n\x1b[90m  Shutting down...\x1b[0m");
   try {
