@@ -237,7 +237,7 @@ def scan_agents(project_folder: Path) -> list[dict]:
         brief_file = agent_dir / "brief.json"
         if brief_file.exists():
             try:
-                brief = json.loads(brief_file.read_text(encoding="utf-8"))
+                brief = json.loads(brief_file.read_text(encoding="utf-8-sig"))
             except Exception:
                 pass
 

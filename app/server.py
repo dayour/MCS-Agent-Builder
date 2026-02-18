@@ -80,7 +80,7 @@ def _load_manifest(folder: Path) -> dict | None:
     manifest_path = folder / "doc-manifest.json"
     if manifest_path.exists():
         try:
-            return json.loads(manifest_path.read_text(encoding="utf-8"))
+            return json.loads(manifest_path.read_text(encoding="utf-8-sig"))
         except Exception:
             pass
     return None
@@ -323,7 +323,7 @@ def _scan_agents(folder: Path) -> list[dict]:
             brief = None
             if brief_file.exists():
                 try:
-                    brief = json.loads(brief_file.read_text(encoding="utf-8"))
+                    brief = json.loads(brief_file.read_text(encoding="utf-8-sig"))
                 except Exception:
                     pass
             # Support both v1 (step1) and v2 (agent) schemas
@@ -509,7 +509,7 @@ async def get_agent(project_id: str, agent_id: str):
     brief = None
     if brief_file.exists():
         try:
-            brief = json.loads(brief_file.read_text(encoding="utf-8"))
+            brief = json.loads(brief_file.read_text(encoding="utf-8-sig"))
             # Auto-migrate v1 → v2 on read
             if brief and "step1" in brief and "agent" not in brief:
                 brief = _migrate_brief(brief)
@@ -550,7 +550,7 @@ async def save_agent_state(project_id: str, agent_id: str, request: Request):
     existing = {}
     if state_file.exists():
         try:
-            existing = json.loads(state_file.read_text(encoding="utf-8"))
+            existing = json.loads(state_file.read_text(encoding="utf-8-sig"))
         except Exception:
             pass
 

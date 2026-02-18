@@ -139,8 +139,16 @@ wss.on("connection", (ws) => {
   }
 
   function spawnShell(cols, rows) {
-    const shellExe = os.platform() === "win32" ? "powershell.exe" : (process.env.SHELL || "/bin/bash");
-    const shellArgs = os.platform() === "win32" ? ["-NoLogo"] : [];
+    let shellExe, shellArgs;
+    if (os.platform() === "win32") {
+      // Prefer PowerShell 7 (pwsh) over Windows PowerShell 5.1 (powershell)
+      const pwshPath = path.join(process.env.ProgramFiles || "C:\\Program Files", "PowerShell", "7", "pwsh.exe");
+      shellExe = fs.existsSync(pwshPath) ? pwshPath : "powershell.exe";
+      shellArgs = ["-NoLogo"];
+    } else {
+      shellExe = process.env.SHELL || "/bin/bash";
+      shellArgs = [];
+    }
 
     try {
       ptyProc = pty.spawn(shellExe, shellArgs, {
