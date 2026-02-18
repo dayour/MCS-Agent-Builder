@@ -80,11 +80,11 @@ Each build step uses the best tool, minimizing fragile browser automation:
 
 | Priority | Tool | Handles |
 |----------|------|---------|
-| 1 | **PAC CLI** | Agent create, publish, status, solution export/import |
+| 1 | **PAC CLI** | Agent publish, status, solution export/import |
 | 2 | **Dataverse API** | Instructions, knowledge upload, security settings |
 | 3 | **Code Editor YAML** | Topic authoring, adaptive cards, branching logic |
 | 4 | **Direct Line API** | Evaluation testing (send messages, compare responses) |
-| 5 | **Playwright** | Model selection, tool/connector addition, OAuth (last resort) |
+| 5 | **Playwright** | Agent creation, model selection, tool/connector addition, OAuth (last resort) |
 
 ## Agent Teams
 

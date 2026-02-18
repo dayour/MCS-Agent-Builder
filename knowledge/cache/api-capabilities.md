@@ -24,6 +24,7 @@ Tools: `read_query` (20-row limit), `create_record`, `update_record`, `delete_re
 ## Layer 2: PAC CLI
 
 **MSI** (Bash): `pac copilot list/create/publish/status/extract-template`, `pac solution export/import`
+> **Note:** `pac copilot create` requires an undocumented template YAML (topics/instructions only, ~30% of config). Prefer MCS UI creation via Playwright for full-featured agents.
 **MCP** (dnx, 52 tools): `copilot_publish`, `env_fetch` (FetchXML, no row limit), `solution_*`, `auth_*`
 
 **Not in PAC CLI MCP**: copilot list/create/status/extract-template — use Bash.

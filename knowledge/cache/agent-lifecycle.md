@@ -11,7 +11,7 @@ refresh_trigger: weekly
 | Method | Native MCS? | Captures Tools/Knowledge/Model? |
 |--------|------------|--------------------------------|
 | MCS UI | Yes | Yes (full) |
-| PAC CLI (`pac copilot create`) | Yes | **No** — topics/instructions only |
+| PAC CLI (`pac copilot create`) | Yes | **No** — topics/instructions only. Template format undocumented. **Prefer Playwright for creation.** PAC CLI template-based creation is a fallback for environments where browser is unavailable. |
 | VS Code Extension (GA) | Yes | Yes (full YAML clone) |
 | Agent Builder (M365) | Yes (limited) | Limited |
 | M365 Agents SDK | No — external | N/A |

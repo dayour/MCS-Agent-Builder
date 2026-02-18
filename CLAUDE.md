@@ -77,11 +77,11 @@ Is this correct? Please confirm before I proceed.
 
 | Priority | Tool | Use For |
 |----------|------|---------|
-| 1 | **PAC CLI** | Agent creation, publishing, status checks, solution export/import, listing agents |
+| 1 | **PAC CLI** | Agent publishing, status checks, solution export/import, listing agents |
 | 2 | **Dataverse API** | Instructions update, knowledge file upload, security settings, agent deletion |
 | 3 | **Code Editor YAML** | Topic authoring, adaptive cards, branching logic, trigger phrases |
 | 4 | **Direct Line API** | Evaluation / testing (send messages, compare responses) |
-| 5 | **Playwright MCP** | Model selection (always latest), tool/connector addition, OAuth connections, child agent connection, generative AI settings, MCS-only UI operations |
+| 5 | **Playwright MCP** | Agent creation, model selection (always latest), tool/connector addition, OAuth connections, child agent connection, generative AI settings, MCS-only UI operations |
 
 **Detailed capabilities per layer:** See `knowledge/cache/api-capabilities.md`
 **Decision flow and build phase mapping:** See `knowledge/frameworks/tool-priority.md`
@@ -174,7 +174,7 @@ Before committing to designs that are hard to undo — schema changes, workflow 
 
 | Tool | Purpose |
 |------|---------|
-| **PAC CLI** | Agent lifecycle: create, publish, list, status, solution ALM (`pac copilot`, `pac solution`) |
+| **PAC CLI** | Agent lifecycle: publish, list, status, solution ALM (`pac copilot`, `pac solution`) |
 | **Dataverse API** | Agent config: instructions, knowledge, settings, publish (via HTTP/PowerShell) |
 | **Code Editor YAML** | Topic authoring: conversations, cards, branching (paste into MCS code editor) |
 | **Direct Line API** | Agent testing: send messages, compare responses (`tools/direct-line-test.js`) |
@@ -414,7 +414,7 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 - `Single Agent` → standalone build (PAC CLI + Dataverse + Playwright + YAML)
 - `Multi-Agent` → specialists first, then orchestrator with child connections
 
-**Build steps:** Account Gate → Cache Check → Scaffold (PAC CLI) → Instructions & Knowledge (Dataverse API) → Tools (Playwright) → Topics (Code Editor YAML) → Publish (PAC CLI) → Reconciliation → `build-report.md` → Learnings Capture → Update brief.json buildStatus
+**Build steps:** Account Gate → Cache Check → Create Agent (Playwright) → Instructions & Knowledge (Dataverse API) → Tools (Playwright) → Topics (Code Editor YAML) → Publish (PAC CLI) → Reconciliation → `build-report.md` → Learnings Capture → Update brief.json buildStatus
 
 **On-demand teammates:** Research Analyst (when tool configuration hits issues) and Prompt Engineer (when instructions need adjustment for actual tool names)
 
@@ -630,7 +630,7 @@ Build-Guides/[Project]/     # Per-project work (gitignored)
 # List agents
 pac copilot list
 
-# Create from template
+# Create from template (fallback — prefer Playwright for creation)
 pac copilot create --displayName "Name" --schemaName "cr_name" --solution "SolutionName" --templateFileName template.yaml
 
 # Publish

@@ -174,24 +174,24 @@ In addition to Topic Engineer (YAML authoring, Step 4) and QA Challenger (review
 3. If environments don't match: plan browser-based operations
 4. Log verified environment
 
-### Step 1: Scaffold Agent (PAC CLI — no browser)
+### Step 1: Create Agent (Playwright — Preflight Gate required)
 
-**Try PAC CLI first. Fall back to Playwright only if no template exists.**
+**Create agent via Playwright.** PAC CLI `create` requires an undocumented template YAML that only captures ~30% of config (topics/instructions — not tools, knowledge, or model). Since Playwright is already required for tools + model, using it for creation eliminates the template dependency.
 
-```powershell
-# Option A: From template (preferred)
-pac copilot create --displayName "[Agent Name]" --schemaName "cr_[schema]" --solution "DefaultSolution" --templateFileName template.yaml
-
-# Option B: Via Playwright (fallback)
-# Run Preflight Gate → Create → New agent → Skip to configure → set Name + Description → Create
-```
+1. **Run MCS Preflight Gate** (see Step 3 for full gate procedure)
+2. Navigate to MCS home → **Create** → **New agent** → **Skip to configure**
+3. Set **Name** and **Description** from brief.json
+4. Set icon if specified in brief.json
+5. Click **Create**
 
 After creation, capture bot ID:
 ```powershell
 pac copilot list
 ```
 
-**VERIFY:** Agent exists in `pac copilot list` or MCS UI snapshot.
+**Fallback:** If browser is unavailable, use `pac copilot create --displayName "Name" --schemaName "cr_name" --solution "DefaultSolution" --templateFileName template.yaml` (requires extracting a template from an existing agent first).
+
+**VERIFY:** Agent exists in MCS UI snapshot and `pac copilot list`.
 
 ### Step 2: Configure Instructions & Knowledge (Dataverse API — no browser)
 
@@ -284,17 +284,17 @@ pac copilot status --bot-id <bot-id>
 **Specialists first, then orchestrator:**
 
 1. For each specialist agent defined in the spec:
-   a. Create agent (PAC CLI or Playwright)
+   a. Create agent via Playwright (Preflight Gate required)
    b. Set instructions (Dataverse API) — specialist-focused, with scope limits
    c. Add knowledge (Dataverse API)
-   d. Add tools/model (Playwright) — run Preflight Gate once, reuse session
+   d. Add tools/model (Playwright) — reuse session from creation
    e. Enable "Allow other agents to connect" (Playwright → Settings → Security)
    f. Author topics (Code Editor YAML)
    g. Publish (PAC CLI)
    h. **VERIFY:** All items above confirmed
 
 2. Build orchestrator:
-   a. Create orchestrator (PAC CLI or Playwright)
+   a. Create orchestrator via Playwright (Preflight Gate required)
    b. Set instructions with routing rules (Dataverse API):
       ```
       ## Connected Specialists

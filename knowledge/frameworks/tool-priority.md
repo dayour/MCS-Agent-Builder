@@ -4,11 +4,11 @@
 
 | Priority | Tool | Use For |
 |----------|------|---------|
-| 1 | **PAC CLI** | Agent creation, publishing, status checks, solution export/import |
+| 1 | **PAC CLI** | Agent publishing, status checks, solution export/import |
 | 2 | **Dataverse API** | Instructions update, knowledge file upload, security settings |
 | 3 | **Code Editor YAML** | Topic authoring, adaptive cards, branching logic, trigger phrases |
 | 4 | **Direct Line API** | Evaluation / testing (send messages, compare responses) |
-| 5 | **Playwright MCP** | Model selection, tool/connector addition, OAuth connections, child agent connection, generative AI settings |
+| 5 | **Playwright MCP** | Agent creation, model selection, tool/connector addition, OAuth connections, child agent connection, generative AI settings |
 
 ## Decision Flow
 
@@ -33,7 +33,7 @@ See `knowledge/cache/api-capabilities.md` for the full breakdown of what each la
 
 | Build Phase | Primary Tool | Fallback |
 |-------------|-------------|----------|
-| Create agent | PAC CLI (`pac copilot create`) | Playwright |
+| Create agent | Playwright (MCS UI) | PAC CLI (`pac copilot create` — requires template) |
 | Set instructions | Dataverse API (PATCH botcomponent type 15) | Playwright |
 | Upload knowledge | Dataverse API (POST botcomponent type 16) | Playwright |
 | Select model | Playwright (no API) | — |
