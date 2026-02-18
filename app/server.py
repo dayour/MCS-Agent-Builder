@@ -130,13 +130,27 @@ def _scan_docs(folder: Path) -> list[dict]:
                 docs.append(doc_entry)
 
     # Also check legacy files in project root (backwards compat)
+    # Skip known non-doc files (demo scripts, logs, manifests, etc.)
+    root_skip = {"doc-manifest", "build-log", "demo-script", "customer-context"}
     for fp in sorted(folder.glob("*.md")) + sorted(folder.glob("*.csv")):
-        if fp.parent == folder and not fp.name.startswith("build-log"):
-            docs.append({
+        if fp.parent == folder and fp.stem.lower() not in root_skip:
+            doc_entry = {
                 "key": fp.stem.replace("-", "_").replace(" ", "_").lower(),
                 "filename": fp.name,
                 "location": "root",  # legacy
-            })
+                "size": fp.stat().st_size,
+            }
+            if manifest is None:
+                doc_entry["isNew"] = True
+                doc_entry["isModified"] = False
+            else:
+                current_hash = _file_sha256(fp)
+                known_hash = manifest_hashes.get(fp.name)
+                in_manifest = known_hash is not None
+                hash_matches = in_manifest and known_hash == current_hash
+                doc_entry["isNew"] = not in_manifest
+                doc_entry["isModified"] = in_manifest and not hash_matches
+            docs.append(doc_entry)
     return docs
 
 
