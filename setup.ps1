@@ -179,7 +179,18 @@ if (-not $forceFullSetup) {
     $hasPython = Test-Cmd 'python'
     $hasGit    = Test-Cmd 'git'
 
-    # Also check Python version — 3.10+ needed for modern type hints
+    # Check Node.js version — 18+ required
+    $nodeOk = $false
+    $nodeVer = ''
+    if ($hasNode) {
+        try {
+            $nodeVer = (& node -e "console.log(process.versions.node)" 2>$null | Out-String).Trim()
+            $nodeMajor = [int]($nodeVer -split '\.')[0]
+            if ($nodeMajor -ge 18) { $nodeOk = $true }
+        } catch { }
+    }
+
+    # Check Python version — 3.10+ needed for modern type hints
     $pythonOk = $false
     $pyVer = ''
     if ($hasPython) {
@@ -192,13 +203,21 @@ if (-not $forceFullSetup) {
     }
 
     if ($hasNode -and $hasPython -and $hasGit) {
-        if (-not $pythonOk -and $pyVer) {
-            # Version detected but too old — fall through to full setup to upgrade
-            Write-Warn "Python $pyVer is below 3.10 - running setup to upgrade..."
+        # Collect version issues
+        $versionIssues = @()
+        if (-not $nodeOk -and $nodeVer) { $versionIssues += "Node.js $nodeVer (need 18+)" }
+        if (-not $pythonOk -and $pyVer) { $versionIssues += "Python $pyVer (need 3.10+)" }
+
+        if ($versionIssues.Count -gt 0) {
+            # Versions too old — fall through to full setup to upgrade
+            Write-Warn "Outdated: $($versionIssues -join ', ') - running setup to upgrade..."
             Write-Host ""
         } else {
-            # All good — version OK or couldn't detect (from __future__ handles older)
-            $verInfo = if ($pyVer) { " (Python $pyVer)" } else { "" }
+            # All good — versions OK or couldn't detect
+            $verParts = @()
+            if ($nodeVer) { $verParts += "Node $nodeVer" }
+            if ($pyVer)   { $verParts += "Python $pyVer" }
+            $verInfo = if ($verParts.Count -gt 0) { " ($($verParts -join ', '))" } else { "" }
             Write-Ok "All tools present$verInfo - launching..."
             Write-Host ""
             Push-Location $scriptDir

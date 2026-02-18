@@ -25,6 +25,13 @@ const PORT_APP = 8000;
 const PORT_TERMINAL = 8001;
 const URL = `http://localhost:${PORT_APP}`;
 
+// Minimum required versions
+const MIN_NODE = 18;
+const MIN_PYTHON = [3, 10];
+
+// Flags set by autoUpdate when pulled commits change dependency files
+let depsChanged = { npm: false, pip: false, frontend: false };
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -171,16 +178,27 @@ function autoUpdate() {
       }
     }
 
-    // Check if frontend files changed (triggers rebuild)
+    // Detect which dependency files changed — triggers targeted reinstall
     try {
       const changed = execSync(`git diff --name-only ${headBefore} HEAD`, {
         encoding: "utf8",
         cwd: __dirname,
         timeout: 5000,
       });
+      if (/^package\.json$/m.test(changed) || /^package-lock\.json$/m.test(changed)) {
+        depsChanged.npm = true;
+        log("Root dependencies changed — will reinstall.");
+      }
+      if (changed.includes("requirements.txt")) {
+        depsChanged.pip = true;
+        log("Python dependencies changed — will reinstall.");
+      }
+      if (changed.includes("app/frontend/package.json") || changed.includes("app/frontend/package-lock.json")) {
+        depsChanged.frontend = true;
+      }
       if (changed.includes("app/frontend/")) {
         log("Frontend changes detected — will rebuild.");
-        // Remove dist/index.html so the existing build step (3b) triggers
+        // Remove dist/index.html so the existing build step triggers
         const distIdx = path.join(__dirname, "app", "dist", "index.html");
         if (fs.existsSync(distIdx)) {
           fs.unlinkSync(distIdx);
@@ -253,10 +271,11 @@ function checkClaudeCode() {
 // ---------------------------------------------------------------------------
 
 function ensureNodeModules() {
-  if (!fs.existsSync(path.join(__dirname, "node_modules"))) {
-    warn("node_modules not found — running npm install...");
+  const missing = !fs.existsSync(path.join(__dirname, "node_modules"));
+  if (missing || depsChanged.npm) {
+    log(missing ? "node_modules not found — running npm install..." : "package.json changed — running npm install...");
     try {
-      execSync("npm install", { stdio: "inherit", cwd: __dirname });
+      execSync("npm install", { stdio: "inherit", cwd: __dirname, timeout: 120000 });
       log("npm install complete");
     } catch {
       err("npm install failed");
@@ -266,14 +285,18 @@ function ensureNodeModules() {
 }
 
 function ensurePythonDeps() {
-  // Check if fastapi, uvicorn, and markitdown are importable
+  // Check if core packages are importable
+  let installed = false;
   try {
     execSync('python -c "import fastapi; import uvicorn; import markitdown"', {
       stdio: "ignore",
       timeout: 15000,
     });
-  } catch {
-    warn("Python deps missing — running pip install...");
+    installed = true;
+  } catch {}
+
+  if (!installed || depsChanged.pip) {
+    log(!installed ? "Python deps missing — running pip install..." : "requirements.txt changed — running pip install...");
     try {
       execSync('pip install fastapi uvicorn python-multipart "markitdown[all]"', {
         stdio: "inherit",
@@ -379,7 +402,7 @@ function openBrowser(url) {
 
 console.log("\n\x1b[36m  MCS Agent Builder\x1b[0m\n");
 
-// 1. Check required tools
+// 1. Check required tools + versions
 const ok = [
   checkCommand("node --version", "Node.js", "Run start.cmd to install"),
   checkCommand("python --version", "Python", "Run start.cmd to install"),
@@ -389,7 +412,28 @@ if (!ok.every(Boolean)) {
   process.exit(1);
 }
 
-// 1b. Check Claude Code (non-blocking — dashboard works without it)
+// 1a. Verify Node.js version
+const nodeMajor = parseInt(process.versions.node.split(".")[0], 10);
+if (nodeMajor < MIN_NODE) {
+  err(`Node.js ${process.versions.node} is too old — ${MIN_NODE}+ required. Run start.cmd to upgrade.`);
+  process.exit(1);
+}
+
+// 1b. Verify Python version
+try {
+  const pyVer = execSync('python -c "import sys; print(sys.version_info.major, sys.version_info.minor)"', {
+    encoding: "utf8",
+    timeout: 10000,
+  }).trim().split(" ").map(Number);
+  if (pyVer[0] < MIN_PYTHON[0] || (pyVer[0] === MIN_PYTHON[0] && pyVer[1] < MIN_PYTHON[1])) {
+    err(`Python ${pyVer.join(".")} is too old — ${MIN_PYTHON.join(".")}+ required. Run start.cmd to upgrade.`);
+    process.exit(1);
+  }
+} catch {
+  warn("Could not determine Python version — continuing.");
+}
+
+// 1c. Check Claude Code (non-blocking — dashboard works without it)
 if (!checkClaudeCode()) {
   warn("Claude Code not found — the embedded terminal won't work until installed.");
   warn("Run start.cmd or: npm install -g @anthropic-ai/claude-code");
@@ -411,7 +455,8 @@ const frontendDir = path.join(__dirname, "app", "frontend");
 const distIndex = path.join(__dirname, "app", "dist", "index.html");
 if (fs.existsSync(path.join(frontendDir, "package.json")) && !fs.existsSync(distIndex)) {
   log("Frontend not built — building app/frontend...");
-  if (!fs.existsSync(path.join(frontendDir, "node_modules"))) {
+  if (!fs.existsSync(path.join(frontendDir, "node_modules")) || depsChanged.frontend) {
+    log(depsChanged.frontend ? "Frontend deps changed — reinstalling..." : "Installing frontend deps...");
     try {
       execSync("npm install", { stdio: "inherit", cwd: frontendDir, timeout: 120000 });
     } catch {
