@@ -141,6 +141,34 @@ function ensurePythonDeps() {
 }
 
 // ---------------------------------------------------------------------------
+// Preflight: ensure Azure CLI + DevOps extension (for bug/suggest skills)
+// ---------------------------------------------------------------------------
+
+function ensureAzDevOps() {
+  // Check if az CLI is available
+  try {
+    execSync("az --version", { stdio: "ignore", timeout: 15000 });
+  } catch {
+    warn("Azure CLI not found — bug/suggest buttons won't work until installed.");
+    warn("Install: https://aka.ms/installazurecli");
+    return; // Non-blocking — the rest of the app works fine
+  }
+
+  // Check if azure-devops extension is installed
+  try {
+    execSync("az extension show --name azure-devops", { stdio: "ignore", timeout: 15000 });
+  } catch {
+    log("Installing Azure DevOps CLI extension...");
+    try {
+      execSync("az extension add --name azure-devops", { stdio: "inherit", timeout: 120000 });
+      log("Azure DevOps extension installed");
+    } catch {
+      warn("Could not install azure-devops extension — run manually: az extension add --name azure-devops");
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Preflight: install git hooks for core file protection
 // ---------------------------------------------------------------------------
 
@@ -218,8 +246,9 @@ if (!ok.every(Boolean)) {
 ensureNodeModules();
 ensurePythonDeps();
 
-// 3. Install git hooks
+// 3. Install git hooks + ensure az devops
 ensureGitHooks();
+ensureAzDevOps();
 
 // 3b. Auto-build frontend if dist is missing
 const frontendDir = path.join(__dirname, "app", "frontend");

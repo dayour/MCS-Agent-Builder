@@ -1,9 +1,10 @@
+import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { FolderOpen, ChevronRight, Bug, Lightbulb, Terminal } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
 import { useTerminalStore } from "@/stores/terminalStore";
+import FeedbackDialog from "@/components/FeedbackDialog";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -13,6 +14,8 @@ interface LayoutProps {
 const Layout = ({ children, breadcrumbs }: LayoutProps) => {
   const location = useLocation();
   const { panelOpen, panelWidth, setPanelOpen, sessions } = useTerminalStore();
+  const [feedbackType, setFeedbackType] = useState<"bug" | "suggestion">("bug");
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-background">
@@ -47,7 +50,7 @@ const Layout = ({ children, breadcrumbs }: LayoutProps) => {
               variant="ghost"
               size="sm"
               className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-destructive"
-              onClick={() => toast.info("Bug report form coming soon!")}
+              onClick={() => { setFeedbackType("bug"); setFeedbackOpen(true); }}
             >
               <Bug className="h-3.5 w-3.5" /> Bug
             </Button>
@@ -55,7 +58,7 @@ const Layout = ({ children, breadcrumbs }: LayoutProps) => {
               variant="ghost"
               size="sm"
               className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-warning"
-              onClick={() => toast.info("Suggestion form coming soon!")}
+              onClick={() => { setFeedbackType("suggestion"); setFeedbackOpen(true); }}
             >
               <Lightbulb className="h-3.5 w-3.5" /> Suggest
             </Button>
@@ -84,6 +87,8 @@ const Layout = ({ children, breadcrumbs }: LayoutProps) => {
       >
         {children}
       </main>
+
+      <FeedbackDialog type={feedbackType} open={feedbackOpen} onOpenChange={setFeedbackOpen} />
     </div>
   );
 };

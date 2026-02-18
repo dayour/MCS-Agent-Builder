@@ -20,6 +20,7 @@ That's it. `npm start` installs dependencies, starts the dashboard, and opens yo
 | **Python 3.10+** | Backend API |
 | **Claude Code** | AI agent that runs the builds (org-provided) |
 | **PAC CLI** | Power Platform operations (Claude will auth for you) |
+| **Azure CLI** | Bug/suggest work item creation (`npm start` auto-installs the DevOps extension) |
 | **Microsoft Account** | Access to Copilot Studio |
 
 ## How It Works
@@ -143,6 +144,7 @@ Both servers bind to `127.0.0.1` (localhost only). No ports are exposed to the n
 | Problem | Fix |
 |---------|-----|
 | `npm start` fails | Make sure Node.js 18+ and Python 3.10+ are installed |
+| Bug/Suggest buttons not working | Install Azure CLI (`https://aka.ms/installazurecli`) and run `az login` |
 | Dashboard won't load | Check terminal output for errors — both servers must be running |
 | Firewall prompt on startup | Should not happen (localhost-only binding). If it does, you can safely deny it |
 | PAC CLI not working | Ask Claude: "set up PAC CLI auth for me" |
@@ -151,7 +153,7 @@ Both servers bind to `127.0.0.1` (localhost only). No ports are exposed to the n
 
 ## Feedback
 
-Found a bug or have a suggestion? Use the **Feedback** button in the dashboard sidebar, or file an issue directly in the [ADO repo](https://dev.azure.com/powercatteam/_git/FDE).
+Found a bug or have a suggestion? Click the **Bug** or **Suggest** buttons in the dashboard header. A dialog collects your description, auto-gathers context (project, agent, page), and routes to Claude in the terminal — who creates an ADO work item for you. You can also file work items directly in the [ADO repo](https://dev.azure.com/powercatteam/_git/FDE).
 
 ## License
 
