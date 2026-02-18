@@ -1,31 +1,23 @@
-#!/usr/bin/env python3
-"""MCS Engagement Hub — Dashboard Data Generator
+"""Shared readiness calculation and project-scanning utilities.
 
-Scans Build-Guides/ folders, reads agent brief.json files, and outputs
-dashboard-data.js for the dashboard.html to consume.
-
-Usage: python app/generate-data.py
+Used by server.py for the API layer. Single source of truth for
+readiness calculation, stage detection, and project scanning.
 """
 
-import json
-import os
-import re
 import csv
-from datetime import datetime
+import json
+import re
 from pathlib import Path
 
-SCRIPT_DIR = Path(__file__).parent
-BASE_DIR = SCRIPT_DIR.parent
-BUILD_GUIDES = BASE_DIR / "Build-Guides"
-OUTPUT_FILE = BASE_DIR / "dashboard-data.js"
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
 
-# Project-root level files (legacy + current)
 PROJECT_FILE_MAP = {
     "sdr_raw": "sdr-raw.md",
     "customer_context": "customer-context.md",
 }
 
-# Per-agent files (inside agents/{name}/)
 AGENT_FILE_MAP = {
     "brief": "brief.json",
     "evals_csv": "evals.csv",
@@ -40,7 +32,7 @@ SKIP_FOLDERS = {"topics", ".git", "__pycache__", "node_modules"}
 # Helpers
 # ---------------------------------------------------------------------------
 
-def humanize_name(folder_name):
+def humanize_name(folder_name: str) -> str:
     """Convert folder name to display name."""
     overrides = {
         "CDW": "CDW",
@@ -54,168 +46,20 @@ def humanize_name(folder_name):
     return name.title()
 
 
-def _is_v2(brief):
+def _is_v2(brief: dict) -> bool:
     """Check if brief uses v2 schema (named sections) vs v1 (step1-4)."""
     return brief.get("_schema") == "2.0" or "agent" in brief
 
 
-def determine_stage(agents):
-    """Determine the furthest pipeline stage from agent data.
-
-    Stage progression: discovery → context → research → build → eval → deployed
-    Supports both v1 (step1-4) and v2 (named sections) brief schemas.
-    """
-    if not agents:
-        return "discovery"
-
-    best_stage = "discovery"
-    stage_order = ["discovery", "context", "research", "build", "eval", "deployed"]
-
-    for agent in agents:
-        brief = agent.get("_brief")
-        if not brief:
-            continue
-
-        # Check eval results
-        eval_results = brief.get("evalResults", {})
-        if eval_results.get("lastRun"):
-            agent_stage = "eval"
-        # Check build status
-        elif brief.get("buildStatus", {}).get("status") in ("published", "in_progress"):
-            agent_stage = "build"
-        # Check if fully researched (has instructions + architecture)
-        elif _is_v2(brief):
-            arch = brief.get("architecture", {})
-            if brief.get("instructions") and arch.get("type"):
-                agent_stage = "research"
-            elif brief.get("business", {}).get("problemStatement") or brief.get("agent", {}).get("name"):
-                agent_stage = "context"
-            else:
-                agent_stage = "discovery"
-        else:
-            # v1 fallback
-            if brief.get("instructions") and brief.get("step4", {}).get("architectureRecommendation"):
-                agent_stage = "research"
-            elif brief.get("step1", {}).get("problem"):
-                agent_stage = "context"
-            else:
-                agent_stage = "discovery"
-
-        if stage_order.index(agent_stage) > stage_order.index(best_stage):
-            best_stage = agent_stage
-
-    return best_stage
-
-
-def count_csv_rows(filepath):
-    try:
-        with open(filepath, "r", encoding="utf-8") as f:
-            reader = csv.reader(f)
-            next(reader, None)
-            return sum(1 for _ in reader)
-    except Exception:
-        return 0
-
-
 # ---------------------------------------------------------------------------
-# Agent scanning (from agents/ subfolders)
+# Readiness calculation
 # ---------------------------------------------------------------------------
 
-def scan_agents(project_folder):
-    """Scan agents/ subfolder for per-agent brief.json files.
-
-    Supports both v1 (step1-4) and v2 (named sections) brief schemas.
-    """
-    agents_dir = project_folder / "agents"
-    agents = []
-
-    if not agents_dir.exists():
-        return agents
-
-    for agent_dir in sorted(agents_dir.iterdir()):
-        if not agent_dir.is_dir() or agent_dir.name.startswith("."):
-            continue
-
-        brief = None
-        brief_file = agent_dir / "brief.json"
-        if brief_file.exists():
-            try:
-                brief = json.loads(brief_file.read_text(encoding="utf-8"))
-            except Exception:
-                pass
-
-        # Readiness calculation
-        readiness = calc_readiness(brief) if brief else 0
-
-        # Check which agent-level files exist
-        agent_files = {}
-        for key, filename in AGENT_FILE_MAP.items():
-            agent_files[key] = (agent_dir / filename).exists()
-
-        # Eval count from per-agent evals.csv
-        eval_count = count_csv_rows(agent_dir / "evals.csv") if agent_files.get("evals_csv") else 0
-
-        # Extract data from v2 or v1 schema
-        if brief and _is_v2(brief):
-            agent_sec = brief.get("agent", {})
-            biz = brief.get("business", {})
-            arch = brief.get("architecture", {})
-            integ = brief.get("integrations", [])
-            know = brief.get("knowledge", [])
-            evals = brief.get("evals", [])
-
-            agent_name = agent_sec.get("name", "") or humanize_name(agent_dir.name)
-            description = (biz.get("problemStatement", "") or biz.get("useCase", ""))[:300]
-            architecture = arch.get("type", "tbd")
-            architecture_score = arch.get("score", "TBD")
-            tools = [i.get("name", "") for i in integ if i.get("name")][:10]
-            knowledge = [k.get("name", "") for k in know if k.get("name")][:10]
-        elif brief:
-            # v1 fallback
-            s1 = brief.get("step1", {})
-            s3 = brief.get("step3", {})
-            s4 = brief.get("step4", {})
-
-            agent_name = s1.get("agentName", humanize_name(agent_dir.name))
-            description = s1.get("problem", "")[:300]
-            architecture = s4.get("architectureRecommendation", "tbd")
-            architecture_score = s4.get("architectureScore", "TBD")
-            tools = [s.get("name", "") for s in s3.get("systems", []) if s.get("name")][:10]
-            knowledge = [k.get("name", "") for k in s3.get("knowledge", []) if k.get("name")][:10]
-        else:
-            agent_name = humanize_name(agent_dir.name)
-            description = ""
-            architecture = "tbd"
-            architecture_score = "TBD"
-            tools = []
-            knowledge = []
-
-        agents.append({
-            "id": agent_dir.name,
-            "name": agent_name,
-            "description": description,
-            "architecture": architecture,
-            "architecture_score": architecture_score,
-            "tools": tools,
-            "knowledge": knowledge,
-            "has_brief": brief is not None,
-            "has_instructions": bool(brief.get("instructions")) if brief else False,
-            "has_evals": agent_files.get("evals_csv", False),
-            "has_build_report": agent_files.get("build_report", False),
-            "readiness": readiness,
-            "eval_count": eval_count,
-            "open_questions": len([q for q in brief.get("openQuestions", []) if q.get("question") and not q.get("answer")]) if brief else 0,
-            "_brief": brief,  # internal, used by determine_stage, stripped before output
-        })
-
-    return agents
-
-
-def calc_readiness(brief):
+def calc_readiness(brief: dict | None) -> int:
     """Calculate brief readiness as a percentage (0-100).
 
     Supports both v1 (step1-4) and v2 (named sections) brief schemas.
-    Matches server.py _calc_readiness() logic.
+    Uses 12 checks for v2, 10 checks for v1.
     """
     if not brief:
         return 0
@@ -271,39 +115,228 @@ def calc_readiness(brief):
     return round(sum(checks) / len(checks) * 100)
 
 
+def is_build_ready(brief: dict | None) -> bool:
+    """All 10 pre-build design checks must pass before build is allowed.
+
+    Excludes 'Build published' and 'Eval results' (those happen AFTER build).
+    Delegates to calc_readiness for v2 briefs, using the first 10 of 12 checks.
+    """
+    if not brief:
+        return False
+
+    if not _is_v2(brief):
+        # v1: all 10 checks must pass — equivalent to calc_readiness == 100
+        return calc_readiness(brief) == 100
+
+    # v2: check the 10 pre-build checks (all except build published + eval results)
+    biz = brief.get("business", {})
+    arch = brief.get("architecture", {})
+    integ = brief.get("integrations", [])
+    know = brief.get("knowledge", [])
+    convos = brief.get("conversations", {})
+    bounds = brief.get("boundaries", {})
+    scenarios = brief.get("scenarios", [])
+    evals = brief.get("evals", [])
+    open_qs = brief.get("openQuestions", [])
+    unanswered = [q for q in open_qs if q.get("question") and not q.get("answer")]
+
+    return all([
+        biz.get("problemStatement") or biz.get("useCase"),
+        arch.get("type"),
+        brief.get("instructions"),
+        len([i for i in integ if i.get("name")]) + len(convos.get("topics", [])) > 0,
+        len([k for k in know if k.get("name")]) > 0,
+        len([s for s in scenarios if s.get("userSays")]) >= 3,
+        len(evals) > 0,
+        bounds.get("handle") or bounds.get("decline") or bounds.get("refuse"),
+        len([c for c in arch.get("channels", []) if (c.get("name") if isinstance(c, dict) else c)]) > 0,
+        len(unanswered) == 0,
+    ])
+
+
+# ---------------------------------------------------------------------------
+# Stage determination
+# ---------------------------------------------------------------------------
+
+def determine_stage(agents: list[dict]) -> str:
+    """Determine the furthest pipeline stage from agent data.
+
+    Stage progression: discovery -> context -> research -> build -> eval -> deployed
+    Supports both v1 (step1-4) and v2 (named sections) brief schemas.
+    """
+    if not agents:
+        return "discovery"
+
+    best_stage = "discovery"
+    stage_order = ["discovery", "context", "research", "build", "eval", "deployed"]
+
+    for agent in agents:
+        brief = agent.get("_brief")
+        if not brief:
+            continue
+
+        # Check eval results
+        eval_results = brief.get("evalResults", {})
+        if eval_results.get("lastRun"):
+            agent_stage = "eval"
+        elif brief.get("buildStatus", {}).get("status") in ("published", "in_progress"):
+            agent_stage = "build"
+        elif _is_v2(brief):
+            arch = brief.get("architecture", {})
+            if brief.get("instructions") and arch.get("type"):
+                agent_stage = "research"
+            elif brief.get("business", {}).get("problemStatement") or brief.get("agent", {}).get("name"):
+                agent_stage = "context"
+            else:
+                agent_stage = "discovery"
+        else:
+            # v1 fallback
+            if brief.get("instructions") and brief.get("step4", {}).get("architectureRecommendation"):
+                agent_stage = "research"
+            elif brief.get("step1", {}).get("problem"):
+                agent_stage = "context"
+            else:
+                agent_stage = "discovery"
+
+        if stage_order.index(agent_stage) > stage_order.index(best_stage):
+            best_stage = agent_stage
+
+    return best_stage
+
+
+# ---------------------------------------------------------------------------
+# Agent scanning
+# ---------------------------------------------------------------------------
+
+def count_csv_rows(filepath) -> int:
+    try:
+        with open(filepath, "r", encoding="utf-8") as f:
+            reader = csv.reader(f)
+            next(reader, None)
+            return sum(1 for _ in reader)
+    except Exception:
+        return 0
+
+
+def scan_agents(project_folder: Path) -> list[dict]:
+    """Scan agents/ subfolder for per-agent brief.json files.
+
+    Supports both v1 (step1-4) and v2 (named sections) brief schemas.
+    """
+    agents_dir = project_folder / "agents"
+    agents = []
+
+    if not agents_dir.exists():
+        return agents
+
+    for agent_dir in sorted(agents_dir.iterdir()):
+        if not agent_dir.is_dir() or agent_dir.name.startswith("."):
+            continue
+
+        brief = None
+        brief_file = agent_dir / "brief.json"
+        if brief_file.exists():
+            try:
+                brief = json.loads(brief_file.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+
+        readiness = calc_readiness(brief) if brief else 0
+
+        agent_files = {}
+        for key, filename in AGENT_FILE_MAP.items():
+            agent_files[key] = (agent_dir / filename).exists()
+
+        eval_count = count_csv_rows(agent_dir / "evals.csv") if agent_files.get("evals_csv") else 0
+
+        if brief and _is_v2(brief):
+            agent_sec = brief.get("agent", {})
+            biz = brief.get("business", {})
+            arch = brief.get("architecture", {})
+            integ = brief.get("integrations", [])
+            know = brief.get("knowledge", [])
+
+            agent_name = agent_sec.get("name", "") or humanize_name(agent_dir.name)
+            description = (biz.get("problemStatement", "") or biz.get("useCase", ""))[:300]
+            architecture = arch.get("type", "tbd")
+            architecture_score = arch.get("score", "TBD")
+            tools = [i.get("name", "") for i in integ if i.get("name")][:10]
+            knowledge = [k.get("name", "") for k in know if k.get("name")][:10]
+        elif brief:
+            s1 = brief.get("step1", {})
+            s3 = brief.get("step3", {})
+            s4 = brief.get("step4", {})
+
+            agent_name = s1.get("agentName", humanize_name(agent_dir.name))
+            description = s1.get("problem", "")[:300]
+            architecture = s4.get("architectureRecommendation", "tbd")
+            architecture_score = s4.get("architectureScore", "TBD")
+            tools = [s.get("name", "") for s in s3.get("systems", []) if s.get("name")][:10]
+            knowledge = [k.get("name", "") for k in s3.get("knowledge", []) if k.get("name")][:10]
+        else:
+            agent_name = humanize_name(agent_dir.name)
+            description = ""
+            architecture = "tbd"
+            architecture_score = "TBD"
+            tools = []
+            knowledge = []
+
+        agents.append({
+            "id": agent_dir.name,
+            "name": agent_name,
+            "description": description,
+            "architecture": architecture,
+            "architecture_score": architecture_score,
+            "tools": tools,
+            "knowledge": knowledge,
+            "has_brief": brief is not None,
+            "has_instructions": bool(brief.get("instructions")) if brief else False,
+            "has_evals": agent_files.get("evals_csv", False),
+            "has_build_report": agent_files.get("build_report", False),
+            "readiness": readiness,
+            "eval_count": eval_count,
+            "open_questions": len([q for q in brief.get("openQuestions", []) if q.get("question") and not q.get("answer")]) if brief else 0,
+            "_brief": brief,  # internal, used by determine_stage, stripped before output
+        })
+
+    return agents
+
+
 # ---------------------------------------------------------------------------
 # Project scanner
 # ---------------------------------------------------------------------------
 
-def scan_project(folder):
+def scan_project(folder: Path, base_dir: Path | None = None) -> dict:
+    """Scan a project folder and return structured data.
+
+    Args:
+        folder: The project folder to scan.
+        base_dir: The parent of Build-Guides/ (for relative paths). Defaults to folder.parent.parent.
+    """
+    if base_dir is None:
+        base_dir = folder.parent.parent
+
     project = {
         "id": folder.name,
         "name": humanize_name(folder.name),
-        "path": str(folder.relative_to(BASE_DIR)),
+        "path": str(folder.relative_to(base_dir)),
         "files": {},
         "agents": [],
         "stats": {},
     }
 
-    # Check project-root files
     for key, filename in PROJECT_FILE_MAP.items():
         project["files"][key] = (folder / filename).exists()
 
-    # Scan agents from agents/ subfolders (primary source)
     agents = scan_agents(folder)
-
-    # Determine stage from agent data
     project["stage"] = determine_stage(agents)
 
-    # Strip internal _brief from output
     for agent in agents:
         agent.pop("_brief", None)
 
     project["agents"] = agents
 
-    # If no agents found, check for legacy project-root files
     if not project["agents"]:
-        # Check for docs/ folder as minimum project indicator
         docs_dir = folder / "docs"
         has_docs = docs_dir.exists() and any(docs_dir.iterdir()) if docs_dir.exists() else False
 
@@ -324,50 +357,7 @@ def scan_project(folder):
             "open_questions": 0,
         }]
 
-    # Stats
     project["stats"]["total_agents"] = len(project["agents"])
     project["stats"]["eval_count"] = sum(a.get("eval_count", 0) for a in project["agents"])
 
     return project
-
-
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
-
-def main():
-    print(f"Scanning {BUILD_GUIDES} ...")
-
-    projects = []
-    if BUILD_GUIDES.exists():
-        for item in sorted(BUILD_GUIDES.iterdir()):
-            if not item.is_dir():
-                continue
-            if item.name in SKIP_FOLDERS or item.name.startswith("."):
-                continue
-            # Include if has agents/ folder, docs/ folder, or any md/csv files
-            has_agents = (item / "agents").exists()
-            has_docs = (item / "docs").exists()
-            has_files = list(item.glob("*.md")) or list(item.glob("*.csv"))
-            if has_agents or has_docs or has_files:
-                print(f"  + {item.name}")
-                projects.append(scan_project(item))
-
-    data = {
-        "generated_at": datetime.now().isoformat(),
-        "project_count": len(projects),
-        "projects": projects,
-    }
-
-    header = (
-        f"// Auto-generated by generate-data.py — {datetime.now():%Y-%m-%d %H:%M}\n"
-        f"// Re-run:  python app/generate-data.py\n\n"
-    )
-    js = header + "const DASHBOARD_DATA = " + json.dumps(data, indent=2, ensure_ascii=False) + ";\n"
-
-    OUTPUT_FILE.write_text(js, encoding="utf-8")
-    print(f"\nDone: {OUTPUT_FILE.name}  ({len(projects)} projects, {sum(p['stats']['total_agents'] for p in projects)} agents)")
-
-
-if __name__ == "__main__":
-    main()

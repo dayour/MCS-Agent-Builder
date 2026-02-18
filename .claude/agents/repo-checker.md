@@ -65,9 +65,9 @@ Check `app/terminal-server.js`:
 - `BASE_DIR` resolves correctly
 - `CLAUDE_CLI` path pattern is documented
 
-Check `app/generate-data.py`:
-- `BUILD_GUIDES` and `OUTPUT_FILE` paths resolve
-- `FILE_MAP` entries reference filenames that match actual conventions
+Check `app/lib/readiness_calc.py`:
+- All exports used by `server.py` are defined
+- `PROJECT_FILE_MAP` / `AGENT_FILE_MAP` entries reference filenames that match actual conventions
 
 ### 8. Package.json Scripts
 

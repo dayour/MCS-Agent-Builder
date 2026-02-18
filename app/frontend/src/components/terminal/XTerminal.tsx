@@ -24,7 +24,18 @@ const XTerminal = ({ session, visible }: XTerminalProps) => {
     const ws = new WebSocket(session.wsUrl);
     wsRef.current = ws;
 
+    // Timeout: if no onopen within 10s, treat as error
+    const connectTimeout = setTimeout(() => {
+      if (ws.readyState !== WebSocket.OPEN) {
+        updateStatus(session.id, "error");
+        termRef.current?.writeln(`\r\n\x1b[31m● Connection timed out — is the terminal server running on ${session.wsUrl}?\x1b[0m`);
+        try { ws.close(); } catch {}
+        wsRef.current = null;
+      }
+    }, 10000);
+
     ws.onopen = () => {
+      clearTimeout(connectTimeout);
       updateStatus(session.id, "running");
       registerSessionWs(session.id, ws);
 
@@ -46,11 +57,13 @@ const XTerminal = ({ session, visible }: XTerminalProps) => {
     };
 
     ws.onerror = () => {
+      clearTimeout(connectTimeout);
       updateStatus(session.id, "error");
       termRef.current?.writeln(`\r\n\x1b[31m● Connection error — is the terminal server running on ${session.wsUrl}?\x1b[0m`);
     };
 
     ws.onclose = () => {
+      clearTimeout(connectTimeout);
       updateStatus(session.id, "stopped");
       termRef.current?.writeln(`\r\n\x1b[33m● Disconnected\x1b[0m`);
       wsRef.current = null;

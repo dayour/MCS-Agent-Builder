@@ -14,7 +14,7 @@ import DocumentDropZone from "@/components/DocumentDropZone";
 const ProjectPage = () => {
   const { id } = useParams<{ id: string }>();
   const {
-    projectName, agents, loading, loadProject, removeAgent,
+    projectName, agents, loading, error, loadProject, removeAgent,
   } = useProjectStore();
   const { addSession: addTerminalSession } = useTerminalStore();
   const [showAgentForm, setShowAgentForm] = useState(false);
@@ -25,11 +25,13 @@ const ProjectPage = () => {
     if (id) loadProject(id);
   }, [id, loadProject]);
 
-  // Poll for changes every 10s
+  // Poll for changes every 10s (paused when tab is hidden)
   useEffect(() => {
     if (!id) return;
     const interval = setInterval(() => {
-      useProjectStore.getState().refresh();
+      if (document.visibilityState === "visible") {
+        useProjectStore.getState().refresh();
+      }
     }, 10000);
     return () => clearInterval(interval);
   }, [id]);
@@ -110,6 +112,11 @@ const ProjectPage = () => {
   return (
     <Layout breadcrumbs={[{ label: projectName || id || "" }]}>
       <div className="px-6 py-8">
+        {error && (
+          <div className="mb-4 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            {error}
+          </div>
+        )}
         <div className="mb-8 flex items-center justify-between">
           <h1 className="text-2xl font-bold tracking-tight text-foreground">{projectName}</h1>
           <Button size="sm" className="gap-1.5" onClick={launchProjectResearch}>

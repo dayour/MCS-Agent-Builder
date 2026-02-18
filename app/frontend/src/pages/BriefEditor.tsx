@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Briefcase, Bot, FileText, Zap, Plug, Database,
   MessageSquare, Shield, Network, PlayCircle, TestTube, HelpCircle,
@@ -60,7 +60,7 @@ const BriefEditor = () => {
   const projectName = useProjectStore((s) => s.projectName);
   const loadProject = useProjectStore((s) => s.loadProject);
   const {
-    data, agentName, completion, loading, saving, dirty,
+    data, agentName, completion, loading, saving, dirty, error,
     load: loadBrief, updateSection, save, poll,
   } = useBriefStore();
 
@@ -75,9 +75,11 @@ const BriefEditor = () => {
     if (projectId && agentId) loadBrief(projectId, agentId);
   }, [projectId, agentId, loadBrief]);
 
-  // Poll for server changes every 5s
+  // Poll for server changes every 5s (paused when tab is hidden)
   useEffect(() => {
-    const interval = setInterval(() => { poll(); }, 5000);
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") poll();
+    }, 5000);
     return () => clearInterval(interval);
   }, [poll]);
 
@@ -207,6 +209,11 @@ const BriefEditor = () => {
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
           <div className="mx-auto max-w-3xl animate-fade-in">
+            {error && (
+              <div className="mb-4 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                {error}
+              </div>
+            )}
             {ActiveComponent && sectionData && (
               <ActiveComponent data={sectionData} onChange={(d: any) => handleSectionChange(activeSection, d)} />
             )}

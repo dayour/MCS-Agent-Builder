@@ -80,7 +80,7 @@ Each build step uses the best tool, minimizing fragile browser automation:
 
 | Priority | Tool | Handles |
 |----------|------|---------|
-| 1 | **PAC CLI** | Agent publish, status, solution export/import |
+| 1 | **PAC CLI** | Agent listing, publish, status, solution export/import |
 | 2 | **Dataverse API** | Instructions, knowledge upload, security settings |
 | 3 | **Code Editor YAML** | Topic authoring, adaptive cards, branching logic |
 | 4 | **Direct Line API** | Evaluation testing (send messages, compare responses) |
@@ -126,7 +126,7 @@ start.js                    Launcher (npm start) — called by setup.cmd
 app/
   server.py                 FastAPI backend (serves SPA from dist/)
   terminal-server.js        Claude Code terminal (multi-tab, WebSocket)
-  generate-data.py          Project scanner
+  lib/                      Shared Python modules (readiness calc, project scanning)
   frontend/                 React + TypeScript SPA (Vite + shadcn/ui)
 
 knowledge/

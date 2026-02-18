@@ -132,10 +132,10 @@ wss.on("connection", (ws) => {
       }
     });
 
-    // Fallback: if prompt detection misses, mark ready after 6s
+    // Fallback: if prompt detection misses, mark ready after 15s
     setTimeout(() => {
       if (!ready) { ready = true; flush(); }
-    }, 6000);
+    }, 15000);
   }
 
   function spawnShell(cols, rows) {
@@ -223,7 +223,9 @@ wss.on("connection", (ws) => {
         // Init — start Claude Code
         if (m.type === "init" && !initialized) {
           initialized = true;
-          spawn(m.cols || 120, m.rows || 30);
+          lastCols = m.cols || 120;
+          lastRows = m.rows || 30;
+          spawn(lastCols, lastRows);
           return;
         }
       } catch { /* not JSON, fall through */ }

@@ -545,10 +545,14 @@ See `knowledge/README.md` for full details.
 ## Project Structure
 
 ```
+setup.cmd                   # Double-click entry point (installs deps + launches)
+setup.ps1                   # Bootstrap script (winget/npm/pip)
 start.js                    # One-command launcher (npm start)
 package.json                # Node dependencies & scripts
+requirements.txt            # Python dependencies
 
 .claude/
+├── memory/                 # Persistent learnings across sessions
 ├── settings.json           # MCP servers, permissions, Agent Teams env flag
 ├── skills/                 # 9 skills (7 workflow + 2 utility)
 │   ├── mcs-init/           # Create project folder
@@ -570,7 +574,8 @@ package.json                # Node dependencies & scripts
 app/                        # Dashboard application
 ├── server.py               # FastAPI backend (CRUD, file upload, SPA serving)
 ├── terminal-server.js      # Node-pty WebSocket server (embedded Claude Code terminal)
-├── generate-data.py        # Build-Guides scanner (used by server.py)
+├── lib/                    # Shared Python modules
+│   └── readiness_calc.py   # Readiness calc, project scanning, stage detection
 ├── dist/                   # Vite production build output (gitignored)
 └── frontend/               # React + TypeScript SPA (Vite + shadcn/ui)
     ├── src/

@@ -94,6 +94,8 @@ export const useBriefStore = create<BriefStore>((set, get) => ({
   },
 
   save: async () => {
+    // Cancel any pending debounced auto-save to prevent stale overwrites
+    if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
     const { projectId, agentId, data, rawBrief, dirty, saving } = get();
     if (!projectId || !agentId || !data || !rawBrief || saving) return;
     if (!dirty) return;

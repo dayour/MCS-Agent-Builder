@@ -12,6 +12,7 @@ Usage:
 """
 
 import asyncio
+import copy
 import hashlib
 import json
 import os
@@ -37,28 +38,21 @@ BUILD_GUIDES = BASE_DIR / "Build-Guides"
 DIST_DIR = SCRIPT_DIR / "dist"
 
 # ---------------------------------------------------------------------------
-# Import scanner functions from generate-data.py
+# Import shared utilities
 # ---------------------------------------------------------------------------
-sys.path.insert(0, str(SCRIPT_DIR))
-from importlib import import_module
-
-_gen = import_module("generate-data")
-scan_project = _gen.scan_project
-humanize_name = _gen.humanize_name
-determine_stage = _gen.determine_stage
-calc_readiness = _gen.calc_readiness
-PROJECT_FILE_MAP = _gen.PROJECT_FILE_MAP
-AGENT_FILE_MAP = _gen.AGENT_FILE_MAP
-SKIP_FOLDERS = _gen.SKIP_FOLDERS
+from lib.readiness_calc import (
+    scan_project, humanize_name, determine_stage, calc_readiness,
+    is_build_ready, PROJECT_FILE_MAP, AGENT_FILE_MAP, SKIP_FOLDERS,
+)
 
 # ---------------------------------------------------------------------------
 # App setup
 # ---------------------------------------------------------------------------
 app = FastAPI(title="MCS Agent Builder", version="3.0")
-# CORS: permissive for localhost-only development (server binds to 127.0.0.1).
+# CORS: restricted to localhost origins (server binds to 127.0.0.1).
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:8000", "http://127.0.0.1:8000"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -158,6 +152,9 @@ def _migrate_brief(brief: dict) -> dict:
     """Migrate v1 brief (step1-4) to v2 (named sections). Returns brief unchanged if already v2."""
     if brief.get("_schema") == "2.0" or "agent" in brief:
         return brief  # Already v2
+
+    # Deep-copy to avoid mutating the original on partial failure
+    brief = copy.deepcopy(brief)
 
     s1 = brief.pop("step1", {})
     s2 = brief.pop("step2", {})
@@ -290,89 +287,28 @@ def _migrate_brief(brief: dict) -> dict:
 def _calc_readiness(brief: dict | None) -> int:
     """Calculate brief readiness as a percentage (0-100).
 
-    Uses 12 checks matching the client-side renderReadinessPanel.
-    Supports both v1 (step1-4) and v2 (named sections) schemas.
-
-    TODO: DRY — this duplicates generate-data.py:calc_readiness(). Difference:
-    this version auto-migrates v1→v2 first (always 12 checks), while
-    generate-data.py handles v1 inline (10 checks). Extract to shared module
-    once all v1 briefs are migrated.
+    Auto-migrates v1 briefs before calculation.
+    Delegates to shared calc_readiness() from lib.readiness_calc.
     """
     if not brief:
         return 0
-
     # Auto-migrate if v1
     if "step1" in brief and "agent" not in brief:
         brief = _migrate_brief(brief)
-
-    agent = brief.get("agent", {})
-    biz = brief.get("business", {})
-    caps = brief.get("capabilities", [])
-    integ = brief.get("integrations", [])
-    know = brief.get("knowledge", [])
-    convos = brief.get("conversations", {})
-    bounds = brief.get("boundaries", {})
-    arch = brief.get("architecture", {})
-    scenarios = brief.get("scenarios", [])
-    evals = brief.get("evals", [])
-    open_qs = brief.get("openQuestions", [])
-    unanswered = [q for q in open_qs if q.get("question") and not q.get("answer")]
-    build_status = brief.get("buildStatus", {})
-    eval_results = brief.get("evalResults", {})
-
-    checks = [
-        bool(biz.get("problemStatement") or biz.get("useCase")),                        # Business context
-        bool(arch.get("type")),                                                          # Architecture
-        bool(brief.get("instructions")),                                                 # Instructions
-        len([i for i in integ if i.get("name")]) + len(convos.get("topics", [])) > 0,   # Components
-        len([k for k in know if k.get("name")]) > 0,                                    # Knowledge
-        len([s for s in scenarios if s.get("userSays")]) >= 3,                           # Scenarios
-        len(evals) > 0,                                                                  # Evals defined
-        bool(bounds.get("handle") or bounds.get("decline") or bounds.get("refuse")),     # Boundaries
-        len([c for c in arch.get("channels", []) if (c.get("name") if isinstance(c, dict) else c)]) > 0,  # Channels
-        len(unanswered) == 0,                                                            # Questions resolved
-        build_status.get("status") == "published",                                       # Build published
-        bool(eval_results.get("summary", {}).get("total", 0) > 0),                      # Eval results
-    ]
-    return round(sum(checks) / len(checks) * 100)
+    return calc_readiness(brief)
 
 
 def _is_build_ready(brief: dict | None) -> bool:
     """All 10 pre-build design checks must pass before build is allowed.
 
-    Excludes 'Build published' and 'Eval results' (those happen AFTER build).
+    Auto-migrates v1 briefs before checking.
+    Delegates to shared is_build_ready() from lib.readiness_calc.
     """
     if not brief:
         return False
-
-    # Auto-migrate if v1
     if "step1" in brief and "agent" not in brief:
         brief = _migrate_brief(brief)
-
-    agent = brief.get("agent", {})
-    biz = brief.get("business", {})
-    caps = brief.get("capabilities", [])
-    integ = brief.get("integrations", [])
-    know = brief.get("knowledge", [])
-    convos = brief.get("conversations", {})
-    bounds = brief.get("boundaries", {})
-    arch = brief.get("architecture", {})
-    scenarios = brief.get("scenarios", [])
-    evals = brief.get("evals", [])
-    open_qs = brief.get("openQuestions", [])
-    unanswered = [q for q in open_qs if q.get("question") and not q.get("answer")]
-    return all([
-        biz.get("problemStatement") or biz.get("useCase"),
-        arch.get("type"),
-        brief.get("instructions"),
-        len([i for i in integ if i.get("name")]) + len(convos.get("topics", [])) > 0,
-        len([k for k in know if k.get("name")]) > 0,
-        len([s for s in scenarios if s.get("userSays")]) >= 3,
-        len(evals) > 0,
-        bounds.get("handle") or bounds.get("decline") or bounds.get("refuse"),
-        len([c for c in arch.get("channels", []) if (c.get("name") if isinstance(c, dict) else c)]) > 0,
-        len(unanswered) == 0,
-    ])
+    return is_build_ready(brief)
 
 
 def _scan_agents(folder: Path) -> list[dict]:
@@ -517,6 +453,13 @@ async def serve_index():
     return HTMLResponse(index.read_text(encoding="utf-8"))
 
 
+@app.get("/health")
+async def health_check():
+    """Health check endpoint."""
+    terminal_running = _terminal_server_proc is not None and _terminal_server_proc.poll() is None
+    return {"status": "ok", "terminal": terminal_running}
+
+
 @app.get("/api/projects")
 async def list_projects():
     """List all projects with live scan."""
@@ -643,6 +586,10 @@ async def upload_document(
     safe_base = re.sub(r"[^\w\-]", "_", Path(original_name).stem.lower())
     suffix = Path(original_name).suffix.lower()
     content = await file.read()
+
+    # Reject files over 50 MB
+    if len(content) > 50 * 1024 * 1024:
+        raise HTTPException(413, "File too large (max 50 MB)")
 
     # Save the raw file to docs/
     raw_name = f"{safe_base}{suffix}"
