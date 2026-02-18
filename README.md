@@ -129,12 +129,22 @@ tools/                      Direct Line test runner, Dataverse helper, PAC CLI w
 Build-Guides/               Per-project work (gitignored)
 ```
 
+## Networking & Security
+
+Both servers bind to `127.0.0.1` (localhost only). No ports are exposed to the network — no firewall rules or port openings are needed. This is safe on corporate PCs and won't affect Teams, Outlook, VPN, or any other applications.
+
+| Port | Service | Binding |
+|------|---------|---------|
+| 8000 | Dashboard (FastAPI) | `127.0.0.1` — localhost only |
+| 8001 | Terminal (WebSocket) | `127.0.0.1` — localhost only |
+
 ## Troubleshooting
 
 | Problem | Fix |
 |---------|-----|
 | `npm start` fails | Make sure Node.js 18+ and Python 3.10+ are installed |
 | Dashboard won't load | Check terminal output for errors — both servers must be running |
+| Firewall prompt on startup | Should not happen (localhost-only binding). If it does, you can safely deny it |
 | PAC CLI not working | Ask Claude: "set up PAC CLI auth for me" |
 | Wrong MCS environment | Claude checks before every build (Preflight Gate) — it will prompt you to switch |
 | Terminal not connecting | Close the tab and click "+" to create a new terminal session |

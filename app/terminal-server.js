@@ -63,7 +63,7 @@ function resolveClaude() {
 const CLAUDE = resolveClaude();
 
 // Create server with error handling for port conflicts
-const wss = new WebSocket.Server({ port: PORT });
+const wss = new WebSocket.Server({ host: "127.0.0.1", port: PORT });
 
 wss.on("error", (err) => {
   if (err.code === "EADDRINUSE") {

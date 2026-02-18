@@ -55,7 +55,7 @@ SKIP_FOLDERS = _gen.SKIP_FOLDERS
 # App setup
 # ---------------------------------------------------------------------------
 app = FastAPI(title="MCS Agent Builder", version="3.0")
-# CORS: permissive for local development. Restrict if deploying beyond localhost.
+# CORS: permissive for localhost-only development (server binds to 127.0.0.1).
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -463,7 +463,7 @@ def _get_project(project_id: str) -> dict:
     for d in docs:
         loc = d.get("location")
         fp = (folder / d["filename"]) if loc == "root" else (folder / "docs" / d["filename"])
-        if fp.exists() and fp.suffix in (".md", ".csv"):
+        if fp.exists() and fp.suffix in (".md", ".csv", ".txt", ".json"):
             try:
                 doc_content[d["key"]] = fp.read_text(encoding="utf-8")
             except Exception:
@@ -789,6 +789,29 @@ async def delete_agent(project_id: str, agent_id: str):
     return {"deleted": True, "agent_id": agent_id}
 
 
+@app.get("/api/projects/{project_id}/docs/{filename}/raw")
+async def serve_doc_raw(project_id: str, filename: str):
+    """Serve a raw document file (images, PDFs, etc.) from docs/."""
+    folder = BUILD_GUIDES / project_id
+    if not folder.is_dir():
+        raise HTTPException(404, f"Project '{project_id}' not found")
+
+    safe = re.sub(r"[^\w\-.]", "_", filename)
+    docs_dir = folder / "docs"
+    target = docs_dir / safe
+    if not target.exists():
+        # Also check project root (some files saved there)
+        target = folder / safe
+    if not target.exists():
+        raise HTTPException(404, f"File '{safe}' not found")
+
+    # Verify resolved path stays within project folder (defense in depth)
+    if not target.resolve().is_relative_to(folder.resolve()):
+        raise HTTPException(400, "Invalid file path")
+
+    return FileResponse(target)
+
+
 @app.delete("/api/projects/{project_id}/docs/{filename}")
 async def delete_doc(project_id: str, filename: str):
     """Delete a document from the project's docs/ folder."""
@@ -904,7 +927,7 @@ if __name__ == "__main__":
     print(f"  Engine: Claude Code terminal (ws://localhost:8001)")
     _ensure_terminal_server()
     try:
-        uvicorn.run(app, host="0.0.0.0", port=port)
+        uvicorn.run(app, host="127.0.0.1", port=port)
     finally:
         if _terminal_server_proc and _terminal_server_proc.poll() is None:
             _terminal_server_proc.terminate()
