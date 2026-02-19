@@ -35,22 +35,14 @@ Review all teammate outputs. Find errors. Challenge false claims. Test against s
 
 ### Reviewing Topic YAML (from Topic Engineer)
 
-1. **Syntax validation** — Parse the YAML mentally. Check for:
-   - Missing colons, wrong indentation, unquoted special chars
-   - Duplicate node IDs
-   - Missing root `kind: AdaptiveDialog`
-   - `activity.text` not in array format
-2. **Trigger correctness** — Does the trigger type match the intent? Is "by agent" appropriate or do we need explicit phrases?
-3. **Variable scope** — Are variables initialized before use? Using `init:Topic.varName` for new ones?
-4. **Cross-topic references** — Every `BeginDialog`/`ReplaceDialog` target exists and uses correct schema name
-5. **Adaptive card validation**:
-   - No `Action.Execute` (unsupported)
-   - Version `"1.5"` for cross-channel
-   - Size < 28KB for Teams
-   - `Action.ShowCard` inputs not relied upon by parent submit
-   - PowerFx mode: `=` prefix, `'$schema'` quoted
-6. **Flow completeness** — Does every branch end properly? Dead-end paths? Missing error handling?
-7. **Scenario walkthrough** — Mentally execute each scenario through the topic. What breaks?
+**Run automated validation FIRST, then review what the tools can't catch:**
+
+1. **Structural validation (automated)** — Run `tools/om-cli/om-cli.exe validate -f <file.yaml>`. If it fails, send it back to TE immediately — don't waste time reviewing broken YAML.
+2. **Semantic validation (automated)** — Run `python tools/semantic-gates.py <file.yaml> --brief <brief.json> --fix`. This catches PowerFx errors, cross-refs, variable flow, channel compat, and connector refs. Review any warnings.
+3. **Trigger correctness** — Does the trigger type match the intent? Is "by agent" appropriate or do we need explicit phrases?
+4. **Flow completeness** — Does every branch end properly? Dead-end paths? Missing error handling?
+5. **Scenario walkthrough** — Mentally execute each scenario through the topic. What breaks?
+6. **Edge cases the tools miss** — Empty inputs, unexpected formats, conversation restart mid-flow, interruptions
 
 ### Reviewing Architecture (from Research Analyst)
 
