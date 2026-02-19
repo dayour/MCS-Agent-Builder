@@ -337,6 +337,102 @@ pac copilot status --bot-id <bot-id>
 
 **VERIFY:** Snapshot Overview → "Published [today]" visible.
 
+### Step 5.5: QA Build Validation Gate (Agent Teams)
+
+**After publish and reconciliation snapshot collection, spawn QA Challenger for formal validation.**
+
+The lead collects snapshot data during reconciliation (overview, tools tab, knowledge, topics, triggers — this already happens). Instead of the lead both collecting AND judging, now:
+- **Lead collects** snapshots (existing behavior)
+- **QA Challenger analyzes** the data (this step)
+- **Lead reports** QA's findings and acts on the verdict
+
+#### QA Challenger Receives
+
+1. The full `brief.json` (spec — what SHOULD be configured)
+2. The reconciliation snapshot summaries (what IS configured — collected by the lead)
+3. The list of deferred `phase: "future"` items (so QA doesn't flag them as missing)
+
+#### Check 1: Brief-vs-Actual Comparison
+
+Walk each MVP-scoped section and compare spec to actual:
+
+| Brief Section | What QA Checks |
+|---------------|---------------|
+| `agent.name` / `agent.description` | Match overview heading |
+| `instructions` | Text matches (or char-count delta if large) |
+| `integrations[]` (MVP) | Each tool name appears in Tools tab snapshot |
+| `knowledge[]` (MVP) | Each source appears in Knowledge section |
+| `conversations.topics[]` (MVP) | Each topic name appears in Topics list |
+| `architecture.triggers[]` | Trigger types configured |
+| `boundaries.refuse[]` | Hard boundaries present in instructions text |
+
+#### Check 2: Cross-Reference Validation
+
+These catch issues that simple reconciliation misses:
+
+| Cross-Reference | What Could Be Wrong |
+|----------------|-------------------|
+| Instructions → Tools | Instructions mention a tool name that wasn't configured |
+| Instructions → Topics | Instructions reference a `/TopicName` that doesn't exist |
+| Topics → Variables | Topic YAML uses a variable that's never prompted for |
+| Topics → Integrations | Topic calls a connector action that wasn't added |
+| Adaptive Cards → Channels | Card uses features unsupported on target channel |
+| (Multi-agent) Routing rules → Children | Instructions route to a child agent that isn't connected |
+
+#### Check 3: Deviation Impact Assessment
+
+For each deviation found during the build (Section 9 material), QA assesses:
+- **Severity**: Critical (blocks core use case) / High (degrades quality) / Medium (cosmetic or edge case)
+- **Can ship?**: Yes / Yes with caveat / No — blocks deployment
+- **Suggested fix**: What to do about it (manual step, config change, defer to next iteration)
+
+#### QA Output
+
+QA writes results to `Build-Guides/{projectId}/agents/{agentId}/qa-validation.md`:
+
+```markdown
+# QA Build Validation: [Agent Name]
+
+## Brief-vs-Actual: {N}/{M} items match
+| Item | Brief Says | Agent Has | Status |
+|------|-----------|-----------|--------|
+| ... | ... | ... | Match / Mismatch / Missing |
+
+## Cross-References: {N} issues found
+| Issue | Severity | Detail |
+|-------|----------|--------|
+| ... | Critical/High/Medium | ... |
+
+## Deviations: {N} with impact assessment
+| Deviation | Severity | Can Ship? | Suggested Fix |
+|-----------|----------|-----------|---------------|
+| ... | ... | ... | ... |
+
+## QA Verdict: PASS / PASS WITH CAVEATS / FAIL
+[1-2 sentence summary]
+```
+
+#### How the Lead Uses the Verdict
+
+1. **PASS** → proceed to build report
+2. **PASS WITH CAVEATS** → log caveats in build report Section 9, proceed
+3. **FAIL** → stop, report critical issues to user, do NOT write `"published"` to buildStatus
+
+#### Terminal Output Update
+
+The reconciliation line changes from:
+```
+Reconciliation: N/N MVP items verified
+```
+to:
+```
+QA Validation: PASS (N/N items match, 0 cross-ref issues)
+```
+or:
+```
+QA Validation: PASS WITH CAVEATS (N/N items match, 2 cross-ref issues — see qa-validation.md)
+```
+
 ### Step 6: Finalize brief.json buildStatus
 
 Write the complete buildStatus. Most fields were already written incrementally during checkpoints — this step ensures the final state is clean:
@@ -402,9 +498,9 @@ After building all agents:
 
 ---
 
-## End-of-Build Reconciliation (MANDATORY)
+## End-of-Build Reconciliation — Data Collection (MANDATORY)
 
-After ALL changes, walk the brief's **MVP-scoped** component list and snapshot-verify each item:
+After ALL changes, walk the brief's **MVP-scoped** component list and snapshot each item. This data feeds the QA Build Validation Gate (Step 5.5).
 
 | Check | How to verify |
 |-------|--------------|
@@ -418,12 +514,12 @@ After ALL changes, walk the brief's **MVP-scoped** component list and snapshot-v
 | (Multi-agent) All specialists connected | Agents tab |
 | (Multi-agent) Sharing enabled on specialists | Settings snapshot |
 
-Report: "Reconciliation: N/N MVP items verified" or "Found M issues: [list]"
-
-Also output a deferred items summary:
+Collect a deferred items list:
 ```
 Deferred to future phase: {N} capabilities, {M} integrations, {K} knowledge sources, {J} topics
 ```
+
+**Then spawn QA Challenger (Step 5.5)** with the snapshot data, brief.json, and deferred items list. The QA verdict replaces the old "Reconciliation: N/N" terminal output.
 
 ## Output: Build Summary Report
 
@@ -438,8 +534,8 @@ After reconciliation, generate **two outputs**:
 ## Build Complete: [Agent Name]
 
 **Status:** Published | **Environment:** [env] | **Account:** [account]
-**Reconciliation:** {N}/{N} MVP items verified
-**Deferred:** {M} future items (see build report Section 9)
+**QA Validation:** PASS ({N}/{N} items match, {M} cross-ref issues — see qa-validation.md)
+**Deferred:** {K} future items (see build report Section 9)
 
 Report saved: Build-Guides/{projectId}/agents/{agentId}/build-report.md
 

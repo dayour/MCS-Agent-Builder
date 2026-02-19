@@ -25,7 +25,7 @@ Automate Microsoft Copilot Studio (MCS) agent creation using a **hybrid build st
 3. **Never mark complete until verified**: If you can't verify, tell the user "I did X but couldn't verify Y" rather than silently assuming success.
 4. **File ≠ deployment**: Writing a local file is NOT the same as uploading it to MCS. These are ALWAYS separate tasks.
 5. **Environment check**: Before PAC CLI operations, verify the agent's environment matches PAC CLI's active profile (`pac auth list`). If they differ, use browser instead.
-6. **End-of-build reconciliation**: After ALL changes, walk the spec's build checklist and snapshot-verify every item against the actual agent state. Report "Reconciliation: N/N items verified" or "Found M issues: [list]".
+6. **End-of-build reconciliation + QA validation**: After ALL changes, walk the spec's build checklist and snapshot-verify every item against the actual agent state. Then spawn QA Challenger (Step 5.5) to validate brief-vs-actual, cross-references, and deviation impact. QA verdict determines whether the build proceeds to the report or escalates issues.
 
 ---
 
@@ -431,6 +431,8 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 - `Multi-Agent` → specialists first, then orchestrator with child connections
 
 **On-demand teammates:** Research Analyst (when tool configuration hits issues) and Prompt Engineer (when instructions need adjustment for actual tool names)
+
+**QA Build Validation Gate (Step 5.5):** After publish, QA Challenger validates brief-vs-actual (every MVP item), cross-references (instructions→tools, topics→variables, routing→children), and deviation impact (severity + can-ship assessment). QA verdict (PASS / PASS WITH CAVEATS / FAIL) determines whether the build report is generated or critical issues are escalated to the user. Output: `qa-validation.md` in the agent folder.
 
 **Preflight Gate required** before any Playwright interaction (verifies browser matches the account gate selection).
 
