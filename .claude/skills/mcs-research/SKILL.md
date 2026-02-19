@@ -383,9 +383,13 @@ Read learnings files only if they're relevant to this agent's systems and non-em
 - `knowledge/learnings/integrations.md` — if the agent has complex integrations
 - `knowledge/learnings/customer-patterns.md` — if there's a matching industry
 
+**Also read `knowledge/learnings/index.json`** to check confirmed counts. Entries with higher `confirmed` values get stronger presentation weight.
+
 **How to use learnings:**
 - Present as an additional option alongside official recommendations
 - Higher `Confirmed` count = higher weight, but user always decides
+
+**If a cached category is confirmed by learnings** (e.g., same trigger approach worked in 3 builds), bump `confirmed` count in `index.json` (Tier 1 auto-capture — no user confirmation needed).
 
 ### Step 4: Live Research via Research Analyst (only if needed)
 
@@ -450,6 +454,13 @@ Then proceed to Phase D (incremental).
 ### Full Path (processingPath == "full" or "full-agent")
 
 Existing behavior — full architecture scoring + instructions as described below.
+
+### Before Scoring: Consult Architecture + Instruction Learnings
+
+Read `knowledge/learnings/architecture.md` and `knowledge/learnings/instructions.md` (if non-empty) before architecture scoring and instruction writing. Look for:
+- Architecture patterns that matched similar agent profiles (single vs multi-agent precedents)
+- Instruction patterns that improved quality (boundary language, tool reference patterns)
+- Present relevant learnings to PE alongside the brief data
 
 ### Step 1: Architecture Decision (Lead)
 
@@ -534,6 +545,13 @@ Then proceed to Final Output (incremental format).
 ### Full Path (processingPath == "full" or "full-agent")
 
 Existing behavior — generate all scenarios and evals as described below.
+
+### Before Scenarios: Consult Topic + Eval Learnings
+
+Read `knowledge/learnings/topics-triggers.md` and `knowledge/learnings/eval-testing.md` (if non-empty) before generating scenarios and classifying topics. Look for:
+- Topic patterns that improved routing (trigger phrase strategies, "by agent" description patterns)
+- Eval method insights (which test methods work best for which scenario types, threshold calibration)
+- Provide relevant learnings to QA Challenger alongside the brief data
 
 ### Step 1: Generate Scenarios + Classify Topics — QA Challenger (single pass)
 
@@ -702,9 +720,20 @@ After the terminal output, check if there are learnings worth capturing. This is
 | [pattern observed] | [customer/industry] | customer-patterns |
 ```
 
-Present to user. If confirmed, write to `knowledge/learnings/{category}.md`.
+Present to user. If confirmed (Tier 2), write to `knowledge/learnings/{category}.md` and update `knowledge/learnings/index.json`.
 
-If the research was routine and nothing surprising was found, skip the summary — don't generate empty learnings.
+If the research was routine and nothing surprising was found, skip the Tier 2 summary — but still run the Tier 1 auto-check:
+
+**Tier 1 auto-capture (no user confirmation):**
+- For each approach that matched a prior learning (same cache category resolved the same way), bump `confirmed` count and `lastConfirmed` date in `index.json`
+- For cache corrections found during research, write the correction to the appropriate learnings file and add to `index.json`
+
+**Tier 2 user-confirmed capture:**
+- New discoveries not covered by existing entries
+- Contradictions with existing learnings (flag both)
+- Non-obvious architecture insights
+
+**Comparison engine:** Before writing any new entry, run the 4-step comparison (see CLAUDE.md "Learnings Protocol" § B) to avoid duplicates and catch contradictions.
 
 ### Update Document Manifest
 

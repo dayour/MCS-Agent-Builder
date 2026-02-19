@@ -19,6 +19,7 @@ Layer 4: knowledge/frameworks/  — Decision logic: component selection, archite
 knowledge/
 ├── README.md                    # This file
 ├── learnings/                   # Experience-based insights (grows with each build)
+│   ├── index.json               # Machine-readable learnings index (dedup, staleness)
 │   ├── connectors.md            # Connector experiences (what worked, what didn't)
 │   ├── architecture.md          # Architecture decisions and outcomes
 │   ├── instructions.md          # Instruction writing patterns
@@ -105,36 +106,98 @@ Per-file refresh:
 
 ## Learnings Files
 
-### How They're Populated
+### How They're Populated — Two-Tier Capture Model
 
-Learnings are captured at the end of each workflow phase:
+Learnings are captured automatically after every workflow phase via post-phase hooks:
+
+| Tier | When | User Confirmation | Examples |
+|------|------|-------------------|----------|
+| **Tier 1 (Auto)** | Routine confirmations, cache corrections | No — silent bump/write | Same approach worked → bump confirmed count |
+| **Tier 2 (User confirms)** | New discoveries, contradictions, architecture insights | Yes — present and wait | New failure pattern, contradicts existing entry |
 
 | Phase | Capture Point | What's Captured |
 |-------|--------------|-----------------|
-| `/mcs-research` | Post-research summary | New discoveries, cache corrections, customer patterns |
-| `/mcs-build` | Post-build summary | Spec vs actual diff, errors & fixes, build method insights |
-| `/mcs-eval` | Post-eval summary | Failure patterns, scoring insights, test design lessons |
+| `/mcs-research` | Post-research | New discoveries, cache corrections, customer patterns |
+| `/mcs-build` | Post-build | Spec vs actual diff, errors & fixes, build method insights |
+| `/mcs-eval` | Post-eval | Failure patterns, scoring insights, test design lessons |
+| `/mcs-fix` | Post-fix | Recurring failure patterns, instruction/topic fixes |
 
-Each summary is **presented to the user for confirmation** before being written to topic files. The user can edit, add context, or skip.
+### Machine-Readable Index (`index.json`)
+
+All learnings are tracked in `knowledge/learnings/index.json` for deduplication, confirmed-count tracking, and staleness:
+
+```json
+{
+  "version": 1,
+  "entries": [{
+    "id": "bm-001",
+    "file": "build-methods.md",
+    "title": "PAC CLI create requires undocumented template YAML",
+    "date": "2026-02-18",
+    "confirmed": 1,
+    "lastConfirmed": "2026-02-18",
+    "tags": ["pac-cli", "playwright", "agent-creation", "template"],
+    "status": "active",
+    "projects": ["builder-pm"]
+  }]
+}
+```
+
+**ID format:** `{file-prefix}-NNN` — e.g., `bm-001` (build-methods), `cn-001` (connectors), `in-001` (instructions), etc.
+
+**Status values:** `active` (in use), `stale` (not confirmed > 6 months), `deprecated` (contradicted by 2+ builds), `superseded` (references removed component).
+
+### Comparison Engine
+
+Before writing any learning, the 4-step comparison runs:
+
+1. Read `index.json` entries with overlapping tags (2+ tag match)
+2. Decide: same scenario → BUMP count | contradiction → FLAG | new → ADD
+3. Check related cache files for missing/contradicted info
+4. Execute: BUMP / ADD / SKIP / FLAG — update `index.json`
 
 ### How They're Retrieved
 
-During `/mcs-research` Phase B (component research), relevant learnings files are read alongside cache files:
+Learnings are consulted at specific points across **all workflow skills** (not just research):
 
-> "Official docs recommend X. However, in a past build for [customer], we found Y works better because [reason] (confirmed in 3 builds). Consider both options."
+| Skill | Phase/Step | Files Read |
+|-------|-----------|-----------|
+| `/mcs-research` | Phase B | `connectors.md`, `integrations.md`, `customer-patterns.md` |
+| `/mcs-research` | Phase C | `architecture.md`, `instructions.md` |
+| `/mcs-research` | Phase D | `topics-triggers.md`, `eval-testing.md` |
+| `/mcs-build` | Before Step 1 | `build-methods.md` |
+| `/mcs-build` | Before Step 3 | `connectors.md`, `integrations.md` |
+| `/mcs-build` | Before Step 4 | `topics-triggers.md` |
+| `/mcs-eval` | Before Step 2 | `eval-testing.md` |
+| `/mcs-fix` | Step 2 | `eval-testing.md`, `instructions.md`, `topics-triggers.md` |
 
 Learnings are **options, not defaults**. Higher `Confirmed` count = higher weight, but the user always decides.
+
+> "Official docs recommend X. However, in a past build for [customer], we found Y works better because [reason] (confirmed in 3 builds). Consider both options."
 
 ### Entry Format
 
 ```markdown
-### [Title] — [Date]
+### [Title] {#id} — [Date]
 **Context:** [Customer/project, what was being built]
 **Tried:** [Initial approach]
 **Result:** [What happened]
 **Better approach:** [What worked or was recommended]
-**Confirmed:** [N] build(s)
+**Confirmed:** [N] build(s) | Last confirmed: [YYYY-MM-DD]
+**Related cache:** [cache file(s) if applicable]
 **Tags:** #tag1 #tag2
 ```
 
-When the same insight is confirmed in another build, bump `Confirmed` count — don't create a duplicate entry.
+When the same insight is confirmed in another build, bump `Confirmed` count and `Last confirmed` date — don't create a duplicate entry. Update `index.json` accordingly.
+
+**Variant format:** `customer-patterns.md` uses `**Pattern:**` and `**Recommendation:**` instead of `**Tried:**` / `**Result:**` / `**Better approach:**` because customer patterns are observational (not experiment-based). All other fields (`{#id}`, `Confirmed`, `Last confirmed`, `Related cache`, `Tags`) are the same.
+
+### Staleness Rules
+
+| Condition | Status | Action |
+|-----------|--------|--------|
+| Not confirmed in > 6 months | `stale` | Flag during session startup |
+| Contradicted by 2+ builds | `deprecated` | Flag and recommend removal |
+| References removed component | `superseded` | Flag and recommend update |
+
+Reported during session startup: `Learnings: N active, M stale, K deprecated`

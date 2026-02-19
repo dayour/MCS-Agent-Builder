@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "bm-001",
+      "file": "build-methods.md",
+      "title": "PAC CLI create requires undocumented template YAML",
+      "date": "2026-02-18",
+      "confirmed": 1,
+      "lastConfirmed": "2026-02-18",
+      "tags": ["pac-cli", "playwright", "agent-creation", "template"],
+      "status": "active",
+      "projects": ["builder-pm"]
+    }
+  ]
+}

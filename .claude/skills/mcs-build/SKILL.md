@@ -106,12 +106,13 @@ If ALL items of a type are `future` (e.g., zero MVP knowledge sources), skip tha
 
 ---
 
-## Before Building — Knowledge Cache Check
+## Before Building — Knowledge Cache + Learnings Check
 
 1. Read `knowledge/cache/api-capabilities.md` — check `last_verified` date
 2. If stale (> 7 days), refresh: WebSearch + MS Learn for "Copilot Studio API"
 3. Check if any Playwright-only operations now have API alternatives
 4. Read `knowledge/patterns/dataverse-patterns.md` for API call patterns
+5. Read `knowledge/learnings/build-methods.md` — check for agent creation precedents, known build gotchas
 6. Update cache files if new findings
 
 ## Route: Determine Build Mode
@@ -269,6 +270,13 @@ pac copilot publish --bot <bot-id>
 
 **On-demand PE trigger:** After Step 3 configures tools, if tool names in MCS differ from brief.json, spawn Prompt Engineer to adjust instructions (see "On-Demand Teammates" section above). Re-apply instructions via Dataverse API after PE revises them.
 
+### Before Step 3: Consult Connector & Integration Learnings
+
+Read `knowledge/learnings/connectors.md` and `knowledge/learnings/integrations.md` (if non-empty) before configuring tools. Look for:
+- Connector name mismatches (brief says "Jira" but MCS calls it "Atlassian Jira Cloud (Preview)")
+- Auth mode gotchas (e.g., OAuth requires admin consent first)
+- Known workarounds for specific connectors
+
 ### Step 3: Configure Tools & Model (Playwright — browser required)
 
 **Skip check:** If `"tools"` is in `completedSteps`, skip tool configuration. If `"model"` is in `completedSteps`, skip model selection. If both are completed, skip this entire step.
@@ -304,6 +312,13 @@ Then configure:
 **VERIFY:** Snapshot Tools tab → all tools listed. Snapshot Overview → model correct.
 
 **Error handling:** If a step fails, write the error to `brief.json.buildStatus.lastError` before stopping. On the next resume, `lastError` tells the lead what went wrong.
+
+### Before Step 4: Consult Topic & Trigger Learnings
+
+Read `knowledge/learnings/topics-triggers.md` (if non-empty) before authoring topics. Look for:
+- YAML patterns that improved routing (trigger phrase strategies)
+- Adaptive card gotchas (channel-specific rendering limits)
+- Node type availability issues discovered in prior builds
 
 ### Step 4: Author Topics (Code Editor YAML — minimal browser)
 
@@ -698,30 +713,40 @@ This is a **customer-shareable deliverable**. Write it in clear, professional la
 
 ---
 
-## Post-Build Learnings Capture (MANDATORY)
+## Post-Build Learnings Capture (MANDATORY — Two-Tier)
 
-**After reconciliation and the build report, generate a learnings summary.** This is how the system gets smarter over time.
+**After reconciliation and the build report, run the two-tier learnings capture.** This is how the system gets smarter over time.
 
-### How It Works
+### Tier 1: Auto-Capture (no user confirmation)
 
-You were there for the entire build. You know what happened. Just write it down naturally:
+Run automatically after every build. Scan for:
+
+1. **Zero-deviation builds:** If nothing deviated from the spec (build-report Section 9 is "Built as specified"), auto-bump `confirmed` count for every learnings entry whose tags overlap with this build's components (e.g., an agent using Playwright for creation confirms `bm-001`).
+2. **Cache corrections:** If any cache file was updated during the build (Step 3 refreshed api-capabilities), log the correction.
+3. **Confirmed approaches:** For each build step that used a known pattern from learnings, bump the entry's `confirmed` and `lastConfirmed` in `index.json`.
+
+### Tier 2: User-Confirmed Capture (when deviations exist)
+
+Run when the build had deviations, errors, or discoveries:
 
 - Did something deviate from the spec? (Already captured in build-report.md Section 9)
 - Did an error force a workaround? You researched the fix — that's a learning.
 - Did you discover a new component or better method? That's a learning.
 - Did the user override a recommendation? That's a learning.
-- Did everything go as planned? That confirms the approach — also a learning.
 
-### Generate Learnings Summary
+**Before writing, run the comparison engine** (see CLAUDE.md "Learnings Protocol" § B):
+1. Check `index.json` for entries with overlapping tags
+2. Same scenario → BUMP (becomes Tier 1); new scenario → present to user; contradiction → FLAG both
 
-After the build report, output a short learnings block. **Only include things worth remembering for future builds.** Skip if the build was routine.
+Output a short learnings block:
 
 ```
 ## Learnings from this build
 
-1. [Natural language description of what was learned — e.g., "Jira on-prem custom connector failed auth. Power Automate HTTP flow worked as middleware. Tag: #jira #on-prem #integrations"]
-2. [Another learning]
-3. [Another learning]
+1. [Natural language description — e.g., "GPT-5.2 Reasoning ignores soft DECLINE boundaries. DO NOT language required."]
+   **Tags:** #instructions #boundaries #gpt-5
+   **File:** instructions.md
+   **Action:** ADD (new entry) / BUMP bm-001 (same pattern confirmed)
 
 Anything else to add? These will be saved to our knowledge base for future builds.
 ```
@@ -729,12 +754,14 @@ Anything else to add? These will be saved to our knowledge base for future build
 ### Write Confirmed Learnings
 
 After user confirms (or adds more):
-- Write each learning to the appropriate `knowledge/learnings/{topic}.md` file
-- Use the entry format from the file headers
-- If an existing entry covers the same pattern, bump its `Confirmed` count instead of duplicating
+- Write each learning to the appropriate `knowledge/learnings/{topic}.md` file using the entry format with `{#id}` anchors
+- Update `knowledge/learnings/index.json` — add new entries or bump existing ones
+- If an existing entry covers the same pattern, bump its `Confirmed` count and `lastConfirmed` instead of duplicating
 
 ### Rules
 
-- **Don't force it** — if the build was clean and routine, say "No new learnings. Approach confirmed." and move on
-- **User confirmation required** — always ask before writing to learnings files
+- **Don't force Tier 2** — if the build was clean and routine, Tier 1 runs silently. Say "No new learnings. Approach confirmed (N entries bumped)." and move on
+- **Tier 2 requires user confirmation** — always ask before writing NEW entries to learnings files
+- **Tier 1 is silent** — bump operations happen without user interaction
 - **Concise entries** — one insight per entry, not paragraphs
+- **Always update index.json** — both tiers must keep the index in sync

@@ -234,7 +234,9 @@ The system captures learnings from every build and makes them available in futur
 | `topics-triggers.md` | `/mcs-research` Phase D + `/mcs-build` Step 4 |
 | `eval-testing.md` | `/mcs-research` Phase D + `/mcs-eval` |
 | `build-methods.md` | `/mcs-build` (tool selection per step) |
-| `customer-patterns.md` | `/mcs-research` Phase A (document comprehension) |
+| `customer-patterns.md` | `/mcs-research` Phase B (component research) |
+
+> **Complete consultation matrix:** See "Learnings Protocol" § D below for all consultation points across all skills.
 
 ### How Learnings Are Used
 
@@ -251,6 +253,64 @@ Higher `Confirmed` count = higher weight, but the user always decides.
 | 1 build | Low | "In one past build, we observed..." |
 | 2-3 builds | Medium | "Based on multiple builds, we recommend considering..." |
 | 4+ builds | High | "Consistently confirmed: ..." |
+
+### Learnings Protocol — Automated Capture & Consultation
+
+Learnings are captured automatically after every phase and consulted throughout every skill — not just research. A machine-readable `knowledge/learnings/index.json` enables deduplication, confirmed-count tracking, and staleness detection.
+
+#### A. Two-Tier Capture Model
+
+Every post-phase hook classifies learnings into one of two tiers:
+
+| Tier | When | User Confirmation | Examples |
+|------|------|-------------------|----------|
+| **Tier 1 (Auto)** | Routine confirmations, cache corrections | No — silent bump/write | Same approach worked again → bump Confirmed count; cache file had wrong info → correct and log |
+| **Tier 2 (User confirms)** | New discoveries, contradictions, architecture insights | Yes — present summary and wait | New failure pattern; learning contradicts existing entry; non-obvious architecture recommendation |
+
+**Tier 1 actions:** Bump `confirmed` count and `lastConfirmed` date in `index.json`, update the entry's `Last confirmed` line in the `.md` file. No user interaction needed.
+
+**Tier 2 actions:** Present the learning to the user with proposed file + tags. If confirmed, write entry to `.md` file and add to `index.json`.
+
+#### B. Comparison Engine (4-step decision protocol)
+
+Before writing any learning, run this comparison:
+
+1. **Read `index.json`** entries with overlapping tags (match 2+ tags with the proposed learning)
+2. **For each match, decide:**
+   - Same scenario, same conclusion → **BUMP** confirmed count (Tier 1)
+   - Same scenario, different conclusion → **FLAG** contradiction for user (Tier 2)
+   - Different scenario, related tags → **ADD** as new entry (Tier 2)
+   - No matches → **ADD** as new entry (Tier 2)
+3. **Check related cache files:** Does the learning reveal info missing from `knowledge/cache/`? → update cache + add learning. Does it contradict cache? → **FLAG** for user.
+4. **Execute decision:** BUMP / ADD / SKIP / FLAG — then update `index.json` accordingly.
+
+#### C. Staleness Rules
+
+| Condition | Status | Action |
+|-----------|--------|--------|
+| Not confirmed in > 6 months | `stale` | Flag during session startup |
+| Contradicted by 2+ builds | `deprecated` | Flag and recommend removal |
+| References removed component | `superseded` | Flag and recommend update |
+
+Report during session startup alongside cache freshness:
+```
+Learnings: N active, M stale, K deprecated
+```
+
+#### D. Consultation Points (All Skills)
+
+Learnings are consulted at these specific points across all workflow skills:
+
+| Skill | Phase/Step | Learnings Files Read |
+|-------|-----------|---------------------|
+| `/mcs-research` | Phase B (component research) | `connectors.md`, `integrations.md`, `customer-patterns.md` |
+| `/mcs-research` | Phase C (architecture + instructions) | `architecture.md`, `instructions.md` |
+| `/mcs-research` | Phase D (scenarios + evals) | `topics-triggers.md`, `eval-testing.md` |
+| `/mcs-build` | Before Step 1 (agent creation) | `build-methods.md` |
+| `/mcs-build` | Before Step 3 (tools config) | `connectors.md`, `integrations.md` |
+| `/mcs-build` | Before Step 4 (topics) | `topics-triggers.md` |
+| `/mcs-eval` | Before Step 2 (run evaluation) | `eval-testing.md` |
+| `/mcs-fix` | Step 2 (classify failures) | `eval-testing.md`, `instructions.md`, `topics-triggers.md` |
 
 ---
 
@@ -605,7 +665,8 @@ app/                        # Dashboard application
     └── vite.config.ts      # Build config (outputs to app/dist/)
 
 knowledge/
-├── learnings/              # Experience-based insights from past builds (8 topic files)
+├── learnings/              # Experience-based insights from past builds (8 topic files + index.json)
+│   ├── index.json          # Machine-readable learnings index (dedup, confirmed counts, staleness)
 ├── cache/                  # 18 quick-reference cheat sheets (with freshness metadata)
 │   ├── triggers.md, models.md, mcp-servers.md, connectors.md
 │   ├── knowledge-sources.md, channels.md, api-capabilities.md, eval-methods.md

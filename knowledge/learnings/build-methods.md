@@ -4,19 +4,21 @@ Lessons learned about build execution — PAC CLI vs Playwright, Dataverse API p
 
 <!--
 Entry format:
-### [Title] — [Date]
+### [Title] {#id} — [Date]
 **Context:** [Customer/project, what was being built]
 **Tried:** [Initial approach]
 **Result:** [What happened]
 **Better approach:** [What worked or was recommended]
-**Confirmed:** [N] build(s)
+**Confirmed:** [N] build(s) | Last confirmed: [YYYY-MM-DD]
+**Related cache:** [cache file(s) if applicable]
 **Tags:** #tag1 #tag2
 -->
 
-### PAC CLI create requires undocumented template YAML — 2026-02-18
+### PAC CLI create requires undocumented template YAML {#bm-001} — 2026-02-18
 **Context:** Evaluating agent creation methods for the hybrid build stack
 **Tried:** `pac copilot create --templateFileName template.yaml` — requires a YAML template extracted from an existing agent via `pac copilot extract-template`
 **Result:** Template format is not published by Microsoft, no official samples exist, and templates only capture ~30% of agent config (topics/instructions — not tools, knowledge, or model). Since Playwright is already required for tools + model selection, the template dependency adds friction with no benefit.
 **Better approach:** Create agents via Playwright (MCS UI → Create → New agent → Skip to configure → set name/description → Create). PAC CLI `create` is a fallback for environments where browser is unavailable.
-**Confirmed:** 1 build(s)
+**Confirmed:** 1 build(s) | Last confirmed: 2026-02-18
+**Related cache:** agent-lifecycle.md, api-capabilities.md
 **Tags:** #pac-cli #playwright #agent-creation #template

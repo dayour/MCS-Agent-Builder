@@ -34,12 +34,24 @@ Proceeding to classify failures...
 
 ## Step 2: Classify Failures (Lead + QA)
 
+### Before Classification: Consult Learnings for Known Failure Patterns
+
+Read the following learnings files (if non-empty) to check for known failure patterns before spawning QA:
+- `knowledge/learnings/eval-testing.md` — known failure patterns, scoring calibration insights
+- `knowledge/learnings/instructions.md` — instruction patterns that fixed similar failures (e.g., "DO NOT" boundary language)
+- `knowledge/learnings/topics-triggers.md` — trigger/routing fixes from prior builds
+
+Provide relevant learnings to QA Challenger alongside the brief data so QA can cross-reference known patterns.
+
+### Spawn QA Challenger
+
 Spawn **QA Challenger** to analyze each failed test case. Provide QA with:
 - `brief.json.evalResults` (full results including question, expected, actual, score)
 - `brief.json.instructions` (current instructions)
 - `brief.json.conversations.topics[]` (current topic list)
 - `brief.json.integrations[]` (configured tools)
 - `brief.json.knowledge[]` (knowledge sources)
+- Relevant learnings from the files above (known patterns, prior fixes)
 
 QA classifies each failure into one of 5 root cause categories:
 
@@ -220,14 +232,27 @@ Re-run eval via Direct Line API (same method as `/mcs-eval` Step 2):
 
 ---
 
-## Post-Fix Learnings Capture
+## Post-Fix Learnings Capture (Two-Tier)
 
-After Step 5, check if there are learnings worth capturing:
+After Step 5, run the two-tier learnings capture.
+
+### Tier 1: Auto-Capture (no user confirmation)
+
+- **Known patterns confirmed:** If a fix matched a pattern from existing learnings (e.g., "DO NOT" boundary language from `in-001`), auto-bump its `confirmed` count and `lastConfirmed` in `index.json`.
+- **Scoring adjustments confirmed:** If scoring fixes aligned with prior `eval-testing.md` entries, bump those entries.
+
+### Tier 2: User-Confirmed Capture (new patterns)
+
+Check for genuinely new insights:
 
 - **Recurring failure patterns** — same root cause appearing across multiple agents? Write to `knowledge/learnings/eval-testing.md`
 - **Instruction patterns** — PE discovered a better way to phrase boundaries? Write to `knowledge/learnings/instructions.md`
 - **Topic/trigger insights** — TE found trigger phrase patterns that improve routing? Write to `knowledge/learnings/topics-triggers.md`
 
-Only capture if there's something genuinely new. Skip if the fix was routine.
+**Before writing, run the comparison engine** (see CLAUDE.md "Learnings Protocol" § B):
+1. Check `index.json` for entries with overlapping tags
+2. Same fix pattern → BUMP (Tier 1); new pattern → present to user; contradiction → FLAG
 
-Present to user for confirmation before writing to learnings files.
+Only capture Tier 2 if there's something genuinely new. Skip if the fix was routine (Tier 1 still runs silently).
+
+Present to user for confirmation before writing NEW entries to learnings files. Update `index.json` for both tiers.

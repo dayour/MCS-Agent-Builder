@@ -33,11 +33,15 @@ Writes to:
 - `Build-Guides/{projectId}/agents/{agentId}/evals-results.json` — raw test results
 - `Build-Guides/{projectId}/agents/{agentId}/brief.json` — `evalResults` field updated
 
-## Before Evaluating — Knowledge Cache Check
+## Before Evaluating — Knowledge Cache + Learnings Check
 
 1. Read `knowledge/cache/eval-methods.md` — check `last_verified` date
 2. If stale (> 7 days), refresh: WebSearch + MS Learn for "Copilot Studio evaluation"
-3. Update cache if new findings
+3. Read `knowledge/learnings/eval-testing.md` (if non-empty) — check for:
+   - Eval method insights (which methods work best for which scenario types)
+   - Threshold calibration findings (e.g., "GeneralQuality scores vary 20+ points — not reliable for strict thresholds")
+   - Test design lessons (e.g., "Multi-turn scenarios need context setup in first message")
+4. Update cache if new findings
 
 ## Step 1: Ensure evals.csv Exists
 
@@ -190,34 +194,47 @@ After evaluation completes (Direct Line or MCS native), update `brief.json`:
 - **Re-run eval after any agent changes** — instructions, knowledge, tools
 - **GeneralQuality evals have variance** — run multiple times for confidence
 
-## Post-Eval Learnings Capture
+## Post-Eval Learnings Capture (Two-Tier)
 
-After reporting results, analyze failure patterns for learnings. **Only capture if there are actual insights** — don't log routine passes.
+After reporting results, run the two-tier learnings capture.
 
-### What to Capture
+### Tier 1: Auto-Capture (no user confirmation)
 
+- **All-pass runs:** If 100% pass rate, auto-bump `confirmed` count for any `eval-testing.md` entries whose tags overlap with the eval methods used (e.g., if Direct Line was used and a learning about Direct Line exists, bump it).
+- **Confirmed thresholds:** If passing scores matched expectations from prior learnings, bump those entries.
+- Update `knowledge/learnings/index.json` silently.
+
+### Tier 2: User-Confirmed Capture (when failures exist)
+
+Only capture if there are actual insights — don't log routine passes.
+
+**What to capture:**
 - **Eval method insights**: "CompareMeaning with 70% was too lenient for boundary tests — PartialMatch caught violations that CompareMeaning missed"
 - **Failure patterns**: "All boundary-decline tests failed because instructions didn't explicitly say 'I cannot do that'"
 - **Scoring calibration**: "GeneralQuality scores varied 20+ points across runs — not reliable for strict thresholds"
 - **Test design lessons**: "Multi-turn scenarios need context setup in the first message or agent loses context"
 
-### Generate Summary (only if there are insights)
+**Before writing, run the comparison engine** (see CLAUDE.md "Learnings Protocol" § B):
+1. Check `index.json` for entries with overlapping tags
+2. Same pattern → BUMP (Tier 1); new pattern → present to user; contradiction → FLAG
+
+**Generate summary (only if there are Tier 2 insights):**
 
 ```markdown
 ## Eval Learnings: [Agent Name] — [Date]
 
 ### Failure Analysis Patterns
-| Pattern | Affected Tests | Root Cause | Fix Applied | Category |
-|---------|---------------|------------|-------------|----------|
-| [pattern] | [N] tests | [why] | [what was fixed] | eval-testing / instructions |
+| Pattern | Affected Tests | Root Cause | Category | Action |
+|---------|---------------|------------|----------|--------|
+| [pattern] | [N] tests | [why] | eval-testing / instructions | ADD / BUMP et-001 |
 
 ### Method/Threshold Insights
-| Insight | Category |
-|---------|----------|
-| [what we learned about eval methods/thresholds] | eval-testing |
+| Insight | Category | Action |
+|---------|----------|--------|
+| [what we learned] | eval-testing | ADD / BUMP |
 ```
 
-Present to user. If confirmed, write to `knowledge/learnings/eval-testing.md` (or other relevant topic file if the root cause was instructions, knowledge, etc.).
+Present to user. If confirmed, write to `knowledge/learnings/{category}.md` and update `index.json`.
 
 ---
 
