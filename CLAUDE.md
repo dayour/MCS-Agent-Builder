@@ -421,6 +421,11 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 - On resume, completed steps are skipped — build continues from the failure point
 - Publish (Step 5) always re-runs since it's cheap and ensures latest state
 
+**MVP Phase Filtering:**
+- Only builds items tagged `phase: "mvp"` — skips `phase: "future"` across capabilities, integrations, knowledge, and topics
+- Outputs a scope summary (N MVP / M deferred) before starting
+- Deferred items are listed in the build report for customer visibility
+
 **Routes by architecture:**
 - `Single Agent` → standalone build (PAC CLI + Dataverse + Playwright + YAML)
 - `Multi-Agent` → specialists first, then orchestrator with child connections

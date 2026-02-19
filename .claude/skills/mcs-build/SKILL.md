@@ -80,6 +80,32 @@ Every build targets a specific tenant and environment. This gate reads persisted
 
 ---
 
+## MVP Phase Filtering
+
+**Only build items tagged `phase: "mvp"`. Skip items tagged `phase: "future"`.**
+
+At the start of the build, scan the brief and compute the build scope:
+
+1. **`capabilities[]`** — filter to `phase: "mvp"` only. Future capabilities are noted but not built.
+2. **`integrations[]`** — only configure tools/connectors where `phase: "mvp"`. Future integrations are skipped in Step 3.
+3. **`knowledge[]`** — only upload knowledge sources where `phase: "mvp"`. Future sources are skipped in Step 2.
+4. **`conversations.topics[]`** — only author topics where `phase: "mvp"`. Future topics are skipped in Step 4.
+
+Output a scope summary before proceeding:
+```
+## Build Scope (MVP filter)
+- Capabilities: {N} MVP, {M} deferred
+- Integrations: {N} MVP, {M} deferred
+- Knowledge: {N} MVP, {M} deferred
+- Topics: {N} MVP, {M} deferred
+```
+
+If ALL items of a type are `future` (e.g., zero MVP knowledge sources), skip that entire build step and note it.
+
+**Deferred items** are listed in the build report (Section 9: "What Changed from Plan") so the customer knows what's coming next.
+
+---
+
 ## Before Building — Knowledge Cache Check
 
 1. Read `knowledge/cache/api-capabilities.md` — check `last_verified` date
@@ -230,6 +256,7 @@ Write `mcsAgentId` to `brief.json.buildStatus` right after creation or detection
 **Checkpoint:** After verified, add `"instructions"` to `brief.json.buildStatus.completedSteps` and set `lastCompletedStep` to `"instructions"`.
 
 **Knowledge:** Upload via Dataverse API (see `knowledge/patterns/dataverse-patterns.md` § 4).
+**Phase filter:** Only upload `knowledge[]` entries where `phase == "mvp"`. Log skipped future sources.
 **Fallback:** Playwright → Knowledge tab → Add knowledge
 **Checkpoint:** After verified, add `"knowledge"` to `brief.json.buildStatus.completedSteps` and set `lastCompletedStep` to `"knowledge"`.
 
@@ -265,11 +292,12 @@ pac copilot publish --bot <bot-id>
 Then configure:
 - **Model**: Always select the latest available model. In the MCS model combobox, pick the newest option (typically the top preview model). Do not read architecture.model from brief.json.
   **Checkpoint:** After model verified, add `"model"` to `completedSteps`, set `lastCompletedStep` to `"model"`.
+- **Phase filter:** Only configure `integrations[]` entries where `phase == "mvp"`. Log skipped future integrations.
 - **MCP servers**: Tools → Add tool → Model Context Protocol → search → add
 - **Connectors**: Tools → Add tool → search connector → select action → create connection
 - **Computer Use**: Tools → Add tool → Computer use → configure
 - **Security**: Settings → "Allow other agents to connect" (if specialist)
-  **Checkpoint:** After all tools verified, add `"tools"` to `completedSteps`, set `lastCompletedStep` to `"tools"`.
+  **Checkpoint:** After all MVP tools verified, add `"tools"` to `completedSteps`, set `lastCompletedStep` to `"tools"`.
 
 **On-demand RA trigger:** If a connector/MCP server is not found by expected name, or auth mode differs from spec, spawn Research Analyst to investigate (see "On-Demand Teammates" section above). Apply RA's findings before continuing.
 
@@ -281,9 +309,11 @@ Then configure:
 
 **Skip check:** If `"topics"` is in `completedSteps`, skip this entire step.
 
-Use **Topic Engineer** teammate to generate validated YAML:
+Use **Topic Engineer** teammate to generate validated YAML.
 
-For each topic in the spec:
+**Phase filter:** Only author `conversations.topics[]` entries where `phase == "mvp"`. Log skipped future topics.
+
+For each MVP topic in the spec:
 1. Topic Engineer generates YAML from `knowledge/patterns/topic-patterns/`
 2. QA Challenger validates YAML syntax
 3. In MCS: Topics → "Add a topic" → "From blank"
@@ -374,21 +404,26 @@ After building all agents:
 
 ## End-of-Build Reconciliation (MANDATORY)
 
-After ALL changes, walk the brief's component list and snapshot-verify each item:
+After ALL changes, walk the brief's **MVP-scoped** component list and snapshot-verify each item:
 
 | Check | How to verify |
 |-------|--------------|
 | Agent exists with correct name | Overview heading |
 | Latest model selected | Model combobox |
 | Instructions match spec | Instructions text read-back |
-| Knowledge sources match spec | Knowledge section |
-| Tools match spec | Tools tab |
-| Triggers match spec | Triggers section |
+| MVP knowledge sources configured | Knowledge section |
+| MVP tools/integrations configured | Tools tab |
+| MVP triggers match spec | Triggers section |
 | Agent is published | "Published [today]" |
 | (Multi-agent) All specialists connected | Agents tab |
 | (Multi-agent) Sharing enabled on specialists | Settings snapshot |
 
-Report: "Reconciliation: N/N items verified" or "Found M issues: [list]"
+Report: "Reconciliation: N/N MVP items verified" or "Found M issues: [list]"
+
+Also output a deferred items summary:
+```
+Deferred to future phase: {N} capabilities, {M} integrations, {K} knowledge sources, {J} topics
+```
 
 ## Output: Build Summary Report
 
@@ -403,7 +438,8 @@ After reconciliation, generate **two outputs**:
 ## Build Complete: [Agent Name]
 
 **Status:** Published | **Environment:** [env] | **Account:** [account]
-**Reconciliation:** {N}/{N} items verified
+**Reconciliation:** {N}/{N} MVP items verified
+**Deferred:** {M} future items (see build report Section 9)
 
 Report saved: Build-Guides/{projectId}/agents/{agentId}/build-report.md
 
