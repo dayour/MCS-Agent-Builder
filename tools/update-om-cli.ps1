@@ -156,6 +156,25 @@ try {
     exit 0
 }
 
+# ---------------------------------------------------------------------------
+# Step 4b: Clean up non-essential publish output
+# ---------------------------------------------------------------------------
+
+# Remove satellite resource DLLs (locale folders like ar-SA, cs-CZ, etc.)
+# These are translation files for error messages — English is built into the main DLLs
+$localeDirs = Get-ChildItem $omCliOutput -Directory | Where-Object {
+    $_.Name -match '^[a-z]{2}-[A-Z]{2}$' -and $_.Name -ne 'en-US'
+}
+if ($localeDirs) {
+    $localeDirs | Remove-Item -Recurse -Force
+    Write-Status "Removed $($localeDirs.Count) unnecessary locale folders"
+}
+
+# Preserve: README.md, .source-hash (our files, not from publish)
+# Preserve: schemas/ (essential for validation)
+# Preserve: all DLLs + exe (essential runtime)
+# Preserve: *.xml (type documentation used by CLI)
+
 # Write source hash for next comparison
 $currentHash | Out-File -FilePath $hashFile -NoNewline -Encoding ascii
 Write-Ok "om-cli rebuilt from $($currentHash.Substring(0,8))"
