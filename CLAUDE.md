@@ -612,9 +612,9 @@ Cached inventories, stable patterns, and decision frameworks live in `knowledge/
 - **`knowledge/frameworks/`** — Decision frameworks (component selection, architecture scoring, tool priority).
 
 **Tiered refresh:**
-- **Tier 1 (build-critical):** triggers, mcp-servers, connectors, knowledge-sources, channels — auto-refreshed at session start if > 7 days old
+- **Tier 1 (build-critical):** triggers, models, mcp-servers, connectors, knowledge-sources, channels — auto-refreshed at session start if > 7 days old
 - **Tier 2 (build-phase):** api-capabilities, instructions-authoring, generative-orchestration, adaptive-cards, ai-tools-computer-use, power-automate-integration — refreshed before `/mcs-build` if stale
-- **Tier 3 (reference):** eval-methods, security-auth, agent-lifecycle, limits-licensing, powerfx-variables, conversation-design, models — refreshed on demand via `/mcs-refresh`
+- **Tier 3 (reference):** eval-methods, security-auth, agent-lifecycle, limits-licensing, powerfx-variables, conversation-design — refreshed on demand via `/mcs-refresh`
 
 **Freshness rules:**
 - < 7 days old → use as-is
@@ -703,11 +703,13 @@ tools/
 ├── gen-constraints.py      # Pre-generation constraint extraction (queries om-cli for required fields)
 ├── drift-detect.py         # Brief-vs-YAML drift detection (missing topics, trigger/variable mismatches)
 ├── semantic-gates.py       # 5 semantic validation gates (PowerFx, cross-refs, variables, channels, connectors)
+├── powerfx-catalog.json    # Official PowerFx function catalog (loaded by semantic-gates.py)
 ├── schema-lookup.py        # Legacy schema query tool (kind-value checks only, fallback)
 ├── direct-line-test.js     # Direct Line API test runner
 ├── dataverse-helper.ps1    # PowerShell Dataverse Web API helper
 ├── fetch-instructions.ps1  # Fetch agent instructions from Dataverse
 ├── pac-mcp-wrapper.js      # PAC CLI MCP server wrapper
+├── start-edge-debug.cmd    # Launch Edge with remote debugging for Playwright CDP mode
 ├── session-config.example.json  # Account/environment config template
 └── git-hooks/pre-commit    # Core file protection hook (installed by start.js)
 

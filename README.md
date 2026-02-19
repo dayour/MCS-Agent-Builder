@@ -29,6 +29,7 @@ If you prefer to install manually:
 | **Claude Code** | AI agent that runs the builds (org-provided) |
 | **PAC CLI** | Power Platform operations (Claude will auth for you) |
 | **Azure CLI** | Bug/suggest work item creation (optional) |
+| **.NET 10 Runtime** | ObjectModel CLI for YAML validation (optional — om-cli tools skip gracefully if missing) |
 | **Microsoft Account** | Access to Copilot Studio |
 
 ## How It Works
@@ -86,6 +87,17 @@ Each build step uses the best tool, minimizing fragile browser automation:
 | 4 | **Direct Line API** | Evaluation testing (send messages, compare responses) |
 | 5 | **Playwright** | Agent creation, model selection, tool/connector addition, OAuth (last resort) |
 
+### YAML Validation Pipeline
+
+Topic YAML goes through 4 validation layers before it reaches Copilot Studio:
+
+| Layer | Tool | What It Catches |
+|-------|------|----------------|
+| Pre-generation | `tools/gen-constraints.py` | Missing required fields (prevents errors at generation time) |
+| Structural | `tools/om-cli/om-cli.exe` | Unknown nodes, missing fields, invalid structure (357 types) |
+| Semantic | `tools/semantic-gates.py` | PowerFx errors, cross-refs, variable flow, channel compat, connectors |
+| Spec drift | `tools/drift-detect.py` | Missing/extra topics, trigger/variable mismatches vs brief |
+
 ## Agent Teams
 
 Complex builds use 5 AI teammates that challenge each other's work before execution:
@@ -136,7 +148,7 @@ knowledge/
   frameworks/               Decision frameworks
 
 templates/                  brief.json (single source of truth schema)
-tools/                      Direct Line test runner, Dataverse helper, PAC CLI wrapper
+tools/                      Validation pipeline (om-cli, semantic-gates), Direct Line, Dataverse, PAC CLI
 Build-Guides/               Per-project work (gitignored)
 ```
 
