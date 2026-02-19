@@ -172,7 +172,7 @@
     {
       "question": "Test question to ask the agent",
       "expected": "What the response should contain or convey",
-      "method": "GeneralQuality | TextSimilarity | ExactMatch | PartialMatch | CompareMeaning",
+      "method": "GeneralQuality | TextSimilarity | ExactMatch | PartialMatch | CompareMeaning | KeywordMatch | CapabilityUse",
       "score": "70",
       "category": "happy-path | edge-case | boundary-decline | boundary-refuse | error-recovery | multi-turn",
       "capability": "Which capability this tests (links to capabilities[].name)"
@@ -200,7 +200,7 @@
 
   "evalResults": {
     "lastRun": "ISO timestamp of last eval run",
-    "method": "DirectLine | MCSNative",
+    "method": "DirectLine | PlaywrightTestChat | MCSNative | DirectLine+PlaywrightTestChat",
     "summary": {
       "total": 0,
       "passed": 0,

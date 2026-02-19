@@ -6,45 +6,82 @@
  *
  * Usage:
  *   node tools/direct-line-test.js --token <DL_TOKEN> --csv <path/to/evals.csv>
+ *   node tools/direct-line-test.js --token-endpoint <URL> --csv <path/to/evals.csv>
  *   node tools/direct-line-test.js --token <DL_TOKEN> --csv <path/to/evals.csv> --endpoint <DL_ENDPOINT>
  *
- * The token can be obtained from:
- *   - Copilot Studio → Settings → Security → Web channel security → Copy token
- *   - Dataverse API: PvaGetDirectLineEndpoint bound action on the bot entity
- *   - PAC CLI output (if available)
+ * Token acquisition (in priority order):
+ *   1. --token-endpoint <URL> — MCS Token Endpoint (GET, no secret needed)
+ *      Found in: Copilot Studio → Channels → Mobile app → Token Endpoint
+ *      Returns: { Token, Expires_in, ConversationId }
+ *   2. --token <TOKEN> — Direct Line token (manually copied)
+ *      Found in: Copilot Studio → Settings → Security → Web channel security
+ *   3. Dataverse API: PvaGetDirectLineEndpoint bound action on the bot entity
  *
  * CSV format (same as MCS native eval):
  *   "question","expectedResponse","testMethodType","passingScore"
+ *
+ * Exit codes:
+ *   0 = all tests passed
+ *   1 = some tests failed
+ *   2 = fatal error (token acquisition, connection failure)
  */
 
 const fs = require('fs');
 const https = require('https');
+const http = require('http');
 const { URL } = require('url');
 
 // --- Configuration ---
 const DEFAULT_ENDPOINT = 'https://directline.botframework.com/v3/directline';
-const RESPONSE_TIMEOUT_MS = 30000; // 30 seconds max wait per message
-const POLL_INTERVAL_MS = 1000;     // Poll every 1 second
+const DEFAULT_TIMEOUT_MS = 60000; // 60 seconds max wait per message
+const POLL_INTERVAL_MS = 1000;    // Poll every 1 second
+const TOKEN_REFRESH_THRESHOLD = 0.8; // Refresh when 80% of TTL elapsed
+const MAX_RETRIES = 3;
+const RETRY_BACKOFF_BASE_MS = 1000; // 1s, 2s, 4s
 
 // --- Parse CLI Args ---
 function parseArgs() {
     const args = process.argv.slice(2);
-    const config = { endpoint: DEFAULT_ENDPOINT };
+    const config = { endpoint: DEFAULT_ENDPOINT, timeout: DEFAULT_TIMEOUT_MS };
 
     for (let i = 0; i < args.length; i++) {
         switch (args[i]) {
             case '--token': config.token = args[++i]; break;
+            case '--token-endpoint': config.tokenEndpoint = args[++i]; break;
             case '--csv': config.csvPath = args[++i]; break;
             case '--endpoint': config.endpoint = args[++i]; break;
+            case '--timeout': config.timeout = parseInt(args[++i]) || DEFAULT_TIMEOUT_MS; break;
             case '--verbose': config.verbose = true; break;
             case '--help':
-                console.log('Usage: node direct-line-test.js --token <TOKEN> --csv <path/to/evals.csv> [--endpoint <URL>] [--verbose]');
+                console.log(`Usage: node direct-line-test.js [options]
+
+Token (one required):
+  --token <TOKEN>            Direct Line token (manually copied from MCS UI)
+  --token-endpoint <URL>     MCS Token Endpoint URL (auto-acquires token, no secret needed)
+                             Found in: Copilot Studio → Channels → Mobile app
+
+Test configuration:
+  --csv <path>               Path to evals.csv file (required)
+  --endpoint <URL>           Direct Line endpoint (default: botframework.com)
+  --timeout <ms>             Response timeout in ms (default: 60000)
+  --verbose                  Show detailed output for failed tests
+
+Examples:
+  node direct-line-test.js --token-endpoint "https://..." --csv evals.csv
+  node direct-line-test.js --token "abc123" --csv evals.csv --verbose
+  node direct-line-test.js --token "abc123" --csv evals.csv --timeout 90000`);
                 process.exit(0);
         }
     }
 
-    if (!config.token) { console.error('Error: --token is required'); process.exit(1); }
-    if (!config.csvPath) { console.error('Error: --csv is required'); process.exit(1); }
+    if (!config.token && !config.tokenEndpoint) {
+        console.error('Error: --token or --token-endpoint is required');
+        process.exit(2);
+    }
+    if (!config.csvPath) {
+        console.error('Error: --csv is required');
+        process.exit(2);
+    }
 
     return config;
 }
@@ -89,18 +126,20 @@ function parseCSV(content) {
     }));
 }
 
-// --- HTTP Helper ---
+// --- HTTP Helper with retry ---
 function httpRequest(method, url, headers, body) {
     return new Promise((resolve, reject) => {
         const parsed = new URL(url);
+        const transport = parsed.protocol === 'http:' ? http : https;
         const options = {
             hostname: parsed.hostname,
+            port: parsed.port || (parsed.protocol === 'http:' ? 80 : 443),
             path: parsed.pathname + parsed.search,
             method,
             headers: { ...headers, 'Content-Type': 'application/json' }
         };
 
-        const req = https.request(options, (res) => {
+        const req = transport.request(options, (res) => {
             let data = '';
             res.on('data', chunk => data += chunk);
             res.on('end', () => {
@@ -113,41 +152,175 @@ function httpRequest(method, url, headers, body) {
         });
 
         req.on('error', reject);
+        req.setTimeout(15000, () => {
+            req.destroy(new Error('Request timeout'));
+        });
         if (body) req.write(JSON.stringify(body));
         req.end();
     });
 }
 
+async function httpRequestWithRetry(method, url, headers, body, retries = MAX_RETRIES) {
+    let lastError;
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+            const res = await httpRequest(method, url, headers, body);
+
+            // Retry on 429 (rate limit) or 5xx (server error)
+            if ((res.status === 429 || res.status >= 500) && attempt < retries) {
+                const delay = RETRY_BACKOFF_BASE_MS * Math.pow(2, attempt);
+                console.log(`  [Retry ${attempt + 1}/${retries}] HTTP ${res.status}, waiting ${delay}ms...`);
+                await new Promise(r => setTimeout(r, delay));
+                continue;
+            }
+
+            return res;
+        } catch (err) {
+            lastError = err;
+            if (attempt < retries) {
+                const delay = RETRY_BACKOFF_BASE_MS * Math.pow(2, attempt);
+                console.log(`  [Retry ${attempt + 1}/${retries}] ${err.message}, waiting ${delay}ms...`);
+                await new Promise(r => setTimeout(r, delay));
+            }
+        }
+    }
+    throw lastError;
+}
+
+// --- Token Manager ---
+class TokenManager {
+    constructor(tokenEndpoint, initialToken) {
+        this.tokenEndpoint = tokenEndpoint;
+        this.token = initialToken || null;
+        this.expiresAt = null; // Date.now() + expires_in * 1000
+    }
+
+    async acquireToken() {
+        if (!this.tokenEndpoint) {
+            if (!this.token) throw new Error('No token and no token endpoint configured');
+            return this.token;
+        }
+
+        console.log('Acquiring token from Token Endpoint...');
+        const res = await httpRequestWithRetry('GET', this.tokenEndpoint, {}, null, 2);
+
+        if (res.status !== 200) {
+            throw new Error(`Token Endpoint returned ${res.status}: ${JSON.stringify(res.data)}`);
+        }
+
+        // MCS Token Endpoint returns { Token, Expires_in, ConversationId }
+        // or possibly { token, expires_in } — handle both casings
+        const token = res.data.Token || res.data.token;
+        const expiresIn = res.data.Expires_in || res.data.expires_in || 3600;
+
+        if (!token) {
+            throw new Error(`Token Endpoint response missing token: ${JSON.stringify(res.data)}`);
+        }
+
+        this.token = token;
+        this.expiresAt = Date.now() + (expiresIn * 1000);
+        console.log(`Token acquired (expires in ${expiresIn}s)`);
+        return this.token;
+    }
+
+    async getToken() {
+        // If no token yet, acquire one
+        if (!this.token) {
+            return await this.acquireToken();
+        }
+
+        // If we have an expiry time and we're past the refresh threshold, refresh
+        if (this.tokenEndpoint && this.expiresAt) {
+            const now = Date.now();
+            const totalTTL = this.expiresAt - (this.expiresAt - (this.expiresAt - now));
+            // Simpler: check if remaining time is less than 20% of original TTL
+            const remaining = this.expiresAt - now;
+            if (remaining < 60000) { // Less than 60 seconds remaining
+                console.log('Token expiring soon, refreshing...');
+                return await this.acquireToken();
+            }
+        }
+
+        return this.token;
+    }
+
+    needsRefresh() {
+        if (!this.tokenEndpoint || !this.expiresAt) return false;
+        const remaining = this.expiresAt - Date.now();
+        return remaining < 120000; // Refresh when < 2 minutes remaining
+    }
+
+    async refreshIfNeeded() {
+        if (this.needsRefresh()) {
+            await this.acquireToken();
+        }
+    }
+}
+
 // --- Direct Line Client ---
 class DirectLineClient {
-    constructor(token, endpoint) {
-        this.token = token;
+    constructor(tokenManager, endpoint) {
+        this.tokenManager = tokenManager;
         this.endpoint = endpoint;
         this.conversationId = null;
         this.watermark = null;
     }
 
     async startConversation() {
-        const res = await httpRequest('POST', `${this.endpoint}/conversations`, {
-            Authorization: `Bearer ${this.token}`
+        const token = await this.tokenManager.getToken();
+        const res = await httpRequestWithRetry('POST', `${this.endpoint}/conversations`, {
+            Authorization: `Bearer ${token}`
         });
+
+        if (res.status === 401 || res.status === 403) {
+            // Token may have expired — try refresh and retry once
+            if (this.tokenManager.tokenEndpoint) {
+                console.log('  Auth failed, refreshing token...');
+                const newToken = await this.tokenManager.acquireToken();
+                const retryRes = await httpRequest('POST', `${this.endpoint}/conversations`, {
+                    Authorization: `Bearer ${newToken}`
+                });
+                if (retryRes.status !== 201 && retryRes.status !== 200) {
+                    throw new Error(`Failed to start conversation after token refresh: ${retryRes.status} ${JSON.stringify(retryRes.data)}`);
+                }
+                this.conversationId = retryRes.data.conversationId;
+                if (retryRes.data.token) this.tokenManager.token = retryRes.data.token;
+                return this.conversationId;
+            }
+            throw new Error(`Auth failed (${res.status}). Token may be expired.`);
+        }
 
         if (res.status !== 201 && res.status !== 200) {
             throw new Error(`Failed to start conversation: ${res.status} ${JSON.stringify(res.data)}`);
         }
 
         this.conversationId = res.data.conversationId;
-        // Update token if refreshed
-        if (res.data.token) this.token = res.data.token;
+        // Update token if refreshed by Direct Line
+        if (res.data.token) this.tokenManager.token = res.data.token;
         return this.conversationId;
     }
 
     async sendMessage(text) {
-        const res = await httpRequest('POST',
+        const token = await this.tokenManager.getToken();
+        const res = await httpRequestWithRetry('POST',
             `${this.endpoint}/conversations/${this.conversationId}/activities`,
-            { Authorization: `Bearer ${this.token}` },
+            { Authorization: `Bearer ${token}` },
             { type: 'message', from: { id: 'test-user' }, text }
         );
+
+        if (res.status === 401 && this.tokenManager.tokenEndpoint) {
+            console.log('  Auth failed on send, refreshing token...');
+            const newToken = await this.tokenManager.acquireToken();
+            const retryRes = await httpRequest('POST',
+                `${this.endpoint}/conversations/${this.conversationId}/activities`,
+                { Authorization: `Bearer ${newToken}` },
+                { type: 'message', from: { id: 'test-user' }, text }
+            );
+            if (retryRes.status !== 200 && retryRes.status !== 201) {
+                throw new Error(`Failed to send message after token refresh: ${retryRes.status}`);
+            }
+            return retryRes.data.id;
+        }
 
         if (res.status !== 200 && res.status !== 201) {
             throw new Error(`Failed to send message: ${res.status} ${JSON.stringify(res.data)}`);
@@ -156,15 +329,23 @@ class DirectLineClient {
         return res.data.id;
     }
 
-    async getResponse(timeoutMs = RESPONSE_TIMEOUT_MS) {
+    async getResponse(timeoutMs) {
         const start = Date.now();
 
         while (Date.now() - start < timeoutMs) {
+            const token = await this.tokenManager.getToken();
             const wmParam = this.watermark ? `?watermark=${this.watermark}` : '';
             const res = await httpRequest('GET',
                 `${this.endpoint}/conversations/${this.conversationId}/activities${wmParam}`,
-                { Authorization: `Bearer ${this.token}` }
+                { Authorization: `Bearer ${token}` }
             );
+
+            if (res.status === 401 && this.tokenManager.tokenEndpoint) {
+                console.log('  Auth failed on poll, refreshing token...');
+                await this.tokenManager.acquireToken();
+                await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
+                continue;
+            }
 
             if (res.status === 200 && res.data.activities) {
                 // Filter to bot responses only (not our own messages)
@@ -198,6 +379,16 @@ function evaluateResult(actual, expected, method, passingScore) {
             const contains = actual.toLowerCase().includes(expected.toLowerCase());
             return { pass: contains, score: contains ? 100 : 0 };
 
+        case 'KeywordMatch': {
+            // Check if all keywords from expected are present in actual
+            const keywords = expected.toLowerCase().split(/[,;\s]+/).filter(w => w.length > 2);
+            if (keywords.length === 0) return { pass: actual.length > 0, score: actual.length > 0 ? 100 : 0 };
+            const actualLower = actual.toLowerCase();
+            const hits = keywords.filter(kw => actualLower.includes(kw)).length;
+            const score = Math.round((hits / keywords.length) * 100);
+            return { pass: score >= (passingScore || 70), score };
+        }
+
         case 'TextSimilarity': {
             const score = textSimilarity(actual, expected);
             return { pass: score >= passingScore, score };
@@ -214,6 +405,16 @@ function evaluateResult(actual, expected, method, passingScore) {
             // Basic quality heuristics - in production, use an LLM judge
             const score = qualityScore(actual, expected);
             return { pass: score >= 50, score };
+        }
+
+        case 'CapabilityUse': {
+            // Check if the response indicates a capability was used (e.g., tool call, data retrieval)
+            // Expected format: comma-separated indicators that should be present
+            const indicators = expected.toLowerCase().split(/[,;]+/).map(s => s.trim()).filter(Boolean);
+            const actualLower = actual.toLowerCase();
+            const hits = indicators.filter(ind => actualLower.includes(ind)).length;
+            const score = indicators.length > 0 ? Math.round((hits / indicators.length) * 100) : (actual.length > 20 ? 80 : 0);
+            return { pass: score >= (passingScore || 70), score };
         }
 
         default:
@@ -268,6 +469,33 @@ function qualityScore(actual, expected) {
     return Math.round(score);
 }
 
+// --- Write partial results (for failover support) ---
+function writeResults(config, results, testCases, status, failedAtIndex) {
+    const passed = results.filter(r => r.pass).length;
+    const failed = results.filter(r => !r.pass).length;
+    const total = testCases.length;
+
+    const output = {
+        status, // "complete", "partial", "error"
+        summary: {
+            total,
+            executed: results.length,
+            passed,
+            failed: results.length - passed,
+            remaining: total - results.length,
+            passRate: results.length > 0 ? `${Math.round(passed / results.length * 100)}%` : '0%'
+        },
+        timestamp: new Date().toISOString(),
+        method: 'DirectLine',
+        ...(failedAtIndex !== undefined && { failedAt: failedAtIndex }),
+        results
+    };
+
+    const resultsPath = config.csvPath.replace('.csv', '-results.json');
+    fs.writeFileSync(resultsPath, JSON.stringify(output, null, 2));
+    return resultsPath;
+}
+
 // --- Main Runner ---
 async function runTests() {
     const config = parseArgs();
@@ -279,15 +507,38 @@ async function runTests() {
     console.log(`\n=== Direct Line Test Runner ===`);
     console.log(`Test cases: ${testCases.length}`);
     console.log(`Endpoint: ${config.endpoint}`);
+    console.log(`Timeout: ${config.timeout}ms`);
+    console.log(`Token source: ${config.tokenEndpoint ? 'Token Endpoint (auto)' : 'Manual token'}`);
     console.log(`CSV: ${config.csvPath}\n`);
 
-    const client = new DirectLineClient(config.token, config.endpoint);
+    // Initialize token manager
+    const tokenManager = new TokenManager(config.tokenEndpoint || null, config.token || null);
+
+    // Acquire initial token if using token endpoint
+    if (config.tokenEndpoint) {
+        try {
+            await tokenManager.acquireToken();
+        } catch (err) {
+            console.error(`Fatal: Failed to acquire token: ${err.message}`);
+            writeResults(config, [], testCases, 'error');
+            process.exit(2);
+        }
+    }
+
+    const client = new DirectLineClient(tokenManager, config.endpoint);
     const results = [];
 
-    // Start a fresh conversation for each test to avoid context bleed
     for (let i = 0; i < testCases.length; i++) {
         const tc = testCases[i];
-        console.log(`[${i + 1}/${testCases.length}] Testing: "${tc.question.substring(0, 60)}..."`);
+        const questionPreview = tc.question.length > 60 ? tc.question.substring(0, 57) + '...' : tc.question;
+        console.log(`[${i + 1}/${testCases.length}] Testing: "${questionPreview}"`);
+
+        // Refresh token proactively between tests if needed
+        try {
+            await tokenManager.refreshIfNeeded();
+        } catch (err) {
+            console.log(`  Warning: Token refresh failed: ${err.message}`);
+        }
 
         try {
             // New conversation per test
@@ -297,7 +548,7 @@ async function runTests() {
             await client.sendMessage(tc.question);
 
             // Wait for response
-            const response = await client.getResponse();
+            const response = await client.getResponse(config.timeout);
 
             // Evaluate
             const result = evaluateResult(response, tc.expectedResponse, tc.testMethodType, tc.passingScore);
@@ -327,6 +578,19 @@ async function runTests() {
                 error: err.message
             });
             console.log(`  ERROR: ${err.message}`);
+
+            // Check if this is a fatal error that should stop the run
+            const isFatal = err.message.includes('Auth failed') ||
+                            err.message.includes('token') ||
+                            err.message.includes('ECONNREFUSED') ||
+                            err.message.includes('ENOTFOUND');
+
+            if (isFatal && i < testCases.length - 1) {
+                console.log(`\n  Fatal error detected — writing partial results and stopping.`);
+                const resultsPath = writeResults(config, results, testCases, 'partial', i);
+                console.log(`  Partial results (${results.length}/${testCases.length}) saved to: ${resultsPath}`);
+                process.exit(2);
+            }
         }
 
         // Small delay between tests to avoid rate limiting
@@ -351,13 +615,8 @@ async function runTests() {
         });
     }
 
-    // Write detailed results to JSON
-    const resultsPath = config.csvPath.replace('.csv', '-results.json');
-    fs.writeFileSync(resultsPath, JSON.stringify({
-        summary: { total: results.length, passed, failed, passRate: `${Math.round(passed / results.length * 100)}%` },
-        timestamp: new Date().toISOString(),
-        results
-    }, null, 2));
+    // Write complete results
+    const resultsPath = writeResults(config, results, testCases, 'complete');
     console.log(`\nDetailed results saved to: ${resultsPath}`);
 
     // Exit with failure code if any tests failed
@@ -366,5 +625,5 @@ async function runTests() {
 
 runTests().catch(err => {
     console.error('Fatal error:', err);
-    process.exit(1);
+    process.exit(2);
 });

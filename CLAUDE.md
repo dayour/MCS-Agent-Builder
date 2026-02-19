@@ -506,8 +506,11 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 **Reads:** `brief.json` evals array or `evals.csv`
 **Writes:** `brief.json` evalResults + `evals-results.json`
 
-**Preferred method:** Direct Line API (`tools/direct-line-test.js`)
-**Fallback:** Native MCS eval via Playwright
+**Three-tier eval strategy:**
+- **Tier 1: Direct Line API** (preferred) — hardened with auto-token via Token Endpoint, retry with backoff, 60s timeout, structured partial results
+- **Tier 2: Playwright Test Chat** (fallback) — drives Test Chat pane in MCS UI, no token needed, scores locally using same logic as Tier 1
+- **Tier 3: Native MCS Eval** (async, optional) — uploads CSV to Evaluation tab, starts eval, returns immediately. Check results later with `--check-results`
+- **Automatic failover:** Tier 1 → Tier 2. Tier 3 only on explicit user request (`--native` flag).
 
 **Test method types:** See `knowledge/cache/eval-methods.md`
 

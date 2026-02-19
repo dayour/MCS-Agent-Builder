@@ -90,14 +90,18 @@ You also generate evaluation test cases from the agent spec:
 | `CompareMeaning` | Response should convey same meaning | "70" |
 | `PartialMatch` | Must contain specific phrase (boundaries) | (empty) |
 | `ExactMatch` | Must exactly match (precise facts) | (empty) |
+| `KeywordMatch` | All keywords from expected present in response | "70" |
+| `CapabilityUse` | Response shows a capability was used (tool call, data retrieval) | "70" |
 
 ### Eval Design Rules
 - **Happy path scenarios**: `GeneralQuality` or `CompareMeaning` at "70"
 - **DECLINE boundaries**: `PartialMatch` — must contain the decline phrase
 - **REFUSE boundaries**: `PartialMatch` — must contain the refusal phrase
 - **Factual answers**: `PartialMatch` for specific facts
+- **Keyword presence**: `KeywordMatch` at "70" — expected = comma/space-separated keywords
+- **Tool/integration verification**: `CapabilityUse` at "70" — expected = indicators that capability fired
 - **passingScore is integer**: "70" not "0.7"
-- **Only 5 valid types** — no "AI", "Contains", or custom types
+- **Only 7 valid types** — no "AI", "Contains", or custom types
 - **Boundaries must pass 100%** — if they don't, fix instructions first
 - **Cover edge cases**: empty input, out-of-scope, multi-turn, ambiguous queries
 
