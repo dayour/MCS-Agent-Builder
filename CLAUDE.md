@@ -177,6 +177,7 @@ Before committing to designs that are hard to undo — schema changes, workflow 
 | **PAC CLI** | Agent lifecycle: publish, list, status, solution ALM (`pac copilot`, `pac solution`) |
 | **Dataverse API** | Agent config: instructions, knowledge, settings, publish (via HTTP/PowerShell) |
 | **Code Editor YAML** | Topic authoring: conversations, cards, branching (paste into MCS code editor) |
+| **Schema Lookup** | Validate YAML against the MCS authoring schema: `python tools/schema-lookup.py` (lookup, search, resolve, kinds, entities, validate) |
 | **Direct Line API** | Agent testing: send messages, compare responses (`tools/direct-line-test.js`) |
 | **Playwright MCP** | MCS UI automation for operations with no API (`@playwright/mcp`) |
 | **WorkIQ MCP** | M365 context: emails, meetings, documents, Teams, people (`workiq mcp`) |
@@ -553,9 +554,10 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 
 ## Patterns & References
 
+**MCS Authoring Schema:** `reference/schema/bot.schema.yaml-authoring.json` (200KB+, 433 kind values) — query via `python tools/schema-lookup.py`
+**Code Editor YAML reference:** See `knowledge/patterns/yaml-reference.md` (action types, entity catalog, binding rules, compile errors)
+**Topic YAML templates:** See `knowledge/patterns/topic-patterns/` (10 patterns including AI Builder model)
 **Playwright UI patterns:** See `knowledge/patterns/playwright-patterns.md`
-**Code Editor YAML reference:** See `knowledge/patterns/yaml-reference.md`
-**Topic YAML templates:** See `knowledge/patterns/topic-patterns/`
 **Dataverse API patterns:** See `knowledge/patterns/dataverse-patterns.md`
 **Trigger types:** See `knowledge/cache/triggers.md`
 
@@ -667,6 +669,10 @@ app/                        # Dashboard application
     ├── package.json        # Frontend dependencies
     └── vite.config.ts      # Build config (outputs to app/dist/)
 
+reference/
+└── schema/
+    └── bot.schema.yaml-authoring.json  # Full MCS authoring schema (200KB+, 433 kind values)
+
 knowledge/
 ├── learnings/              # Experience-based insights from past builds (8 topic files + index.json)
 │   ├── index.json          # Machine-readable learnings index (dedup, confirmed counts, staleness)
@@ -678,7 +684,7 @@ knowledge/
 │   └── adaptive-cards.md, ai-tools-computer-use.md, limits-licensing.md, conversation-design.md
 ├── patterns/               # Stable HOW-TO references
 │   ├── yaml-reference.md, playwright-patterns.md, dataverse-patterns.md
-│   └── topic-patterns/     # 9 reusable YAML templates
+│   └── topic-patterns/     # 10 reusable YAML templates
 └── frameworks/             # Decision frameworks
     ├── component-selection.md, architecture-scoring.md
     └── tool-priority.md
@@ -687,6 +693,7 @@ templates/                  # Project scaffolding templates
 ├── brief.json              # Agent brief schema — THE single source of truth
 
 tools/
+├── schema-lookup.py        # MCS schema query tool (lookup, search, resolve, validate)
 ├── direct-line-test.js     # Direct Line API test runner
 ├── dataverse-helper.ps1    # PowerShell Dataverse Web API helper
 ├── fetch-instructions.ps1  # Fetch agent instructions from Dataverse

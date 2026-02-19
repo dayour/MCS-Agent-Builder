@@ -22,10 +22,12 @@ Reusable YAML patterns for Copilot Studio topic authoring via the built-in code 
 | `multi-turn.yaml` | Multi-step conversation with variable collection |
 | `form-collect.yaml` | Collect multiple inputs then take action |
 | `auto-start.yaml` | Auto-execute topic at conversation start |
+| `ai-builder-model.yaml` | Invoke AI Builder model with input/output bindings |
 
 ## Related References
 
-- **YAML syntax rules**: `knowledge/patterns/yaml-reference.md`
+- **YAML syntax rules**: `knowledge/patterns/yaml-reference.md` (action types, entity catalog, binding rules)
+- **Schema validation**: `python tools/schema-lookup.py validate <file.yaml>`
 - **Trigger types**: `knowledge/cache/triggers.md`
 - **Playwright workflow**: `knowledge/patterns/playwright-patterns.md`
 

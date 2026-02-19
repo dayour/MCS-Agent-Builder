@@ -25,6 +25,43 @@ refresh_trigger: on_error
 - `=` prefix — PowerFx expression (e.g., `value: ="Hello " & Topic.name`)
 - **Once a variable's type is set, it is FIXED** — cannot change
 
+## Binding Direction Rules (Input vs Output)
+
+**Common source of errors.** The `=` prefix differs by context:
+
+| Context | Syntax | `=` Prefix? |
+|---------|--------|-------------|
+| SetVariable `value:` | `value: ="expression"` | Yes |
+| Condition expression | `condition: =Topic.var = "value"` | Yes |
+| **Input** binding (to model/action) | `inputField: =Topic.var` | **Yes** |
+| **Output** binding (from model/action) | `outputField: Topic.var` | **No** |
+| Variable reference | `variable: Topic.myVar` | No |
+| New variable declaration | `variable: init:Topic.myVar` | No |
+
+```yaml
+# InvokeAIBuilderModelAction example:
+- kind: InvokeAIBuilderModelAction
+  id: invokeModel
+  input:
+    binding:
+      document_content: =Topic.document     # INPUT: = prefix
+      extraction_schema: =Topic.schema       # INPUT: = prefix
+  output:
+    binding:
+      predictionOutput: Topic.result         # OUTPUT: no = prefix
+      confidence: Topic.confidence           # OUTPUT: no = prefix
+  aIModelId: ba733cc8-...                    # MUST come AFTER input/output
+
+# AdaptiveCardPrompt output binding:
+- kind: AdaptiveCardPrompt
+  id: collectForm
+  output:
+    binding:
+      fieldId: Topic.variable                # OUTPUT: no = prefix
+```
+
+**Rule of thumb:** Data flowing IN uses `=` (it's an expression resolving a value). Data flowing OUT is a destination name (no expression needed).
+
 ## Key System Variables
 
 | Variable | Description |
