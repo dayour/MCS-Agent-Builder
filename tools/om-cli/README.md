@@ -39,19 +39,10 @@ The `validate` command returns JSON with structured diagnostics:
 
 Detected errors include: `UnknownElementError` (invalid kind), `MissingRequiredProperty`, structural issues.
 
-Known gap: PowerFx function validation is not performed (e.g., `Factorial()` won't be flagged).
+Known gap: PowerFx function validation is not performed (e.g., `Factorial()` won't be flagged). Use `tools/semantic-gates.py` for PowerFx checks.
 
-## Rebuilding from source
+## No rebuild needed
 
-The source is at `c:/Users/kimdennis/Downloads/ObjectModel/` (local copy only, not in this repo).
+The binary and schemas are fully self-contained in this directory. Users just need .NET 10 runtime installed — no source code, no build steps. The schema files in `schemas/` are bundled with the CLI.
 
-```bash
-dotnet publish "c:/Users/kimdennis/Downloads/ObjectModel/src/Cli/ObjectModel.Cli/ObjectModel.Cli.csproj" \
-  --configuration Release \
-  --no-self-contained \
-  --runtime win-x64 \
-  -p:DebugSymbols=false \
-  -p:DebugType=None \
-  -p:SatelliteResourceLanguages=en \
-  --output "tools/om-cli"
-```
+If the ObjectModel schema is updated in the future, the repo maintainer rebuilds and commits the new binary.
