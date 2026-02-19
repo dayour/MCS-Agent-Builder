@@ -127,8 +127,8 @@ The tool continuously learns and improves:
 
 ```
 start.cmd                   Double-click entry point (installs deps + launches)
-setup.ps1                   Bootstrap script (winget/npm/pip)
-start.js                    Launcher (npm start) — called by start.cmd
+setup.ps1                   Bootstrap script (winget/npm/pip, .NET 10 SDK)
+start.js                    Launcher (npm start) — installs hooks, checks deps
 
 .claude/
   settings.json             MCP servers, permissions, Agent Teams flag
@@ -144,11 +144,23 @@ app/
 knowledge/
   learnings/                Experience from past builds (grows over time)
   cache/                    18 MCS capability cheat sheets (auto-refreshed)
-  patterns/                 YAML, Playwright, Dataverse API patterns
+  patterns/                 YAML, Playwright, Dataverse API patterns + 10 topic templates
   frameworks/               Decision frameworks
 
 templates/                  brief.json (single source of truth schema)
-tools/                      Validation pipeline (om-cli, semantic-gates), Direct Line, Dataverse, PAC CLI
+
+tools/
+  om-cli/                   ObjectModel CLI — YAML validation (357 types, .NET 10)
+  gen-constraints.py        Pre-generation constraint extraction
+  drift-detect.py           Brief-vs-YAML drift detection
+  semantic-gates.py         5 semantic validation gates (PowerFx, cross-refs, variables, channels, connectors)
+  powerfx-catalog.json      Official PowerFx function catalog (115 functions from MS Learn)
+  update-om-cli.ps1         Auto-update om-cli from ObjectModel source repo
+  direct-line-test.js       Direct Line API test runner
+  dataverse-helper.ps1      PowerShell Dataverse Web API helper
+  schema-lookup.py          Legacy schema query tool (fallback)
+  git-hooks/                Pre-commit (file protection) + pre-push (om-cli auto-update)
+
 Build-Guides/               Per-project work (gitignored)
 ```
 
