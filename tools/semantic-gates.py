@@ -22,70 +22,37 @@ import re
 import sys
 from pathlib import Path
 
+SCRIPT_DIR = Path(__file__).parent
+CATALOG_PATH = SCRIPT_DIR / "powerfx-catalog.json"
+
 # ---------------------------------------------------------------------------
 # Gate 1: PowerFx Function Catalog
 # ---------------------------------------------------------------------------
-# Known-good functions available in MCS PowerFx expressions.
-# Source: MS Learn Power Fx formula reference + MCS-specific additions.
-# Functions NOT in this set are flagged as potentially invalid.
+# Loaded from powerfx-catalog.json (official MS Learn Copilot Studio reference).
+# Refresh the catalog by updating the JSON file -- no code changes needed.
+# Source: https://learn.microsoft.com/power-platform/power-fx/formula-reference-copilot-studio
 
-POWERFX_FUNCTIONS = {
-    # Text
-    "Char", "Concat", "Concatenate", "EncodeUrl", "EndsWith", "Find",
-    "HashTags", "IsMatch", "Left", "Len", "Lower", "Mid", "Plain",
-    "Proper", "Replace", "Right", "Split", "StartsWith", "Substitute",
-    "Text", "Trim", "TrimEnds", "Upper", "Value",
-    # Math
-    "Abs", "Average", "Ceiling", "Exp", "Floor", "Int", "Ln", "Log",
-    "Max", "Min", "Mod", "Power", "Rand", "RandBetween", "Round",
-    "RoundDown", "RoundUp", "Sequence", "Sqrt", "Sum", "Trunc",
-    # Date/Time
-    "Calendar", "Clock", "Date", "DateAdd", "DateDiff", "DateTimeValue",
-    "DateValue", "Day", "EDate", "EOMonth", "Hour", "IsToday", "Minute",
-    "Month", "Now", "Second", "Time", "TimeValue", "TimeZoneOffset",
-    "Today", "Weekday", "WeekNum", "Year",
-    # Logical
-    "And", "Coalesce", "If", "IfError", "IsBlank", "IsBlankOrError",
-    "IsEmpty", "IsError", "IsNumeric", "IsNumericText", "Not", "Or",
-    "Switch",
-    # Table/Record
-    "AddColumns", "ClearCollect", "Collect", "CountIf", "CountRows",
-    "Distinct", "DropColumns", "Filter", "First", "FirstN", "ForAll",
-    "GroupBy", "Index", "Last", "LastN", "Lookup", "Patch", "Remove",
-    "RemoveIf", "RenameColumns", "Search", "Shuffle", "Sort",
-    "SortByColumns", "Table", "Ungroup", "UpdateIf", "With",
-    # Type conversion
-    "Boolean", "Float", "GUID", "Decimal",
-    # JSON
-    "JSON", "ParseJSON",
-    # Other
-    "Blank", "Color", "ColorFade", "ColorValue", "CountA", "Count",
-    "Error", "RGBA", "Set", "Trace", "Type",
-    # MCS/Power Platform specific
-    "UTCNow", "UTCToday", "Navigate", "Notify", "Refresh",
-    # Common Power Automate-style (used in MCS expressions)
-    "addDays", "addHours", "addMinutes", "addSeconds",
-    "utcNow", "formatDateTime", "convertFromUtc", "convertToUtc",
-    "startOfDay", "startOfMonth", "startOfYear",
-    "dayOfWeek", "dayOfMonth", "dayOfYear",
-    "ticks", "guid", "string", "int", "float", "bool",
-    "length", "substring", "indexOf", "lastIndexOf",
-    "toLower", "toUpper", "trim", "replace", "split",
-    "contains", "empty", "equals",
-    "array", "createArray", "first", "last", "join",
-    "intersection", "union", "skip", "take",
-    "json", "xml", "base64", "base64ToBinary", "base64ToString",
-    "decodeBase64", "encodeUriComponent", "decodeUriComponent",
-    "uriHost", "uriPath", "uriQuery", "uriScheme",
-    "coalesce", "if", "and", "or", "not",
-    "greater", "greaterOrEquals", "less", "lessOrEquals",
-    "min", "max", "add", "sub", "mul", "div", "mod",
-    "rand", "range",
-    "concat", "nthIndexOf",
-    # Table operations used in MCS
-    "Summarize", "SummarizeIf", "AverageIf", "MaxIf", "MinIf", "SumIf",
-    "ShowColumns", "MatchAll", "Match",
-}
+
+def _load_powerfx_catalog() -> set[str]:
+    """Load PowerFx function catalog from JSON, with case-insensitive lookup."""
+    functions = set()
+    if CATALOG_PATH.exists():
+        try:
+            with open(CATALOG_PATH) as f:
+                data = json.load(f)
+            for fn in data.get("functions", []):
+                functions.add(fn)           # Original case (e.g., "DateAdd")
+                functions.add(fn.lower())   # Allow lowercase (e.g., "dateadd")
+        except (json.JSONDecodeError, KeyError):
+            pass
+    if not functions:
+        # Minimal fallback if catalog file is missing
+        functions = {"If", "And", "Or", "Not", "Text", "Value", "Blank", "Concatenate",
+                     "if", "and", "or", "not", "text", "value", "blank", "concatenate"}
+    return functions
+
+
+POWERFX_FUNCTIONS = _load_powerfx_catalog()
 
 
 # ---------------------------------------------------------------------------
@@ -399,7 +366,60 @@ def run_gates(filepath: str, brief_path: str | None = None,
     return all_issues
 
 
-def format_report(filepath: str, issues: list[dict]) -> str:
+def suggest_fix(issue: dict) -> str | None:
+    """Generate an auto-fix suggestion for an issue."""
+    t = issue["type"]
+
+    if t == "unknown_function":
+        fn = issue["message"].split(":")[1].strip().rstrip("()")
+        # Check for close matches in catalog
+        fn_lower = fn.lower()
+        close = [f for f in POWERFX_FUNCTIONS if f.lower().startswith(fn_lower[:3]) and f[0].isupper()]
+        if close:
+            return f"Did you mean: {', '.join(sorted(set(close))[:5])}?"
+        return f"Remove or replace {fn}() -- not in Copilot Studio Power Fx catalog."
+
+    if t == "read_before_init":
+        # Extract variable name from message
+        m = re.search(r'Topic\.(\w+)', issue["message"])
+        if m:
+            var = m.group(1)
+            return f"Add `init:Topic.{var}` in a SetVariable node BEFORE line {issue['line']}."
+        return None
+
+    if t == "double_init":
+        m = re.search(r'Topic\.(\w+)', issue["message"])
+        if m:
+            var = m.group(1)
+            return f"Remove duplicate init -- use `Topic.{var}` (without init:) for subsequent assignments."
+        return None
+
+    if t == "broken_cross_reference":
+        return "Check the target topic's schemaName or create the missing topic."
+
+    if t == "blocked_card_action":
+        action = issue["message"].split(" not ")[0]
+        if "Execute" in action:
+            return "Replace Action.Execute with Action.Submit (supported in MCS)."
+        if "ShowCard" in action:
+            return "Move ShowCard content to a separate message or use ToggleVisibility."
+        return f"Remove {action} for this channel."
+
+    if t == "card_version_too_high":
+        m = re.search(r'max \((\d+\.\d+)\)', issue["message"])
+        target = m.group(1) if m else "1.5"
+        return f'Change card version to "{target}" for compatibility.'
+
+    if t == "card_too_large":
+        return "Simplify the card: reduce body elements, split into multiple cards, or use a carousel."
+
+    if t == "unknown_connector":
+        return "Check the connector name in MCS Tools tab. It may differ from brief.json (e.g., 'Jira' vs 'Atlassian Jira Cloud')."
+
+    return None
+
+
+def format_report(filepath: str, issues: list[dict], show_fixes: bool = False) -> str:
     lines = [f"# Semantic Gates: {Path(filepath).name}", ""]
 
     if not issues:
@@ -429,6 +449,10 @@ def format_report(filepath: str, issues: list[dict]) -> str:
             lines.append(f"  [{sev}]{line_info} {issue['message']}")
             if "detail" in issue:
                 lines.append(f"         {issue['detail']}")
+            if show_fixes:
+                fix = suggest_fix(issue)
+                if fix:
+                    lines.append(f"         FIX: {fix}")
         lines.append("")
 
     return "\n".join(lines)
@@ -436,7 +460,7 @@ def format_report(filepath: str, issues: list[dict]) -> str:
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python tools/semantic-gates.py <file.yaml> [--brief <brief.json>] [--dir <topics/>] [--gates 1,3,4] [--json]")
+        print("Usage: python tools/semantic-gates.py <file.yaml> [--brief <brief.json>] [--dir <topics/>] [--gates 1,3,4] [--fix] [--json]")
         sys.exit(1)
 
     # Parse args
@@ -444,6 +468,7 @@ def main():
     topics_dir = None
     gate_filter = None
     output_json = "--json" in sys.argv
+    show_fixes = "--fix" in sys.argv
     files = []
 
     i = 1
@@ -458,7 +483,7 @@ def main():
         elif arg == "--gates" and i + 1 < len(sys.argv):
             gate_filter = {int(g) for g in sys.argv[i + 1].split(",")}
             i += 2
-        elif arg == "--json":
+        elif arg in ("--json", "--fix"):
             i += 1
         elif not arg.startswith("--"):
             files.append(arg)
@@ -490,10 +515,16 @@ def main():
         total_warnings += sum(1 for i in issues if i["severity"] == "warning")
 
     if output_json:
+        if show_fixes:
+            for filepath, issues in all_results.items():
+                for issue in issues:
+                    fix = suggest_fix(issue)
+                    if fix:
+                        issue["fix"] = fix
         print(json.dumps(all_results, indent=2, default=str))
     else:
         for filepath, issues in all_results.items():
-            print(format_report(filepath, issues))
+            print(format_report(filepath, issues, show_fixes))
 
     sys.exit(1 if total_errors > 0 else 0)
 

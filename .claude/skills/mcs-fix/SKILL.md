@@ -108,7 +108,9 @@ Spawn **Topic Engineer** when QA identified `routing failure` failures. Provide 
 
 TE produces:
 - Revised topic YAML (new trigger phrases, adjusted descriptions for "by agent" routing, new topic if needed)
-- TE runs validation checklist (node types, card limits, variable flow)
+- TE runs full validation pipeline:
+  1. `tools/om-cli/om-cli.exe validate -f <file.yaml>` — structural validation
+  2. `python tools/semantic-gates.py <file.yaml> --brief <brief.json>` — semantic gates (PowerFx, cross-refs, variables, channels, connectors)
 
 ### Scoring Fixes — Lead
 

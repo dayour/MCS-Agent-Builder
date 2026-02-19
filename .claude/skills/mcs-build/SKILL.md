@@ -329,11 +329,14 @@ Use **Topic Engineer** teammate to generate validated YAML.
 **Phase filter:** Only author `conversations.topics[]` entries where `phase == "mvp"`. Log skipped future topics.
 
 For each MVP topic in the spec:
-1. Topic Engineer generates YAML from `knowledge/patterns/topic-patterns/`
-2. QA Challenger validates YAML syntax
-3. In MCS: Topics → "Add a topic" → "From blank"
-4. Click "..." → "Open code editor"
-5. Paste generated YAML → Save
+1. Topic Engineer queries constraints: `python tools/gen-constraints.py <NodeTypes>` → gets required fields
+2. Topic Engineer generates YAML using constraints + `knowledge/patterns/topic-patterns/`
+3. Structural validation: `tools/om-cli/om-cli.exe validate -f <file.yaml>` → must pass
+4. Semantic validation: `python tools/semantic-gates.py <file.yaml> --brief <brief.json>` → must pass (or warnings acknowledged)
+5. QA Challenger reviews validated YAML
+6. In MCS: Topics → "Add a topic" → "From blank"
+7. Click "..." → "Open code editor"
+8. Paste generated YAML → Save
 
 **Checkpoint:** After all topics verified, add `"topics"` to `completedSteps`, set `lastCompletedStep` to `"topics"`.
 
@@ -361,11 +364,20 @@ The lead collects snapshot data during reconciliation (overview, tools tab, know
 - **QA Challenger analyzes** the data (this step)
 - **Lead reports** QA's findings and acts on the verdict
 
+#### Pre-QA: Automated Drift Detection
+
+Before spawning QA, run automated drift detection on all built topics:
+```bash
+python tools/drift-detect.py Build-Guides/{projectId}/agents/{agentId}/brief.json --validate
+```
+This catches missing/extra topics, trigger mismatches, and variable drift automatically. Include the drift report in QA's input data.
+
 #### QA Challenger Receives
 
 1. The full `brief.json` (spec — what SHOULD be configured)
 2. The reconciliation snapshot summaries (what IS configured — collected by the lead)
-3. The list of deferred `phase: "future"` items (so QA doesn't flag them as missing)
+3. The drift detection report (from `drift-detect.py` above)
+4. The list of deferred `phase: "future"` items (so QA doesn't flag them as missing)
 
 #### Check 1: Brief-vs-Actual Comparison
 
