@@ -2,6 +2,11 @@
 # Trigger: OnRecognizedIntent
 # Shows: Collect input -> Invoke AI Builder model -> Process prediction -> Display result
 # Use for document processing, text classification, entity extraction via AI Builder
+#
+# NOTE: om-cli validate reports a false positive on InvokeAIBuilderModelAction.
+# The ObjectModel schema only has InvokeAIBuilderModelTaskAction (TaskAction hierarchy),
+# but MCS classic topics use InvokeAIBuilderModelAction (DialogAction hierarchy).
+# This kind is valid in the MCS code editor — ignore the om-cli diagnostic for this node.
 
 kind: AdaptiveDialog
 beginDialog:

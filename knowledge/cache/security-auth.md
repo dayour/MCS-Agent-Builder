@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-02-10
-sources: [MS Learn, MCS UI, PPAC docs]
+last_verified: 2026-02-19
+sources: [MS Learn, MCS UI, PPAC docs, WebSearch Feb 2026]
 confidence: high
 refresh_trigger: before_architecture
 -->
@@ -57,6 +57,12 @@ refresh_trigger: before_architecture
 
 **Dual-pass**: checks user input AND agent output. Protections: jailbreak, prompt injection, XPIA, copyright.
 
+## Threat Protection (Feb 2026)
+
+| Feature | Status | Details |
+|---------|--------|---------|
+| **Strengthen security with additional threat protection** | **GA (Feb 2026)** | Enhanced threat detection and prevention for agent conversations, including advanced prompt injection detection and content safety filters |
+
 ## Web Channel Security
 
 - Direct Line: 2 secrets (rotate without downtime), generate short-lived tokens
@@ -78,3 +84,4 @@ refresh_trigger: before_architecture
 - **Conversation history** can be passed or blocked per connected agent
 - **Audit**: Purview (maker logs), Sentinel (runtime monitoring), App Insights (KQL)
 - **Never expose `User.AccessToken`** in Message nodes
+- **Configure triggers with end-user credentials** (GA Feb 2026) — triggers can authenticate as end user

@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-02-10
-sources: [MS Learn, Adaptive Cards docs, direct testing]
+last_verified: 2026-02-19
+sources: [MS Learn, Adaptive Cards docs, direct testing, WebSearch Feb 2026]
 confidence: high
 refresh_trigger: on_error
 -->
@@ -13,10 +13,12 @@ refresh_trigger: on_error
 | Web Chat | 1.6 | No `Action.Execute` |
 | Teams | 1.5 | No `Action.Execute`, no standalone Image/Video/Basic cards (`ContentFiltered`) |
 | Omnichannel | 1.5 | Input selections NOT visible to human agent on escalation |
-| WhatsApp | Very limited | Only `Action.Submit` (max 3), `Input.ChoiceSet`, `Action.OpenUrl` |
+| **WhatsApp** | **Very limited** | **Only `Action.Submit` (max 3), `Input.ChoiceSet`, `Action.OpenUrl`** — no other card elements supported |
 | M365 Copilot | Limited | No `Action.Execute`, no Basic/Video cards |
 
 **Safe default: use version `"1.5"` for cross-channel compatibility.**
+
+**WhatsApp card design rules:** Keep cards extremely simple. Max 3 submit buttons. Use `Input.ChoiceSet` for selections. `Action.OpenUrl` for links. No images, no complex layouts, no tables.
 
 ## Action Types
 
@@ -70,3 +72,4 @@ All inputs support: `isRequired`, `errorMessage`, `label` (v1.3+)
 - **Reprompt**: "Ask with Adaptive Card" retries up to 2x if user sends text instead of submitting
 - **Fallback** (v1.2+): `"fallback": "drop"` to silently remove unsupported elements
 - **Images**: URL-based or data URI/base64 (v1.2+). In Teams, use Adaptive Card for images (standalone Image nodes = `ContentFiltered`)
+- **WhatsApp**: Only 3 card element types supported — design separate simplified cards for WhatsApp channel

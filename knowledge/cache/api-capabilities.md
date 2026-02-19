@@ -1,5 +1,5 @@
 <!-- CACHE METADATA
-last_verified: 2026-02-10
+last_verified: 2026-02-19
 sources: [MS Learn, PAC CLI docs, Dataverse MCP docs, direct testing]
 confidence: high
 refresh_trigger: on_error
@@ -41,11 +41,18 @@ Tools: `read_query` (20-row limit), `create_record`, `update_record`, `delete_re
 |-----------|---------------|
 | Model selection | Not in API |
 | Add tools/connectors | Tool attachment requires MCS sync |
+| Add MCP servers | MCP server attachment via UI only |
 | Create OAuth connections | Interactive auth flow |
 | Connect child agents | MCS orchestration setup |
 | Gen AI settings | Internal MCS setting |
 | "Allow other agents to connect" | Not in public API |
 | Native eval upload/run | MCS eval service |
+
+## Upcoming API Capabilities
+
+| Feature | Timeline | Impact |
+|---------|----------|--------|
+| Custom MCP servers | Public preview Mar 2026, GA Apr 2026 | Programmatic MCP server creation via MCP Management Server (already in preview) |
 
 ## Refresh Notes
 

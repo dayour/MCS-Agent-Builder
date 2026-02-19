@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-02-10
-sources: [MS Learn, MCS UI, AI Builder docs]
+last_verified: 2026-02-19
+sources: [MS Learn, MCS UI, AI Builder docs, WebSearch Feb 2026]
 confidence: high
 refresh_trigger: before_architecture
 -->
@@ -19,7 +19,8 @@ Three ways to use: agent-level tool (autonomous), topic-level node (controlled),
 | GPT-5 chat | Standard (1.5/1K tokens) | 128K |
 | GPT-5 reasoning | Premium (10/1K tokens) | 400K |
 | GPT-5.2 chat/reasoning (experimental) | Standard/Premium | 128K/400K |
-| Claude Sonnet 4.5 / Opus 4.5 (experimental) | Standard/Premium | 200K |
+| Claude Sonnet 4.5 / 4.6 (preview/experimental) | Standard | 200K |
+| Claude Opus 4.6 (experimental) | Premium | 200K |
 | Azure AI Foundry (BYOM) | Varies | Varies |
 
 ### Settings
@@ -52,6 +53,15 @@ Sentiment analysis, entity extraction (20+ types), category classification, key 
 | Hosted browser | No (prototyping) | Shared, throttled, 1 session/user |
 | Cloud PC pool | Yes (preview) | Win 11, auto-scale 10 VMs/pool, 5 pools/env |
 | BYO machine | Yes | PA Desktop v2.61+ required |
+
+### Jan 2026 Updates
+
+| Feature | Details |
+|---------|---------|
+| New model support | Additional model options for CUA tasks |
+| Built-in credentials | Stored credentials for automated authentication (Power Platform or Key Vault) |
+| Cloud PC pooling | Auto-scale pools for production workloads (10 VMs/pool, 5 pools/env) |
+| Enhanced audit logging | Detailed step-by-step logs for compliance and debugging |
 
 ### CUA vs RPA
 
@@ -91,8 +101,8 @@ Moderation precedence: Topic-level > Agent-level. Prompt tool is independent.
 | Feature | Rate |
 |---------|------|
 | Basic models (GPT-4.1 mini) | 0.1 credits / 1K tokens |
-| Standard (GPT-4.1, GPT-5 chat) | 1.5 credits / 1K tokens |
-| Premium (GPT-5 reasoning) | 10 credits / 1K tokens |
+| Standard (GPT-4.1, GPT-5 chat, Claude Sonnet) | 1.5 credits / 1K tokens |
+| Premium (GPT-5 reasoning, Claude Opus) | 10 credits / 1K tokens |
 | Document processing | 8 credits / page |
 | Computer Use | 5 credits / step |
 

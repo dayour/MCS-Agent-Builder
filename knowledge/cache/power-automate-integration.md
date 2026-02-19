@@ -1,5 +1,5 @@
 <!-- CACHE METADATA
-last_verified: 2026-02-10
+last_verified: 2026-02-19
 sources: [MS Learn, MCS UI, community]
 confidence: high
 refresh_trigger: before_architecture

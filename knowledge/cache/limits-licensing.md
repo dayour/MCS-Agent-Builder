@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-02-10
-sources: [MS Learn quotas page, pricing page, licensing docs, WebSearch]
+last_verified: 2026-02-19
+sources: [MS Learn quotas page, pricing page, licensing docs, WebSearch Feb 2026]
 confidence: high
 refresh_trigger: weekly
 -->
@@ -29,8 +29,10 @@ refresh_trigger: weekly
 | Messages per topic/action chain | **5** per turn |
 | Consecutive actions (recommended) | **< 15** |
 | Performance degradation threshold | **> 30-40 choices** |
+| Knowledge objects per agent | **500** |
 | Files uploaded per agent | **500** |
 | File upload size | **512 MB** |
+| Connector payload | **5 MB** (public) / **450 KB** (GCC) |
 | Agent icon | PNG < 72KB, 192x192 max |
 | Agents per Teams team | **50** |
 
@@ -202,7 +204,10 @@ refresh_trigger: weekly
 | Instructions | 8,000 chars |
 | Topics/agent | 1,000 |
 | Trigger phrases/topic | 200 |
+| Knowledge objects/agent | 500 |
+| Skills/agent | 100 |
 | Files/agent | 500 |
+| Connector payload | 5 MB |
 | Session timeout | 30 min |
 | Session max turns | 100 |
 | General RPM | 8,000 |

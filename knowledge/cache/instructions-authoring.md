@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-02-11
-sources: [MS Learn, MCS UI, community, WebSearch 2026]
+last_verified: 2026-02-19
+sources: [MS Learn, MCS UI, community blogs, WebSearch 2026]
 confidence: high
 refresh_trigger: before_architecture
 -->
@@ -18,7 +18,7 @@ System prompt stored as `botcomponent` type 15. Three runtime purposes: **resour
 |-------|-------|-------|--------|
 | Agent-level (Overview) | All conversations | 8,000 chars (2,000 bug?) | Global persona, routing, guardrails |
 | Topic-level (generative answers node) | Specific node only | 8,000 chars | **Additive** — supplements agent-level |
-| Prompt tool (prompt builder) | Specific prompt only | Model limits | Independent of agent instructions |
+| Prompt tool (prompt builder) / Custom Prompt action | Specific prompt only | Model limits | Independent of agent instructions |
 
 ## "/" Reference Syntax (Lexical Editor Feature)
 
@@ -57,14 +57,14 @@ The instructions editor in MCS uses a **Lexical-based rich text editor**:
 
 | Feature | Supported | How to Use |
 |---------|-----------|------------|
-| Plain text | ✅ Yes | Default — just type |
-| Markdown | ✅ Yes (renders) | `#` headers, `**bold**`, `- lists`, `` `code` `` backticks, numbered lists |
-| `/` references | ✅ Yes | Type `/` → dropdown menu → select resource |
-| Variables | ✅ Yes | Via `/Variable` reference |
-| Power Fx | ✅ Yes | Via `/PowerFx` reference |
-| Images/video | ❌ No | Not supported in instructions editor (only in Message nodes) |
-| HTML | ❌ No | Markdown only |
-| Tables | ⚠️ Partial | Basic Markdown tables render, but complex tables unreliable |
+| Plain text | Yes | Default — just type |
+| Markdown | Yes (renders) | `#` headers, `**bold**`, `- lists`, `` `code` `` backticks, numbered lists |
+| `/` references | Yes | Type `/` → dropdown menu → select resource |
+| Variables | Yes | Via `/Variable` reference |
+| Power Fx | Yes | Via `/PowerFx` reference |
+| Images/video | No | Not supported in instructions editor (only in Message nodes) |
+| HTML | No | Markdown only |
+| Tables | Partial | Basic Markdown tables render, but complex tables unreliable |
 
 **Formatting best practices:**
 - Use Markdown for structure: `#` for sections, `1.` for ordered steps, `-` for bullets
@@ -158,25 +158,25 @@ You are [Name], an AI assistant that [purpose].
 ## Key Gotchas & Common Mistakes
 
 **What DOESN'T work:**
-- ❌ **Instructions can't control search retrieval** — only post-retrieval summarization
-- ❌ **Instructions can't trigger Adaptive Cards** — edit cards directly
-- ❌ **Instructions can't override default fallback message** — edit Fallback topic instead
-- ❌ **Instructions can't change how documents are shared** — system-controlled
-- ❌ **Multilingual instructions aren't guaranteed** — feature not officially supported
-- ❌ **Vague instructions** — "be helpful" vs. "respond in 3 bullet points, 20 words max"
-- ❌ **Over-complex instructions** — if agent stops responding, remove all and add back slowly
-- ❌ **Listing all available tools** — orchestrator already knows, only disambiguate
-- ❌ **Naming specific knowledge documents** — describe capabilities generically instead
+- Instructions can't control search retrieval — only post-retrieval summarization
+- Instructions can't trigger Adaptive Cards — edit cards directly
+- Instructions can't override default fallback message — edit Fallback topic instead
+- Instructions can't change how documents are shared — system-controlled
+- Multilingual instructions aren't guaranteed — feature not officially supported
+- Vague instructions — "be helpful" vs. "respond in 3 bullet points, 20 words max"
+- Over-complex instructions — if agent stops responding, remove all and add back slowly
+- Listing all available tools — orchestrator already knows, only disambiguate
+- Naming specific knowledge documents — describe capabilities generically instead
 
 **What DOES work:**
-- ✅ **For critical refusals, create dedicated topics** with manually authored responses
-- ✅ **If instructions break the agent**: remove all, add back one at a time, testing between each
-- ✅ **Connected agent descriptions controlled locally** on orchestrator — don't auto-sync from child
-- ✅ **Professional tone is default** — only give tone instructions for deviations
-- ✅ **Autonomous agents**: add "Don't ask the user for any details" if no user interaction desired
-- ✅ **Trigger payload jailbreak risk**: limit tools and parameters in instructions
-- ✅ **Follow-up questions** — reference tools/knowledge/variables so agent can generate context-aware follow-ups
-- ✅ **Rich text email formatting** — "send emails using rich text formatting for the email body content"
+- For critical refusals, create dedicated topics with manually authored responses
+- If instructions break the agent: remove all, add back one at a time, testing between each
+- Connected agent descriptions controlled locally on orchestrator — don't auto-sync from child
+- Professional tone is default — only give tone instructions for deviations
+- Autonomous agents: add "Don't ask the user for any details" if no user interaction desired
+- Trigger payload jailbreak risk: limit tools and parameters in instructions
+- Follow-up questions — reference tools/knowledge/variables so agent can generate context-aware follow-ups
+- Rich text email formatting — "send emails using rich text formatting for the email body content"
 
 ## Common Prompt Failures & Solutions
 

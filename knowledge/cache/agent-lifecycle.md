@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-02-10
-sources: [MS Learn, PAC CLI docs, VS Code Extension docs, Dataverse entity reference]
+last_verified: 2026-02-19
+sources: [MS Learn, PAC CLI docs, VS Code Extension docs, Dataverse entity reference, WebSearch Feb 2026]
 confidence: high
 refresh_trigger: weekly
 -->
@@ -12,7 +12,7 @@ refresh_trigger: weekly
 |--------|------------|--------------------------------|
 | MCS UI | Yes | Yes (full) |
 | PAC CLI (`pac copilot create`) | Yes | **No** — topics/instructions only. Template format undocumented. **Prefer Playwright for creation.** PAC CLI template-based creation is a fallback for environments where browser is unavailable. |
-| VS Code Extension (GA) | Yes | Yes (full YAML clone) |
+| **VS Code Extension (GA Jan 2026)** | Yes | Yes (full YAML clone) — clone/edit/sync YAML, but clone/apply are GUI-only |
 | Agent Builder (M365) | Yes (limited) | Limited |
 | M365 Agents SDK | No — external | N/A |
 | Azure AI Foundry | No — connected (preview) | N/A |
@@ -65,9 +65,15 @@ Full list: 0-19 (also includes Skill, Variable, Entity, Dialog, Trigger, NLU, LG
 - Cannot export topics with `.` in names; comments NOT exported
 - Managed = read-only in target; Unmanaged = editable
 
-## VS Code Extension
+## VS Code Extension (GA Jan 2026)
 
 Clone → Get (cloud→local) → Edit → Apply (local→cloud, does NOT publish). Apply blocked if unreviewed remote changes. Reattach Agent for cross-environment.
+
+**Key capabilities:**
+- Full YAML clone of agents (topics, instructions, settings)
+- Edit locally with IntelliSense
+- Sync changes back to MCS
+- **Limitation:** Clone and Apply operations are GUI-only (not scriptable)
 
 ## Versioning & Rollback
 

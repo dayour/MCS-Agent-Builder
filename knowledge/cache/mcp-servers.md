@@ -1,5 +1,5 @@
 <!-- CACHE METADATA
-last_verified: 2026-02-11
+last_verified: 2026-02-19
 sources: [MS Learn Built-in MCP catalog, Agent 365 tooling overview, WebSearch, Dynamics 365 MCP docs]
 confidence: high
 refresh_trigger: before_architecture
@@ -11,6 +11,17 @@ refresh_trigger: before_architecture
 MCP (Model Context Protocol) servers provide rich, multi-tool access to services. **When a connector also has an MCP server, always prefer the MCP server** — it gives the agent broader capability with a single connection.
 
 MCP went GA in Copilot Studio in May 2025. MCP resources support added in public preview Nov 2025.
+
+## Custom MCP Servers
+
+| Feature | Details |
+|---------|---------|
+| Status | **Public preview Mar 2026, GA Apr 2026** |
+| Transport | **Streamable HTTP only** (SSE deprecated after Aug 2025) |
+| Auth | API key or OAuth 2.0 |
+| Capabilities | Tools + Resources (prompts NOT yet supported) |
+| Requirement | **Generative Orchestration must be enabled** |
+| Limitation | **Topics cannot call MCP servers directly** — only orchestrator can route to MCP tools |
 
 ## Official Built-in MCP Servers Catalog (Feb 2026)
 
@@ -97,6 +108,18 @@ These are enterprise-grade MCP servers under the Agent 365 umbrella. Require Mic
 |------------|-------------|--------|
 | **Microsoft MCP Management Server** | Create, update, delete, and publish custom MCP servers programmatically. API-first — no UI needed. Uses connectors, Graph APIs, REST, Dataverse custom APIs. | Preview |
 
+## Microsoft MCP Connectors (Direct Integration)
+
+These are the Microsoft-published MCP connectors available directly in Copilot Studio:
+
+| Connector | Description |
+|-----------|-------------|
+| **Dataverse** | Full CRUD on Dataverse tables |
+| **D365 Customer Service** | Case management and knowledge |
+| **D365 Sales** | Lead and opportunity management |
+| **Outlook/Mail** | Email operations |
+| **GitHub (via Azure)** | Repository and issue management |
+
 ## News / Bing Search MCP Server
 
 **As of Feb 2026, there is NO dedicated Bing News, MSN News, Bing Search, or news-focused MCP server in the Copilot Studio built-in catalog.**
@@ -119,6 +142,8 @@ Alternatives for news/web search capabilities:
 | **Dec 2025** | Dynamics 365 Contact Center MCP. Supply Chain / Finance MCP improvements. |
 | **Jan 2026** | Agent 365 tooling servers overview published. Frontier program enrollment for full Agent 365 access. |
 | **Feb 2026** | Dynamics 365 Commerce MCP expected in preview. Catalog at 25+ servers. |
+| **Mar 2026** | Custom MCP servers public preview |
+| **Apr 2026** | Custom MCP servers GA |
 
 ## How to Add an MCP Server
 
@@ -156,7 +181,11 @@ Source: https://learn.microsoft.com/en-us/connectors/salesforce/ (Actions sectio
 - MCP went GA in May 2025 in Copilot Studio
 - MCP resources support added Nov 2025 (preview)
 - SSE transport deprecated — only Streamable HTTP supported after Aug 2025
+- **Custom MCP servers: public preview Mar 2026, GA Apr 2026**
+- Custom MCP auth: API key or OAuth 2.0
+- MCP supports tools + resources (prompts NOT yet supported)
 - Generative Orchestration must be enabled to use MCP
+- **Topics cannot call MCP servers directly** — only the orchestrator routes to MCP tools
 - Agent 365 servers require M365 Copilot license + Frontier program for full access
 - Custom MCP servers: use MCP onboarding wizard or create custom connector in Power Apps
 - ISVs can certify and publish MCP servers to the catalog

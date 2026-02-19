@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-02-10
-sources: [MS Learn formula reference, MCS docs]
+last_verified: 2026-02-19
+sources: [MS Learn formula reference, MCS docs, WebSearch Feb 2026]
 confidence: high
 refresh_trigger: on_error
 -->
@@ -37,6 +37,7 @@ refresh_trigger: on_error
 | **Output** binding (from model/action) | `outputField: Topic.var` | **No** |
 | Variable reference | `variable: Topic.myVar` | No |
 | New variable declaration | `variable: init:Topic.myVar` | No |
+| **Trigger condition** | `condition: =Global.UserRole = "Admin"` | **Yes** |
 
 ```yaml
 # InvokeAIBuilderModelAction example:
@@ -61,6 +62,22 @@ refresh_trigger: on_error
 ```
 
 **Rule of thumb:** Data flowing IN uses `=` (it's an expression resolving a value). Data flowing OUT is a destination name (no expression needed).
+
+## PowerFx in Trigger Conditions (Feb 2026)
+
+Trigger conditions now support full PowerFx expressions. Use to filter when a topic fires:
+
+```yaml
+kind: AdaptiveDialog
+beginDialog:
+  kind: OnRecognizedIntent
+  id: main
+  condition: =Global.UserRole = "Admin"
+  intent:
+    displayName: Admin Settings
+```
+
+This enables role-based, context-aware topic routing without separate disambiguation logic.
 
 ## Key System Variables
 
