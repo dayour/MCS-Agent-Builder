@@ -6,6 +6,8 @@ Topics in Microsoft Copilot Studio can be authored via the built-in code editor 
 
 **Schema Validation (primary):** Use `tools/om-cli/om-cli.exe` for full YAML validation — catches unknown nodes, missing required fields, and structural issues across 357 types. Run `tools/om-cli/om-cli.exe validate -f <file>` before pasting.
 
+**Semantic Validation:** Use `python tools/semantic-gates.py <file.yaml> --brief <brief.json>` for 5 additional checks beyond structural validation: PowerFx functions, topic cross-references, variable flow, channel compatibility, and connector references.
+
 **Schema Validation (legacy fallback):** If .NET 10 is unavailable, use `python tools/schema-lookup.py` for kind-value and entity reference checks only.
 
 ## YAML Rules

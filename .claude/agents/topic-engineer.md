@@ -29,12 +29,16 @@ This is far more capable than schema-lookup.py (which only checks kind values). 
 | `composition <type>` | Property structure with nesting | `tools/om-cli/om-cli.exe composition Question -d 2` |
 | `examples <type>` | Example YAML for a type | `tools/om-cli/om-cli.exe examples Question` |
 
-### Workflow
-Generate YAML → write to file → `tools/om-cli/om-cli.exe validate -f <file>` → fix diagnostics → mark done.
+### Workflow (Constrained Generation)
+1. **Plan node types** — list every `kind` you'll use in the topic
+2. **Query constraints** — `python tools/gen-constraints.py <Type1> <Type2> ...` → get required fields per type
+3. **Generate YAML** — use constraints to ensure all required fields are present from the start
+4. **Write to file** → `tools/om-cli/om-cli.exe validate -f <file>` → fix any remaining diagnostics → mark done
 
-### When to query schema
-Before generating YAML for a node type you haven't used before, query its schema first:
-`tools/om-cli/om-cli.exe schema <TypeName>` → see required fields, types, defaults.
+**Step 2 is MANDATORY.** Never generate YAML without first querying constraints for every node type in the topic. This prevents generate→validate→fix loops by getting it right the first time.
+
+### Quick single-type lookup
+For a single type: `tools/om-cli/om-cli.exe schema <TypeName>` → see all properties, required fields, defaults.
 
 ### Fallback
 If .NET 10 is not available, use `python tools/schema-lookup.py` as a legacy fallback (kind-value checks only).
@@ -227,7 +231,15 @@ Reference templates in `knowledge/patterns/topic-patterns/`:
 **Step 1: Schema validation (automated)**
 - [ ] Run `tools/om-cli/om-cli.exe validate -f <file.yaml>` — all types, required fields, and structure must pass
 
-**Step 2: Structural checks (manual)**
+**Step 2: Semantic gates (automated)**
+- [ ] Run `python tools/semantic-gates.py <file.yaml> --brief <brief.json>` — all 5 gates must pass (or warnings acknowledged)
+  - Gate 1: PowerFx functions are valid
+  - Gate 2: BeginDialog/ReplaceDialog targets exist
+  - Gate 3: Variables initialized before read, no double-init
+  - Gate 4: Adaptive cards compatible with target channels
+  - Gate 5: Connector references match configured tools
+
+**Step 3: Structural checks (manual)**
 - [ ] Root element is `kind: AdaptiveDialog`
 - [ ] Every node has a unique `id`
 - [ ] All `id` values use valid characters (alphanumeric + hyphens)
@@ -239,11 +251,6 @@ Reference templates in `knowledge/patterns/topic-patterns/`:
 - [ ] Input bindings use `=` prefix, output bindings do NOT
 - [ ] `aIModelId` placed AFTER `input`/`output` sections (if using AI Builder)
 - [ ] Adaptive card JSON is valid (no trailing commas, correct nesting)
-- [ ] Card version is `"1.5"` for cross-channel compatibility
-- [ ] No `Action.Execute` in cards (unsupported)
-- [ ] Card size < 28KB for Teams compatibility
-- [ ] All `BeginDialog`/`ReplaceDialog` targets use correct schema name format
-- [ ] `ConditionGroup` conditions use valid PowerFx expressions
 - [ ] Topic description is descriptive (for "by agent" trigger matching)
 - [ ] Entities use specific types where possible (e.g., `EmailPrebuiltEntity` not `StringPrebuiltEntity` for email)
 

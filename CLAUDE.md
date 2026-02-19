@@ -178,6 +178,9 @@ Before committing to designs that are hard to undo — schema changes, workflow 
 | **Dataverse API** | Agent config: instructions, knowledge, settings, publish (via HTTP/PowerShell) |
 | **Code Editor YAML** | Topic authoring: conversations, cards, branching (paste into MCS code editor) |
 | **ObjectModel CLI** | Full YAML validation + schema exploration (357 types, catches unknown nodes + missing fields): `tools/om-cli/om-cli.exe` (validate, schema, search, list, hierarchy, composition, examples) |
+| **Gen Constraints** | Pre-generation constraint extraction: `python tools/gen-constraints.py <types>` — required fields per node type |
+| **Drift Detection** | Compare brief.json specs vs built YAML: `python tools/drift-detect.py <brief.json>` — missing topics, trigger mismatches, variable drift |
+| **Semantic Gates** | 5 validation gates beyond structural checks: `python tools/semantic-gates.py <file.yaml> --brief <brief.json>` (PowerFx, cross-refs, variable flow, channel compat, connectors) |
 | **Schema Lookup** | Legacy kind-value validation: `python tools/schema-lookup.py` (fallback if .NET 10 unavailable) |
 | **Direct Line API** | Agent testing: send messages, compare responses (`tools/direct-line-test.js`) |
 | **Playwright MCP** | MCS UI automation for operations with no API (`@playwright/mcp`) |
@@ -697,6 +700,9 @@ tools/
 ├── om-cli/                 # ObjectModel CLI — full YAML validation + schema explorer (357 types, .NET 10)
 │   ├── om-cli.exe          # Main binary (framework-dependent, ~20MB)
 │   └── README.md           # Commands, rebuild instructions
+├── gen-constraints.py      # Pre-generation constraint extraction (queries om-cli for required fields)
+├── drift-detect.py         # Brief-vs-YAML drift detection (missing topics, trigger/variable mismatches)
+├── semantic-gates.py       # 5 semantic validation gates (PowerFx, cross-refs, variables, channels, connectors)
 ├── schema-lookup.py        # Legacy schema query tool (kind-value checks only, fallback)
 ├── direct-line-test.js     # Direct Line API test runner
 ├── dataverse-helper.ps1    # PowerShell Dataverse Web API helper
