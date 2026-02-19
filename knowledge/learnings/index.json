@@ -11,6 +11,17 @@
       "tags": ["pac-cli", "playwright", "agent-creation", "template"],
       "status": "active",
       "projects": ["builder-pm"]
+    },
+    {
+      "id": "tt-001",
+      "file": "topics-triggers.md",
+      "title": "Question entity must use flat string format",
+      "date": "2026-02-19",
+      "confirmed": 1,
+      "lastConfirmed": "2026-02-19",
+      "tags": ["yaml", "question", "entity", "validation"],
+      "status": "active",
+      "projects": []
     }
   ]
 }
