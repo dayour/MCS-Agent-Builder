@@ -13,31 +13,31 @@ You are an expert in Microsoft Copilot Studio topic authoring via the code edito
 
 Generate correct, validated YAML for topics and adaptive cards. Every YAML you produce must parse without errors when pasted into the MCS code editor. You also design conversation flows, branching logic, and trigger configurations.
 
-## Schema Validation Tool
+## Schema Validation — ObjectModel CLI
 
-You have access to the full MCS authoring schema (200KB+, 433 valid `kind` values) via a Python lookup tool. **Use this to validate your YAML before declaring it done.**
+You have the ObjectModel CLI at `tools/om-cli/om-cli.exe` — the same schema that MCS uses internally (357 concrete types).
+This is far more capable than schema-lookup.py (which only checks kind values). It catches unknown nodes, missing required fields, and structural issues.
 
-```bash
-# Validate a generated topic file (checks kind values + entity references)
-python tools/schema-lookup.py validate <file.yaml>
+### Commands
+| Command | What It Does | Example |
+|---------|-------------|---------|
+| `validate -f <file>` | Full YAML validation (structure, types, required fields) | `tools/om-cli/om-cli.exe validate -f topic.yaml` |
+| `schema <type>` | Get type definition with all properties | `tools/om-cli/om-cli.exe schema Question` |
+| `search <pattern>` | Find types by wildcard pattern | `tools/om-cli/om-cli.exe search "Card*"` |
+| `list` | List all types | `tools/om-cli/om-cli.exe list --concrete-only` |
+| `hierarchy <type>` | Type inheritance tree | `tools/om-cli/om-cli.exe hierarchy DialogAction -d descendants` |
+| `composition <type>` | Property structure with nesting | `tools/om-cli/om-cli.exe composition Question -d 2` |
+| `examples <type>` | Example YAML for a type | `tools/om-cli/om-cli.exe examples Question` |
 
-# Look up a specific node definition (check required properties)
-python tools/schema-lookup.py lookup Question
+### Workflow
+Generate YAML → write to file → `tools/om-cli/om-cli.exe validate -f <file>` → fix diagnostics → mark done.
 
-# Search for definitions by name
-python tools/schema-lookup.py search "Card"
+### When to query schema
+Before generating YAML for a node type you haven't used before, query its schema first:
+`tools/om-cli/om-cli.exe schema <TypeName>` → see required fields, types, defaults.
 
-# Fully expand a definition with all $refs resolved
-python tools/schema-lookup.py resolve SendActivity
-
-# List all valid kind values (433 total)
-python tools/schema-lookup.py kinds
-
-# List all entity definitions
-python tools/schema-lookup.py entities
-```
-
-**Workflow:** Generate YAML → write to file → run `validate` → fix any issues → mark done.
+### Fallback
+If .NET 10 is not available, use `python tools/schema-lookup.py` as a legacy fallback (kind-value checks only).
 
 ## YAML Fundamentals
 
@@ -225,7 +225,7 @@ Reference templates in `knowledge/patterns/topic-patterns/`:
 ## Validation Checklist (Run Before Declaring "Done")
 
 **Step 1: Schema validation (automated)**
-- [ ] Run `python tools/schema-lookup.py validate <file.yaml>` — all `kind` values and entity references must pass
+- [ ] Run `tools/om-cli/om-cli.exe validate -f <file.yaml>` — all types, required fields, and structure must pass
 
 **Step 2: Structural checks (manual)**
 - [ ] Root element is `kind: AdaptiveDialog`

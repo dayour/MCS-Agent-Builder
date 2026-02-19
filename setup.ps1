@@ -72,7 +72,7 @@ function Install-Winget {
         Write-Step "  Installing $DisplayName..."
         $installArgs = @('install', '--id', $PackageId, '--accept-package-agreements', '--accept-source-agreements')
 
-        $machineOnly = @('Microsoft.DotNet.SDK.8')
+        $machineOnly = @('Microsoft.DotNet.SDK.8', 'Microsoft.DotNet.SDK.10')
         if ($PackageId -notin $machineOnly) {
             $installArgs += '--scope'
             $installArgs += 'user'
@@ -357,6 +357,7 @@ Write-Host "  -----------------------"
 Install-Winget -PackageId 'Microsoft.PowerShell'    -DisplayName 'PowerShell 7'
 Install-Winget -PackageId 'Microsoft.AzureCLI'     -DisplayName 'Azure CLI'     -Optional
 Install-Winget -PackageId 'Microsoft.DotNet.SDK.8'  -DisplayName '.NET SDK 8'    -Optional
+Install-Winget -PackageId 'Microsoft.DotNet.SDK.10' -DisplayName '.NET SDK 10'   -Optional
 
 # ---------------------------------------------------------------------------
 

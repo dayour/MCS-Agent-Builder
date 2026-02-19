@@ -4,7 +4,9 @@
 
 Topics in Microsoft Copilot Studio can be authored via the built-in code editor using YAML. This approach replaces 10+ clicks per topic node with a single paste operation.
 
-**Schema Validation:** Use `python tools/schema-lookup.py` to query the full MCS authoring schema (200KB+, 433 valid `kind` values) without loading it into context. Run `validate <file>` on generated YAML to catch errors before pasting.
+**Schema Validation (primary):** Use `tools/om-cli/om-cli.exe` for full YAML validation — catches unknown nodes, missing required fields, and structural issues across 357 types. Run `tools/om-cli/om-cli.exe validate -f <file>` before pasting.
+
+**Schema Validation (legacy fallback):** If .NET 10 is unavailable, use `python tools/schema-lookup.py` for kind-value and entity reference checks only.
 
 ## YAML Rules
 
@@ -45,7 +47,7 @@ Reusable YAML templates in `knowledge/patterns/topic-patterns/`:
 ## How to Use (Code Editor Workflow)
 
 1. Generate topic YAML from spec using patterns above
-2. **Validate:** `python tools/schema-lookup.py validate <file.yaml>` — catches invalid `kind` values and entity typos
+2. **Validate:** `tools/om-cli/om-cli.exe validate -f <file.yaml>` — catches unknown nodes, missing required fields, structural issues
 3. Playwright: Navigate to Topics tab → Create blank topic
 4. Playwright: Click "..." → "Open code editor"
 5. Playwright: Paste generated YAML into code editor

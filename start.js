@@ -433,7 +433,16 @@ try {
   warn("Could not determine Python version — continuing.");
 }
 
-// 1c. Check Claude Code (non-blocking — dashboard works without it)
+// 1c. Check .NET 10 runtime (non-blocking — om-cli needs it)
+try {
+  const runtimes = execSync("dotnet --list-runtimes", { encoding: "utf8", timeout: 10000 });
+  if (!runtimes.includes("Microsoft.NETCore.App 10."))
+    warn(".NET 10 runtime not found — om-cli tools won't work until installed. Run start.cmd --full to install.");
+} catch {
+  warn(".NET 10 not detected — om-cli tools may not work.");
+}
+
+// 1d. Check Claude Code (non-blocking — dashboard works without it)
 if (!checkClaudeCode()) {
   warn("Claude Code not found — the embedded terminal won't work until installed.");
   warn("Run start.cmd or: npm install -g @anthropic-ai/claude-code");

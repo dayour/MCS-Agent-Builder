@@ -27,7 +27,8 @@ Reusable YAML patterns for Copilot Studio topic authoring via the built-in code 
 ## Related References
 
 - **YAML syntax rules**: `knowledge/patterns/yaml-reference.md` (action types, entity catalog, binding rules)
-- **Schema validation**: `python tools/schema-lookup.py validate <file.yaml>`
+- **Schema validation (primary)**: `tools/om-cli/om-cli.exe validate -f <file.yaml>`
+- **Schema validation (legacy fallback)**: `python tools/schema-lookup.py validate <file.yaml>`
 - **Trigger types**: `knowledge/cache/triggers.md`
 - **Playwright workflow**: `knowledge/patterns/playwright-patterns.md`
 
