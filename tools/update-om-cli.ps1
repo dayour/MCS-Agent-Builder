@@ -23,14 +23,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Split-Path -Parent $scriptDir
-# Check multiple locations for ObjectModel source
-$omSourceCandidates = @(
-    (Join-Path $env:USERPROFILE 'Source\ObjectModel'),
-    (Join-Path $env:USERPROFILE 'Downloads\ObjectModel')
-)
-# Pick first candidate that has the CLI project file
-$omSourceDir = $omSourceCandidates | Where-Object { Test-Path (Join-Path $_ $cliProject) } | Select-Object -First 1
-if (-not $omSourceDir) { $omSourceDir = $omSourceCandidates[0] }  # Default to Source\ for clone
+$omSourceDir = Join-Path $env:USERPROFILE 'Source\ObjectModel'
 $omCliOutput = Join-Path $repoRoot 'tools\om-cli'
 $hashFile = Join-Path $omCliOutput '.source-hash'
 $omRepoUrl = 'https://msazure.visualstudio.com/CCI/_git/ObjectModel'
@@ -41,73 +34,61 @@ function Write-Ok($msg)     { Write-Host "  [om-cli] $msg" -ForegroundColor Gree
 function Write-Warn($msg)   { Write-Host "  [om-cli] $msg" -ForegroundColor Yellow }
 
 # ---------------------------------------------------------------------------
-# Step 1: Find ObjectModel source
+# Step 1: Clone ObjectModel from ADO (first run only)
 # ---------------------------------------------------------------------------
 
-if (-not (Test-Path $omSourceDir)) {
-    # Try to clone if git access is available
-    Write-Status "ObjectModel source not found locally. Attempting clone..."
+if (-not (Test-Path (Join-Path $omSourceDir '.git'))) {
+    Write-Status "Cloning ObjectModel from $omRepoUrl..."
     try {
+        # Clean up any partial/empty directory from a previous failed attempt
+        if (Test-Path $omSourceDir) { Remove-Item $omSourceDir -Recurse -Force }
         git clone $omRepoUrl $omSourceDir 2>&1 | Out-String | Write-Host
         if ($LASTEXITCODE -ne 0) { throw "Clone failed" }
         Write-Ok "Cloned ObjectModel to $omSourceDir"
     } catch {
-        Write-Warn "No ObjectModel source found at any of:"
-        foreach ($c in $omSourceCandidates) { Write-Warn "  $c" }
+        Write-Warn "Could not clone ObjectModel. Need git access to:"
+        Write-Warn "  $omRepoUrl"
         Write-Warn "om-cli binary in repo is still usable (just not updated)."
-        Write-Warn "To enable auto-updates: clone or extract ObjectModel source to one of the above paths."
         exit 0
     }
 }
 
-Write-Status "Using ObjectModel source at $omSourceDir"
-
 # ---------------------------------------------------------------------------
-# Step 2: Pull latest (only if it's a git repo)
+# Step 2: Pull latest from ADO
 # ---------------------------------------------------------------------------
 
-$isGitRepo = Test-Path (Join-Path $omSourceDir '.git')
-if ($isGitRepo) {
-    Write-Status "Pulling latest ObjectModel..."
-    Push-Location $omSourceDir
-    try {
-        git fetch --quiet 2>$null
-        $behind = (git rev-list --count 'HEAD..@{upstream}' 2>$null | Out-String).Trim()
-        if ($behind -and $behind -ne '0') {
-            git pull --ff-only --quiet 2>&1 | Out-String | Write-Host
-            Write-Ok "Pulled $behind new commit(s)"
-        } else {
-            Write-Status "ObjectModel source already up to date"
-        }
-    } catch {
-        Write-Warn "Could not pull ObjectModel - using existing source"
-    } finally {
-        Pop-Location
+Write-Status "Pulling latest ObjectModel..."
+Push-Location $omSourceDir
+try {
+    git fetch --quiet 2>$null
+    $behind = (git rev-list --count 'HEAD..@{upstream}' 2>$null | Out-String).Trim()
+    if ($behind -and $behind -ne '0') {
+        git pull --ff-only --quiet 2>&1 | Out-String | Write-Host
+        Write-Ok "Pulled $behind new commit(s)"
+    } else {
+        Write-Status "ObjectModel already up to date"
     }
+} catch {
+    Write-Warn "Could not pull - using existing local copy"
+} finally {
+    Pop-Location
 }
 
 # ---------------------------------------------------------------------------
 # Step 3: Check if rebuild needed
 # ---------------------------------------------------------------------------
 
-# Get current source fingerprint (git hash or file timestamp)
+# Get current source commit hash
 $currentHash = ''
-if ($isGitRepo) {
-    try {
-        Push-Location $omSourceDir
-        $currentHash = (git rev-parse HEAD 2>$null | Out-String).Trim()
-    } catch { }
-    finally { Pop-Location }
-}
+try {
+    Push-Location $omSourceDir
+    $currentHash = (git rev-parse HEAD 2>$null | Out-String).Trim()
+} catch { }
+finally { Pop-Location }
+
 if (-not $currentHash) {
-    # Not a git repo — use newest .cs/.csproj file's timestamp as change fingerprint
-    $newestFile = Get-ChildItem $omSourceDir -Recurse -File -Include '*.cs','*.csproj' -ErrorAction SilentlyContinue |
-        Sort-Object LastWriteTime -Descending | Select-Object -First 1
-    if ($newestFile) {
-        $currentHash = $newestFile.LastWriteTime.ToString('yyyyMMddHHmmss')
-    } else {
-        $currentHash = 'unknown'
-    }
+    Write-Warn "Could not determine ObjectModel commit hash. Skipping."
+    exit 0
 }
 
 $lastHash = ''

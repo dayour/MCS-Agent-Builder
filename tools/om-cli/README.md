@@ -45,4 +45,4 @@ Known gap: PowerFx function validation is not performed (e.g., `Factorial()` won
 
 The binary and schemas are fully self-contained in this directory. Users just need .NET 10 runtime installed — no source code, no build steps. The schema files in `schemas/` are bundled with the CLI.
 
-If the ObjectModel schema is updated in the future, the repo maintainer rebuilds and commits the new binary.
+Updates are automatic: the pre-push git hook (`tools/update-om-cli.ps1`) pulls the latest ObjectModel source from `https://msazure.visualstudio.com/CCI/_git/ObjectModel`, rebuilds if changed, and includes the updated binary in the push. Users get updates on their next `git pull`.
