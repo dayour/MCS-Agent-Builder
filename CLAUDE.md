@@ -558,7 +558,7 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 
 ## Patterns & References
 
-**MCS Authoring Schema:** `reference/schema/bot.schema.yaml-authoring.json` (200KB+, 433 kind values) — query via `tools/om-cli/om-cli.exe` (primary) or `python tools/schema-lookup.py` (legacy fallback)
+**MCS Authoring Schema:** `reference/schema/bot.schema.yaml-authoring.json` (200KB+, 433 kind values / 357 concrete types) — query via `tools/om-cli/om-cli.exe` (primary, 357 types) or `python tools/schema-lookup.py` (legacy fallback, 433 kinds)
 **Code Editor YAML reference:** See `knowledge/patterns/yaml-reference.md` (action types, entity catalog, binding rules, compile errors)
 **Topic YAML templates:** See `knowledge/patterns/topic-patterns/` (10 patterns including AI Builder model)
 **Playwright UI patterns:** See `knowledge/patterns/playwright-patterns.md`

@@ -322,6 +322,9 @@ def main():
         sys.exit(1)
 
     brief_path = sys.argv[1]
+    if not os.path.exists(brief_path):
+        print(f"Error: Brief file not found: {brief_path}", file=sys.stderr)
+        sys.exit(1)
     topics_dir = None
     do_validate = "--validate" in sys.argv
     output_json = "--json" in sys.argv

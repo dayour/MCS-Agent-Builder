@@ -154,7 +154,7 @@ tools/
   gen-constraints.py        Pre-generation constraint extraction
   drift-detect.py           Brief-vs-YAML drift detection
   semantic-gates.py         5 semantic validation gates (PowerFx, cross-refs, variables, channels, connectors)
-  powerfx-catalog.json      Official PowerFx function catalog (115 functions from MS Learn)
+  powerfx-catalog.json      Official PowerFx function catalog (139 functions from MS Learn)
   update-om-cli.ps1         Auto-update om-cli from ObjectModel source repo
   direct-line-test.js       Direct Line API test runner
   dataverse-helper.ps1      PowerShell Dataverse Web API helper

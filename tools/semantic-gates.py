@@ -102,8 +102,11 @@ def extract_powerfx_functions(text: str) -> list[dict]:
             # Extract function calls: FunctionName(
             for fn_match in re.finditer(r'\b([A-Za-z_]\w*)\s*\(', expr):
                 fn_name = fn_match.group(1)
-                # Skip variable references and common non-functions
-                if fn_name in ("Topic", "System", "Global", "User", "init"):
+                # Skip variable scope prefixes and common non-function identifiers
+                if fn_name in ("Topic", "System", "Global", "User", "init", "Environment"):
+                    continue
+                # Skip lowercase identifiers that look like variable names (not PowerFx functions)
+                if fn_name[0].islower() and fn_name not in POWERFX_FUNCTIONS:
                     continue
                 findings.append({"function": fn_name, "line": i, "expression": expr.strip()})
     return findings
@@ -415,6 +418,9 @@ def suggest_fix(issue: dict) -> str | None:
 
     if t == "unknown_connector":
         return "Check the connector name in MCS Tools tab. It may differ from brief.json (e.g., 'Jira' vs 'Atlassian Jira Cloud')."
+
+    if t == "unverified_flow":
+        return "Verify the flow exists in Power Automate and is shared with the agent."
 
     return None
 
