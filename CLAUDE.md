@@ -709,9 +709,12 @@ tools/
 ├── dataverse-helper.ps1    # PowerShell Dataverse Web API helper
 ├── fetch-instructions.ps1  # Fetch agent instructions from Dataverse
 ├── pac-mcp-wrapper.js      # PAC CLI MCP server wrapper
+├── update-om-cli.ps1       # Auto-update om-cli from ObjectModel source (called by pre-push hook)
 ├── start-edge-debug.cmd    # Launch Edge with remote debugging for Playwright CDP mode
 ├── session-config.example.json  # Account/environment config template
-└── git-hooks/pre-commit    # Core file protection hook (installed by start.js)
+└── git-hooks/
+    ├── pre-commit          # Core file protection hook
+    └── pre-push            # Auto-update om-cli from ObjectModel source (both installed by start.js)
 
 Build-Guides/[Project]/     # Per-project work (gitignored)
 ├── agents/[name]/

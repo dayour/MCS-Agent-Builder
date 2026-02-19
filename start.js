@@ -343,20 +343,26 @@ function ensureAzDevOps() {
 // ---------------------------------------------------------------------------
 
 function ensureGitHooks() {
-  const src = path.join(__dirname, "tools", "git-hooks", "pre-commit");
-  const dst = path.join(__dirname, ".git", "hooks", "pre-commit");
-  if (!fs.existsSync(src)) return;
-  try {
-    const srcContent = fs.readFileSync(src, "utf8");
-    const dstExists = fs.existsSync(dst);
-    if (!dstExists || fs.readFileSync(dst, "utf8") !== srcContent) {
-      fs.mkdirSync(path.dirname(dst), { recursive: true });
-      fs.writeFileSync(dst, srcContent, { mode: 0o755 });
-      log("Git hooks installed \u2014 core files protected");
+  const hooksDir = path.join(__dirname, ".git", "hooks");
+  const hooks = ["pre-commit", "pre-push"];
+  let installed = false;
+  for (const hook of hooks) {
+    const src = path.join(__dirname, "tools", "git-hooks", hook);
+    const dst = path.join(hooksDir, hook);
+    if (!fs.existsSync(src)) continue;
+    try {
+      const srcContent = fs.readFileSync(src, "utf8");
+      const dstExists = fs.existsSync(dst);
+      if (!dstExists || fs.readFileSync(dst, "utf8") !== srcContent) {
+        fs.mkdirSync(hooksDir, { recursive: true });
+        fs.writeFileSync(dst, srcContent, { mode: 0o755 });
+        installed = true;
+      }
+    } catch {
+      warn(`Could not install ${hook} hook (non-critical)`);
     }
-  } catch {
-    warn("Could not install git hooks (non-critical)");
   }
+  if (installed) log("Git hooks installed \u2014 core files protected + om-cli auto-update");
 }
 
 // ---------------------------------------------------------------------------

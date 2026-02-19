@@ -20,6 +20,7 @@ dashboard-data.js
 # Personal config (use session-config.example.json as template)
 # -----------------------------------------------------------------------------
 tools/session-config.json
+tools/om-cli/.source-hash
 
 # -----------------------------------------------------------------------------
 # Python
