@@ -225,7 +225,11 @@
     "mcsAgentId": "MCS bot ID after creation",
     "environment": "MCS environment name",
     "account": "Account used for build",
-    "publishedAt": "ISO timestamp of last successful publish"
+    "accountId": "session-config account id (e.g. admin-m365) — used for PAC CLI profile lookup",
+    "publishedAt": "ISO timestamp of last successful publish",
+    "completedSteps": ["created", "instructions", "knowledge", "tools", "model", "topics", "published"],
+    "lastCompletedStep": "Last step that succeeded (e.g. tools) — used for resume",
+    "lastError": "Optional — what failed on last attempt, cleared on next successful step"
   },
 
   "notes": {

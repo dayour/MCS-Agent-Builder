@@ -402,19 +402,28 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 
 **Input:** `/mcs-build {projectId} {agentId}`
 **Reads:** `brief.json` (the single source of truth — architecture, instructions, tools, model, everything)
-**Writes:** `brief.json` buildStatus field
+**Writes:** `brief.json` buildStatus field (including step-level checkpoints for resume)
 
-**Build Account & Environment Gate (MANDATORY FIRST STEP):**
-1. Read `tools/session-config.json` for available accounts/environments
-2. Ask user to explicitly pick account + environment via `AskUserQuestion`
-3. Set PAC CLI profile to match (`pac auth select --index N`)
-4. Output build stamp with confirmed target before proceeding
+**Smart Account & Environment Gate:**
+- Reads target from `brief.json.buildStatus.account` / `.environment` / `.accountId`
+- If present → one-line confirmation ("Resuming build on {account} / {environment}"), no question asked
+- If missing (first build) → reads `session-config.json`, checks `sessionDefaults` for cross-project fallback, asks user only if no prior context exists
+- After selection, persists to BOTH `brief.json.buildStatus` AND `session-config.json.sessionDefaults`
+- User can always override by saying "switch to [account/env]"
+
+**Find-or-Create Agent (Step 1):**
+- Reads `brief.json.buildStatus.mcsAgentId` — if set, verifies agent still exists via `pac copilot list`
+- If no ID, checks `pac copilot list` for matching `displayName` before creating a new one
+- Prevents duplicate agents on build restart / session crash
+
+**Step-Level Checkpoints (Resume Logic):**
+- `buildStatus.completedSteps` tracks which steps succeeded: `created`, `instructions`, `knowledge`, `tools`, `model`, `topics`, `published`
+- On resume, completed steps are skipped — build continues from the failure point
+- Publish (Step 5) always re-runs since it's cheap and ensures latest state
 
 **Routes by architecture:**
 - `Single Agent` → standalone build (PAC CLI + Dataverse + Playwright + YAML)
 - `Multi-Agent` → specialists first, then orchestrator with child connections
-
-**Build steps:** Account Gate → Cache Check → Create Agent (Playwright) → Instructions & Knowledge (Dataverse API) → Tools (Playwright) → Topics (Code Editor YAML) → Publish (PAC CLI) → Reconciliation → `build-report.md` → Learnings Capture → Update brief.json buildStatus
 
 **On-demand teammates:** Research Analyst (when tool configuration hits issues) and Prompt Engineer (when instructions need adjustment for actual tool names)
 

@@ -16,8 +16,9 @@
     }
   ],
   "sessionDefaults": {
-    "note": "Update this after each session picker selection to track last-used context",
+    "note": "Written by /mcs-build after account/env selection. Cross-project fallback for new projects.",
     "lastAccount": null,
-    "lastEnvironment": null
+    "lastEnvironment": null,
+    "lastUpdated": null
   }
 }

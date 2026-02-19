@@ -35,67 +35,48 @@ Writes to:
 - `Build-Guides/{projectId}/agents/{agentId}/brief.json` — updates `buildStatus` field
 - `Build-Guides/{projectId}/agents/{agentId}/build-report.md` — customer-shareable summary
 
-## MANDATORY: Build Account & Environment Gate
+## Smart Build Account & Environment Gate
 
-**THIS HAPPENS FIRST. Before cache checks, before reading the spec, before anything.**
+Every build targets a specific tenant and environment. This gate reads persisted context first and only asks the user when no prior build context exists.
 
-Every build targets a specific tenant and environment. Wrong target = agent built in wrong place. This gate ensures the user explicitly confirms where we're building.
+### Flow
 
-### Step 1: Read session-config.json
-
-Read `tools/session-config.json` to get the list of accounts and environments.
-
-### Step 2: Ask User to Pick Account + Environment
-
-Use `AskUserQuestion` to present the account picker:
-
-**Question 1: "Which account should we build under?"**
-- Options from `session-config.json` accounts (e.g., dennis@testtesttoltest, admin@M365CPI15209943, kimdennis@microsoft.com)
-
-**Question 2: "Which environment?"**
-- Options from the selected account's environments (e.g., Test_Test_TOL_Test, dktest, Contoso)
-
-If brief.json already specifies a target environment, pre-select it as the recommended option — but still ask the user to confirm.
-
-### Step 3: Set PAC CLI Profile
-
-If the selected account has a `pacProfileIndex`, switch to it:
-```powershell
-pac auth select --index {pacProfileIndex}
-```
-
-Verify with `pac auth list` — confirm the active profile matches the selected account.
-
-### Step 4: Store Build Context
-
-Record for this build session:
-- **Account**: {selected account label}
-- **Environment**: {selected environment name}
-- **Dataverse URL**: {from session-config.json}
-- **PAC CLI Profile**: {index or "N/A — browser only"}
-
-### Step 5: Output Build Stamp
-
-```
-## Build Target Confirmed
-- Account: {account}
-- Environment: {environment}
-- Dataverse URL: {url}
-- PAC CLI: Profile {index} active
-- Agent: {agent name from spec}
-- Build mode: {Single Agent | Multi-Agent}
-
-Proceeding with build...
-```
-
-**Only after this stamp is output do we proceed to cache checks and the actual build.**
+1. **Read brief.json** → check `buildStatus.account`, `buildStatus.environment`, `buildStatus.accountId`
+2. **If all three exist** (previous build ran):
+   - Look up account in `tools/session-config.json` by `accountId` to get `pacProfileIndex`
+   - Set PAC CLI profile: `pac auth select --index {pacProfileIndex}`
+   - Output a one-line confirmation and proceed:
+     ```
+     Resuming build on {account} / {environment} (PAC CLI profile {index}).
+     ```
+   - **No question asked.** If the user wants to change target, they can say so.
+3. **If missing** (first build for this agent):
+   a. Read `tools/session-config.json`
+   b. Check `sessionDefaults.lastAccount` and `sessionDefaults.lastEnvironment`
+   c. If sessionDefaults has values → pre-select them as "(Recommended)" in the picker
+   d. Use `AskUserQuestion`:
+      - Q1: "Which account should we build under?" — options from session-config accounts
+      - Q2: "Which environment?" — options from the selected account's environments
+   e. Set PAC CLI profile: `pac auth select --index {pacProfileIndex}`
+   f. **Persist the selection** to BOTH locations:
+      - `brief.json.buildStatus` → set `account`, `environment`, `accountId`
+      - `session-config.json.sessionDefaults` → set `lastAccount`, `lastEnvironment`, `lastUpdated`
+   g. Output build stamp:
+     ```
+     ## Build Target Confirmed
+     - Account: {account}
+     - Environment: {environment}
+     - Dataverse URL: {url}
+     - PAC CLI: Profile {index} active
+     - Agent: {agent name from spec}
+     - Build mode: {Single Agent | Multi-Agent}
+     ```
 
 ### Rules
 
-- **NEVER skip this gate** — even for "quick" re-builds or single-step changes
-- **NEVER assume the session-start account is still correct** — the user may have switched contexts
-- **If the user picks an account with no environments listed**, ask them to provide the environment name manually
-- **The Playwright Preflight Gate (later in the build) will verify the browser matches** — this gate ensures the intent is set correctly first
+- If the user says "switch to [account/env]" at any point, re-run the picker and update both persistence locations
+- If an account has no environments listed, ask the user to provide the environment name manually
+- The Playwright Preflight Gate (later in the build) verifies the browser matches this gate's selection
 
 ---
 
@@ -167,16 +148,59 @@ In addition to Topic Engineer (YAML authoring, Step 4) and QA Challenger (review
 
 ## Standalone Build (Single Agent)
 
-### Step 0: Environment Verification
+### Step 0: Resume Detection & Environment Verification
+
+**Resume check (runs before anything else):**
+
+1. Read `brief.json.buildStatus.completedSteps` (array)
+2. If the array has entries, this is a resumed build. Log which steps will be skipped:
+   ```
+   Resuming build — completed steps: [created, instructions, knowledge]
+   Skipping to: tools configuration (Step 3)
+   ```
+3. Use this mapping to decide what to skip:
+   - `"created"` in list → skip Step 1 (find-or-create agent)
+   - `"instructions"` in list → skip instruction paste in Step 2
+   - `"knowledge"` in list → skip knowledge upload in Step 2
+   - `"tools"` in list → skip tool configuration in Step 3
+   - `"model"` in list → skip model selection in Step 3
+   - `"topics"` in list → skip Step 4 (topic authoring)
+   - **Always re-run Step 5 (publish)** — it's cheap and ensures latest state is published
+
+**Environment verification:**
 
 1. Check brief.json for environment info
 2. Run `pac auth list` to see PAC CLI target
 3. If environments don't match: plan browser-based operations
 4. Log verified environment
 
-### Step 1: Create Agent (Playwright — Preflight Gate required)
+### Step 1: Find or Create Agent
 
-**Create agent via Playwright.** PAC CLI `create` requires an undocumented template YAML that only captures ~30% of config (topics/instructions — not tools, knowledge, or model). Since Playwright is already required for tools + model, using it for creation eliminates the template dependency.
+**Check for existing agent before creating.** This prevents duplicate agents on build resume or session restart.
+
+#### 1a. Check brief.json for existing agent ID
+
+Read `brief.json.buildStatus.mcsAgentId`:
+
+- **If set** → verify it still exists:
+  ```powershell
+  pac copilot list
+  ```
+  - If agent ID or name found in output → skip creation, log: "Resuming work on existing agent {name} ({id})"
+  - If NOT found (agent was deleted?) → clear `mcsAgentId` from buildStatus, proceed to 1b
+
+#### 1b. Check PAC CLI for matching agent name
+
+If no `mcsAgentId`, search for an agent with the same `displayName` from brief.json:
+```powershell
+pac copilot list
+```
+- If a matching name is found → store its ID in `brief.json.buildStatus.mcsAgentId`, skip creation
+- If NOT found → proceed to 1c
+
+#### 1c. Create new agent (Playwright — Preflight Gate required)
+
+PAC CLI `create` requires an undocumented template YAML that only captures ~30% of config (topics/instructions — not tools, knowledge, or model). Since Playwright is already required for tools + model, using it for creation eliminates the template dependency.
 
 1. **Run MCS Preflight Gate** (see Step 3 for full gate procedure)
 2. Navigate to MCS home → **Create** → **New agent** → **Skip to configure**
@@ -191,15 +215,23 @@ pac copilot list
 
 **Fallback:** If browser is unavailable, use `pac copilot create --displayName "Name" --schemaName "cr_name" --solution "DefaultSolution" --templateFileName template.yaml` (requires extracting a template from an existing agent first).
 
-**VERIFY:** Agent exists in MCS UI snapshot and `pac copilot list`.
+#### 1d. Persist immediately
+
+Write `mcsAgentId` to `brief.json.buildStatus` right after creation or detection — do NOT defer to Step 6. Also add `"created"` to `completedSteps`.
+
+**VERIFY:** Agent exists in `pac copilot list` output and `brief.json.buildStatus.mcsAgentId` is set.
 
 ### Step 2: Configure Instructions & Knowledge (Dataverse API — no browser)
 
+**Skip check:** If `"instructions"` is in `completedSteps`, skip the instructions sub-step. If `"knowledge"` is in `completedSteps`, skip the knowledge sub-step. If both are completed, skip this entire step.
+
 **Instructions:** Update via Dataverse API (see `knowledge/patterns/dataverse-patterns.md` § 3).
 **Fallback:** Playwright → Edit Instructions → paste → Save
+**Checkpoint:** After verified, add `"instructions"` to `brief.json.buildStatus.completedSteps` and set `lastCompletedStep` to `"instructions"`.
 
 **Knowledge:** Upload via Dataverse API (see `knowledge/patterns/dataverse-patterns.md` § 4).
 **Fallback:** Playwright → Knowledge tab → Add knowledge
+**Checkpoint:** After verified, add `"knowledge"` to `brief.json.buildStatus.completedSteps` and set `lastCompletedStep` to `"knowledge"`.
 
 **Initial Publish:**
 ```powershell
@@ -212,7 +244,9 @@ pac copilot publish --bot <bot-id>
 
 ### Step 3: Configure Tools & Model (Playwright — browser required)
 
-**Run MCS Preflight Gate FIRST (MANDATORY).**
+**Skip check:** If `"tools"` is in `completedSteps`, skip tool configuration. If `"model"` is in `completedSteps`, skip model selection. If both are completed, skip this entire step.
+
+**Run MCS Preflight Gate FIRST (MANDATORY) — unless entire step is skipped.**
 
 1. `browser_navigate` to `https://copilotstudio.microsoft.com`
 2. `browser_snapshot` — wait for load
@@ -230,16 +264,22 @@ pac copilot publish --bot <bot-id>
 
 Then configure:
 - **Model**: Always select the latest available model. In the MCS model combobox, pick the newest option (typically the top preview model). Do not read architecture.model from brief.json.
+  **Checkpoint:** After model verified, add `"model"` to `completedSteps`, set `lastCompletedStep` to `"model"`.
 - **MCP servers**: Tools → Add tool → Model Context Protocol → search → add
 - **Connectors**: Tools → Add tool → search connector → select action → create connection
 - **Computer Use**: Tools → Add tool → Computer use → configure
 - **Security**: Settings → "Allow other agents to connect" (if specialist)
+  **Checkpoint:** After all tools verified, add `"tools"` to `completedSteps`, set `lastCompletedStep` to `"tools"`.
 
 **On-demand RA trigger:** If a connector/MCP server is not found by expected name, or auth mode differs from spec, spawn Research Analyst to investigate (see "On-Demand Teammates" section above). Apply RA's findings before continuing.
 
 **VERIFY:** Snapshot Tools tab → all tools listed. Snapshot Overview → model correct.
 
+**Error handling:** If a step fails, write the error to `brief.json.buildStatus.lastError` before stopping. On the next resume, `lastError` tells the lead what went wrong.
+
 ### Step 4: Author Topics (Code Editor YAML — minimal browser)
+
+**Skip check:** If `"topics"` is in `completedSteps`, skip this entire step.
 
 Use **Topic Engineer** teammate to generate validated YAML:
 
@@ -250,7 +290,11 @@ For each topic in the spec:
 4. Click "..." → "Open code editor"
 5. Paste generated YAML → Save
 
+**Checkpoint:** After all topics verified, add `"topics"` to `completedSteps`, set `lastCompletedStep` to `"topics"`.
+
 ### Step 5: Publish (PAC CLI — no browser)
+
+**Always runs** — even on resume. Publishing is cheap and ensures the latest state is live.
 
 ```powershell
 pac copilot publish --bot <bot-id>
@@ -259,18 +303,27 @@ pac copilot status --bot-id <bot-id>
 
 **If environments don't match:** Publish via browser Publish button.
 
+**Checkpoint:** After verified, add `"published"` to `completedSteps`, set `lastCompletedStep` to `"published"`. Clear `lastError`.
+
 **VERIFY:** Snapshot Overview → "Published [today]" visible.
 
-### Step 6: Update brief.json buildStatus
+### Step 6: Finalize brief.json buildStatus
+
+Write the complete buildStatus. Most fields were already written incrementally during checkpoints — this step ensures the final state is clean:
 
 ```json
 {
   "buildStatus": {
     "status": "published",
-    "lastBuild": "2026-02-12T...",
+    "lastBuild": "2026-02-18T...",
     "mcsAgentId": "<bot-id>",
     "environment": "<env-name>",
-    "publishedAt": "2026-02-12T..."
+    "account": "<account-label>",
+    "accountId": "<session-config-account-id>",
+    "publishedAt": "2026-02-18T...",
+    "completedSteps": ["created", "instructions", "knowledge", "tools", "model", "topics", "published"],
+    "lastCompletedStep": "published",
+    "lastError": null
   }
 }
 ```
