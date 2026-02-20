@@ -143,6 +143,9 @@
           "$ref": "#/definitions/AdaptiveDialog"
         },
         {
+          "$ref": "#/definitions/HttpRequestAction"
+        },
+        {
           "$ref": "#/definitions/ActionScope"
         },
         {
@@ -767,6 +770,9 @@
       },
       "oneOf": [
         {
+          "$ref": "#/definitions/HttpRequestAction"
+        },
+        {
           "$ref": "#/definitions/ActionScope"
         },
         {
@@ -1196,6 +1202,26 @@
         },
         {
           "$ref": "#/definitions/Record"
+        }
+      ]
+    },
+    "AsyncAction": {
+      "x-definition": {
+        "title": "AsyncAction",
+        "type": "object",
+        "x-base-ref": "#/definitions/DialogAction",
+        "x-abstract": true,
+        "properties": {
+          "latencyMessageSettings": {
+            "title": "Latency Message",
+            "description": "In text conversations this message will be sent once. In voice conversations, this message will loop until the operation is complete.",
+            "$ref": "#/definitions/LatencyMessageSettings"
+          }
+        }
+      },
+      "oneOf": [
+        {
+          "$ref": "#/definitions/HttpRequestAction"
         }
       ]
     },
@@ -2387,6 +2413,102 @@
     },
     "InitializablePropertyPath": {
       "type": "string"
+    },
+    "HttpRequestAction": {
+      "title": "HTTP Request",
+      "description": "Choose a REST API to invoke/sends an HTTP request to an external endpoint.",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/AsyncAction",
+      "properties": {
+        "kind": {
+          "const": "HttpRequestAction"
+        },
+        "method": {
+          "title": "Method",
+          "default": "Get",
+          "$role": "expression",
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "=.*"
+            },
+            {
+              "$ref": "#/definitions/HttpMethodType"
+            }
+          ]
+        },
+        "url": {
+          "title": "URL",
+          "$role": "expression",
+          "$ref": "#/definitions/StringExpression"
+        },
+        "headers": {
+          "title": "Headers",
+          "description": "Give additional information with values.",
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/StringExpression"
+          }
+        },
+        "requestTimeoutInMilliseconds": {
+          "title": "Request timeout (milliseconds)",
+          "default": 30000,
+          "$role": "expression",
+          "$ref": "#/definitions/IntExpression"
+        },
+        "queryParameters": {
+          "title": "QueryParameters",
+          "description": "Give additional query parameter details with values.",
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/ValueExpression"
+          }
+        },
+        "networkIsolation": {
+          "title": "Network isolation",
+          "$role": "expression",
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "=.*"
+            },
+            {
+              "$ref": "#/definitions/NetworkIsolationType"
+            }
+          ]
+        },
+        "conversationId": {
+          "title": "ConversationId",
+          "description": "Target conversation identifier.",
+          "$role": "expression",
+          "$ref": "#/definitions/StringExpression"
+        },
+        "connection": {
+          "title": "Connection",
+          "$ref": "#/definitions/Remote"
+        },
+        "response": {
+          "title": "Save response as",
+          "description": "The variable to store the result in.",
+          "type": "string"
+        },
+        "responseSchema": {
+          "title": "Response data type",
+          "description": "The schema of the HTTP response object.",
+          "$ref": "#/definitions/DataType"
+        },
+        "responseHeaders": {
+          "title": "Response headers",
+          "description": "Variable to store response headers in",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "url"
+      ]
     },
     "ActionScope": {
       "title": "A sequence of actions to execute. Action scopes should not be added to a topic explicitly, it is used as part of conditions and loops.",

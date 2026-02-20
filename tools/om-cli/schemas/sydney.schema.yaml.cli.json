@@ -143,6 +143,9 @@
           "$ref": "#/definitions/ActionOutputBinding"
         },
         {
+          "$ref": "#/definitions/InvokeFlowAction"
+        },
+        {
           "$ref": "#/definitions/RaiseErrorBehavior"
         },
         {
@@ -239,7 +242,19 @@
           "$ref": "#/definitions/OnToolSelected"
         },
         {
+          "$ref": "#/definitions/OnRecognizedIntent"
+        },
+        {
+          "$ref": "#/definitions/OnEscalate"
+        },
+        {
+          "$ref": "#/definitions/OnError"
+        },
+        {
           "$ref": "#/definitions/OnConversationStart"
+        },
+        {
+          "$ref": "#/definitions/Variable"
         },
         {
           "$ref": "#/definitions/GptComponent"
@@ -717,6 +732,15 @@
           "$ref": "#/definitions/OnToolSelected"
         },
         {
+          "$ref": "#/definitions/OnRecognizedIntent"
+        },
+        {
+          "$ref": "#/definitions/OnEscalate"
+        },
+        {
+          "$ref": "#/definitions/OnError"
+        },
+        {
           "$ref": "#/definitions/OnConversationStart"
         }
       ]
@@ -760,6 +784,9 @@
         ]
       },
       "oneOf": [
+        {
+          "$ref": "#/definitions/InvokeFlowAction"
+        },
         {
           "$ref": "#/definitions/WaitForConnectorTrigger"
         },
@@ -1209,6 +1236,9 @@
       },
       "oneOf": [
         {
+          "$ref": "#/definitions/InvokeFlowAction"
+        },
+        {
           "$ref": "#/definitions/WaitForConnectorTrigger"
         },
         {
@@ -1241,6 +1271,9 @@
         }
       },
       "oneOf": [
+        {
+          "$ref": "#/definitions/InvokeFlowAction"
+        },
         {
           "$ref": "#/definitions/WaitForConnectorTrigger"
         },
@@ -1454,6 +1487,43 @@
         }
       ]
     },
+    "OnRecognizedIntentBase": {
+      "x-definition": {
+        "title": "OnRecognizedIntentBase",
+        "type": "object",
+        "x-base-ref": "#/definitions/TriggerBase",
+        "x-abstract": true,
+        "properties": {
+          "intent": {
+            "title": "Intent",
+            "description": "Definition of the intent to be recognized.",
+            "$ref": "#/definitions/IntentBase",
+            "x-defaultDefinition": "#/definitions/Intent"
+          }
+        }
+      },
+      "oneOf": [
+        {
+          "$ref": "#/definitions/OnRecognizedIntent"
+        },
+        {
+          "$ref": "#/definitions/OnEscalate"
+        }
+      ]
+    },
+    "OnSystemIntentBase": {
+      "x-definition": {
+        "title": "OnSystemIntentBase",
+        "type": "object",
+        "x-base-ref": "#/definitions/OnRecognizedIntentBase",
+        "x-abstract": true
+      },
+      "oneOf": [
+        {
+          "$ref": "#/definitions/OnEscalate"
+        }
+      ]
+    },
     "SystemTrigger": {
       "x-definition": {
         "title": "SystemTrigger",
@@ -1462,6 +1532,9 @@
         "x-abstract": true
       },
       "oneOf": [
+        {
+          "$ref": "#/definitions/OnError"
+        },
         {
           "$ref": "#/definitions/OnConversationStart"
         }
@@ -2665,6 +2738,28 @@
     "InitializablePropertyPath": {
       "type": "string"
     },
+    "InvokeFlowAction": {
+      "title": "Action",
+      "description": "Invokes a Power Automate flow, possibly with inputs and outputs.",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/ExternalAction",
+      "properties": {
+        "kind": {
+          "const": "InvokeFlowAction"
+        },
+        "flowId": {
+          "title": "Flow Id",
+          "description": "The unique identifier of the Cloud Flow.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "flowId"
+      ]
+    },
     "RaiseErrorBehavior": {
       "title": "Raise an error",
       "type": "object",
@@ -3520,6 +3615,53 @@
         "description"
       ]
     },
+    "OnRecognizedIntent": {
+      "title": "On Recognized Intent",
+      "description": "Triggered when an intent is recognized.",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/OnRecognizedIntentBase",
+      "properties": {
+        "kind": {
+          "const": "OnRecognizedIntent"
+        }
+      },
+      "required": [
+        "kind",
+        "id"
+      ]
+    },
+    "OnEscalate": {
+      "title": "On Talk to Representative",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/OnSystemIntentBase",
+      "properties": {
+        "kind": {
+          "const": "OnEscalate"
+        }
+      },
+      "required": [
+        "kind",
+        "id"
+      ]
+    },
+    "OnError": {
+      "title": "On Error",
+      "description": "Triggered when an error occurs. The ErrorCode and ErrorMessage variables are available to get more details about the error.",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/SystemTrigger",
+      "properties": {
+        "kind": {
+          "const": "OnError"
+        }
+      },
+      "required": [
+        "kind",
+        "id"
+      ]
+    },
     "OnConversationStart": {
       "title": "On Conversation Start",
       "description": "Triggered when the conversation starts.",
@@ -3534,6 +3676,60 @@
       "required": [
         "kind",
         "id"
+      ]
+    },
+    "Variable": {
+      "title": "Variable",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/BotElement",
+      "properties": {
+        "kind": {
+          "const": "Variable"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "scope": {
+          "title": "Scope",
+          "default": "Conversation",
+          "$ref": "#/definitions/VariableScope"
+        },
+        "defaultValue": {
+          "title": "DefaultValue",
+          "$role": "expression",
+          "$ref": "#/definitions/ValueExpression"
+        },
+        "isExternalInitializationAllowed": {
+          "title": "IsExternalInitializationAllowed",
+          "default": false,
+          "type": "boolean"
+        },
+        "isOutputToExternalCallers": {
+          "title": "IsOutputToExternalCallers",
+          "default": false,
+          "type": "boolean"
+        },
+        "initializationTimeoutInMilliseconds": {
+          "title": "InitializationTimeoutInMilliseconds",
+          "default": 0,
+          "type": "number"
+        },
+        "missingInitializationBehavior": {
+          "title": "MissingInitializationBehavior",
+          "default": "UseDefault",
+          "$ref": "#/definitions/InitializationBehavior"
+        },
+        "aIVisibility": {
+          "title": "AIVisibility",
+          "default": "Hidden",
+          "$ref": "#/definitions/VariableAIVisibility"
+        }
+      },
+      "required": [
+        "kind",
+        "name"
       ]
     },
     "GptComponent": {

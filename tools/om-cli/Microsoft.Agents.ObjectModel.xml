@@ -15927,6 +15927,21 @@
             Determine what happens when an error occurs.
             </summary>
         </member>
+        <member name="P:Microsoft.Agents.ObjectModel.Internal.HttpRequestActionGreen.QueryParameters">
+            <summary>
+            Give additional query parameter details with values.
+            </summary>
+        </member>
+        <member name="P:Microsoft.Agents.ObjectModel.Internal.HttpRequestActionGreen.ConversationId">
+            <summary>
+            Target conversation identifier.
+            </summary>
+        </member>
+        <member name="P:Microsoft.Agents.ObjectModel.Internal.HttpRequestActionGreen.Connection">
+            <summary>
+            Properties related to the remote connection reference for the node.
+            </summary>
+        </member>
         <member name="P:Microsoft.Agents.ObjectModel.Internal.HttpRequestActionGreen.Response">
             <summary>
             The variable to store the result in.
@@ -27143,6 +27158,12 @@
         <member name="T:Microsoft.Agents.ObjectModel.FeatureFlags.AmdEventHandlingAllowed">
             <summary>
             Flag to enable AMD event handling.
+            </summary>
+        </member>
+        <member name="T:Microsoft.Agents.ObjectModel.FeatureFlags.OperationNameForModelOverrideEnabled">
+            <summary>
+            When enabled, operation-level NameForModel/DescriptionForModel override
+            DisplayName/Description in tool definitions sent to the LLM.
             </summary>
         </member>
         <member name="T:Microsoft.Agents.ObjectModel.FileProjection.IProjector">
@@ -63121,9 +63142,24 @@
             Returns true if <see cref="P:Microsoft.Agents.ObjectModel.HttpRequestAction.RequestTimeoutInMilliseconds" />'s value is the default value.
             </summary>
         </member>
+        <member name="P:Microsoft.Agents.ObjectModel.HttpRequestAction.QueryParameters">
+            <summary>
+            Give additional query parameter details with values.
+            </summary>
+        </member>
         <member name="P:Microsoft.Agents.ObjectModel.HttpRequestAction.NetworkIsolationIsDefaultValue">
             <summary>
             Returns true if <see cref="P:Microsoft.Agents.ObjectModel.HttpRequestAction.NetworkIsolation" />'s value is the default value.
+            </summary>
+        </member>
+        <member name="P:Microsoft.Agents.ObjectModel.HttpRequestAction.ConversationId">
+            <summary>
+            Target conversation identifier.
+            </summary>
+        </member>
+        <member name="P:Microsoft.Agents.ObjectModel.HttpRequestAction.Connection">
+            <summary>
+            Properties related to the remote connection reference for the node.
             </summary>
         </member>
         <member name="P:Microsoft.Agents.ObjectModel.HttpRequestAction.Response">
@@ -63174,6 +63210,21 @@
         <member name="P:Microsoft.Agents.ObjectModel.HttpRequestAction.Builder.ErrorHandling">
             <summary>
             Determine what happens when an error occurs.
+            </summary>
+        </member>
+        <member name="P:Microsoft.Agents.ObjectModel.HttpRequestAction.Builder.QueryParameters">
+            <summary>
+            Give additional query parameter details with values.
+            </summary>
+        </member>
+        <member name="P:Microsoft.Agents.ObjectModel.HttpRequestAction.Builder.ConversationId">
+            <summary>
+            Target conversation identifier.
+            </summary>
+        </member>
+        <member name="P:Microsoft.Agents.ObjectModel.HttpRequestAction.Builder.Connection">
+            <summary>
+            Properties related to the remote connection reference for the node.
             </summary>
         </member>
         <member name="P:Microsoft.Agents.ObjectModel.HttpRequestAction.Builder.Response">
