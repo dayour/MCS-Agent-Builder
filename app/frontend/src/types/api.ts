@@ -43,6 +43,8 @@ export interface ApiAgentDetail {
   id: string;
   name: string;
   brief: ApiBrief | null;
+  /** Filesystem mtime of brief.json — detects external edits (Claude, manual). */
+  _file_mtime?: string;
   has_instructions: boolean;
   has_evals: boolean;
   has_build_report: boolean;

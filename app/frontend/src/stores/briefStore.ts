@@ -27,8 +27,10 @@ interface BriefStore {
   loading: boolean;
   saving: boolean;
   error: string | null;
-  /** Server timestamp for polling. */
+  /** Server timestamp for polling (brief.updated_at). */
   serverUpdatedAt: string | null;
+  /** File mtime for polling (detects external edits by Claude/manual). */
+  serverFileMtime: string | null;
   /** Load an agent's brief from server. */
   load: (projectId: string, agentId: string) => Promise<void>;
   /** Update a section's data in the store. Marks dirty. */
@@ -55,6 +57,7 @@ export const useBriefStore = create<BriefStore>((set, get) => ({
   saving: false,
   error: null,
   serverUpdatedAt: null,
+  serverFileMtime: null,
 
   load: async (projectId: string, agentId: string) => {
     set({ loading: true, error: null, projectId, agentId, dirty: false });
@@ -70,6 +73,7 @@ export const useBriefStore = create<BriefStore>((set, get) => ({
         evalResults: raw.evalResults ?? null,
         completion: sectionCompletion(data),
         serverUpdatedAt: raw.updated_at ?? null,
+        serverFileMtime: result._file_mtime ?? null,
         loading: false,
       });
     } catch (e: any) {
@@ -116,7 +120,12 @@ export const useBriefStore = create<BriefStore>((set, get) => ({
       const result = await fetchAgent(projectId, agentId);
       const raw = result.brief ?? ({} as ApiBrief);
       const serverTs = raw.updated_at ?? null;
-      if (serverTs && serverTs !== get().serverUpdatedAt) {
+      const fileMtime = result._file_mtime ?? null;
+      // Refresh if either the JSON updated_at OR the file mtime changed
+      // This catches both dashboard saves (updated_at) and external edits (mtime)
+      const tsChanged = serverTs && serverTs !== get().serverUpdatedAt;
+      const mtimeChanged = fileMtime && fileMtime !== get().serverFileMtime;
+      if (tsChanged || mtimeChanged) {
         const data = briefFromApi(raw);
         set({
           data,
@@ -125,6 +134,7 @@ export const useBriefStore = create<BriefStore>((set, get) => ({
           evalResults: raw.evalResults ?? null,
           completion: sectionCompletion(data),
           serverUpdatedAt: serverTs,
+          serverFileMtime: fileMtime,
         });
         return true;
       }

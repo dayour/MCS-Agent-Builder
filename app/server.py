@@ -538,10 +538,17 @@ async def get_agent(project_id: str, agent_id: str):
         name = brief["step1"]["agentName"]
     else:
         name = humanize_name(agent_id)
+    # Include file mtime so the client poll detects external edits
+    # (e.g. Claude editing brief.json directly) even when updated_at unchanged
+    file_mtime = None
+    if brief_file.exists():
+        file_mtime = datetime.fromtimestamp(brief_file.stat().st_mtime).isoformat()
+
     return {
         "id": agent_id,
         "name": name,
         "brief": brief,
+        "_file_mtime": file_mtime,
         "has_instructions": bool(brief.get("instructions")) if brief else False,
         "has_evals": (agent_dir / "evals.csv").exists(),
         "has_build_report": (agent_dir / "build-report.md").exists(),
