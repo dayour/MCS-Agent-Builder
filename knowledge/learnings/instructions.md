@@ -1,6 +1,6 @@
 # Instruction Writing Learnings
 
-Lessons learned about agent instructions — what patterns work, what to avoid, Custom Prompt usage, length management. Consulted during `/mcs-research` Phase C (Prompt Engineer) and `/mcs-build` Step 2.
+Lessons learned about agent instructions — what patterns work, what to avoid, Custom Prompt usage, length management. Consulted during `/mcs-research` Phase C (Prompt Engineer) and `/mcs-fix` Step 2.
 
 <!--
 Entry format:

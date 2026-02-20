@@ -101,7 +101,7 @@ Spawn **Prompt Engineer** when QA identified `instruction gap` or `boundary viol
 - NO listing all tools — only `/ToolName` for disambiguation
 - Include follow-up question guidance
 - Boundary violations → check if dedicated topic exists (instructions alone are unreliable for hard boundaries)
-- If routing was wrong → fix topic descriptions FIRST (routing priority: description > name > instructions)
+- If routing was wrong → fix topic descriptions FIRST (routing priority: description > name > parameters > instructions)
 
 PE produces:
 - Revised instructions draft (or targeted delta for specific sections)
