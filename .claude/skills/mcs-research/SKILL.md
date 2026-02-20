@@ -486,23 +486,32 @@ Update `brief.json architecture`:
 ### Step 2: Instructions — Prompt Engineer (single pass)
 
 Spawn the **Prompt Engineer** teammate to write the agent instructions. Provide the PE with:
-- The agent's complete `brief.json` (business, agent, capabilities, integrations, knowledge populated from Phases A-B)
-- `knowledge/cache/instructions-authoring.md` for MCS patterns
+- The agent's complete `brief.json` (business, agent, capabilities, integrations, knowledge, conversations, boundaries populated from Phases A-B)
+- `knowledge/cache/instructions-authoring.md` for MS-recommended patterns and anti-patterns
 
-The PE writes a complete, self-verified draft:
-- Full system prompt ready for MCS (max 8000 chars)
-- Follows MCS instruction patterns
-- References tools by their MCS names (e.g., `/SharePointOneDrive`, `/OutlookCalendar`)
-- Includes: identity, capabilities, workflow, response guidelines, boundaries
-- PE runs their own review checklist before returning (char count, reference validity, boundary coverage)
+**PE must follow the three-part structure (Constraints + Response Format + Guidance) and anti-pattern rules:**
+- **Three-part structure**: Constraints (what to do/not do) → Response Format (how to present) → Guidance (how to find answers)
+- **State the audience** in the Role section (e.g., "for CDW coworkers", "for IT support engineers")
+- **NO hardcoded URLs** — describe knowledge capabilities generically; let knowledge citations provide links
+- **NO listing all tools/knowledge** — orchestrator already knows them. Only `/ToolName` for disambiguation
+- **NO professional tone instructions** — professional is the default. Only specify tone for deviations
+- **Include follow-up guidance** — "End every response with a relevant follow-up question or next step"
+- **Include 2-3 examples** for complex behaviors (boundary enforcement, multi-step workflows)
+- **Boundaries in instructions are guidance only** — hard stops require dedicated topics (which are in `conversations.topics`)
+- **Topic descriptions drive routing** — instructions are lowest priority for routing. If a topic needs to be found, its description matters more than instructions mentioning it
+- PE runs their own review checklist before returning (char count, anti-pattern check, reference validity, audience, follow-ups)
 
 ### Step 3: QA Review (single pass, no iteration)
 
 Spawn the **QA Challenger** to review the PE's output in a **single pass**:
+- Verify instructions use three-part structure (Constraints + Response Format + Guidance)
+- Verify **no hardcoded URLs** and **no tool/knowledge listing**
 - Verify instructions reference only tools that are in `integrations[]`
 - Verify boundaries match `boundaries.handle/decline/refuse`
+- Verify audience is stated in the Role section
+- Verify follow-up question guidance is included
 - Verify instruction length < 8000 chars
-- Check for vague language, missing edge cases
+- Check for vague language, missing edge cases, nested lists
 
 **QA produces a verdict:**
 - **PASS** — instructions are ready as-is

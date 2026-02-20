@@ -93,10 +93,19 @@ Spawn **Prompt Engineer** when QA identified `instruction gap` or `boundary viol
 - Failed test cases with QA's analysis (only the instruction-related ones)
 - `brief.json.integrations[]` (for tool reference validation)
 - `brief.json.capabilities[]` (for scope validation)
+- `knowledge/cache/instructions-authoring.md` (for MS best practices and anti-patterns)
+
+**PE fix rules (same as generation — see instructions-authoring.md):**
+- Use three-part structure: Constraints + Response Format + Guidance
+- NO hardcoded URLs — describe knowledge generically
+- NO listing all tools — only `/ToolName` for disambiguation
+- Include follow-up question guidance
+- Boundary violations → check if dedicated topic exists (instructions alone are unreliable for hard boundaries)
+- If routing was wrong → fix topic descriptions FIRST (routing priority: description > name > instructions)
 
 PE produces:
 - Revised instructions draft (or targeted delta for specific sections)
-- Self-verification: char count < 8000, all referenced tools exist in integrations[], boundaries intact
+- Self-verification: char count < 8000, no anti-patterns, all referenced tools exist, boundaries intact
 
 ### Topic Fixes — Topic Engineer
 

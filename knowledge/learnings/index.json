@@ -55,6 +55,17 @@
       "tags": ["pac-cli", "publish", "mcp", "crash", "workaround"],
       "status": "active",
       "projects": ["cdw"]
+    },
+    {
+      "id": "in-001",
+      "file": "instructions.md",
+      "title": "Hardcoded URLs and tool listing in instructions produce weak agents",
+      "date": "2026-02-20",
+      "confirmed": 1,
+      "lastConfirmed": "2026-02-20",
+      "tags": ["instructions", "urls", "anti-pattern", "follow-up", "audience", "three-part-structure", "boundaries"],
+      "status": "active",
+      "projects": ["cdw"]
     }
   ]
 }
