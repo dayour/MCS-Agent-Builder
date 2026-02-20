@@ -48,6 +48,39 @@ Tools: `read_query` (20-row limit), `create_record`, `update_record`, `delete_re
 | "Allow other agents to connect" | Not in public API |
 | Native eval upload/run | MCS eval service |
 
+## CRITICAL: What Raw Dataverse POST CANNOT Do
+
+**Creating new `botcomponent` records via `POST /botcomponents` is UNSUPPORTED for MCS agents.**
+
+Raw POST creates the Dataverse record but skips MCS internal orchestration:
+- No NLU trigger phrase registration (topics won't route)
+- No `bot_botcomponent` M:M relationship (agent won't see components)
+- No dependency tracking or topic compilation
+- Agent appears BLANK in MCS UI despite data existing in Dataverse
+
+| Operation | POST Works? | PATCH Works? | Correct Method |
+|-----------|------------|-------------|----------------|
+| New topic (type 9) | **NO** — record created but invisible to MCS | N/A | Playwright → Code Editor → paste YAML |
+| New instructions (type 15) | **NO** — same problem | N/A | Playwright → Instructions panel |
+| Update EXISTING instructions (type 15) | N/A | **YES** — component already registered | Dataverse PATCH + PvaPublish |
+| Update EXISTING topic content (type 9) | N/A | **RISKY** — MS warns against direct edits | Playwright → Code Editor preferred |
+| New knowledge source (type 16) | **NO** | N/A | Playwright → Knowledge tab |
+
+### Other Bound Actions
+
+| Action | Status | Use |
+|--------|--------|-----|
+| `PvaPublish` | Supported | Compile and publish registered components |
+| `PvaDeleteBot` | Supported | Delete an agent |
+| `PvaGetDirectLineEndpoint` | Supported | Get Direct Line token endpoint |
+| `PvaCreateBotComponents` | **Internal use only** — do NOT call | MS-internal, undocumented behavior |
+
+### Column Distinction: `data` vs `content`
+
+The `botcomponent` table has both `data` and `content` columns. Instructions (type 15) use `content` for the JSON payload. Topics (type 9) use `content` for YAML. The `data` column exists but its usage varies by component type — always check via `describe_table` first.
+
+---
+
 ## Upcoming API Capabilities
 
 | Feature | Timeline | Impact |

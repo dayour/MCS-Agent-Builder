@@ -15,7 +15,7 @@ Reusable patterns for managing Copilot Studio agents via the **3-layer Dataverse
 ## Prerequisites
 
 - **PAC CLI authenticated**: `pac auth list` shows active profile
-- **Az.Accounts module**: `Install-Module Az.Accounts -Scope CurrentUser` (for PowerShell layer)
+- **Azure CLI**: `az account get-access-token --resource https://<org>.crm.dynamics.com` (primary token method; Az.Accounts module is NOT installed — do not use `Get-AzAccessToken`)
 - **Dataverse MCP Server**: `dotnet tool install --global Microsoft.PowerPlatform.Dataverse.MCP` (for Layer 1)
 - **PAC CLI MCP Server**: Configured in `.claude/settings.json` via `dnx` (for Layer 2)
 
@@ -221,6 +221,8 @@ Remove-Bot -Ctx $ctx -BotId $botId
 
 ## What CANNOT Be Done via API (Requires Playwright)
 
+### UI-Only Operations (No API Exists)
+
 | Operation | Why |
 |-----------|-----|
 | Model selection | Field not exposed in API |
@@ -230,3 +232,36 @@ Remove-Bot -Ctx $ctx -BotId $botId
 | Generative AI settings | Internal MCS setting, not in Dataverse schema |
 | "Allow other agents to connect" | Security toggle not in public API |
 | Native eval upload/run | MCS evaluation service, no API |
+
+### CRITICAL: Creating New Components via Raw POST Is Broken
+
+**Raw `POST /botcomponents` creates Dataverse records but MCS never sees them.** The agent appears blank in the UI despite data existing in the table. This is because MCS requires internal orchestration (NLU registration, M:M relationships, compilation) that only happens through the MCS UI or MCS-internal APIs.
+
+| What You Want | Wrong Way (Looks Like It Works) | Right Way |
+|---------------|--------------------------------|-----------|
+| New topic | `POST /botcomponents` with componenttype=9 | Playwright: Topics → Add → Code Editor → paste YAML → Save |
+| New instructions | `POST /botcomponents` with componenttype=15 | Playwright: Overview → Instructions panel → paste text |
+| New knowledge source | `POST /botcomponents` with componenttype=16 | Playwright: Knowledge tab → Add → configure source |
+| Update EXISTING instructions | — | `PATCH /botcomponents(<id>)` + `PvaPublish` **WORKS** |
+| Publish | — | `PvaPublish` bound action or `pac copilot publish` (MCP version) |
+
+**Why this is dangerous:** The POST returns 201 Created with a valid GUID. FetchXML queries confirm the record exists. Everything looks successful. But the agent in MCS shows nothing — no topics, no instructions. The failure is completely silent.
+
+### Safe Dataverse Operations (Verified Working)
+
+| Operation | Method | Notes |
+|-----------|--------|-------|
+| Query agents | `read_query` / `env_fetch` (FetchXML) | Both work; env_fetch has no row limit |
+| Query components | `read_query` / `env_fetch` | Filter by `_parentbotid_value` and `componenttype` |
+| Update existing instructions | `PATCH /botcomponents(<id>)` | Component must already exist (created via UI) |
+| Publish agent | `PvaPublish` bound action | Or MCP `copilot_publish` |
+| Delete agent | `PvaDeleteBot` bound action | Or PowerShell `Remove-Bot` |
+| Get Direct Line token | `PvaGetDirectLineEndpoint` | For eval testing |
+
+### Common Pitfalls
+
+1. **`_parentbotid_value` vs `parentbotid@odata.bind`**: For queries, use `_parentbotid_value`. For POST/PATCH with navigation properties, use `"parentbotid@odata.bind": "/bots(<guid>)"`. Direct update of `_parentbotid_value` returns: "CRM does not support direct update of Entity Reference properties."
+
+2. **`schemaname` is required**: POST without `schemaname` returns: "Attribute 'schemaname' cannot be NULL." Generate a unique schema name (e.g., `cr_componentname_<random>`).
+
+3. **OData `$filter` in Bash**: The `$` sign conflicts with Bash variable expansion. Use PowerShell for OData queries, or carefully escape: `\$filter` (but this can cause "Query option '\\' specified more than once" errors). Safest: use FetchXML via `env_fetch` instead of OData `$filter`.

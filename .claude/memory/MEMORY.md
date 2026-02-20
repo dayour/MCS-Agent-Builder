@@ -30,7 +30,7 @@
 ### Installed Tools & Versions
 - **PAC CLI**: v2.1.2 (MSI, no MCP) + v2.2.1 (NuGet via dnx, has MCP)
 - **.NET SDKs**: 8.0.418, 9.0.311, 10.0.102
-- **Az.Accounts**: v5.3.2 (for `Get-AzAccessToken`)
+- **Az.Accounts**: NOT installed (was wrongly listed as v5.3.2). Use `az account get-access-token --resource https://<org>.crm.dynamics.com` instead.
 - **Pandoc**: `C:\Users\kimdennis\AppData\Local\Pandoc\pandoc.exe`
 - **WorkIQ CLI**: v0.2.8 at `C:\Users\kimdennis\AppData\Roaming\npm\workiq`
 
@@ -44,7 +44,8 @@
 - **Dataverse MCP Server** (v0.2.310025): 11 tools, 20-row limit, needs PPAC admin enable
 - **PAC CLI MCP Server** (v2.2.1): 52 tools via dnx, `copilot_publish` + `env_fetch` (FetchXML, no row limit)
 - **PowerShell Web API** (`tools/dataverse-helper.ps1`): Full CRUD + bound actions, no limits
-- **CRITICAL**: `pac auth create-token` does NOT exist. Use `Get-AzAccessToken` instead.
+- **CRITICAL**: `pac auth create-token` does NOT exist. Use `az account get-access-token` instead (Az.Accounts not installed).
+- **CRITICAL**: Raw `POST /botcomponents` creates records but MCS doesn't see them. Use Playwright Code Editor for new topics, Dataverse PATCH only for existing components.
 - **`cr3f1_stagedescription` MaxLength = 100**: Check column limits before bulk inserts
 
 ---
