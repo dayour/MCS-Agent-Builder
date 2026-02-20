@@ -151,21 +151,15 @@ Results saved to `Build-Guides/{projectId}/agents/{agentId}/evals-results.json`:
 
 **Use when:** Direct Line token acquisition fails, OR Tier 1 produced partial results and needs continuation, OR user requests.
 
-### MCS Preflight Gate (MANDATORY)
+### Silent Browser Verification (MANDATORY)
 
-1. `browser_navigate` to `https://copilotstudio.microsoft.com`
-2. `browser_snapshot`
-3. Output verification stamp:
-   ```
-   ## MCS Preflight Check
-   - Account: [name]
-   - Environment: [name]
-   - Target agent: [agent name]
-   - Action: Run evaluation via Test Chat pane
-
-   Is this correct? Please confirm before I proceed.
-   ```
-4. **WAIT for user confirmation**
+1. Read `brief.json.buildStatus.account` / `.environment` (set during `/mcs-build`)
+2. `browser_navigate` to `https://copilotstudio.microsoft.com`
+3. `browser_snapshot` — wait for load
+4. Compare snapshot account/environment against persisted buildStatus
+5. **If match** → log `Browser verified: {account} / {environment}` and proceed
+6. **If mismatch** → alert user: `Browser shows {X} but eval targets {Y}. Switch?` — WAIT for user
+7. **If no persisted config** → ask once via `AskUserQuestion`, persist to `brief.json.buildStatus` + `session-config.json`
 
 ### Navigate to Agent
 
@@ -212,9 +206,9 @@ If continuing from Tier 1 partial results, merge: include Tier 1 results (keep e
 
 **Use ONLY when:** User explicitly requests native eval (e.g., "use native eval", "run MCS evaluation", or `--native` flag).
 
-### MCS Preflight Gate (MANDATORY)
+### Silent Browser Verification (MANDATORY)
 
-Same as Tier 2 — verify account and environment first.
+Same as Tier 2 — silent verification against persisted buildStatus.
 
 ### Upload and Start
 
@@ -249,7 +243,7 @@ Write to brief.json:
 
 When invoked with `--check-results`:
 
-1. Run Preflight Gate
+1. Run silent browser verification (compare against `brief.json.buildStatus`)
 2. Navigate to agent → Evaluation tab
 3. Snapshot the results table
 4. **If results available:**

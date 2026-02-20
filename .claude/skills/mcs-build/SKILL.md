@@ -53,30 +53,27 @@ Every build targets a specific tenant and environment. This gate reads persisted
 3. **If missing** (first build for this agent):
    a. Read `tools/session-config.json`
    b. Check `sessionDefaults.lastAccount` and `sessionDefaults.lastEnvironment`
-   c. If sessionDefaults has values → pre-select them as "(Recommended)" in the picker
-   d. Use `AskUserQuestion`:
+   c. **If sessionDefaults has values** → pre-fill and confirm with ONE yes/no question:
+      - `AskUserQuestion`: "Build on {lastAccount} / {lastEnvironment}?" — options: "Yes (Recommended)" / "Choose different account"
+      - If "Yes" → use sessionDefaults, skip picker
+      - If "Choose different" → full picker (step d)
+   d. **If sessionDefaults empty** (truly first time) → use `AskUserQuestion`:
       - Q1: "Which account should we build under?" — options from session-config accounts
       - Q2: "Which environment?" — options from the selected account's environments
    e. Set PAC CLI profile: `pac auth select --index {pacProfileIndex}`
    f. **Persist the selection** to BOTH locations:
       - `brief.json.buildStatus` → set `account`, `environment`, `accountId`
       - `session-config.json.sessionDefaults` → set `lastAccount`, `lastEnvironment`, `lastUpdated`
-   g. Output build stamp:
+   g. Output one-line confirmation:
      ```
-     ## Build Target Confirmed
-     - Account: {account}
-     - Environment: {environment}
-     - Dataverse URL: {url}
-     - PAC CLI: Profile {index} active
-     - Agent: {agent name from spec}
-     - Build mode: {Single Agent | Multi-Agent}
+     Build target: {account} / {environment} (PAC CLI profile {index}).
      ```
 
 ### Rules
 
 - If the user says "switch to [account/env]" at any point, re-run the picker and update both persistence locations
 - If an account has no environments listed, ask the user to provide the environment name manually
-- The Playwright Preflight Gate (later in the build) verifies the browser matches this gate's selection
+- Silent browser verification (later in the build) compares the browser's account/env against this gate's selection
 
 ---
 
@@ -225,11 +222,11 @@ pac copilot list
 - If a matching name is found → store its ID in `brief.json.buildStatus.mcsAgentId`, skip creation
 - If NOT found → proceed to 1c
 
-#### 1c. Create new agent (Playwright — Preflight Gate required)
+#### 1c. Create new agent (Playwright — silent browser verification required)
 
 PAC CLI `create` requires an undocumented template YAML that only captures ~30% of config (topics/instructions — not tools, knowledge, or model). Since Playwright is already required for tools + model, using it for creation eliminates the template dependency.
 
-1. **Run MCS Preflight Gate** (see Step 3 for full gate procedure)
+1. **Run silent browser verification** (see CLAUDE.md "MCS Browser Preflight — Silent Verification")
 2. Navigate to MCS home → **Create** → **New agent** → **Skip to configure**
 3. Set **Name** and **Description** from brief.json
 4. Set icon if specified in brief.json
@@ -281,21 +278,13 @@ Read `knowledge/learnings/connectors.md` and `knowledge/learnings/integrations.m
 
 **Skip check:** If `"tools"` is in `completedSteps`, skip tool configuration. If `"model"` is in `completedSteps`, skip model selection. If both are completed, skip this entire step.
 
-**Run MCS Preflight Gate FIRST (MANDATORY) — unless entire step is skipped.**
+**Silent browser verification FIRST (MANDATORY) — unless entire step is skipped.**
 
 1. `browser_navigate` to `https://copilotstudio.microsoft.com`
 2. `browser_snapshot` — wait for load
-3. Output verification stamp:
-   ```
-   ## MCS Preflight Check
-   - Account: [name]
-   - Environment: [name]
-   - Target agent: [agent name]
-   - Action: Configure model, tools, and connections
-
-   Is this correct? Please confirm before I proceed.
-   ```
-4. **WAIT for user confirmation**
+3. Compare snapshot account/environment against the build gate selection from earlier in this build
+4. **If match** → log `Browser verified: {account} / {environment}` and proceed
+5. **If mismatch** → alert user: `Browser shows {X} but build targets {Y}. Switch?` — WAIT for user
 
 Then configure:
 - **Model**: Always select the latest available model. In the MCS model combobox, pick the newest option (typically the top preview model). Do not read architecture.model from brief.json.
@@ -490,7 +479,7 @@ Write the complete buildStatus. Most fields were already written incrementally d
 **Specialists first, then orchestrator:**
 
 1. For each specialist agent defined in the spec:
-   a. Create agent via Playwright (Preflight Gate required)
+   a. Create agent via Playwright (silent browser verification required)
    b. Set instructions (Dataverse API) — specialist-focused, with scope limits
    c. Add knowledge (Dataverse API)
    d. Add tools/model (Playwright) — reuse session from creation
@@ -500,7 +489,7 @@ Write the complete buildStatus. Most fields were already written incrementally d
    h. **VERIFY:** All items above confirmed
 
 2. Build orchestrator:
-   a. Create orchestrator via Playwright (Preflight Gate required)
+   a. Create orchestrator via Playwright (silent browser verification required)
    b. Set instructions with routing rules (Dataverse API):
       ```
       ## Connected Specialists

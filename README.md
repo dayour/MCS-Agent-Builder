@@ -183,7 +183,7 @@ Both servers bind to `127.0.0.1` (localhost only). No ports are exposed to the n
 | Dashboard won't load | Check terminal output for errors — both servers must be running |
 | Firewall prompt on startup | Should not happen (localhost-only binding). If it does, you can safely deny it |
 | PAC CLI not working | Ask Claude: "set up PAC CLI auth for me" |
-| Wrong MCS environment | Claude checks before every build (Preflight Gate) — it will prompt you to switch |
+| Wrong MCS environment | Claude silently verifies before every browser interaction — it will alert you only if the environment doesn't match |
 | Terminal not connecting | Close the tab and click "+" to create a new terminal session |
 
 ## Feedback

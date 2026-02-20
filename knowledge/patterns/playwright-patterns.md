@@ -2,14 +2,14 @@
 
 **Use Playwright ONLY for operations with no API alternative.** Check `knowledge/cache/api-capabilities.md` first — APIs are added over time.
 
-## MCS Browser Preflight Gate (MANDATORY)
+## MCS Browser Preflight — Silent Verification (MANDATORY)
 
 Before ANY Playwright interaction:
 
-1. `browser_navigate` to `https://copilotstudio.microsoft.com`
-2. `browser_snapshot` — read the page
-3. Extract Account (top-right) + Environment (header bar)
-4. Output verification stamp and WAIT for user confirmation
+1. Read persisted account/env from `brief.json.buildStatus` or `session-config.json`
+2. `browser_navigate` to `https://copilotstudio.microsoft.com`
+3. `browser_snapshot` — extract Account (top-right) + Environment (header bar)
+4. Compare against persisted config — if match, proceed silently; if mismatch, alert user
 
 ## Model Selection
 

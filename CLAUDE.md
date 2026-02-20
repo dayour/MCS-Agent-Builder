@@ -29,43 +29,52 @@ Automate Microsoft Copilot Studio (MCS) agent creation using a **hybrid build st
 
 ---
 
-## MANDATORY: MCS Browser Preflight Gate
+## MANDATORY: MCS Browser Preflight — Silent Verification
 
-**THIS IS A HARD STOP. No exceptions. No skipping. No "I'll check later."**
+**Every browser interaction with Copilot Studio requires environment verification. But verification is silent — it only prompts the user when something is wrong.**
 
-Before ANY Playwright browser interaction with Copilot Studio — whether via a skill, ad-hoc user request, or agent update — you MUST complete this preflight gate and output the verification stamp. This applies to ALL browser work: builds, updates, testing, publishing, evaluation uploads, knowledge changes, tool additions, EVERYTHING.
+### Two-Tier Model
 
-### Preflight Steps
+**Tier 1 — Persist Once:** Account and environment are selected once (during the first build for a new agent) and persisted to `brief.json.buildStatus` + `tools/session-config.json`. All subsequent operations read from persisted config.
 
-1. `browser_navigate` to `https://copilotstudio.microsoft.com`
-2. `browser_snapshot` — read the page
-3. Extract from snapshot:
-   - **Account name** (top-right account button)
-   - **Environment name** (header bar environment picker)
-4. Output the verification stamp (see below)
-5. **WAIT for user confirmation** before ANY further browser action
+**Tier 2 — Verify Silently:** Before every Playwright interaction, navigate to MCS, snapshot, and compare the browser's actual account/environment against the persisted selection. If they match, proceed immediately. If they don't, alert the user.
 
-### Required Verification Stamp
+### Preflight Steps (every browser interaction)
 
-You MUST output this EXACT format to the user and STOP until they confirm:
+1. **Read persisted config:** Check `brief.json.buildStatus.account` / `.environment`. If not available, check `tools/session-config.json` sessionDefaults.
+2. `browser_navigate` to `https://copilotstudio.microsoft.com`
+3. `browser_snapshot` — wait for load (if "Loading...", re-snapshot after 2-3s)
+4. Extract from snapshot: **Account name** (top-right) + **Environment name** (header bar)
+5. **Compare** snapshot values against persisted config:
 
-```
-## MCS Preflight Check
-- Account: [name from snapshot]
-- Environment: [name from snapshot]
-- Target agent: [what you're about to work on]
-- Action: [what you plan to do]
+| Result | Action |
+|--------|--------|
+| **Match** | Log one line: `Browser verified: {account} / {environment}` — proceed immediately |
+| **Mismatch** | Alert: `Browser shows {X} but target is {Y}. Switch environment?` — WAIT for user |
+| **No persisted config** | First-time flow (see below) — ask once and persist |
 
-Is this correct? Please confirm before I proceed.
-```
+### First-Time Selection (no persisted config)
+
+Only runs when BOTH `brief.json.buildStatus` and `session-config.json.sessionDefaults` lack account/environment:
+
+1. Use `AskUserQuestion` to pick account + environment
+2. Persist to `brief.json.buildStatus` AND `session-config.json.sessionDefaults`
+3. Proceed with the browser action
+
+If `sessionDefaults` exist but `buildStatus` doesn't (new agent, returning user): pre-fill from sessionDefaults and confirm with a single yes/no question.
+
+### When to Re-Ask Explicitly
+
+- **New project's first build** — no buildStatus exists
+- **New agent's first build** — agent has no buildStatus (but sessionDefaults may pre-fill)
+- **User says "switch to..."** — re-run picker and update both persistence locations
 
 ### Rules
 
 - If the page hasn't loaded yet (shows "Loading..."), WAIT and re-snapshot
-- If you're already in MCS but navigated away and back, RE-VERIFY
 - If the user says the environment is wrong, help them switch BEFORE doing anything
-- NEVER click on an agent, tab, button, or form element until the user has confirmed
-- This gate applies even for "quick" changes — there are no exceptions
+- NEVER click on an agent, tab, button, or form element until verification passes
+- On match, do NOT output a stamp or ask for confirmation — just log and proceed
 
 ---
 
@@ -499,7 +508,7 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 
 **QA Build Validation Gate (Step 5.5):** After publish, QA Challenger validates brief-vs-actual (every MVP item), cross-references (instructions→tools, topics→variables, routing→children), and deviation impact (severity + can-ship assessment). QA verdict (PASS / PASS WITH CAVEATS / FAIL) determines whether the build report is generated or critical issues are escalated to the user. Output: `qa-validation.md` in the agent folder.
 
-**Preflight Gate required** before any Playwright interaction (verifies browser matches the account gate selection).
+**Silent browser verification** before any Playwright interaction (compares browser account/env against persisted buildStatus — proceeds on match, alerts on mismatch).
 
 ---
 
@@ -592,7 +601,7 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 4. **Never assume** — research broadly (web + docs + UI + community), present options
 5. **MVP first** — build what's possible now, plan what's blocked
 6. **Build specialists first** — children before orchestrator
-7. **Verify environment** — every browser session (Preflight Gate)
+7. **Verify environment** — every browser session (silent verification — proceeds on match, alerts on mismatch)
 8. **Research errors** — don't blindly retry
 9. **Capture learnings** — every build makes next build smarter
 10. **Fill gaps before building** — incomplete brief → incomplete agent

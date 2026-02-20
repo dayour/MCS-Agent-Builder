@@ -151,7 +151,7 @@ Same tool priority as `/mcs-build`:
 | Trigger phrases | Code Editor YAML via Playwright | Update topic YAML |
 | Eval criteria | Local file | Rewrite `evals.csv` + `brief.json.evals[]` |
 
-**Preflight Gate required** before any Playwright interaction — same as `/mcs-build`.
+**Silent browser verification required** before any Playwright interaction (see CLAUDE.md "MCS Browser Preflight — Silent Verification"). Compares browser account/env against `brief.json.buildStatus` — proceeds silently on match, alerts on mismatch.
 
 **Apply fixes in order:**
 1. Instructions (Dataverse API — no browser needed)
@@ -237,7 +237,7 @@ Re-run eval via Direct Line API (same method as `/mcs-eval` Step 2):
 - **Fix history is append-only** — track improvement over iterations in `notes.fixHistory[]`
 - **Max 2 fix iterations per invocation** — if still failing after 2 rounds of fix→re-eval, exit with "Manual review needed. Remaining failures may require knowledge updates or architectural changes."
 - **brief.json is THE source of truth** — all fixes update brief.json fields, not separate files
-- **Preflight Gate for Playwright** — same rules as `/mcs-build` for any browser interaction
+- **Silent browser verification for Playwright** — compare against `brief.json.buildStatus`, proceed on match, alert on mismatch
 - **Environment check** — verify PAC CLI profile matches agent's environment before publishing
 - **No working-paper files** — PE and TE outputs are applied directly to brief.json and MCS. No intermediate files left behind.
 

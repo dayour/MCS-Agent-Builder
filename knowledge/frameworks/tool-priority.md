@@ -18,7 +18,7 @@ For each build step, ask:
   Can Dataverse API do this? → YES → Use Dataverse API
   Is this topic/card work?   → YES → Use Code Editor YAML
   Is this testing/eval?      → YES → Use Direct Line API
-  None of the above?         → Use Playwright (with Preflight Gate)
+  None of the above?         → Use Playwright (with silent browser verification)
 ```
 
 ## Detailed Capability Matrix

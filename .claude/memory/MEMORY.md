@@ -14,14 +14,15 @@
 
 ---
 
-## Session Startup Protocol (MANDATORY)
+## Session Startup
 
-1. Read `tools/session-config.json` for account/env mappings
-2. Present account/environment picker via AskUserQuestion
-3. Set PAC CLI profile (`pac auth select --index N`)
-4. Auto-refresh stale Tier 1 knowledge cache (> 7 days → refresh via MS Learn MCP + WebSearch)
-5. Report: "Cache: N/18 fresh, M refreshed, K flagged stale"
-6. THEN proceed with user's request
+- Do NOT ask account/environment on session start
+- Account/env is selected once during first build and persisted in brief.json `buildStatus` + `session-config.json` `sessionDefaults`
+- All subsequent operations (build, eval, fix) use **silent verification**: navigate → snapshot → compare against persisted config → proceed on match, alert on mismatch
+- `session-config.json.sessionDefaults` serves as cross-project fallback: pre-fills and asks one yes/no for new agents
+- User can always override by saying "switch to [account/env]"
+- Auto-refresh stale Tier 1 knowledge cache (> 7 days → refresh via MS Learn MCP + WebSearch)
+- Report: "Cache: N/18 fresh, M refreshed, K flagged stale"
 
 ---
 
@@ -58,7 +59,7 @@
 | admin@M365CPI15209943 | M365CPI15209943 | [2] | dktest (org04723bf3), Contoso (org39d3f1ca) | — |
 | kimdennis@microsoft.com | Microsoft | [1] | TBD | — |
 
-**CRITICAL**: Always confirm account+env before any Dataverse/PAC/browser operation.
+Account+env is persisted and verified silently — see CLAUDE.md "MCS Browser Preflight — Silent Verification".
 
 ---
 
