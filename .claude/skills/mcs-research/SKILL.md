@@ -562,6 +562,15 @@ Read `knowledge/learnings/topics-triggers.md` and `knowledge/learnings/eval-test
 - Eval method insights (which test methods work best for which scenario types, threshold calibration)
 - Provide relevant learnings to QA Challenger alongside the brief data
 
+### The Generic-Instructions / Explicit-Topics Balance
+
+Since instructions are now generic (no hardcoded URLs, no tool listing, no naming knowledge sources per MS best practices), **routing must come from elsewhere**. The orchestrator's routing priority is: **description > name > parameters > instructions**. This means:
+
+- **Every capability** in `brief.json.capabilities[]` should map to either a well-described knowledge source OR a custom topic with a strong description
+- **Capabilities requiring specific behavior** (multi-step workflows, structured data collection, hard boundaries) → MUST be custom topics, not left to generative orchestration
+- **Capabilities handled by knowledge Q&A** → generative orchestration is fine, but the knowledge source description must be specific enough for routing
+- **Topic descriptions are the #1 routing signal** — every custom topic's `description` field must clearly state when to use it AND when NOT to use it
+
 ### Step 1: Generate Scenarios + Classify Topics — QA Challenger (single pass)
 
 Spawn **QA Challenger** to generate scenarios AND classify which need custom topics vs. generative orchestration in one pass.
@@ -578,8 +587,16 @@ QA produces:
 | Multi-turn | 1 | Conversation continuity |
 
 For each scenario, QA also notes:
-- **Topic type**: `generative` (handled by orchestration) or `custom` (needs dedicated topic YAML)
-- **Trigger type**: `by-agent` (AI routes) or `phrases` (explicit triggers) or `event` (autonomous)
+- **Topic type**: `generative` (handled by orchestration + knowledge) or `custom` (needs dedicated topic YAML)
+- **Trigger type**: `by-agent` (AI routes via description) or `phrases` (explicit triggers) or `event` (autonomous)
+
+**Custom topic decision criteria** (if ANY are true → custom topic, not generative):
+- Requires multi-step data collection (sequential questions)
+- Requires specific response format the model can't reliably produce (e.g., structured summaries, forms)
+- Is a hard boundary/decline/refuse scenario (instructions alone are unreliable — need manual response topic)
+- Requires tool calls in a specific sequence
+- Requires channel-specific behavior (adaptive cards, quick replies)
+- Maps to a capability that the brief marks as requiring "structured" or "workflow" behavior
 
 ### Step 1.5: Topic Feasibility Review — Topic Engineer (single pass)
 
@@ -600,6 +617,7 @@ TE reviews each proposed topic and produces a **per-topic feasibility assessment
 | **Card feasibility** | If topic needs adaptive cards — will they work on target channels? Size < 28KB? No Action.Execute? |
 | **Variable flow** | Do inputs chain to outputs correctly? Any circular dependencies? |
 | **Trigger viability** | Is the trigger type appropriate? "By agent" description specific enough for AI routing? |
+| **Description quality** | Is the topic description specific enough for routing? Does it say when to use AND when NOT to use? (Descriptions are routing priority #1 — more important than instructions) |
 
 **TE output format:**
 
