@@ -23,7 +23,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Split-Path -Parent $scriptDir
-$omSourceDir = Join-Path $env:USERPROFILE 'Source\ObjectModel'
+$omSourceDir = Join-Path (Split-Path -Parent $repoRoot) 'ObjectModel'
 $omCliOutput = Join-Path $repoRoot 'tools\om-cli'
 $hashFile = Join-Path $omCliOutput '.source-hash'
 $omRepoUrl = 'https://msazure.visualstudio.com/CCI/_git/ObjectModel'
