@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Copy, Check } from "lucide-react";
+import SectionGuidelines from "./SectionGuidelines";
 import { Button } from "@/components/ui/button";
 
 const InstructionsSection = ({ data }: { data: any }) => {
@@ -16,6 +17,7 @@ const InstructionsSection = ({ data }: { data: any }) => {
       <div>
         <h2 className="text-lg font-semibold text-foreground mb-1">Instructions</h2>
         <p className="text-xs text-muted-foreground">System prompt defining agent behavior ({data.systemPrompt.length} / 8000 chars)</p>
+        <SectionGuidelines sectionId="instructions" />
       </div>
 
       <div className="rounded-lg border border-border bg-card">

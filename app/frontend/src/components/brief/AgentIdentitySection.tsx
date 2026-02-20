@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Plus, Trash2, Check, X } from "lucide-react";
+import SectionGuidelines from "./SectionGuidelines";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -56,6 +57,7 @@ const AgentIdentitySection = ({ data, onChange }: Props) => {
       <div>
         <h2 className="text-lg font-semibold text-foreground mb-1">Agent Identity</h2>
         <p className="text-xs text-muted-foreground">Name, persona, and target users</p>
+        <SectionGuidelines sectionId="agent-identity" />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">

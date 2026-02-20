@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Plus, Trash2, Pencil, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import SectionGuidelines from "./SectionGuidelines";
 
 import {
   Select,
@@ -69,6 +70,7 @@ const IntegrationsSection = ({ data, onChange }: Props) => {
         <div>
           <h2 className="text-lg font-semibold text-foreground mb-1">Tools</h2>
           <p className="text-xs text-muted-foreground">Connected systems, actions, and services</p>
+          <SectionGuidelines sectionId="tools" />
         </div>
         <Button variant="outline" size="sm" onClick={add} className="gap-1.5">
           <Plus className="h-3.5 w-3.5" /> Add

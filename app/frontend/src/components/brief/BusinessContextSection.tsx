@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Plus, Trash2, Pencil, Check, X } from "lucide-react";
+import SectionGuidelines from "./SectionGuidelines";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -80,6 +81,7 @@ const BusinessContextSection = ({ data, onChange }: Props) => {
       <div>
         <h2 className="text-lg font-semibold text-foreground mb-1">Business Context</h2>
         <p className="text-xs text-muted-foreground">Problem statement, challenges, and success criteria</p>
+        <SectionGuidelines sectionId="business-context" />
       </div>
 
       {/* Problem Statement */}

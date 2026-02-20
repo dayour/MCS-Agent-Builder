@@ -3,6 +3,7 @@ import { Plus, Trash2, Pencil, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import SectionGuidelines from "./SectionGuidelines";
 
 interface Props { data: any; onChange?: (data: any) => void; }
 
@@ -25,6 +26,7 @@ const ScenariosSection = ({ data, onChange }: Props) => {
         <div>
           <h2 className="text-lg font-semibold text-foreground mb-1">Scenarios</h2>
           <p className="text-xs text-muted-foreground">Example user interactions by category</p>
+          <SectionGuidelines sectionId="scenarios" />
         </div>
         <Button variant="outline" size="sm" onClick={add} className="gap-1.5"><Plus className="h-3.5 w-3.5" /> Add</Button>
       </div>

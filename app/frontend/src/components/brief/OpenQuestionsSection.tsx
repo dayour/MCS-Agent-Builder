@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import SectionGuidelines from "./SectionGuidelines";
 
 interface Props { data: any; onChange?: (data: any) => void; }
 
@@ -28,6 +29,7 @@ const OpenQuestionsSection = ({ data, onChange }: Props) => {
         <div>
           <h2 className="text-lg font-semibold text-foreground mb-1">Open Questions</h2>
           <p className="text-xs text-muted-foreground">Unresolved items needing stakeholder input</p>
+          <SectionGuidelines sectionId="open-questions" />
         </div>
         <Button variant="outline" size="sm" onClick={add} className="gap-1.5"><Plus className="h-3.5 w-3.5" /> Add</Button>
       </div>

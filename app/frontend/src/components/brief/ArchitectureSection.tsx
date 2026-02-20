@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   Pencil, Check, X, Plus, Trash2, Bot, Network, Link, FolderTree,
 } from "lucide-react";
+import SectionGuidelines from "./SectionGuidelines";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -176,6 +177,7 @@ const ArchitectureSection = ({ data, onChange, context }: Props) => {
       <div>
         <h2 className="text-lg font-semibold text-foreground mb-1">Architecture</h2>
         <p className="text-xs text-muted-foreground">How the agent is structured — type, channels, triggers, and specialist agents</p>
+        <SectionGuidelines sectionId="architecture" />
       </div>
 
       {/* Architecture Type — visual card selector */}

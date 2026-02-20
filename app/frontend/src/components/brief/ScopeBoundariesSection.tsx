@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Shield, AlertTriangle, XCircle, Plus, Trash2, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import SectionGuidelines from "./SectionGuidelines";
 
 interface Props { data: any; onChange?: (data: any) => void; }
 
@@ -48,6 +49,7 @@ const ScopeBoundariesSection = ({ data, onChange }: Props) => {
       <div>
         <h2 className="text-lg font-semibold text-foreground mb-1">Scope & Boundaries</h2>
         <p className="text-xs text-muted-foreground">What the agent handles, declines, and refuses</p>
+        <SectionGuidelines sectionId="scope-boundaries" />
       </div>
 
       {sections.map(({ key, label, icon: Icon, color, dot }) => (

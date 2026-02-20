@@ -6,6 +6,7 @@ import StatusBadge from "@/components/StatusBadge";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import SectionGuidelines from "./SectionGuidelines";
 
 interface Props { data: any; onChange?: (data: any) => void; }
 
@@ -28,6 +29,7 @@ const KnowledgeSourcesSection = ({ data, onChange }: Props) => {
         <div>
           <h2 className="text-lg font-semibold text-foreground mb-1">Knowledge</h2>
           <p className="text-xs text-muted-foreground">Data sources the agent can reference to answer questions</p>
+          <SectionGuidelines sectionId="knowledge-sources" />
         </div>
         <Button variant="outline" size="sm" onClick={add} className="gap-1.5"><Plus className="h-3.5 w-3.5" /> Add</Button>
       </div>
