@@ -125,16 +125,19 @@ Fields: { "content": "<updated YAML/JSON>" }
 # Load helper
 . .\tools\dataverse-helper.ps1
 
-# Connect (interactive — uses Az PowerShell)
+# Connect (interactive — uses az CLI for token, no module deps)
 $ctx = Connect-Dataverse -OrgUrl "https://orgccf4f9a1.crm.dynamics.com"
 
-# Connect (service principal — unattended)
+# Connect (service principal — unattended/CI)
 $ctx = Connect-Dataverse -OrgUrl "https://orgccf4f9a1.crm.dynamics.com" `
     -ClientId "<app-id>" -ClientSecret "<secret>" -TenantId "<tenant-id>"
 
-# Connect using active PAC auth profile
+# Connect using active PAC auth profile's environment
 $ctx = Connect-DataverseFromPac
 ```
+
+**Token priority:** Service Principal > Azure CLI (`az account get-access-token`) > Az.Accounts (fallback).
+Az.Accounts is NOT required. Azure CLI is the recommended interactive method.
 
 ### Operations
 
@@ -201,8 +204,16 @@ Remove-Bot -Ctx $ctx -BotId $botId
 | `botcomponentid` | GUID | Primary key |
 | `name` | string | Component name |
 | `componenttype` | int | Type code (see below) |
-| `content` | string | YAML/JSON definition |
+| `data` | string | **Source YAML** (writable, what MCS UI reads/writes) |
+| `content` | string | **Compiled JSON** (read-only after publish, runtime use) |
 | `_parentbotid_value` | GUID | Parent agent |
+| `schemaname` | string | Unique schema name |
+| `description` | string | Component description |
+
+**CRITICAL: Instructions have TWO fields. Use `data` (YAML), not `content` (JSON).**
+- `data`: YAML format `kind: GptComponentMetadata\ndisplayName: ...\ninstructions: |-\n  ...` -- PATCH works, MCS UI reflects changes
+- `content`: JSON `{"systemMessage":"..."}` -- compiled/read-only, synced by PvaPublish
+- After PATCHing `data`, call `PvaPublish` to sync to `content` for runtime
 
 ### Component Type Codes
 | Code | Type |
@@ -242,7 +253,7 @@ Remove-Bot -Ctx $ctx -BotId $botId
 | New topic | `POST /botcomponents` with componenttype=9 | Playwright: Topics → Add → Code Editor → paste YAML → Save |
 | New instructions | `POST /botcomponents` with componenttype=15 | Playwright: Overview → Instructions panel → paste text |
 | New knowledge source | `POST /botcomponents` with componenttype=16 | Playwright: Knowledge tab → Add → configure source |
-| Update EXISTING instructions | — | `PATCH /botcomponents(<id>)` + `PvaPublish` **WORKS** |
+| Update EXISTING instructions | `PATCH content` field (400 error) | **`PATCH data` field (YAML) + `PvaPublish` -- WORKS** (E2E tested 2026-02-20) |
 | Publish | — | `PvaPublish` bound action or `pac copilot publish` (MCP version) |
 
 **Why this is dangerous:** The POST returns 201 Created with a valid GUID. FetchXML queries confirm the record exists. Everything looks successful. But the agent in MCS shows nothing — no topics, no instructions. The failure is completely silent.

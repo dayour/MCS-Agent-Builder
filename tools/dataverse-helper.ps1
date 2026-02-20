@@ -5,14 +5,20 @@
 # Copilot Studio agents via Dataverse Web API.
 #
 # Token methods (in priority order):
-#   1. Az PowerShell (Get-AzAccessToken) — interactive, best for dev
-#   2. Service Principal (OAuth2 client_credentials) — unattended/CI
+#   1. Azure CLI (az account get-access-token) -- works everywhere, no module deps
+#   2. Service Principal (OAuth2 client_credentials) -- unattended/CI
 #
 # Usage:
 #   . .\tools\dataverse-helper.ps1
 #   $ctx = Connect-Dataverse -OrgUrl "https://orgXXX.crm.dynamics.com"
 #   $bots = Get-Bots -Ctx $ctx
 #   Update-BotInstructions -Ctx $ctx -BotId "<guid>" -Instructions "New instructions"
+#   Publish-Bot -Ctx $ctx -BotId "<guid>"
+#
+# Key discovery (Feb 2026):
+#   Instructions live in the 'data' field (YAML) of the Custom GPT component,
+#   NOT the 'content' field (JSON). The 'content' field is compiled/read-only.
+#   PvaPublish syncs 'data' -> 'content' for runtime use.
 # =============================================================================
 
 param(
@@ -30,6 +36,9 @@ function Connect-Dataverse {
     <#
     .SYNOPSIS
         Establishes a Dataverse connection and returns a context object with headers.
+    .DESCRIPTION
+        Token priority: Service Principal (if creds provided) > Azure CLI > Az PowerShell.
+        Azure CLI is the recommended method for interactive use (no module dependencies).
     .PARAMETER OrgUrl
         The Dataverse organization URL (e.g., https://orgXXX.crm.dynamics.com)
     .PARAMETER ClientId
@@ -50,7 +59,7 @@ function Connect-Dataverse {
     $token = $null
 
     if ($ClientId -and $ClientSecret -and $TenantId) {
-        # Service Principal auth (unattended)
+        # Method 1: Service Principal auth (unattended)
         Write-Host "Authenticating via service principal..." -ForegroundColor Cyan
         $tokenEndpoint = "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/token"
         $authBody = @{
@@ -64,20 +73,37 @@ function Connect-Dataverse {
         $token = $authResponse.access_token
     }
     else {
-        # Az PowerShell interactive auth
-        Write-Host "Authenticating via Az PowerShell..." -ForegroundColor Cyan
-        if (-not (Get-Module -ListAvailable Az.Accounts)) {
-            throw "Az.Accounts module not installed. Run: Install-Module Az.Accounts -Scope CurrentUser"
+        # Method 2: Azure CLI (preferred for interactive -- no module dependencies)
+        Write-Host "Authenticating via Azure CLI..." -ForegroundColor Cyan
+        try {
+            $azOutput = az account get-access-token --resource $OrgUrl 2>&1 | Out-String
+            $azToken = $azOutput | ConvertFrom-Json
+            $token = $azToken.accessToken
+            if ($token) {
+                Write-Host "Token acquired via Azure CLI" -ForegroundColor Green
+            }
         }
-        Import-Module Az.Accounts -ErrorAction Stop
-        if ($null -eq (Get-AzContext)) {
-            Connect-AzAccount | Out-Null
+        catch {
+            Write-Warning "Azure CLI auth failed: $($_.Exception.Message)"
         }
-        $secureToken = (Get-AzAccessToken -ResourceUrl $OrgUrl -AsSecureString).Token
-        # Convert SecureString to plain text (PS 5.1 compatible — -AsPlainText requires PS 7+)
-        $BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($secureToken)
-        try { $token = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR) }
-        finally { [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($BSTR) }
+
+        # Method 3: Az PowerShell (fallback if az CLI unavailable)
+        if (-not $token) {
+            Write-Host "Falling back to Az PowerShell..." -ForegroundColor Cyan
+            if (Get-Module -ListAvailable Az.Accounts) {
+                Import-Module Az.Accounts -ErrorAction Stop
+                if ($null -eq (Get-AzContext)) {
+                    Connect-AzAccount | Out-Null
+                }
+                $secureToken = (Get-AzAccessToken -ResourceUrl $OrgUrl -AsSecureString).Token
+                $BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($secureToken)
+                try { $token = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR) }
+                finally { [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($BSTR) }
+            }
+            else {
+                throw "No auth method available. Install Azure CLI (az) or Az.Accounts PowerShell module."
+            }
+        }
     }
 
     if (-not $token) {
@@ -158,7 +184,7 @@ function Get-BotComponents {
     }
     $uri = "$($Ctx.OrgUrl)/api/data/v9.2/botcomponents?" +
         "`$filter=$filter" +
-        "&`$select=botcomponentid,name,componenttype,content"
+        "&`$select=botcomponentid,name,componenttype,content,data,schemaname"
     $result = Invoke-RestMethod -Uri $uri -Method GET -Headers $Ctx.Headers
     return $result.value
 }
@@ -170,57 +196,72 @@ function Get-BotComponents {
 function Update-BotInstructions {
     <#
     .SYNOPSIS
-        Update an agent's instructions (componenttype 15 = Custom GPT).
+        Update an agent's instructions via the 'data' field (YAML format).
+    .DESCRIPTION
+        The Custom GPT component (type 15) has two instruction fields:
+        - 'data' (YAML): Source of truth, read/written by MCS UI. PATCH works.
+        - 'content' (JSON): Compiled for runtime. Read-only via API; synced by PvaPublish.
+        This function writes to 'data'. Call Publish-Bot after to sync to 'content'.
     .PARAMETER Instructions
         The new instructions text to set.
+    .PARAMETER DisplayName
+        (Optional) The agent display name for the YAML header. If not provided, reads from current data.
     #>
     param(
         [Parameter(Mandatory)][hashtable]$Ctx,
         [Parameter(Mandatory)][string]$BotId,
-        [Parameter(Mandatory)][string]$Instructions
+        [Parameter(Mandatory)][string]$Instructions,
+        [string]$DisplayName
     )
 
     # Find the Custom GPT component
     $components = Get-BotComponents -Ctx $Ctx -BotId $BotId -ComponentType 15
-    if ($components.Count -eq 0) {
+    if (-not $components -or $components.Count -eq 0) {
         throw "No instructions component (type 15) found for bot $BotId"
     }
 
     $component = $components[0]
     $componentId = $component.botcomponentid
-    $existingContent = $component.content
 
-    # Parse the content (JSON or YAML structure)
-    try {
-        $contentObj = $existingContent | ConvertFrom-Json
-        # Update the systemMessage/instructions field
-        if ($contentObj.PSObject.Properties['systemMessage']) {
-            $contentObj.systemMessage = $Instructions
+    # Get display name from existing data or parameter
+    if (-not $DisplayName) {
+        $existingData = $component.data
+        if ($existingData -match 'displayName:\s*(.+)') {
+            $DisplayName = $Matches[1].Trim()
+        } else {
+            $DisplayName = $component.name
         }
-        elseif ($contentObj.PSObject.Properties['instructions']) {
-            $contentObj.instructions = $Instructions
-        }
-        else {
-            # Add systemMessage if no known field exists
-            $contentObj | Add-Member -NotePropertyName 'systemMessage' -NotePropertyValue $Instructions -Force
-        }
-        $updatedContent = $contentObj | ConvertTo-Json -Depth 20 -Compress
-    }
-    catch {
-        # If content is not JSON (could be plain text or YAML), replace directly
-        Write-Warning "Content is not JSON. Setting instructions as raw content."
-        $updatedContent = $Instructions
     }
 
-    # PATCH back
-    $body = @{ content = $updatedContent } | ConvertTo-Json -Depth 5
+    # Indent instructions for YAML block scalar (each line needs 2-space indent)
+    $indentedInstructions = ($Instructions -split "`n" | ForEach-Object { "  $_" }) -join "`n"
+
+    # Build YAML data
+    $newData = "kind: GptComponentMetadata`ndisplayName: $DisplayName`ninstructions: |-`n$indentedInstructions"
+
+    # PATCH the data field
+    $body = @{ data = $newData } | ConvertTo-Json -Depth 5
+    $patchHeaders = $Ctx.Headers.Clone()
+    $patchHeaders['Content-Type'] = 'application/json; charset=utf-8'
+    $patchHeaders['If-Match'] = '*'
+
+    $bodyBytes = [System.Text.Encoding]::UTF8.GetBytes($body)
     Invoke-RestMethod -Uri "$($Ctx.OrgUrl)/api/data/v9.2/botcomponents($componentId)" `
-        -Method PATCH -Body $body -Headers $Ctx.Headers -ContentType "application/json"
+        -Method PATCH -Body $bodyBytes -Headers $patchHeaders
 
     # Verify
-    $verify = Invoke-RestMethod -Uri "$($Ctx.OrgUrl)/api/data/v9.2/botcomponents($componentId)?`$select=content" `
+    $verify = Invoke-RestMethod `
+        -Uri "$($Ctx.OrgUrl)/api/data/v9.2/botcomponents($componentId)?`$select=data" `
         -Method GET -Headers $Ctx.Headers
-    Write-Host "Instructions updated. Content length: $($verify.content.Length)" -ForegroundColor Green
+    $verifyData = $verify.data
+    # Verify by checking that the marker text appears in the data field
+    # Use first 30 chars (avoid regex issues with special chars in instructions)
+    $checkText = $Instructions.Substring(0, [Math]::Min(30, $Instructions.Length)).Replace('*', '').Replace('[', '').Replace(']', '')
+    if ($verifyData -match [regex]::Escape($checkText)) {
+        Write-Host "Instructions updated via 'data' field. Length: $($Instructions.Length) chars" -ForegroundColor Green
+    } else {
+        Write-Warning "Instructions PATCH sent but could not verify. The data field may use different whitespace. Call Publish-Bot to sync."
+    }
 
     return $componentId
 }
@@ -320,6 +361,11 @@ function Publish-Bot {
     <#
     .SYNOPSIS
         Publish an agent via PvaPublish bound action.
+    .DESCRIPTION
+        This is the most reliable publish method. Works when:
+        - PAC CLI 'pac copilot publish' crashes (MSI v2.1.2)
+        - MCP 'copilot_publish' returns format errors
+        After publish, the 'content' field (runtime) syncs with 'data' (source).
     #>
     param(
         [Parameter(Mandatory)][hashtable]$Ctx,
@@ -377,7 +423,7 @@ function Connect-DataverseFromPac {
     <#
     .SYNOPSIS
         Connect using the active PAC CLI profile's environment URL.
-        Gets the org URL from `pac auth list` output.
+        Gets the org URL from `pac auth list` output, then uses az CLI for the token.
     #>
 
     $authOutput = pac auth list 2>&1 | Out-String
