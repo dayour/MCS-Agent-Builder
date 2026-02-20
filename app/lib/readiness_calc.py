@@ -56,20 +56,31 @@ def _is_v2(brief: dict) -> bool:
 # Readiness calculation
 # ---------------------------------------------------------------------------
 
+def _count_eval_tests(brief: dict) -> int:
+    """Count total tests across all eval sets."""
+    return sum(len(s.get("tests", [])) for s in brief.get("evalSets", []))
+
+def _has_eval_results(brief: dict) -> bool:
+    """Check if any eval test has a lastResult."""
+    for s in brief.get("evalSets", []):
+        for t in s.get("tests", []):
+            if t.get("lastResult"):
+                return True
+    # Fallback: check legacy evalResults
+    return bool(brief.get("evalResults", {}).get("summary", {}).get("total", 0) > 0)
+
 def calc_readiness(brief: dict | None) -> int:
     """Calculate brief readiness as a percentage (0-100).
 
     Supports both v1 (step1-4) and v2 (named sections) brief schemas.
-    Uses 12 checks for v2, 10 checks for v1.
+    Uses 11 checks for v2, 10 checks for v1.
     """
     if not brief:
         return 0
 
-    evals = brief.get("evals", [])
     open_qs = brief.get("openQuestions", [])
     unanswered = [q for q in open_qs if q.get("question") and not q.get("answer")]
     build_status = brief.get("buildStatus", {})
-    eval_results = brief.get("evalResults", {})
 
     if _is_v2(brief):
         biz = brief.get("business", {})
@@ -78,7 +89,6 @@ def calc_readiness(brief: dict | None) -> int:
         know = brief.get("knowledge", [])
         convos = brief.get("conversations", {})
         bounds = brief.get("boundaries", {})
-        scenarios = brief.get("scenarios", [])
 
         checks = [
             bool(biz.get("problemStatement") or biz.get("useCase")),
@@ -86,13 +96,12 @@ def calc_readiness(brief: dict | None) -> int:
             bool(brief.get("instructions")),
             len([i for i in integ if i.get("name")]) + len(convos.get("topics", [])) > 0,
             len([k for k in know if k.get("name")]) > 0,
-            len([s for s in scenarios if s.get("userSays")]) >= 3,
-            len(evals) > 0,
+            _count_eval_tests(brief) >= 5,
             bool(bounds.get("handle") or bounds.get("decline") or bounds.get("refuse")),
             len([c for c in arch.get("channels", []) if (c.get("name") if isinstance(c, dict) else c)]) > 0,
             len(unanswered) == 0,
             build_status.get("status") == "published",
-            bool(eval_results.get("summary", {}).get("total", 0) > 0),
+            _has_eval_results(brief),
         ]
     else:
         # v1 fallback
@@ -100,6 +109,7 @@ def calc_readiness(brief: dict | None) -> int:
         s2 = brief.get("step2", {})
         s3 = brief.get("step3", {})
         s4 = brief.get("step4", {})
+        v1_evals = brief.get("evals", [])
 
         checks = [
             bool(s1.get("problem")),
@@ -107,7 +117,7 @@ def calc_readiness(brief: dict | None) -> int:
             len([s for s in s3.get("systems", []) if s.get("name")]) > 0,
             len([k for k in s3.get("knowledge", []) if k.get("name")]) > 0,
             len([s for s in s2.get("scenarios", []) if s.get("userSays")]) >= 3,
-            len(evals) > 0,
+            len(v1_evals) > 0,
             bool(s2.get("handle") or s2.get("decline") or s2.get("refuse")),
             len(s4.get("channels", [])) > 0,
             len(unanswered) == 0,
@@ -117,10 +127,9 @@ def calc_readiness(brief: dict | None) -> int:
 
 
 def is_build_ready(brief: dict | None) -> bool:
-    """All 10 pre-build design checks must pass before build is allowed.
+    """All 9 pre-build design checks must pass before build is allowed.
 
     Excludes 'Build published' and 'Eval results' (those happen AFTER build).
-    Delegates to calc_readiness for v2 briefs, using the first 10 of 12 checks.
     """
     if not brief:
         return False
@@ -129,15 +138,13 @@ def is_build_ready(brief: dict | None) -> bool:
         # v1: all 10 checks must pass — equivalent to calc_readiness == 100
         return calc_readiness(brief) == 100
 
-    # v2: check the 10 pre-build checks (all except build published + eval results)
+    # v2: check the 9 pre-build checks (all except build published + eval results)
     biz = brief.get("business", {})
     arch = brief.get("architecture", {})
     integ = brief.get("integrations", [])
     know = brief.get("knowledge", [])
     convos = brief.get("conversations", {})
     bounds = brief.get("boundaries", {})
-    scenarios = brief.get("scenarios", [])
-    evals = brief.get("evals", [])
     open_qs = brief.get("openQuestions", [])
     unanswered = [q for q in open_qs if q.get("question") and not q.get("answer")]
 
@@ -147,8 +154,7 @@ def is_build_ready(brief: dict | None) -> bool:
         brief.get("instructions"),
         len([i for i in integ if i.get("name")]) + len(convos.get("topics", [])) > 0,
         len([k for k in know if k.get("name")]) > 0,
-        len([s for s in scenarios if s.get("userSays")]) >= 3,
-        len(evals) > 0,
+        _count_eval_tests(brief) >= 5,
         bounds.get("handle") or bounds.get("decline") or bounds.get("refuse"),
         len([c for c in arch.get("channels", []) if (c.get("name") if isinstance(c, dict) else c)]) > 0,
         len(unanswered) == 0,
@@ -176,9 +182,9 @@ def determine_stage(agents: list[dict]) -> str:
         if not brief:
             continue
 
-        # Check eval results
-        eval_results = brief.get("evalResults", {})
-        if eval_results.get("lastRun"):
+        # Check eval results (new: evalSets tests, legacy: evalResults)
+        has_results = _has_eval_results(brief)
+        if has_results:
             agent_stage = "eval"
         elif brief.get("buildStatus", {}).get("status") in ("published", "in_progress"):
             agent_stage = "build"

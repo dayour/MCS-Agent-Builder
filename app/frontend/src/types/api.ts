@@ -111,6 +111,7 @@ export interface ApiBrief {
     reason?: string;
     description?: string;
     dataSources?: string[];
+    status?: string;
   }>;
   integrations?: Array<{
     name: string;
@@ -160,6 +161,34 @@ export interface ApiBrief {
     channels?: Array<{ name: string; reason?: string }>;
     children?: Array<{ name: string; role: string; routingRule?: string; model?: string; agentFolderId?: string }>;
   };
+  evalSets?: Array<{
+    name: string;
+    description?: string;
+    methods?: Array<{
+      type: string;
+      score?: number;
+      mode?: string;
+    }>;
+    passThreshold?: number;
+    runWhen?: string;
+    tests?: Array<{
+      question: string;
+      expected?: string;
+      capability?: string;
+      lastResult?: {
+        pass: boolean;
+        actual?: string;
+        score?: number;
+        timestamp?: string;
+      } | null;
+    }>;
+  }>;
+  evalConfig?: {
+    targetPassRate?: number;
+    maxIterationsPerCapability?: number;
+    maxRegressionRounds?: number;
+  };
+  /** @deprecated Use evalSets instead — kept for migration */
   scenarios?: Array<{
     name?: string;
     category?: string;
@@ -167,6 +196,7 @@ export interface ApiBrief {
     agentDoes?: string;
     capabilities?: string[];
   }>;
+  /** @deprecated Use evalSets instead — kept for migration */
   evals?: Array<{
     question: string;
     expected: string;
@@ -196,6 +226,7 @@ export interface ApiBrief {
     account?: string;
     publishedAt?: string;
   };
+  /** @deprecated Eval results now live in evalSets[].tests[].lastResult */
   evalResults?: {
     lastRun?: string;
     method?: string;

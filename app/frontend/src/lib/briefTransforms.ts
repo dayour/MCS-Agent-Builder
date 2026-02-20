@@ -9,7 +9,7 @@
  * doesn't display are never lost.
  */
 import type { ApiBrief } from "@/types/api";
-import type { BriefData } from "@/types";
+import type { BriefData, EvalSet, EvalConfig } from "@/types";
 
 /**
  * Convert raw brief.json → UI BriefData shape.
@@ -54,6 +54,7 @@ export function briefFromApi(raw: ApiBrief): BriefData {
         description: c.description ?? "",
         tag: (c.phase ?? "mvp").toUpperCase() === "MVP" ? "MVP" : "Future",
         enabled: (c.phase ?? "mvp").toLowerCase() === "mvp",
+        status: (c.status as any) ?? "not_started",
       })),
     },
     tools: {
@@ -111,23 +112,7 @@ export function briefFromApi(raw: ApiBrief): BriefData {
       })),
       scoring: factorsToScoring(arch.factors, arch.score),
     },
-    scenarios: {
-      items: (raw.scenarios ?? []).map((s) => ({
-        category: s.category ?? "happy-path",
-        title: s.name ?? "",
-        userMessage: s.userSays ?? "",
-        expectedResponse: s.agentDoes ?? "",
-      })),
-    },
-    "evaluation-tests": {
-      items: (raw.evals ?? []).map((e) => ({
-        name: e.capability ?? "",
-        input: e.question ?? "",
-        expectedOutput: e.expected ?? "",
-        scoringMethod: e.method ?? "GeneralQuality",
-        status: "draft",
-      })),
-    },
+    "eval-sets": evalSetsFromApi(raw),
     "open-questions": {
       items: (raw.openQuestions ?? []).map((q) => ({
         question: q.question ?? "",
@@ -186,6 +171,7 @@ export function briefToApi(ui: BriefData, raw: ApiBrief): ApiBrief {
       name: c.name,
       description: c.description,
       phase: c.enabled ? "mvp" : "future",
+      status: c.status ?? "not_started",
     };
   });
 
@@ -269,31 +255,13 @@ export function briefToApi(ui: BriefData, raw: ApiBrief): ApiBrief {
     score: arch.scoring.reduce((sum, s) => sum + s.score, 0),
   };
 
-  // Scenarios
-  result.scenarios = ui.scenarios.items.map((s) => {
-    const existing = (raw.scenarios ?? []).find(
-      (e) => e.name === s.title || e.userSays === s.userMessage
-    );
-    return {
-      ...existing,
-      name: s.title,
-      category: s.category,
-      userSays: s.userMessage,
-      agentDoes: s.expectedResponse,
-    };
-  });
-
-  // Evals
-  result.evals = ui["evaluation-tests"].items.map((e) => {
-    const existing = (raw.evals ?? []).find((ex) => ex.question === e.input);
-    return {
-      ...existing,
-      question: e.input,
-      expected: e.expectedOutput,
-      method: e.scoringMethod,
-      capability: e.name,
-    };
-  });
+  // Eval Sets
+  result.evalSets = evalSetsToApi(ui["eval-sets"]);
+  result.evalConfig = ui["eval-sets"].config;
+  // Remove legacy fields if migrated
+  delete result.scenarios;
+  delete result.evals;
+  delete result.evalResults;
 
   // Open questions
   result.openQuestions = ui["open-questions"].items.map((q) => {
@@ -306,6 +274,191 @@ export function briefToApi(ui: BriefData, raw: ApiBrief): ApiBrief {
   });
 
   return result;
+}
+
+// ─── Eval Set Helpers ─────────────────────────────────────────────
+
+const DEFAULT_EVAL_CONFIG: EvalConfig = {
+  targetPassRate: 70,
+  maxIterationsPerCapability: 3,
+  maxRegressionRounds: 2,
+};
+
+const DEFAULT_EVAL_SETS: EvalSet[] = [
+  {
+    name: "critical",
+    description: "Safety, boundaries, identity — non-negotiable",
+    methods: [
+      { type: "Keyword match", mode: "all" },
+      { type: "Exact match" },
+    ],
+    passThreshold: 100,
+    runWhen: "every-iteration",
+    tests: [],
+  },
+  {
+    name: "functional",
+    description: "Core capability happy paths — does each feature work?",
+    methods: [
+      { type: "Compare meaning", score: 70 },
+      { type: "Keyword match", mode: "any" },
+    ],
+    passThreshold: 70,
+    runWhen: "per-capability",
+    tests: [],
+  },
+  {
+    name: "integration",
+    description: "Connectors return real data, tools actually invoked",
+    methods: [
+      { type: "Capability use" },
+      { type: "Keyword match", mode: "any" },
+    ],
+    passThreshold: 80,
+    runWhen: "after-tools",
+    tests: [],
+  },
+  {
+    name: "conversational",
+    description: "Multi-turn, context carry, routing, topic switching",
+    methods: [
+      { type: "General quality" },
+      { type: "Compare meaning", score: 60 },
+    ],
+    passThreshold: 60,
+    runWhen: "after-functional",
+    tests: [],
+  },
+  {
+    name: "regression",
+    description: "Full suite, cross-capability, end-to-end",
+    methods: [
+      { type: "Compare meaning", score: 70 },
+      { type: "General quality" },
+    ],
+    passThreshold: 70,
+    runWhen: "final",
+    tests: [],
+  },
+];
+
+/**
+ * Convert raw evalSets (or migrate legacy scenarios/evals) → UI EvalSet shape.
+ */
+function evalSetsFromApi(raw: ApiBrief): { sets: EvalSet[]; config: EvalConfig } {
+  const config: EvalConfig = {
+    targetPassRate: raw.evalConfig?.targetPassRate ?? DEFAULT_EVAL_CONFIG.targetPassRate,
+    maxIterationsPerCapability: raw.evalConfig?.maxIterationsPerCapability ?? DEFAULT_EVAL_CONFIG.maxIterationsPerCapability,
+    maxRegressionRounds: raw.evalConfig?.maxRegressionRounds ?? DEFAULT_EVAL_CONFIG.maxRegressionRounds,
+  };
+
+  // New schema: evalSets already present
+  if (raw.evalSets?.length) {
+    return {
+      sets: raw.evalSets.map((s) => ({
+        name: s.name ?? "custom",
+        description: s.description ?? "",
+        methods: (s.methods ?? []).map((m) => ({
+          type: m.type as any,
+          ...(m.score != null ? { score: m.score } : {}),
+          ...(m.mode ? { mode: m.mode as any } : {}),
+        })),
+        passThreshold: s.passThreshold ?? 70,
+        runWhen: (s.runWhen as any) ?? "custom",
+        tests: (s.tests ?? []).map((t) => ({
+          question: t.question ?? "",
+          expected: t.expected ?? "",
+          capability: t.capability ?? undefined,
+          lastResult: t.lastResult ?? null,
+        })),
+      })),
+      config,
+    };
+  }
+
+  // Legacy migration: convert scenarios[] + evals[] → eval sets
+  const sets: EvalSet[] = DEFAULT_EVAL_SETS.map((s) => ({ ...s, tests: [...s.tests] }));
+
+  // Migrate evals[] into appropriate sets
+  for (const e of raw.evals ?? []) {
+    const test = {
+      question: e.question ?? "",
+      expected: e.expected ?? "",
+      capability: e.capability ?? undefined,
+      lastResult: null as any,
+    };
+
+    // Migrate old evalResults into lastResult if available
+    const oldResult = raw.evalResults?.results?.find((r) => r.question === e.question);
+    if (oldResult) {
+      test.lastResult = {
+        pass: oldResult.pass,
+        actual: oldResult.actual,
+        score: oldResult.score,
+        timestamp: raw.evalResults?.lastRun,
+      };
+    }
+
+    const cat = e.category ?? "happy-path";
+    if (cat === "boundary-decline" || cat === "boundary-refuse") {
+      sets.find((s) => s.name === "critical")!.tests.push(test);
+    } else if (cat === "multi-turn") {
+      sets.find((s) => s.name === "conversational")!.tests.push(test);
+    } else {
+      sets.find((s) => s.name === "functional")!.tests.push(test);
+    }
+  }
+
+  // Migrate scenarios[] that don't overlap with evals
+  for (const s of raw.scenarios ?? []) {
+    const alreadyExists = sets.some((set) =>
+      set.tests.some((t) => t.question === s.userSays)
+    );
+    if (alreadyExists || !s.userSays) continue;
+
+    const test = {
+      question: s.userSays ?? "",
+      expected: s.agentDoes ?? "",
+      capability: s.capabilities?.[0] ?? undefined,
+      lastResult: null as any,
+    };
+
+    const cat = s.category ?? "happy-path";
+    if (cat === "boundary-decline" || cat === "boundary-refuse") {
+      sets.find((s) => s.name === "critical")!.tests.push(test);
+    } else if (cat === "multi-turn") {
+      sets.find((s) => s.name === "conversational")!.tests.push(test);
+    } else if (cat === "edge-case" || cat === "error-recovery") {
+      sets.find((s) => s.name === "regression")!.tests.push(test);
+    } else {
+      sets.find((s) => s.name === "functional")!.tests.push(test);
+    }
+  }
+
+  return { sets, config };
+}
+
+/**
+ * Convert UI EvalSet shape → raw evalSets for API save.
+ */
+function evalSetsToApi(ui: { sets: EvalSet[]; config: EvalConfig }) {
+  return ui.sets.map((s) => ({
+    name: s.name,
+    description: s.description,
+    methods: s.methods.map((m) => ({
+      type: m.type,
+      ...(m.score != null ? { score: m.score } : {}),
+      ...(m.mode ? { mode: m.mode } : {}),
+    })),
+    passThreshold: s.passThreshold,
+    runWhen: s.runWhen,
+    tests: s.tests.map((t) => ({
+      question: t.question,
+      expected: t.expected ?? "",
+      ...(t.capability ? { capability: t.capability } : {}),
+      lastResult: t.lastResult,
+    })),
+  }));
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────

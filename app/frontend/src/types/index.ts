@@ -116,11 +116,14 @@ export interface AgentIdentity {
   targetUsers: string[];
 }
 
+export type CapabilityStatus = "not_started" | "building" | "passing" | "failing";
+
 export interface Capability {
   name: string;
   description: string;
   tag: string;
   enabled: boolean;
+  status: CapabilityStatus;
 }
 
 export interface Integration {
@@ -146,19 +149,58 @@ export interface ConversationTopic {
   flowDescription: string;
 }
 
-export interface Scenario {
-  category: string;
-  title: string;
-  userMessage: string;
-  expectedResponse: string;
+export type EvalMethodType =
+  | "General quality"
+  | "Compare meaning"
+  | "Keyword match"
+  | "Text similarity"
+  | "Exact match"
+  | "Capability use";
+
+export interface EvalMethod {
+  type: EvalMethodType;
+  /** Threshold for scored methods (Compare meaning, Text similarity). 0-100. */
+  score?: number;
+  /** Mode for Keyword match: "any" or "all". */
+  mode?: "any" | "all";
 }
 
-export interface EvaluationTest {
+export interface EvalTestResult {
+  pass: boolean;
+  actual?: string;
+  score?: number;
+  timestamp?: string;
+}
+
+export interface EvalTest {
+  question: string;
+  expected?: string;
+  /** Links to capabilities[].name. Optional — cross-cutting tests omit this. */
+  capability?: string;
+  lastResult: EvalTestResult | null;
+}
+
+export type EvalSetRunWhen =
+  | "every-iteration"
+  | "per-capability"
+  | "after-tools"
+  | "after-functional"
+  | "final"
+  | "custom";
+
+export interface EvalSet {
   name: string;
-  input: string;
-  expectedOutput: string;
-  scoringMethod: string;
-  status: string;
+  description: string;
+  methods: EvalMethod[];
+  passThreshold: number;
+  runWhen: EvalSetRunWhen;
+  tests: EvalTest[];
+}
+
+export interface EvalConfig {
+  targetPassRate: number;
+  maxIterationsPerCapability: number;
+  maxRegressionRounds: number;
 }
 
 export interface OpenQuestion {
@@ -216,8 +258,7 @@ export interface BriefData {
   "conversation-topics": { items: ConversationTopic[] };
   "scope-boundaries": { handles: string[]; politelyDeclines: string[]; hardRefuses: string[] };
   architecture: Architecture;
-  scenarios: { items: Scenario[] };
-  "evaluation-tests": { items: EvaluationTest[] };
+  "eval-sets": { sets: EvalSet[]; config: EvalConfig };
   "open-questions": { items: OpenQuestion[] };
 }
 
@@ -232,6 +273,7 @@ export interface BuildStatus {
   publishedAt?: string;
 }
 
+/** @deprecated Eval results now live in EvalSet.tests[].lastResult */
 export interface EvalResult {
   question: string;
   expected: string;
@@ -241,6 +283,7 @@ export interface EvalResult {
   method: string;
 }
 
+/** @deprecated Eval results now live in EvalSet.tests[].lastResult */
 export interface EvalResults {
   lastRun?: string;
   method?: string;

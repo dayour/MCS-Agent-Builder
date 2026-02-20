@@ -2,7 +2,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useState, useEffect, useCallback } from "react";
 import {
   Briefcase, Bot, FileText, Zap, Plug, Database,
-  MessageSquare, Shield, Network, PlayCircle, TestTube, HelpCircle,
+  MessageSquare, Shield, Network, TestTube, HelpCircle,
   Check, Circle, Download, FileDown, Loader2,
 } from "lucide-react";
 import Layout from "@/components/Layout";
@@ -27,15 +27,14 @@ import KnowledgeSourcesSection from "@/components/brief/KnowledgeSourcesSection"
 import ConversationTopicsSection from "@/components/brief/ConversationTopicsSection";
 import ScopeBoundariesSection from "@/components/brief/ScopeBoundariesSection";
 import ArchitectureSection from "@/components/brief/ArchitectureSection";
-import ScenariosSection from "@/components/brief/ScenariosSection";
-import EvaluationTestsSection from "@/components/brief/EvaluationTestsSection";
+import EvalSetsSection from "@/components/brief/EvalSetsSection";
 import OpenQuestionsSection from "@/components/brief/OpenQuestionsSection";
 import { generateBriefReport, downloadFile } from "@/lib/reportGenerator";
 import { generateBriefPDF } from "@/lib/pdfReportGenerator";
 
 const iconMap: Record<string, React.ElementType> = {
   Briefcase, Bot, FileText, Zap, Plug, Database,
-  MessageSquare, Shield, Network, PlayCircle, TestTube, HelpCircle,
+  MessageSquare, Shield, Network, TestTube, HelpCircle,
 };
 
 const sectionComponents: Record<string, React.ComponentType<{ data: any; onChange?: (data: any) => void; context?: any }>> = {
@@ -48,8 +47,7 @@ const sectionComponents: Record<string, React.ComponentType<{ data: any; onChang
   "conversation-topics": ConversationTopicsSection,
   "scope-boundaries": ScopeBoundariesSection,
   architecture: ArchitectureSection,
-  scenarios: ScenariosSection,
-  "evaluation-tests": EvaluationTestsSection,
+  "eval-sets": EvalSetsSection,
   "open-questions": OpenQuestionsSection,
 };
 

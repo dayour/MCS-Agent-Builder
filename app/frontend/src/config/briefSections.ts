@@ -14,7 +14,6 @@ export const BRIEF_SECTIONS: BriefSection[] = [
   { id: "knowledge-sources", title: "Knowledge", icon: "Database", complete: false },
   { id: "conversation-topics", title: "Topics", icon: "MessageSquare", complete: false },
   { id: "scope-boundaries", title: "Scope & Boundaries", icon: "Shield", complete: false },
-  { id: "scenarios", title: "Scenarios", icon: "PlayCircle", complete: false },
-  { id: "evaluation-tests", title: "Evaluation", icon: "TestTube", complete: false },
+  { id: "eval-sets", title: "Eval Sets", icon: "TestTube", complete: false },
   { id: "open-questions", title: "Open Questions", icon: "HelpCircle", complete: false },
 ];

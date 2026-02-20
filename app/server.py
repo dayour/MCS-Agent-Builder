@@ -337,25 +337,38 @@ def _scan_agents(folder: Path) -> list[dict]:
             else:
                 agent_name = humanize_name(agent_dir.name)
                 agent_desc = ""
-            # Extract eval pass rate from evalResults if available
+            # Extract eval pass rate from evalSets (new) or evalResults (legacy)
             eval_pass_rate = None
             if brief:
-                er = brief.get("evalResults", {})
-                if isinstance(er, dict):
-                    summary = er.get("summary", {})
-                    if summary.get("total", 0) > 0:
-                        # Try passRate string first (e.g. "85%"), fall back to computing
-                        pr = summary.get("passRate", "")
-                        if isinstance(pr, str) and pr.endswith("%"):
-                            try:
-                                eval_pass_rate = float(pr.rstrip("%"))
-                            except ValueError:
-                                pass
-                        if eval_pass_rate is None:
-                            total = summary.get("total", 0)
-                            passed = summary.get("passed", 0)
-                            if total > 0:
-                                eval_pass_rate = round(passed / total * 100)
+                # New schema: compute from evalSets[].tests[].lastResult
+                total_tested = 0
+                total_passed = 0
+                for es in brief.get("evalSets", []):
+                    for t in es.get("tests", []):
+                        lr = t.get("lastResult")
+                        if lr:
+                            total_tested += 1
+                            if lr.get("pass"):
+                                total_passed += 1
+                if total_tested > 0:
+                    eval_pass_rate = round(total_passed / total_tested * 100)
+                else:
+                    # Legacy fallback: evalResults
+                    er = brief.get("evalResults", {})
+                    if isinstance(er, dict):
+                        summary = er.get("summary", {})
+                        if summary.get("total", 0) > 0:
+                            pr = summary.get("passRate", "")
+                            if isinstance(pr, str) and pr.endswith("%"):
+                                try:
+                                    eval_pass_rate = float(pr.rstrip("%"))
+                                except ValueError:
+                                    pass
+                            if eval_pass_rate is None:
+                                total = summary.get("total", 0)
+                                passed = summary.get("passed", 0)
+                                if total > 0:
+                                    eval_pass_rate = round(passed / total * 100)
 
             # Extract architecture metadata for hierarchy display
             arch_type = ""

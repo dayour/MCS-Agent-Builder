@@ -166,26 +166,34 @@ export function generateBriefReport(agent: Agent, briefData: Record<string, any>
     lines.push(hr);
   }
 
-  // Scenarios
-  const sc = briefData["scenarios"];
-  if (sc?.items?.length) {
-    lines.push("## Scenarios\n");
-    sc.items.forEach((s: any, i: number) => {
-      lines.push(`### ${i + 1}. ${s.title} (${s.category})`);
-      lines.push(`**User:** "${s.userMessage}"\n`);
-      lines.push(`**Expected:** "${s.expectedResponse}"\n`);
-    });
-    lines.push(hr);
-  }
+  // Eval Sets
+  const es = briefData["eval-sets"];
+  if (es?.sets?.length) {
+    lines.push("## Eval Sets\n");
+    for (const set of es.sets) {
+      const tested = set.tests?.filter((t: any) => t.lastResult != null) ?? [];
+      const passed = tested.filter((t: any) => t.lastResult?.pass).length;
+      const rate = tested.length > 0 ? Math.round((passed / tested.length) * 100) : null;
+      const rateStr = rate !== null ? ` — ${rate}% pass rate` : "";
 
-  // Evaluation Tests
-  const ev = briefData["evaluation-tests"];
-  if (ev?.items?.length) {
-    lines.push("## Evaluation Tests\n");
-    lines.push("| Test | Input | Expected Output | Scoring | Status |");
-    lines.push("|------|-------|-----------------|---------|--------|");
-    ev.items.forEach((t: any) => lines.push(`| ${t.name} | ${t.input} | ${t.expectedOutput} | ${t.scoringMethod} | ${t.status} |`));
-    lines.push("");
+      lines.push(`### ${set.name.charAt(0).toUpperCase() + set.name.slice(1)} (target: ${set.passThreshold}%${rateStr})`);
+      lines.push(`> ${set.description}\n`);
+      lines.push(`**Methods:** ${(set.methods ?? []).map((m: any) => {
+        if (m.score != null) return `${m.type} (${m.score}%)`;
+        if (m.mode) return `${m.type} (${m.mode})`;
+        return m.type;
+      }).join(", ")}\n`);
+
+      if (set.tests?.length) {
+        lines.push("| Question | Expected | Capability | Result |");
+        lines.push("|----------|----------|------------|--------|");
+        set.tests.forEach((t: any) => {
+          const result = t.lastResult == null ? "—" : t.lastResult.pass ? "Pass" : "Fail";
+          lines.push(`| ${t.question} | ${t.expected || "—"} | ${t.capability || "—"} | ${result} |`);
+        });
+        lines.push("");
+      }
+    }
     lines.push(hr);
   }
 

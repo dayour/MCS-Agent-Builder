@@ -1,20 +1,32 @@
 /**
  * Client-side readiness calculator — mirrors server.py _calc_readiness().
  *
- * 12 checks, each worth equal weight. Returns 0–100.
+ * 11 checks, each worth equal weight. Returns 0–100.
+ * Eval sets replace the old scenarios + evals checks.
  */
 import type { BriefData } from "@/types";
+
+/** Count total tests across all eval sets. */
+function totalEvalTests(data: BriefData): number {
+  return (data["eval-sets"]?.sets ?? []).reduce(
+    (sum, s) => sum + (s.tests?.length ?? 0), 0
+  );
+}
+
+/** Check if any eval test has a lastResult. */
+function hasAnyEvalResult(data: BriefData): boolean {
+  return (data["eval-sets"]?.sets ?? []).some((s) =>
+    s.tests?.some((t) => t.lastResult != null)
+  );
+}
 
 export function calcReadiness(data: BriefData): number {
   const bc = data["business-context"];
   const arch = data["architecture"];
-  const caps = data["capabilities"]?.items ?? [];
   const tools = data["tools"]?.items ?? [];
   const knowledge = data["knowledge-sources"]?.items ?? [];
   const topics = data["conversation-topics"]?.items ?? [];
   const bounds = data["scope-boundaries"];
-  const scenarios = data["scenarios"]?.items ?? [];
-  const evals = data["evaluation-tests"]?.items ?? [];
   const questions = data["open-questions"]?.items ?? [];
   const unanswered = questions.filter((q) => q.question && q.status !== "resolved");
 
@@ -24,13 +36,12 @@ export function calcReadiness(data: BriefData): number {
     Boolean(data.instructions?.systemPrompt),                             // 3. Instructions
     tools.filter((t) => t.name).length + topics.filter((t) => t.name).length > 0,  // 4. Components
     knowledge.filter((k) => k.name).length > 0,                           // 5. Knowledge
-    scenarios.filter((s) => s.userMessage).length >= 3,                   // 6. Scenarios (3+)
-    evals.length > 0,                                                     // 7. Evals defined
-    Boolean(bounds.handles.length || bounds.politelyDeclines.length || bounds.hardRefuses.length), // 8. Boundaries
-    Boolean(arch.channels?.length || arch.triggers?.length),               // 9. Channels/Triggers
-    unanswered.length === 0,                                              // 10. Questions resolved
-    false,                                                                // 11. Build published (set externally)
-    false,                                                                // 12. Eval results (set externally)
+    totalEvalTests(data) >= 5,                                            // 6. Eval tests defined (5+)
+    Boolean(bounds.handles.length || bounds.politelyDeclines.length || bounds.hardRefuses.length), // 7. Boundaries
+    Boolean(arch.channels?.length || arch.triggers?.length),               // 8. Channels/Triggers
+    unanswered.length === 0,                                              // 9. Questions resolved
+    false,                                                                // 10. Build published (set externally)
+    false,                                                                // 11. Eval results exist (set externally)
   ];
 
   return Math.round((checks.filter(Boolean).length / checks.length) * 100);
@@ -50,8 +61,6 @@ export function calcReadinessWithStatus(
   const knowledge = data["knowledge-sources"]?.items ?? [];
   const topics = data["conversation-topics"]?.items ?? [];
   const bounds = data["scope-boundaries"];
-  const scenarios = data["scenarios"]?.items ?? [];
-  const evals = data["evaluation-tests"]?.items ?? [];
   const questions = data["open-questions"]?.items ?? [];
   const unanswered = questions.filter((q) => q.question && q.status !== "resolved");
 
@@ -61,13 +70,12 @@ export function calcReadinessWithStatus(
     Boolean(data.instructions?.systemPrompt),
     tools.filter((t) => t.name).length + topics.filter((t) => t.name).length > 0,
     knowledge.filter((k) => k.name).length > 0,
-    scenarios.filter((s) => s.userMessage).length >= 3,
-    evals.length > 0,
+    totalEvalTests(data) >= 5,
     Boolean(bounds.handles.length || bounds.politelyDeclines.length || bounds.hardRefuses.length),
     Boolean(arch.triggers?.length),
     unanswered.length === 0,
     buildPublished,
-    hasEvalResults,
+    hasEvalResults || hasAnyEvalResult(data),
   ];
 
   return Math.round((checks.filter(Boolean).length / checks.length) * 100);
@@ -84,8 +92,6 @@ export function sectionCompletion(data: BriefData): Record<string, boolean> {
   const knowledge = data["knowledge-sources"]?.items ?? [];
   const topics = data["conversation-topics"]?.items ?? [];
   const bounds = data["scope-boundaries"];
-  const scenarios = data["scenarios"]?.items ?? [];
-  const evals = data["evaluation-tests"]?.items ?? [];
   const questions = data["open-questions"]?.items ?? [];
 
   return {
@@ -100,8 +106,7 @@ export function sectionCompletion(data: BriefData): Record<string, boolean> {
     "scope-boundaries": Boolean(
       bounds.handles.length || bounds.politelyDeclines.length || bounds.hardRefuses.length
     ),
-    scenarios: scenarios.filter((s) => s.userMessage).length >= 3,
-    "evaluation-tests": evals.length > 0,
+    "eval-sets": totalEvalTests(data) >= 5,
     "open-questions": questions.filter((q) => q.question && q.status !== "resolved").length === 0,
   };
 }

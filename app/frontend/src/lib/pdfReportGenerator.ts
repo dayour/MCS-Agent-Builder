@@ -410,35 +410,35 @@ export function generateBriefPDF(agent: Agent, briefData: Record<string, any>): 
     y = divider(doc, y);
   }
 
-  // 10. Scenarios
-  const sc = briefData["scenarios"];
-  if (sc?.items?.length) {
+  // 10. Eval Sets
+  const es = briefData["eval-sets"];
+  if (es?.sets?.length) {
     n++;
-    y = heading(doc, "Scenarios", y, n);
-    for (const [i, s] of sc.items.entries()) {
-      y = subheading(doc, `${i + 1}. ${s.title}`, y);
-      // Category label on its own line
-      if (s.category) {
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(7);
-        doc.setTextColor(...rgb(s.category === "Happy Path" ? C.green : s.category === "Edge Case" ? C.amber : C.red));
-        doc.text(s.category.toUpperCase(), ML, y);
-        y += 4;
+    y = heading(doc, "Eval Sets", y, n);
+    for (const set of es.sets) {
+      const tested = set.tests?.filter((t: any) => t.lastResult != null) ?? [];
+      const passed = tested.filter((t: any) => t.lastResult?.pass).length;
+      const rate = tested.length > 0 ? Math.round((passed / tested.length) * 100) : null;
+      const rateStr = rate !== null ? `  \u00b7  ${rate}%` : "";
+      const methodsStr = (set.methods ?? []).map((m: any) => {
+        if (m.score != null) return `${m.type} (${m.score}%)`;
+        if (m.mode) return `${m.type} (${m.mode})`;
+        return m.type;
+      }).join(", ");
+
+      y = subheading(doc, `${set.name.charAt(0).toUpperCase() + set.name.slice(1)} (target: ${set.passThreshold}%${rateStr})`, y);
+      if (set.description) y = para(doc, set.description, y, { italic: true, color: C.s500 });
+      if (methodsStr) y = para(doc, `Methods: ${methodsStr}`, y, { size: 7.5, color: C.s500 });
+
+      if (set.tests?.length) {
+        y = table(doc, ["Question", "Expected", "Capability", "Result"],
+          set.tests.map((t: any) => {
+            const result = t.lastResult == null ? "\u2014" : t.lastResult.pass ? "\u2713 Pass" : "\u2717 Fail";
+            return [safe(t.question), safe(t.expected), safe(t.capability), result];
+          }), y);
       }
-      y = para(doc, `User: "${s.userMessage}"`, y, { bold: true });
-      y = para(doc, `Expected: "${s.expectedResponse}"`, y, { italic: true, color: C.s500 });
       y = spacer(y, 3);
     }
-    y = divider(doc, y);
-  }
-
-  // 11. Evaluation Tests
-  const ev = briefData["evaluation-tests"];
-  if (ev?.items?.length) {
-    n++;
-    y = heading(doc, "Evaluation Tests", y, n);
-    y = table(doc, ["Test", "Input", "Expected", "Scoring", "Status"],
-      ev.items.map((t: any) => [safe(t.name), safe(t.input), safe(t.expectedOutput), safe(t.scoringMethod), safe(t.status)]), y);
     y = divider(doc, y);
   }
 

@@ -9,6 +9,24 @@ import { fetchAgent, saveAgentBrief } from "@/lib/api";
 import { briefFromApi, briefToApi } from "@/lib/briefTransforms";
 import { sectionCompletion } from "@/lib/readiness";
 
+/** Compute overall eval pass rate from evalSets UI data. */
+function computeEvalPassRate(data: BriefData | null): string | null {
+  if (!data) return null;
+  const sets = data["eval-sets"]?.sets ?? [];
+  let tested = 0;
+  let passed = 0;
+  for (const s of sets) {
+    for (const t of s.tests ?? []) {
+      if (t.lastResult != null) {
+        tested++;
+        if (t.lastResult.pass) passed++;
+      }
+    }
+  }
+  if (tested === 0) return null;
+  return `${Math.round((passed / tested) * 100)}%`;
+}
+
 interface BriefStore {
   projectId: string | null;
   agentId: string | null;
@@ -19,8 +37,10 @@ interface BriefStore {
   rawBrief: ApiBrief | null;
   /** Build status from raw brief. */
   buildStatus: BuildStatus | null;
-  /** Eval results from raw brief. */
+  /** @deprecated Use evalPassRate instead. Kept for legacy briefs. */
   evalResults: EvalResults | null;
+  /** Overall eval pass rate string (e.g. "85%") computed from evalSets. */
+  evalPassRate: string | null;
   /** Per-section completion map. */
   completion: Record<string, boolean>;
   dirty: boolean;
@@ -51,6 +71,7 @@ export const useBriefStore = create<BriefStore>((set, get) => ({
   rawBrief: null,
   buildStatus: null,
   evalResults: null,
+  evalPassRate: null,
   completion: {},
   dirty: false,
   loading: false,
@@ -71,6 +92,7 @@ export const useBriefStore = create<BriefStore>((set, get) => ({
         rawBrief: raw,
         buildStatus: raw.buildStatus ?? null,
         evalResults: raw.evalResults ?? null,
+        evalPassRate: computeEvalPassRate(data) ?? raw.evalResults?.summary?.passRate ?? null,
         completion: sectionCompletion(data),
         serverUpdatedAt: raw.updated_at ?? null,
         serverFileMtime: result._file_mtime ?? null,
@@ -132,6 +154,7 @@ export const useBriefStore = create<BriefStore>((set, get) => ({
           rawBrief: raw,
           buildStatus: raw.buildStatus ?? null,
           evalResults: raw.evalResults ?? null,
+          evalPassRate: computeEvalPassRate(data) ?? raw.evalResults?.summary?.passRate ?? null,
           completion: sectionCompletion(data),
           serverUpdatedAt: serverTs,
           serverFileMtime: fileMtime,

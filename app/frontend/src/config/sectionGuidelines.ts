@@ -139,33 +139,22 @@ export const sectionGuidelines: Record<string, SectionGuidelineData> = {
       "No \"out\" for truly unknown queries — always have a graceful fallback",
     ],
   },
-  scenarios: {
-    what: "Example conversations showing how the agent should behave in different situations.",
+  "eval-sets": {
+    what: "Organized test suites that verify everything about the agent — safety, capabilities, integrations, conversations, and regression.",
     bestPractices: [
-      "Cover all categories: happy path, edge cases, boundary declines, refuses, error recovery",
-      "Each scenario should map to at least one capability",
-      "Include multi-turn scenarios — not just single question/answer pairs",
-      "Write realistic user messages, including typos and informal language",
+      "Critical set (100% pass required): every boundary decline/refuse needs a test here",
+      "Functional set: at least one happy-path test per MVP capability",
+      "Integration set: verify connectors return real data, tools are actually invoked",
+      "Link tests to capabilities — this powers per-capability pass rate tracking",
+      "Aim for 15-25 total tests across all sets",
     ],
     commonMistakes: [
-      "Only happy-path scenarios — misses boundary and error cases",
-      "Missing boundary test cases — can't verify the agent refuses correctly",
-      "Scenarios that don't match any capability — untestable",
-    ],
-  },
-  "evaluation-tests": {
-    what: "Test cases that verify the agent works correctly — run automatically after each build.",
-    bestPractices: [
-      "Every boundary (decline/refuse) should have at least one test case",
-      "Use CompareMeaning for open-ended Q&A (semantic matching, 70% threshold)",
-      "Use PartialMatch for boundary enforcement (exact phrase matching)",
-      "Aim for 15-25 test cases covering all capabilities and boundaries",
-    ],
-    commonMistakes: [
-      "Too few tests (< 10) — can't catch regressions",
-      "No boundary tests — the hardest things to get right go untested",
+      "Empty critical set — safety and boundaries go untested",
+      "All tests in one set — loses the tiered pass/fail structure",
+      "No capability links — can't track which features are passing or failing",
       "Unrealistic expected responses — tests should match what the agent actually says",
     ],
+    tip: "The 5 default sets (Critical, Functional, Integration, Conversational, Regression) cover most agents. Add custom sets for domain-specific requirements like compliance or accessibility.",
   },
   "open-questions": {
     what: "Unresolved items that need stakeholder input before the build can proceed.",

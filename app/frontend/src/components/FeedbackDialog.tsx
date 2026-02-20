@@ -28,7 +28,7 @@ export default function FeedbackDialog({ type, open, onOpenChange }: FeedbackDia
   const location = useLocation();
   const { openOrCreate, sendCommand, sessions, activeSessionId } = useTerminalStore();
   const { projectId, projectName } = useProjectStore();
-  const { agentId, agentName, buildStatus, evalResults } = useBriefStore();
+  const { agentId, agentName, buildStatus, evalPassRate } = useBriefStore();
 
   const isBug = type === "bug";
   const title = isBug ? "Report a Bug" : "Suggest a Feature";
@@ -50,8 +50,8 @@ export default function FeedbackDialog({ type, open, onOpenChange }: FeedbackDia
   if (buildStatus?.status) {
     contextParts.push({ label: "Build", value: buildStatus.status });
   }
-  if (evalResults?.summary?.passRate) {
-    contextParts.push({ label: "Eval", value: evalResults.summary.passRate });
+  if (evalPassRate) {
+    contextParts.push({ label: "Eval", value: evalPassRate });
   }
 
   function handleSubmit() {
