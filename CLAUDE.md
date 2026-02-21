@@ -406,7 +406,7 @@ CREATE → UPLOAD → RESEARCH → BUILD → EVALUATE → [FIX]
 |------|-------|-------|--------|-------------|
 | **Init** | `/mcs-init` | Project name | Folder structure | None |
 | **Context** | `/mcs-context` | Customer name | customer-context.md | None |
-| **Research** | `/mcs-research {projectId}` or `/mcs-research {projectId} {agentId}` | docs/ | brief.json (fully enriched) + evals.csv per agent | RA (if needed) + PE + QA + TE |
+| **Research** | `/mcs-research {projectId}` or `/mcs-research {projectId} {agentId}` | docs/ | brief.json (fully enriched with evalSets) | RA (if needed) + PE + QA + TE |
 | **Build** | `/mcs-build {projectId} {agentId}` | brief.json | MCS agent (published) + build-report.md | TE + QA (+ RA/PE on-demand) |
 | **Evaluate** | `/mcs-eval {projectId} {agentId}` | brief.json evalSets | evalSets[].tests[].lastResult | QA |
 | **Fix** | `/mcs-fix {projectId} {agentId}` | brief.json evalSets (failing tests) | brief.json (fixed) + re-eval results | PE + TE + QA |
@@ -450,11 +450,11 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 
 ## RESEARCH: Read Docs + Full Enrichment (`/mcs-research`)
 
-**Goal:** Read all project documents, identify agents, research MCS components, and produce fully enriched brief.json (the single source of truth) + evals.csv per agent.
+**Goal:** Read all project documents, identify agents, research MCS components, and produce fully enriched brief.json (the single source of truth) with evalSets (5 default sets: critical, functional, integration, conversational, regression).
 
 **Input:** `/mcs-research {projectId}` (project-level) or `/mcs-research {projectId} {agentId}` (agent-level)
 **Reads:** `Build-Guides/{projectId}/docs/` + `customer-context.md` (if exists) + `knowledge/cache/` + `knowledge/learnings/`
-**Writes:** `brief.json` (all fields including instructions + evalSets) + `evals.csv` per agent
+**Writes:** `brief.json` (all fields including instructions + evalSets) + `evals.csv` (derived flat export for MCS native eval compatibility)
 
 **Smart at both levels:** Phase 0 runs for ALL invocations — detects new/changed docs, brief edits, and manually created agents. Routes to full, incremental, re-enrich, or full-agent processing as appropriate.
 
@@ -605,7 +605,7 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 ## Key Principles
 
 1. **Brief is the blueprint** — brief.json drives the build (single source of truth)
-2. **Evals verify quality** — generate from spec, run after build
+2. **Evals drive the build** — eval sets generated from spec, critical gate before capability work, per-capability iteration during build, regression suite validates end-to-end
 3. **Multi-agent first** — decompose into specialists (score objectively)
 4. **Never assume** — research broadly (web + docs + UI + community), present options
 5. **MVP first** — build what's possible now, plan what's blocked
@@ -736,10 +736,10 @@ tools/
 
 Build-Guides/[Project]/     # Per-project work (gitignored)
 ├── agents/[name]/
-│   ├── brief.json          # THE source of truth — design, instructions, tools, evals, build status
+│   ├── brief.json          # THE source of truth — design, instructions, tools, evalSets, build status
 │   ├── build-report.md     # Customer-shareable build summary (generated after /mcs-build)
-│   ├── evals.csv           # Evaluation test cases (from /mcs-research)
-│   ├── evals-results.json  # Direct Line test results (from /mcs-eval)
+│   ├── evals.csv           # Flat CSV export of evalSets (derived — for MCS native eval compatibility)
+│   ├── evals-results.json  # Direct Line test results backup (from /mcs-eval)
 │   └── topics/             # Generated topic YAML files
 ├── docs/                   # Uploaded customer documents
 ├── doc-manifest.json       # Document hash manifest (from /mcs-research)

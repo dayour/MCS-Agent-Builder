@@ -175,13 +175,13 @@ For each test case in the CSV (or remaining cases if continuing from Tier 1 part
    - If no response after 60s, record as timeout
 5. **Extract response text** — Read the agent's response text from the snapshot
 6. **Score locally** — Use the same scoring logic as `direct-line-test.js`:
-   - `ExactMatch`: exact string comparison
-   - `PartialMatch`: expected text is contained in response
-   - `KeywordMatch`: all keywords present
-   - `TextSimilarity`: Jaccard word overlap
-   - `CompareMeaning`: keyword overlap + length ratio
-   - `GeneralQuality`: quality heuristics (non-empty, keywords, length, no errors)
-   - `CapabilityUse`: check for capability indicators in response
+   - `Exact match`: exact string comparison
+   - `Keyword match (all)`: all keywords from expected present in response
+   - `Keyword match (any)`: any keyword from expected present in response
+   - `Text similarity`: Jaccard word overlap
+   - `Compare meaning`: keyword overlap + length ratio
+   - `General quality`: quality heuristics (non-empty, keywords, length, no errors)
+   - `Capability use`: check for capability indicators in response
 
 ### Write Results
 
@@ -339,7 +339,7 @@ After reporting results, run the two-tier learnings capture.
 Only capture if there are actual insights — don't log routine passes.
 
 **What to capture:**
-- **Eval method insights**: "CompareMeaning with 70% was too lenient for boundary tests — PartialMatch caught violations that CompareMeaning missed"
+- **Eval method insights**: "Compare meaning with 70% was too lenient for boundary tests — Keyword match (all) caught violations that Compare meaning missed"
 - **Failure patterns**: "All boundary-decline tests failed because instructions didn't explicitly say 'I cannot do that'"
 - **Scoring calibration**: "GeneralQuality scores varied 20+ points across runs — not reliable for strict thresholds"
 - **Test design lessons**: "Multi-turn scenarios need context setup in the first message or agent loses context"

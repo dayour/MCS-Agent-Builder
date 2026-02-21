@@ -65,37 +65,45 @@ Review all teammate outputs. Find errors. Challenge false claims. Test against s
 | Architecture recommends a connector | Connector is available in the target environment |
 | Any teammate says "not possible" | Research independently to verify |
 
-## Eval Generation
+## Eval Set Generation
 
-You also generate evaluation test cases from the agent spec:
+You generate evaluation test cases organized into **eval sets** — tiered test suites with methods defined at the SET level, not per-test.
 
-### CSV Format
-```csv
-"question","expectedResponse","testMethodType","passingScore"
-```
+### 5 Default Eval Sets
 
-### Test Method Types
-| Type | Use For | passingScore |
-|------|---------|-------------|
-| `GeneralQuality` | Happy path — does response make sense? | (empty) |
-| `TextSimilarity` | Response should use similar wording | "70" |
-| `CompareMeaning` | Response should convey same meaning | "70" |
-| `PartialMatch` | Must contain specific phrase (boundaries) | (empty) |
-| `ExactMatch` | Must exactly match (precise facts) | (empty) |
-| `KeywordMatch` | All keywords from expected present in response | "70" |
-| `CapabilityUse` | Response shows a capability was used (tool call, data retrieval) | "70" |
+| Set | Purpose | Pass Threshold | Default Methods |
+|-----|---------|---------------|-----------------|
+| **critical** | Boundaries, safety, identity, persona | 100% | Keyword match (all), Exact match |
+| **functional** | Capability happy paths — correct responses | 70% | Compare meaning (70), Keyword match (any) |
+| **integration** | Connectors return data, tools invoked, topics route | 80% | Capability use, Keyword match (any) |
+| **conversational** | Multi-turn, context carry, persona consistency | 60% | General quality, Compare meaning (60) |
+| **regression** | Full suite, cross-capability, end-to-end | 70% | Compare meaning (70), General quality |
+
+Custom sets can be added for domain-specific needs (e.g., compliance, accessibility).
+
+### 6 MCS Test Methods (assigned at SET level)
+
+| Method | Scoring | What It Does |
+|--------|---------|-------------|
+| **General quality** | Pass/Fail (heuristic) | Relevance + completeness. Does NOT compare to expected response. |
+| **Compare meaning** | 0-100 threshold | Semantic match — same meaning, different wording OK |
+| **Keyword match** | Any / All mode | Looks for matching words/phrases in response |
+| **Text similarity** | 0-100 threshold | Text closeness (may miss meaning differences) |
+| **Exact match** | Pass/Fail | Response must match expected completely |
+| **Capability use** | Pass/Fail | Checks if agent used specific tools or topics |
+
+**Key rule:** Methods are assigned to the EVAL SET, not individual tests. All tests in a set are scored by that set's methods. A test passes only if ALL methods in the set pass (scored methods check threshold, binary methods are pass/fail).
 
 ### Eval Design Rules
-- **Happy path scenarios**: `GeneralQuality` or `CompareMeaning` at "70"
-- **DECLINE boundaries**: `PartialMatch` — must contain the decline phrase
-- **REFUSE boundaries**: `PartialMatch` — must contain the refusal phrase
-- **Factual answers**: `PartialMatch` for specific facts
-- **Keyword presence**: `KeywordMatch` at "70" — expected = comma/space-separated keywords
-- **Tool/integration verification**: `CapabilityUse` at "70" — expected = indicators that capability fired
-- **passingScore is integer**: "70" not "0.7"
-- **Only 7 valid types** — no "AI", "Contains", or custom types
+- **Boundary tests** go in the `critical` set — Keyword match (all) ensures decline/refuse phrases appear
+- **Happy path tests** go in `functional` — one test per capability, linked via `capability` field
+- **Connector/tool tests** go in `integration` — Capability use confirms tools were invoked
+- **Multi-turn + routing tests** go in `conversational`
+- **Cross-capability + end-to-end tests** go in `regression`
 - **Boundaries must pass 100%** — if they don't, fix instructions first
 - **Cover edge cases**: empty input, out-of-scope, multi-turn, ambiguous queries
+- Tests link to capabilities via optional `capability` field (cross-cutting tests like boundaries omit it)
+- **Only 6 valid method types** — no "PartialMatch", "AI", "Contains", or custom types
 
 ## Scenario Walkthrough Template
 
