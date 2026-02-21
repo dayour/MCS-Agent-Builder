@@ -1,6 +1,6 @@
 ---
 name: mcs-build
-description: Build agent(s) in Copilot Studio using the hybrid build stack. Reads brief.json for architecture mode (single/multi-agent). Handles standalone, specialist, and orchestrator builds.
+description: "Build agent(s) in Copilot Studio using the hybrid build stack with eval-driven iteration. Bootstrap → critical gate → per-capability iteration → regression. Reads brief.json for architecture mode (single/multi-agent)."
 ---
 
 # MCS Agent Builder — Unified Hybrid Build Stack
@@ -329,6 +329,71 @@ For each MVP topic in the spec:
 
 **Checkpoint:** After all topics verified, add `"topics"` to `completedSteps`, set `lastCompletedStep` to `"topics"`.
 
+### Step 4.5: Eval-Driven Iteration Loop (NEW — runs after initial setup)
+
+**This is the core of the eval-driven build.** After the agent is configured (Steps 1-4), run eval sets iteratively to verify the build works.
+
+#### Phase 1: Initial Publish + Critical Gate
+
+1. **Publish** (PAC CLI):
+   ```powershell
+   pac copilot publish --bot <bot-id>
+   ```
+2. **Run critical eval set** via Direct Line API (same method as `/mcs-eval` Tier 1/2):
+   - Read `brief.json.evalSets[]`, find set where `name == "critical"`
+   - Run all tests in the critical set
+   - Write results to each test's `lastResult`
+
+3. **Evaluate critical gate:**
+   - If ALL critical tests pass → proceed to Phase 2
+   - If ANY critical test fails:
+     - Classify failure (instruction gap or boundary violation)
+     - Fix instructions via Dataverse API (PE if needed)
+     - Re-publish, re-run critical set
+     - **Max 3 attempts.** If still failing after 3 → **HARD STOP**: "Critical gate failed after 3 attempts. Safety/boundary issues must be resolved manually."
+     - Update `capabilities[].status` accordingly
+
+#### Phase 2: Per-Capability Iteration
+
+For each MVP capability (in priority order from `capabilities[]` where `phase == "mvp"`):
+
+1. **Gather this capability's tests** from across eval sets:
+   - Functional set: tests where `capability == this.name`
+   - Integration set: tests where `capability == this.name`
+   - Conversational set: tests where `capability == this.name`
+
+2. **Run capability's tests** (filtered from the sets above)
+
+3. **Evaluate results:**
+   - If all tests pass → mark `capability.status = "passing"`, move to next capability
+   - If tests fail:
+     - Classify failures (instruction gap, routing, tool issue, knowledge gap)
+     - Apply targeted fix (PE for instructions, TE for topics — same as `/mcs-fix` Step 3)
+     - Re-publish, re-run capability's tests
+     - **Max 3 iterations per capability.** If still failing → mark `capability.status = "failing"`, move on
+   - Update `capabilities[].status` = `"building"` while iterating
+
+4. **Always run critical set** between capabilities as a regression check (should still pass)
+
+#### Phase 3: Regression & Finalize
+
+1. **Final publish** (PAC CLI)
+2. **Run regression eval set** (full suite, cross-capability)
+3. **Run critical set again** (regression check)
+4. **Compute overall pass rates** per set
+5. If regression < threshold → targeted fix on worst areas (**max 2 rounds**)
+6. Update all `capabilities[].status` based on final results
+
+**Iteration limits (from `evalConfig`):**
+- Critical gate: max 3 attempts, then HARD STOP
+- Per-capability: max `evalConfig.maxIterationsPerCapability` (default 3)
+- Regression: max `evalConfig.maxRegressionRounds` (default 2)
+- Overall target: `evalConfig.targetPassRate` (default 70%)
+
+**When to skip iteration loop:**
+- If `brief.json.evalSets` is empty or has no tests → skip to Step 5 (publish only, no iteration)
+- If `--skip-eval` flag provided → skip to Step 5
+
 ### Step 5: Publish (PAC CLI — no browser)
 
 **Always runs** — even on resume. Publishing is cheap and ensures the latest state is live.
@@ -463,7 +528,7 @@ Write the complete buildStatus. Most fields were already written incrementally d
     "account": "<account-label>",
     "accountId": "<session-config-account-id>",
     "publishedAt": "2026-02-18T...",
-    "completedSteps": ["created", "instructions", "knowledge", "tools", "model", "topics", "published"],
+    "completedSteps": ["created", "instructions", "knowledge", "tools", "model", "topics", "critical-gate", "capability-iteration", "regression", "published"],
     "lastCompletedStep": "published",
     "lastError": null
   }
@@ -551,11 +616,13 @@ After reconciliation, generate **two outputs**:
 
 **Status:** Published | **Environment:** [env] | **Account:** [account]
 **QA Validation:** PASS ({N}/{N} items match, {M} cross-ref issues — see qa-validation.md)
-**Deferred:** {K} future items (see build report Section 9)
+**Eval Sets:** critical {X}% | functional {X}% | integration {X}% | conversational {X}% | regression {X}%
+**Capabilities:** {N} passing, {M} failing, {K} not tested
+**Deferred:** {J} future items (see build report Section 9)
 
 Report saved: Build-Guides/{projectId}/agents/{agentId}/build-report.md
 
-**Next:** Review the build report, share with customer for approval, then run /mcs-eval.
+**Next:** Review the build report, share with customer for approval. Run /mcs-eval for standalone re-runs.
 ```
 
 ### Build Report File
@@ -677,16 +744,24 @@ This is a **customer-shareable deliverable**. Write it in clear, professional la
 
 ## 10. Evaluation Status
 
-[If evals haven't run yet:]
-**Status:** Pending — run `/mcs-eval` after customer review
-
-[If evals have run, include summary:]
+[If eval-driven iteration ran during build:]
 **Overall:** {X}/{Y} passed ({Z}%)
 
-| Category | Passed | Total |
-|----------|--------|-------|
-| Happy Path | X | Y |
-| Boundaries | X | Y |
+| Eval Set | Passed | Total | Rate | Target | Status |
+|----------|--------|-------|------|--------|--------|
+| Critical | X | Y | Z% | 100% | PASS/FAIL |
+| Functional | X | Y | Z% | 70% | PASS/FAIL |
+| Integration | X | Y | Z% | 80% | PASS/FAIL |
+| Conversational | X | Y | Z% | 60% | PASS/FAIL |
+| Regression | X | Y | Z% | 70% | PASS/FAIL |
+
+**Per-Capability Status:**
+| Capability | Status | Tests Passing |
+|------------|--------|--------------|
+| [name] | Passing/Failing | X/Y |
+
+[If evals haven't run (--skip-eval used):]
+**Status:** Pending — run `/mcs-eval` after customer review
 
 ---
 

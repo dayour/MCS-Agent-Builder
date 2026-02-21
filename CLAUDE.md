@@ -118,9 +118,9 @@ Definitions: `.claude/agents/` (research-analyst.md, prompt-engineer.md, topic-e
 ### When to Use Agent Teams
 
 **During MCS workflow skills:**
-- **Research phase** (`/mcs-research`): Research Analyst searches for external connectors/MCP (only if needed), Prompt Engineer writes instructions (single pass), **Topic Engineer validates topic feasibility (Phase D)**, QA Challenger reviews instructions + generates scenarios (single pass each)
-- **Build phase** (`/mcs-build`): Topic Engineer generates YAML, QA Challenger reviews before execution, **Research Analyst on-demand (connector issues)**, **Prompt Engineer on-demand (instruction adjustments)**
-- **Eval phase** (`/mcs-eval`): QA Challenger analyzes failures, maps back to root causes
+- **Research phase** (`/mcs-research`): Research Analyst searches for external connectors/MCP (only if needed), Prompt Engineer writes instructions (single pass), **Topic Engineer validates topic feasibility (Phase D)**, QA Challenger reviews instructions + generates eval sets (single pass each)
+- **Build phase** (`/mcs-build`): Topic Engineer generates YAML, QA Challenger reviews before execution, **eval-driven iteration loop** (critical gate → per-capability → regression), **Research Analyst on-demand (connector issues)**, **Prompt Engineer on-demand (instruction adjustments + fix iteration)**
+- **Eval phase** (`/mcs-eval`): Runs eval sets (all or specific), writes per-test results to evalSets
 - **Fix phase** (`/mcs-fix`): QA Challenger classifies failures, Prompt Engineer fixes instructions, Topic Engineer fixes topics
 
 **During general development (Tier 2-3 checks):**
@@ -319,7 +319,7 @@ Learnings are consulted at these specific points across all workflow skills:
 |-------|-----------|---------------------|
 | `/mcs-research` | Phase B (component research) | `connectors.md`, `integrations.md`, `customer-patterns.md` |
 | `/mcs-research` | Phase C (architecture + instructions) | `architecture.md`, `instructions.md` |
-| `/mcs-research` | Phase D (scenarios + evals) | `topics-triggers.md`, `eval-testing.md` |
+| `/mcs-research` | Phase D (eval sets + topics) | `topics-triggers.md`, `eval-testing.md` |
 | `/mcs-build` | Before Step 1 (agent creation) | `build-methods.md` |
 | `/mcs-build` | Before Step 3 (tools config) | `connectors.md`, `integrations.md` |
 | `/mcs-build` | Before Step 4 (topics) | `topics-triggers.md` |
@@ -408,8 +408,8 @@ CREATE → UPLOAD → RESEARCH → BUILD → EVALUATE → [FIX]
 | **Context** | `/mcs-context` | Customer name | customer-context.md | None |
 | **Research** | `/mcs-research {projectId}` or `/mcs-research {projectId} {agentId}` | docs/ | brief.json (fully enriched) + evals.csv per agent | RA (if needed) + PE + QA + TE |
 | **Build** | `/mcs-build {projectId} {agentId}` | brief.json | MCS agent (published) + build-report.md | TE + QA (+ RA/PE on-demand) |
-| **Evaluate** | `/mcs-eval {projectId} {agentId}` | brief.json evals | brief.json evalResults | QA |
-| **Fix** | `/mcs-fix {projectId} {agentId}` | brief.json evalResults | brief.json (fixed) + re-eval results | PE + TE + QA |
+| **Evaluate** | `/mcs-eval {projectId} {agentId}` | brief.json evalSets | evalSets[].tests[].lastResult | QA |
+| **Fix** | `/mcs-fix {projectId} {agentId}` | brief.json evalSets (failing tests) | brief.json (fixed) + re-eval results | PE + TE + QA |
 
 > **`/mcs-context`** is optional but recommended — it pulls all M365 history for a customer via WorkIQ MCP and pre-fills 60-80% of research.
 
@@ -454,7 +454,7 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 
 **Input:** `/mcs-research {projectId}` (project-level) or `/mcs-research {projectId} {agentId}` (agent-level)
 **Reads:** `Build-Guides/{projectId}/docs/` + `customer-context.md` (if exists) + `knowledge/cache/` + `knowledge/learnings/`
-**Writes:** `brief.json` (all fields including instructions) + `evals.csv` per agent
+**Writes:** `brief.json` (all fields including instructions + evalSets) + `evals.csv` per agent
 
 **Smart at both levels:** Phase 0 runs for ALL invocations — detects new/changed docs, brief edits, and manually created agents. Routes to full, incremental, re-enrich, or full-agent processing as appropriate.
 
@@ -462,9 +462,9 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 1. **Document comprehension & agent identification** — lead reads all docs, cross-references, identifies agents, extracts data, generates informed open questions using MCS cache
 2. **Component research (targeted)** — lead resolves stable categories from cache (channels, triggers, knowledge). Research Analyst spawned ONLY for external systems needing live MCP/connector lookup
 3. **Architecture + instructions (single-pass)** — lead scores architecture, Prompt Engineer writes instructions (self-verified), QA Challenger reviews once (no iteration loop)
-4. **Scenarios + evals** — QA Challenger generates test cases, **Topic Engineer validates feasibility**, classifies topic types
+4. **Eval sets + topic classification** — QA Challenger populates 5 eval sets (critical, functional, integration, conversational, regression), **Topic Engineer validates feasibility**, classifies topic types
 
-**Uses Agent Teams:** Research Analyst (only if external systems need lookup), Prompt Engineer (instructions), QA Challenger (review + scenarios), Topic Engineer (feasibility validation in Phase D).
+**Uses Agent Teams:** Research Analyst (only if external systems need lookup), Prompt Engineer (instructions), QA Challenger (review + eval set generation), Topic Engineer (feasibility validation in Phase D).
 
 **Iteration:** Customer reviews brief in the dashboard, answers open questions, then user re-runs `/mcs-research {projectId} {agentId}` to re-enrich (Phase 0 detects brief edits automatically).
 
@@ -491,9 +491,16 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 - Prevents duplicate agents on build restart / session crash
 
 **Step-Level Checkpoints (Resume Logic):**
-- `buildStatus.completedSteps` tracks which steps succeeded: `created`, `instructions`, `knowledge`, `tools`, `model`, `topics`, `published`
+- `buildStatus.completedSteps` tracks which steps succeeded: `created`, `instructions`, `knowledge`, `tools`, `model`, `topics`, `critical-gate`, `capability-iteration`, `regression`, `published`
 - On resume, completed steps are skipped — build continues from the failure point
-- Publish (Step 5) always re-runs since it's cheap and ensures latest state
+- Publish always re-runs since it's cheap and ensures latest state
+
+**Eval-Driven Iteration (Step 4.5 — after initial setup):**
+- **Critical gate** → must pass 100% before any capability work (max 3 attempts, then HARD STOP)
+- **Per-capability iteration** → run capability tests, fix failures, re-run (max 3 iterations per capability)
+- **Regression suite** → cross-capability end-to-end (max 2 rounds)
+- Fix logic (PE for instructions, TE for topics) runs INSIDE the build loop — no separate `/mcs-fix` needed for initial build
+- Iteration limits from `evalConfig` (targetPassRate, maxIterationsPerCapability, maxRegressionRounds)
 
 **MVP Phase Filtering:**
 - Only builds items tagged `phase: "mvp"` — skips `phase: "future"` across capabilities, integrations, knowledge, and topics
@@ -514,17 +521,19 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 
 ## EVAL: Test & Validate (`/mcs-eval`)
 
-**Goal:** Run evaluation tests and write results back to brief.json for dashboard display.
+**Goal:** Run eval sets (all or specific) and write per-test results to brief.json for dashboard display.
 
-**Input:** `/mcs-eval {projectId} {agentId}`
-**Reads:** `brief.json` evals array or `evals.csv`
-**Writes:** `brief.json` evalResults + `evals-results.json`
+**Input:** `/mcs-eval {projectId} {agentId}` or `/mcs-eval {projectId} {agentId} --set critical,functional`
+**Reads:** `brief.json` evalSets array
+**Writes:** `brief.json` evalSets[].tests[].lastResult + `evals-results.json`
 
 **Three-tier eval strategy:**
 - **Tier 1: Direct Line API** (preferred) — hardened with auto-token via Token Endpoint, retry with backoff, 60s timeout, structured partial results
 - **Tier 2: Playwright Test Chat** (fallback) — drives Test Chat pane in MCS UI, no token needed, scores locally using same logic as Tier 1
 - **Tier 3: Native MCS Eval** (async, optional) — uploads CSV to Evaluation tab, starts eval, returns immediately. Check results later with `--check-results`
 - **Automatic failover:** Tier 1 → Tier 2. Tier 3 only on explicit user request (`--native` flag).
+
+**Per-set pass logic:** each test must pass ALL methods defined by its set. Scored methods check threshold, binary methods are pass/fail.
 
 **Test method types:** See `knowledge/cache/eval-methods.md`
 
@@ -539,19 +548,19 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 
 ---
 
-## FIX: Post-Eval Fix & Re-Evaluate (`/mcs-fix`)
+## FIX: Post-Deployment Fix & Re-Evaluate (`/mcs-fix`)
 
-**Goal:** Analyze eval failures, classify root causes, apply targeted fixes, and re-evaluate to measure improvement. Closes the eval→fix→re-eval loop.
+**Goal:** Fix post-deployment issues — edge cases found by real users, regressions, new requirements. For initial build iteration, use `/mcs-build` (which has an internal eval-driven fix loop).
 
 **Input:** `/mcs-fix {projectId} {agentId}`
-**Reads:** `brief.json` (evalResults, instructions, integrations, capabilities, conversations.topics)
-**Writes:** `brief.json` (instructions, conversations.topics, notes.fixHistory), agent in MCS (via hybrid stack)
+**Reads:** `brief.json` (evalSets with failing tests, instructions, integrations, capabilities, conversations.topics)
+**Writes:** `brief.json` (instructions, conversations.topics, evalSets, notes.fixHistory), agent in MCS (via hybrid stack)
 
 **5 root cause categories:** instruction gap, boundary violation, routing failure, knowledge gap (manual — can't auto-fix), scoring issue
 
-**Flow:** Read eval results → QA classifies failures → User approves classification → PE fixes instructions + TE fixes topics (parallel) → Lead applies via hybrid stack → Re-evaluate via Direct Line → Compare before/after
+**Flow:** Read eval set results → QA classifies failures → User approves classification → PE fixes instructions + TE fixes topics (parallel) → Lead applies via hybrid stack → Re-evaluate via Direct Line → Compare per-set pass rates before/after
 
-**Uses Agent Teams:** QA Challenger (failure classification), Prompt Engineer (instruction fixes), Topic Engineer (topic/trigger fixes). Max 2 fix iterations per invocation.
+**Uses Agent Teams:** QA Challenger (failure classification), Prompt Engineer (instruction fixes), Topic Engineer (topic/trigger fixes). Max 2 fix iterations per invocation. Can add new tests to eval sets based on real-world failures.
 
 ---
 
@@ -653,7 +662,7 @@ requirements.txt            # Python dependencies
 │   ├── mcs-context/        # Pull M365 history via WorkIQ
 │   ├── mcs-research/       # Read docs + full enrichment → brief.json + evals
 │   ├── mcs-build/          # Build agent(s) in MCS via hybrid stack
-│   ├── mcs-eval/           # Run eval tests → brief.json evalResults
+│   ├── mcs-eval/           # Run eval sets → evalSets[].tests[].lastResult
 │   ├── mcs-fix/            # Post-eval fix → re-eval loop
 │   ├── mcs-refresh/        # Refresh knowledge cache
 │   ├── bug/                # File bug reports via az CLI

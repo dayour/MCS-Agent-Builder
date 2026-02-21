@@ -1,11 +1,11 @@
 ---
 name: mcs-fix
-description: Analyze eval failures, classify root causes, apply fixes (instructions/topics/evals), and re-evaluate. Uses PE + TE + QA teammates. Closes the eval→fix→re-eval loop.
+description: "Post-deployment fix: analyze eval set failures, classify root causes, apply targeted fixes, and re-evaluate. For initial build iteration, use /mcs-build (which has an internal fix loop). This skill handles post-deployment edge cases and regressions."
 ---
 
 # MCS Fix — Post-Eval Fix & Re-Evaluate
 
-Analyze eval failures from `/mcs-eval`, classify root causes, generate and apply targeted fixes, then re-evaluate to measure improvement. This skill closes the eval→fix→re-eval loop that was previously manual.
+Analyze eval set failures from `/mcs-eval`, classify root causes, generate and apply targeted fixes, then re-evaluate to measure improvement. Use this skill for post-deployment fixes — the initial build iteration loop is handled by `/mcs-build`.
 
 ## Input
 
@@ -13,21 +13,29 @@ Analyze eval failures from `/mcs-eval`, classify root causes, generate and apply
 /mcs-fix {projectId} {agentId}
 ```
 
-**Reads:** `Build-Guides/{projectId}/agents/{agentId}/brief.json` — evalResults, instructions, integrations, capabilities, conversations.topics
-**Writes:** `brief.json` (instructions, conversations.topics, notes.fixHistory), agent in MCS (via hybrid stack)
+**Reads:** `Build-Guides/{projectId}/agents/{agentId}/brief.json` — evalSets (tests with lastResult), instructions, integrations, capabilities, conversations.topics
+**Writes:** `brief.json` (instructions, conversations.topics, evalSets, notes.fixHistory), agent in MCS (via hybrid stack)
 
 ## Step 1: Read & Validate Eval Results (Lead)
 
-1. Read `brief.json.evalResults` — must exist with at least 1 failure
-2. If no `evalResults` → **exit:** "Run `/mcs-eval` first — no eval results found."
-3. If 100% pass → **exit:** "All evals passing. Nothing to fix."
-4. Output summary:
+1. Read `brief.json.evalSets[]` — scan all tests for `lastResult`
+2. If no tests have `lastResult` → **exit:** "Run `/mcs-eval` first — no eval results found."
+3. Compute per-set pass rates: for each set, count tests with `lastResult.pass == true` vs total tested
+4. If all sets meet their `passThreshold` → **exit:** "All eval sets passing their thresholds. Nothing to fix."
+5. Output summary:
 
 ```
 ## Fix: {Agent Name}
 
-**Eval results:** {X}/{Y} passed ({Z}%)
-**Failures:** {Y-X} test cases to analyze
+**Eval set status:**
+| Set | Passed | Total | Rate | Target | Status |
+|-----|--------|-------|------|--------|--------|
+| critical | X | Y | Z% | 100% | PASS/FAIL |
+| functional | X | Y | Z% | 70% | PASS/FAIL |
+...
+
+**Failing sets:** {list}
+**Failed tests:** {N} test cases to analyze
 
 Proceeding to classify failures...
 ```
@@ -46,7 +54,7 @@ Provide relevant learnings to QA Challenger alongside the brief data so QA can c
 ### Spawn QA Challenger
 
 Spawn **QA Challenger** to analyze each failed test case. Provide QA with:
-- `brief.json.evalResults` (full results including question, expected, actual, score)
+- `brief.json.evalSets[]` (all sets with tests and their lastResult — focus on tests where lastResult.pass == false)
 - `brief.json.instructions` (current instructions)
 - `brief.json.conversations.topics[]` (current topic list)
 - `brief.json.integrations[]` (configured tools)
@@ -124,9 +132,11 @@ TE produces:
 ### Scoring Fixes — Lead
 
 For `scoring issue` failures:
-- Adjust `evals.csv` entries — change `testMethodType` or `passingScore`
-- Update corresponding `brief.json.evals[]` entries
-- **Never remove existing evals** — only adjust method/threshold
+- Adjust the eval set's `methods[]` or `passThreshold` if the set-level config is too strict
+- Move individual tests to a different eval set if the test belongs in a different tier
+- Add new tests if real-world failures reveal untested scenarios
+- **Never remove existing tests** — only adjust set methods/thresholds or move tests between sets
+- Regenerate `evals.csv` after changes (flat export from updated evalSets)
 
 ### Knowledge Gaps — Skip (Flag Only)
 
@@ -149,7 +159,7 @@ Same tool priority as `/mcs-build`:
 | Instructions | Dataverse API | Update instructions field via `knowledge/patterns/dataverse-patterns.md` |
 | Topics | Code Editor YAML via Playwright | Paste revised YAML into code editor |
 | Trigger phrases | Code Editor YAML via Playwright | Update topic YAML |
-| Eval criteria | Local file | Rewrite `evals.csv` + `brief.json.evals[]` |
+| Eval criteria | Local file | Update `brief.json.evalSets[]` + regenerate `evals.csv` |
 
 **Silent browser verification required** before any Playwright interaction (see CLAUDE.md "MCS Browser Preflight — Silent Verification"). Compares browser account/env against `brief.json.buildStatus` — proceeds silently on match, alerts on mismatch.
 
@@ -193,7 +203,7 @@ Re-run eval via Direct Line API (same method as `/mcs-eval` Step 2):
 
 **Write results:**
 
-1. Update `brief.json.evalResults` with new results
+1. Update `brief.json.evalSets[].tests[].lastResult` with new per-test results
 2. Append to `brief.json.notes.fixHistory[]`:
 
 ```json
@@ -232,11 +242,11 @@ Re-run eval via Direct Line API (same method as `/mcs-eval` Step 2):
 
 - **User confirms classification before fixes** — Step 2 outputs the plan and waits for approval
 - **Knowledge gaps can't be auto-fixed** — flag and skip, don't attempt to add knowledge sources programmatically
-- **Never remove existing evals** — scoring fixes adjust method/threshold, never delete test cases
+- **Never remove existing tests** — scoring fixes adjust set methods/thresholds, never delete test cases. Can add new tests to sets.
 - **Publish after fixes** — agent must be re-published before re-eval (Direct Line tests the published version)
 - **Fix history is append-only** — track improvement over iterations in `notes.fixHistory[]`
 - **Max 2 fix iterations per invocation** — if still failing after 2 rounds of fix→re-eval, exit with "Manual review needed. Remaining failures may require knowledge updates or architectural changes."
-- **brief.json is THE source of truth** — all fixes update brief.json fields, not separate files
+- **brief.json evalSets is THE source of truth** — all fixes update evalSets + brief.json fields, not separate files
 - **Silent browser verification for Playwright** — compare against `brief.json.buildStatus`, proceed on match, alert on mismatch
 - **Environment check** — verify PAC CLI profile matches agent's environment before publishing
 - **No working-paper files** — PE and TE outputs are applied directly to brief.json and MCS. No intermediate files left behind.

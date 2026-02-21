@@ -5,7 +5,7 @@ description: Full research pass — reads project documents, identifies agents, 
 
 # MCS Research
 
-Single-pass pipeline: read documents, identify agents, research components, design architecture, write instructions, generate scenarios and evals. This skill absorbs the former mcs-analyze step — there is no separate extraction step.
+Single-pass pipeline: read documents, identify agents, research components, design architecture, write instructions, generate eval sets. This skill absorbs the former mcs-analyze step — there is no separate extraction step.
 
 ## Input
 
@@ -15,7 +15,7 @@ Single-pass pipeline: read documents, identify agents, research components, desi
 ```
 
 **Project-level** (no agentId):
-- First run: reads all docs, identifies agents, deep research, creates brief.json + evals.csv
+- First run: reads all docs, identifies agents, deep research, creates brief.json with evalSets + evals.csv
 - Subsequent runs: smart-detects new/changed docs, routes to full or incremental
 
 **Agent-level** (with agentId):
@@ -25,8 +25,8 @@ Single-pass pipeline: read documents, identify agents, research components, desi
 
 ## Output Files (per agent)
 
-- `Build-Guides/{projectId}/agents/{agentId}/brief.json` — Single source of truth (all fields populated including instructions)
-- `Build-Guides/{projectId}/agents/{agentId}/evals.csv` — Evaluation test cases
+- `Build-Guides/{projectId}/agents/{agentId}/brief.json` — Single source of truth (all fields populated including instructions + evalSets)
+- `Build-Guides/{projectId}/agents/{agentId}/evals.csv` — Evaluation test cases (flat CSV generated from evalSets for MCS native eval compatibility)
 
 **That's it. Two files.** No research report (future: on-demand export from dashboard). No working-paper files.
 
@@ -173,7 +173,7 @@ When `processingPath == "incremental"`, Phase A operates on new/changed docs onl
 4. **Check for new agents.** If new docs describe an agent not in `agents/`, the drastic threshold should have caught it in Phase 0 — escalate to `processingPath = "full"` if missed.
 5. **Extract data only from new/changed docs.** Map to agents using the doc→agent mapping from Step 0.4.
 6. **Apply merge rules:**
-   - **Append-only:** `capabilities[]`, `boundaries.handle/decline/refuse`, `integrations[]`, `conversations.topics[]`, `knowledge[]`, `scenarios[]`, `evals`
+   - **Append-only:** `capabilities[]`, `boundaries.handle/decline/refuse`, `integrations[]`, `conversations.topics[]`, `knowledge[]`, `evalSets[].tests[]`
    - **Never overwrite:** `instructions`, answered `openQuestions[].answer`
    - **Resolve:** unanswered `openQuestions` if doc provides the answer
    - **Flag conflicts:** `business.problemStatement`, `architecture.type` → add to `_updateFlags`
@@ -243,7 +243,6 @@ For each agent, extract what's in the documents AND cross-reference against `kno
 | `business.benefits` | Expected outcomes, ROI, efficiency gains |
 | `agent.description` | Agent purpose, what it does, for whom |
 | `capabilities[].name` | Solution ideas, capabilities list, "what it does" sections |
-| `scenarios[].userSays` | User prompts table, use case scenarios, conversation examples |
 | `boundaries.handle` | Inferred from capabilities and scope description |
 | `boundaries.decline` | Out-of-scope mentions, limitations |
 | `boundaries.refuse` | Hard boundaries, compliance requirements |
@@ -437,7 +436,7 @@ Phase A was skipped (no new docs to process). Go straight to:
 3. **QA reviews consistency** — do the answered questions create contradictions with existing brief fields? Are there new integration needs revealed by the answers?
 4. **Update MVP fields** if applicable — answered questions may clarify what's now vs later.
 
-Then proceed to Phase D (re-enrich — QA generates new evals only if answered questions affect eval coverage).
+Then proceed to Phase D (re-enrich — QA generates new eval tests only if answered questions affect eval coverage).
 
 ### Incremental Path (processingPath == "incremental")
 
@@ -536,28 +535,28 @@ Also enrich existing fields with research findings:
 - `conversations.topics[].triggerType` — how each topic is triggered
 - `notes` — any additional context discovered during research
 
-## Phase D: Scenarios & Evals
+## Phase D: Eval Sets & Topic Classification
 
-**Goal:** Generate test scenarios, classify topic needs, and produce evaluation CSV.
+**Goal:** Generate eval sets (5 default tiers + custom), classify topic needs, and produce evaluation CSV.
 
 ### Incremental Path (processingPath == "incremental")
 
-When `processingPath == "incremental"`, Phase D generates evals only for what's new:
+When `processingPath == "incremental"`, Phase D generates eval tests only for what's new:
 
-1. **Generate scenarios only for NEW capabilities** added during Phase A-inc. Do not regenerate scenarios for existing capabilities.
-2. **Append new eval rows** to existing `evals.csv` and `brief.json.evals[]`. Never remove or modify existing eval entries.
-3. **Preserve existing scenarios** — existing `scenarios[]` entries are untouched. New scenarios are appended.
-4. **QA reviews new scenarios only** — verify they don't duplicate existing test coverage.
+1. **Generate tests only for NEW capabilities** added during Phase A-inc. Distribute into the appropriate eval sets.
+2. **Append new tests** to existing `evalSets[].tests[]`. Never remove or modify existing test entries.
+3. **QA reviews new tests only** — verify they don't duplicate existing test coverage.
+4. **Regenerate `evals.csv`** from the updated evalSets (flat export for MCS native eval compatibility).
 
 Then proceed to Final Output (incremental format).
 
 ### Full Path (processingPath == "full" or "full-agent")
 
-Existing behavior — generate all scenarios and evals as described below.
+Existing behavior — generate all eval sets and topics as described below.
 
-### Before Scenarios: Consult Topic + Eval Learnings
+### Before Eval Generation: Consult Topic + Eval Learnings
 
-Read `knowledge/learnings/topics-triggers.md` and `knowledge/learnings/eval-testing.md` (if non-empty) before generating scenarios and classifying topics. Look for:
+Read `knowledge/learnings/topics-triggers.md` and `knowledge/learnings/eval-testing.md` (if non-empty) before generating eval sets and classifying topics. Look for:
 - Topic patterns that improved routing (trigger phrase strategies, "by agent" description patterns)
 - Eval method insights (which test methods work best for which scenario types, threshold calibration)
 - Provide relevant learnings to QA Challenger alongside the brief data
@@ -571,22 +570,11 @@ Since instructions are now generic (no hardcoded URLs, no tool listing, no namin
 - **Capabilities handled by knowledge Q&A** → generative orchestration is fine, but the knowledge source description must be specific enough for routing
 - **Topic descriptions are the #1 routing signal** — every custom topic's `description` field must clearly state when to use it AND when NOT to use it
 
-### Step 1: Generate Scenarios + Classify Topics — QA Challenger (single pass)
+### Step 1: Classify Topics + Generate Eval Sets — QA Challenger (single pass)
 
-Spawn **QA Challenger** to generate scenarios AND classify which need custom topics vs. generative orchestration in one pass.
+Spawn **QA Challenger** to classify topics AND populate all 5 default eval sets in one pass.
 
-QA produces:
-
-| Type | Count | Purpose |
-|------|-------|---------|
-| Happy path | 2-3 | Core successful interactions |
-| Edge case | 1-2 | Unusual but valid requests |
-| Boundary - Decline | 1-2 | Requests to decline gracefully |
-| Boundary - Refuse | 1 | Hard stops |
-| Error recovery | 1 | Graceful failure handling |
-| Multi-turn | 1 | Conversation continuity |
-
-For each scenario, QA also notes:
+**Topic classification:** For each capability, QA determines:
 - **Topic type**: `generative` (handled by orchestration + knowledge) or `custom` (needs dedicated topic YAML)
 - **Trigger type**: `by-agent` (AI routes via description) or `phrases` (explicit triggers) or `event` (autonomous)
 
@@ -598,9 +586,35 @@ For each scenario, QA also notes:
 - Requires channel-specific behavior (adaptive cards, quick replies)
 - Maps to a capability that the brief marks as requiring "structured" or "workflow" behavior
 
+**Eval set generation:** QA populates 5 default eval sets from the brief:
+
+| Set | What QA Generates | Source Material |
+|-----|-------------------|----------------|
+| **critical** (100% pass) | Boundary decline + refuse tests, identity/persona tests | `boundaries.decline[]`, `boundaries.refuse[]`, `agent.persona` |
+| **functional** (70% pass) | Happy-path tests per MVP capability | `capabilities[]` where `phase == "mvp"` |
+| **integration** (80% pass) | Tool/connector verification tests | `integrations[]` where `phase == "mvp"` |
+| **conversational** (60% pass) | Multi-turn, context carry, topic switching | Cross-capability scenarios, follow-ups |
+| **regression** (70% pass) | Cross-cutting end-to-end tests | Combined capabilities, edge cases |
+
+**Each test includes:**
+- `question` — realistic user message (including typos, informal language)
+- `expected` — what the response should contain or convey
+- `capability` — links to `capabilities[].name` (optional for cross-cutting tests)
+
+**Target counts:** 15-25 total tests across all sets. Critical set must have at least 1 test per boundary refuse/decline.
+
+**Methods are preset per set (defaults from schema):**
+- Critical: `Keyword match (all)` + `Exact match`
+- Functional: `Compare meaning (70)` + `Keyword match (any)`
+- Integration: `Capability use` + `Keyword match (any)`
+- Conversational: `General quality` + `Compare meaning (60)`
+- Regression: `Compare meaning (70)` + `General quality`
+
+Research may adjust methods per set based on agent specifics (e.g., raise Compare meaning threshold for precision-critical agents).
+
 ### Step 1.5: Topic Feasibility Review — Topic Engineer (single pass)
 
-Spawn **Topic Engineer** to validate the proposed topic structure before evals are generated. This catches structural issues early — before build — reducing rework.
+Spawn **Topic Engineer** to validate the proposed topic structure before the build. This catches structural issues early — reducing rework.
 
 Provide TE with:
 - `brief.json.conversations.topics[]` (topic list with types and triggers from QA)
@@ -619,22 +633,6 @@ TE reviews each proposed topic and produces a **per-topic feasibility assessment
 | **Trigger viability** | Is the trigger type appropriate? "By agent" description specific enough for AI routing? |
 | **Description quality** | Is the topic description specific enough for routing? Does it say when to use AND when NOT to use? (Descriptions are routing priority #1 — more important than instructions) |
 
-**TE output format:**
-
-```
-## Topic Feasibility Review
-
-| Topic | Verdict | Notes |
-|-------|---------|-------|
-| check-order-status | OK | Simple query + display, single topic fine |
-| create-incident | SPLIT | Needs form collection + API call + confirmation. Recommend: collect-incident-form (card) → submit-incident (HTTP) → confirm-incident (display) |
-| daily-summary | OK with caveat | Recurrence trigger + multi-source aggregation. Card may exceed 28KB for large datasets — add pagination |
-
-### Recommendations
-- Split "create-incident" into 3 sub-topics connected via BeginDialog
-- Add fallback text for daily-summary card (in case of Teams 28KB limit)
-```
-
 **What happens with TE's output:**
 - **OK** topics → no change to brief
 - **SPLIT** recommendations → update `conversations.topics[]` to reflect the split (add sub-topics, mark original as parent)
@@ -643,43 +641,34 @@ TE reviews each proposed topic and produces a **per-topic feasibility assessment
 
 **When to skip TE:** If the agent has no custom topics (all generative), skip this step — there's nothing structural to validate.
 
-### Step 2: Generate evals.csv (Lead)
+### Step 2: Write evalSets to brief.json + Generate evals.csv (Lead)
 
-From QA's scenarios, create `Build-Guides/{projectId}/agents/{agentId}/evals.csv`:
+Write the 5 eval sets to `brief.json.evalSets[]` and `brief.json.evalConfig`.
+
+Also generate `Build-Guides/{projectId}/agents/{agentId}/evals.csv` from the eval sets (flat format for MCS native eval compatibility):
 
 ```csv
 "question","expectedResponse","testMethodType","passingScore"
 ```
 
-Reference `knowledge/cache/eval-methods.md` for valid test method types and scoring rules.
-
-**Mapping rules:**
-- Happy path → `GeneralQuality` or `CompareMeaning` with "70"
-- Boundary DECLINE → `PartialMatch` with expected decline phrase
-- Boundary REFUSE → `PartialMatch` with expected refusal phrase
-- Specific factual answers → `PartialMatch` with key facts
+**Flattening rules (evalSets → CSV):**
+- Each test becomes one CSV row
+- `testMethodType` = first method from the test's set (e.g., functional → `CompareMeaning`)
+- `passingScore` = that method's score threshold (e.g., `70`), or empty for binary methods
 
 ### Step 3: Update brief.json
 
-Write evals to `brief.json.evals` array:
-```json
-{
-  "question": "...",
-  "expected": "...",
-  "method": "CompareMeaning",
-  "score": "70"
-}
-```
-
-Update `scenarios[]` with the generated scenarios.
-Update `conversations.topics[]` with topic classifications from QA.
+Write to `brief.json`:
+- `evalSets[]` — all 5 sets with their tests, methods, thresholds
+- `evalConfig` — `{ targetPassRate: 70, maxIterationsPerCapability: 3, maxRegressionRounds: 2 }`
+- `conversations.topics[]` — topic classifications from QA
 
 ## Final Output
 
 After all phases complete for each agent:
 
-1. **brief.json** — All fields populated (business, agent, capabilities, integrations, knowledge, conversations, boundaries, architecture, scenarios, evals, mvpSummary, openQuestions, instructions)
-2. **evals.csv** — Evaluation test cases in MCS format
+1. **brief.json** — All fields populated (business, agent, capabilities, integrations, knowledge, conversations, boundaries, architecture, evalSets, evalConfig, mvpSummary, openQuestions, instructions)
+2. **evals.csv** — Evaluation test cases in MCS-compatible flat CSV format (generated from evalSets)
 
 ### Report to User
 
@@ -693,7 +682,7 @@ When `processingPath == "incremental"`, use this format:
 **Mode:** Incremental ({N} new/changed docs processed)
 **Agents updated:** {count}
 
-| Agent | +Capabilities | +Integrations | +Evals | Flags |
+| Agent | +Capabilities | +Integrations | +Tests | Flags |
 |-------|--------------|---------------|--------|-------|
 | {name} | +{N} | +{M} | +{K} | {F} |
 
@@ -778,7 +767,7 @@ This timestamp lets incremental research know when the last full research was pe
 
 - **brief.json is THE source of truth** — the dashboard reads it, the build skill reads it, reports are generated from it
 - **There is no separate agent-spec.md** — everything lives in brief.json including instructions and MVP scope
-- **evals.csv is for testing** — the Eval skill reads it (also mirrored in brief.json evals array)
+- **evals.csv is for MCS native eval compatibility** — flat export from brief.json evalSets. The Eval skill reads evalSets directly.
 - **Only 2 permanent output files per agent**: `brief.json` and `evals.csv`. Nothing else.
 - **No working-paper files**: Do NOT leave intermediate artifacts like instruction drafts, QA reviews, connector research notes, or scenario docs as separate files. All research findings go INTO brief.json fields (instructions, integrations[].notes, notes{}, etc.). If teammates generate working documents during collaboration, consolidate their content into brief.json and delete the working files before completing.
 - **Targeted research, not exhaustive** — only spawn RA for systems that need live lookup. Stable categories (models, channels, triggers, knowledge) use cache.
@@ -794,7 +783,7 @@ This timestamp lets incremental research know when the last full research was pe
 - **`full-agent` for manually created agents.** Empty brief + agent scope = full research scoped to that agent.
 - **Incremental by default** — when a manifest exists and docs changed but no drastic thresholds are triggered, prefer the incremental path. Don't re-process unchanged documents.
 - **brief.json IS the context** — the existing brief contains all prior research. During incremental processing, read the brief for context instead of re-reading unchanged docs.
-- **Merge rules are sacred** — during incremental processing, follow incremental merge rules exactly. Never overwrite `instructions` or answered `openQuestions`. Append-only for arrays. Flag conflicts in `_updateFlags`.
+- **Merge rules are sacred** — during incremental processing, follow incremental merge rules exactly. Never overwrite `instructions` or answered `openQuestions`. Append-only for arrays and evalSets tests. Flag conflicts in `_updateFlags`.
 - **Manifest consistency** — after ANY path (full, full-agent, incremental, or re-enrich), the manifest must reflect the current `docs/` state with accurate hashes and timestamps.
 
 ## Teammate Usage Summary

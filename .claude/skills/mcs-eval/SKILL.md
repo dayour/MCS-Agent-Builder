@@ -1,6 +1,6 @@
 ---
 name: mcs-eval
-description: "Run evaluation tests for an agent using three-tier strategy: Direct Line API (hardened), Playwright Test Chat (fallback), or Native MCS Eval (async, optional). Writes results back to brief.json."
+description: "Run evaluation tests using eval sets (tiered test suites). Three-tier execution: Direct Line API, Playwright Test Chat (fallback), or Native MCS Eval (async). Results written per-test to evalSets[].tests[].lastResult."
 ---
 
 # MCS Evaluation Runner — Three-Tier Strategy
@@ -25,24 +25,25 @@ Run evaluation tests for an agent and write results back to `brief.json` so the 
 |----------|-------------|--------------|
 | **Generate CSV** | Write evals.csv to disk (if not present) | Read the file back |
 | **Run evaluation** | Execute tests via Tier 1/2/3 | Results JSON exists with scores |
-| **Write results** | Update brief.json with evalResults | Read brief.json back |
+| **Write results** | Update evalSets[].tests[].lastResult in brief.json | Read brief.json back |
 
 ## Input
 
 ```
-/mcs-eval {projectId} {agentId}
-/mcs-eval {projectId} {agentId} --native          # Force Tier 3 (native MCS eval)
+/mcs-eval {projectId} {agentId}                    # Run all eval sets
+/mcs-eval {projectId} {agentId} --set critical,functional  # Run specific sets
+/mcs-eval {projectId} {agentId} --native           # Force Tier 3 (native MCS eval)
 /mcs-eval {projectId} {agentId} --check-results    # Check pending native eval results
 ```
 
 Reads from:
-- `Build-Guides/{projectId}/agents/{agentId}/brief.json` — evals array + buildStatus
-- `Build-Guides/{projectId}/agents/{agentId}/evals.csv` — if already generated
+- `Build-Guides/{projectId}/agents/{agentId}/brief.json` — evalSets array + buildStatus
+- `Build-Guides/{projectId}/agents/{agentId}/evals.csv` — if already generated (for native eval only)
 
 Writes to:
-- `Build-Guides/{projectId}/agents/{agentId}/evals.csv` — test cases (if not present)
+- `Build-Guides/{projectId}/agents/{agentId}/evals.csv` — flat CSV (generated from evalSets for native eval)
 - `Build-Guides/{projectId}/agents/{agentId}/evals-results.json` — raw test results
-- `Build-Guides/{projectId}/agents/{agentId}/brief.json` — `evalResults` field updated
+- `Build-Guides/{projectId}/agents/{agentId}/brief.json` — `evalSets[].tests[].lastResult` updated per test
 
 ## Before Evaluating — Knowledge Cache + Learnings Check
 
@@ -54,33 +55,27 @@ Writes to:
    - Test design lessons (e.g., "Multi-turn scenarios need context setup in first message")
 4. Update cache if new findings
 
-## Step 1: Ensure evals.csv Exists
+## Step 1: Load Eval Sets & Determine Scope
 
-Check if `Build-Guides/{projectId}/agents/{agentId}/evals.csv` exists.
+Read `brief.json.evalSets[]`. If empty or missing → **exit:** "Run `/mcs-research` first — no eval sets found."
 
-**If present:** Read and validate format.
-**If absent:** Generate from `brief.json.evals` array:
+**Determine which sets to run:**
+- Default (no `--set` flag): run ALL sets
+- `--set critical,functional`: run only named sets
+- Skip sets with zero tests
+
+**Generate evals.csv** from evalSets if not present (needed for Tier 3 native eval only):
 
 ```csv
 "question","expectedResponse","testMethodType","passingScore"
 ```
 
-**Test method mapping:**
-| Source | Method | Score |
-|--------|--------|-------|
-| Happy path scenarios | `GeneralQuality` or `CompareMeaning` | "70" |
-| Boundary DECLINE | `PartialMatch` | "" |
-| Boundary REFUSE | `PartialMatch` | "" |
-| Specific facts | `PartialMatch` | "" |
-| Keyword presence | `KeywordMatch` | "70" |
-| Capability verification | `CapabilityUse` | "70" |
+Flattening rules:
+- Each test becomes one CSV row
+- `testMethodType` = first method from the test's set
+- `passingScore` = that method's score threshold, or empty for binary methods
 
-**Important:**
-- passingScore uses integer format ("70" not "0.7")
-- Only `TextSimilarity`, `CompareMeaning`, `KeywordMatch`, and `CapabilityUse` use passingScore
-- No "DoesNotContain", "AI", or "Contains" — these don't exist in MCS
-
-**VERIFY:** Read the file back. Confirm row count = header + N test cases. No formatting issues.
+**VERIFY:** Eval sets loaded, target sets identified, test count > 0.
 
 ## Step 2: Acquire Direct Line Token (Tier 1 Preparation)
 
@@ -257,34 +252,20 @@ When invoked with `--check-results`:
 
 ## Step 4: Write Results to brief.json
 
-After evaluation completes (any tier), update `brief.json`:
+After evaluation completes (any tier), update `brief.json.evalSets[].tests[].lastResult` for each test that was run:
 
 ```json
 {
-  "evalResults": {
-    "lastRun": "2026-02-18T14:30:00Z",
-    "method": "DirectLine",
-    "summary": {
-      "total": 10,
-      "executed": 10,
-      "passed": 8,
-      "failed": 2,
-      "remaining": 0,
-      "passRate": "80%"
-    },
-    "results": [
-      {
-        "question": "What are my high-priority items?",
-        "expected": "prioritized list with due dates",
-        "actual": "Here are your high-priority items...",
-        "pass": true,
-        "score": 85,
-        "method": "CompareMeaning"
-      }
-    ]
+  "lastResult": {
+    "pass": true,
+    "actual": "Here are your high-priority items...",
+    "score": 85,
+    "timestamp": "2026-02-18T14:30:00Z"
   }
 }
 ```
+
+Do NOT write a flat `evalResults` field — results live per-test in their eval set.
 
 Also cache the token endpoint URL if we discovered it:
 ```json
@@ -297,7 +278,7 @@ Also cache the token endpoint URL if we discovered it:
 }
 ```
 
-**VERIFY:** Read brief.json back. Confirm `evalResults.summary` matches test results.
+**VERIFY:** Read brief.json back. Confirm each test in the run sets has a `lastResult` with `pass`, `actual`, and `timestamp`.
 
 ## Step 5: Report Results
 
@@ -305,33 +286,39 @@ Also cache the token endpoint URL if we discovered it:
 ## Evaluation Results: {Agent Name}
 
 **Method:** {Direct Line API | Playwright Test Chat | Direct Line + Test Chat | MCS Native}
+**Sets run:** {set names}
 **Overall:** {X}/{Y} passed ({Z}%)
 
-**By Category:**
-| Category | Passed | Total | Rate |
-|----------|--------|-------|------|
-| Happy Path | X | Y | Z% |
-| Boundaries | X | Y | Z% |
+**Per-Set Results:**
+| Set | Passed | Total | Rate | Target | Status |
+|-----|--------|-------|------|--------|--------|
+| critical | X | Y | Z% | 100% | PASS/FAIL |
+| functional | X | Y | Z% | 70% | PASS/FAIL |
+| integration | X | Y | Z% | 80% | PASS/FAIL |
+| conversational | X | Y | Z% | 60% | PASS/FAIL |
+| regression | X | Y | Z% | 70% | PASS/FAIL |
 
 **Failed Cases:**
-| Question | Expected | Got | Issue |
-|----------|----------|-----|-------|
-| [input] | [expected] | [actual] | [analysis] |
+| Set | Question | Expected | Got | Issue |
+|-----|----------|----------|-----|-------|
+| [set] | [input] | [expected] | [actual] | [analysis] |
 
 **Recommendations:**
+- [If critical failures] STOP — fix safety/boundary issues before anything else
 - [If knowledge gap] Update knowledge sources
 - [If boundary fail] Strengthen instructions
 - [If routing fail] Expand trigger phrases / routing rules
 
 **Files Updated:**
-- brief.json → evalResults written
+- brief.json → evalSets[].tests[].lastResult updated
 - evals-results.json → raw results saved
 ```
 
 ## Quality Standards
 
-- **Boundaries should pass at 100%** — fix instructions if they don't
-- **Happy path at 70%+** is acceptable — review low scores for patterns
+- **Critical set MUST pass 100%** — hard stop if any critical test fails
+- **Functional set at 70%+** is acceptable for initial build
+- **Integration set at 80%+** verifies tools are actually working
 - **Re-run eval after any agent changes** — instructions, knowledge, tools
 - **GeneralQuality evals have variance** — run multiple times for confidence
 - **Tier 1 and Tier 2 should produce equivalent scores** — same scoring logic, different transport
@@ -385,10 +372,11 @@ Present to user. If confirmed, write to `knowledge/learnings/{category}.md` and 
 
 ## Important Rules
 
-- **brief.json is the primary output** — the dashboard reads evalResults from it
+- **brief.json evalSets is the primary output** — the dashboard reads per-test lastResult from it
 - **evals-results.json is the detailed backup** — for debugging
-- **Never mark eval complete after only generating CSV** — must run AND write results
-- **Use QA Challenger** to analyze failures and suggest fixes if pass rate is below 70%
+- **Never mark eval complete after only generating CSV** — must run AND write per-test results
+- **Use QA Challenger** to analyze failures and suggest fixes if any set fails its threshold
 - **Tier 2 (Test Chat) uses the SAME scoring logic** as Tier 1 (Direct Line) — only the transport differs
 - **Tier 3 (Native) is non-blocking** — start and return, check results separately
 - **Cache the token endpoint URL** in brief.json for future eval runs
+- **Per-set pass logic:** each test must pass ALL methods in its set. Scored methods check threshold, binary methods are pass/fail.
