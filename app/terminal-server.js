@@ -193,9 +193,9 @@ wss.on("connection", (ws) => {
   function submit(text) {
     if (!ptyProc) return;
     ready = false; // Mark busy — re-enabled when next prompt appears
-    ptyProc.write(text);
-    // Small delay then Enter — lets Claude's TUI ingest the text first
-    setTimeout(() => { if (ptyProc) ptyProc.write("\r"); }, 150);
+    // Write text + Enter atomically to prevent resize events from
+    // disrupting the TUI input state during a split-write window.
+    ptyProc.write(text + "\r");
   }
 
   ws.on("message", (raw) => {

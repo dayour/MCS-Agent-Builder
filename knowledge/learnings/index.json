@@ -66,6 +66,28 @@
       "tags": ["instructions", "urls", "anti-pattern", "follow-up", "audience", "three-part-structure", "boundaries"],
       "status": "active",
       "projects": ["cdw"]
+    },
+    {
+      "id": "et-001",
+      "file": "eval-testing.md",
+      "title": "Direct Line does NOT support SSO — use Playwright Test Chat for MCP agents",
+      "date": "2026-02-21",
+      "confirmed": 1,
+      "lastConfirmed": "2026-02-21",
+      "tags": ["direct-line", "sso", "mcp", "authentication", "playwright", "eval"],
+      "status": "active",
+      "projects": ["clint-project"]
+    },
+    {
+      "id": "et-002",
+      "file": "eval-testing.md",
+      "title": "Direct Line httpRequest needs Content-Length header",
+      "date": "2026-02-21",
+      "confirmed": 1,
+      "lastConfirmed": "2026-02-21",
+      "tags": ["direct-line", "content-length", "node-js", "http", "bug-fix"],
+      "status": "active",
+      "projects": ["clint-project"]
     }
   ]
 }

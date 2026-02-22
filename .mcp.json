@@ -2,7 +2,7 @@
   "mcpServers": {
     "playwright": {
       "command": "cmd",
-      "args": ["/c", "npx", "-y", "@playwright/mcp@latest", "--browser", "msedge", "--user-data-dir", "%USERPROFILE%\\.playwright-mcp-edge"]
+      "args": ["/c", "tools\\playwright-mcp-wrapper.cmd"]
     },
     "microsoft-learn": {
       "type": "http",

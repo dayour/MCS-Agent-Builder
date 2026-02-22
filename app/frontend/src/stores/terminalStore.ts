@@ -74,12 +74,19 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
   panelOpen: false,
   panelWidth: 500,
 
-  addSession: (session) =>
+  addSession: (session) => {
+    // If the session carries an initial command, queue it in pendingCommands
+    // so it's flushed via registerSessionWs after the WS connects.
+    // This unifies new-session and existing-session command delivery.
+    if (session.command) {
+      pendingCommands.set(session.id, session.command);
+    }
     set((s) => ({
       sessions: [...s.sessions, session],
       activeSessionId: session.id,
       panelOpen: true,
-    })),
+    }));
+  },
 
   findSession: (projectId, agentId) => {
     const key = `${projectId}-${agentId}`;

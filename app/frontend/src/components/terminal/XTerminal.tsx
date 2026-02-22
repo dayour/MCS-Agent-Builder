@@ -37,19 +37,16 @@ const XTerminal = ({ session, visible }: XTerminalProps) => {
     ws.onopen = () => {
       clearTimeout(connectTimeout);
       updateStatus(session.id, "running");
-      registerSessionWs(session.id, ws);
 
       const term = termRef.current;
       const cols = term?.cols ?? 120;
       const rows = term?.rows ?? 30;
 
-      if (session.command) {
-        // Send command — server spawns Claude Code and queues the command
-        ws.send(JSON.stringify({ type: "command", text: session.command, cols, rows }));
-      } else {
-        // Just spawn Claude Code
-        ws.send(JSON.stringify({ type: "init", cols, rows }));
-      }
+      // Always send init first — spawns Claude Code with correct dimensions
+      ws.send(JSON.stringify({ type: "init", cols, rows }));
+
+      // Register WS — flushes any pending command queued by addSession/sendCommand
+      registerSessionWs(session.id, ws);
     };
 
     ws.onmessage = (event) => {
