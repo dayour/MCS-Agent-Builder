@@ -77,6 +77,23 @@ Flattening rules:
 
 **VERIFY:** Eval sets loaded, target sets identified, test count > 0.
 
+## Step 1.5: Auto-Tier Detection
+
+Before acquiring tokens, check if the agent even supports Direct Line eval:
+
+```bash
+node tools/playwright-eval-runner.js --brief "Build-Guides/{projectId}/agents/{agentId}/brief.json" --action detect-tier
+```
+
+**Decision logic:**
+- If `recommendedTier: 2` (agent uses MCP or user-delegated tools):
+  - Log: `"Agent uses MCP/user-delegated tools — Direct Line cannot authenticate users for these. Skipping to Tier 2 (Playwright Test Chat)."`
+  - Jump directly to **Step 3 alt: Tier 2**
+- If `recommendedTier: 1`:
+  - Proceed with Tier 1 token acquisition below
+
+**Manual override:** User can force a tier with `--tier 1` or `--tier 2`.
+
 ## Step 2: Acquire Direct Line Token (Tier 1 Preparation)
 
 Try these sources in order. Stop at first success:
@@ -144,7 +161,22 @@ Results saved to `Build-Guides/{projectId}/agents/{agentId}/evals-results.json`:
 
 ## Step 3 alt: Run Tests — Tier 2 (Playwright Test Chat)
 
-**Use when:** Direct Line token acquisition fails, OR Tier 1 produced partial results and needs continuation, OR user requests.
+**Use when:** Auto-tier detection recommends Tier 2 (MCP/user-delegated tools), Direct Line token acquisition fails, Tier 1 produced partial results and needs continuation, or user requests.
+
+### Generate Test Plan
+
+```bash
+node tools/playwright-eval-runner.js --brief "Build-Guides/{projectId}/agents/{agentId}/brief.json" --action plan
+# Or for specific sets:
+node tools/playwright-eval-runner.js --brief "Build-Guides/{projectId}/agents/{agentId}/brief.json" --action plan --set critical,functional
+```
+
+Read the JSON output. Report to the user:
+```
+Running {N} tests ({F} fast boundary, {S} slow tool-calling). Estimated: ~{X}m
+  - {set1}: {N} tests
+  - {set2}: {N} tests
+```
 
 ### Silent Browser Verification (MANDATORY)
 
@@ -162,35 +194,56 @@ Results saved to `Build-Guides/{projectId}/agents/{agentId}/evals-results.json`:
 2. Open the Test Chat pane (bottom-right "Test" button or "Test your agent" panel)
 3. If Test Chat is already open, proceed. If not, click to open it.
 
-### Run Each Test Case
+### Run Each Test (Following the Plan)
 
-For each test case in the CSV (or remaining cases if continuing from Tier 1 partial results):
+Execute tests in the order specified by the test plan (`order` field). The plan optimizes by running boundary tests first (fast, no reset needed between them) and tool-calling tests after (slow, need session reset).
 
-1. **Reset conversation** — Click the reset/new conversation icon in the Test Chat header to clear context
+For each test in plan order:
+
+1. **Reset if needed** — If `needsReset: true`, click the reset/new conversation icon in the Test Chat header. Wait for the greeting message or empty state before proceeding.
+   - Boundary-to-boundary transitions skip reset (saves ~10s per test)
+   - Tool tests always reset (previous tool state carries over)
 2. **Type the test question** — Type the question into the chat input field
 3. **Submit** — Press Enter or click Send
-4. **Wait for response** — Poll `browser_snapshot` until the agent's response appears (max 60s):
-   - Look for a new message bubble from the agent (not "Typing..." indicator)
-   - If the snapshot shows "Typing..." or loading, wait 2-3 seconds and re-snapshot
-   - If no response after 60s, record as timeout
-5. **Extract response text** — Read the agent's response text from the snapshot
-6. **Score locally** — Use the same scoring logic as `direct-line-test.js`:
-   - `Exact match`: exact string comparison
-   - `Keyword match (all)`: all keywords from expected present in response
-   - `Keyword match (any)`: any keyword from expected present in response
-   - `Text similarity`: Jaccard word overlap
-   - `Compare meaning`: keyword overlap + length ratio
-   - `General quality`: quality heuristics (non-empty, keywords, length, no errors)
-   - `Capability use`: check for capability indicators in response
+4. **Wait for response** — Poll `browser_snapshot` until the agent's response appears:
+   - **Boundary tests:** max 30s timeout (these are fast refusal/decline responses)
+   - **Tool tests:** max 90s timeout (tool calls take time)
+   - Look for bot response text in snapshot (accessible name pattern: `generic "Bot said: ..."`)
+   - If snapshot shows "Typing..." or a loading indicator, wait 3s and re-snapshot
+   - If no response after timeout, record as `[TIMEOUT - No response within Xs]`
+5. **Extract response text** — Read the agent's response text from the snapshot. Use the accessible name or text content of the last bot message bubble.
+6. **Record result** — Save `{ id, actual }` to the results collection
+7. **Progressive write** — After each test, write partial results so interrupted runs preserve progress:
+   ```bash
+   # After all tests complete (or on interrupt), score everything:
+   node tools/playwright-eval-runner.js --brief <path> --action score --results <results-file>
+   ```
 
-### Write Results
+### Score and Write Results
 
-Write results to `evals-results.json` in the **same format** as Direct Line output:
+After all tests complete, write results to a temporary JSON file and score them:
+
+```bash
+# Write results file (from collected actuals during Playwright execution):
+# { "results": [{ "id": 0, "actual": "I can only help with..." }, ...] }
+
+# Score and write to brief.json:
+node tools/playwright-eval-runner.js --brief "Build-Guides/{projectId}/agents/{agentId}/brief.json" --action score --results "<results-file>"
+```
+
+The scorer:
+- Evaluates each test against ALL methods in its eval set (shared `eval-scoring.js` module)
+- Writes `lastResult` per-test to `brief.json.evalSets[].tests[].lastResult`
+- Writes detailed results to `evals-results.json` (same format as Tier 1)
+- Outputs per-set pass rates
+
+Results format matches Direct Line output:
 ```json
 {
   "status": "complete",
   "summary": { "total": 10, "executed": 10, "passed": 7, "failed": 3, "remaining": 0, "passRate": "70%" },
   "method": "PlaywrightTestChat",
+  "perSet": { "critical": { "total": 3, "passed": 3, "failed": 0, "passRate": "100%" } },
   "results": [...]
 }
 ```

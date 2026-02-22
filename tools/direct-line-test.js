@@ -30,6 +30,7 @@ const fs = require('fs');
 const https = require('https');
 const http = require('http');
 const { URL } = require('url');
+const { evaluateResult, parseCSV } = require('./eval-scoring');
 
 // --- Configuration ---
 const DEFAULT_ENDPOINT = 'https://directline.botframework.com/v3/directline';
@@ -86,57 +87,24 @@ Examples:
     return config;
 }
 
-// --- CSV Parser (simple, handles quoted fields) ---
-function parseCSV(content) {
-    const lines = content.trim().split('\n');
-    const rows = [];
-
-    for (const line of lines) {
-        const fields = [];
-        let current = '';
-        let inQuotes = false;
-
-        for (let i = 0; i < line.length; i++) {
-            const ch = line[i];
-            if (ch === '"') {
-                if (inQuotes && line[i + 1] === '"') {
-                    current += '"';
-                    i++;
-                } else {
-                    inQuotes = !inQuotes;
-                }
-            } else if (ch === ',' && !inQuotes) {
-                fields.push(current.trim());
-                current = '';
-            } else {
-                current += ch;
-            }
-        }
-        fields.push(current.trim());
-        rows.push(fields);
-    }
-
-    // Skip header row
-    const header = rows[0];
-    return rows.slice(1).map(row => ({
-        question: row[0] || '',
-        expectedResponse: row[1] || '',
-        testMethodType: row[2] || 'GeneralQuality',
-        passingScore: parseInt(row[3]) || 70
-    }));
-}
+// CSV parsing and scoring now use shared module: ./eval-scoring.js
 
 // --- HTTP Helper with retry ---
 function httpRequest(method, url, headers, body) {
     return new Promise((resolve, reject) => {
         const parsed = new URL(url);
         const transport = parsed.protocol === 'http:' ? http : https;
+        const bodyStr = body ? JSON.stringify(body) : null;
         const options = {
             hostname: parsed.hostname,
             port: parsed.port || (parsed.protocol === 'http:' ? 80 : 443),
             path: parsed.pathname + parsed.search,
             method,
-            headers: { ...headers, 'Content-Type': 'application/json' }
+            headers: {
+                ...headers,
+                'Content-Type': 'application/json',
+                ...(bodyStr ? { 'Content-Length': Buffer.byteLength(bodyStr) } : {})
+            }
         };
 
         const req = transport.request(options, (res) => {
@@ -155,7 +123,7 @@ function httpRequest(method, url, headers, body) {
         req.setTimeout(15000, () => {
             req.destroy(new Error('Request timeout'));
         });
-        if (body) req.write(JSON.stringify(body));
+        if (bodyStr) req.write(bodyStr);
         req.end();
     });
 }
@@ -369,105 +337,9 @@ class DirectLineClient {
     }
 }
 
-// --- Test Method Evaluators ---
-function evaluateResult(actual, expected, method, passingScore) {
-    switch (method) {
-        case 'ExactMatch':
-            return { pass: actual.trim() === expected.trim(), score: actual.trim() === expected.trim() ? 100 : 0 };
-
-        case 'PartialMatch':
-            const contains = actual.toLowerCase().includes(expected.toLowerCase());
-            return { pass: contains, score: contains ? 100 : 0 };
-
-        case 'KeywordMatch': {
-            // Check if all keywords from expected are present in actual
-            const keywords = expected.toLowerCase().split(/[,;\s]+/).filter(w => w.length > 2);
-            if (keywords.length === 0) return { pass: actual.length > 0, score: actual.length > 0 ? 100 : 0 };
-            const actualLower = actual.toLowerCase();
-            const hits = keywords.filter(kw => actualLower.includes(kw)).length;
-            const score = Math.round((hits / keywords.length) * 100);
-            return { pass: score >= (passingScore || 70), score };
-        }
-
-        case 'TextSimilarity': {
-            const score = textSimilarity(actual, expected);
-            return { pass: score >= passingScore, score };
-        }
-
-        case 'CompareMeaning': {
-            // Simplified semantic comparison using keyword overlap
-            // In production, use an LLM or embedding model for true semantic comparison
-            const score = semanticSimilarity(actual, expected);
-            return { pass: score >= passingScore, score };
-        }
-
-        case 'GeneralQuality': {
-            // Basic quality heuristics - in production, use an LLM judge
-            const score = qualityScore(actual, expected);
-            return { pass: score >= 50, score };
-        }
-
-        case 'CapabilityUse': {
-            // Check if the response indicates a capability was used (e.g., tool call, data retrieval)
-            // Expected format: comma-separated indicators that should be present
-            const indicators = expected.toLowerCase().split(/[,;]+/).map(s => s.trim()).filter(Boolean);
-            const actualLower = actual.toLowerCase();
-            const hits = indicators.filter(ind => actualLower.includes(ind)).length;
-            const score = indicators.length > 0 ? Math.round((hits / indicators.length) * 100) : (actual.length > 20 ? 80 : 0);
-            return { pass: score >= (passingScore || 70), score };
-        }
-
-        default:
-            return { pass: false, score: 0, error: `Unknown test method: ${method}` };
-    }
-}
-
-// Simple text similarity (Jaccard on word tokens)
-function textSimilarity(a, b) {
-    const wordsA = new Set(a.toLowerCase().split(/\s+/).filter(w => w.length > 2));
-    const wordsB = new Set(b.toLowerCase().split(/\s+/).filter(w => w.length > 2));
-    const intersection = [...wordsA].filter(w => wordsB.has(w)).length;
-    const union = new Set([...wordsA, ...wordsB]).size;
-    return union === 0 ? 0 : Math.round((intersection / union) * 100);
-}
-
-// Simplified semantic similarity (keyword overlap + length ratio)
-function semanticSimilarity(actual, expected) {
-    const keywordsExpected = expected.toLowerCase().split(/\s+/).filter(w => w.length > 3);
-    if (keywordsExpected.length === 0) return actual.length > 0 ? 70 : 0;
-
-    const actualLower = actual.toLowerCase();
-    const hits = keywordsExpected.filter(kw => actualLower.includes(kw)).length;
-    const keywordScore = (hits / keywordsExpected.length) * 100;
-
-    // Bonus for reasonable length (not too short, not way too long)
-    const lengthRatio = actual.length / Math.max(expected.length, 1);
-    const lengthBonus = (lengthRatio >= 0.3 && lengthRatio <= 5) ? 10 : 0;
-
-    return Math.min(100, Math.round(keywordScore + lengthBonus));
-}
-
-// Basic quality heuristics
-function qualityScore(actual, expected) {
-    let score = 0;
-
-    // Not empty
-    if (actual.length > 10) score += 20;
-
-    // Contains some expected keywords
-    const keywords = expected.toLowerCase().split(/\s+/).filter(w => w.length > 3);
-    const actualLower = actual.toLowerCase();
-    const keywordHits = keywords.filter(kw => actualLower.includes(kw)).length;
-    if (keywords.length > 0) score += (keywordHits / keywords.length) * 50;
-
-    // Reasonable length
-    if (actual.length > 20 && actual.length < 5000) score += 15;
-
-    // No error indicators
-    if (!actualLower.includes('error') && !actualLower.includes('sorry, i can\'t')) score += 15;
-
-    return Math.round(score);
-}
+// Scoring functions now imported from shared module (./eval-scoring.js)
+// evaluateResult(actual, expected, method, passingScore, mode) handles all 6 MCS methods
+// including display-name aliases and legacy PartialMatch → KeywordMatch mapping
 
 // --- Write partial results (for failover support) ---
 function writeResults(config, results, testCases, status, failedAtIndex) {

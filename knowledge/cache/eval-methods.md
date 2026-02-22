@@ -167,21 +167,41 @@ node tools/direct-line-test.js --token-endpoint "<URL>" --csv evals.csv --timeou
 
 Results saved to `evals-results.json`.
 
-### Tier 2: Playwright Test Chat (fallback — no token needed)
+### Tier 2: Playwright Test Chat (fallback — or primary for MCP agents)
 
-Drive the MCS Test Chat pane directly via Playwright. Uses the same agent runtime as Direct Line — same responses, same quality. No token acquisition needed.
+Drive the MCS Test Chat pane directly via Playwright. Uses the same agent runtime as Direct Line — same responses, same quality. No token acquisition needed. **Required** for agents with MCP/user-delegated tools (Outlook, Calendar, Teams, etc.) since Direct Line cannot authenticate users for these.
 
 **When to use:**
+- Agent uses MCP or user-delegated tools (auto-detected by `playwright-eval-runner.js --action detect-tier`)
 - Direct Line token acquisition fails entirely
 - Tier 1 produced partial results and remaining tests need completion
 - User prefers browser-based testing
 
-**How it works:**
-1. Open agent in MCS → Test Chat pane
-2. For each test: reset conversation → type question → wait for response → extract text → score locally
-3. Uses identical scoring logic as `direct-line-test.js` (same functions, same thresholds)
+**Tooling:**
 
-**Speed:** ~5-8 seconds per test case (vs ~2s for Direct Line)
+```bash
+# Generate optimized test plan (boundary tests first, tool tests after)
+node tools/playwright-eval-runner.js --brief <path> --action plan [--set critical,functional]
+
+# Score collected results and write to brief.json
+node tools/playwright-eval-runner.js --brief <path> --action score --results <results-file>
+
+# Auto-detect recommended tier based on agent config
+node tools/playwright-eval-runner.js --brief <path> --action detect-tier
+```
+
+**How it works:**
+1. Generate test plan → orders boundary tests first (fast ~5s), tool tests after (slow ~60-90s)
+2. Open agent in MCS → Test Chat pane
+3. For each test in plan order: reset if needed → type question → wait for response → extract text
+4. Boundary tests skip session reset between them (independent, no tool state)
+5. Tool tests get fresh sessions (previous tool call results carry over)
+6. After all tests: score results using shared `eval-scoring.js` module (identical logic to Tier 1)
+7. Results written to `brief.json.evalSets[].tests[].lastResult` + `evals-results.json`
+
+**Scoring:** Uses shared `tools/eval-scoring.js` module — identical scoring functions as Direct Line runner. All 6 MCS methods supported with display-name aliases and mode parameters.
+
+**Speed:** ~5s/test for boundary tests, ~60-90s/test for tool-calling tests
 **Reliability:** High — no tokens, no API keys, uses existing browser session
 
 ### Tier 3: Native MCS Evaluation (async, optional)
