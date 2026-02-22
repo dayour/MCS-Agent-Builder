@@ -36,7 +36,7 @@ If `.docx` files exist, convert them to `.md` using pandoc:
 ```
 pandoc "file.docx" -t gfm -o "file.md"
 ```
-Note: pandoc may be at `C:\Users\kimdennis\AppData\Local\Pandoc\pandoc.exe` on this machine.
+Note: pandoc is typically at `%LOCALAPPDATA%\Pandoc\pandoc.exe` — resolve via `where pandoc` or `gcm pandoc`.
 
 **Path B: No SDR files, start from scratch**
 No template needed — `/mcs-research` will create brief.json during Phase A (agent identification).

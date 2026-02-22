@@ -6,6 +6,7 @@
  */
 import { create } from "zustand";
 import type { TerminalSession } from "@/types";
+import { getTerminalWsUrl } from "@/lib/api";
 
 export type { TerminalSession } from "@/types";
 
@@ -34,6 +35,8 @@ export function getSessionWs(sessionId: string): WebSocket | undefined {
 }
 
 function createDefaultSession(): TerminalSession {
+  // wsUrl will be resolved asynchronously before first use
+  const port = parseInt(window.location.port || "8000", 10);
   return {
     id: "main-" + crypto.randomUUID(),
     label: "Terminal",
@@ -41,7 +44,7 @@ function createDefaultSession(): TerminalSession {
     projectId: "system",
     agentName: "Terminal",
     status: "connecting" as const,
-    wsUrl: "ws://localhost:8001/ws",
+    wsUrl: `ws://localhost:${port + 1}/ws`,
   };
 }
 
@@ -123,6 +126,14 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
     const { sessions } = get();
     if (sessions.length === 0) {
       const session = createDefaultSession();
+      // Resolve actual terminal URL asynchronously and patch the session
+      getTerminalWsUrl().then((url) => {
+        set((s) => ({
+          sessions: s.sessions.map((sess) =>
+            sess.id === session.id ? { ...sess, wsUrl: url } : sess
+          ),
+        }));
+      });
       set({ sessions: [session], activeSessionId: session.id, panelOpen: true });
     } else {
       set({ panelOpen: true });

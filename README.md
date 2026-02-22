@@ -4,17 +4,39 @@ Automate end-to-end Microsoft Copilot Studio agent builds — from customer inta
 
 ## Quick Start
 
+### Option A: `start.cmd` (Windows — installs everything)
+
 ```powershell
 git clone https://dev.azure.com/powercatteam/_git/FDE
 cd FDE
 .\start.cmd
 ```
 
-That's it. Double-click `start.cmd` or run `.\start.cmd` from a terminal. On first run it installs Node.js, Python, Git, Claude Code, and all dependencies via winget — no admin needed. On subsequent runs it detects everything is present and launches instantly (~1 second). Every launch auto-updates from the repo, builds the frontend if needed, and opens your browser.
+Double-click `start.cmd` or run it from a terminal. On first run it installs Node.js, Python, Git, Claude Code, and all dependencies via winget — no admin needed. On subsequent runs it detects everything is present and launches instantly (~1 second). Every launch auto-updates from the repo, builds the frontend if needed, and opens your browser.
 
 Use `.\start.cmd --full` to force a full dependency check and upgrade pass.
 
-If you already have Node.js and Python installed, `npm start` still works as a direct launcher.
+### Option B: `npm install` (cross-platform — requires Node.js + Python)
+
+```bash
+npm install -g mcs-agent-builder
+mcs-agent-builder start
+```
+
+The install automatically sets up Python dependencies, builds the frontend, and configures environment variables. Requires Node.js 18+ and Python 3.10+ already installed.
+
+### CLI Commands
+
+```
+mcs-agent-builder start       Start the dashboard server
+mcs-agent-builder stop        Stop a running instance
+mcs-agent-builder restart     Restart (stop + start)
+mcs-agent-builder health      Check status (pid, port, HTTP)
+mcs-agent-builder --version   Show version
+mcs-agent-builder --help      Show help
+```
+
+Flag syntax (`--start`, `--stop`, etc.) also accepted.
 
 ## Prerequisites
 
@@ -129,6 +151,9 @@ The tool continuously learns and improves:
 start.cmd                   Double-click entry point (installs deps + launches)
 setup.ps1                   Bootstrap script (winget/npm/pip, .NET 10 SDK)
 start.js                    Launcher (npm start) — installs hooks, checks deps
+bin/
+  cli.js                    CLI entry point (mcs-agent-builder command)
+  postinstall.js            Post-install setup (Python deps, frontend build, env vars)
 
 .claude/
   settings.json             MCP servers, permissions, Agent Teams flag
@@ -170,8 +195,10 @@ Both servers bind to `127.0.0.1` (localhost only). No ports are exposed to the n
 
 | Port | Service | Binding |
 |------|---------|---------|
-| 8000 | Dashboard (FastAPI) | `127.0.0.1` — localhost only |
-| 8001 | Terminal (WebSocket) | `127.0.0.1` — localhost only |
+| 8000–8020 | Dashboard (FastAPI) | `127.0.0.1` — localhost only |
+| 8001–8021 | Terminal (WebSocket) | `127.0.0.1` — localhost only |
+
+Ports are auto-discovered in pairs (app, app+1). If 8000/8001 are busy, the next available pair is used. The actual port is shown in the terminal output and lockfile.
 
 ## Troubleshooting
 
@@ -179,6 +206,8 @@ Both servers bind to `127.0.0.1` (localhost only). No ports are exposed to the n
 |---------|-----|
 | `start.cmd` fails | Make sure winget is available (built into Windows 11). Try `.\start.cmd --full` to force a re-check |
 | `npm start` fails | Run `.\start.cmd` instead — it installs missing dependencies automatically |
+| `mcs-agent-builder start` fails | Ensure Python 3.10+ is installed: `python --version`. Re-run `npm install -g mcs-agent-builder` |
+| Port conflict | The launcher auto-discovers available ports (8000–8020). Run `mcs-agent-builder health` to see the actual port |
 | Bug/Suggest buttons not working | Run `.\start.cmd --full` to install Azure CLI, or install manually and run `az login` |
 | Dashboard won't load | Check terminal output for errors — both servers must be running |
 | Firewall prompt on startup | Should not happen (localhost-only binding). If it does, you can safely deny it |

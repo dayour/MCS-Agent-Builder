@@ -32,8 +32,8 @@
 - **PAC CLI**: v2.1.2 (MSI, no MCP) + v2.2.1 (NuGet via dnx, has MCP)
 - **.NET SDKs**: 8.0.418, 9.0.311, 10.0.102
 - **Az.Accounts**: NOT installed (was wrongly listed as v5.3.2). Use `az account get-access-token --resource https://<org>.crm.dynamics.com` instead.
-- **Pandoc**: `C:\Users\kimdennis\AppData\Local\Pandoc\pandoc.exe`
-- **WorkIQ CLI**: v0.2.8 at `C:\Users\kimdennis\AppData\Roaming\npm\workiq`
+- **Pandoc**: `%LOCALAPPDATA%\Pandoc\pandoc.exe` (resolve via `where pandoc` or `gcm pandoc`)
+- **WorkIQ CLI**: v0.2.8 at `%APPDATA%\npm\workiq` (resolve via `where workiq` or `gcm workiq`)
 
 ### WorkIQ MCP
 - **Auth**: One-time interactive browser auth per tenant (`workiq ask -q "test"`)

@@ -1,9 +1,41 @@
 {
-  "name": "mcs-automation",
+  "name": "mcs-agent-builder",
   "version": "1.0.0",
   "description": "Microsoft Copilot Studio agent build automation with Claude Code",
+  "author": "Microsoft CAPE Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://dev.azure.com/powercatteam/_git/FDE"
+  },
+  "bin": {
+    "mcs-agent-builder": "bin/cli.js"
+  },
+  "files": [
+    "bin/",
+    "app/server.py",
+    "app/terminal-server.js",
+    "app/lib/",
+    "app/dist/",
+    "app/frontend/",
+    "knowledge/",
+    "tools/",
+    "templates/",
+    "reference/",
+    ".claude/",
+    ".mcp.json",
+    "start.js",
+    "start.cmd",
+    "setup.ps1",
+    "requirements.txt",
+    "CLAUDE.md",
+    "README.md",
+    "CHANGELOG.md"
+  ],
   "scripts": {
     "start": "node start.js",
+    "postinstall": "node bin/postinstall.js",
+    "prepublishOnly": "npm --prefix app/frontend install && npm --prefix app/frontend run build",
     "app": "python app/server.py",
     "terminal": "node app/terminal-server.js",
     "test": "node tools/direct-line-test.js",
@@ -13,5 +45,8 @@
   "dependencies": {
     "node-pty": "^1.1.0",
     "ws": "^8.19.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }

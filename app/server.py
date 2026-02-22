@@ -51,9 +51,10 @@ from lib.readiness_calc import (
 # ---------------------------------------------------------------------------
 app = FastAPI(title="MCS Agent Builder", version="3.0")
 # CORS: restricted to localhost origins (server binds to 127.0.0.1).
+_port = int(os.environ.get("PORT", 8000))
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8000", "http://127.0.0.1:8000"],
+    allow_origins=[f"http://localhost:{_port}", f"http://127.0.0.1:{_port}"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -482,10 +483,18 @@ async def serve_index():
 
 
 @app.get("/health")
+@app.get("/api/health")
 async def health_check():
     """Health check endpoint."""
     terminal_running = _terminal_server_proc is not None and _terminal_server_proc.poll() is None
     return {"status": "ok", "terminal": terminal_running}
+
+
+@app.get("/api/config")
+async def get_config():
+    """Return runtime config (ports) so the frontend can discover the terminal WS URL."""
+    terminal_port = int(os.environ.get("TERMINAL_PORT", _port + 1))
+    return {"terminalWsUrl": f"ws://localhost:{terminal_port}/ws"}
 
 
 @app.get("/api/projects")
@@ -954,20 +963,22 @@ async def delete_doc(project_id: str, filename: str):
 _terminal_server_proc = None
 
 
-def _kill_stale_terminal_server():
-    """Kill any leftover node process on port 8001 from a previous run."""
+def _kill_stale_terminal_server(terminal_port: int):
+    """Kill any leftover node process on the terminal port from a previous run."""
     try:
         result = subprocess.run(
             ["netstat", "-ano", "-p", "TCP"],
             capture_output=True, text=True, timeout=5,
         )
+        killed = set()
         for line in result.stdout.splitlines():
-            if ":8001" in line and "LISTENING" in line:
+            if f":{terminal_port}" in line and ("LISTENING" in line or "TIME_WAIT" in line or "CLOSE_WAIT" in line):
                 pid = line.strip().split()[-1]
-                if pid.isdigit():
+                if pid.isdigit() and pid not in killed:
                     subprocess.run(["taskkill", "/F", "/PID", pid],
                                    capture_output=True, timeout=5)
                     print(f"  Killed stale terminal server (pid {pid})")
+                    killed.add(pid)
     except Exception:
         pass
 
@@ -983,8 +994,10 @@ def _ensure_terminal_server():
         print("  WARNING: terminal-server.js not found, terminal panel disabled")
         return
 
+    terminal_port = int(os.environ.get("TERMINAL_PORT", _port + 1))
+
     # Kill any orphaned process from a previous run
-    _kill_stale_terminal_server()
+    _kill_stale_terminal_server(terminal_port)
 
     time.sleep(0.5)  # Let OS release the socket after killing stale process
 
@@ -992,8 +1005,9 @@ def _ensure_terminal_server():
         _terminal_server_proc = subprocess.Popen(
             ["node", str(terminal_js)],
             cwd=str(BASE_DIR),
+            env={**os.environ, "TERMINAL_PORT": str(terminal_port)},
         )
-        print(f"  Terminal server started on ws://localhost:8001 (pid {_terminal_server_proc.pid})")
+        print(f"  Terminal server started on ws://localhost:{terminal_port} (pid {_terminal_server_proc.pid})")
     except Exception as e:
         print(f"  WARNING: Failed to start terminal server: {e}")
 
@@ -1027,10 +1041,11 @@ async def spa_catchall(full_path: str):
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
+    terminal_port = int(os.environ.get("TERMINAL_PORT", port + 1))
     print(f"MCS Agent Builder — starting on http://localhost:{port}")
     print(f"  Base dir: {BASE_DIR}")
     print(f"  Build Guides: {BUILD_GUIDES}")
-    print(f"  Engine: Claude Code terminal (ws://localhost:8001)")
+    print(f"  Engine: Claude Code terminal (ws://localhost:{terminal_port})")
     _ensure_terminal_server()
     try:
         uvicorn.run(app, host="127.0.0.1", port=port)

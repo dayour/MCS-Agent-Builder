@@ -203,7 +203,7 @@ Existing behavior — process all documents as described below.
 
 Read every file in `Build-Guides/{projectId}/docs/`:
 - `.md` files — read directly
-- `.docx` files — convert via pandoc first: `C:\Users\kimdennis\AppData\Local\Pandoc\pandoc.exe "file.docx" -t gfm -o "file.md"`
+- `.docx` files — convert via pandoc first: `pandoc "file.docx" -t gfm -o "file.md"` (if not on PATH, check `%LOCALAPPDATA%\Pandoc\pandoc.exe`)
 - `.pdf` files — read via Read tool (PDF support)
 - `.txt` files — read directly
 - Images (`.png`, `.jpg`) — read via Read tool (multimodal)

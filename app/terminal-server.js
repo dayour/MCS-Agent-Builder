@@ -22,7 +22,7 @@ const os = require("os");
 
 const fs = require("fs");
 
-const PORT = 8001;
+const PORT = parseInt(process.env.TERMINAL_PORT, 10) || 8001;
 const BASE_DIR = path.resolve(__dirname, "..");
 
 // Resolve Claude Code — supports native install, npm global, or PATH fallback

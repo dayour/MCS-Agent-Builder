@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import type { TerminalSession } from "@/types";
 import { useProjectStore } from "@/stores/projectStore";
 import { useTerminalStore } from "@/stores/terminalStore";
+import { getTerminalWsUrl } from "@/lib/api";
 import DocumentDropZone from "@/components/DocumentDropZone";
 
 const ProjectPage = () => {
@@ -44,7 +45,7 @@ const ProjectPage = () => {
   };
 
   /** Launch a command in a per-agent terminal tab. */
-  const launchTerminal = (type: "research" | "build" | "evaluate" | "fix", agent: { id: string; name: string }) => {
+  const launchTerminal = async (type: "research" | "build" | "evaluate" | "fix", agent: { id: string; name: string }) => {
     if (!id) return;
     const store = useTerminalStore.getState();
     const command = skillCommands[type](id, agent.id);
@@ -57,6 +58,7 @@ const ProjectPage = () => {
       return;
     }
 
+    const wsUrl = await getTerminalWsUrl();
     const session: TerminalSession = {
       id: `${id}-${agent.id}-${Date.now()}`,
       label: agent.name,
@@ -64,14 +66,14 @@ const ProjectPage = () => {
       projectId: id,
       agentName: agent.name,
       status: "connecting",
-      wsUrl: "ws://localhost:8001/ws",
+      wsUrl,
       command,
     };
     addTerminalSession(session);
   };
 
   /** Launch project-level research (analyzes docs, discovers agents). */
-  const launchProjectResearch = () => {
+  const launchProjectResearch = async () => {
     if (!id) return;
     const store = useTerminalStore.getState();
     const command = `/mcs-research ${id}`;
@@ -86,6 +88,7 @@ const ProjectPage = () => {
       return;
     }
 
+    const wsUrl = await getTerminalWsUrl();
     const session: TerminalSession = {
       id: `${sessionKey}-${Date.now()}`,
       label: `${projectName || id} — research`,
@@ -93,7 +96,7 @@ const ProjectPage = () => {
       projectId: id,
       agentName: projectName || id,
       status: "connecting",
-      wsUrl: "ws://localhost:8001/ws",
+      wsUrl,
       command,
     };
     addTerminalSession(session);

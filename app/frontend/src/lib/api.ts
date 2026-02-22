@@ -30,6 +30,26 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json();
 }
 
+// ─── Config (runtime ports) ───────────────────────────────────────
+
+let _terminalWsUrl: string | null = null;
+
+export async function getTerminalWsUrl(): Promise<string> {
+  if (_terminalWsUrl) return _terminalWsUrl;
+  try {
+    const res = await fetch("/api/config");
+    if (res.ok) {
+      const data = await res.json();
+      _terminalWsUrl = data.terminalWsUrl;
+      return _terminalWsUrl!;
+    }
+  } catch { /* fallback */ }
+  // Derive from current page: terminal = same host, port + 1
+  const port = parseInt(window.location.port || "8000", 10);
+  _terminalWsUrl = `ws://localhost:${port + 1}/ws`;
+  return _terminalWsUrl;
+}
+
 // ─── Projects ─────────────────────────────────────────────────────
 
 export async function fetchProjects(): Promise<ApiProject[]> {

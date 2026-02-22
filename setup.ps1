@@ -36,6 +36,34 @@ function Refresh-Path {
     $env:Path = "$machinePath;$userPath"
 }
 
+function Stop-PortConflicts {
+    param([int[]]$Ports = @(8000, 8001))
+    $killedPids = @{}
+    foreach ($port in $Ports) {
+        try {
+            # Match ANY connection state (LISTENING, TIME_WAIT, CLOSE_WAIT, etc.)
+            $lines = netstat -ano -p TCP 2>$null | Where-Object { $_ -match "[:.]$port\s" }
+            foreach ($line in $lines) {
+                $pid = ($line.Trim() -split '\s+')[-1]
+                if ($pid -and $pid -match '^\d+$' -and $pid -ne '0' -and -not $killedPids.ContainsKey($pid)) {
+                    try {
+                        Stop-Process -Id ([int]$pid) -Force -ErrorAction Stop
+                        Write-Step "Killed process on port $port (pid $pid)"
+                        $killedPids[$pid] = $true
+                    } catch {
+                        # Process may have already exited
+                    }
+                }
+            }
+        } catch {
+            # netstat failed — not critical
+        }
+    }
+    if ($killedPids.Count -gt 0) {
+        Start-Sleep -Seconds 2
+    }
+}
+
 function Install-Winget {
     param(
         [string]$PackageId,
@@ -220,6 +248,7 @@ if (-not $forceFullSetup) {
             $verInfo = if ($verParts.Count -gt 0) { " ($($verParts -join ', '))" } else { "" }
             Write-Ok "All tools present$verInfo - launching..."
             Write-Host ""
+            Stop-PortConflicts
             Push-Location $scriptDir
             try {
                 & npm start
@@ -373,6 +402,7 @@ Write-Host ""
 Write-Step "Launching..."
 Write-Host ""
 
+Stop-PortConflicts
 Push-Location $scriptDir
 try {
     & npm start

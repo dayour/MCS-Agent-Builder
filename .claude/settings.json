@@ -33,7 +33,7 @@
         "--browser",
         "msedge",
         "--user-data-dir",
-        "C:\\Users\\kimdennis\\.playwright-mcp-edge"
+        "%USERPROFILE%\\.playwright-mcp-edge"
       ]
     },
     "microsoft-learn": {

@@ -6,7 +6,7 @@ REM After running this, swap Playwright MCP args in .claude/settings.json to:
 REM   "args": ["/c", "npx", "-y", "@playwright/mcp@latest", "--cdp-endpoint", "http://localhost:9222"]
 REM Then restart Claude Code session for the change to take effect.
 
-start msedge.exe --remote-debugging-port=9222 --user-data-dir="C:\Users\kimdennis\.edge-debug-profile"
+start msedge.exe --remote-debugging-port=9222 --user-data-dir="%USERPROFILE%\.edge-debug-profile"
 echo Edge launched with remote debugging on port 9222
 echo.
 echo To use with Playwright MCP:

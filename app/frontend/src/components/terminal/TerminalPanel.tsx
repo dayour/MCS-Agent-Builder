@@ -2,6 +2,7 @@ import { useRef, useCallback } from "react";
 import { X, Minus, Plus, Circle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTerminalStore, type TerminalSession } from "@/stores/terminalStore";
+import { getTerminalWsUrl } from "@/lib/api";
 import XTerminal from "./XTerminal";
 import { cn } from "@/lib/utils";
 
@@ -118,7 +119,8 @@ const TerminalPanel = () => {
               variant="ghost"
               size="icon"
               className="h-6 w-6 text-muted-foreground hover:text-foreground"
-              onClick={() => {
+              onClick={async () => {
+                const wsUrl = await getTerminalWsUrl();
                 const session: TerminalSession = {
                   id: crypto.randomUUID(),
                   label: "Terminal",
@@ -126,7 +128,7 @@ const TerminalPanel = () => {
                   projectId: "system",
                   agentName: "Terminal",
                   status: "connecting",
-                  wsUrl: "ws://localhost:8001/ws",
+                  wsUrl,
                 };
                 addSession(session);
               }}

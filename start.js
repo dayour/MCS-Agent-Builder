@@ -17,13 +17,14 @@
 
 const { spawn, execSync } = require("child_process");
 const http = require("http");
+const net = require("net");
 const path = require("path");
 const os = require("os");
 const fs = require("fs");
 
-const PORT_APP = 8000;
-const PORT_TERMINAL = 8001;
-const URL = `http://localhost:${PORT_APP}`;
+const PORT_START = 8000;
+const PORT_MAX = 8020;
+const LOCKFILE = process.env.MCS_LOCKFILE || path.join(os.homedir(), ".mcs-agent-builder.lock");
 
 // Minimum required versions
 const MIN_NODE = 18;
@@ -49,6 +50,62 @@ function err(msg) {
 }
 
 // ---------------------------------------------------------------------------
+// Single-instance lockfile
+// ---------------------------------------------------------------------------
+
+function checkSingleInstance() {
+  if (fs.existsSync(LOCKFILE)) {
+    try {
+      const data = JSON.parse(fs.readFileSync(LOCKFILE, "utf8"));
+      // Check if the PID is still running
+      try {
+        process.kill(data.pid, 0); // signal 0 = existence check
+        err(`MCS Agent Builder is already running (pid ${data.pid}, port ${data.port}).`);
+        err(`Open http://localhost:${data.port} or stop it first.`);
+        process.exit(1);
+      } catch {
+        // PID not running — stale lock, clean up
+        log("Cleaning up stale lockfile...");
+        fs.unlinkSync(LOCKFILE);
+      }
+    } catch {
+      // Corrupt lockfile — remove it
+      try { fs.unlinkSync(LOCKFILE); } catch {}
+    }
+  }
+}
+
+function writeLockfile(port) {
+  fs.writeFileSync(LOCKFILE, JSON.stringify({ pid: process.pid, port }, null, 2));
+}
+
+function removeLockfile() {
+  try { fs.unlinkSync(LOCKFILE); } catch {}
+}
+
+// ---------------------------------------------------------------------------
+// Port probing — find an available port pair (app, app+1 for terminal)
+// ---------------------------------------------------------------------------
+
+function isPortAvailable(port) {
+  return new Promise((resolve) => {
+    const srv = net.createServer();
+    srv.once("error", () => resolve(false));
+    srv.once("listening", () => { srv.close(); resolve(true); });
+    srv.listen(port, "127.0.0.1");
+  });
+}
+
+async function findPortPair() {
+  for (let p = PORT_START; p <= PORT_MAX; p += 2) {
+    const appOk = await isPortAvailable(p);
+    const termOk = await isPortAvailable(p + 1);
+    if (appOk && termOk) return { app: p, terminal: p + 1 };
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // Kill stale processes on a port (Windows + Unix)
 // ---------------------------------------------------------------------------
 
@@ -59,16 +116,19 @@ function killPort(port) {
         encoding: "utf8",
         timeout: 5000,
       });
+      const killed = new Set();
       for (const line of result.split("\n")) {
-        if (line.includes(`:${port}`) && line.includes("LISTENING")) {
+        // Match ANY state (LISTENING, TIME_WAIT, CLOSE_WAIT, etc.)
+        if (line.match(new RegExp(`[:.:]${port}\\s`))) {
           const pid = line.trim().split(/\s+/).pop();
-          if (pid && /^\d+$/.test(pid) && pid !== "0") {
+          if (pid && /^\d+$/.test(pid) && pid !== "0" && !killed.has(pid)) {
             try {
               execSync(`taskkill /F /PID ${pid}`, {
                 stdio: "ignore",
                 timeout: 5000,
               });
-              log(`Killed stale process on port ${port} (pid ${pid})`);
+              log(`Killed process on port ${port} (pid ${pid})`);
+              killed.add(pid);
             } catch {
               // Process may have already exited
             }
@@ -526,73 +586,87 @@ if (fs.existsSync(path.join(frontendDir, "package.json")) && !fs.existsSync(dist
   }
 }
 
-// 6. Kill anything still holding our ports from a previous run
-log("Checking for stale processes...");
-killPort(PORT_APP);
-killPort(PORT_TERMINAL);
+// 6. Single-instance check + find available ports + launch
+checkSingleInstance();
 
-// Small delay to let OS release the sockets
-const startTime = Date.now();
-while (Date.now() - startTime < 500) {
-  // busy-wait for socket release
-}
-
-// 7. Start the dashboard server (it manages terminal-server.js as a sidecar)
-//    Use spawn without shell to avoid DEP0190 deprecation warning.
-//    On Windows, resolve python to its full path to avoid needing shell: true.
-let pythonCmd = "python";
-try {
-  pythonCmd = execSync(
-    os.platform() === "win32" ? "where python" : "which python",
-    { encoding: "utf8", timeout: 5000 }
-  )
-    .split("\n")[0]
-    .trim();
-} catch {
-  // Fall back to "python" and hope it's on PATH
-}
-
-const serverScript = path.join(__dirname, "app", "server.py");
-const server = spawn(pythonCmd, [serverScript], {
-  cwd: __dirname,
-  stdio: "inherit",
-  env: { ...process.env, PORT: String(PORT_APP) },
-});
-
-server.on("error", (e) => {
-  err(`Failed to start server: ${e.message}`);
-  process.exit(1);
-});
-
-server.on("exit", (code) => {
-  if (code !== null && code !== 0) {
-    err(`Server exited with code ${code}`);
+(async () => {
+  log("Finding available ports...");
+  const ports = await findPortPair();
+  if (!ports) {
+    err(`No available port pair found in range ${PORT_START}-${PORT_MAX + 1}. Close some apps and retry.`);
+    process.exit(1);
   }
-  process.exit(code || 0);
-});
 
-// 8. Wait for dashboard to respond, then open browser
-waitForReady(URL)
-  .then(() => {
-    console.log(
-      `\n\x1b[32m  ✓ Dashboard ready at ${URL}\x1b[0m`
-    );
-    console.log("\x1b[90m  Press Ctrl+C to stop\x1b[0m\n");
-    openBrowser(URL);
-  })
-  .catch(() => {
-    warn(`Dashboard may still be starting. Open manually: ${URL}`);
+  const PORT_APP = ports.app;
+  const PORT_TERMINAL = ports.terminal;
+  const URL = `http://localhost:${PORT_APP}`;
+
+  if (PORT_APP !== PORT_START) {
+    log(`Default port ${PORT_START} busy — using ${PORT_APP}/${PORT_TERMINAL}`);
+  }
+
+  writeLockfile(PORT_APP);
+
+  // 7. Start the dashboard server (it manages terminal-server.js as a sidecar)
+  //    Use spawn without shell to avoid DEP0190 deprecation warning.
+  //    On Windows, resolve python to its full path to avoid needing shell: true.
+  let pythonCmd = "python";
+  try {
+    pythonCmd = execSync(
+      os.platform() === "win32" ? "where python" : "which python",
+      { encoding: "utf8", timeout: 5000 }
+    )
+      .split("\n")[0]
+      .trim();
+  } catch {
+    // Fall back to "python" and hope it's on PATH
+  }
+
+  const serverScript = path.join(__dirname, "app", "server.py");
+  const server = spawn(pythonCmd, [serverScript], {
+    cwd: __dirname,
+    stdio: "inherit",
+    env: { ...process.env, PORT: String(PORT_APP), TERMINAL_PORT: String(PORT_TERMINAL) },
   });
 
-// 9. Graceful shutdown
-function shutdown() {
-  console.log("\n\x1b[90m  Shutting down...\x1b[0m");
-  try {
-    server.kill();
-  } catch {}
-  // Give server a moment to clean up its sidecar, then force exit
-  setTimeout(() => process.exit(0), 2000);
-}
+  server.on("error", (e) => {
+    removeLockfile();
+    err(`Failed to start server: ${e.message}`);
+    process.exit(1);
+  });
 
-process.on("SIGINT", shutdown);
-process.on("SIGTERM", shutdown);
+  server.on("exit", (code) => {
+    removeLockfile();
+    if (code !== null && code !== 0) {
+      err(`Server exited with code ${code}`);
+    }
+    process.exit(code || 0);
+  });
+
+  // 8. Wait for dashboard to respond, then open browser
+  waitForReady(URL)
+    .then(() => {
+      console.log(
+        `\n\x1b[32m  ✓ Dashboard ready at ${URL}\x1b[0m`
+      );
+      console.log("\x1b[90m  Press Ctrl+C to stop\x1b[0m\n");
+      openBrowser(URL);
+    })
+    .catch(() => {
+      warn(`Dashboard may still be starting. Open manually: ${URL}`);
+    });
+
+  // 9. Graceful shutdown
+  function shutdown() {
+    console.log("\n\x1b[90m  Shutting down...\x1b[0m");
+    removeLockfile();
+    try {
+      server.kill();
+    } catch {}
+    // Give server a moment to clean up its sidecar, then force exit
+    setTimeout(() => process.exit(0), 2000);
+  }
+
+  process.on("SIGINT", shutdown);
+  process.on("SIGTERM", shutdown);
+})();
