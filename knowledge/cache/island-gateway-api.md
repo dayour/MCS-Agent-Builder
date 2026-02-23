@@ -390,6 +390,19 @@ To add a tool programmatically (without Playwright), you need:
 
 **What still needs Playwright:** Creating OAuth connections (Step 2 requires browser auth popup). But if a connection already exists for that connector type, it can be reused headlessly.
 
+### Confirmed: Headless Tool Addition via LSP Push (Tested 2026-02-23)
+
+**Full flow tested and verified in MCS UI:**
+1. Clone workspace: `node tools/mcs-lsp.js clone --workspace ...`
+2. Generate action YAML: `node tools/add-tool.js add --workspace ... --connector shared_planner --action CreateTask_V3 --connection <ref> --name "Create a task"`
+3. Push to MCS: `node tools/mcs-lsp.js push --workspace ...`
+4. Verified: "Create a task" appeared in MCS Tools tab as Connector type, enabled, 32 seconds ago
+5. Revert: deleted action file, pushed again — tool removed from MCS
+
+**Key requirement:** The VS Code Copilot Studio extension must be activated in the current VS Code session before calling the LSP. If clone returns 400, open VS Code and click on the extension icon first.
+
+**Naming:** Action filenames must use only alphanumeric + underscore (e.g., `shared_planner_CreateTask_V3.mcs.yml`). The `add-tool.js` CLI handles this automatically.
+
 ---
 
 ## LSP Wrapper (`tools/mcs-lsp.js`)

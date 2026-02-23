@@ -45,8 +45,8 @@ See `knowledge/cache/api-capabilities.md` for the full breakdown of what each la
 | Set agent settings | LSP Wrapper (`settings.mcs.yml` → push) | Playwright |
 | Upload knowledge | Dataverse API (POST botcomponent type 16) | Playwright |
 | Read components | Island Gateway API (POST botcomponents) | Dataverse queries |
-| Add tools/connectors | Playwright (no API) | — |
-| Create connections | Playwright (no API) | — |
+| Add tools/connectors | `add-tool.js` + LSP push (if connection exists) | Playwright (for new OAuth connections) |
+| Create connections | Playwright (OAuth browser flow) | — |
 | Author topics (new) | LSP Wrapper (`topics/*.mcs.yml` → push) | Island Gateway API / Playwright |
 | Author topics (update) | LSP Wrapper (`topics/*.mcs.yml` → push) | Island Gateway API / Playwright |
 | Publish | PAC CLI (`pac copilot publish`) | Playwright / Dataverse PvaPublish |
