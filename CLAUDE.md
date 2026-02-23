@@ -86,11 +86,12 @@ If `sessionDefaults` exist but `buildStatus` doesn't (new agent, returning user)
 
 | Priority | Tool | Use For |
 |----------|------|---------|
-| 1 | **PAC CLI** | Agent publishing, status checks, solution export/import, listing agents |
-| 2 | **Dataverse API** | Instructions update, knowledge file upload, security settings, agent deletion |
-| 3 | **Code Editor YAML** | Topic authoring, adaptive cards, branching logic, trigger phrases |
-| 4 | **Direct Line API** | Evaluation / testing (send messages, compare responses) |
-| 5 | **Playwright MCP** | Agent creation, model selection (always latest), tool/connector addition, OAuth connections, child agent connection, generative AI settings, MCS-only UI operations |
+| 1 | **PAC CLI** | Publishing, solution ALM, listing agents |
+| 2 | **MCS LSP Wrapper** | Topic push/pull, full component sync (`tools/mcs-lsp.js`) |
+| 3 | **Island Gateway API** | Model selection, model catalog, component reads, routing, settings |
+| 4 | **Dataverse API** | Knowledge upload, security settings, agent deletion |
+| 5 | **Direct Line API** | Evaluation / testing (send messages, compare responses) |
+| 6 | **Playwright MCP** | Agent creation, tool/connector addition, OAuth connections, child agent connection |
 
 **Detailed capabilities per layer:** See `knowledge/cache/api-capabilities.md`
 **Decision flow and build phase mapping:** See `knowledge/frameworks/tool-priority.md`
@@ -184,8 +185,10 @@ Before committing to designs that are hard to undo — schema changes, workflow 
 | Tool | Purpose |
 |------|---------|
 | **PAC CLI** | Agent lifecycle: publish, list, status, solution ALM (`pac copilot`, `pac solution`) |
-| **Dataverse API** | Agent config: instructions, knowledge, settings, publish (via HTTP/PowerShell) |
-| **Code Editor YAML** | Topic authoring: conversations, cards, branching (paste into MCS code editor) |
+| **MCS LSP Wrapper** | Topic push/pull, full component sync via official LS (`tools/mcs-lsp.js`) |
+| **Island Gateway API** | Model selection, model catalog, component reads, routing, settings (`tools/island-client.js`) |
+| **Dataverse API** | Agent config: knowledge, security, deletion, publish (via HTTP/PowerShell) |
+| **Code Editor YAML** | Topic authoring fallback: conversations, cards, branching (paste into MCS code editor) |
 | **ObjectModel CLI** | Full YAML validation + schema exploration (357 types, catches unknown nodes + missing fields): `tools/om-cli/om-cli.exe` (validate, schema, search, list, hierarchy, composition, examples) |
 | **Gen Constraints** | Pre-generation constraint extraction: `python tools/gen-constraints.py <types>` — required fields per node type |
 | **Drift Detection** | Compare brief.json specs vs built YAML: `python tools/drift-detect.py <brief.json>` — missing topics, trigger mismatches, variable drift |
@@ -625,13 +628,13 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 
 Cached inventories, stable patterns, and decision frameworks live in `knowledge/`:
 
-- **`knowledge/cache/`** — 18 quick-reference cheat sheets covering MCS capabilities: options, limits, gotchas, and decision tables. For step-by-step details, use MS Learn MCP. Each file has freshness metadata. Check before architecture decisions.
+- **`knowledge/cache/`** — 19 quick-reference cheat sheets covering MCS capabilities: options, limits, gotchas, and decision tables. For step-by-step details, use MS Learn MCP. Each file has freshness metadata. Check before architecture decisions.
 - **`knowledge/patterns/`** — Stable HOW-TO references (YAML syntax, Playwright patterns, Dataverse API patterns, topic templates).
 - **`knowledge/frameworks/`** — Decision frameworks (component selection, architecture scoring, tool priority).
 
 **Tiered refresh:**
 - **Tier 1 (build-critical):** triggers, models, mcp-servers, connectors, knowledge-sources, channels — auto-refreshed at session start if > 7 days old
-- **Tier 2 (build-phase):** api-capabilities, instructions-authoring, generative-orchestration, adaptive-cards, ai-tools-computer-use, power-automate-integration — refreshed before `/mcs-build` if stale
+- **Tier 2 (build-phase):** api-capabilities, island-gateway-api, instructions-authoring, generative-orchestration, adaptive-cards, ai-tools-computer-use, power-automate-integration — refreshed before `/mcs-build` if stale
 - **Tier 3 (reference):** eval-methods, security-auth, agent-lifecycle, limits-licensing, powerfx-variables, conversation-design — refreshed on demand via `/mcs-refresh`
 
 **Freshness rules:**
@@ -698,12 +701,13 @@ reference/
 knowledge/
 ├── learnings/              # Experience-based insights from past builds (8 topic files + index.json)
 │   ├── index.json          # Machine-readable learnings index (dedup, confirmed counts, staleness)
-├── cache/                  # 18 quick-reference cheat sheets (with freshness metadata)
+├── cache/                  # 19 quick-reference cheat sheets (with freshness metadata)
 │   ├── triggers.md, models.md, mcp-servers.md, connectors.md
 │   ├── knowledge-sources.md, channels.md, api-capabilities.md, eval-methods.md
 │   ├── generative-orchestration.md, security-auth.md, instructions-authoring.md
 │   ├── powerfx-variables.md, agent-lifecycle.md, power-automate-integration.md
-│   └── adaptive-cards.md, ai-tools-computer-use.md, limits-licensing.md, conversation-design.md
+│   ├── adaptive-cards.md, ai-tools-computer-use.md, limits-licensing.md, conversation-design.md
+│   └── island-gateway-api.md
 ├── patterns/               # Stable HOW-TO references
 │   ├── yaml-reference.md, playwright-patterns.md, dataverse-patterns.md
 │   └── topic-patterns/     # 10 reusable YAML templates
@@ -723,6 +727,8 @@ tools/
 ├── semantic-gates.py       # 5 semantic validation gates (PowerFx, cross-refs, variables, channels, connectors)
 ├── powerfx-catalog.json    # Official PowerFx function catalog (loaded by semantic-gates.py)
 ├── schema-lookup.py        # Legacy schema query tool (kind-value checks only, fallback)
+├── mcs-lsp.js              # MCS Language Server wrapper — headless push/pull via official LS (topics, sync)
+├── island-client.js        # Island Control Plane Gateway API client (model, components, routing, settings)
 ├── direct-line-test.js     # Direct Line API test runner
 ├── dataverse-helper.ps1    # PowerShell Dataverse Web API helper
 ├── fetch-instructions.ps1  # Fetch agent instructions from Dataverse

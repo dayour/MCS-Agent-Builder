@@ -4,21 +4,23 @@
 
 | Priority | Tool | Use For |
 |----------|------|---------|
-| 1 | **PAC CLI** | Agent publishing, status checks, solution export/import |
-| 2 | **Dataverse API** | Instructions update, knowledge file upload, security settings |
-| 3 | **Code Editor YAML** | Topic authoring, adaptive cards, branching logic, trigger phrases |
-| 4 | **Direct Line API** | Evaluation / testing (send messages, compare responses) |
-| 5 | **Playwright MCP** | Agent creation, model selection, tool/connector addition, OAuth connections, child agent connection, generative AI settings |
+| 1 | **PAC CLI** | Publishing, solution ALM, listing agents |
+| 2 | **Island Gateway API** | Model selection, component read/write, instructions, settings |
+| 3 | **Dataverse API** | Knowledge upload, security settings, agent deletion |
+| 4 | **Code Editor YAML** | Topic authoring, adaptive cards, branching logic, trigger phrases |
+| 5 | **Direct Line API** | Evaluation / testing (send messages, compare responses) |
+| 6 | **Playwright MCP** | Agent creation, tool/connector addition, OAuth connections, child agent connection |
 
 ## Decision Flow
 
 ```
 For each build step, ask:
-  Can PAC CLI do this?       → YES → Use PAC CLI
-  Can Dataverse API do this? → YES → Use Dataverse API
-  Is this topic/card work?   → YES → Use Code Editor YAML
-  Is this testing/eval?      → YES → Use Direct Line API
-  None of the above?         → Use Playwright (with silent browser verification)
+  Can PAC CLI do this?           → YES → Use PAC CLI
+  Can Island Gateway API do it?  → YES → Use Island Gateway (tools/island-client.js)
+  Can Dataverse API do this?     → YES → Use Dataverse API
+  Is this topic/card work?       → YES → Use Code Editor YAML
+  Is this testing/eval?          → YES → Use Direct Line API
+  None of the above?             → Use Playwright (with silent browser verification)
 ```
 
 ## Detailed Capability Matrix
@@ -34,12 +36,14 @@ See `knowledge/cache/api-capabilities.md` for the full breakdown of what each la
 | Build Phase | Primary Tool | Fallback |
 |-------------|-------------|----------|
 | Create agent | Playwright (MCS UI) | PAC CLI (`pac copilot create` — requires template) |
-| Set instructions | Dataverse API (PATCH botcomponent type 15) | Playwright |
+| Set instructions | Island Gateway API (GptComponent update) | Dataverse PATCH / Playwright |
 | Upload knowledge | Dataverse API (POST botcomponent type 16) | Playwright |
-| Select model | Playwright (no API) | — |
+| Select model | Island Gateway API (GptComponent modelNameHint) | Playwright dropdown |
+| Read components | Island Gateway API (POST botcomponents) | Dataverse queries |
 | Add tools/connectors | Playwright (no API) | — |
 | Create connections | Playwright (no API) | — |
-| Author topics | Code Editor YAML (paste via Playwright) | Playwright canvas |
+| Author topics (new) | LSP Wrapper (`mcs-lsp.js push`) | Island Gateway API / Code Editor YAML via Playwright |
+| Author topics (update) | LSP Wrapper (`mcs-lsp.js push`) | Island Gateway API / Code Editor YAML via Playwright |
 | Publish | PAC CLI (`pac copilot publish`) | Playwright / Dataverse PvaPublish |
 | Test | Direct Line API | Playwright test chat |
 | Connect child agents | Playwright (no API) | — |
