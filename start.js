@@ -399,27 +399,6 @@ function ensureAzDevOps() {
 }
 
 // ---------------------------------------------------------------------------
-// Preflight: ensure VS Code Copilot Studio extension for headless LSP sync
-// ---------------------------------------------------------------------------
-
-function ensureCopilotStudioExtension() {
-  try {
-    const result = execSync("code --list-extensions 2>/dev/null", { encoding: "utf8", timeout: 15000 });
-    if (result.includes("ms-copilotstudio.vscode-copilotstudio")) {
-      return; // Already installed
-    }
-    log("Installing VS Code Copilot Studio extension (for headless topic sync)...");
-    execSync("code --install-extension ms-copilotstudio.vscode-copilotstudio", {
-      stdio: "inherit",
-      timeout: 60000,
-    });
-    log("Copilot Studio extension installed");
-  } catch {
-    warn("VS Code not found or extension install failed — LSP sync will fall back to Playwright");
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Preflight: install git hooks for core file protection
 // ---------------------------------------------------------------------------
 
@@ -583,10 +562,7 @@ ensurePythonDeps();
 ensureGitHooks();
 ensureAzDevOps();
 
-// 4a. Ensure VS Code Copilot Studio extension (needed for mcs-lsp.js headless sync)
-ensureCopilotStudioExtension();
-
-// 4b. Clean Playwright MCP browser cache (accumulates 400MB+ over time)
+// 4a. Clean Playwright MCP browser cache (accumulates 400MB+ over time)
 cleanPlaywrightCache();
 
 // 5. Auto-build frontend if dist is missing or stale (cleared by auto-update)
