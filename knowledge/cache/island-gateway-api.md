@@ -377,7 +377,15 @@ All of these were tested via clone → edit YAML → push → verify:
 | Auth mode | `settings.mcs.yml` → `authenticationMode:` | Yes |
 | Auth trigger | `settings.mcs.yml` → `authenticationTrigger:` | Yes |
 
-**Known limitation:** Sequential pushes on the same workspace cause `ConcurrencyVersionMismatch`. Re-clone between pushes, or batch all edits into a single push.
+| Connector action edit | `actions/*.mcs.yml` → `modelDescription:` etc. | Yes |
+| Connector action delete | Delete `actions/*.mcs.yml` file → push | Yes |
+| MCP action edit | `actions/*.mcs.yml` → `modelDisplayName:` etc. | Yes |
+| Pull (sync remote → local) | `mcs-lsp.js pull` | Yes |
+| Sequential pushes | Multiple pushes on same workspace | Yes (LSP updates token) |
+
+**Known limitations:**
+- Creating NEW actions via file creation + push fails if filename contains hyphens (schema name validation). Use MCS UI for new action creation; use LSP for editing/deleting existing actions.
+- Restore a deleted action requires MCS UI (re-add the connector action).
 
 ### When to Use Which Tool
 
