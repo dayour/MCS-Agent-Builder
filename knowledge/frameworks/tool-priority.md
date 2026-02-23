@@ -36,14 +36,19 @@ See `knowledge/cache/api-capabilities.md` for the full breakdown of what each la
 | Build Phase | Primary Tool | Fallback |
 |-------------|-------------|----------|
 | Create agent | Playwright (MCS UI) | PAC CLI (`pac copilot create` — requires template) |
-| Set instructions | Island Gateway API (GptComponent update) | Dataverse PATCH / Playwright |
+| Clone workspace | LSP Wrapper (`mcs-lsp.js clone`) | VS Code extension GUI |
+| Set instructions | LSP Wrapper (`agent.mcs.yml` → push) | Island Gateway API / Dataverse PATCH |
+| Select model | LSP Wrapper (`agent.mcs.yml` → push) | Island Gateway API |
+| Set capabilities | LSP Wrapper (`agent.mcs.yml` gptCapabilities → push) | Playwright |
+| Set conversation starters | LSP Wrapper (`agent.mcs.yml` → push) | Playwright |
+| Set auth mode | LSP Wrapper (`settings.mcs.yml` → push) | Playwright |
+| Set agent settings | LSP Wrapper (`settings.mcs.yml` → push) | Playwright |
 | Upload knowledge | Dataverse API (POST botcomponent type 16) | Playwright |
-| Select model | Island Gateway API (GptComponent modelNameHint) | Playwright dropdown |
 | Read components | Island Gateway API (POST botcomponents) | Dataverse queries |
 | Add tools/connectors | Playwright (no API) | — |
 | Create connections | Playwright (no API) | — |
-| Author topics (new) | LSP Wrapper (`mcs-lsp.js push`) | Island Gateway API / Code Editor YAML via Playwright |
-| Author topics (update) | LSP Wrapper (`mcs-lsp.js push`) | Island Gateway API / Code Editor YAML via Playwright |
+| Author topics (new) | LSP Wrapper (`topics/*.mcs.yml` → push) | Island Gateway API / Playwright |
+| Author topics (update) | LSP Wrapper (`topics/*.mcs.yml` → push) | Island Gateway API / Playwright |
 | Publish | PAC CLI (`pac copilot publish`) | Playwright / Dataverse PvaPublish |
 | Test | Direct Line API | Playwright test chat |
 | Connect child agents | Playwright (no API) | — |

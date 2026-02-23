@@ -360,12 +360,31 @@ node tools/mcs-lsp.js info --workspace "./workspace/Agent Name"
 1. Copilot Studio VS Code extension installed (`ms-copilotstudio.vscode-copilotstudio`)
 2. `az login` completed for token acquisition
 
+### Confirmed LSP Push Capabilities (Tested 2026-02-23)
+
+All of these were tested via clone → edit YAML → push → verify:
+
+| Operation | File | Confirmed |
+|-----------|------|-----------|
+| Clone agent (headless) | `cloneAgent` LSP method | Yes |
+| Topics (create/update/triggers) | `topics/*.mcs.yml` | Yes |
+| Instructions | `agent.mcs.yml` → `instructions:` | Yes |
+| Model selection | `agent.mcs.yml` → `aISettings.model.modelNameHint:` | Yes |
+| Conversation starters | `agent.mcs.yml` → `conversationStarters:` | Yes |
+| Web browsing / code interpreter | `agent.mcs.yml` → `gptCapabilities:` | Yes |
+| Content moderation level | `settings.mcs.yml` → `contentModeration:` | Yes |
+| File analysis toggle | `settings.mcs.yml` → `isFileAnalysisEnabled:` | Yes |
+| Auth mode | `settings.mcs.yml` → `authenticationMode:` | Yes |
+| Auth trigger | `settings.mcs.yml` → `authenticationTrigger:` | Yes |
+
+**Known limitation:** Sequential pushes on the same workspace cause `ConcurrencyVersionMismatch`. Re-clone between pushes, or batch all edits into a single push.
+
 ### When to Use Which Tool
 
 | Operation | Best Tool |
 |-----------|-----------|
 | Push/pull topics, instructions, full sync | `mcs-lsp.js` |
-| Model selection, model catalog | `island-client.js` |
+| Model selection, model catalog | `mcs-lsp.js` (YAML) or `island-client.js` (API) |
 | Component reads (quick inspection) | `island-client.js` |
 | Routing info, bot settings | `island-client.js` |
 
