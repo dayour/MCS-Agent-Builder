@@ -124,68 +124,35 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   uploadFile: async (file: File) => {
     const id = get().projectId;
     if (!id) return;
-    // Optimistic: add a placeholder immediately
-    const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
-    const placeholder: Document = {
-      id: file.name,
-      name: file.name,
-      type: docTypeFromExt(ext),
-      size: formatSize(file.size),
-      uploadedAt: "",
-      content: "",
-      contentHash: "",
-      changeStatus: "new",
-    };
-    set((s) => ({ documents: [...s.documents, placeholder] }));
-    try {
-      await apiUpload(id, file);
-      await get().refresh(); // Sync real data from server
-    } catch (e) {
-      // Revert optimistic add
-      set((s) => ({ documents: s.documents.filter((d) => d.id !== file.name) }));
-      throw e; // Propagate so component can show error
-    }
+    await apiUpload(id, file);
+    // Fetch fresh doc list from server (gets real sanitized filename + conversion result)
+    await get().refresh();
   },
 
   pasteText: async (title: string, text: string) => {
     const id = get().projectId;
     if (!id) return;
-    const result = await apiPaste(id, title, text);
+    await apiPaste(id, title, text);
     await get().refresh();
-    return result;
   },
 
   removeDocument: async (filename: string) => {
     const id = get().projectId;
     if (!id) return;
-    // Optimistic: remove from list immediately
-    const prev = get().documents;
-    const prevContent = get().docContent;
+    // Delete on server first, then update local state (no race with refresh)
+    await apiDeleteDoc(id, filename);
     set((s) => ({
       documents: s.documents.filter((d) => d.name !== filename),
       docContent: Object.fromEntries(
         Object.entries(s.docContent).filter(([k]) => k !== filename)
       ),
     }));
-    try {
-      await apiDeleteDoc(id, filename);
-    } catch (e) {
-      // Revert on failure
-      set({ documents: prev, docContent: prevContent });
-      throw e;
-    }
   },
 
   removeAgent: async (agentId: string) => {
     const id = get().projectId;
     if (!id) return;
-    const prev = get().agents;
+    await apiDeleteAgent(id, agentId);
     set((s) => ({ agents: s.agents.filter((a) => a.id !== agentId) }));
-    try {
-      await apiDeleteAgent(id, agentId);
-    } catch (e) {
-      set({ agents: prev });
-      throw e;
-    }
   },
 }));

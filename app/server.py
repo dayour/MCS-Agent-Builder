@@ -125,9 +125,9 @@ def _scan_docs(folder: Path) -> list[dict]:
         for entry in manifest.get("docsProcessed", []):
             manifest_hashes[entry["filename"]] = entry.get("sha256")
 
-    # Collect all filenames first to detect companion .md files
+    # Collect all filenames first to detect extracted companion files
     all_files = []
-    binary_stems = set()  # stems that have a binary original
+    binary_stems = set()  # stems that have a binary Office original
     if docs_dir.exists():
         for fp in sorted(docs_dir.iterdir()):
             if fp.is_file() and fp.suffix in DOC_EXTENSIONS:
@@ -136,8 +136,8 @@ def _scan_docs(folder: Path) -> list[dict]:
                     binary_stems.add(fp.stem)
 
     for fp in all_files:
-        # Skip .md files that are extracted companions of a binary original
-        if fp.suffix == ".md" and fp.stem in binary_stems:
+        # Skip extracted companions: .md or .csv files whose stem matches a binary original
+        if fp.suffix in {".md", ".csv"} and fp.stem in binary_stems:
             continue
         is_new = True
         is_modified = False
@@ -462,13 +462,15 @@ def _get_project(project_id: str) -> dict:
             except Exception:
                 pass
         elif fp.suffix in NEEDS_CONVERSION:
-            # Check for extracted .md companion (e.g. report.docx → report.md)
-            md_companion = fp.with_suffix(".md")
-            if md_companion.exists():
-                try:
-                    doc_content[d["filename"]] = md_companion.read_text(encoding="utf-8")
-                except Exception:
-                    pass
+            # Check for extracted companion: .csv for xlsx/xls, .md for docx/pptx
+            for comp_suffix in [".csv", ".md"]:
+                companion = fp.with_suffix(comp_suffix)
+                if companion.exists():
+                    try:
+                        doc_content[d["filename"]] = companion.read_text(encoding="utf-8")
+                    except Exception:
+                        pass
+                    break
 
     return {
         "id": folder.name,
@@ -750,23 +752,52 @@ async def upload_document(
     raw_path = docs_dir / raw_name
     raw_path.write_bytes(content)
 
-    # For binary Office files, also extract text to .md so Claude Code can read it
+    # For binary Office files, extract text so Claude Code can read it during research.
+    # xlsx/xls → .csv (preserves tabular structure), docx/pptx → .md (text content)
     converted_name = None
     conversion_error = None
     if suffix in NEEDS_CONVERSION:
         try:
             from markitdown import MarkItDown
-            converter = MarkItDown(enable_plugins=False)
+            converter = MarkItDown()
             loop = asyncio.get_event_loop()
             result = await loop.run_in_executor(None, converter.convert, str(raw_path))
             if result.text_content and result.text_content.strip():
-                md_name = f"{safe_base}.md"
-                (docs_dir / md_name).write_text(result.text_content, encoding="utf-8")
-                converted_name = md_name
+                if suffix in {".xlsx", ".xls"}:
+                    # Excel → CSV: extract the markdown table and convert to CSV
+                    csv_name = f"{safe_base}.csv"
+                    text = result.text_content.strip()
+                    # MarkItDown outputs markdown tables — convert to CSV
+                    csv_lines = []
+                    for line in text.split("\n"):
+                        line = line.strip()
+                        if not line or line.startswith("|--") or line.startswith("| --"):
+                            continue  # skip separator rows
+                        if line.startswith("|") and line.endswith("|"):
+                            cells = [c.strip() for c in line.strip("|").split("|")]
+                            csv_lines.append(",".join(f'"{c}"' for c in cells))
+                    if csv_lines:
+                        (docs_dir / csv_name).write_text("\n".join(csv_lines), encoding="utf-8")
+                        converted_name = csv_name
+                    else:
+                        # Fallback: save raw extracted text as .md
+                        md_name = f"{safe_base}.md"
+                        (docs_dir / md_name).write_text(text, encoding="utf-8")
+                        converted_name = md_name
+                else:
+                    # docx/pptx → .md
+                    md_name = f"{safe_base}.md"
+                    (docs_dir / md_name).write_text(result.text_content, encoding="utf-8")
+                    converted_name = md_name
+            else:
+                conversion_error = "No text content extracted (file may be empty or password-protected)"
+                print(f"  [upload] Empty extraction for {raw_name}")
         except ImportError:
             conversion_error = "markitdown not installed — run: pip install 'markitdown[all]'"
+            print(f"  [upload] markitdown not installed")
         except Exception as e:
             conversion_error = f"Text extraction failed: {str(e)[:200]}"
+            print(f"  [upload] Conversion error for {raw_name}: {e}")
 
     brief_outdated = (folder / "doc-manifest.json").exists()
 
