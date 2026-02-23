@@ -139,20 +139,19 @@ def _scan_docs(folder: Path) -> list[dict]:
         # Skip .md files that are extracted companions of a binary original
         if fp.suffix == ".md" and fp.stem in binary_stems:
             continue
-            is_new = True
-            is_modified = False
-            if manifest is not None:
-                known_hash = manifest_hashes.get(fp.name)
-                if known_hash is not None:
-                    is_new = False
-                    is_modified = known_hash.lower() != _file_sha256(fp)
-                # else: is_new stays True
-            docs.append({
-                "filename": fp.name,
-                "size": fp.stat().st_size,
-                "isNew": is_new,
-                "isModified": is_modified,
-            })
+        is_new = True
+        is_modified = False
+        if manifest is not None:
+            known_hash = manifest_hashes.get(fp.name)
+            if known_hash is not None:
+                is_new = False
+                is_modified = known_hash.lower() != _file_sha256(fp)
+        docs.append({
+            "filename": fp.name,
+            "size": fp.stat().st_size,
+            "isNew": is_new,
+            "isModified": is_modified,
+        })
     return docs
 
 
