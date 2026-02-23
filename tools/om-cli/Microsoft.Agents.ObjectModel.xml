@@ -299,6 +299,11 @@
             Represents an assignment of a value to a property path from state extracted from connector action output.
             </summary>
         </member>
+        <member name="T:Microsoft.Agents.ObjectModel.Analysis.DataFlow.McpToolOutputBindingDataFlow">
+            <summary>
+            Represents an assignment of a value to a property path from state extracted from MCP tool action output.
+            </summary>
+        </member>
         <member name="T:Microsoft.Agents.ObjectModel.Analysis.DataFlow.StateExtraction">
             <summary>
             Represents an assignment of a value to a property path from state extracted from natural language or otherwise created.
@@ -462,6 +467,11 @@
         <member name="F:Microsoft.Agents.ObjectModel.Analysis.DataFlow.DataFlowNodeKind.WaitForConnectorTriggerOutputBindingDataFlow">
             <summary>
             Maps to <see cref="F:Microsoft.Agents.ObjectModel.Analysis.DataFlow.DataFlowNodeKind.WaitForConnectorTriggerOutputBindingDataFlow" />
+            </summary>
+        </member>
+        <member name="F:Microsoft.Agents.ObjectModel.Analysis.DataFlow.DataFlowNodeKind.McpToolOutputBindingDataFlow">
+            <summary>
+            Maps to <see cref="F:Microsoft.Agents.ObjectModel.Analysis.DataFlow.DataFlowNodeKind.McpToolOutputBindingDataFlow" />
             </summary>
         </member>
         <member name="F:Microsoft.Agents.ObjectModel.Analysis.DataFlow.DataFlowNodeKind.ConnectorTriggerOutputBindingDataFlow">
@@ -3539,6 +3549,11 @@
             Validate a <see cref="T:Microsoft.Agents.ObjectModel.InvokeConnectorAction" />
             </summary>
         </member>
+        <member name="M:Microsoft.Agents.ObjectModel.Internal.BotElementStructuralValidator.VisitInvokeMcpToolAction(Microsoft.Agents.ObjectModel.Internal.InvokeMcpToolActionGreen)">
+            <summary>
+            Validate a <see cref="T:Microsoft.Agents.ObjectModel.InvokeMcpToolAction" />
+            </summary>
+        </member>
         <member name="M:Microsoft.Agents.ObjectModel.Internal.BotElementStructuralValidator.VisitInvokeSkillAction(Microsoft.Agents.ObjectModel.Internal.InvokeSkillActionGreen)">
             <summary>
             Validate a <see cref="T:Microsoft.Agents.ObjectModel.InvokeSkillAction" />
@@ -4139,9 +4154,24 @@
             Validate a <see cref="T:Microsoft.Agents.ObjectModel.NetworkSettings" />
             </summary>
         </member>
+        <member name="M:Microsoft.Agents.ObjectModel.Internal.BotElementStructuralValidator.VisitConnectionParametersSet(Microsoft.Agents.ObjectModel.Internal.ConnectionParametersSetGreen)">
+            <summary>
+            Validate a <see cref="T:Microsoft.Agents.ObjectModel.ConnectionParametersSet" />
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.Internal.BotElementStructuralValidator.VisitConnectionReferenceNameInFlowToConnectionParametersSetMapping(Microsoft.Agents.ObjectModel.Internal.ConnectionReferenceNameInFlowToConnectionParametersSetMappingGreen)">
+            <summary>
+            Validate a <see cref="T:Microsoft.Agents.ObjectModel.ConnectionReferenceNameInFlowToConnectionParametersSetMapping" />
+            </summary>
+        </member>
         <member name="M:Microsoft.Agents.ObjectModel.Internal.BotElementStructuralValidator.VisitUnknownBotSettingsBase(Microsoft.Agents.ObjectModel.Internal.UnknownBotSettingsBaseGreen)">
             <summary>
             Validate a <see cref="T:Microsoft.Agents.ObjectModel.UnknownBotSettingsBase" />
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.Internal.BotElementStructuralValidator.VisitConnectionParameterSettings(Microsoft.Agents.ObjectModel.Internal.ConnectionParameterSettingsGreen)">
+            <summary>
+            Validate a <see cref="T:Microsoft.Agents.ObjectModel.ConnectionParameterSettings" />
             </summary>
         </member>
         <member name="M:Microsoft.Agents.ObjectModel.Internal.BotElementStructuralValidator.VisitIvrBotSettings(Microsoft.Agents.ObjectModel.Internal.IvrBotSettingsGreen)">
@@ -4677,6 +4707,11 @@
         <member name="M:Microsoft.Agents.ObjectModel.Internal.BotElementStructuralValidator.VisitUseSpecificTools(Microsoft.Agents.ObjectModel.Internal.UseSpecificToolsGreen)">
             <summary>
             Validate a <see cref="T:Microsoft.Agents.ObjectModel.UseSpecificTools" />
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.Internal.BotElementStructuralValidator.VisitMcpToolDefinition(Microsoft.Agents.ObjectModel.Internal.McpToolDefinitionGreen)">
+            <summary>
+            Validate a <see cref="T:Microsoft.Agents.ObjectModel.McpToolDefinition" />
             </summary>
         </member>
         <member name="M:Microsoft.Agents.ObjectModel.Internal.BotElementStructuralValidator.VisitActivityProtocolMetadata(Microsoft.Agents.ObjectModel.Internal.ActivityProtocolMetadataGreen)">
@@ -6484,6 +6519,11 @@
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.InvokeConnectorAction" />
             </summary>
         </member>
+        <member name="M:Microsoft.Agents.ObjectModel.Internal.BotElementGreenVisitor`1.VisitInvokeMcpToolAction(Microsoft.Agents.ObjectModel.Internal.InvokeMcpToolActionGreen)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.InvokeMcpToolAction" />
+            </summary>
+        </member>
         <member name="M:Microsoft.Agents.ObjectModel.Internal.BotElementGreenVisitor`1.VisitInvokeSkillAction(Microsoft.Agents.ObjectModel.Internal.InvokeSkillActionGreen)">
             <summary>
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.InvokeSkillAction" />
@@ -7084,9 +7124,24 @@
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.NetworkSettings" />
             </summary>
         </member>
+        <member name="M:Microsoft.Agents.ObjectModel.Internal.BotElementGreenVisitor`1.VisitConnectionParametersSet(Microsoft.Agents.ObjectModel.Internal.ConnectionParametersSetGreen)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.ConnectionParametersSet" />
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.Internal.BotElementGreenVisitor`1.VisitConnectionReferenceNameInFlowToConnectionParametersSetMapping(Microsoft.Agents.ObjectModel.Internal.ConnectionReferenceNameInFlowToConnectionParametersSetMappingGreen)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.ConnectionReferenceNameInFlowToConnectionParametersSetMapping" />
+            </summary>
+        </member>
         <member name="M:Microsoft.Agents.ObjectModel.Internal.BotElementGreenVisitor`1.VisitUnknownBotSettingsBase(Microsoft.Agents.ObjectModel.Internal.UnknownBotSettingsBaseGreen)">
             <summary>
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.UnknownBotSettingsBase" />
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.Internal.BotElementGreenVisitor`1.VisitConnectionParameterSettings(Microsoft.Agents.ObjectModel.Internal.ConnectionParameterSettingsGreen)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.ConnectionParameterSettings" />
             </summary>
         </member>
         <member name="M:Microsoft.Agents.ObjectModel.Internal.BotElementGreenVisitor`1.VisitIvrBotSettings(Microsoft.Agents.ObjectModel.Internal.IvrBotSettingsGreen)">
@@ -7622,6 +7677,11 @@
         <member name="M:Microsoft.Agents.ObjectModel.Internal.BotElementGreenVisitor`1.VisitUseSpecificTools(Microsoft.Agents.ObjectModel.Internal.UseSpecificToolsGreen)">
             <summary>
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.UseSpecificTools" />
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.Internal.BotElementGreenVisitor`1.VisitMcpToolDefinition(Microsoft.Agents.ObjectModel.Internal.McpToolDefinitionGreen)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.McpToolDefinition" />
             </summary>
         </member>
         <member name="M:Microsoft.Agents.ObjectModel.Internal.BotElementGreenVisitor`1.VisitActivityProtocolMetadata(Microsoft.Agents.ObjectModel.Internal.ActivityProtocolMetadataGreen)">
@@ -9309,6 +9369,11 @@
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.InvokeConnectorAction" />
             </summary>
         </member>
+        <member name="M:Microsoft.Agents.ObjectModel.Internal.BotElementGreenVisitor.VisitInvokeMcpToolAction(Microsoft.Agents.ObjectModel.Internal.InvokeMcpToolActionGreen)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.InvokeMcpToolAction" />
+            </summary>
+        </member>
         <member name="M:Microsoft.Agents.ObjectModel.Internal.BotElementGreenVisitor.VisitInvokeSkillAction(Microsoft.Agents.ObjectModel.Internal.InvokeSkillActionGreen)">
             <summary>
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.InvokeSkillAction" />
@@ -9909,9 +9974,24 @@
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.NetworkSettings" />
             </summary>
         </member>
+        <member name="M:Microsoft.Agents.ObjectModel.Internal.BotElementGreenVisitor.VisitConnectionParametersSet(Microsoft.Agents.ObjectModel.Internal.ConnectionParametersSetGreen)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.ConnectionParametersSet" />
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.Internal.BotElementGreenVisitor.VisitConnectionReferenceNameInFlowToConnectionParametersSetMapping(Microsoft.Agents.ObjectModel.Internal.ConnectionReferenceNameInFlowToConnectionParametersSetMappingGreen)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.ConnectionReferenceNameInFlowToConnectionParametersSetMapping" />
+            </summary>
+        </member>
         <member name="M:Microsoft.Agents.ObjectModel.Internal.BotElementGreenVisitor.VisitUnknownBotSettingsBase(Microsoft.Agents.ObjectModel.Internal.UnknownBotSettingsBaseGreen)">
             <summary>
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.UnknownBotSettingsBase" />
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.Internal.BotElementGreenVisitor.VisitConnectionParameterSettings(Microsoft.Agents.ObjectModel.Internal.ConnectionParameterSettingsGreen)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.ConnectionParameterSettings" />
             </summary>
         </member>
         <member name="M:Microsoft.Agents.ObjectModel.Internal.BotElementGreenVisitor.VisitIvrBotSettings(Microsoft.Agents.ObjectModel.Internal.IvrBotSettingsGreen)">
@@ -10447,6 +10527,11 @@
         <member name="M:Microsoft.Agents.ObjectModel.Internal.BotElementGreenVisitor.VisitUseSpecificTools(Microsoft.Agents.ObjectModel.Internal.UseSpecificToolsGreen)">
             <summary>
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.UseSpecificTools" />
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.Internal.BotElementGreenVisitor.VisitMcpToolDefinition(Microsoft.Agents.ObjectModel.Internal.McpToolDefinitionGreen)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.McpToolDefinition" />
             </summary>
         </member>
         <member name="M:Microsoft.Agents.ObjectModel.Internal.BotElementGreenVisitor.VisitActivityProtocolMetadata(Microsoft.Agents.ObjectModel.Internal.ActivityProtocolMetadataGreen)">
@@ -12136,6 +12221,11 @@
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.InvokeConnectorAction" />
             </summary>
         </member>
+        <member name="M:Microsoft.Agents.ObjectModel.Internal.BotElementGreenVisitor`2.VisitInvokeMcpToolAction(Microsoft.Agents.ObjectModel.Internal.InvokeMcpToolActionGreen,`1)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.InvokeMcpToolAction" />
+            </summary>
+        </member>
         <member name="M:Microsoft.Agents.ObjectModel.Internal.BotElementGreenVisitor`2.VisitInvokeSkillAction(Microsoft.Agents.ObjectModel.Internal.InvokeSkillActionGreen,`1)">
             <summary>
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.InvokeSkillAction" />
@@ -12736,9 +12826,24 @@
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.NetworkSettings" />
             </summary>
         </member>
+        <member name="M:Microsoft.Agents.ObjectModel.Internal.BotElementGreenVisitor`2.VisitConnectionParametersSet(Microsoft.Agents.ObjectModel.Internal.ConnectionParametersSetGreen,`1)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.ConnectionParametersSet" />
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.Internal.BotElementGreenVisitor`2.VisitConnectionReferenceNameInFlowToConnectionParametersSetMapping(Microsoft.Agents.ObjectModel.Internal.ConnectionReferenceNameInFlowToConnectionParametersSetMappingGreen,`1)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.ConnectionReferenceNameInFlowToConnectionParametersSetMapping" />
+            </summary>
+        </member>
         <member name="M:Microsoft.Agents.ObjectModel.Internal.BotElementGreenVisitor`2.VisitUnknownBotSettingsBase(Microsoft.Agents.ObjectModel.Internal.UnknownBotSettingsBaseGreen,`1)">
             <summary>
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.UnknownBotSettingsBase" />
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.Internal.BotElementGreenVisitor`2.VisitConnectionParameterSettings(Microsoft.Agents.ObjectModel.Internal.ConnectionParameterSettingsGreen,`1)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.ConnectionParameterSettings" />
             </summary>
         </member>
         <member name="M:Microsoft.Agents.ObjectModel.Internal.BotElementGreenVisitor`2.VisitIvrBotSettings(Microsoft.Agents.ObjectModel.Internal.IvrBotSettingsGreen,`1)">
@@ -13274,6 +13379,11 @@
         <member name="M:Microsoft.Agents.ObjectModel.Internal.BotElementGreenVisitor`2.VisitUseSpecificTools(Microsoft.Agents.ObjectModel.Internal.UseSpecificToolsGreen,`1)">
             <summary>
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.UseSpecificTools" />
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.Internal.BotElementGreenVisitor`2.VisitMcpToolDefinition(Microsoft.Agents.ObjectModel.Internal.McpToolDefinitionGreen,`1)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.McpToolDefinition" />
             </summary>
         </member>
         <member name="M:Microsoft.Agents.ObjectModel.Internal.BotElementGreenVisitor`2.VisitActivityProtocolMetadata(Microsoft.Agents.ObjectModel.Internal.ActivityProtocolMetadataGreen,`1)">
@@ -15448,6 +15558,16 @@
             Operation defined in the connector's swagger
             </summary>
         </member>
+        <member name="P:Microsoft.Agents.ObjectModel.Internal.InvokeMcpToolActionGreen.ServerSchemaName">
+            <summary>
+            The schema name of the dialog containing the MCP server configuration
+            </summary>
+        </member>
+        <member name="P:Microsoft.Agents.ObjectModel.Internal.InvokeMcpToolActionGreen.ToolName">
+            <summary>
+            The name of the MCP tool to invoke
+            </summary>
+        </member>
         <member name="P:Microsoft.Agents.ObjectModel.Internal.InvokeSkillActionGreen.SkillId">
             <summary>
             The unique name (schemaname) of the skill component for which the action is referenced.
@@ -16438,9 +16558,24 @@
             Include test data in analytics
             </summary>
         </member>
+        <member name="P:Microsoft.Agents.ObjectModel.Internal.ConnectionParametersSetGreen.ConnectionParametersSetName">
+            <summary>
+            Name of the auth type in the connector metadata
+            </summary>
+        </member>
         <member name="P:Microsoft.Agents.ObjectModel.Internal.UnknownBotSettingsBaseGreen.RawData">
             <summary>
             Gets the original object as it was deserialized.
+            </summary>
+        </member>
+        <member name="P:Microsoft.Agents.ObjectModel.Internal.ConnectionParameterSettingsGreen.ConnectorSettings">
+            <summary>
+            Mapping from a connection reference logical name in the bot definition to the connection parameters for it
+            </summary>
+        </member>
+        <member name="P:Microsoft.Agents.ObjectModel.Internal.ConnectionParameterSettingsGreen.FlowSettings">
+            <summary>
+            Mapping from a flow ID in the bot definition to the connection parameters for the actions inside it.
             </summary>
         </member>
         <member name="P:Microsoft.Agents.ObjectModel.Internal.IvrBotSettingsGreen.DomainLanguageModelWeightValue">
@@ -17478,6 +17613,16 @@
             Allows the MCP server to ask questions directly to end users. When disabled, the server will respond based on the provided information.
             </summary>
         </member>
+        <member name="P:Microsoft.Agents.ObjectModel.Internal.ModelContextProtocolMetadataGreen.KnownTools">
+            <summary>
+            Cached list of tools from the MCP server (populated at design time)
+            </summary>
+        </member>
+        <member name="P:Microsoft.Agents.ObjectModel.Internal.ModelContextProtocolMetadataGreen.ToolsLastRefreshedAt">
+            <summary>
+            Timestamp when KnownTools was last fetched from the MCP server
+            </summary>
+        </member>
         <member name="P:Microsoft.Agents.ObjectModel.Internal.UnknownToolsSelectionModeGreen.RawData">
             <summary>
             Gets the original object as it was deserialized.
@@ -17486,6 +17631,26 @@
         <member name="P:Microsoft.Agents.ObjectModel.Internal.UseSpecificToolsGreen.Tools">
             <summary>
             List of specific tools to use from the MCP server.
+            </summary>
+        </member>
+        <member name="P:Microsoft.Agents.ObjectModel.Internal.McpToolDefinitionGreen.Name">
+            <summary>
+            The tool name as returned by MCP tools/list
+            </summary>
+        </member>
+        <member name="P:Microsoft.Agents.ObjectModel.Internal.McpToolDefinitionGreen.Description">
+            <summary>
+            Tool description from MCP server
+            </summary>
+        </member>
+        <member name="P:Microsoft.Agents.ObjectModel.Internal.McpToolDefinitionGreen.InputSchema">
+            <summary>
+            Input schema for the tool. Property names, types, descriptions, and required flags are stored in the RecordDataType properties.
+            </summary>
+        </member>
+        <member name="P:Microsoft.Agents.ObjectModel.Internal.McpToolDefinitionGreen.OutputSchema">
+            <summary>
+            Output schema for the tool. Property names, types, and descriptions are stored in the DataType properties.
             </summary>
         </member>
         <member name="P:Microsoft.Agents.ObjectModel.Internal.AgentToAgentProtocolMetadataGreen.Extensions">
@@ -20226,6 +20391,11 @@
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.Internal.InvokeConnectorActionGreen" />
             </summary>
         </member>
+        <member name="M:Microsoft.Agents.ObjectModel.Internal.DialogActionGreenVisitor`1.Visit(Microsoft.Agents.ObjectModel.Internal.InvokeMcpToolActionGreen)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.Internal.InvokeMcpToolActionGreen" />
+            </summary>
+        </member>
         <member name="M:Microsoft.Agents.ObjectModel.Internal.DialogActionGreenVisitor`1.Visit(Microsoft.Agents.ObjectModel.Internal.InvokeSkillActionGreen)">
             <summary>
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.Internal.InvokeSkillActionGreen" />
@@ -20539,6 +20709,11 @@
         <member name="M:Microsoft.Agents.ObjectModel.Internal.DialogActionGreenVisitor.Visit(Microsoft.Agents.ObjectModel.Internal.InvokeConnectorActionGreen)">
             <summary>
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.Internal.InvokeConnectorActionGreen" />
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.Internal.DialogActionGreenVisitor.Visit(Microsoft.Agents.ObjectModel.Internal.InvokeMcpToolActionGreen)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.Internal.InvokeMcpToolActionGreen" />
             </summary>
         </member>
         <member name="M:Microsoft.Agents.ObjectModel.Internal.DialogActionGreenVisitor.Visit(Microsoft.Agents.ObjectModel.Internal.InvokeSkillActionGreen)">
@@ -20856,6 +21031,11 @@
         <member name="M:Microsoft.Agents.ObjectModel.Internal.DialogActionGreenVisitor`2.Visit(Microsoft.Agents.ObjectModel.Internal.InvokeConnectorActionGreen,`1)">
             <summary>
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.Internal.InvokeConnectorActionGreen" />
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.Internal.DialogActionGreenVisitor`2.Visit(Microsoft.Agents.ObjectModel.Internal.InvokeMcpToolActionGreen,`1)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.Internal.InvokeMcpToolActionGreen" />
             </summary>
         </member>
         <member name="M:Microsoft.Agents.ObjectModel.Internal.DialogActionGreenVisitor`2.Visit(Microsoft.Agents.ObjectModel.Internal.InvokeSkillActionGreen,`1)">
@@ -22457,6 +22637,11 @@
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.Internal.UnknownBotSettingsBaseGreen" />
             </summary>
         </member>
+        <member name="M:Microsoft.Agents.ObjectModel.Internal.BotSettingsBaseGreenVisitor`1.Visit(Microsoft.Agents.ObjectModel.Internal.ConnectionParameterSettingsGreen)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.Internal.ConnectionParameterSettingsGreen" />
+            </summary>
+        </member>
         <member name="M:Microsoft.Agents.ObjectModel.Internal.BotSettingsBaseGreenVisitor`1.Visit(Microsoft.Agents.ObjectModel.Internal.IvrBotSettingsGreen)">
             <summary>
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.Internal.IvrBotSettingsGreen" />
@@ -22495,6 +22680,11 @@
         <member name="M:Microsoft.Agents.ObjectModel.Internal.BotSettingsBaseGreenVisitor.Visit(Microsoft.Agents.ObjectModel.Internal.UnknownBotSettingsBaseGreen)">
             <summary>
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.Internal.UnknownBotSettingsBaseGreen" />
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.Internal.BotSettingsBaseGreenVisitor.Visit(Microsoft.Agents.ObjectModel.Internal.ConnectionParameterSettingsGreen)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.Internal.ConnectionParameterSettingsGreen" />
             </summary>
         </member>
         <member name="M:Microsoft.Agents.ObjectModel.Internal.BotSettingsBaseGreenVisitor.Visit(Microsoft.Agents.ObjectModel.Internal.IvrBotSettingsGreen)">
@@ -22537,6 +22727,11 @@
         <member name="M:Microsoft.Agents.ObjectModel.Internal.BotSettingsBaseGreenVisitor`2.Visit(Microsoft.Agents.ObjectModel.Internal.UnknownBotSettingsBaseGreen,`1)">
             <summary>
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.Internal.UnknownBotSettingsBaseGreen" />
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.Internal.BotSettingsBaseGreenVisitor`2.Visit(Microsoft.Agents.ObjectModel.Internal.ConnectionParameterSettingsGreen,`1)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.Internal.ConnectionParameterSettingsGreen" />
             </summary>
         </member>
         <member name="M:Microsoft.Agents.ObjectModel.Internal.BotSettingsBaseGreenVisitor`2.Visit(Microsoft.Agents.ObjectModel.Internal.IvrBotSettingsGreen,`1)">
@@ -30664,6 +30859,89 @@
             Builds the object into an immutable representation.
             </summary>
         </member>
+        <member name="M:Microsoft.Agents.ObjectModel.InvokeMcpToolAction.TryResolveMcpServer(Microsoft.Agents.ObjectModel.DialogComponent@)">
+            <summary>
+            Attempts to resolve the MCP server dialog component referenced by ServerSchemaName.
+            </summary>
+            <param name="mcpServerComponent">The resolved DialogComponent containing the MCP server configuration.</param>
+            <returns>True if the MCP server was found and is a valid MCP server dialog; otherwise false.</returns>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.InvokeMcpToolAction.GetInputType">
+            <summary>
+            Gets the input type for the MCP tool, resolved from the MCP server's KnownTools catalog.
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.InvokeMcpToolAction.GetOutputType">
+            <summary>
+            Gets the output type for the MCP tool, resolved from the MCP server's KnownTools catalog.
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.InvokeMcpToolAction.TryGetToolFromMcpMetadata(Microsoft.Agents.ObjectModel.DialogComponent,Microsoft.Agents.ObjectModel.McpToolDefinition@)">
+            <summary>
+            Attempts to get the tool definition from the MCP server's cached metadata.
+            </summary>
+        </member>
+        <member name="P:Microsoft.Agents.ObjectModel.InvokeMcpToolAction.ServerSchemaName">
+            <summary>
+            The schema name of the dialog containing the MCP server configuration
+            </summary>
+        </member>
+        <member name="P:Microsoft.Agents.ObjectModel.InvokeMcpToolAction.ToolName">
+            <summary>
+            The name of the MCP tool to invoke
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.InvokeMcpToolAction.ThrowForMissingProperties">
+            <summary>
+            Throws an ObjectModelException which includes the user facing error message.
+            </summary>
+        </member>
+        <member name="T:Microsoft.Agents.ObjectModel.InvokeMcpToolAction.Builder">
+            <summary>
+            Helps construct and modify <see cref="T:Microsoft.Agents.ObjectModel.InvokeMcpToolAction" /> objects and their children. This class is NOT thread safe.
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.InvokeMcpToolAction.Builder.#ctor">
+            <summary>
+            Creates a <see cref="T:Microsoft.Agents.ObjectModel.InvokeMcpToolAction.Builder" /> object that helps construct and modify <see cref="T:Microsoft.Agents.ObjectModel.InvokeMcpToolAction" /> objects and their children.
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.InvokeMcpToolAction.Builder.#ctor(Microsoft.Agents.ObjectModel.InvokeMcpToolAction)">
+            <summary>
+            Creates a <see cref="T:Microsoft.Agents.ObjectModel.InvokeMcpToolAction.Builder" /> object that helps construct and modify <see cref="T:Microsoft.Agents.ObjectModel.InvokeMcpToolAction" /> objects and their children. Uses an existing object as the base.
+            </summary>
+        </member>
+        <member name="P:Microsoft.Agents.ObjectModel.InvokeMcpToolAction.Builder.ServerSchemaName">
+            <summary>
+            The schema name of the dialog containing the MCP server configuration
+            </summary>
+        </member>
+        <member name="P:Microsoft.Agents.ObjectModel.InvokeMcpToolAction.Builder.ToolName">
+            <summary>
+            The name of the MCP tool to invoke
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.InvokeMcpToolAction.Builder.Build">
+            <summary>
+            Builds the object into an immutable representation.
+            </summary>
+        </member>
+        <member name="T:Microsoft.Agents.ObjectModel.DialogComponentMcpExtensions">
+            <summary>
+            Extension methods for DialogComponent to support MCP server detection.
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.DialogComponentMcpExtensions.IsMcpServerDialog(Microsoft.Agents.ObjectModel.DialogComponent)">
+            <summary>
+            Determines if a DialogComponent contains an MCP server configuration.
+            An MCP server is a TaskDialog with InvokeExternalAgentTaskAction and ModelContextProtocolMetadata.
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.DialogComponentMcpExtensions.GetMcpMetadata(Microsoft.Agents.ObjectModel.DialogComponent)">
+            <summary>
+            Gets the MCP metadata from a DialogComponent if it's an MCP server dialog.
+            </summary>
+        </member>
         <member name="T:Microsoft.Agents.ObjectModel.InvokerConnectionReference.Builder">
             <summary>
             Helps construct and modify <see cref="T:Microsoft.Agents.ObjectModel.InvokerConnectionReference" /> objects and their children. This class is NOT thread safe.
@@ -33854,6 +34132,11 @@
         <member name="P:Microsoft.Agents.ObjectModel.Resources.DiagnosticsErrorMessages.PropertyError_MaxTokensShouldBePositive">
             <summary>
               Looks up a localized string similar to Max-tokens must be a positive integer..
+            </summary>
+        </member>
+        <member name="P:Microsoft.Agents.ObjectModel.Resources.DiagnosticsErrorMessages.PropertyError_McpToolNotFound">
+            <summary>
+              Looks up a localized string similar to The specified tool was not found on the MCP server..
             </summary>
         </member>
         <member name="P:Microsoft.Agents.ObjectModel.Resources.DiagnosticsErrorMessages.PropertyError_MinCountNotMet">
@@ -37320,6 +37603,11 @@
             Rewrite a <see cref="T:Microsoft.Agents.ObjectModel.InvokeConnectorAction" />
             </summary>
         </member>
+        <member name="M:Microsoft.Agents.ObjectModel.BotElementRewriter.VisitInvokeMcpToolAction(Microsoft.Agents.ObjectModel.InvokeMcpToolAction)">
+            <summary>
+            Rewrite a <see cref="T:Microsoft.Agents.ObjectModel.InvokeMcpToolAction" />
+            </summary>
+        </member>
         <member name="M:Microsoft.Agents.ObjectModel.BotElementRewriter.VisitInvokeSkillAction(Microsoft.Agents.ObjectModel.InvokeSkillAction)">
             <summary>
             Rewrite a <see cref="T:Microsoft.Agents.ObjectModel.InvokeSkillAction" />
@@ -37920,9 +38208,24 @@
             Rewrite a <see cref="T:Microsoft.Agents.ObjectModel.NetworkSettings" />
             </summary>
         </member>
+        <member name="M:Microsoft.Agents.ObjectModel.BotElementRewriter.VisitConnectionParametersSet(Microsoft.Agents.ObjectModel.ConnectionParametersSet)">
+            <summary>
+            Rewrite a <see cref="T:Microsoft.Agents.ObjectModel.ConnectionParametersSet" />
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.BotElementRewriter.VisitConnectionReferenceNameInFlowToConnectionParametersSetMapping(Microsoft.Agents.ObjectModel.ConnectionReferenceNameInFlowToConnectionParametersSetMapping)">
+            <summary>
+            Rewrite a <see cref="T:Microsoft.Agents.ObjectModel.ConnectionReferenceNameInFlowToConnectionParametersSetMapping" />
+            </summary>
+        </member>
         <member name="M:Microsoft.Agents.ObjectModel.BotElementRewriter.VisitUnknownBotSettingsBase(Microsoft.Agents.ObjectModel.UnknownBotSettingsBase)">
             <summary>
             Rewrite a <see cref="T:Microsoft.Agents.ObjectModel.UnknownBotSettingsBase" />
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.BotElementRewriter.VisitConnectionParameterSettings(Microsoft.Agents.ObjectModel.ConnectionParameterSettings)">
+            <summary>
+            Rewrite a <see cref="T:Microsoft.Agents.ObjectModel.ConnectionParameterSettings" />
             </summary>
         </member>
         <member name="M:Microsoft.Agents.ObjectModel.BotElementRewriter.VisitIvrBotSettings(Microsoft.Agents.ObjectModel.IvrBotSettings)">
@@ -38458,6 +38761,11 @@
         <member name="M:Microsoft.Agents.ObjectModel.BotElementRewriter.VisitUseSpecificTools(Microsoft.Agents.ObjectModel.UseSpecificTools)">
             <summary>
             Rewrite a <see cref="T:Microsoft.Agents.ObjectModel.UseSpecificTools" />
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.BotElementRewriter.VisitMcpToolDefinition(Microsoft.Agents.ObjectModel.McpToolDefinition)">
+            <summary>
+            Rewrite a <see cref="T:Microsoft.Agents.ObjectModel.McpToolDefinition" />
             </summary>
         </member>
         <member name="M:Microsoft.Agents.ObjectModel.BotElementRewriter.VisitActivityProtocolMetadata(Microsoft.Agents.ObjectModel.ActivityProtocolMetadata)">
@@ -40060,6 +40368,11 @@
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.InvokeConnectorAction" />
             </summary>
         </member>
+        <member name="M:Microsoft.Agents.ObjectModel.BotElementWalker.VisitInvokeMcpToolAction(Microsoft.Agents.ObjectModel.InvokeMcpToolAction)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.InvokeMcpToolAction" />
+            </summary>
+        </member>
         <member name="M:Microsoft.Agents.ObjectModel.BotElementWalker.VisitInvokeSkillAction(Microsoft.Agents.ObjectModel.InvokeSkillAction)">
             <summary>
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.InvokeSkillAction" />
@@ -40585,6 +40898,21 @@
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.NetworkSettings" />
             </summary>
         </member>
+        <member name="M:Microsoft.Agents.ObjectModel.BotElementWalker.VisitConnectionParametersSet(Microsoft.Agents.ObjectModel.ConnectionParametersSet)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.ConnectionParametersSet" />
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.BotElementWalker.VisitConnectionReferenceNameInFlowToConnectionParametersSetMapping(Microsoft.Agents.ObjectModel.ConnectionReferenceNameInFlowToConnectionParametersSetMapping)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.ConnectionReferenceNameInFlowToConnectionParametersSetMapping" />
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.BotElementWalker.VisitConnectionParameterSettings(Microsoft.Agents.ObjectModel.ConnectionParameterSettings)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.ConnectionParameterSettings" />
+            </summary>
+        </member>
         <member name="M:Microsoft.Agents.ObjectModel.BotElementWalker.VisitIvrBotSettings(Microsoft.Agents.ObjectModel.IvrBotSettings)">
             <summary>
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.IvrBotSettings" />
@@ -41048,6 +41376,11 @@
         <member name="M:Microsoft.Agents.ObjectModel.BotElementWalker.VisitUseSpecificTools(Microsoft.Agents.ObjectModel.UseSpecificTools)">
             <summary>
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.UseSpecificTools" />
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.BotElementWalker.VisitMcpToolDefinition(Microsoft.Agents.ObjectModel.McpToolDefinition)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.McpToolDefinition" />
             </summary>
         </member>
         <member name="M:Microsoft.Agents.ObjectModel.BotElementWalker.VisitActivityProtocolMetadata(Microsoft.Agents.ObjectModel.ActivityProtocolMetadata)">
@@ -42646,6 +42979,11 @@
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.InvokeConnectorAction" />
             </summary>
         </member>
+        <member name="M:Microsoft.Agents.ObjectModel.BotElementVisitor`1.VisitInvokeMcpToolAction(Microsoft.Agents.ObjectModel.InvokeMcpToolAction)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.InvokeMcpToolAction" />
+            </summary>
+        </member>
         <member name="M:Microsoft.Agents.ObjectModel.BotElementVisitor`1.VisitInvokeSkillAction(Microsoft.Agents.ObjectModel.InvokeSkillAction)">
             <summary>
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.InvokeSkillAction" />
@@ -43246,9 +43584,24 @@
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.NetworkSettings" />
             </summary>
         </member>
+        <member name="M:Microsoft.Agents.ObjectModel.BotElementVisitor`1.VisitConnectionParametersSet(Microsoft.Agents.ObjectModel.ConnectionParametersSet)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.ConnectionParametersSet" />
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.BotElementVisitor`1.VisitConnectionReferenceNameInFlowToConnectionParametersSetMapping(Microsoft.Agents.ObjectModel.ConnectionReferenceNameInFlowToConnectionParametersSetMapping)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.ConnectionReferenceNameInFlowToConnectionParametersSetMapping" />
+            </summary>
+        </member>
         <member name="M:Microsoft.Agents.ObjectModel.BotElementVisitor`1.VisitUnknownBotSettingsBase(Microsoft.Agents.ObjectModel.UnknownBotSettingsBase)">
             <summary>
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.UnknownBotSettingsBase" />
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.BotElementVisitor`1.VisitConnectionParameterSettings(Microsoft.Agents.ObjectModel.ConnectionParameterSettings)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.ConnectionParameterSettings" />
             </summary>
         </member>
         <member name="M:Microsoft.Agents.ObjectModel.BotElementVisitor`1.VisitIvrBotSettings(Microsoft.Agents.ObjectModel.IvrBotSettings)">
@@ -43784,6 +44137,11 @@
         <member name="M:Microsoft.Agents.ObjectModel.BotElementVisitor`1.VisitUseSpecificTools(Microsoft.Agents.ObjectModel.UseSpecificTools)">
             <summary>
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.UseSpecificTools" />
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.BotElementVisitor`1.VisitMcpToolDefinition(Microsoft.Agents.ObjectModel.McpToolDefinition)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.McpToolDefinition" />
             </summary>
         </member>
         <member name="M:Microsoft.Agents.ObjectModel.BotElementVisitor`1.VisitActivityProtocolMetadata(Microsoft.Agents.ObjectModel.ActivityProtocolMetadata)">
@@ -45473,6 +45831,11 @@
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.InvokeConnectorAction" />
             </summary>
         </member>
+        <member name="M:Microsoft.Agents.ObjectModel.BotElementVisitor`2.VisitInvokeMcpToolAction(Microsoft.Agents.ObjectModel.InvokeMcpToolAction,`1)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.InvokeMcpToolAction" />
+            </summary>
+        </member>
         <member name="M:Microsoft.Agents.ObjectModel.BotElementVisitor`2.VisitInvokeSkillAction(Microsoft.Agents.ObjectModel.InvokeSkillAction,`1)">
             <summary>
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.InvokeSkillAction" />
@@ -46073,9 +46436,24 @@
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.NetworkSettings" />
             </summary>
         </member>
+        <member name="M:Microsoft.Agents.ObjectModel.BotElementVisitor`2.VisitConnectionParametersSet(Microsoft.Agents.ObjectModel.ConnectionParametersSet,`1)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.ConnectionParametersSet" />
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.BotElementVisitor`2.VisitConnectionReferenceNameInFlowToConnectionParametersSetMapping(Microsoft.Agents.ObjectModel.ConnectionReferenceNameInFlowToConnectionParametersSetMapping,`1)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.ConnectionReferenceNameInFlowToConnectionParametersSetMapping" />
+            </summary>
+        </member>
         <member name="M:Microsoft.Agents.ObjectModel.BotElementVisitor`2.VisitUnknownBotSettingsBase(Microsoft.Agents.ObjectModel.UnknownBotSettingsBase,`1)">
             <summary>
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.UnknownBotSettingsBase" />
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.BotElementVisitor`2.VisitConnectionParameterSettings(Microsoft.Agents.ObjectModel.ConnectionParameterSettings,`1)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.ConnectionParameterSettings" />
             </summary>
         </member>
         <member name="M:Microsoft.Agents.ObjectModel.BotElementVisitor`2.VisitIvrBotSettings(Microsoft.Agents.ObjectModel.IvrBotSettings,`1)">
@@ -46611,6 +46989,11 @@
         <member name="M:Microsoft.Agents.ObjectModel.BotElementVisitor`2.VisitUseSpecificTools(Microsoft.Agents.ObjectModel.UseSpecificTools,`1)">
             <summary>
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.UseSpecificTools" />
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.BotElementVisitor`2.VisitMcpToolDefinition(Microsoft.Agents.ObjectModel.McpToolDefinition,`1)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.McpToolDefinition" />
             </summary>
         </member>
         <member name="M:Microsoft.Agents.ObjectModel.BotElementVisitor`2.VisitActivityProtocolMetadata(Microsoft.Agents.ObjectModel.ActivityProtocolMetadata,`1)">
@@ -48298,6 +48681,11 @@
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.InvokeConnectorAction" />
             </summary>
         </member>
+        <member name="M:Microsoft.Agents.ObjectModel.BotElementVisitor.VisitInvokeMcpToolAction(Microsoft.Agents.ObjectModel.InvokeMcpToolAction)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.InvokeMcpToolAction" />
+            </summary>
+        </member>
         <member name="M:Microsoft.Agents.ObjectModel.BotElementVisitor.VisitInvokeSkillAction(Microsoft.Agents.ObjectModel.InvokeSkillAction)">
             <summary>
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.InvokeSkillAction" />
@@ -48898,9 +49286,24 @@
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.NetworkSettings" />
             </summary>
         </member>
+        <member name="M:Microsoft.Agents.ObjectModel.BotElementVisitor.VisitConnectionParametersSet(Microsoft.Agents.ObjectModel.ConnectionParametersSet)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.ConnectionParametersSet" />
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.BotElementVisitor.VisitConnectionReferenceNameInFlowToConnectionParametersSetMapping(Microsoft.Agents.ObjectModel.ConnectionReferenceNameInFlowToConnectionParametersSetMapping)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.ConnectionReferenceNameInFlowToConnectionParametersSetMapping" />
+            </summary>
+        </member>
         <member name="M:Microsoft.Agents.ObjectModel.BotElementVisitor.VisitUnknownBotSettingsBase(Microsoft.Agents.ObjectModel.UnknownBotSettingsBase)">
             <summary>
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.UnknownBotSettingsBase" />
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.BotElementVisitor.VisitConnectionParameterSettings(Microsoft.Agents.ObjectModel.ConnectionParameterSettings)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.ConnectionParameterSettings" />
             </summary>
         </member>
         <member name="M:Microsoft.Agents.ObjectModel.BotElementVisitor.VisitIvrBotSettings(Microsoft.Agents.ObjectModel.IvrBotSettings)">
@@ -49436,6 +49839,11 @@
         <member name="M:Microsoft.Agents.ObjectModel.BotElementVisitor.VisitUseSpecificTools(Microsoft.Agents.ObjectModel.UseSpecificTools)">
             <summary>
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.UseSpecificTools" />
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.BotElementVisitor.VisitMcpToolDefinition(Microsoft.Agents.ObjectModel.McpToolDefinition)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.McpToolDefinition" />
             </summary>
         </member>
         <member name="M:Microsoft.Agents.ObjectModel.BotElementVisitor.VisitActivityProtocolMetadata(Microsoft.Agents.ObjectModel.ActivityProtocolMetadata)">
@@ -50576,6 +50984,11 @@
         <member name="M:Microsoft.Agents.ObjectModel.SchemaNameRewriter.VisitInvokeConnectorAction(Microsoft.Agents.ObjectModel.InvokeConnectorAction)">
             <summary>
             Rewrite a <see cref="T:Microsoft.Agents.ObjectModel.InvokeConnectorAction" />
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.SchemaNameRewriter.VisitInvokeMcpToolAction(Microsoft.Agents.ObjectModel.InvokeMcpToolAction)">
+            <summary>
+            Rewrite a <see cref="T:Microsoft.Agents.ObjectModel.InvokeMcpToolAction" />
             </summary>
         </member>
         <member name="M:Microsoft.Agents.ObjectModel.SchemaNameRewriter.VisitInvokeSkillAction(Microsoft.Agents.ObjectModel.InvokeSkillAction)">
@@ -51761,6 +52174,11 @@
             Maps to <see cref="F:Microsoft.Agents.ObjectModel.BotElementKind.InvokeConnectorAction" />
             </summary>
         </member>
+        <member name="F:Microsoft.Agents.ObjectModel.BotElementKind.InvokeMcpToolAction">
+            <summary>
+            Maps to <see cref="F:Microsoft.Agents.ObjectModel.BotElementKind.InvokeMcpToolAction" />
+            </summary>
+        </member>
         <member name="F:Microsoft.Agents.ObjectModel.BotElementKind.InvokeSkillAction">
             <summary>
             Maps to <see cref="F:Microsoft.Agents.ObjectModel.BotElementKind.InvokeSkillAction" />
@@ -52286,6 +52704,21 @@
             Maps to <see cref="F:Microsoft.Agents.ObjectModel.BotElementKind.NetworkSettings" />
             </summary>
         </member>
+        <member name="F:Microsoft.Agents.ObjectModel.BotElementKind.ConnectionParametersSet">
+            <summary>
+            Maps to <see cref="F:Microsoft.Agents.ObjectModel.BotElementKind.ConnectionParametersSet" />
+            </summary>
+        </member>
+        <member name="F:Microsoft.Agents.ObjectModel.BotElementKind.ConnectionReferenceNameInFlowToConnectionParametersSetMapping">
+            <summary>
+            Maps to <see cref="F:Microsoft.Agents.ObjectModel.BotElementKind.ConnectionReferenceNameInFlowToConnectionParametersSetMapping" />
+            </summary>
+        </member>
+        <member name="F:Microsoft.Agents.ObjectModel.BotElementKind.ConnectionParameterSettings">
+            <summary>
+            Maps to <see cref="F:Microsoft.Agents.ObjectModel.BotElementKind.ConnectionParameterSettings" />
+            </summary>
+        </member>
         <member name="F:Microsoft.Agents.ObjectModel.BotElementKind.IvrBotSettings">
             <summary>
             Maps to <see cref="F:Microsoft.Agents.ObjectModel.BotElementKind.IvrBotSettings" />
@@ -52749,6 +53182,11 @@
         <member name="F:Microsoft.Agents.ObjectModel.BotElementKind.UseSpecificTools">
             <summary>
             Maps to <see cref="F:Microsoft.Agents.ObjectModel.BotElementKind.UseSpecificTools" />
+            </summary>
+        </member>
+        <member name="F:Microsoft.Agents.ObjectModel.BotElementKind.McpToolDefinition">
+            <summary>
+            Maps to <see cref="F:Microsoft.Agents.ObjectModel.BotElementKind.McpToolDefinition" />
             </summary>
         </member>
         <member name="F:Microsoft.Agents.ObjectModel.BotElementKind.ActivityProtocolMetadata">
@@ -55066,6 +55504,11 @@
         <member name="F:Microsoft.Agents.ObjectModel.ValidationErrorCode.ConnectorActionNotSupported">
             <summary>
             Shown when the connector's action is not supported by our system
+            </summary>
+        </member>
+        <member name="F:Microsoft.Agents.ObjectModel.ValidationErrorCode.McpToolNotFound">
+            <summary>
+            Shown when the specified tool is not found in the MCP server's known tools catalog
             </summary>
         </member>
         <member name="F:Microsoft.Agents.ObjectModel.ValidationErrorCode.ConnectionNotSet">
@@ -65872,6 +66315,56 @@
             Builds the object into an immutable representation.
             </summary>
         </member>
+        <member name="P:Microsoft.Agents.ObjectModel.ConnectionParametersSet.ConnectionParametersSetName">
+            <summary>
+            Name of the auth type in the connector metadata
+            </summary>
+        </member>
+        <member name="T:Microsoft.Agents.ObjectModel.ConnectionParametersSet.Builder">
+            <summary>
+            Helps construct and modify <see cref="T:Microsoft.Agents.ObjectModel.ConnectionParametersSet" /> objects and their children. This class is NOT thread safe.
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.ConnectionParametersSet.Builder.#ctor">
+            <summary>
+            Creates a <see cref="T:Microsoft.Agents.ObjectModel.ConnectionParametersSet.Builder" /> object that helps construct and modify <see cref="T:Microsoft.Agents.ObjectModel.ConnectionParametersSet" /> objects and their children.
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.ConnectionParametersSet.Builder.#ctor(Microsoft.Agents.ObjectModel.ConnectionParametersSet)">
+            <summary>
+            Creates a <see cref="T:Microsoft.Agents.ObjectModel.ConnectionParametersSet.Builder" /> object that helps construct and modify <see cref="T:Microsoft.Agents.ObjectModel.ConnectionParametersSet" /> objects and their children. Uses an existing object as the base.
+            </summary>
+        </member>
+        <member name="P:Microsoft.Agents.ObjectModel.ConnectionParametersSet.Builder.ConnectionParametersSetName">
+            <summary>
+            Name of the auth type in the connector metadata
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.ConnectionParametersSet.Builder.Build">
+            <summary>
+            Builds the object into an immutable representation.
+            </summary>
+        </member>
+        <member name="T:Microsoft.Agents.ObjectModel.ConnectionReferenceNameInFlowToConnectionParametersSetMapping.Builder">
+            <summary>
+            Helps construct and modify <see cref="T:Microsoft.Agents.ObjectModel.ConnectionReferenceNameInFlowToConnectionParametersSetMapping" /> objects and their children. This class is NOT thread safe.
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.ConnectionReferenceNameInFlowToConnectionParametersSetMapping.Builder.#ctor">
+            <summary>
+            Creates a <see cref="T:Microsoft.Agents.ObjectModel.ConnectionReferenceNameInFlowToConnectionParametersSetMapping.Builder" /> object that helps construct and modify <see cref="T:Microsoft.Agents.ObjectModel.ConnectionReferenceNameInFlowToConnectionParametersSetMapping" /> objects and their children.
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.ConnectionReferenceNameInFlowToConnectionParametersSetMapping.Builder.#ctor(Microsoft.Agents.ObjectModel.ConnectionReferenceNameInFlowToConnectionParametersSetMapping)">
+            <summary>
+            Creates a <see cref="T:Microsoft.Agents.ObjectModel.ConnectionReferenceNameInFlowToConnectionParametersSetMapping.Builder" /> object that helps construct and modify <see cref="T:Microsoft.Agents.ObjectModel.ConnectionReferenceNameInFlowToConnectionParametersSetMapping" /> objects and their children. Uses an existing object as the base.
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.ConnectionReferenceNameInFlowToConnectionParametersSetMapping.Builder.Build">
+            <summary>
+            Builds the object into an immutable representation.
+            </summary>
+        </member>
         <member name="T:Microsoft.Agents.ObjectModel.BotSettingsBase.Builder">
             <summary>
             Helps construct and modify <see cref="T:Microsoft.Agents.ObjectModel.BotSettingsBase" /> objects and their children. This class is NOT thread safe.
@@ -65908,6 +66401,46 @@
             </summary>
         </member>
         <member name="M:Microsoft.Agents.ObjectModel.UnknownBotSettingsBase.Builder.Build">
+            <summary>
+            Builds the object into an immutable representation.
+            </summary>
+        </member>
+        <member name="P:Microsoft.Agents.ObjectModel.ConnectionParameterSettings.ConnectorSettings">
+            <summary>
+            Mapping from a connection reference logical name in the bot definition to the connection parameters for it
+            </summary>
+        </member>
+        <member name="P:Microsoft.Agents.ObjectModel.ConnectionParameterSettings.FlowSettings">
+            <summary>
+            Mapping from a flow ID in the bot definition to the connection parameters for the actions inside it.
+            </summary>
+        </member>
+        <member name="T:Microsoft.Agents.ObjectModel.ConnectionParameterSettings.Builder">
+            <summary>
+            Helps construct and modify <see cref="T:Microsoft.Agents.ObjectModel.ConnectionParameterSettings" /> objects and their children. This class is NOT thread safe.
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.ConnectionParameterSettings.Builder.#ctor">
+            <summary>
+            Creates a <see cref="T:Microsoft.Agents.ObjectModel.ConnectionParameterSettings.Builder" /> object that helps construct and modify <see cref="T:Microsoft.Agents.ObjectModel.ConnectionParameterSettings" /> objects and their children.
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.ConnectionParameterSettings.Builder.#ctor(Microsoft.Agents.ObjectModel.ConnectionParameterSettings)">
+            <summary>
+            Creates a <see cref="T:Microsoft.Agents.ObjectModel.ConnectionParameterSettings.Builder" /> object that helps construct and modify <see cref="T:Microsoft.Agents.ObjectModel.ConnectionParameterSettings" /> objects and their children. Uses an existing object as the base.
+            </summary>
+        </member>
+        <member name="P:Microsoft.Agents.ObjectModel.ConnectionParameterSettings.Builder.ConnectorSettings">
+            <summary>
+            Mapping from a connection reference logical name in the bot definition to the connection parameters for it
+            </summary>
+        </member>
+        <member name="P:Microsoft.Agents.ObjectModel.ConnectionParameterSettings.Builder.FlowSettings">
+            <summary>
+            Mapping from a flow ID in the bot definition to the connection parameters for the actions inside it.
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.ConnectionParameterSettings.Builder.Build">
             <summary>
             Builds the object into an immutable representation.
             </summary>
@@ -70789,6 +71322,16 @@
             Returns true if <see cref="P:Microsoft.Agents.ObjectModel.ModelContextProtocolMetadata.Tools" />'s value is the default value.
             </summary>
         </member>
+        <member name="P:Microsoft.Agents.ObjectModel.ModelContextProtocolMetadata.KnownTools">
+            <summary>
+            Cached list of tools from the MCP server (populated at design time)
+            </summary>
+        </member>
+        <member name="P:Microsoft.Agents.ObjectModel.ModelContextProtocolMetadata.ToolsLastRefreshedAt">
+            <summary>
+            Timestamp when KnownTools was last fetched from the MCP server
+            </summary>
+        </member>
         <member name="M:Microsoft.Agents.ObjectModel.ModelContextProtocolMetadata.ThrowForMissingProperties">
             <summary>
             Throws an ObjectModelException which includes the user facing error message.
@@ -70812,6 +71355,16 @@
         <member name="P:Microsoft.Agents.ObjectModel.ModelContextProtocolMetadata.Builder.IsElicitationEnabled">
             <summary>
             Allows the MCP server to ask questions directly to end users. When disabled, the server will respond based on the provided information.
+            </summary>
+        </member>
+        <member name="P:Microsoft.Agents.ObjectModel.ModelContextProtocolMetadata.Builder.KnownTools">
+            <summary>
+            Cached list of tools from the MCP server (populated at design time)
+            </summary>
+        </member>
+        <member name="P:Microsoft.Agents.ObjectModel.ModelContextProtocolMetadata.Builder.ToolsLastRefreshedAt">
+            <summary>
+            Timestamp when KnownTools was last fetched from the MCP server
             </summary>
         </member>
         <member name="M:Microsoft.Agents.ObjectModel.ModelContextProtocolMetadata.Builder.Build">
@@ -70905,6 +71458,71 @@
             </summary>
         </member>
         <member name="M:Microsoft.Agents.ObjectModel.UseSpecificTools.Builder.Build">
+            <summary>
+            Builds the object into an immutable representation.
+            </summary>
+        </member>
+        <member name="P:Microsoft.Agents.ObjectModel.McpToolDefinition.Name">
+            <summary>
+            The tool name as returned by MCP tools/list
+            </summary>
+        </member>
+        <member name="P:Microsoft.Agents.ObjectModel.McpToolDefinition.Description">
+            <summary>
+            Tool description from MCP server
+            </summary>
+        </member>
+        <member name="P:Microsoft.Agents.ObjectModel.McpToolDefinition.InputSchema">
+            <summary>
+            Input schema for the tool. Property names, types, descriptions, and required flags are stored in the RecordDataType properties.
+            </summary>
+        </member>
+        <member name="P:Microsoft.Agents.ObjectModel.McpToolDefinition.OutputSchema">
+            <summary>
+            Output schema for the tool. Property names, types, and descriptions are stored in the DataType properties.
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.McpToolDefinition.ThrowForMissingProperties">
+            <summary>
+            Throws an ObjectModelException which includes the user facing error message.
+            </summary>
+        </member>
+        <member name="T:Microsoft.Agents.ObjectModel.McpToolDefinition.Builder">
+            <summary>
+            Helps construct and modify <see cref="T:Microsoft.Agents.ObjectModel.McpToolDefinition" /> objects and their children. This class is NOT thread safe.
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.McpToolDefinition.Builder.#ctor">
+            <summary>
+            Creates a <see cref="T:Microsoft.Agents.ObjectModel.McpToolDefinition.Builder" /> object that helps construct and modify <see cref="T:Microsoft.Agents.ObjectModel.McpToolDefinition" /> objects and their children.
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.McpToolDefinition.Builder.#ctor(Microsoft.Agents.ObjectModel.McpToolDefinition)">
+            <summary>
+            Creates a <see cref="T:Microsoft.Agents.ObjectModel.McpToolDefinition.Builder" /> object that helps construct and modify <see cref="T:Microsoft.Agents.ObjectModel.McpToolDefinition" /> objects and their children. Uses an existing object as the base.
+            </summary>
+        </member>
+        <member name="P:Microsoft.Agents.ObjectModel.McpToolDefinition.Builder.Name">
+            <summary>
+            The tool name as returned by MCP tools/list
+            </summary>
+        </member>
+        <member name="P:Microsoft.Agents.ObjectModel.McpToolDefinition.Builder.Description">
+            <summary>
+            Tool description from MCP server
+            </summary>
+        </member>
+        <member name="P:Microsoft.Agents.ObjectModel.McpToolDefinition.Builder.InputSchema">
+            <summary>
+            Input schema for the tool. Property names, types, descriptions, and required flags are stored in the RecordDataType properties.
+            </summary>
+        </member>
+        <member name="P:Microsoft.Agents.ObjectModel.McpToolDefinition.Builder.OutputSchema">
+            <summary>
+            Output schema for the tool. Property names, types, and descriptions are stored in the DataType properties.
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.McpToolDefinition.Builder.Build">
             <summary>
             Builds the object into an immutable representation.
             </summary>
@@ -80847,6 +81465,11 @@
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.InvokeConnectorAction" />
             </summary>
         </member>
+        <member name="M:Microsoft.Agents.ObjectModel.DialogActionVisitor`1.Visit(Microsoft.Agents.ObjectModel.InvokeMcpToolAction)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.InvokeMcpToolAction" />
+            </summary>
+        </member>
         <member name="M:Microsoft.Agents.ObjectModel.DialogActionVisitor`1.Visit(Microsoft.Agents.ObjectModel.InvokeSkillAction)">
             <summary>
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.InvokeSkillAction" />
@@ -81160,6 +81783,11 @@
         <member name="M:Microsoft.Agents.ObjectModel.DialogActionVisitor.Visit(Microsoft.Agents.ObjectModel.InvokeConnectorAction)">
             <summary>
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.InvokeConnectorAction" />
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.DialogActionVisitor.Visit(Microsoft.Agents.ObjectModel.InvokeMcpToolAction)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.InvokeMcpToolAction" />
             </summary>
         </member>
         <member name="M:Microsoft.Agents.ObjectModel.DialogActionVisitor.Visit(Microsoft.Agents.ObjectModel.InvokeSkillAction)">
@@ -81477,6 +82105,11 @@
         <member name="M:Microsoft.Agents.ObjectModel.DialogActionVisitor`2.Visit(Microsoft.Agents.ObjectModel.InvokeConnectorAction,`1)">
             <summary>
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.InvokeConnectorAction" />
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.DialogActionVisitor`2.Visit(Microsoft.Agents.ObjectModel.InvokeMcpToolAction,`1)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.InvokeMcpToolAction" />
             </summary>
         </member>
         <member name="M:Microsoft.Agents.ObjectModel.DialogActionVisitor`2.Visit(Microsoft.Agents.ObjectModel.InvokeSkillAction,`1)">
@@ -83078,6 +83711,11 @@
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.UnknownBotSettingsBase" />
             </summary>
         </member>
+        <member name="M:Microsoft.Agents.ObjectModel.BotSettingsBaseVisitor`1.Visit(Microsoft.Agents.ObjectModel.ConnectionParameterSettings)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.ConnectionParameterSettings" />
+            </summary>
+        </member>
         <member name="M:Microsoft.Agents.ObjectModel.BotSettingsBaseVisitor`1.Visit(Microsoft.Agents.ObjectModel.IvrBotSettings)">
             <summary>
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.IvrBotSettings" />
@@ -83116,6 +83754,11 @@
         <member name="M:Microsoft.Agents.ObjectModel.BotSettingsBaseVisitor.Visit(Microsoft.Agents.ObjectModel.UnknownBotSettingsBase)">
             <summary>
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.UnknownBotSettingsBase" />
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.BotSettingsBaseVisitor.Visit(Microsoft.Agents.ObjectModel.ConnectionParameterSettings)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.ConnectionParameterSettings" />
             </summary>
         </member>
         <member name="M:Microsoft.Agents.ObjectModel.BotSettingsBaseVisitor.Visit(Microsoft.Agents.ObjectModel.IvrBotSettings)">
@@ -83158,6 +83801,11 @@
         <member name="M:Microsoft.Agents.ObjectModel.BotSettingsBaseVisitor`2.Visit(Microsoft.Agents.ObjectModel.UnknownBotSettingsBase,`1)">
             <summary>
             Visit a <see cref="T:Microsoft.Agents.ObjectModel.UnknownBotSettingsBase" />
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.BotSettingsBaseVisitor`2.Visit(Microsoft.Agents.ObjectModel.ConnectionParameterSettings,`1)">
+            <summary>
+            Visit a <see cref="T:Microsoft.Agents.ObjectModel.ConnectionParameterSettings" />
             </summary>
         </member>
         <member name="M:Microsoft.Agents.ObjectModel.BotSettingsBaseVisitor`2.Visit(Microsoft.Agents.ObjectModel.IvrBotSettings,`1)">
@@ -90025,6 +90673,11 @@
         <member name="M:Microsoft.Agents.ObjectModel.ExpressionRewriter.VisitModelOptions(Microsoft.Agents.ObjectModel.ModelOptions)">
             <summary>
             Rewrite a <see cref="T:Microsoft.Agents.ObjectModel.ModelOptions" />
+            </summary>
+        </member>
+        <member name="M:Microsoft.Agents.ObjectModel.ExpressionRewriter.VisitConnectionParametersSet(Microsoft.Agents.ObjectModel.ConnectionParametersSet)">
+            <summary>
+            Rewrite a <see cref="T:Microsoft.Agents.ObjectModel.ConnectionParametersSet" />
             </summary>
         </member>
         <member name="M:Microsoft.Agents.ObjectModel.ExpressionRewriter.VisitIvrBotSettings(Microsoft.Agents.ObjectModel.IvrBotSettings)">

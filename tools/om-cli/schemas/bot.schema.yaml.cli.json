@@ -611,6 +611,9 @@
           "$ref": "#/definitions/InvokeConnectorAction"
         },
         {
+          "$ref": "#/definitions/InvokeMcpToolAction"
+        },
+        {
           "$ref": "#/definitions/InvokeSkillAction"
         },
         {
@@ -1043,6 +1046,15 @@
           "$ref": "#/definitions/ContentModerationSettings"
         },
         {
+          "$ref": "#/definitions/ConnectionParameterSettings"
+        },
+        {
+          "$ref": "#/definitions/ConnectionParametersSet"
+        },
+        {
+          "$ref": "#/definitions/ConnectionReferenceNameInFlowToConnectionParametersSetMapping"
+        },
+        {
           "$ref": "#/definitions/IvrBotSettings"
         },
         {
@@ -1212,6 +1224,9 @@
         },
         {
           "$ref": "#/definitions/UseSpecificTools"
+        },
+        {
+          "$ref": "#/definitions/McpToolDefinition"
         },
         {
           "$ref": "#/definitions/ActivityProtocolMetadata"
@@ -2396,6 +2411,9 @@
           "$ref": "#/definitions/InvokeConnectorAction"
         },
         {
+          "$ref": "#/definitions/InvokeMcpToolAction"
+        },
+        {
           "$ref": "#/definitions/InvokeSkillAction"
         },
         {
@@ -2838,6 +2856,9 @@
         },
         {
           "$ref": "#/definitions/ContentModerationSettings"
+        },
+        {
+          "$ref": "#/definitions/ConnectionParameterSettings"
         },
         {
           "$ref": "#/definitions/IvrBotSettings"
@@ -4048,6 +4069,9 @@
           "$ref": "#/definitions/InvokeConnectorAction"
         },
         {
+          "$ref": "#/definitions/InvokeMcpToolAction"
+        },
+        {
           "$ref": "#/definitions/InvokeSkillAction"
         },
         {
@@ -4094,6 +4118,9 @@
         },
         {
           "$ref": "#/definitions/InvokeConnectorAction"
+        },
+        {
+          "$ref": "#/definitions/InvokeMcpToolAction"
         },
         {
           "$ref": "#/definitions/InvokeSkillAction"
@@ -9699,6 +9726,10 @@
         "displayName": {
           "title": "DisplayName",
           "type": "string"
+        },
+        "sharedConnectionParameters": {
+          "title": "SharedConnectionParameters",
+          "type": "string"
         }
       },
       "required": [
@@ -10343,6 +10374,34 @@
         "id",
         "connectionReference",
         "operationId"
+      ]
+    },
+    "InvokeMcpToolAction": {
+      "title": "MCP tool",
+      "description": "Invokes an MCP tool from an MCP server, possibly with inputs and outputs.",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/ExternalAction",
+      "properties": {
+        "kind": {
+          "const": "InvokeMcpToolAction"
+        },
+        "serverSchemaName": {
+          "title": "MCP server",
+          "description": "The schema name of the dialog containing the MCP server configuration",
+          "type": "string"
+        },
+        "toolName": {
+          "title": "Tool name",
+          "description": "The name of the MCP tool to invoke",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "serverSchemaName",
+        "toolName"
       ]
     },
     "InvokeSkillAction": {
@@ -14695,6 +14754,83 @@
         "kind"
       ]
     },
+    "ConnectionParameterSettings": {
+      "title": "Connection parameter settings for actions",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/BotSettingsBase",
+      "properties": {
+        "kind": {
+          "const": "ConnectionParameterSettings"
+        },
+        "connectorSettings": {
+          "title": "ConnectorSettings",
+          "description": "Mapping from a connection reference logical name in the bot definition to the connection parameters for it",
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/ConnectionParametersSet"
+          }
+        },
+        "flowSettings": {
+          "title": "FlowSettings",
+          "description": "Mapping from a flow ID in the bot definition to the connection parameters for the actions inside it.",
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/ConnectionReferenceNameInFlowToConnectionParametersSetMapping"
+          }
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
+    "ConnectionParametersSet": {
+      "title": "ConnectionParametersSet",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/BotElement",
+      "properties": {
+        "kind": {
+          "const": "ConnectionParametersSet"
+        },
+        "connectionParametersSetName": {
+          "title": "ConnectionParametersSetName",
+          "description": "Name of the auth type in the connector metadata",
+          "type": "string"
+        },
+        "parameters": {
+          "title": "Parameters",
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/ValueExpression"
+          }
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
+    "ConnectionReferenceNameInFlowToConnectionParametersSetMapping": {
+      "title": "ConnectionReferenceNameInFlowToConnectionParametersSetMapping",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/BotElement",
+      "properties": {
+        "kind": {
+          "const": "ConnectionReferenceNameInFlowToConnectionParametersSetMapping"
+        },
+        "connectionParameters": {
+          "title": "ConnectionParameters",
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/ConnectionParametersSet"
+          }
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
     "IvrBotSettings": {
       "title": "Ivr bot settings",
       "type": "object",
@@ -16215,6 +16351,19 @@
         "tools": {
           "title": "Tools",
           "$ref": "#/definitions/ToolsSelectionMode"
+        },
+        "knownTools": {
+          "title": "Known tools",
+          "description": "Cached list of tools from the MCP server (populated at design time)",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/McpToolDefinition"
+          }
+        },
+        "toolsLastRefreshedAt": {
+          "title": "Tools last refreshed",
+          "description": "Timestamp when KnownTools was last fetched from the MCP server",
+          "type": "string"
         }
       },
       "required": [
@@ -16258,6 +16407,42 @@
       },
       "required": [
         "kind"
+      ]
+    },
+    "McpToolDefinition": {
+      "title": "McpToolDefinition",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/BotElement",
+      "properties": {
+        "kind": {
+          "const": "McpToolDefinition"
+        },
+        "name": {
+          "title": "Name",
+          "description": "The tool name as returned by MCP tools/list",
+          "type": "string"
+        },
+        "description": {
+          "title": "Description",
+          "description": "Tool description from MCP server",
+          "type": "string"
+        },
+        "inputSchema": {
+          "title": "InputSchema",
+          "description": "Input schema for the tool. Property names, types, descriptions, and required flags are stored in the RecordDataType properties.",
+          "$ref": "#/definitions/Record"
+        },
+        "outputSchema": {
+          "title": "OutputSchema",
+          "description": "Output schema for the tool. Property names, types, and descriptions are stored in the DataType properties.",
+          "$ref": "#/definitions/DataType",
+          "x-defaultDefinition": "#/definitions/Record"
+        }
+      },
+      "required": [
+        "kind",
+        "name"
       ]
     },
     "ActivityProtocolMetadata": {
@@ -18511,6 +18696,10 @@
         {
           "title": "ConnectorActionNotSupported",
           "const": "ConnectorActionNotSupported"
+        },
+        {
+          "title": "McpToolNotFound",
+          "const": "McpToolNotFound"
         },
         {
           "title": "ConnectionNotSet",

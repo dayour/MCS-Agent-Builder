@@ -6131,6 +6131,10 @@
           "const": "ConnectorActionNotSupported"
         },
         {
+          "title": "McpToolNotFound",
+          "const": "McpToolNotFound"
+        },
+        {
           "title": "ConnectionNotSet",
           "const": "ConnectionNotSet"
         },
