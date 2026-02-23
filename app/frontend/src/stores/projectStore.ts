@@ -59,6 +59,7 @@ function apiDocToDocument(d: ApiDoc): Document {
   let type: Document["type"] = "markdown";
   if (ext === "csv") type = "csv";
   else if (["png", "jpg", "jpeg", "gif", "webp", "bmp", "tiff"].includes(ext)) type = "image";
+  else if (["docx", "pdf", "pptx", "xlsx", "xls"].includes(ext)) type = "document";
 
   const sizeStr = d.size >= 1024 ? `${Math.round(d.size / 1024)} KB` : `${d.size} B`;
 

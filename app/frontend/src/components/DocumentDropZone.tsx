@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { Upload, PenLine, FileText, Trash2, Loader2, Image } from "lucide-react";
+import { Upload, PenLine, FileText, Trash2, Loader2, Image, File as FileIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -18,7 +18,7 @@ const STATUS_CONFIG: Record<DocChangeStatus, { label: string; className: string 
   processed: { label: "Processed", className: "bg-success/15 text-success border-success/40" },
 };
 
-const ACCEPTED_EXTENSIONS = ".md,.csv,.txt,.json,.png,.jpg,.jpeg,.gif,.webp,.docx,.pdf,.pptx";
+const ACCEPTED_EXTENSIONS = ".md,.csv,.txt,.json,.png,.jpg,.jpeg,.gif,.webp,.docx,.pdf,.pptx,.xlsx,.xls";
 
 function DocumentPreview({ doc, projectId, content }: { doc: Document; projectId: string; content: string }) {
   if (doc.type === "image") {
@@ -55,6 +55,19 @@ function DocumentPreview({ doc, projectId, content }: { doc: Document; projectId
             ))}
           </tbody>
         </table>
+      </div>
+    );
+  }
+
+  if (doc.type === "document") {
+    const ext = doc.name.split(".").pop()?.toUpperCase() ?? "FILE";
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-3">
+        <FileIcon className="h-10 w-10" />
+        <p className="text-sm font-medium">{ext} Document</p>
+        <p className="text-xs text-center max-w-md">
+          This file is readable by Claude Code during research — no conversion needed.
+        </p>
       </div>
     );
   }
@@ -220,7 +233,7 @@ const DocumentDropZone = ({ projectId }: DocumentDropZoneProps) => {
               Drag & drop files here, or click to browse
             </p>
             <p className="text-[10px] text-muted-foreground/60 mt-1">
-              Supports md, csv, txt, json, images, docx, pdf, pptx
+              Supports md, csv, txt, json, images, docx, pdf, pptx, xlsx
             </p>
           </>
         )}
@@ -241,7 +254,7 @@ const DocumentDropZone = ({ projectId }: DocumentDropZoneProps) => {
       <div className="space-y-2">
         {documents.map((doc) => {
           const statusCfg = STATUS_CONFIG[doc.changeStatus];
-          const DocIcon = doc.type === "image" ? Image : FileText;
+          const DocIcon = doc.type === "image" ? Image : doc.type === "document" ? FileIcon : FileText;
           return (
             <div
               key={doc.id}

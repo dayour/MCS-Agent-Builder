@@ -348,7 +348,7 @@ function ensurePythonDeps() {
   // Check if core packages are importable
   let installed = false;
   try {
-    execSync('python -c "import fastapi; import uvicorn; import markitdown"', {
+    execSync('python -c "import fastapi; import uvicorn"', {
       stdio: "ignore",
       timeout: 15000,
     });

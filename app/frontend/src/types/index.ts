@@ -44,7 +44,7 @@ export interface Agent {
 
 // ─── Document ───────────────────────────────────────────────────────
 
-export type DocType = "markdown" | "csv" | "image";
+export type DocType = "markdown" | "csv" | "image" | "document";
 export type DocChangeStatus = "new" | "modified" | "processed";
 
 export interface Document {

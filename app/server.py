@@ -38,6 +38,13 @@ BASE_DIR = SCRIPT_DIR.parent
 BUILD_GUIDES = BASE_DIR / "Build-Guides"
 DIST_DIR = SCRIPT_DIR / "dist"
 
+# File types shown in the dashboard — text, images, AND binary docs (Claude reads all natively)
+DOC_EXTENSIONS = {
+    ".md", ".csv", ".json", ".txt",
+    ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".webp",
+    ".docx", ".pdf", ".pptx", ".xlsx", ".xls",
+}
+
 # ---------------------------------------------------------------------------
 # Import shared utilities
 # ---------------------------------------------------------------------------
@@ -106,7 +113,7 @@ def _scan_docs(folder: Path) -> list[dict]:
 
     if docs_dir.exists():
         for fp in sorted(docs_dir.iterdir()):
-            if fp.is_file() and fp.suffix in (".md", ".csv", ".json", ".txt", ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".webp"):
+            if fp.is_file() and fp.suffix in DOC_EXTENSIONS:
                 doc_entry = {
                     "key": fp.stem.replace("-", "_").replace(" ", "_").lower(),
                     "filename": fp.name,
@@ -443,12 +450,13 @@ def _get_project(project_id: str) -> dict:
     docs = _scan_docs(folder)
     agents = _scan_agents(folder)
 
-    # Read document content for the viewer
+    # Read document content for the viewer (text-based files only)
+    _TEXT_SUFFIXES = {".md", ".csv", ".txt", ".json"}
     doc_content = {}
     for d in docs:
         loc = d.get("location")
         fp = (folder / d["filename"]) if loc == "root" else (folder / "docs" / d["filename"])
-        if fp.exists() and fp.suffix in (".md", ".csv", ".txt", ".json"):
+        if fp.exists() and fp.suffix in _TEXT_SUFFIXES:
             try:
                 doc_content[d["key"]] = fp.read_text(encoding="utf-8")
             except Exception:
@@ -528,12 +536,13 @@ async def create_project(request: Request):
 
     folder = BUILD_GUIDES / folder_name
     if folder.exists():
-        raise HTTPException(409, f"Project '{folder_name}' already exists")
+        # Idempotent: return the existing project instead of erroring
+        return {"id": folder_name, "name": humanize_name(folder_name), "path": f"Build-Guides/{folder_name}", "existed": True}
 
     folder.mkdir(parents=True, exist_ok=True)
     (folder / "docs").mkdir(exist_ok=True)
 
-    return {"id": folder_name, "name": humanize_name(folder_name), "path": f"Build-Guides/{folder_name}"}
+    return {"id": folder_name, "name": humanize_name(folder_name), "path": f"Build-Guides/{folder_name}", "existed": False}
 
 
 @app.get("/api/projects/{project_id}/agents/{agent_id}")
@@ -705,13 +714,13 @@ async def upload_document(
     project_id: str,
     file: UploadFile = File(...),
 ):
-    """Upload a document, convert to markdown via Microsoft MarkItDown.
+    """Upload a document — saves as-is. Claude Code reads all formats natively.
 
     Supports: .docx .pdf .pptx .xlsx .xls .csv .json .html .txt .md
               .jpg .jpeg .png .gif .bmp .tiff .wav .mp3 .zip .epub
 
-    Doc-to-agent mapping is handled automatically by /mcs-research
-    (auto-detection), not at upload time.
+    No conversion needed — Claude Code reads .docx and .pdf directly.
+    Doc-to-agent mapping is handled by /mcs-research (auto-detection).
     """
     folder = BUILD_GUIDES / project_id
     if not folder.is_dir():
@@ -729,42 +738,10 @@ async def upload_document(
     if len(content) > 50 * 1024 * 1024:
         raise HTTPException(413, "File too large (max 50 MB)")
 
-    # Save the raw file to docs/
+    # Save the raw file to docs/ — no conversion, Claude reads all formats
     raw_name = f"{safe_base}{suffix}"
     raw_path = docs_dir / raw_name
     raw_path.write_bytes(content)
-
-    converted_name = None
-    conversion_error = None
-
-    # Files already in readable format — no conversion needed
-    if suffix in (".md", ".csv", ".json", ".txt"):
-        converted_name = raw_name
-
-    # Images — save as-is, Claude Code reads them directly (multimodal)
-    elif suffix in (".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".webp"):
-        converted_name = raw_name  # no conversion needed, Claude reads images
-
-    else:
-        # Use Microsoft MarkItDown for documents (docx, pdf, pptx, xlsx, html, etc.)
-        try:
-            from markitdown import MarkItDown
-            converter = MarkItDown(enable_plugins=False)
-            # Run blocking conversion in thread pool to avoid blocking the event loop
-            loop = asyncio.get_event_loop()
-            result = await loop.run_in_executor(None, converter.convert, str(raw_path))
-
-            if result.text_content and result.text_content.strip():
-                md_name = f"{safe_base}.md"
-                md_path = docs_dir / md_name
-                md_path.write_text(result.text_content, encoding="utf-8")
-                converted_name = md_name
-            else:
-                conversion_error = "No text content extracted (file may be empty)"
-        except ImportError:
-            conversion_error = "markitdown not installed — run: pip install 'markitdown[all]'"
-        except Exception as e:
-            conversion_error = f"Conversion failed: {str(e)[:200]}"
 
     # Check if manifest exists — if so, this is a new unprocessed doc
     brief_outdated = False
@@ -775,10 +752,8 @@ async def upload_document(
     return {
         "uploaded": True,
         "filename": raw_name,
-        "converted": converted_name,
-        "conversion_error": conversion_error,
         "size": len(content),
-        "path": f"Build-Guides/{project_id}/docs/{converted_name or raw_name}",
+        "path": f"Build-Guides/{project_id}/docs/{raw_name}",
         "briefOutdated": brief_outdated,
     }
 
@@ -855,7 +830,7 @@ async def doc_status(project_id: str):
         for fp in sorted(docs_dir.iterdir()):
             if not fp.is_file():
                 continue
-            if fp.suffix not in (".md", ".csv", ".json", ".txt", ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".webp"):
+            if fp.suffix not in DOC_EXTENSIONS:
                 continue
             current_filenames.add(fp.name)
             entry = manifest_entries.get(fp.name)
