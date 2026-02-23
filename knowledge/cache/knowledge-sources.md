@@ -90,9 +90,54 @@ Source: https://learn.microsoft.com/en-us/microsoft-copilot-studio/data-privacy-
 
 ## How to Add Knowledge
 
-### Via Dataverse API (preferred — no browser)
+### Via LSP Wrapper (preferred — headless, no browser)
+
+Clone the agent workspace, add a `.mcs.yml` file to the `knowledge/` folder, then push.
+
+**YAML format by source type:**
+
+```yaml
+# Public website
+kind: KnowledgeSourceConfiguration
+source:
+  kind: PublicSiteSearchSource
+  site: https://docs.example.com
+```
+
+```yaml
+# SharePoint site
+kind: KnowledgeSourceConfiguration
+source:
+  kind: SharePointSearchSource
+  site: https://tenant.sharepoint.com/sites/SiteName
+```
+
+```yaml
+# Dataverse tables
+kind: KnowledgeSourceConfiguration
+source:
+  kind: DataverseStructuredSearchSource
+  skillConfiguration: TableName_randomId
+```
+
+**File naming:** `{botSchema}.topic.{SourceName}_{randomId}.mcs.yml` in `knowledge/` folder.
+
+**Workflow:**
+```bash
+# 1. Clone agent (if not already cloned)
+node tools/mcs-lsp.js clone --workspace ./workspace --agent-id <id> ...
+
+# 2. Create knowledge file
+# Write .mcs.yml to knowledge/ folder
+
+# 3. Push to MCS
+node tools/mcs-lsp.js push --workspace "./workspace/Agent Name"
+```
+
+### Via Dataverse API (file uploads)
 - POST `botcomponents` (type 16) + file upload
 - See `knowledge/patterns/dataverse-patterns.md` § 4
+- Best for: uploaded document files (PDF, DOCX, etc.)
 
 ### Via Playwright (fallback)
 1. Navigate to Knowledge tab
@@ -100,6 +145,8 @@ Source: https://learn.microsoft.com/en-us/microsoft-copilot-studio/data-privacy-
 3. Select source type
 4. Configure source (URL, file, table)
 5. Save
+
+> **Note:** LSP push confirmed working for PublicSiteSearchSource, SharePointSearchSource, and DataverseStructuredSearchSource. File uploads still require Dataverse API or Playwright.
 
 ## Generative Answers
 

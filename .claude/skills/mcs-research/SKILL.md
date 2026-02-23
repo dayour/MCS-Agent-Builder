@@ -32,7 +32,7 @@ Single-pass pipeline: read documents, identify agents, research components, desi
 
 ## Before Research — Load Frameworks
 
-The session startup protocol already checks cache freshness and refreshes stale Tier 1 files. Do NOT re-check all 18 cache files here.
+The session startup protocol already checks cache freshness and refreshes stale Tier 1 files. Do NOT re-check all 19 cache files here.
 
 1. Read `knowledge/frameworks/component-selection.md` for the research protocol
 2. Read `knowledge/frameworks/architecture-scoring.md` for scoring criteria

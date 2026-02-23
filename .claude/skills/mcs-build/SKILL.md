@@ -224,7 +224,7 @@ pac copilot list
 
 #### 1c. Create new agent (Playwright — silent browser verification required)
 
-PAC CLI `create` requires an undocumented template YAML that only captures ~30% of config (topics/instructions — not tools, knowledge, or model). Since Playwright is already required for tools + model, using it for creation eliminates the template dependency.
+PAC CLI `create` requires an undocumented template YAML that only captures ~30% of config. Agent creation is one of the few remaining Playwright-only operations — after creation, all other configuration (model, instructions, topics, tools, knowledge) is done headlessly via LSP push and add-tool.js.
 
 1. **Run silent browser verification** (see CLAUDE.md "MCS Browser Preflight — Silent Verification")
 2. Navigate to MCS home → **Create** → **New agent** → **Skip to configure**
@@ -267,16 +267,16 @@ The clone creates a subfolder named after the agent (e.g., `workspace/Agent Name
 
 **VERIFY:** Workspace directory exists with `.mcs/conn.json` and at least `agent.mcs.yml`.
 
-### Step 2: Configure Instructions & Knowledge (Dataverse API — no browser)
+### Step 2: Configure Instructions & Knowledge (LSP Push — no browser)
 
 **Skip check:** If `"instructions"` is in `completedSteps`, skip the instructions sub-step. If `"knowledge"` is in `completedSteps`, skip the knowledge sub-step. If both are completed, skip this entire step.
 
-**Instructions:** Update via Dataverse API (see `knowledge/patterns/dataverse-patterns.md` § 3).
-**Fallback:** Playwright → Edit Instructions → paste → Save
+**Instructions:** Edit `agent.mcs.yml` in the cloned workspace → set `instructions:` field → push via `mcs-lsp.js push`.
+**Fallback:** Dataverse API PATCH (see `knowledge/patterns/dataverse-patterns.md` § 3) → Playwright
 **Checkpoint:** After verified, add `"instructions"` to `brief.json.buildStatus.completedSteps` and set `lastCompletedStep` to `"instructions"`.
 
-**Knowledge:** Upload via Dataverse API (see `knowledge/patterns/dataverse-patterns.md` § 4).
-**Phase filter:** Only upload `knowledge[]` entries where `phase == "mvp"`. Log skipped future sources.
+**Knowledge:** For SharePoint sites and public websites, create `.mcs.yml` files in the workspace's `knowledge/` folder → push via `mcs-lsp.js push`. For file uploads (PDF, DOCX), use Dataverse API (see `knowledge/patterns/dataverse-patterns.md` § 4). See `knowledge/cache/knowledge-sources.md` for YAML format per source type.
+**Phase filter:** Only configure `knowledge[]` entries where `phase == "mvp"`. Log skipped future sources.
 **Fallback:** Playwright → Knowledge tab → Add knowledge
 **Checkpoint:** After verified, add `"knowledge"` to `brief.json.buildStatus.completedSteps` and set `lastCompletedStep` to `"knowledge"`.
 
@@ -296,31 +296,40 @@ Read `knowledge/learnings/connectors.md` and `knowledge/learnings/integrations.m
 - Auth mode gotchas (e.g., OAuth requires admin consent first)
 - Known workarounds for specific connectors
 
-### Step 3: Configure Tools & Model (Playwright — browser required)
+### Step 3: Configure Tools & Model (LSP + add-tool.js — mostly headless)
 
 **Skip check:** If `"tools"` is in `completedSteps`, skip tool configuration. If `"model"` is in `completedSteps`, skip model selection. If both are completed, skip this entire step.
 
-**Silent browser verification FIRST (MANDATORY) — unless entire step is skipped.**
+#### 3a. Model Selection (LSP Push — no browser)
 
-1. `browser_navigate` to `https://copilotstudio.microsoft.com`
-2. `browser_snapshot` — wait for load
-3. Compare snapshot account/environment against the build gate selection from earlier in this build
-4. **If match** → log `Browser verified: {account} / {environment}` and proceed
-5. **If mismatch** → alert user: `Browser shows {X} but build targets {Y}. Switch?` — WAIT for user
+Edit `agent.mcs.yml` in the cloned workspace → set `aISettings.model.modelNameHint` → push.
+Always select the latest available model. Check available models via `node tools/island-client.js get-models --env <envId>`.
+**Checkpoint:** After model verified, add `"model"` to `completedSteps`, set `lastCompletedStep` to `"model"`.
 
-Then configure:
-- **Model**: Always select the latest available model. In the MCS model combobox, pick the newest option (typically the top preview model). Do not read architecture.model from brief.json.
-  **Checkpoint:** After model verified, add `"model"` to `completedSteps`, set `lastCompletedStep` to `"model"`.
-- **Phase filter:** Only configure `integrations[]` entries where `phase == "mvp"`. Log skipped future integrations.
-- **MCP servers**: Tools → Add tool → Model Context Protocol → search → add
-- **Connectors**: Tools → Add tool → search connector → select action → create connection
-- **Computer Use**: Tools → Add tool → Computer use → configure
-- **Security**: Settings → "Allow other agents to connect" (if specialist)
-  **Checkpoint:** After all MVP tools verified, add `"tools"` to `completedSteps`, set `lastCompletedStep` to `"tools"`.
+#### 3b. Tool/Connector Configuration (add-tool.js + LSP Push — mostly headless)
+
+**Phase filter:** Only configure `integrations[]` entries where `phase == "mvp"`. Log skipped future integrations.
+
+For each tool/connector in the spec:
+1. **Check if connection exists:** If an OAuth connection for this connector type already exists in the environment, use `add-tool.js` to generate the action YAML:
+   ```bash
+   node tools/add-tool.js add --workspace "<workspacePath>" --connector <connectorId> --action <operationId> --connection <connectionRef> --name "Display Name"
+   ```
+2. **Push all tools at once:** After generating all action files:
+   ```bash
+   node tools/mcs-lsp.js push --workspace "<workspacePath>"
+   ```
+3. **If NEW OAuth connection needed** (no existing connection for that connector): Use Playwright to create the connection first (interactive browser auth), then use `add-tool.js` for the action.
+
+**MCP servers:** Use `add-tool.js` with the MCP connector ID — generates `InvokeExternalAgentTaskAction` YAML.
+**Computer Use:** Playwright still required (specialized UI flow).
+**Security:** Settings → "Allow other agents to connect" (Playwright if specialist agent).
+
+**Checkpoint:** After all MVP tools verified, add `"tools"` to `completedSteps`, set `lastCompletedStep` to `"tools"`.
 
 **On-demand RA trigger:** If a connector/MCP server is not found by expected name, or auth mode differs from spec, spawn Research Analyst to investigate (see "On-Demand Teammates" section above). Apply RA's findings before continuing.
 
-**VERIFY:** Snapshot Tools tab → all tools listed. Snapshot Overview → model correct.
+**VERIFY:** Pull latest state: `node tools/mcs-lsp.js pull --workspace "<workspacePath>"` → check `actions/` folder has all expected tools. Or snapshot MCS Tools tab as fallback.
 
 **Error handling:** If a step fails, write the error to `brief.json.buildStatus.lastError` before stopping. On the next resume, `lastError` tells the lead what went wrong.
 
@@ -571,17 +580,19 @@ Write the complete buildStatus. Most fields were already written incrementally d
 
 1. For each specialist agent defined in the spec:
    a. Create agent via Playwright (silent browser verification required)
-   b. Set instructions (Dataverse API) — specialist-focused, with scope limits
-   c. Add knowledge (Dataverse API)
-   d. Add tools/model (Playwright) — reuse session from creation
-   e. Enable "Allow other agents to connect" (Playwright → Settings → Security)
-   f. Author topics (Code Editor YAML)
-   g. Publish (PAC CLI)
-   h. **VERIFY:** All items above confirmed
+   b. Clone workspace (`mcs-lsp.js clone`)
+   c. Set instructions (LSP push — `agent.mcs.yml`) — specialist-focused, with scope limits
+   d. Add knowledge (LSP push — `knowledge/*.mcs.yml` for sites; Dataverse API for file uploads)
+   e. Add tools/model (LSP push — `agent.mcs.yml` for model, `add-tool.js` for tools)
+   f. Enable "Allow other agents to connect" (Playwright → Settings → Security)
+   g. Author topics (LSP push — `topics/*.mcs.yml`)
+   h. Publish (PAC CLI)
+   i. **VERIFY:** Pull latest state via `mcs-lsp.js pull`, confirm all items
 
 2. Build orchestrator:
    a. Create orchestrator via Playwright (silent browser verification required)
-   b. Set instructions with routing rules (Dataverse API):
+   b. Clone workspace (`mcs-lsp.js clone`)
+   c. Set instructions with routing rules (LSP push — `agent.mcs.yml`):
       ```
       ## Connected Specialists
       /[SpecialistName] - [when to use]
@@ -589,12 +600,12 @@ Write the complete buildStatus. Most fields were already written incrementally d
       ## Routing Rules
       - [Intent] → /[Specialist]
       ```
-   c. Select model (Playwright)
-   d. Connect child agents (Playwright → Agents tab → Add agent → search → add)
-   e. Add orchestrator-level tools/knowledge if needed
-   f. Author topics if needed (Code Editor YAML)
-   g. Publish (PAC CLI)
-   h. **VERIFY:** All specialists connected, routing rules in instructions
+   d. Select model (LSP push — `agent.mcs.yml`)
+   e. Connect child agents (Playwright → Agents tab → Add agent → search → add)
+   f. Add orchestrator-level tools/knowledge if needed (LSP push)
+   g. Author topics if needed (LSP push — `topics/*.mcs.yml`)
+   h. Publish (PAC CLI)
+   i. **VERIFY:** All specialists connected, routing rules in instructions
 
 ### Multi-Agent Verification
 

@@ -53,12 +53,17 @@ refresh_trigger: before_architecture
 
 ## How to Set Model
 
-Model selection requires Playwright — not available via API:
+### Via LSP Wrapper (preferred — headless)
+Edit `agent.mcs.yml` → set `aISettings.model.modelNameHint` → `node tools/mcs-lsp.js push`
+
+### Via Island Gateway API
+`node tools/island-client.js set-model --env <envId> --bot <botId> --model GPT5Chat`
+
+### Via Playwright (fallback)
 1. Navigate to agent Overview page
 2. Click the model combobox
-3. Snapshot to see all available options
-4. Select desired model
-5. Wait for "Processing your request..." → "completed successfully"
+3. Select desired model
+4. Wait for "completed successfully"
 
 ## Credit Rates by Model Tier
 

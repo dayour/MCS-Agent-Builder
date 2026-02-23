@@ -40,7 +40,7 @@ Flag syntax (`--start`, `--stop`, etc.) also accepted.
 
 ## Prerequisites
 
-**None** — `start.cmd` installs everything automatically via winget (Windows 11 built-in).
+**Mostly automatic** — `start.cmd` installs Node.js, Python, and dependencies via winget. It also auto-installs the VS Code Copilot Studio extension if VS Code is present (for headless component sync).
 
 If you prefer to install manually:
 
@@ -52,6 +52,7 @@ If you prefer to install manually:
 | **PAC CLI** | Power Platform operations (Claude will auth for you) |
 | **Azure CLI** | Bug/suggest work item creation (optional) |
 | **.NET 10 Runtime** | ObjectModel CLI for YAML validation (optional — om-cli tools skip gracefully if missing) |
+| **VS Code + Copilot Studio Extension** | Headless topic/component sync via LSP (optional — falls back to Playwright if missing) |
 | **Microsoft Account** | Access to Copilot Studio |
 
 ## How It Works
@@ -103,11 +104,12 @@ Each build step uses the best tool, minimizing fragile browser automation:
 
 | Priority | Tool | Handles |
 |----------|------|---------|
-| 1 | **PAC CLI** | Agent listing, publish, status, solution export/import |
-| 2 | **Dataverse API** | Instructions, knowledge upload, security settings |
-| 3 | **Code Editor YAML** | Topic authoring, adaptive cards, branching logic |
-| 4 | **Direct Line API** | Evaluation testing (send messages, compare responses) |
-| 5 | **Playwright** | Agent creation, model selection, tool/connector addition, OAuth (last resort) |
+| 1 | **PAC CLI** | Publishing, solution ALM, listing agents |
+| 2 | **MCS LSP Wrapper** | Topic push/pull, instructions, model, tools, knowledge, full component sync |
+| 3 | **Island Gateway API** | Model catalog, component reads, routing info, bot settings |
+| 4 | **Dataverse API** | Security settings, agent deletion, bound actions |
+| 5 | **Direct Line API** | Evaluation testing (send messages, compare responses) |
+| 6 | **Playwright** | Agent creation, new OAuth connections (last resort) |
 
 ### YAML Validation Pipeline
 
@@ -140,7 +142,7 @@ The tool continuously learns and improves:
 
 | Layer | What | How It Stays Current |
 |-------|------|---------------------|
-| **Cache** (18 files) | MCS capabilities — models, connectors, MCP servers, triggers, etc. | Auto-refreshed at session start + before builds |
+| **Cache** (19 files) | MCS capabilities — models, connectors, MCP servers, triggers, etc. | Auto-refreshed at session start + before builds |
 | **Learnings** (8 files) | Experience from past builds — what worked, what didn't | Captured after each build/eval, user-confirmed |
 | **Patterns** | YAML syntax, Playwright patterns, Dataverse API patterns | Stable reference (manually updated) |
 | **Frameworks** | Component selection, architecture scoring, tool priority | Stable reference (manually updated) |
@@ -168,7 +170,7 @@ app/
 
 knowledge/
   learnings/                Experience from past builds (grows over time)
-  cache/                    18 MCS capability cheat sheets (auto-refreshed)
+  cache/                    19 MCS capability cheat sheets (auto-refreshed)
   patterns/                 YAML, Playwright, Dataverse API patterns + 10 topic templates
   frameworks/               Decision frameworks
 
@@ -181,6 +183,9 @@ tools/
   semantic-gates.py         5 semantic validation gates (PowerFx, cross-refs, variables, channels, connectors)
   powerfx-catalog.json      Official PowerFx function catalog (139 functions from MS Learn)
   update-om-cli.ps1         Auto-update om-cli from ObjectModel source repo
+  mcs-lsp.js                MCS Language Server wrapper — headless push/pull via official LS
+  island-client.js          Island Control Plane Gateway API client (model catalog, reads, routing)
+  add-tool.js               Headless tool/connector addition via LSP push
   direct-line-test.js       Direct Line API test runner
   dataverse-helper.ps1      PowerShell Dataverse Web API helper
   schema-lookup.py          Legacy schema query tool (fallback)

@@ -5,7 +5,7 @@ description: Refresh one or all knowledge cache files with live research from MS
 
 # MCS Knowledge Cache Refresh
 
-Refresh knowledge cache files in `knowledge/cache/` with targeted live research. These 18 files form a **specialized MCS knowledge layer** — distilled cheat sheets with decision tables, gotchas, and current-state inventories that Claude's base training doesn't have.
+Refresh knowledge cache files in `knowledge/cache/` with targeted live research. These 19 files form a **specialized MCS knowledge layer** — distilled cheat sheets with decision tables, gotchas, and current-state inventories that Claude's base training doesn't have.
 
 ## Usage
 
@@ -14,7 +14,7 @@ Refresh knowledge cache files in `knowledge/cache/` with targeted live research.
 - `/mcs-refresh models connectors` — refresh specific files
 - `/mcs-refresh all` — force refresh everything regardless of age
 
-## All 18 Cache Files
+## All 19 Cache Files
 
 ### Tier 1: Build-Critical (refresh before every `/mcs-research`)
 
@@ -35,11 +35,12 @@ These drive the actual build execution. Staleness here = build errors or subopti
 
 | File | What It Contains | Search Queries |
 |------|-----------------|----------------|
-| `api-capabilities.md` | What each API layer can do (PAC CLI, Dataverse, Playwright) | "Copilot Studio API Dataverse", "PAC CLI copilot commands" |
+| `api-capabilities.md` | What each API layer can do (LSP Wrapper, Island Gateway, PAC CLI, Dataverse, Playwright) | "Copilot Studio API Dataverse", "PAC CLI copilot commands" |
 | `instructions-authoring.md` | Instruction writing patterns, limits, Custom Prompt | "Copilot Studio instructions authoring", "Custom Prompt actions" |
 | `generative-orchestration.md` | How gen orchestration routes topics | "Copilot Studio generative orchestration", "topic routing" |
 | `adaptive-cards.md` | Adaptive card syntax, channel limits, PowerFx in cards | "Copilot Studio adaptive cards", "adaptive card channel support" |
 | `ai-tools-computer-use.md` | AI tools, computer use, prompt actions | "Copilot Studio AI tools", "computer use agent" |
+| `island-gateway-api.md` | Island Control Plane gateway endpoints, component CRUD, model hints | "Copilot Studio gateway API", "Island Control Plane botcomponents" |
 | `power-automate-integration.md` | Flow integration patterns, cloud vs desktop | "Copilot Studio Power Automate", "cloud flow integration" |
 
 ### Tier 3: Reference (refresh weekly or on-demand)
@@ -115,7 +116,7 @@ For each file:
 | mcp-servers.md | Jan 15 | Feb 12 | 2 new MCP servers found |
 | ... | ... | ... | ... |
 
-**Refreshed:** N / 18 files
+**Refreshed:** N / 19 files
 **Skipped (fresh):** M files
 **Notable changes:**
 - {change 1}
@@ -126,7 +127,7 @@ For each file:
 
 When called during session startup (auto-refresh), use a **lightweight pass**:
 
-1. Read all 18 files, check dates
+1. Read all 19 files, check dates
 2. Only refresh files > 7 days old
 3. For Tier 1 files: always refresh if stale (these affect research quality)
 4. For Tier 2-3 files: flag as stale but skip unless user is about to build

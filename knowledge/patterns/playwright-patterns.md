@@ -1,6 +1,8 @@
 # Playwright Automation Patterns (MCS UI)
 
-**Use Playwright ONLY for operations with no API alternative.** Check `knowledge/cache/api-capabilities.md` first — APIs are added over time.
+**Use Playwright ONLY for operations with no LSP/API alternative.** Check `knowledge/cache/api-capabilities.md` and `knowledge/frameworks/tool-priority.md` first — most operations now use LSP Wrapper or Island Gateway API.
+
+**Playwright-only operations (as of 2026-02-23):** Agent creation, new OAuth connection creation, child agent connection, native eval upload.
 
 ## MCS Browser Preflight — Silent Verification (MANDATORY)
 
@@ -11,21 +13,27 @@ Before ANY Playwright interaction:
 3. `browser_snapshot` — extract Account (top-right) + Environment (header bar)
 4. Compare against persisted config — if match, proceed silently; if mismatch, alert user
 
-## Model Selection
+## Model Selection — SUPERSEDED
+
+> **Use LSP push (`agent.mcs.yml` → `aISettings.model.modelNameHint`) or `island-client.js set-model` instead.** Playwright fallback below.
 
 ```
 Click model combobox → snapshot to see options → click desired model →
   Wait for "Processing your request..." → wait for "completed successfully"
 ```
 
-## Tool Addition — MCP Server
+## Tool Addition — MCP Server — SUPERSEDED
+
+> **Use `add-tool.js` + LSP push for tools with existing connections.** Playwright only for first-time OAuth.
 
 ```
 Add tool → search/select from "Create new" → "Model Context Protocol" →
   Search for MCP name → Select → Add and configure
 ```
 
-## Tool Addition — Connector
+## Tool Addition — Connector — SUPERSEDED (partially)
+
+> **Use `add-tool.js` + LSP push if an OAuth connection already exists.** Playwright only for creating NEW connections.
 
 ```
 Add tool → search connector → select action →
@@ -46,7 +54,9 @@ Add tool → "Create new" → "Computer use" →
 //   snapshot → click account → wait → switch back to tab 0
 ```
 
-## Topic Code Editor (for YAML paste)
+## Topic Code Editor (for YAML paste) — SUPERSEDED
+
+> **Use LSP push (`topics/*.mcs.yml` → `mcs-lsp.js push`) instead.** Playwright fallback below.
 
 ```
 Navigate to Topics → Open topic (or create blank) →
@@ -67,7 +77,9 @@ await page.locator('input[type="file"]').first().setInputFiles('path/to/file');
 Click "Publish" → dialog → "Publish" → "Close"
 ```
 
-## Instructions Edit
+## Instructions Edit — SUPERSEDED
+
+> **Use LSP push (`agent.mcs.yml` → `instructions:` field) or Dataverse API PATCH instead.** Playwright fallback below.
 
 ```
 Click "Edit" on Instructions → type in textbox (Lexical editor, 8000 char limit) → Save

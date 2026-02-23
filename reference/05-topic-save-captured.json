@@ -1,0 +1,158 @@
+{
+  "operation": "Save topic via code editor (add trigger phrase 'Howdy' to Greeting topic)",
+  "date": "2026-02-23",
+  "agent": "Q&A Assistant (fec3b192-8ffc-f011-8406-7c1e528d1e4e)",
+  "account": "admin@M365CPI15209943 / Contoso (default)",
+
+  "saveSequence": [
+    {
+      "step": 1,
+      "description": "Check author state (who is editing)",
+      "method": "GET",
+      "endpoint": "/api/botauthoring/v1/environments/{envId}/bots/{botId}/authorstate",
+      "response": {"edits": []}
+    },
+    {
+      "step": 2,
+      "description": "Claim author lock on the topic being saved",
+      "method": "PUT",
+      "endpoint": "/api/botauthoring/v1/environments/{envId}/bots/{botId}/authorstate/{topicComponentId}",
+      "note": "topicComponentId = 7b5ba3fb-f599-4afb-8e98-37726f609a14 (the DialogComponent id)",
+      "response": {"edits":[{"id":"7b5ba3fb-f599-4afb-8e98-37726f609a14","lastEditTimestamp":"2026-02-23T18:16:29Z","authorId":"2f9854ec-e9be-445e-aa15-68810426fa11"}]}
+    },
+    {
+      "step": 3,
+      "description": "Save the component via botcomponents PUT",
+      "method": "PUT",
+      "endpoint": "/api/botmanagement/v1/environments/{envId}/bots/{botId}/content/botcomponents",
+      "note": "This is the SAME endpoint used for model selection. Topic save = BotComponentUpdate on DialogComponent."
+    }
+  ],
+
+  "requestBody": {
+    "botComponentChanges": [{
+      "component": {
+        "$kind": "DialogComponent",
+        "version": 2957624,
+        "managedProperties": {
+          "$kind": "ManagedProperties",
+          "isCustomizable": false,
+          "solutionId": "fd140aae-4df4-11dd-bd17-0019b9312238"
+        },
+        "auditInfo": {
+          "$kind": "AuditInfo",
+          "createdTimeUtc": "2026-01-28T21:23:38Z",
+          "modifiedTimeUtc": "2026-01-28T21:23:38Z",
+          "createdBy": "2f9854ec-e9be-445e-aa15-68810426fa11",
+          "modifiedBy": "2f9854ec-e9be-445e-aa15-68810426fa11"
+        },
+        "displayName": "Greeting",
+        "id": "7b5ba3fb-f599-4afb-8e98-37726f609a14",
+        "parentBotId": "fec3b192-8ffc-f011-8406-7c1e528d1e4e",
+        "description": "This topic is triggered when the user greets the agent.",
+        "shareContext": {"$kind": "ContentShareContext"},
+        "state": "Active",
+        "status": "Active",
+        "publisherUniqueName": "DefaultPublisherorg39d3f1ca",
+        "schemaName": "auto_agent_32-rU.topic.Greeting",
+        "dialog": {
+          "$kind": "AdaptiveDialog",
+          "beginDialog": {
+            "$kind": "OnRecognizedIntent",
+            "actions": [
+              {
+                "$kind": "SendActivity",
+                "id": "sendMessage_abmysR",
+                "activity": {
+                  "$kind": "Message",
+                  "text": [
+                    {
+                      "$kind": "TemplateLine",
+                      "segments": [
+                        {"$kind": "TextSegment", "value": "Hello, how can I help you today?"}
+                      ]
+                    }
+                  ],
+                  "speak": [
+                    {
+                      "$kind": "TemplateLine",
+                      "segments": [
+                        {"$kind": "TextSegment", "value": "Hello, <break strength=\"medium\" /> how can I help?"}
+                      ]
+                    }
+                  ],
+                  "attachments": [],
+                  "quickReplies": []
+                }
+              },
+              {
+                "$kind": "CancelAllDialogs",
+                "id": "cancelAllDialogs_01At22"
+              }
+            ],
+            "id": "main",
+            "intent": {
+              "$kind": "Intent",
+              "displayName": {"$kind": "StringExpression", "literalValue": "Greeting"},
+              "includeInOnSelectIntent": false,
+              "triggerQueries": ["Good afternoon", "Good morning", "Hello", "Hey", "Hi", "Howdy"],
+              "availableInChannels": []
+            }
+          },
+          "inputs": [],
+          "triggers": []
+        }
+      },
+      "$kind": "BotComponentUpdate"
+    }],
+    "cloudFlowDefinitionChanges": [],
+    "connectorDefinitionChanges": [],
+    "environmentVariableChanges": [],
+    "connectionReferenceChanges": [],
+    "aIPluginOperationChanges": [],
+    "componentCollectionChanges": [],
+    "dataverseTableSearchChanges": [],
+    "dataverseTableSearchEntityConfigurationChanges": [],
+    "dataverseTableSearchGlossaryConfigurationChanges": [],
+    "dataverseTableSearchEntityColumnSynonymChanges": [],
+    "aIModelChanges": [],
+    "connectedAgentDefinitionChanges": [],
+    "changeToken": "<base64 delta token from previous read>"
+  },
+
+  "responseBody": {
+    "botComponentChanges": [{
+      "$kind": "BotComponentUpdate",
+      "component": {
+        "$kind": "DialogComponent",
+        "version": 3071805,
+        "note": "Version bumped from 2957624 to 3071805 — optimistic concurrency",
+        "modifiedTimeUtc": "2026-02-23T18:16:30Z",
+        "triggerQueries_confirmed": ["Good afternoon", "Good morning", "Hello", "Hey", "Hi", "Howdy"]
+      }
+    }],
+    "changeToken": "<new delta token>"
+  },
+
+  "keyInsights": [
+    "Topic save uses SAME endpoint as model selection: PUT content/botcomponents",
+    "The YAML from code editor is converted to ObjectModel JSON ($kind types) before sending",
+    "DialogComponent wraps AdaptiveDialog — same structure as .mcs.yml files from VS Code extension",
+    "Message text uses nested $kind structure: Message > TemplateLine > TextSegment",
+    "Trigger queries are plain strings in intent.triggerQueries array",
+    "Author state lock (PUT authorstate/{componentId}) is claimed BEFORE saving",
+    "Version field provides optimistic concurrency — server bumps it on success",
+    "Response strips diagnostics arrays (they're only in the request)",
+    "Three NEW change arrays discovered beyond our previous captures: dataverseTableSearchEntityConfigurationChanges, dataverseTableSearchGlossaryConfigurationChanges, dataverseTableSearchEntityColumnSynonymChanges, aIModelChanges"
+  ],
+
+  "yamlToJsonMapping": {
+    "kind: AdaptiveDialog": "$kind: DialogComponent (wrapper) + $kind: AdaptiveDialog (dialog field)",
+    "kind: OnRecognizedIntent": "$kind: OnRecognizedIntent",
+    "kind: SendActivity": "$kind: SendActivity",
+    "activity text string": "$kind: Message > text: [$kind: TemplateLine > segments: [$kind: TextSegment]]",
+    "triggerQueries array": "intent.triggerQueries (plain string array)",
+    "kind: CancelAllDialogs": "$kind: CancelAllDialogs",
+    "displayName string": "$kind: StringExpression with literalValue"
+  }
+}

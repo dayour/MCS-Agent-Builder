@@ -10,12 +10,58 @@ refresh_trigger: on_error
 
 | Layer | Tool | Best For | Cost |
 |-------|------|----------|------|
-| 1 | Dataverse MCP Server | Record CRUD, schema discovery | Copilot Credits |
-| 2 | PAC CLI (MSI + MCP) | Solution ALM, publish, env management | Free |
+| 1 | PAC CLI (MSI + MCP) | Publishing, solution ALM, listing agents | Free |
+| 1.5 | **MCS LSP Wrapper** | **Topic push/pull, instructions, model, tools, knowledge, full sync** | **Free** |
+| 1.5 | **Island Gateway API** | **Model catalog, component reads, routing, settings** | **Free** |
+| 2 | Dataverse MCP Server | Record CRUD, schema discovery | Copilot Credits |
 | 3 | PowerShell Web API | Bound actions, complex queries, unattended | Free |
-| 4 | Playwright | UI-only operations | Free |
+| 4 | Playwright | Agent creation, new OAuth connections | Free |
 
-## Layer 1: Dataverse MCP Server (v0.2.310025)
+## Layer 1.5a: MCS LSP Wrapper
+
+**Client:** `tools/mcs-lsp.js` (wraps `LanguageServerHost.exe` from VS Code extension)
+**Prerequisite:** Copilot Studio VS Code extension installed + `az login`
+**Reference:** `knowledge/cache/island-gateway-api.md` (LSP Wrapper section)
+
+| Operation | Method | Replaces |
+|-----------|--------|----------|
+| **Clone agent** | `mcs-lsp.js clone` | VS Code GUI |
+| **Push topics** | `mcs-lsp.js push` (topics/*.mcs.yml) | Playwright code editor |
+| **Push instructions** | `mcs-lsp.js push` (agent.mcs.yml) | Dataverse PATCH / Playwright |
+| **Push model selection** | `mcs-lsp.js push` (agent.mcs.yml aISettings) | Playwright dropdown |
+| **Push knowledge sources** | `mcs-lsp.js push` (knowledge/*.mcs.yml) | Playwright Knowledge tab |
+| **Push settings** | `mcs-lsp.js push` (settings.mcs.yml) | Playwright Settings |
+| **Push tool edits** | `mcs-lsp.js push` (actions/*.mcs.yml) | Playwright |
+| **Add new tools** | `add-tool.js` + `mcs-lsp.js push` | Playwright Tools tab |
+| **Pull remote changes** | `mcs-lsp.js pull` | Manual comparison |
+| **Preview changes** | `mcs-lsp.js preview` | N/A |
+
+Handles YAML→JSON conversion automatically via `YamlPassThroughSerializationContext`. Same code path as the official GA VS Code extension.
+
+## Layer 1.5b: Island Control Plane Gateway API
+
+**Client:** `tools/island-client.js` (zero dependencies, Node.js)
+**Base:** `powervamg.{region}.gateway.prod.island.powerapps.com`
+**Auth:** `az account get-access-token --resource https://api.powerplatform.com`
+**Full reference:** `knowledge/cache/island-gateway-api.md`
+
+| Operation | Endpoint | Replaces |
+|-----------|----------|----------|
+| **Model discovery** | `GET modelSettings/v2` | Playwright dropdown |
+| **Model selection** | `PUT content/botcomponents` (GptComponent) | Playwright dropdown |
+| **Read all components** | `POST content/botcomponents` (delta sync) | Dataverse queries |
+| **Write components** | `PUT content/botcomponents` | Dataverse PATCH |
+| **Get/set instructions** | GptComponent in botcomponents | Dataverse PATCH |
+| **Bot settings** | `GET bots/{bid}/settings` | Playwright |
+| **Bot routing info** | `GET botroutinginfo` | N/A (new) |
+| **Publish status** | `GET publishv2-operations` | Playwright |
+| **Topic create** | `PUT content/botcomponents` (BotComponentInsert + DialogComponent) | Playwright code editor |
+| **Topic update** | `PUT content/botcomponents` (BotComponentUpdate + DialogComponent) | Playwright code editor |
+
+Uses ObjectModel `$kind` types — same schema om-cli validates. Same API the VS Code extension uses.
+YAML → JSON mapping documented in `knowledge/cache/island-gateway-api.md`.
+
+## Layer 2: Dataverse MCP Server (v0.2.310025)
 
 Tools: `read_query` (20-row limit), `create_record`, `update_record`, `delete_record`, `list_tables`, `describe_table`, `search`, `fetch`
 
@@ -35,18 +81,17 @@ Tools: `read_query` (20-row limit), `create_record`, `update_record`, `delete_re
 
 **Use when**: bound actions, >20 rows, unattended/CI/CD, file upload.
 
-## Layer 4: Playwright (UI Only)
+## Layer 4: Playwright (UI Only — Last Resort)
 
 | Operation | Why Playwright |
 |-----------|---------------|
-| Model selection | Not in API |
-| Add tools/connectors | Tool attachment requires MCS sync |
-| Add MCP servers | MCP server attachment via UI only |
-| Create OAuth connections | Interactive auth flow |
+| Agent creation | Full wizard flow, no complete API |
+| Create NEW OAuth connections | Interactive browser auth flow |
 | Connect child agents | MCS orchestration setup |
-| Gen AI settings | Internal MCS setting |
 | "Allow other agents to connect" | Not in public API |
 | Native eval upload/run | MCS eval service |
+
+> **Note:** Most operations have moved to LSP Wrapper or Island Gateway API. Model selection, instructions, topics, knowledge sources, tool editing, settings — all use LSP push now. Playwright is only needed for agent creation, new OAuth connections, and child agent connection.
 
 ## CRITICAL: What Raw Dataverse POST CANNOT Do
 
@@ -60,11 +105,11 @@ Raw POST creates the Dataverse record but skips MCS internal orchestration:
 
 | Operation | POST Works? | PATCH Works? | Correct Method |
 |-----------|------------|-------------|----------------|
-| New topic (type 9) | **NO** — record created but invisible to MCS | N/A | Playwright → Code Editor → paste YAML |
-| New instructions (type 15) | **NO** — same problem | N/A | Playwright → Instructions panel |
-| Update EXISTING instructions (type 15) | N/A | **YES** — component already registered | Dataverse PATCH + PvaPublish |
-| Update EXISTING topic content (type 9) | N/A | **RISKY** — MS warns against direct edits | Playwright → Code Editor preferred |
-| New knowledge source (type 16) | **NO** | N/A | Playwright → Knowledge tab |
+| New topic (type 9) | **NO** — record created but invisible to MCS | N/A | LSP push (`topics/*.mcs.yml` → `mcs-lsp.js push`) |
+| New instructions (type 15) | **NO** — same problem | N/A | LSP push (`agent.mcs.yml` → `mcs-lsp.js push`) |
+| Update EXISTING instructions (type 15) | N/A | **YES** — component already registered | LSP push (primary) or Dataverse PATCH + PvaPublish |
+| Update EXISTING topic content (type 9) | N/A | **RISKY** — MS warns against direct edits | LSP push (`topics/*.mcs.yml` → `mcs-lsp.js push`) |
+| New knowledge source (type 16) | **NO** | N/A | LSP push (`knowledge/*.mcs.yml` → `mcs-lsp.js push`) |
 
 ### Other Bound Actions
 

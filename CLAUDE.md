@@ -2,7 +2,7 @@
 
 ## Overview
 
-Automate Microsoft Copilot Studio (MCS) agent creation using a **hybrid build stack**: PAC CLI for lifecycle operations, Dataverse API for configuration, Code Editor YAML for topics, Direct Line API for testing, and Playwright MCP only for operations that have no API alternative.
+Automate Microsoft Copilot Studio (MCS) agent creation using a **hybrid build stack**: PAC CLI for lifecycle operations, MCS LSP Wrapper for component sync (topics, instructions, model, tools, knowledge, settings), Island Gateway API for model catalog and component reads, Dataverse API for security and file uploads, Direct Line API for testing, and Playwright MCP only for agent creation and new OAuth connections.
 
 **CRITICAL: Never assume components. Research BROADLY first (web, MS Learn, community — not just one source), recommend based on requirements.**
 
@@ -91,7 +91,7 @@ If `sessionDefaults` exist but `buildStatus` doesn't (new agent, returning user)
 | 3 | **Island Gateway API** | Model selection, model catalog, component reads, routing, settings |
 | 4 | **Dataverse API** | Knowledge upload, security settings, agent deletion |
 | 5 | **Direct Line API** | Evaluation / testing (send messages, compare responses) |
-| 6 | **Playwright MCP** | Agent creation, tool/connector addition, OAuth connections, child agent connection |
+| 6 | **Playwright MCP** | Agent creation, new OAuth connections, child agent connection |
 
 **Detailed capabilities per layer:** See `knowledge/cache/api-capabilities.md`
 **Decision flow and build phase mapping:** See `knowledge/frameworks/tool-priority.md`
@@ -100,7 +100,7 @@ If `sessionDefaults` exist but `buildStatus` doesn't (new agent, returning user)
 
 ## Agent Teams (Experimental)
 
-Agent Teams enables bidirectional communication between specialist teammates who challenge each other's work. The lead (you) orchestrates, teammates do the reasoning/generation, and the lead handles MCS execution (Playwright, PAC CLI, Dataverse).
+Agent Teams enables bidirectional communication between specialist teammates who challenge each other's work. The lead (you) orchestrates, teammates do the reasoning/generation, and the lead handles MCS execution (LSP Wrapper, Island Gateway API, PAC CLI, Dataverse, Playwright where needed).
 
 **Enabled via:** `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` in `.claude/settings.json`
 
@@ -143,16 +143,16 @@ Lead spawns team for build:
     Topic Engineer → Prompt Engineer: "Your instructions expect Topic.orderStatus but no topic initializes it"
 
 Lead executes validated outputs:
-  - Pastes YAML into MCS code editor (Playwright)
-  - Sets instructions via Dataverse API
-  - Configures tools (Playwright)
+  - Pushes topic YAML via LSP Wrapper (mcs-lsp.js push)
+  - Sets instructions via LSP push (agent.mcs.yml) or Dataverse API
+  - Configures tools via add-tool.js + LSP push (Playwright only for new OAuth)
   - Publishes (PAC CLI)
 ```
 
 ### Rules
 
 - **Lead does NOT generate instructions, YAML, or cards directly.** Delegate to teammates.
-- **Lead DOES handle all MCS execution** (Playwright, PAC CLI, Dataverse API) since MCP access in teammates is unreliable.
+- **Lead DOES handle all MCS execution** (LSP Wrapper, Island Gateway API, PAC CLI, Dataverse API, Playwright where needed) since MCP access in teammates is unreliable.
 - **QA Challenger reviews EVERY teammate output** before the lead executes it.
 - **Teammates challenge each other** — bidirectional communication is the point.
 - **All generated artifacts go to files** (Build-Guides/[Project]/topics/, instructions, etc.) so the lead can read and execute them.
@@ -186,8 +186,9 @@ Before committing to designs that are hard to undo — schema changes, workflow 
 |------|---------|
 | **PAC CLI** | Agent lifecycle: publish, list, status, solution ALM (`pac copilot`, `pac solution`) |
 | **MCS LSP Wrapper** | Topic push/pull, full component sync via official LS (`tools/mcs-lsp.js`) |
-| **Island Gateway API** | Model selection, model catalog, component reads, routing, settings (`tools/island-client.js`) |
-| **Dataverse API** | Agent config: knowledge, security, deletion, publish (via HTTP/PowerShell) |
+| **Island Gateway API** | Model catalog, component reads, routing info, bot settings (`tools/island-client.js`) |
+| **Add Tool CLI** | Headless tool/connector addition — generates action YAML for LSP push (`tools/add-tool.js`) |
+| **Dataverse API** | Agent config: security, deletion, publish (via HTTP/PowerShell) |
 | **Code Editor YAML** | Topic authoring fallback: conversations, cards, branching (paste into MCS code editor) |
 | **ObjectModel CLI** | Full YAML validation + schema exploration (357 types, catches unknown nodes + missing fields): `tools/om-cli/om-cli.exe` (validate, schema, search, list, hierarchy, composition, examples) |
 | **Gen Constraints** | Pre-generation constraint extraction: `python tools/gen-constraints.py <types>` — required fields per node type |
@@ -195,7 +196,7 @@ Before committing to designs that are hard to undo — schema changes, workflow 
 | **Semantic Gates** | 5 validation gates beyond structural checks: `python tools/semantic-gates.py <file.yaml> --brief <brief.json>` (PowerFx, cross-refs, variable flow, channel compat, connectors) |
 | **Schema Lookup** | Legacy kind-value validation: `python tools/schema-lookup.py` (fallback if .NET 10 unavailable) |
 | **Direct Line API** | Agent testing: send messages, compare responses (`tools/direct-line-test.js`) |
-| **Playwright MCP** | MCS UI automation for operations with no API (`@playwright/mcp`) |
+| **Playwright MCP** | Agent creation, new OAuth connections, child agent connection (`@playwright/mcp`) |
 | **WorkIQ MCP** | M365 context: emails, meetings, documents, Teams, people (`workiq mcp`) |
 | **Microsoft Learn MCP** | Official docs, reference, code samples |
 | **WebSearch** | Latest announcements, preview features, community discoveries |
@@ -364,7 +365,7 @@ Research EVERY TIME before recommending components. Do NOT rely on a static list
 **When to research:** Every Phase 1 component selection. Every time you encounter a capability you haven't verified recently. Every error you can't explain.
 
 ### 5. Minimize Playwright — Use APIs First
-Every browser interaction is fragile. Before using Playwright, check if PAC CLI, Dataverse API, Code Editor YAML, or Direct Line API can handle the operation. See "Hybrid Build Stack" section above.
+Every browser interaction is fragile. Before using Playwright, check if LSP Wrapper, Island Gateway API, add-tool.js, PAC CLI, Dataverse API, or Direct Line API can handle the operation. See "Hybrid Build Stack" section above.
 
 ---
 
@@ -511,7 +512,7 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 - Deferred items are listed in the build report for customer visibility
 
 **Routes by architecture:**
-- `Single Agent` → standalone build (PAC CLI + Dataverse + Playwright + YAML)
+- `Single Agent` → standalone build (PAC CLI + LSP Wrapper + Island Gateway + Dataverse + Playwright for creation/OAuth only)
 - `Multi-Agent` → specialists first, then orchestrator with child connections
 
 **On-demand teammates:** Research Analyst (when tool configuration hits issues) and Prompt Engineer (when instructions need adjustment for actual tool names)
@@ -617,10 +618,10 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 8. **Research errors** — don't blindly retry
 9. **Capture learnings** — every build makes next build smarter
 10. **Fill gaps before building** — incomplete brief → incomplete agent
-11. **Minimize Playwright** — use PAC CLI, Dataverse API, Code Editor YAML, Direct Line first
+11. **Minimize Playwright** — use LSP Wrapper, Island Gateway API, add-tool.js, PAC CLI, Dataverse API, Direct Line first
 12. **MCP over connectors** — prefer MCP servers over individual connector actions
 13. **Research broadly** — use WebSearch, MS Learn, community sources, and MCS UI snapshots
-14. **API first, browser last** — every Playwright interaction is a fragility risk; prefer API alternatives
+14. **LSP/API first, browser last** — every Playwright interaction is a fragility risk; prefer LSP Wrapper, Island Gateway, or API alternatives
 
 ---
 
@@ -728,7 +729,8 @@ tools/
 ├── powerfx-catalog.json    # Official PowerFx function catalog (loaded by semantic-gates.py)
 ├── schema-lookup.py        # Legacy schema query tool (kind-value checks only, fallback)
 ├── mcs-lsp.js              # MCS Language Server wrapper — headless push/pull via official LS (topics, sync)
-├── island-client.js        # Island Control Plane Gateway API client (model, components, routing, settings)
+├── island-client.js        # Island Control Plane Gateway API client (model catalog, reads, routing, settings)
+├── add-tool.js             # Headless tool/connector addition — generates action YAML + LSP push
 ├── direct-line-test.js     # Direct Line API test runner
 ├── dataverse-helper.ps1    # PowerShell Dataverse Web API helper
 ├── fetch-instructions.ps1  # Fetch agent instructions from Dataverse

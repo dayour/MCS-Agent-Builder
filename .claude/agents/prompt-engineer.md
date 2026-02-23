@@ -210,9 +210,11 @@ Use **Get/Use** for retrieving data, **From/With** for acting on results.
 | Wrong routing | Fix topic DESCRIPTIONS first, not instructions |
 | Agent stops responding | Remove all instructions, add back one section at a time, test between each |
 
-## Updating Instructions via API
+## Updating Instructions
 
-Instructions are `botcomponent` type 15. Only PATCH existing — never POST new (see bm-002).
+**Primary: LSP push** — edit `agent.mcs.yml` in the cloned workspace (`instructions:` field), then the lead runs `node tools/mcs-lsp.js push --workspace <path>`.
+
+**Fallback: Dataverse PATCH** — botcomponent type 15. Only PATCH existing — never POST new (see bm-002).
 ```
 PATCH /api/data/v9.2/botcomponents(<id>)
 { "content": "new instructions" }

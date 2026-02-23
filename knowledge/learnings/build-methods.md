@@ -17,8 +17,8 @@ Entry format:
 ### PAC CLI create requires undocumented template YAML {#bm-001} — 2026-02-18
 **Context:** Evaluating agent creation methods for the hybrid build stack
 **Tried:** `pac copilot create --templateFileName template.yaml` — requires a YAML template extracted from an existing agent via `pac copilot extract-template`
-**Result:** Template format is not published by Microsoft, no official samples exist, and templates only capture ~30% of agent config (topics/instructions — not tools, knowledge, or model). Since Playwright is already required for tools + model selection, the template dependency adds friction with no benefit.
-**Better approach:** Create agents via Playwright (MCS UI → Create → New agent → Skip to configure → set name/description → Create). PAC CLI `create` is a fallback for environments where browser is unavailable.
+**Result:** Template format is not published by Microsoft, no official samples exist, and templates only capture ~30% of agent config (topics/instructions — not tools, knowledge, or model). Model selection and tools are now headless via LSP push + add-tool.js, but Playwright is still needed for agent creation itself.
+**Better approach:** Create agents via Playwright (MCS UI → Create → New agent → Skip to configure → set name/description → Create), then clone workspace and configure everything else via LSP push. PAC CLI `create` is a fallback for environments where browser is unavailable.
 **Confirmed:** 1 build(s) | Last confirmed: 2026-02-18
 **Related cache:** agent-lifecycle.md, api-capabilities.md
 **Tags:** #pac-cli #playwright #agent-creation #template

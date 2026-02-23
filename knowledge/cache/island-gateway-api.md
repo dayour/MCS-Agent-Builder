@@ -306,7 +306,7 @@ The `bot.configuration` Dataverse field also contains AI settings:
 | `kind: ConditionGroup` | `$kind: ConditionGroup` |
 | `kind: SetVariable` | `$kind: SetVariable` |
 
-**Captured payloads:** `knowledge/cache/05-topic-save-captured.json` (update) and `06-topic-create-captured.json` (insert)
+**Captured payloads:** `reference/05-topic-save-captured.json` (update) and `reference/06-topic-create-captured.json` (insert)
 
 ## What Still Requires Playwright
 

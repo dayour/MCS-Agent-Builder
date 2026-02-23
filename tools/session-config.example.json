@@ -10,6 +10,7 @@
           "name": "Your Environment (default)",
           "environmentId": "Default-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
           "dataverseUrl": "https://orgxxxxxxxx.crm.dynamics.com",
+          "gatewayUrl": null,
           "agents": []
         }
       ]

@@ -156,7 +156,7 @@ Same tool priority as `/mcs-build`:
 
 | Fix Type | Tool | Method |
 |----------|------|--------|
-| Instructions | Dataverse API | Update instructions field via `knowledge/patterns/dataverse-patterns.md` |
+| Instructions | LSP push (`mcs-lsp.js`) | Edit `agent.mcs.yml` in workspace, then push. Fallback: Dataverse API PATCH |
 | Topics | LSP push (`mcs-lsp.js`) | Write revised `.mcs.yml` to workspace, then push |
 | Trigger phrases | LSP push (`mcs-lsp.js`) | Update topic `.mcs.yml` in workspace, then push |
 | Eval criteria | Local file | Update `brief.json.evalSets[]` + regenerate `evals.csv` |

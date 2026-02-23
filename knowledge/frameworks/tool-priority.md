@@ -5,22 +5,22 @@
 | Priority | Tool | Use For |
 |----------|------|---------|
 | 1 | **PAC CLI** | Publishing, solution ALM, listing agents |
-| 2 | **Island Gateway API** | Model selection, component read/write, instructions, settings |
-| 3 | **Dataverse API** | Knowledge upload, security settings, agent deletion |
-| 4 | **Code Editor YAML** | Topic authoring, adaptive cards, branching logic, trigger phrases |
+| 2 | **MCS LSP Wrapper** | Topic push/pull, instructions, model, tools, knowledge, full component sync (`tools/mcs-lsp.js`) |
+| 3 | **Island Gateway API** | Model catalog, component reads, routing info, bot settings (`tools/island-client.js`) |
+| 4 | **Dataverse API** | Security settings, agent deletion, bound actions |
 | 5 | **Direct Line API** | Evaluation / testing (send messages, compare responses) |
-| 6 | **Playwright MCP** | Agent creation, tool/connector addition, OAuth connections, child agent connection |
+| 6 | **Playwright MCP** | Agent creation, new OAuth connections, child agent connection |
 
 ## Decision Flow
 
 ```
 For each build step, ask:
   Can PAC CLI do this?           → YES → Use PAC CLI
-  Can Island Gateway API do it?  → YES → Use Island Gateway (tools/island-client.js)
-  Can Dataverse API do this?     → YES → Use Dataverse API
-  Is this topic/card work?       → YES → Use Code Editor YAML
+  Can LSP Wrapper do this?       → YES → Use mcs-lsp.js (topics, instructions, model, tools, knowledge, settings)
+  Can Island Gateway API do it?  → YES → Use island-client.js (model catalog, reads, routing)
+  Can Dataverse API do this?     → YES → Use Dataverse API (security, deletion, file uploads)
   Is this testing/eval?          → YES → Use Direct Line API
-  None of the above?             → Use Playwright (with silent browser verification)
+  None of the above?             → Use Playwright (agent creation, new OAuth, child agents)
 ```
 
 ## Detailed Capability Matrix
