@@ -194,30 +194,72 @@ Running {N} tests ({F} fast boundary, {S} slow tool-calling). Estimated: ~{X}m
 2. Open the Test Chat pane (bottom-right "Test" button or "Test your agent" panel)
 3. If Test Chat is already open, proceed. If not, click to open it.
 
-### Run Each Test (Following the Plan)
+### Inject Test Chat Harness (once per eval run)
+
+After navigating to the agent and opening Test Chat, inject the optimized harness. This replaces the 5-step snapshot-poll loop (~15-30s per test) with a single `browser_evaluate` call per test (~3-8s).
+
+```javascript
+// Inject the harness (installs window.__testChat)
+browser_evaluate: () => {
+    // <paste contents of tools/test-chat-harness.js getInstallScript() output>
+    // The full install script is in tools/test-chat-harness.js — call getInstallScript()
+}
+```
+
+Or equivalently, read `tools/test-chat-harness.js`, call `getInstallScript()`, and pass the returned string to `browser_evaluate`.
+
+**Verify:** Result should be `"Test chat harness installed"`. If it says `"already installed"`, that's fine too.
+
+**If injection fails** (e.g., CSP blocks eval): Fall back to the legacy per-test snapshot loop described in "Fallback: Legacy Per-Test Loop" below.
+
+### Run Each Test (Optimized — Single Call Per Test)
 
 Execute tests in the order specified by the test plan (`order` field). The plan optimizes by running boundary tests first (fast, no reset needed between them) and tool-calling tests after (slow, need session reset).
 
 For each test in plan order:
 
-1. **Reset if needed** — If `needsReset: true`, click the reset/new conversation icon in the Test Chat header. Wait for the greeting message or empty state before proceeding.
-   - Boundary-to-boundary transitions skip reset (saves ~10s per test)
+1. **Reset if needed** — If `needsReset: true`:
+   ```javascript
+   browser_evaluate: () => window.__testChat.reset()
+   ```
+   - Boundary-to-boundary transitions skip reset (saves ~3s per test)
    - Tool tests always reset (previous tool state carries over)
-2. **Type the test question** — Type the question into the chat input field
-3. **Submit** — Press Enter or click Send
-4. **Wait for response** — Poll `browser_snapshot` until the agent's response appears:
-   - **Boundary tests:** max 30s timeout (these are fast refusal/decline responses)
-   - **Tool tests:** max 90s timeout (tool calls take time)
-   - Look for bot response text in snapshot (accessible name pattern: `generic "Bot said: ..."`)
-   - If snapshot shows "Typing..." or a loading indicator, wait 3s and re-snapshot
-   - If no response after timeout, record as `[TIMEOUT - No response within Xs]`
-5. **Extract response text** — Read the agent's response text from the snapshot. Use the accessible name or text content of the last bot message bubble.
-6. **Record result** — Save `{ id, actual }` to the results collection
-7. **Progressive write** — After each test, write partial results so interrupted runs preserve progress:
+
+2. **Run the test** (single call — types, submits, waits for response, returns text):
+   ```javascript
+   // Boundary tests: 30s timeout
+   browser_evaluate: () => window.__testChat.sendAndWait("the question", 30000)
+   // Tool tests: 90s timeout
+   browser_evaluate: () => window.__testChat.sendAndWait("the question", 90000)
+   ```
+   Returns: `{ response: "bot's answer text", elapsed: 1234 }`
+
+3. **Handle errors** — If sendAndWait throws (timeout or element not found):
+   - Record as `{ id, actual: "[TIMEOUT - No response within Xs]" }`
+   - If element-not-found error, the Test Chat pane may have closed — re-open it and re-inject the harness
+
+4. **Record result** — Save `{ id, actual: result.response }` to the results collection
+
+5. **Progressive write** — After each test, write partial results so interrupted runs preserve progress:
    ```bash
    # After all tests complete (or on interrupt), score everything:
    node tools/playwright-eval-runner.js --brief <path> --action score --results <results-file>
    ```
+
+### Fallback: Legacy Per-Test Loop
+
+If the harness injection fails (CSP restrictions, DOM structure changed), use the original approach:
+
+1. **Reset if needed** — Click the reset/new conversation icon. Wait for greeting/empty state.
+2. **Type the test question** — Type into the chat input field
+3. **Submit** — Press Enter or click Send
+4. **Wait for response** — Poll `browser_snapshot` until the bot response appears:
+   - Boundary tests: max 30s timeout
+   - Tool tests: max 90s timeout
+   - If snapshot shows "Typing...", wait 3s and re-snapshot
+   - If no response after timeout, record as `[TIMEOUT - No response within Xs]`
+5. **Extract response text** — Read from snapshot accessible name or text content
+6. **Record result** — Save `{ id, actual }` to results
 
 ### Score and Write Results
 

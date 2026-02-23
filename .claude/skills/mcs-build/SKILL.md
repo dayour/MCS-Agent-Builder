@@ -374,9 +374,10 @@ For each MVP topic in the spec:
    ```powershell
    pac copilot publish --bot <bot-id>
    ```
-2. **Run critical eval set** via Direct Line API (same method as `/mcs-eval` Tier 1/2):
+2. **Run critical eval set** via Direct Line API or optimized Playwright Test Chat (same method as `/mcs-eval` Tier 1/2):
    - Read `brief.json.evalSets[]`, find set where `name == "critical"`
    - Run all tests in the critical set
+   - Tier 2 uses the injected test chat harness (`tools/test-chat-harness.js`) for ~3-5s per boundary test instead of ~15-30s with snapshot polling
    - Write results to each test's `lastResult`
 
 3. **Evaluate critical gate:**

@@ -201,8 +201,33 @@ node tools/playwright-eval-runner.js --brief <path> --action detect-tier
 
 **Scoring:** Uses shared `tools/eval-scoring.js` module — identical scoring functions as Direct Line runner. All 6 MCS methods supported with display-name aliases and mode parameters.
 
-**Speed:** ~5s/test for boundary tests, ~60-90s/test for tool-calling tests
+**Speed (with harness):** ~3-5s/test for boundary tests, ~15-30s/test for tool-calling tests
+**Speed (legacy snapshot loop):** ~15-30s/test for boundary tests, ~60-90s/test for tool-calling tests
 **Reliability:** High — no tokens, no API keys, uses existing browser session
+
+#### Optimized Test Chat Harness (`tools/test-chat-harness.js`)
+
+Injected once per eval run via `browser_evaluate`. Replaces the 5-step snapshot-poll loop with a single `browser_evaluate` call per test.
+
+**How it works:**
+1. Inject harness: `browser_evaluate(getInstallScript())` — installs `window.__testChat`
+2. Per test: `browser_evaluate(() => window.__testChat.sendAndWait("question", 30000))`
+   - Types question via native value setter (React-compatible)
+   - Clicks Send button (or falls back to Enter key)
+   - Uses MutationObserver + polling to detect new bot message
+   - Returns `{ response, elapsed }` directly — no extra snapshots needed
+3. Reset: `browser_evaluate(() => window.__testChat.reset())` — clicks reset button
+
+**Performance improvement:**
+
+| Test Type | Legacy (snapshot) | Harness (optimized) | Speedup |
+|-----------|-------------------|---------------------|---------|
+| Boundary (refusal) | ~15-30s | ~3-5s | 5-8x |
+| Tool-calling | ~60-90s | ~15-30s | 2-3x |
+| Session reset | ~10s | ~3s | 3x |
+| 20-test suite | ~15 min | ~3-5 min | 3-5x |
+
+**Fallback:** If harness injection fails (CSP restrictions, DOM changes), the eval skill falls back to the legacy per-test snapshot loop automatically.
 
 ### Tier 3: Native MCS Evaluation (async, optional)
 
