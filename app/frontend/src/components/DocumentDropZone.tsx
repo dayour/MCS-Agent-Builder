@@ -6,8 +6,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { DocChangeStatus, Document } from "@/types";
 import { useProjectStore } from "@/stores/projectStore";
+import { fetchDocContent } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { marked } from "marked";
+import { toast } from "sonner";
+
+// ---------------------------------------------------------------------------
+// Config
+// ---------------------------------------------------------------------------
 
 interface DocumentDropZoneProps {
   projectId: string;
@@ -21,13 +27,38 @@ const STATUS_CONFIG: Record<DocChangeStatus, { label: string; className: string 
 
 const ACCEPTED_EXTENSIONS = ".md,.csv,.txt,.json,.png,.jpg,.jpeg,.gif,.webp,.docx,.pdf,.pptx,.xlsx,.xls";
 
-// Configure marked for safe rendering (no raw HTML passthrough)
 marked.setOptions({ breaks: true, gfm: true });
+
+function iconForType(type: Document["type"]) {
+  if (type === "image") return Image;
+  if (type === "csv") return FileSpreadsheet;
+  if (type === "document") return FileIcon;
+  return FileText;
+}
+
+// ---------------------------------------------------------------------------
+// Preview component — renders per file type
+// ---------------------------------------------------------------------------
 
 function DocumentPreview({ doc, projectId, content }: { doc: Document; projectId: string; content: string }) {
   const rawUrl = `/api/projects/${projectId}/docs/${encodeURIComponent(doc.name)}/raw`;
 
-  // --- Images: native display ---
+  // Lazy-load content for binary docs via /content endpoint
+  const [lazyContent, setLazyContent] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (doc.type !== "document" || content) return;
+    let cancelled = false;
+    setLoading(true);
+    fetchDocContent(projectId, doc.name)
+      .then((res) => { if (!cancelled) setLazyContent(res.content); })
+      .catch(() => { if (!cancelled) setLazyContent(""); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [doc.name, doc.type, projectId, content]);
+
+  // Images
   if (doc.type === "image") {
     return (
       <div className="flex justify-center">
@@ -36,18 +67,12 @@ function DocumentPreview({ doc, projectId, content }: { doc: Document; projectId
     );
   }
 
-  // --- PDF: embedded browser viewer ---
+  // PDF — native browser viewer
   if (doc.type === "pdf") {
-    return (
-      <iframe
-        src={rawUrl}
-        title={doc.name}
-        className="w-full h-[70vh] rounded border border-border"
-      />
-    );
+    return <iframe src={rawUrl} title={doc.name} className="w-full h-[70vh] rounded border border-border" />;
   }
 
-  // --- CSV: rich table with alternating rows ---
+  // CSV — table
   if (doc.type === "csv" && content) {
     const lines = content.trim().split("\n");
     const headers = lines[0]?.split(",") ?? [];
@@ -76,12 +101,10 @@ function DocumentPreview({ doc, projectId, content }: { doc: Document; projectId
     );
   }
 
-  // --- JSON: formatted with syntax coloring ---
+  // JSON — formatted
   if (doc.type === "json" && content) {
     let formatted = content;
-    try {
-      formatted = JSON.stringify(JSON.parse(content), null, 2);
-    } catch { /* already formatted or invalid — show as-is */ }
+    try { formatted = JSON.stringify(JSON.parse(content), null, 2); } catch { /* as-is */ }
     return (
       <pre className="text-xs leading-relaxed whitespace-pre-wrap font-mono rounded border border-border bg-surface-3 p-4 overflow-x-auto">
         <code className="text-foreground">{formatted}</code>
@@ -89,7 +112,7 @@ function DocumentPreview({ doc, projectId, content }: { doc: Document; projectId
     );
   }
 
-  // --- Markdown: rendered with typography ---
+  // Markdown — rendered
   if (doc.type === "markdown" && content) {
     const html = marked.parse(content);
     return (
@@ -100,14 +123,22 @@ function DocumentPreview({ doc, projectId, content }: { doc: Document; projectId
     );
   }
 
-  // --- Binary docs (docx/pptx/xlsx): extracted text content or fallback ---
+  // Binary docs (docx/pptx/xlsx) — lazy-loaded extracted content
   if (doc.type === "document") {
-    if (content) {
-      // MarkItDown extracted text — render as markdown (it outputs markdown-like text)
-      const html = marked.parse(content);
+    const text = content || lazyContent;
+    if (loading) {
+      return (
+        <div className="flex items-center justify-center py-12 text-muted-foreground gap-2">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span className="text-sm">Extracting text preview...</span>
+        </div>
+      );
+    }
+    if (text) {
+      const html = marked.parse(text);
       return (
         <div
-          className="prose prose-sm dark:prose-invert max-w-none prose-headings:text-foreground prose-p:text-muted-foreground prose-strong:text-foreground prose-code:text-primary"
+          className="prose prose-sm dark:prose-invert max-w-none prose-headings:text-foreground prose-p:text-muted-foreground prose-strong:text-foreground"
           dangerouslySetInnerHTML={{ __html: typeof html === "string" ? html : "" }}
         />
       );
@@ -124,7 +155,7 @@ function DocumentPreview({ doc, projectId, content }: { doc: Document; projectId
     );
   }
 
-  // --- Plain text: monospace with line numbers ---
+  // Plain text fallback
   if (content) {
     return (
       <pre className="text-xs leading-relaxed text-muted-foreground whitespace-pre-wrap font-mono rounded border border-border bg-surface-3 p-4">
@@ -133,8 +164,12 @@ function DocumentPreview({ doc, projectId, content }: { doc: Document; projectId
     );
   }
 
-  return <p className="text-xs text-muted-foreground italic py-8 text-center">No preview available for this file type.</p>;
+  return <p className="text-xs text-muted-foreground italic py-8 text-center">No preview available.</p>;
 }
+
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
 
 const DocumentDropZone = ({ projectId }: DocumentDropZoneProps) => {
   const { documents, docContent, uploadFile, pasteText, removeDocument } = useProjectStore();
@@ -143,25 +178,28 @@ const DocumentDropZone = ({ projectId }: DocumentDropZoneProps) => {
   const [textTitle, setTextTitle] = useState("");
   const [textContent, setTextContent] = useState("");
   const [uploading, setUploading] = useState(false);
-  const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
+  const [selectedDocName, setSelectedDocName] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Derive selectedDoc from documents list by name — always fresh after state changes
+  const selectedDoc = selectedDocName ? documents.find((d) => d.name === selectedDocName) ?? null : null;
+
+  // --- Upload ---
   const handleFiles = useCallback(async (files: FileList | File[]) => {
     setUploading(true);
     for (const file of Array.from(files)) {
       try {
         await uploadFile(file);
       } catch {
-        // Could show toast here
+        toast.error(`Failed to upload ${file.name}`);
       }
     }
     setUploading(false);
   }, [uploadFile]);
 
-  // Global paste handler — captures Ctrl+V images from clipboard
+  // --- Clipboard paste ---
   useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
-      // Don't intercept paste if user is typing in an input/textarea
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
 
@@ -183,35 +221,23 @@ const DocumentDropZone = ({ projectId }: DocumentDropZoneProps) => {
     return () => document.removeEventListener("paste", handlePaste);
   }, [handleFiles]);
 
+  // --- Drag & drop ---
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
-    if (e.dataTransfer.files.length) {
-      handleFiles(e.dataTransfer.files);
-    }
+    if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
   }, [handleFiles]);
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setDragOver(true);
-  }, []);
+  const handleDragOver = useCallback((e: React.DragEvent) => { e.preventDefault(); setDragOver(true); }, []);
+  const handleDragLeave = useCallback((e: React.DragEvent) => { e.preventDefault(); setDragOver(false); }, []);
 
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setDragOver(false);
-  }, []);
-
-  const handleUploadClick = () => {
-    fileInputRef.current?.click();
-  };
-
+  // --- File input ---
+  const handleUploadClick = () => fileInputRef.current?.click();
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files?.length) {
-      handleFiles(e.target.files);
-      e.target.value = "";
-    }
+    if (e.target.files?.length) { handleFiles(e.target.files); e.target.value = ""; }
   };
 
+  // --- Paste text ---
   const addTextDoc = async () => {
     if (!textTitle.trim() || !textContent.trim()) return;
     setUploading(true);
@@ -221,22 +247,31 @@ const DocumentDropZone = ({ projectId }: DocumentDropZoneProps) => {
       setTextContent("");
       setShowTextForm(false);
     } catch {
-      // Could show toast here
+      toast.error("Failed to save text document");
     }
     setUploading(false);
+  };
+
+  // --- Delete ---
+  const handleDelete = async (filename: string) => {
+    if (selectedDocName === filename) setSelectedDocName(null);
+    try {
+      await removeDocument(filename);
+    } catch {
+      toast.error(`Failed to delete ${filename}`);
+    }
   };
 
   const newAndModified = documents.filter((d) => d.changeStatus === "new" || d.changeStatus === "modified");
 
   return (
     <div>
+      {/* Header */}
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h2 className="text-sm font-semibold text-foreground">Documents ({documents.length})</h2>
           {newAndModified.length > 0 && (
-            <span className="text-[11px] text-info font-medium">
-              {newAndModified.length} pending research
-            </span>
+            <span className="text-[11px] text-info font-medium">{newAndModified.length} pending research</span>
           )}
         </div>
         <div className="flex gap-1">
@@ -249,14 +284,7 @@ const DocumentDropZone = ({ projectId }: DocumentDropZoneProps) => {
         </div>
       </div>
 
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept={ACCEPTED_EXTENSIONS}
-        multiple
-        className="hidden"
-        onChange={handleFileInput}
-      />
+      <input ref={fileInputRef} type="file" accept={ACCEPTED_EXTENSIONS} multiple className="hidden" onChange={handleFileInput} />
 
       {/* Drop zone */}
       <div
@@ -264,10 +292,8 @@ const DocumentDropZone = ({ projectId }: DocumentDropZoneProps) => {
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         className={cn(
-          "mb-3 rounded-lg border-2 border-dashed p-6 text-center transition-all",
-          dragOver
-            ? "border-primary bg-primary/5"
-            : "border-border hover:border-muted-foreground/30",
+          "mb-3 rounded-lg border-2 border-dashed p-6 text-center transition-all cursor-pointer",
+          dragOver ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/30",
           uploading && "opacity-60 pointer-events-none"
         )}
         onClick={handleUploadClick}
@@ -282,16 +308,13 @@ const DocumentDropZone = ({ projectId }: DocumentDropZoneProps) => {
         ) : (
           <>
             <Upload className="mx-auto h-5 w-5 text-muted-foreground mb-1.5" />
-            <p className="text-xs text-muted-foreground">
-              Drag & drop files here, or click to browse
-            </p>
-            <p className="text-[10px] text-muted-foreground/60 mt-1">
-              Supports md, csv, txt, json, images, docx, pdf, pptx, xlsx
-            </p>
+            <p className="text-xs text-muted-foreground">Drag & drop files here, or click to browse</p>
+            <p className="text-[10px] text-muted-foreground/60 mt-1">Supports md, csv, txt, json, images, docx, pdf, pptx, xlsx</p>
           </>
         )}
       </div>
 
+      {/* Paste text form */}
       {showTextForm && (
         <div className="mb-3 rounded-lg border border-border bg-card p-4 space-y-3">
           <Input placeholder="Title" value={textTitle} onChange={(e) => setTextTitle(e.target.value)} />
@@ -307,16 +330,12 @@ const DocumentDropZone = ({ projectId }: DocumentDropZoneProps) => {
       <div className="space-y-2">
         {documents.map((doc) => {
           const statusCfg = STATUS_CONFIG[doc.changeStatus];
-          const DocIcon =
-            doc.type === "image" ? Image :
-            doc.type === "csv" ? FileSpreadsheet :
-            doc.type === "document" ? FileIcon :
-            FileText;
+          const DocIcon = iconForType(doc.type);
           return (
             <div
               key={doc.id}
               className="group flex items-center gap-3 rounded-lg border border-border bg-card p-3 transition-all cursor-pointer hover:border-primary/30 hover:bg-surface-2"
-              onClick={() => setSelectedDoc(doc)}
+              onClick={() => setSelectedDocName(doc.name)}
             >
               <div className="flex items-center gap-3 flex-1 min-w-0">
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-surface-3">
@@ -324,23 +343,19 @@ const DocumentDropZone = ({ projectId }: DocumentDropZoneProps) => {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <p className="text-xs font-medium text-foreground truncate group-hover:text-primary transition-colors">
-                      {doc.name}
-                    </p>
+                    <p className="text-xs font-medium text-foreground truncate group-hover:text-primary transition-colors">{doc.name}</p>
                     <span className={cn("shrink-0 rounded-full border px-1.5 py-0 text-[10px] font-medium leading-4", statusCfg.className)}>
                       {statusCfg.label}
                     </span>
                   </div>
-                  <p className="text-[11px] text-muted-foreground">
-                    {doc.size}
-                  </p>
+                  <p className="text-[11px] text-muted-foreground">{doc.size}</p>
                 </div>
               </div>
               <Button
                 variant="ghost"
                 size="icon"
                 className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-destructive shrink-0"
-                onClick={(e) => { e.stopPropagation(); removeDocument(doc.name); if (selectedDoc?.id === doc.id) setSelectedDoc(null); }}
+                onClick={(e) => { e.stopPropagation(); handleDelete(doc.name); }}
               >
                 <Trash2 className="h-3 w-3" />
               </Button>
@@ -349,20 +364,16 @@ const DocumentDropZone = ({ projectId }: DocumentDropZoneProps) => {
         })}
       </div>
 
-      {/* Preview modal */}
-      <Dialog open={!!selectedDoc} onOpenChange={(open) => { if (!open) setSelectedDoc(null); }}>
+      {/* Preview dialog */}
+      <Dialog open={!!selectedDoc} onOpenChange={(open) => { if (!open) setSelectedDocName(null); }}>
         <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle className="text-sm font-medium truncate pr-8">
-              {selectedDoc?.name}
-            </DialogTitle>
-            {selectedDoc && (
-              <p className="text-xs text-muted-foreground">{selectedDoc.size}</p>
-            )}
+            <DialogTitle className="text-sm font-medium truncate pr-8">{selectedDoc?.name}</DialogTitle>
+            {selectedDoc && <p className="text-xs text-muted-foreground">{selectedDoc.size}</p>}
           </DialogHeader>
           <div className="flex-1 overflow-auto min-h-0">
             {selectedDoc && (
-              <DocumentPreview doc={selectedDoc} projectId={projectId} content={docContent[selectedDoc.id] ?? ""} />
+              <DocumentPreview doc={selectedDoc} projectId={projectId} content={docContent[selectedDoc.name] ?? ""} />
             )}
           </div>
         </DialogContent>

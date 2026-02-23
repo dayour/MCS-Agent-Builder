@@ -51,12 +51,10 @@ export interface ApiAgentDetail {
 }
 
 export interface ApiDoc {
-  key: string;
   filename: string;
   size: number;
   isNew?: boolean;
   isModified?: boolean;
-  location?: string;
 }
 
 export interface ApiDocStatus {

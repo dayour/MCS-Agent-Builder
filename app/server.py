@@ -96,15 +96,14 @@ def _load_manifest(folder: Path) -> dict | None:
 
 
 def _scan_docs(folder: Path) -> list[dict]:
-    """Scan docs/ folder for shared customer documents.
+    """Scan docs/ folder for documents. Uses filename as the unique key.
 
-    If doc-manifest.json exists, annotates each doc with isNew (not in manifest
-    or hash changed) so the dashboard can show a badge without a separate API call.
+    If doc-manifest.json exists, annotates each doc with isNew/isModified
+    so the dashboard can show a badge without a separate API call.
     """
     docs_dir = folder / "docs"
     docs = []
 
-    # Load manifest for newness annotation
     manifest = _load_manifest(folder)
     manifest_hashes = {}
     if manifest:
@@ -113,47 +112,22 @@ def _scan_docs(folder: Path) -> list[dict]:
 
     if docs_dir.exists():
         for fp in sorted(docs_dir.iterdir()):
-            if fp.is_file() and fp.suffix in DOC_EXTENSIONS:
-                doc_entry = {
-                    "key": fp.stem.replace("-", "_").replace(" ", "_").lower(),
-                    "filename": fp.name,
-                    "size": fp.stat().st_size,
-                }
-                # Annotate newness / modified status
-                if manifest is None:
-                    doc_entry["isNew"] = True
-                    doc_entry["isModified"] = False
-                else:
-                    current_hash = _file_sha256(fp)
-                    known_hash = manifest_hashes.get(fp.name)
-                    in_manifest = known_hash is not None
-                    hash_matches = in_manifest and known_hash.lower() == current_hash
-                    doc_entry["isNew"] = not in_manifest
-                    doc_entry["isModified"] = in_manifest and not hash_matches
-                docs.append(doc_entry)
-
-    # Also check legacy files in project root (backwards compat)
-    # Skip known non-doc files (demo scripts, logs, manifests, etc.)
-    root_skip = {"doc-manifest", "build-log", "demo-script", "customer-context"}
-    for fp in sorted(folder.glob("*.md")) + sorted(folder.glob("*.csv")):
-        if fp.parent == folder and fp.stem.lower() not in root_skip:
-            doc_entry = {
-                "key": fp.stem.replace("-", "_").replace(" ", "_").lower(),
-                "filename": fp.name,
-                "location": "root",  # legacy
-                "size": fp.stat().st_size,
-            }
-            if manifest is None:
-                doc_entry["isNew"] = True
-                doc_entry["isModified"] = False
-            else:
-                current_hash = _file_sha256(fp)
+            if not fp.is_file() or fp.suffix not in DOC_EXTENSIONS:
+                continue
+            is_new = True
+            is_modified = False
+            if manifest is not None:
                 known_hash = manifest_hashes.get(fp.name)
-                in_manifest = known_hash is not None
-                hash_matches = in_manifest and known_hash.lower() == current_hash
-                doc_entry["isNew"] = not in_manifest
-                doc_entry["isModified"] = in_manifest and not hash_matches
-            docs.append(doc_entry)
+                if known_hash is not None:
+                    is_new = False
+                    is_modified = known_hash.lower() != _file_sha256(fp)
+                # else: is_new stays True
+            docs.append({
+                "filename": fp.name,
+                "size": fp.stat().st_size,
+                "isNew": is_new,
+                "isModified": is_modified,
+            })
     return docs
 
 
@@ -450,32 +424,17 @@ def _get_project(project_id: str) -> dict:
     docs = _scan_docs(folder)
     agents = _scan_agents(folder)
 
-    # Read document content for the viewer
-    # Text files: read directly. Binary docs (docx/pptx/xlsx): extract via MarkItDown.
-    # PDFs and images: displayed natively in browser — no text extraction needed.
-    _TEXT_SUFFIXES = {".md", ".csv", ".txt", ".json"}
-    _EXTRACT_SUFFIXES = {".docx", ".pptx", ".xlsx", ".xls"}
+    # Read text content for preview — keyed by filename (the unique doc ID).
+    # Only text-based files. PDFs/images render natively in the browser.
+    # Binary docs (docx/pptx/xlsx) use the /docs/{filename}/content endpoint on demand.
     doc_content = {}
     for d in docs:
-        loc = d.get("location")
-        fp = (folder / d["filename"]) if loc == "root" else (folder / "docs" / d["filename"])
-        if not fp.exists():
-            continue
-        if fp.suffix in _TEXT_SUFFIXES:
+        fp = folder / "docs" / d["filename"]
+        if fp.exists() and fp.suffix in {".md", ".csv", ".txt", ".json"}:
             try:
-                doc_content[d["key"]] = fp.read_text(encoding="utf-8")
+                doc_content[d["filename"]] = fp.read_text(encoding="utf-8")
             except Exception:
                 pass
-        elif fp.suffix in _EXTRACT_SUFFIXES:
-            # On-demand text extraction for binary docs (preview only)
-            try:
-                from markitdown import MarkItDown
-                converter = MarkItDown(enable_plugins=False)
-                result = converter.convert(str(fp))
-                if result.text_content and result.text_content.strip():
-                    doc_content[d["key"]] = result.text_content
-            except Exception:
-                pass  # MarkItDown not installed or extraction failed — no preview
 
     return {
         "id": folder.name,
@@ -930,20 +889,52 @@ async def delete_doc(project_id: str, filename: str):
     if not target.exists():
         raise HTTPException(404, f"File '{safe}' not found in docs/")
 
-    # Verify resolved path stays within docs/ (defense in depth)
     if not target.resolve().is_relative_to(docs_dir.resolve()):
         raise HTTPException(400, "Invalid file path")
 
     target.unlink()
-
-    # Also delete the raw counterpart (e.g., original .docx alongside converted .md)
-    stem = Path(safe).stem
-    for ext in [".pdf", ".docx", ".txt"]:
-        raw = docs_dir / f"{stem}{ext}"
-        if raw.exists():
-            raw.unlink()
-
     return {"deleted": True, "filename": safe}
+
+
+@app.get("/api/projects/{project_id}/docs/{filename}/content")
+async def get_doc_content(project_id: str, filename: str):
+    """Extract text content from a document for preview.
+
+    Text files return content directly. Binary docs (docx/pptx/xlsx) are
+    extracted via MarkItDown on demand. PDFs and images should use the /raw
+    endpoint for native browser rendering instead.
+    """
+    folder = BUILD_GUIDES / project_id
+    if not folder.is_dir():
+        raise HTTPException(404, f"Project '{project_id}' not found")
+
+    safe = re.sub(r"[^\w\-.]", "_", filename)
+    target = folder / "docs" / safe
+    if not target.exists():
+        raise HTTPException(404, f"File '{safe}' not found")
+
+    if not target.resolve().is_relative_to((folder / "docs").resolve()):
+        raise HTTPException(400, "Invalid file path")
+
+    # Text files: read directly
+    if target.suffix in {".md", ".csv", ".txt", ".json"}:
+        return {"filename": safe, "content": target.read_text(encoding="utf-8")}
+
+    # Binary docs: extract via MarkItDown
+    if target.suffix in {".docx", ".pptx", ".xlsx", ".xls"}:
+        try:
+            from markitdown import MarkItDown
+            converter = MarkItDown(enable_plugins=False)
+            result = converter.convert(str(target))
+            if result.text_content and result.text_content.strip():
+                return {"filename": safe, "content": result.text_content}
+        except ImportError:
+            raise HTTPException(501, "Install markitdown for document preview: pip install 'markitdown[all]'")
+        except Exception as e:
+            raise HTTPException(500, f"Extraction failed: {str(e)[:200]}")
+        return {"filename": safe, "content": ""}
+
+    return {"filename": safe, "content": ""}
 
 
 # ---------------------------------------------------------------------------

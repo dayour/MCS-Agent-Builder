@@ -1,6 +1,8 @@
 /**
  * Store for the currently-viewed project's agents and documents.
- * Fetches from API. Agents and docs refresh when the project changes.
+ *
+ * Documents use filename as the unique ID. Mutations are optimistic —
+ * the UI updates immediately, then syncs with the server in the background.
  */
 import { create } from "zustand";
 import type { Agent, Document } from "@/types";
@@ -21,17 +23,11 @@ interface ProjectStore {
   docContent: Record<string, string>;
   loading: boolean;
   error: string | null;
-  /** Load a project's agents and docs from the API. */
   loadProject: (id: string) => Promise<void>;
-  /** Re-fetch current project (for polling). */
   refresh: () => Promise<void>;
-  /** Upload a file to the server. */
   uploadFile: (file: File) => Promise<void>;
-  /** Save pasted text as a document. */
   pasteText: (title: string, text: string) => Promise<void>;
-  /** Delete a document by filename. */
   removeDocument: (filename: string) => Promise<void>;
-  /** Delete an agent. */
   removeAgent: (agentId: string) => Promise<void>;
 }
 
@@ -54,23 +50,29 @@ function apiAgentToAgent(a: ApiAgentSummary): Agent {
   };
 }
 
+function docTypeFromExt(ext: string): Document["type"] {
+  if (ext === "csv") return "csv";
+  if (ext === "json") return "json";
+  if (ext === "txt") return "text";
+  if (ext === "pdf") return "pdf";
+  if (["png", "jpg", "jpeg", "gif", "webp", "bmp", "tiff"].includes(ext)) return "image";
+  if (["docx", "pptx", "xlsx", "xls"].includes(ext)) return "document";
+  return "markdown";
+}
+
+function formatSize(bytes: number): string {
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${bytes} B`;
+}
+
 function apiDocToDocument(d: ApiDoc): Document {
   const ext = d.filename.split(".").pop()?.toLowerCase() ?? "";
-  let type: Document["type"] = "markdown";
-  if (ext === "csv") type = "csv";
-  else if (ext === "json") type = "json";
-  else if (ext === "txt") type = "text";
-  else if (ext === "pdf") type = "pdf";
-  else if (["png", "jpg", "jpeg", "gif", "webp", "bmp", "tiff"].includes(ext)) type = "image";
-  else if (["docx", "pptx", "xlsx", "xls"].includes(ext)) type = "document";
-
-  const sizeStr = d.size >= 1024 ? `${Math.round(d.size / 1024)} KB` : `${d.size} B`;
-
   return {
-    id: d.key,
+    id: d.filename,
     name: d.filename,
-    type,
-    size: sizeStr,
+    type: docTypeFromExt(ext),
+    size: formatSize(d.size),
     uploadedAt: "",
     content: "",
     contentHash: "",
@@ -115,35 +117,75 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         docContent: data.doc_content,
       });
     } catch {
-      // Silent refresh failure
+      // Silent — don't break UI on background refresh failure
     }
   },
 
   uploadFile: async (file: File) => {
     const id = get().projectId;
     if (!id) return;
-    await apiUpload(id, file);
-    await get().refresh();
+    // Optimistic: add a placeholder immediately
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+    const placeholder: Document = {
+      id: file.name,
+      name: file.name,
+      type: docTypeFromExt(ext),
+      size: formatSize(file.size),
+      uploadedAt: "",
+      content: "",
+      contentHash: "",
+      changeStatus: "new",
+    };
+    set((s) => ({ documents: [...s.documents, placeholder] }));
+    try {
+      await apiUpload(id, file);
+      await get().refresh(); // Sync real data from server
+    } catch (e) {
+      // Revert optimistic add
+      set((s) => ({ documents: s.documents.filter((d) => d.id !== file.name) }));
+      throw e; // Propagate so component can show error
+    }
   },
 
   pasteText: async (title: string, text: string) => {
     const id = get().projectId;
     if (!id) return;
-    await apiPaste(id, title, text);
+    const result = await apiPaste(id, title, text);
     await get().refresh();
+    return result;
   },
 
   removeDocument: async (filename: string) => {
     const id = get().projectId;
     if (!id) return;
-    await apiDeleteDoc(id, filename);
-    await get().refresh();
+    // Optimistic: remove from list immediately
+    const prev = get().documents;
+    const prevContent = get().docContent;
+    set((s) => ({
+      documents: s.documents.filter((d) => d.name !== filename),
+      docContent: Object.fromEntries(
+        Object.entries(s.docContent).filter(([k]) => k !== filename)
+      ),
+    }));
+    try {
+      await apiDeleteDoc(id, filename);
+    } catch (e) {
+      // Revert on failure
+      set({ documents: prev, docContent: prevContent });
+      throw e;
+    }
   },
 
   removeAgent: async (agentId: string) => {
     const id = get().projectId;
     if (!id) return;
-    await apiDeleteAgent(id, agentId);
-    await get().refresh();
+    const prev = get().agents;
+    set((s) => ({ agents: s.agents.filter((a) => a.id !== agentId) }));
+    try {
+      await apiDeleteAgent(id, agentId);
+    } catch (e) {
+      set({ agents: prev });
+      throw e;
+    }
   },
 }));
