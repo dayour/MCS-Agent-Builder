@@ -38,11 +38,23 @@ BASE_DIR = SCRIPT_DIR.parent
 BUILD_GUIDES = BASE_DIR / "Build-Guides"
 DIST_DIR = SCRIPT_DIR / "dist"
 
-# File types shown in the dashboard — text, images, AND binary docs (Claude reads all natively)
+# File types shown in the dashboard document list
 DOC_EXTENSIONS = {
     ".md", ".csv", ".json", ".txt",
     ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".webp",
-    ".docx", ".pdf", ".pptx", ".xlsx", ".xls",
+    ".pdf",
+    ".docx", ".pptx", ".xlsx", ".xls",
+}
+
+# Binary Office formats that Claude Code can't read natively — need text extraction
+NEEDS_CONVERSION = {".docx", ".pptx", ".xlsx", ".xls"}
+
+# Formats Claude Code reads natively (no conversion needed)
+# Text files, images (multimodal), PDFs (with pages param), notebooks
+NATIVE_READABLE = {
+    ".md", ".csv", ".json", ".txt",
+    ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".webp",
+    ".pdf", ".ipynb",
 }
 
 # ---------------------------------------------------------------------------
@@ -100,6 +112,9 @@ def _scan_docs(folder: Path) -> list[dict]:
 
     If doc-manifest.json exists, annotates each doc with isNew/isModified
     so the dashboard can show a badge without a separate API call.
+
+    Hides extracted .md companions when the original binary file exists
+    (e.g. report.md is hidden if report.docx is present — avoids duplicates).
     """
     docs_dir = folder / "docs"
     docs = []
@@ -110,10 +125,20 @@ def _scan_docs(folder: Path) -> list[dict]:
         for entry in manifest.get("docsProcessed", []):
             manifest_hashes[entry["filename"]] = entry.get("sha256")
 
+    # Collect all filenames first to detect companion .md files
+    all_files = []
+    binary_stems = set()  # stems that have a binary original
     if docs_dir.exists():
         for fp in sorted(docs_dir.iterdir()):
-            if not fp.is_file() or fp.suffix not in DOC_EXTENSIONS:
-                continue
+            if fp.is_file() and fp.suffix in DOC_EXTENSIONS:
+                all_files.append(fp)
+                if fp.suffix in NEEDS_CONVERSION:
+                    binary_stems.add(fp.stem)
+
+    for fp in all_files:
+        # Skip .md files that are extracted companions of a binary original
+        if fp.suffix == ".md" and fp.stem in binary_stems:
+            continue
             is_new = True
             is_modified = False
             if manifest is not None:
@@ -425,16 +450,26 @@ def _get_project(project_id: str) -> dict:
     agents = _scan_agents(folder)
 
     # Read text content for preview — keyed by filename (the unique doc ID).
-    # Only text-based files. PDFs/images render natively in the browser.
-    # Binary docs (docx/pptx/xlsx) use the /docs/{filename}/content endpoint on demand.
+    # Text files: read directly. PDFs/images: render natively in browser.
+    # Binary Office files: check for extracted .md companion (same stem).
     doc_content = {}
     for d in docs:
         fp = folder / "docs" / d["filename"]
-        if fp.exists() and fp.suffix in {".md", ".csv", ".txt", ".json"}:
+        if not fp.exists():
+            continue
+        if fp.suffix in {".md", ".csv", ".txt", ".json"}:
             try:
                 doc_content[d["filename"]] = fp.read_text(encoding="utf-8")
             except Exception:
                 pass
+        elif fp.suffix in NEEDS_CONVERSION:
+            # Check for extracted .md companion (e.g. report.docx → report.md)
+            md_companion = fp.with_suffix(".md")
+            if md_companion.exists():
+                try:
+                    doc_content[d["filename"]] = md_companion.read_text(encoding="utf-8")
+                except Exception:
+                    pass
 
     return {
         "id": folder.name,
@@ -688,13 +723,13 @@ async def upload_document(
     project_id: str,
     file: UploadFile = File(...),
 ):
-    """Upload a document — saves as-is. Claude Code reads all formats natively.
+    """Upload a document to the project's docs/ folder.
 
-    Supports: .docx .pdf .pptx .xlsx .xls .csv .json .html .txt .md
-              .jpg .jpeg .png .gif .bmp .tiff .wav .mp3 .zip .epub
+    - Text, images, PDFs: saved as-is (Claude Code reads them natively)
+    - Office files (docx/pptx/xlsx): saved as-is + converted to .md via MarkItDown
+      so Claude Code can read the text content during /mcs-research
 
-    No conversion needed — Claude Code reads .docx and .pdf directly.
-    Doc-to-agent mapping is handled by /mcs-research (auto-detection).
+    The original file is always kept. The .md is a text extraction for readability.
     """
     folder = BUILD_GUIDES / project_id
     if not folder.is_dir():
@@ -708,24 +743,39 @@ async def upload_document(
     suffix = Path(original_name).suffix.lower()
     content = await file.read()
 
-    # Reject files over 50 MB
     if len(content) > 50 * 1024 * 1024:
         raise HTTPException(413, "File too large (max 50 MB)")
 
-    # Save the raw file to docs/ — no conversion, Claude reads all formats
+    # Always save the original file
     raw_name = f"{safe_base}{suffix}"
     raw_path = docs_dir / raw_name
     raw_path.write_bytes(content)
 
-    # Check if manifest exists — if so, this is a new unprocessed doc
-    brief_outdated = False
-    manifest_path = folder / "doc-manifest.json"
-    if manifest_path.exists():
-        brief_outdated = True  # Signal dashboard to show "Update Brief" button
+    # For binary Office files, also extract text to .md so Claude Code can read it
+    converted_name = None
+    conversion_error = None
+    if suffix in NEEDS_CONVERSION:
+        try:
+            from markitdown import MarkItDown
+            converter = MarkItDown(enable_plugins=False)
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(None, converter.convert, str(raw_path))
+            if result.text_content and result.text_content.strip():
+                md_name = f"{safe_base}.md"
+                (docs_dir / md_name).write_text(result.text_content, encoding="utf-8")
+                converted_name = md_name
+        except ImportError:
+            conversion_error = "markitdown not installed — run: pip install 'markitdown[all]'"
+        except Exception as e:
+            conversion_error = f"Text extraction failed: {str(e)[:200]}"
+
+    brief_outdated = (folder / "doc-manifest.json").exists()
 
     return {
         "uploaded": True,
         "filename": raw_name,
+        "converted": converted_name,
+        "conversionError": conversion_error,
         "size": len(content),
         "path": f"Build-Guides/{project_id}/docs/{raw_name}",
         "briefOutdated": brief_outdated,

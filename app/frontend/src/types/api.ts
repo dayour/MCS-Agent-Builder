@@ -69,6 +69,8 @@ export interface ApiDocStatus {
 export interface ApiUploadResult {
   uploaded: boolean;
   filename: string;
+  converted?: string | null;
+  conversionError?: string | null;
   size: number;
   path: string;
   briefOutdated: boolean;

@@ -353,7 +353,7 @@ Write-Host "  Phase 3: Python packages" -ForegroundColor Cyan
 Write-Host "  ------------------------"
 
 Write-Step "Checking Python packages..."
-$pipPackages = 'fastapi', 'uvicorn', 'multipart'
+$pipPackages = 'fastapi', 'uvicorn', 'multipart', 'markitdown'
 $missing = @()
 foreach ($pkg in $pipPackages) {
     try {
