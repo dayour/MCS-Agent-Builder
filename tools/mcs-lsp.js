@@ -486,7 +486,7 @@ async function push(workspacePath, options = {}) {
         console.error('[mcs-lsp] Pushing local changes to MCS...');
         const result = await client.send('powerplatformls/syncPush', syncRequest);
 
-        if (result && result.code && result.code !== 0) {
+        if (result && result.code && result.code !== 0 && result.code !== 200) {
             throw new Error(`Push failed: ${result.message || JSON.stringify(result)}`);
         }
 
@@ -516,7 +516,7 @@ async function pull(workspacePath, options = {}) {
         console.error('[mcs-lsp] Pulling remote changes from MCS...');
         const result = await client.send('powerplatformls/syncPull', syncRequest);
 
-        if (result && result.code && result.code !== 0) {
+        if (result && result.code && result.code !== 0 && result.code !== 200) {
             throw new Error(`Pull failed: ${result.message || JSON.stringify(result)}`);
         }
 
@@ -577,11 +577,173 @@ async function info(workspacePath, options = {}) {
     }
 }
 
+/**
+ * Clone an MCS agent to a local workspace using the LSP's native cloneAgent method.
+ * This uses the exact same code path as the VS Code extension's Clone operation —
+ * the LSP handles fetching components, converting to YAML, and writing all files.
+ *
+ * @param {string} workspacePath - Parent directory for the clone (agent subfolder created inside)
+ * @param {object} connInfo - Connection info: agentId, displayName, environmentId, dataverseUrl, gatewayUrl, accountEmail, tenantId
+ * @param {object} options - { lspPath, accountId, clusterCategory, solutionVersions }
+ */
+async function clone(workspacePath, connInfo, options = {}) {
+    // Validate required fields
+    const required = ['agentId', 'environmentId', 'dataverseUrl', 'gatewayUrl', 'accountEmail', 'tenantId'];
+    for (const field of required) {
+        if (!connInfo[field]) throw new Error(`Missing required field for clone: ${field}`);
+    }
+
+    // Create parent directory
+    fs.mkdirSync(workspacePath, { recursive: true });
+
+    // Get tokens
+    const dvToken = getAzToken(connInfo.dataverseUrl.replace(/\/$/, ''));
+    const csToken = getAzToken('https://api.powerplatform.com');
+
+    // Build the account ID composite (accountGuid.tenantGuid)
+    const accountId = options.accountId ||
+        `${connInfo.tenantId}.${connInfo.tenantId}`;
+
+    const lspPath = options.lspPath || findLspBinary();
+    const client = new LspClient(lspPath);
+
+    try {
+        client.start();
+
+        // Initialize LSP with the parent directory as workspace root
+        const fileUri = 'file:///' + workspacePath.replace(/\\/g, '/').replace(/^\//, '');
+        await client.send('initialize', {
+            processId: process.pid,
+            capabilities: {
+                textDocument: { synchronization: { dynamicRegistration: false } },
+                workspace: { workspaceFolders: true }
+            },
+            rootUri: fileUri,
+            workspaceFolders: [{ uri: fileUri, name: path.basename(workspacePath) }]
+        });
+        client.notify('initialized', {});
+        await sleep(500);
+
+        console.error(`[mcs-lsp] Cloning agent ${connInfo.agentId} (${connInfo.displayName || 'unnamed'})...`);
+
+        // Call the native cloneAgent method — same as VS Code extension
+        const result = await client.send('powerplatformls/cloneAgent', {
+            agentInfo: {
+                displayName: connInfo.displayName || 'Agent',
+                agentId: connInfo.agentId
+            },
+            assets: {
+                cloneAgent: true,
+                cloneTopics: true,
+                cloneActions: true,
+                cloneKnowledge: true,
+                clonePlugins: true,
+                cloneConnectors: true,
+                cloneFlows: true
+            },
+            rootFolder: workspacePath.replace(/\//g, '\\'),
+            environmentInfo: {
+                environmentId: connInfo.environmentId,
+                dataverseUrl: connInfo.dataverseUrl.replace(/\/?$/, '/'),
+                displayName: '',
+                agentManagementUrl: connInfo.gatewayUrl.replace(/\/?$/, '/')
+            },
+            solutionVersions: options.solutionVersions || {
+                solutionVersions: {
+                    msft_AIPlatformExtensionsComponents: '1.0.0.204',
+                    msdyn_RelevanceSearch: '1.0.0.577'
+                },
+                copilotStudioSolutionVersion: '2026.2.2.19034852'
+            },
+            accountInfo: {
+                accountId,
+                tenantId: connInfo.tenantId,
+                accountEmail: connInfo.accountEmail,
+                clusterCategory: options.clusterCategory || 5
+            },
+            dataverseAccessToken: dvToken,
+            copilotStudioAccessToken: csToken
+        });
+
+        if (result && result.code && result.code !== 0 && result.code !== 200) {
+            throw new Error(`Clone failed: ${result.message || JSON.stringify(result)}`);
+        }
+
+        // The LSP creates a subfolder named after the agent
+        const agentFolder = result.agentFolderName || connInfo.displayName || 'Agent';
+        const agentPath = path.join(workspacePath, agentFolder);
+        const files = fs.existsSync(agentPath) ? findMcsYmlFiles(agentPath) : [];
+
+        console.error(`[mcs-lsp] Clone complete: ${files.length} .mcs.yml files in "${agentFolder}"`);
+
+        return { agentFolderName: agentFolder, agentPath, fileCount: files.length, result };
+    } finally {
+        await client.shutdown();
+    }
+}
+
+/**
+ * Load connection info from session-config.json for a given account/environment.
+ * Returns { accountEmail, tenantId, environmentId, dataverseUrl, gatewayUrl, accountId, clusterCategory }
+ */
+function loadConnInfoFromConfig(accountLabel, envName) {
+    const configPaths = [
+        path.join(process.cwd(), 'tools', 'session-config.json'),
+        path.join(__dirname, 'session-config.json')
+    ];
+
+    for (const configPath of configPaths) {
+        try {
+            const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+            if (!config.accounts) continue;
+
+            for (const account of config.accounts) {
+                const matchAccount = !accountLabel ||
+                    account.label === accountLabel ||
+                    account.id === accountLabel ||
+                    account.tenant === accountLabel;
+                if (!matchAccount) continue;
+
+                for (const env of account.environments || []) {
+                    const matchEnv = !envName ||
+                        env.name === envName ||
+                        env.environmentId === envName;
+                    if (!matchEnv) continue;
+
+                    // Get tenant ID from az CLI if not derivable
+                    let tenantId;
+                    try {
+                        tenantId = execSync(
+                            'az account show --query tenantId -o tsv',
+                            { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
+                        ).trim();
+                    } catch {
+                        tenantId = account.id; // fallback
+                    }
+
+                    return {
+                        accountEmail: account.label,
+                        tenantId,
+                        environmentId: env.environmentId,
+                        dataverseUrl: env.dataverseUrl,
+                        gatewayUrl: env.gatewayUrl || null,
+                        accountId: account.id,
+                        clusterCategory: 5
+                    };
+                }
+            }
+        } catch { /* config not found */ }
+    }
+    return null;
+}
+
 // --- Utility ---
 
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
+
+
 
 // --- CLI ---
 
@@ -601,6 +763,14 @@ function parseArgs() {
             case '--workspace': config.workspace = args[++i]; break;
             case '--lsp-path': config.lspPath = args[++i]; break;
             case '--json': config.json = true; break;
+            // Clone-specific args
+            case '--agent-id': config.agentId = args[++i]; break;
+            case '--agent-name': config.agentName = args[++i]; break;
+            case '--env-id': config.envId = args[++i]; break;
+            case '--dataverse-url': config.dataverseUrl = args[++i]; break;
+            case '--gateway-url': config.gatewayUrl = args[++i]; break;
+            case '--account': config.account = args[++i]; break;
+            case '--env-name': config.envName = args[++i]; break;
             case '--help': printUsage(); process.exit(0);
         }
     }
@@ -609,7 +779,7 @@ function parseArgs() {
 }
 
 function printUsage() {
-    console.log(`MCS Language Server Wrapper — headless push/pull for Copilot Studio agents
+    console.log(`MCS Language Server Wrapper — headless push/pull/clone for Copilot Studio agents
 
 Usage: node mcs-lsp.js <command> --workspace <path> [options]
 
@@ -618,9 +788,20 @@ Commands:
   pull       Pull remote agent state to local .mcs.yml files (remote → local)
   preview    Preview remote changes without applying them
   info       Show workspace and agent connection details
+  clone      Clone an MCS agent to a new local workspace
 
 Required:
-  --workspace <path>   Path to cloned agent workspace (contains .mcs/ directory)
+  --workspace <path>   Path to workspace (existing for push/pull/preview/info, new for clone)
+
+Clone-specific (required for clone):
+  --agent-id <guid>    MCS agent ID (CDS bot ID)
+  --env-id <id>        Environment ID
+  --dataverse-url <url> Dataverse endpoint URL
+  --gateway-url <url>  Island gateway URL
+
+Clone-specific (optional — auto-resolved from session-config.json):
+  --account <label>    Account label/ID (matches session-config.json)
+  --env-name <name>    Environment name (matches session-config.json)
 
 Optional:
   --lsp-path <path>    Override path to LanguageServerHost.exe
@@ -632,27 +813,35 @@ Environment:
 
 Prerequisites:
   1. Copilot Studio VS Code extension installed (ms-copilotstudio.vscode-copilotstudio)
-  2. Agent cloned via the extension (creates .mcs/conn.json)
-  3. az CLI logged in (az login) for token acquisition
+  2. az CLI logged in (az login) for token acquisition
 
 Examples:
-  node tools/mcs-lsp.js info --workspace "C:\\Copilot 2\\Clone\\Daily Briefing"
-  node tools/mcs-lsp.js preview --workspace "C:\\Copilot 2\\Clone\\Daily Briefing"
-  node tools/mcs-lsp.js push --workspace "C:\\Copilot 2\\Clone\\Daily Briefing"
-  node tools/mcs-lsp.js pull --workspace "C:\\Copilot 2\\Clone\\Daily Briefing"`);
+  # Clone with explicit params
+  node tools/mcs-lsp.js clone --workspace "./Clone/MyAgent" --agent-id "2ae13d0e-..." --env-id "f9a0cae4-..." --dataverse-url "https://org.crm.dynamics.com" --gateway-url "https://powervamg.us-il301.gateway.prod.island.powerapps.com"
+
+  # Clone using session-config.json defaults
+  node tools/mcs-lsp.js clone --workspace "./Clone/MyAgent" --agent-id "2ae13d0e-..." --account "admin@M365CPI15209943.onmicrosoft.com" --env-name "dktest"
+
+  # Push/pull/preview/info
+  node tools/mcs-lsp.js push --workspace "./Clone/MyAgent"
+  node tools/mcs-lsp.js pull --workspace "./Clone/MyAgent"
+  node tools/mcs-lsp.js preview --workspace "./Clone/MyAgent"
+  node tools/mcs-lsp.js info --workspace "./Clone/MyAgent"`);
 }
 
 async function main() {
     const config = parseArgs();
 
     if (!config.workspace) {
-        console.error('Error: --workspace is required. Provide the path to a cloned agent workspace.');
+        console.error('Error: --workspace is required.');
         process.exit(2);
     }
 
     // Resolve workspace path
     const workspace = path.resolve(config.workspace);
-    if (!fs.existsSync(workspace)) {
+
+    // For clone, workspace doesn't need to exist yet. For other commands, it does.
+    if (config.command !== 'clone' && !fs.existsSync(workspace)) {
         console.error(`Error: Workspace not found: ${workspace}`);
         process.exit(2);
     }
@@ -727,6 +916,66 @@ async function main() {
                 break;
             }
 
+            case 'clone': {
+                // Resolve connection info — from explicit args or session-config.json
+                let connInfo;
+
+                if (config.agentId && config.envId && config.dataverseUrl && config.gatewayUrl) {
+                    // All explicit — get tenant/account from az CLI
+                    let tenantId;
+                    try {
+                        tenantId = execSync('az account show --query tenantId -o tsv',
+                            { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
+                    } catch {
+                        console.error('Error: Could not get tenant ID from az CLI. Run: az login');
+                        process.exit(2);
+                    }
+                    let accountEmail;
+                    try {
+                        accountEmail = execSync('az account show --query user.name -o tsv',
+                            { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
+                    } catch {
+                        accountEmail = 'unknown';
+                    }
+                    connInfo = {
+                        agentId: config.agentId,
+                        displayName: config.agentName || 'Agent',
+                        environmentId: config.envId,
+                        dataverseUrl: config.dataverseUrl,
+                        gatewayUrl: config.gatewayUrl,
+                        accountEmail,
+                        tenantId
+                    };
+                } else if (config.agentId && (config.account || config.envName)) {
+                    // Resolve from session-config.json
+                    const resolved = loadConnInfoFromConfig(config.account, config.envName);
+                    if (!resolved) {
+                        console.error('Error: Could not find matching account/environment in session-config.json');
+                        console.error('Provide explicit --env-id, --dataverse-url, and --gateway-url instead.');
+                        process.exit(2);
+                    }
+                    if (!resolved.gatewayUrl) {
+                        console.error('Error: No gateway URL in session-config.json for this environment.');
+                        console.error('Provide --gateway-url explicitly.');
+                        process.exit(2);
+                    }
+                    connInfo = { ...resolved, agentId: config.agentId, displayName: config.agentName || 'Agent' };
+                } else {
+                    console.error('Error: clone requires --agent-id plus either:');
+                    console.error('  (a) --env-id, --dataverse-url, --gateway-url (explicit)');
+                    console.error('  (b) --account and/or --env-name (resolve from session-config.json)');
+                    process.exit(2);
+                }
+
+                const cloneResult = await clone(workspace, connInfo, options);
+                if (config.json) {
+                    console.log(JSON.stringify(cloneResult, null, 2));
+                } else {
+                    console.log(`Clone complete: ${cloneResult.fileCount} files in ${cloneResult.agentPath}`);
+                }
+                break;
+            }
+
             default:
                 console.error(`Unknown command: ${config.command}`);
                 printUsage();
@@ -750,6 +999,8 @@ module.exports = {
     pull,
     preview,
     info,
+    clone,
+    loadConnInfoFromConfig,
     findMcsYmlFiles
 };
 

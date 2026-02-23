@@ -338,24 +338,27 @@ For topic authoring and full component sync, prefer the LSP wrapper over raw API
 ### Commands
 
 ```bash
+# Clone an agent to a local workspace (headless — no VS Code GUI needed)
+node tools/mcs-lsp.js clone --workspace "./workspace" --agent-id "<guid>" --agent-name "Agent Name" \
+  --env-id "<envId>" --dataverse-url "https://org.crm.dynamics.com" --gateway-url "https://powervamg.us-il301..."
+
 # Push local .mcs.yml files to MCS
-node tools/mcs-lsp.js push --workspace "C:\Copilot 2\Clone\Daily Briefing"
+node tools/mcs-lsp.js push --workspace "./workspace/Agent Name"
 
 # Pull remote state to local files
-node tools/mcs-lsp.js pull --workspace "C:\Copilot 2\Clone\Daily Briefing"
+node tools/mcs-lsp.js pull --workspace "./workspace/Agent Name"
 
 # Preview changes without applying
-node tools/mcs-lsp.js preview --workspace "C:\Copilot 2\Clone\Daily Briefing"
+node tools/mcs-lsp.js preview --workspace "./workspace/Agent Name"
 
 # Show workspace/agent info
-node tools/mcs-lsp.js info --workspace "C:\Copilot 2\Clone\Daily Briefing"
+node tools/mcs-lsp.js info --workspace "./workspace/Agent Name"
 ```
 
 ### Prerequisites
 
 1. Copilot Studio VS Code extension installed (`ms-copilotstudio.vscode-copilotstudio`)
-2. Agent cloned via the extension (creates `.mcs/conn.json`)
-3. `az login` completed for token acquisition
+2. `az login` completed for token acquisition
 
 ### When to Use Which Tool
 

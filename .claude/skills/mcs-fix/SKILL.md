@@ -157,15 +157,17 @@ Same tool priority as `/mcs-build`:
 | Fix Type | Tool | Method |
 |----------|------|--------|
 | Instructions | Dataverse API | Update instructions field via `knowledge/patterns/dataverse-patterns.md` |
-| Topics | Code Editor YAML via Playwright | Paste revised YAML into code editor |
-| Trigger phrases | Code Editor YAML via Playwright | Update topic YAML |
+| Topics | LSP push (`mcs-lsp.js`) | Write revised `.mcs.yml` to workspace, then push |
+| Trigger phrases | LSP push (`mcs-lsp.js`) | Update topic `.mcs.yml` in workspace, then push |
 | Eval criteria | Local file | Update `brief.json.evalSets[]` + regenerate `evals.csv` |
 
-**Silent browser verification required** before any Playwright interaction (see CLAUDE.md "MCS Browser Preflight — Silent Verification"). Compares browser account/env against `brief.json.buildStatus` — proceeds silently on match, alerts on mismatch.
+**LSP workspace:** Read `brief.json.buildStatus.workspacePath` for the cloned workspace path. If missing, clone first via `node tools/mcs-lsp.js clone`.
+
+**Fallback:** If LSP push fails, use Playwright Code Editor (silent browser verification required — see CLAUDE.md).
 
 **Apply fixes in order:**
 1. Instructions (Dataverse API — no browser needed)
-2. Topics/triggers (Playwright — batch all topic changes in one browser session)
+2. Topics/triggers (write `.mcs.yml` files to workspace → `node tools/mcs-lsp.js push --workspace <path>`)
 3. Eval criteria (local files — no MCS interaction)
 
 **Publish** after all MCS fixes applied:

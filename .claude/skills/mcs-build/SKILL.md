@@ -5,7 +5,7 @@ description: "Build agent(s) in Copilot Studio using the hybrid build stack with
 
 # MCS Agent Builder — Unified Hybrid Build Stack
 
-Build agents in Microsoft Copilot Studio using the optimized hybrid approach: PAC CLI for lifecycle, Dataverse API for configuration, Code Editor YAML for topics, and Playwright only where no API exists.
+Build agents in Microsoft Copilot Studio using the optimized hybrid approach: PAC CLI for lifecycle, LSP wrapper for topic sync, Island Gateway API for model/instructions, Dataverse API for configuration, and Playwright only where no API exists.
 
 This skill handles all build modes:
 - **Single Agent** — standalone build
@@ -245,6 +245,28 @@ Write `mcsAgentId` to `brief.json.buildStatus` right after creation or detection
 
 **VERIFY:** Agent exists in `pac copilot list` output and `brief.json.buildStatus.mcsAgentId` is set.
 
+#### 1e. Clone Agent Workspace (LSP)
+
+After the agent exists in MCS, clone it to a local workspace for headless topic authoring:
+
+```bash
+node tools/mcs-lsp.js clone \
+  --workspace "Build-Guides/{projectId}/agents/{agentId}/workspace" \
+  --agent-id "<mcsAgentId>" \
+  --agent-name "<displayName>" \
+  --env-id "<environmentId>" \
+  --dataverse-url "<dataverseUrl>" \
+  --gateway-url "<gatewayUrl>"
+```
+
+The clone creates a subfolder named after the agent (e.g., `workspace/Agent Name/`) containing `.mcs/conn.json`, `agent.mcs.yml`, `topics/`, `actions/`, etc.
+
+**Persist** the workspace path in `brief.json.buildStatus.workspacePath` for Steps 4 and 4.5.
+
+**Skip if:** `buildStatus.workspacePath` exists and the directory has `.mcs/conn.json`.
+
+**VERIFY:** Workspace directory exists with `.mcs/conn.json` and at least `agent.mcs.yml`.
+
 ### Step 2: Configure Instructions & Knowledge (Dataverse API — no browser)
 
 **Skip check:** If `"instructions"` is in `completedSteps`, skip the instructions sub-step. If `"knowledge"` is in `completedSteps`, skip the knowledge sub-step. If both are completed, skip this entire step.
@@ -309,7 +331,7 @@ Read `knowledge/learnings/topics-triggers.md` (if non-empty) before authoring to
 - Adaptive card gotchas (channel-specific rendering limits)
 - Node type availability issues discovered in prior builds
 
-### Step 4: Author Topics (Code Editor YAML — minimal browser)
+### Step 4: Author Topics (LSP Push — no browser needed)
 
 **Skip check:** If `"topics"` is in `completedSteps`, skip this entire step.
 
@@ -323,9 +345,13 @@ For each MVP topic in the spec:
 3. Structural validation: `tools/om-cli/om-cli.exe validate -f <file.yaml>` → must pass
 4. Semantic validation: `python tools/semantic-gates.py <file.yaml> --brief <brief.json>` → must pass (or warnings acknowledged)
 5. QA Challenger reviews validated YAML
-6. In MCS: Topics → "Add a topic" → "From blank"
-7. Click "..." → "Open code editor"
-8. Paste generated YAML → Save
+6. Write the validated `.mcs.yml` file to the cloned workspace's `topics/` directory
+7. After all topic files are written, push to MCS in a single operation:
+   ```bash
+   node tools/mcs-lsp.js push --workspace "<buildStatus.workspacePath>"
+   ```
+
+**Fallback (if LSP push fails):** Use Playwright Code Editor — Topics → "Add a topic" → "From blank" → "..." → "Open code editor" → Paste YAML → Save.
 
 **Checkpoint:** After all topics verified, add `"topics"` to `completedSteps`, set `lastCompletedStep` to `"topics"`.
 
@@ -368,7 +394,7 @@ For each MVP capability (in priority order from `capabilities[]` where `phase ==
    - If all tests pass → mark `capability.status = "passing"`, move to next capability
    - If tests fail:
      - Classify failures (instruction gap, routing, tool issue, knowledge gap)
-     - Apply targeted fix (PE for instructions, TE for topics — same as `/mcs-fix` Step 3)
+     - Apply targeted fix: PE for instructions (Dataverse API), TE for topics (write `.mcs.yml` to workspace + `mcs-lsp.js push`)
      - Re-publish, re-run capability's tests
      - **Max 3 iterations per capability.** If still failing → mark `capability.status = "failing"`, move on
    - Update `capabilities[].status` = `"building"` while iterating
