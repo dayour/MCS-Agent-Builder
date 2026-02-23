@@ -450,17 +450,32 @@ def _get_project(project_id: str) -> dict:
     docs = _scan_docs(folder)
     agents = _scan_agents(folder)
 
-    # Read document content for the viewer (text-based files only)
+    # Read document content for the viewer
+    # Text files: read directly. Binary docs (docx/pptx/xlsx): extract via MarkItDown.
+    # PDFs and images: displayed natively in browser — no text extraction needed.
     _TEXT_SUFFIXES = {".md", ".csv", ".txt", ".json"}
+    _EXTRACT_SUFFIXES = {".docx", ".pptx", ".xlsx", ".xls"}
     doc_content = {}
     for d in docs:
         loc = d.get("location")
         fp = (folder / d["filename"]) if loc == "root" else (folder / "docs" / d["filename"])
-        if fp.exists() and fp.suffix in _TEXT_SUFFIXES:
+        if not fp.exists():
+            continue
+        if fp.suffix in _TEXT_SUFFIXES:
             try:
                 doc_content[d["key"]] = fp.read_text(encoding="utf-8")
             except Exception:
                 pass
+        elif fp.suffix in _EXTRACT_SUFFIXES:
+            # On-demand text extraction for binary docs (preview only)
+            try:
+                from markitdown import MarkItDown
+                converter = MarkItDown(enable_plugins=False)
+                result = converter.convert(str(fp))
+                if result.text_content and result.text_content.strip():
+                    doc_content[d["key"]] = result.text_content
+            except Exception:
+                pass  # MarkItDown not installed or extraction failed — no preview
 
     return {
         "id": folder.name,

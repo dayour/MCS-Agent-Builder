@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { Upload, PenLine, FileText, Trash2, Loader2, Image, File as FileIcon } from "lucide-react";
+import { Upload, PenLine, FileText, Trash2, Loader2, Image, File as FileIcon, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import type { DocChangeStatus, Document } from "@/types";
 import { useProjectStore } from "@/stores/projectStore";
 import { cn } from "@/lib/utils";
+import { marked } from "marked";
 
 interface DocumentDropZoneProps {
   projectId: string;
@@ -20,36 +21,52 @@ const STATUS_CONFIG: Record<DocChangeStatus, { label: string; className: string 
 
 const ACCEPTED_EXTENSIONS = ".md,.csv,.txt,.json,.png,.jpg,.jpeg,.gif,.webp,.docx,.pdf,.pptx,.xlsx,.xls";
 
+// Configure marked for safe rendering (no raw HTML passthrough)
+marked.setOptions({ breaks: true, gfm: true });
+
 function DocumentPreview({ doc, projectId, content }: { doc: Document; projectId: string; content: string }) {
+  const rawUrl = `/api/projects/${projectId}/docs/${encodeURIComponent(doc.name)}/raw`;
+
+  // --- Images: native display ---
   if (doc.type === "image") {
     return (
-      <img
-        src={`/api/projects/${projectId}/docs/${encodeURIComponent(doc.name)}/raw`}
-        alt={doc.name}
-        className="max-w-full rounded"
+      <div className="flex justify-center">
+        <img src={rawUrl} alt={doc.name} className="max-w-full max-h-[70vh] rounded object-contain" />
+      </div>
+    );
+  }
+
+  // --- PDF: embedded browser viewer ---
+  if (doc.type === "pdf") {
+    return (
+      <iframe
+        src={rawUrl}
+        title={doc.name}
+        className="w-full h-[70vh] rounded border border-border"
       />
     );
   }
 
+  // --- CSV: rich table with alternating rows ---
   if (doc.type === "csv" && content) {
     const lines = content.trim().split("\n");
     const headers = lines[0]?.split(",") ?? [];
     const rows = lines.slice(1).map((l) => l.split(","));
     return (
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto rounded border border-border">
         <table className="w-full text-xs">
           <thead>
-            <tr className="border-b border-border">
+            <tr className="bg-surface-3">
               {headers.map((h, i) => (
-                <th key={i} className="px-2 py-1.5 text-left font-semibold text-muted-foreground">{h}</th>
+                <th key={i} className="px-3 py-2 text-left font-semibold text-foreground border-b border-border">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {rows.map((row, i) => (
-              <tr key={i} className="border-b border-border/50">
+              <tr key={i} className={cn("border-b border-border/50", i % 2 === 1 && "bg-surface-2/50")}>
                 {row.map((cell, j) => (
-                  <td key={j} className="px-2 py-1.5 text-foreground">{cell}</td>
+                  <td key={j} className="px-3 py-1.5 text-foreground">{cell}</td>
                 ))}
               </tr>
             ))}
@@ -59,28 +76,64 @@ function DocumentPreview({ doc, projectId, content }: { doc: Document; projectId
     );
   }
 
+  // --- JSON: formatted with syntax coloring ---
+  if (doc.type === "json" && content) {
+    let formatted = content;
+    try {
+      formatted = JSON.stringify(JSON.parse(content), null, 2);
+    } catch { /* already formatted or invalid — show as-is */ }
+    return (
+      <pre className="text-xs leading-relaxed whitespace-pre-wrap font-mono rounded border border-border bg-surface-3 p-4 overflow-x-auto">
+        <code className="text-foreground">{formatted}</code>
+      </pre>
+    );
+  }
+
+  // --- Markdown: rendered with typography ---
+  if (doc.type === "markdown" && content) {
+    const html = marked.parse(content);
+    return (
+      <div
+        className="prose prose-sm dark:prose-invert max-w-none prose-headings:text-foreground prose-p:text-muted-foreground prose-strong:text-foreground prose-code:text-primary prose-code:bg-surface-3 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-surface-3 prose-pre:border prose-pre:border-border prose-a:text-primary prose-table:text-xs"
+        dangerouslySetInnerHTML={{ __html: typeof html === "string" ? html : "" }}
+      />
+    );
+  }
+
+  // --- Binary docs (docx/pptx/xlsx): extracted text content or fallback ---
   if (doc.type === "document") {
+    if (content) {
+      // MarkItDown extracted text — render as markdown (it outputs markdown-like text)
+      const html = marked.parse(content);
+      return (
+        <div
+          className="prose prose-sm dark:prose-invert max-w-none prose-headings:text-foreground prose-p:text-muted-foreground prose-strong:text-foreground prose-code:text-primary"
+          dangerouslySetInnerHTML={{ __html: typeof html === "string" ? html : "" }}
+        />
+      );
+    }
     const ext = doc.name.split(".").pop()?.toUpperCase() ?? "FILE";
     return (
       <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-3">
         <FileIcon className="h-10 w-10" />
         <p className="text-sm font-medium">{ext} Document</p>
         <p className="text-xs text-center max-w-md">
-          This file is readable by Claude Code during research — no conversion needed.
+          Preview not available. This file is readable by Claude Code during research.
         </p>
       </div>
     );
   }
 
+  // --- Plain text: monospace with line numbers ---
   if (content) {
     return (
-      <pre className="text-xs leading-relaxed text-muted-foreground whitespace-pre-wrap font-mono">
+      <pre className="text-xs leading-relaxed text-muted-foreground whitespace-pre-wrap font-mono rounded border border-border bg-surface-3 p-4">
         {content}
       </pre>
     );
   }
 
-  return <p className="text-xs text-muted-foreground">No preview available for this file type.</p>;
+  return <p className="text-xs text-muted-foreground italic py-8 text-center">No preview available for this file type.</p>;
 }
 
 const DocumentDropZone = ({ projectId }: DocumentDropZoneProps) => {
@@ -254,7 +307,11 @@ const DocumentDropZone = ({ projectId }: DocumentDropZoneProps) => {
       <div className="space-y-2">
         {documents.map((doc) => {
           const statusCfg = STATUS_CONFIG[doc.changeStatus];
-          const DocIcon = doc.type === "image" ? Image : doc.type === "document" ? FileIcon : FileText;
+          const DocIcon =
+            doc.type === "image" ? Image :
+            doc.type === "csv" ? FileSpreadsheet :
+            doc.type === "document" ? FileIcon :
+            FileText;
           return (
             <div
               key={doc.id}
