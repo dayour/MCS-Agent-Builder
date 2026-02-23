@@ -198,15 +198,16 @@ Running {N} tests ({F} fast boundary, {S} slow tool-calling). Estimated: ~{X}m
 
 After navigating to the agent and opening Test Chat, inject the optimized harness. This replaces the 5-step snapshot-poll loop (~15-30s per test) with a single `browser_evaluate` call per test (~3-8s).
 
-```javascript
-// Inject the harness (installs window.__testChat)
-browser_evaluate: () => {
-    // <paste contents of tools/test-chat-harness.js getInstallScript() output>
-    // The full install script is in tools/test-chat-harness.js — call getInstallScript()
-}
+**Step 1:** Get the install script:
+```bash
+node tools/test-chat-harness.js --emit-install
 ```
+This prints a self-contained JavaScript function string.
 
-Or equivalently, read `tools/test-chat-harness.js`, call `getInstallScript()`, and pass the returned string to `browser_evaluate`.
+**Step 2:** Pass the output to `browser_evaluate` as the `function` parameter:
+```javascript
+browser_evaluate({ function: "<output from step 1>" })
+```
 
 **Verify:** Result should be `"Test chat harness installed"`. If it says `"already installed"`, that's fine too.
 

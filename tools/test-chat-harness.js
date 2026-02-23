@@ -6,9 +6,10 @@
  * bot responses in real time. Each test becomes a single browser_evaluate call (~3-8s).
  *
  * Usage (from mcs-eval skill):
- *   1. Inject once:   browser_evaluate({ function: getInstallScript() })
- *   2. Per test:      browser_evaluate({ function: `() => window.__testChat.sendAndWait("question", 30000)` })
- *   3. Reset:         browser_evaluate({ function: `() => window.__testChat.reset()` })
+ *   1. Get install script: node tools/test-chat-harness.js --emit-install
+ *   2. Inject via:         browser_evaluate({ function: <output from step 1> })
+ *   3. Per test:           browser_evaluate({ function: `() => window.__testChat.sendAndWait("question", 30000)` })
+ *   4. Reset:              browser_evaluate({ function: `() => window.__testChat.reset()` })
  *
  * The harness auto-detects the Test Chat DOM structure (selectors adapt to MCS UI versions).
  */
@@ -81,6 +82,7 @@ function getInstallScript() {
 
         /**
          * Get all current bot messages in the chat feed.
+         * Returns text-only objects (no DOM refs — must serialize across browser_evaluate).
          */
         function getBotMessages() {
             const messages = [];
@@ -90,11 +92,7 @@ function getInstallScript() {
                     els.forEach(el => {
                         const text = el.innerText || el.textContent || '';
                         if (text.trim()) {
-                            messages.push({
-                                text: text.trim(),
-                                timestamp: Date.now(),
-                                element: el
-                            });
+                            messages.push({ text: text.trim(), timestamp: Date.now() });
                         }
                     });
                     break;  // Use first matching selector pattern
@@ -124,55 +122,51 @@ function getInstallScript() {
         }
 
         /**
-         * Wait for a condition with polling (simpler fallback for MutationObserver).
-         */
-        function waitForCondition(conditionFn, timeoutMs, pollMs = 300) {
-            return new Promise((resolve, reject) => {
-                const start = Date.now();
-                const check = () => {
-                    const result = conditionFn();
-                    if (result) {
-                        resolve(result);
-                    } else if (Date.now() - start > timeoutMs) {
-                        reject(new Error('Timeout waiting for condition'));
-                    } else {
-                        setTimeout(check, pollMs);
-                    }
-                };
-                check();
-            });
-        }
-
-        /**
-         * Watch the DOM for a new bot message using MutationObserver.
-         * Falls back to polling if Observer doesn't fire within pollMs.
+         * Watch the DOM for a new bot message using MutationObserver + polling.
+         * Waits until the response text stabilizes (no changes for 400ms) to handle streaming.
          */
         function watchForNewBotMessage(baselineCount, timeoutMs) {
             return new Promise((resolve, reject) => {
                 const start = Date.now();
                 let resolved = false;
+                let lastText = null;
+                let stableTimer = null;
+                const STABLE_MS = 400;  // Text must be unchanged for this long
 
-                const tryResolve = () => {
+                function cleanup() {
+                    if (pollInterval) clearInterval(pollInterval);
+                    if (observer) observer.disconnect();
+                    if (stableTimer) clearTimeout(stableTimer);
+                }
+
+                function checkForResponse() {
                     if (resolved) return;
                     const current = getBotMessages();
                     if (current.length > baselineCount) {
-                        resolved = true;
-                        const newMsg = current[current.length - 1];
-                        // Wait a beat for streaming to finish
-                        setTimeout(() => {
-                            const final = getBotMessages();
-                            const finalMsg = final[final.length - 1];
-                            resolve(finalMsg.text);
-                        }, 500);
+                        const newText = current[current.length - 1].text;
+
+                        // If text changed since last check, reset the stability timer
+                        if (newText !== lastText) {
+                            lastText = newText;
+                            if (stableTimer) clearTimeout(stableTimer);
+                            stableTimer = setTimeout(() => {
+                                if (resolved) return;
+                                resolved = true;
+                                cleanup();
+                                // Re-read to get final state
+                                const final = getBotMessages();
+                                resolve(final[final.length - 1].text);
+                            }, STABLE_MS);
+                        }
                     }
-                };
+                }
 
                 // Strategy 1: MutationObserver on the chat feed
                 const feed = findElement(SELECTORS.chatFeed);
                 let observer = null;
 
                 if (feed) {
-                    observer = new MutationObserver(() => tryResolve());
+                    observer = new MutationObserver(() => checkForResponse());
                     observer.observe(feed, {
                         childList: true,
                         subtree: true,
@@ -183,47 +177,26 @@ function getInstallScript() {
                 // Strategy 2: Polling fallback (catches cases where Observer misses)
                 const pollInterval = setInterval(() => {
                     if (resolved) {
-                        clearInterval(pollInterval);
-                        if (observer) observer.disconnect();
+                        cleanup();
                         return;
                     }
                     if (Date.now() - start > timeoutMs) {
-                        clearInterval(pollInterval);
-                        if (observer) observer.disconnect();
-                        if (!resolved) {
-                            resolved = true;
-                            // One last check
-                            const final = getBotMessages();
-                            if (final.length > baselineCount) {
-                                resolve(final[final.length - 1].text);
-                            } else {
-                                reject(new Error(
-                                    'Timeout: no bot response within ' + (timeoutMs / 1000) + 's. ' +
-                                    'Baseline messages: ' + baselineCount + ', current: ' + final.length
-                                ));
-                            }
-                        }
-                        return;
-                    }
-                    tryResolve();
-                }, 500);
-
-                // Hard timeout safety net
-                setTimeout(() => {
-                    if (!resolved) {
                         resolved = true;
-                        clearInterval(pollInterval);
-                        if (observer) observer.disconnect();
+                        cleanup();
+                        // One last check
                         const final = getBotMessages();
                         if (final.length > baselineCount) {
                             resolve(final[final.length - 1].text);
                         } else {
                             reject(new Error(
-                                'Hard timeout: no bot response within ' + (timeoutMs / 1000) + 's'
+                                'Timeout: no bot response within ' + (timeoutMs / 1000) + 's. ' +
+                                'Baseline messages: ' + baselineCount + ', current: ' + final.length
                             ));
                         }
+                        return;
                     }
-                }, timeoutMs + 1000);
+                    checkForResponse();
+                }, 500);
             });
         }
 
@@ -268,7 +241,7 @@ function getInstallScript() {
                     }));
                 }
 
-                // 5. Wait for new bot message
+                // 5. Wait for new bot message (stabilized)
                 const response = await watchForNewBotMessage(baseline, timeoutMs);
                 const elapsed = Date.now() - start;
 
@@ -277,6 +250,7 @@ function getInstallScript() {
 
             /**
              * Reset the conversation (start new session).
+             * Waits for the chat to clear (message count drops) or times out after 5s.
              * @returns {Promise<{success: boolean, elapsed: number}>}
              */
             async reset() {
@@ -290,8 +264,13 @@ function getInstallScript() {
                 const beforeCount = getBotMessages().length;
                 resetBtn.click();
 
-                // Wait for either: message count drops, or a greeting message appears
-                await new Promise(r => setTimeout(r, 1500));
+                // Wait until messages clear or 5s timeout
+                const deadline = Date.now() + 5000;
+                while (Date.now() < deadline) {
+                    await new Promise(r => setTimeout(r, 300));
+                    const afterCount = getBotMessages().length;
+                    if (afterCount < beforeCount || afterCount <= 1) break;
+                }
 
                 return {
                     success: true,
@@ -305,8 +284,7 @@ function getInstallScript() {
              * @returns {Array<{text: string, timestamp: number}>}
              */
             getMessages(n = 1) {
-                const msgs = getBotMessages();
-                return msgs.slice(-n).map(m => ({ text: m.text, timestamp: m.timestamp }));
+                return getBotMessages().slice(-n);
             },
 
             /**
@@ -329,8 +307,13 @@ function getInstallScript() {
  * @returns {string} - browser_evaluate function string
  */
 function getSendScript(question, timeoutMs = 60000) {
-    // Escape the question for safe embedding in a JS string literal
-    const escaped = question.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n');
+    // Escape for safe embedding in a single-quoted JS string literal
+    const escaped = question
+        .replace(/\\/g, '\\\\')
+        .replace(/'/g, "\\'")
+        .replace(/\n/g, '\\n')
+        .replace(/\r/g, '\\r')
+        .replace(/\t/g, '\\t');
     return `() => window.__testChat.sendAndWait('${escaped}', ${timeoutMs})`;
 }
 
@@ -348,6 +331,35 @@ function getResetScript() {
  */
 function getReadyCheckScript() {
     return `() => window.__testChat && window.__testChat.ready && window.__testChat.isReady()`;
+}
+
+// --- CLI mode: emit install script for eval skill injection ---
+if (require.main === module) {
+    const args = process.argv.slice(2);
+
+    if (args.includes('--emit-install')) {
+        console.log(getInstallScript());
+    } else if (args.includes('--emit-send')) {
+        const idx = args.indexOf('--emit-send');
+        const question = args[idx + 1] || 'Hello';
+        const timeout = parseInt(args[args.indexOf('--timeout') + 1]) || 60000;
+        console.log(getSendScript(question, timeout));
+    } else if (args.includes('--emit-reset')) {
+        console.log(getResetScript());
+    } else if (args.includes('--emit-ready')) {
+        console.log(getReadyCheckScript());
+    } else {
+        console.log(`Test Chat Harness — Injectable browser code for fast Playwright eval
+
+Usage:
+  node test-chat-harness.js --emit-install              Print the install script for browser_evaluate
+  node test-chat-harness.js --emit-send "question"      Print sendAndWait script for a question
+  node test-chat-harness.js --emit-reset                Print reset script
+  node test-chat-harness.js --emit-ready                Print ready-check script
+
+Programmatic (require):
+  const { getInstallScript, getSendScript } = require('./test-chat-harness');`);
+    }
 }
 
 module.exports = {

@@ -191,13 +191,15 @@ node tools/playwright-eval-runner.js --brief <path> --action detect-tier
 ```
 
 **How it works:**
-1. Generate test plan → orders boundary tests first (fast ~5s), tool tests after (slow ~60-90s)
+1. Generate test plan → orders boundary tests first (fast), tool tests after (slow)
 2. Open agent in MCS → Test Chat pane
-3. For each test in plan order: reset if needed → type question → wait for response → extract text
-4. Boundary tests skip session reset between them (independent, no tool state)
-5. Tool tests get fresh sessions (previous tool call results carry over)
-6. After all tests: score results using shared `eval-scoring.js` module (identical logic to Tier 1)
-7. Results written to `brief.json.evalSets[].tests[].lastResult` + `evals-results.json`
+3. Inject test chat harness once (`node tools/test-chat-harness.js --emit-install` → `browser_evaluate`)
+4. For each test: single `browser_evaluate(() => window.__testChat.sendAndWait(...))` call
+5. Boundary tests skip session reset between them (independent, no tool state)
+6. Tool tests get fresh sessions via `window.__testChat.reset()`
+7. After all tests: score results using shared `eval-scoring.js` module (identical logic to Tier 1)
+8. Results written to `brief.json.evalSets[].tests[].lastResult` + `evals-results.json`
+9. Falls back to legacy snapshot-poll loop if harness injection fails
 
 **Scoring:** Uses shared `tools/eval-scoring.js` module — identical scoring functions as Direct Line runner. All 6 MCS methods supported with display-name aliases and mode parameters.
 

@@ -196,6 +196,8 @@ Before committing to designs that are hard to undo — schema changes, workflow 
 | **Semantic Gates** | 5 validation gates beyond structural checks: `python tools/semantic-gates.py <file.yaml> --brief <brief.json>` (PowerFx, cross-refs, variable flow, channel compat, connectors) |
 | **Schema Lookup** | Legacy kind-value validation: `python tools/schema-lookup.py` (fallback if .NET 10 unavailable) |
 | **Direct Line API** | Agent testing: send messages, compare responses (`tools/direct-line-test.js`) |
+| **Test Chat Harness** | Optimized Playwright eval: injectable browser code for ~3-5s/test boundary tests (`tools/test-chat-harness.js`) |
+| **Eval Runner** | Test plan generation, scoring, tier detection for Playwright eval (`tools/playwright-eval-runner.js`) |
 | **Playwright MCP** | Agent creation, new OAuth connections, child agent connection (`@playwright/mcp`) |
 | **WorkIQ MCP** | M365 context: emails, meetings, documents, Teams, people (`workiq mcp`) |
 | **Microsoft Learn MCP** | Official docs, reference, code samples |
@@ -732,6 +734,9 @@ tools/
 ├── island-client.js        # Island Control Plane Gateway API client (model catalog, reads, routing, settings)
 ├── add-tool.js             # Headless tool/connector addition — generates action YAML + LSP push
 ├── direct-line-test.js     # Direct Line API test runner
+├── eval-scoring.js         # Shared scoring module (6 MCS methods, used by Direct Line + Playwright runners)
+├── test-chat-harness.js    # Injectable browser harness for fast Playwright Test Chat eval
+├── playwright-eval-runner.js # Test plan generator, scorer, tier detector for Playwright eval
 ├── dataverse-helper.ps1    # PowerShell Dataverse Web API helper
 ├── fetch-instructions.ps1  # Fetch agent instructions from Dataverse
 ├── pac-mcp-wrapper.js      # PAC CLI MCP server wrapper

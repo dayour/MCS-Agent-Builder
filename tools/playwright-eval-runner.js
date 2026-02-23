@@ -21,12 +21,10 @@
  */
 
 const fs = require('fs');
-const path = require('path');
 const {
     evaluateAllMethods,
     parseEvalSets,
-    writeResultsToBrief,
-    writeOneResultToBrief
+    writeResultsToBrief
 } = require('./eval-scoring');
 
 // --- Configuration ---
@@ -133,12 +131,15 @@ function generatePlan(config) {
         return;
     }
 
-    // Classify each test
-    const classified = tests.map(t => ({
-        ...t,
-        type: classifyTest(t),
-        estimatedTime: classifyTest(t) === 'boundary' ? `${FAST_TEST_TIME_S}s` : `${SLOW_TEST_TIME_S}s`
-    }));
+    // Classify each test (single call per test to avoid redundant work)
+    const classified = tests.map(t => {
+        const type = classifyTest(t);
+        return {
+            ...t,
+            type,
+            estimatedTime: type === 'boundary' ? `${FAST_TEST_TIME_S}s` : `${SLOW_TEST_TIME_S}s`
+        };
+    });
 
     // Sort: boundary tests first (fast feedback), then tool tests
     // Within each group, preserve original order (set order, then test order within set)
