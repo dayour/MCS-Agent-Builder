@@ -313,13 +313,82 @@ The `bot.configuration` Dataverse field also contains AI settings:
 | Operation | Why |
 |-----------|-----|
 | Agent creation | Different API surface (not component CRUD) |
-| Tool/connector attachment | Not yet captured — `connectorDefinitionChanges[]` exists |
+| Tool/connector attachment | **Captured** — see "Tool Addition API Flow" below |
 | Power Automate flow attach | Not yet captured — `cloudFlowDefinitionChanges[]` + `content/flows` exist |
 | Connected agent setup | Not yet captured — `connectedAgentDefinitionChanges[]` exists |
 | OAuth connection creation | Interactive auth flow — always needs browser |
 | Native eval upload/run | MCS eval service — separate system |
 
-**Next captures needed:** Tool/connector add, Power Automate flow, connected agents, publish trigger
+**Next captures needed:** Power Automate flow, connected agents, publish trigger
+
+## Tool Addition API Flow — Captured 2026-02-23
+
+Adding a connector action (e.g., "Microsoft To-Do List to-do's by folder V2") uses 4 API surfaces in sequence:
+
+### Step 1: Search Connector Catalog
+
+**Connector list:**
+```
+GET https://{envId}.environment.api.powerplatform.com/connectivity/connectors?$filter=environment+eq+'{envId}'&api-version=2022-03-01-preview&showApisWithTos=true
+```
+
+**AI-powered action search (natural language):**
+```
+POST https://powervamg.{region}.gateway.prod.island.powerapps.com/api/botmanagement/v1/environments/{envId}/nl2action
+```
+
+**Plugin operations catalog:**
+```
+POST https://{envId}.environment.api.powerplatform.com/connectivity/aipluginoperations?api-version=1
+```
+
+### Step 2: Get Connector Details + Connection
+
+**Connector metadata (including operations/actions):**
+```
+GET https://{envId}.environment.api.powerplatform.com/connectivity/connectors/{connectorId}?$filter=environment+eq+'{envId}'&api-version=1
+```
+
+**List existing connections:**
+```
+GET https://{envId}.environment.api.powerplatform.com/connectivity/connectors/{connectorId}/connections?$expand=&api-version=1
+```
+
+**Connection reference lookup (Dataverse):**
+```
+GET https://{org}.crm.dynamics.com/api/data/v9.2/connectionreferences?$filter=connectionreferencelogicalname+eq+'{refLogicalName}'
+```
+
+### Step 3: Create Bot Component (the actual "add" call)
+
+```
+POST https://{envId}.environment.api.powerplatform.com/powervirtualagents/bots/{botId}/api/botcomponents?api-version=2022-03-01-preview
+```
+This is the **key API** — creates the SkillComponent in Dataverse.
+
+### Step 4: Sync to Island (component write)
+
+```
+PUT https://powervamg.{region}.gateway.prod.island.powerapps.com/api/botmanagement/v1/environments/{envId}/bots/{botId}/content/botcomponents
+```
+Standard Island API write — same as LSP push uses internally.
+
+### Step 5: Discover Plugin Definition
+
+```
+POST https://{envId}.environment.api.powerplatform.com/connectivity/discoveraiplugins?api-version=2022-03-01-preview&$expand=swagger&IsDraft=1
+```
+
+### Implication for Headless Tool Addition
+
+To add a tool programmatically (without Playwright), you need:
+1. The `connectorId` (e.g., `shared_todo`) — from the connector catalog
+2. The `operationId` (e.g., `ListToDosByFolderV2`) — from connector metadata
+3. An existing `connectionId` — from the connections list (OAuth must already be done)
+4. Call `/powervirtualagents/bots/{botId}/api/botcomponents` to create the component
+5. Call Island API `PUT content/botcomponents` to sync (or use LSP push)
+
+**What still needs Playwright:** Creating OAuth connections (Step 2 requires browser auth popup). But if a connection already exists for that connector type, it can be reused headlessly.
 
 ---
 
