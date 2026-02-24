@@ -18642,12 +18642,12 @@
         </member>
         <member name="M:Microsoft.Agents.ObjectModel.Internal.ProductSupportMetadata.IsNodeSupportedInProduct(Microsoft.Agents.ObjectModel.BotElementKind,Microsoft.Agents.ObjectModel.Product)">
             <summary>
-            Returns true if the node kind is supported in the specified product. Nodes without explicit SupportedIn restrictions are supported in all products.
+            Returns true if the node kind is supported in the specified product. Nodes without explicit SupportedIn restrictions are supported in CopilotStudio and Sydney.
             </summary>
         </member>
         <member name="M:Microsoft.Agents.ObjectModel.Internal.ProductSupportMetadata.IsPropertySupportedInProduct(Microsoft.Agents.ObjectModel.BotElementKind,System.String,Microsoft.Agents.ObjectModel.Product)">
             <summary>
-            Returns true if the property is supported in the specified product for the given node kind. Properties without explicit SupportedIn restrictions are supported in all products.
+            Returns true if the property is supported in the specified product for the given node kind. Properties without explicit SupportedIn restrictions are supported in CopilotStudio and Sydney.
             </summary>
         </member>
         <member name="T:Microsoft.Agents.ObjectModel.Internal.DefinitionBaseGreenVisitor`1">
