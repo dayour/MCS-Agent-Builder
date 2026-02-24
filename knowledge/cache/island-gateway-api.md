@@ -308,6 +308,40 @@ The `bot.configuration` Dataverse field also contains AI settings:
 
 **Captured payloads:** `reference/05-topic-save-captured.json` (update) and `reference/06-topic-create-captured.json` (insert)
 
+## Connector Discovery (Connectivity API)
+
+The Power Platform Connectivity API at `{envId}.environment.api.powerplatform.com` exposes connector metadata, operations, and connections. This is a **separate API surface** from the Island Gateway — uses `https://service.powerapps.com/` as the token resource.
+
+### Endpoints
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/connectivity/connectors?$filter=environment+eq+'{envId}'&api-version=2022-03-01-preview&showApisWithTos=true` | GET | List all connectors |
+| `/connectivity/connectors/{connectorId}?$filter=environment+eq+'{envId}'&api-version=1` | GET | **Connector metadata + embedded swagger (operations)** |
+| `/connectivity/connectors/{connectorId}/connections?$expand=&api-version=1` | GET | **List existing connections** for a connector |
+| `/connectivity/aipluginoperations?api-version=1` | POST | AI plugin operations catalog |
+| `/connectivity/discoveraiplugins?api-version=2022-03-01-preview&$expand=swagger&IsDraft=1` | POST | Discover AI plugin definitions |
+
+### CLI
+
+```bash
+# List operations (actions/triggers) for a connector
+node tools/add-tool.js list-operations --env <envId> --connector shared_todo
+
+# List existing connections for a connector
+node tools/add-tool.js list-connections --env <envId> --connector shared_todo
+```
+
+### Authentication
+
+**Token resource:** `https://service.powerapps.com/` (different from Island Gateway's `https://api.powerplatform.com`)
+
+```bash
+az account get-access-token --resource https://service.powerapps.com/ --query accessToken -o tsv
+```
+
+---
+
 ## What Still Requires Playwright
 
 | Operation | Why |

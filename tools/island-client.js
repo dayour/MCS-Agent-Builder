@@ -230,6 +230,64 @@ async function getBotSettings(gatewayUrl, envId, botId, headers) {
     return res.data;
 }
 
+// --- Publish & DLP Status ---
+
+/**
+ * Get publish status for a bot. Returns publish operation state.
+ * Used after `pac copilot publish` to confirm completion.
+ */
+async function getPublishStatus(gatewayUrl, envId, botId, headers) {
+    const url = buildGatewayUrl(
+        gatewayUrl,
+        'api/botmanagement/v1/environments', envId,
+        'bots', botId, 'publishv2-operations'
+    );
+    const res = await httpRequestWithRetry('GET', url, headers);
+    if (res.status !== 200) {
+        throw new Error(`getPublishStatus failed: HTTP ${res.status} — ${JSON.stringify(res.data)}`);
+    }
+    return res.data;
+}
+
+/**
+ * Check DLP (Data Loss Prevention) violations for a bot.
+ * Returns blocked connectors, policy issues. Used as pre-build check.
+ */
+async function checkDlp(gatewayUrl, envId, botId, headers) {
+    const url = buildGatewayUrl(
+        gatewayUrl,
+        'api/botmanagement/v1/environments', envId,
+        'bots', botId, 'dlpstatus'
+    );
+    const res = await httpRequestWithRetry('GET', url, headers);
+    if (res.status !== 200) {
+        throw new Error(`checkDlp failed: HTTP ${res.status} — ${JSON.stringify(res.data)}`);
+    }
+    return res.data;
+}
+
+/**
+ * List topics for a bot. Uses readComponents internally, filters for DialogComponent.
+ * Returns a simplified topic list: [{name, schemaName, triggerKind, description}]
+ */
+async function listTopics(gatewayUrl, envId, botId, headers) {
+    const readResult = await readComponents(gatewayUrl, envId, botId, headers);
+    const changes = readResult.botComponentChanges || [];
+    return changes
+        .filter(c => c.component && c.component['$kind'] === 'DialogComponent')
+        .map(c => {
+            const comp = c.component;
+            const trigger = comp.dialog?.beginDialog;
+            return {
+                name: comp.displayName || comp.schemaName,
+                schemaName: comp.schemaName,
+                triggerKind: trigger ? trigger['$kind'] : 'unknown',
+                description: comp.description || '',
+                state: comp.state || ''
+            };
+        });
+}
+
 // --- Component CRUD ---
 
 /**
@@ -428,6 +486,9 @@ Commands:
   set-instructions   Set agent instructions via GptComponent
   get-routing        Get bot routing info (island, schema, PVA bot ID)
   get-settings       Get bot-level settings
+  get-publish-status Get publish operation status (running/completed/failed)
+  check-dlp          Check DLP violations — blocked connectors and policy issues
+  list-topics        List topics with trigger info (filtered from components)
 
 Required options:
   --env <envId>      Environment ID (e.g. Default-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
@@ -444,7 +505,10 @@ Examples:
   node island-client.js get-models --env Default-xxx
   node island-client.js read-components --env Default-xxx --bot fec3b192-xxx
   node island-client.js set-model --env Default-xxx --bot fec3b192-xxx --model GPT5Chat
-  node island-client.js get-instructions --env Default-xxx --bot fec3b192-xxx`);
+  node island-client.js get-instructions --env Default-xxx --bot fec3b192-xxx
+  node island-client.js get-publish-status --env Default-xxx --bot fec3b192-xxx
+  node island-client.js check-dlp --env Default-xxx --bot fec3b192-xxx
+  node island-client.js list-topics --env Default-xxx --bot fec3b192-xxx`);
 }
 
 async function main() {
@@ -577,6 +641,78 @@ async function main() {
                 break;
             }
 
+            case 'get-publish-status': {
+                if (!config.envId || !config.botId) {
+                    console.error('Error: --env and --bot are required for get-publish-status');
+                    process.exit(2);
+                }
+                const pubStatus = await getPublishStatus(gatewayUrl, config.envId, config.botId, headers);
+                if (config.json) {
+                    console.log(JSON.stringify(pubStatus, null, 2));
+                } else {
+                    const ops = Array.isArray(pubStatus) ? pubStatus : (pubStatus.value || [pubStatus]);
+                    console.log('Publish Operations:');
+                    for (const op of ops) {
+                        const state = op.state || op.status || 'unknown';
+                        const started = op.startTime || op.createdDateTime || '';
+                        const ended = op.endTime || op.completedDateTime || '';
+                        console.log(`  State: ${state}`);
+                        if (started) console.log(`  Started: ${started}`);
+                        if (ended) console.log(`  Ended: ${ended}`);
+                        if (op.error) console.log(`  Error: ${JSON.stringify(op.error)}`);
+                        console.log('');
+                    }
+                }
+                break;
+            }
+
+            case 'check-dlp': {
+                if (!config.envId || !config.botId) {
+                    console.error('Error: --env and --bot are required for check-dlp');
+                    process.exit(2);
+                }
+                const dlp = await checkDlp(gatewayUrl, config.envId, config.botId, headers);
+                if (config.json) {
+                    console.log(JSON.stringify(dlp, null, 2));
+                } else {
+                    const violations = dlp.blockedConnectors || dlp.violations || [];
+                    const hasViolations = Array.isArray(violations) ? violations.length > 0 : !!violations;
+                    if (hasViolations) {
+                        console.log('DLP Violations Found:');
+                        for (const v of (Array.isArray(violations) ? violations : [violations])) {
+                            console.log(`  Connector: ${v.connectorId || v.name || JSON.stringify(v)}`);
+                            if (v.policyName) console.log(`  Policy: ${v.policyName}`);
+                        }
+                    } else {
+                        console.log('No DLP violations detected.');
+                    }
+                    if (dlp.isBlocked !== undefined) {
+                        console.log(`Blocked: ${dlp.isBlocked}`);
+                    }
+                }
+                break;
+            }
+
+            case 'list-topics': {
+                if (!config.envId || !config.botId) {
+                    console.error('Error: --env and --bot are required for list-topics');
+                    process.exit(2);
+                }
+                const topics = await listTopics(gatewayUrl, config.envId, config.botId, headers);
+                if (config.json) {
+                    console.log(JSON.stringify(topics, null, 2));
+                } else {
+                    console.log(`Topics (${topics.length}):\n`);
+                    for (const t of topics) {
+                        const trigger = t.triggerKind.replace('On', '').replace('Intent', '');
+                        console.log(`  ${t.name}`);
+                        console.log(`    Schema: ${t.schemaName}  |  Trigger: ${trigger}  |  State: ${t.state}`);
+                        if (t.description) console.log(`    ${t.description.substring(0, 80)}`);
+                    }
+                }
+                break;
+            }
+
             case 'set-instructions': {
                 if (!config.envId || !config.botId || !config.text) {
                     console.error('Error: --env, --bot, and --text are required for set-instructions');
@@ -611,6 +747,9 @@ module.exports = {
     getRoutingInfo,
     getModelSettings,
     getBotSettings,
+    getPublishStatus,
+    checkDlp,
+    listTopics,
     readComponents,
     writeComponents,
     findGptComponent,

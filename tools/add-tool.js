@@ -8,6 +8,8 @@
  *
  * Usage:
  *   node tools/add-tool.js list-connectors --env <envId> --bot <botId> --gateway <url>
+ *   node tools/add-tool.js list-operations --env <envId> --connector shared_todo
+ *   node tools/add-tool.js list-connections --env <envId> --connector shared_todo
  *   node tools/add-tool.js add --workspace <path> --connector shared_todo --action ListToDosByFolderV2 --connection <connRef>
  */
 
@@ -65,6 +67,74 @@ function httpRequest(method, url, headers, body) {
         if (bodyStr) req.write(bodyStr);
         req.end();
     });
+}
+
+// --- Power Platform Connectivity API Helpers ---
+
+/**
+ * Get connector operations (actions/triggers) from the Power Platform Connectivity API.
+ * Uses the environment-specific endpoint, not Island Gateway.
+ *
+ * @param {string} envId - Environment ID
+ * @param {string} connectorId - Connector ID (e.g. shared_todo, shared_planner)
+ * @returns {{ actions: Array, triggers: Array, raw: object }}
+ */
+async function listOperations(envId, connectorId) {
+    const token = getToken('https://service.powerapps.com/');
+    const baseUrl = `https://${envId}.environment.api.powerplatform.com`;
+    const url = `${baseUrl}/connectivity/connectors/${connectorId}?$filter=environment+eq+'${envId}'&api-version=1`;
+    const res = await httpRequest('GET', url, {
+        'Authorization': `Bearer ${token}`
+    });
+    if (res.status !== 200) {
+        throw new Error(`listOperations failed: HTTP ${res.status} — ${JSON.stringify(res.data).substring(0, 300)}`);
+    }
+
+    const props = res.data.properties || res.data;
+    const actions = [];
+    const triggers = [];
+
+    // Operations are in the embedded swagger definition under paths
+    const paths = props.swagger?.paths || {};
+    for (const [pathStr, methods] of Object.entries(paths)) {
+        for (const [method, op] of Object.entries(methods)) {
+            if (typeof op !== 'object' || method.startsWith('x-')) continue;
+            const entry = {
+                operationId: op.operationId || `${method}_${pathStr}`,
+                displayName: op.summary || op.operationId || pathStr,
+                description: op.description || '',
+                method: method.toUpperCase(),
+                path: pathStr
+            };
+            if (op['x-ms-trigger']) {
+                triggers.push(entry);
+            } else {
+                actions.push(entry);
+            }
+        }
+    }
+    return { actions, triggers, raw: res.data };
+}
+
+/**
+ * List existing connections for a connector in the environment.
+ * Returns connection references the user already has — needed for --connection param.
+ *
+ * @param {string} envId - Environment ID
+ * @param {string} connectorId - Connector ID (e.g. shared_todo, shared_planner)
+ * @returns {object} Connection list from the API
+ */
+async function listConnections(envId, connectorId) {
+    const token = getToken('https://service.powerapps.com/');
+    const baseUrl = `https://${envId}.environment.api.powerplatform.com`;
+    const url = `${baseUrl}/connectivity/connectors/${connectorId}/connections?$expand=&api-version=1`;
+    const res = await httpRequest('GET', url, {
+        'Authorization': `Bearer ${token}`
+    });
+    if (res.status !== 200) {
+        throw new Error(`listConnections failed: HTTP ${res.status} — ${JSON.stringify(res.data).substring(0, 300)}`);
+    }
+    return res.data;
 }
 
 // --- Island Gateway Helpers ---
@@ -224,14 +294,20 @@ function printUsage() {
 Usage: node add-tool.js <command> [options]
 
 Commands:
-  list-tools       List existing tools on an agent (via Island API component read)
-  list-connectors  List connectors in the environment (via Island API)
-  add              Add a connector action to an agent (via workspace YAML + LSP push)
+  list-tools        List existing tools on an agent (via Island API component read)
+  list-connectors   List connectors in the environment (via Island API)
+  list-operations   List operations (actions/triggers) for a connector (via Connectivity API)
+  list-connections  List existing connections for a connector (via Connectivity API)
+  add               Add a connector action to an agent (via workspace YAML + LSP push)
 
 list-tools / list-connectors options:
   --env <envId>       Environment ID
   --bot <botId>       Agent/bot CDS ID (for list-tools)
   --gateway <url>     Island gateway URL
+
+list-operations / list-connections options:
+  --env <envId>       Environment ID
+  --connector <id>    Connector ID (e.g., shared_todo, shared_planner)
 
 add options:
   --workspace <path>  Path to cloned agent workspace (with .mcs/ directory)
@@ -244,7 +320,13 @@ add options:
   --json              Output raw JSON
 
 Examples:
-  # List existing tools
+  # Discover operations for a connector
+  node tools/add-tool.js list-operations --env f9a0cae4-... --connector shared_todo
+
+  # List existing connections for a connector
+  node tools/add-tool.js list-connections --env f9a0cae4-... --connector shared_todo
+
+  # List existing tools on an agent
   node tools/add-tool.js list-tools --env f9a0cae4-... --bot 2ae13d0e-... --gateway https://powervamg.us-il301...
 
   # Add a connector action (reuses existing connection)
@@ -252,6 +334,9 @@ Examples:
     --connector shared_todo --action ListToDosByFolderV2 \\
     --connection "auto_agent_3aiWd.shared_todo.5075650bc3ec433ba1144a3d6563a05d" \\
     --name "List to-dos by folder (V2)" --description "Retrieve all to-dos from a specific list"
+
+  # Full headless flow: discover → pick → add → push
+  #   list-connectors → list-operations → list-connections → add → mcs-lsp.js push
 
   # Then push: node tools/mcs-lsp.js push --workspace "./Clone/Agent Name"`);
 }
@@ -321,6 +406,66 @@ async function main() {
                 break;
             }
 
+            case 'list-operations': {
+                if (!config.envId || !config.connectorId) {
+                    console.error('Error: --env and --connector required');
+                    process.exit(2);
+                }
+                const ops = await listOperations(config.envId, config.connectorId);
+                if (config.json) {
+                    console.log(JSON.stringify(ops, null, 2));
+                } else {
+                    console.log(`Connector: ${config.connectorId}\n`);
+                    if (ops.actions.length > 0) {
+                        console.log(`Actions (${ops.actions.length}):`);
+                        for (const a of ops.actions) {
+                            console.log(`  ${a.operationId}`);
+                            console.log(`    ${a.displayName}  [${a.method}]`);
+                            if (a.description) console.log(`    ${a.description.substring(0, 100)}`);
+                        }
+                    }
+                    if (ops.triggers.length > 0) {
+                        console.log(`\nTriggers (${ops.triggers.length}):`);
+                        for (const t of ops.triggers) {
+                            console.log(`  ${t.operationId}`);
+                            console.log(`    ${t.displayName}  [${t.method}]`);
+                            if (t.description) console.log(`    ${t.description.substring(0, 100)}`);
+                        }
+                    }
+                    if (ops.actions.length === 0 && ops.triggers.length === 0) {
+                        console.log('  No operations found in embedded swagger.');
+                        console.log('  Use --json to inspect the raw connector metadata.');
+                    }
+                }
+                break;
+            }
+
+            case 'list-connections': {
+                if (!config.envId || !config.connectorId) {
+                    console.error('Error: --env and --connector required');
+                    process.exit(2);
+                }
+                const conns = await listConnections(config.envId, config.connectorId);
+                const connList = Array.isArray(conns) ? conns : (conns.value || []);
+                if (config.json) {
+                    console.log(JSON.stringify(conns, null, 2));
+                } else {
+                    console.log(`Connections for ${config.connectorId} (${connList.length}):\n`);
+                    for (const c of connList) {
+                        const name = c.name || c.id || 'unnamed';
+                        const status = c.properties?.statuses?.[0]?.status || c.properties?.connectionParameters?.status || 'unknown';
+                        const displayName = c.properties?.displayName || '';
+                        console.log(`  ${name}`);
+                        if (displayName) console.log(`    Display: ${displayName}`);
+                        console.log(`    Status: ${status}`);
+                    }
+                    if (connList.length === 0) {
+                        console.log('  No connections found. Create one in the MCS UI or Power Automate first.');
+                    }
+                }
+                break;
+            }
+
             case 'add': {
                 if (!config.workspace || !config.connectorId || !config.operationId || !config.connectionRef) {
                     console.error('Error: --workspace, --connector, --action, and --connection required');
@@ -364,7 +509,7 @@ async function main() {
     }
 }
 
-module.exports = { createActionYaml, ensureConnectionReference };
+module.exports = { createActionYaml, ensureConnectionReference, listOperations, listConnections };
 
 if (require.main === module) {
     main().catch(err => { console.error('Fatal:', err.message); process.exit(2); });

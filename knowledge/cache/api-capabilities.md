@@ -54,12 +54,27 @@ Handles YAML→JSON conversion automatically via `YamlPassThroughSerializationCo
 | **Get/set instructions** | GptComponent in botcomponents | Dataverse PATCH |
 | **Bot settings** | `GET bots/{bid}/settings` | Playwright |
 | **Bot routing info** | `GET botroutinginfo` | N/A (new) |
-| **Publish status** | `GET publishv2-operations` | Playwright |
+| **Publish status** | `GET publishv2-operations` | Playwright polling |
+| **DLP check** | `GET bots/{bid}/dlpstatus` | Manual MCS UI check |
+| **List topics** | `POST content/botcomponents` (filtered for DialogComponent) | Raw component parsing |
 | **Topic create** | `PUT content/botcomponents` (BotComponentInsert + DialogComponent) | Playwright code editor |
 | **Topic update** | `PUT content/botcomponents` (BotComponentUpdate + DialogComponent) | Playwright code editor |
 
 Uses ObjectModel `$kind` types — same schema om-cli validates. Same API the VS Code extension uses.
 YAML → JSON mapping documented in `knowledge/cache/island-gateway-api.md`.
+
+## Layer 1.5c: Power Platform Connectivity API
+
+**Client:** `tools/add-tool.js` (`list-operations`, `list-connections` commands)
+**Base:** `{envId}.environment.api.powerplatform.com`
+**Auth:** `az account get-access-token --resource https://service.powerapps.com/`
+
+| Operation | Endpoint | Replaces |
+|-----------|----------|----------|
+| **List connector operations** | `GET /connectivity/connectors/{id}?api-version=1` | Manual operationId lookup / static 1.2MB file |
+| **List connections** | `GET /connectivity/connectors/{id}/connections?api-version=1` | Manual --connection param lookup |
+
+Enables fully headless tool addition flow: `list-connectors` → `list-operations` → `list-connections` → `add` → `mcs-lsp.js push`.
 
 ## Layer 2: Dataverse MCP Server (v0.2.310025)
 
