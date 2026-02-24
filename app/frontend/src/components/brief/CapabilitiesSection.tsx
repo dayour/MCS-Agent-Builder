@@ -10,14 +10,7 @@ import SectionGuidelines from "./SectionGuidelines";
 
 interface Props { data: any; onChange?: (data: any) => void; }
 
-const emptyItem = { name: "", description: "", phase: "MVP", status: "not_started" as const };
-
-const statusIndicator: Record<string, { color: string; label: string }> = {
-  not_started: { color: "bg-muted-foreground/30", label: "Not started" },
-  building: { color: "bg-warning", label: "Building" },
-  passing: { color: "bg-success", label: "Passing" },
-  failing: { color: "bg-destructive", label: "Failing" },
-};
+const emptyItem = { name: "", description: "", phase: "MVP" };
 
 const CapabilitiesSection = ({ data, onChange }: Props) => {
   const [editIdx, setEditIdx] = useState<number | null>(null);
@@ -64,14 +57,11 @@ const CapabilitiesSection = ({ data, onChange }: Props) => {
               </div>
             ) : (
               <div className="flex items-center gap-3">
-                <div className="shrink-0 relative" title={statusIndicator[item.status]?.label ?? "Not started"}>
-                  <div className={`h-2.5 w-2.5 rounded-full ${statusIndicator[item.status]?.color ?? "bg-muted-foreground/30"}`} />
-                </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-foreground">{item.name}</p>
                   <p className="text-xs text-muted-foreground">{item.description}</p>
                 </div>
-                <StatusBadge status={item.phase || item.tag || "MVP"} />
+                <StatusBadge status={item.phase || "MVP"} />
                 <div className="flex gap-1">
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => startEdit(i)}><Pencil className="h-3.5 w-3.5" /></Button>
                   <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => remove(i)}><Trash2 className="h-3.5 w-3.5" /></Button>

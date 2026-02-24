@@ -3,20 +3,12 @@ import { Plus, Trash2, Pencil, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import StatusBadge from "@/components/StatusBadge";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import SectionGuidelines from "./SectionGuidelines";
 
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-
-interface Props {
-  data: any;
-  onChange?: (data: any) => void;
-}
+interface Props { data: any; onChange?: (data: any) => void; }
 
 const TOOL_TYPES = [
   "Connector",
@@ -34,36 +26,11 @@ const IntegrationsSection = ({ data, onChange }: Props) => {
   const [draft, setDraft] = useState<any>(null);
 
   const update = (items: any[]) => onChange?.({ ...data, items });
-
-  const startEdit = (i: number) => {
-    setEditIdx(i);
-    setDraft({ ...data.items[i] });
-  };
-
-  const saveEdit = () => {
-    if (editIdx === null || !draft.name.trim()) return;
-    const items = [...data.items];
-    items[editIdx] = draft;
-    update(items);
-    setEditIdx(null);
-    setDraft(null);
-  };
-
-  const cancelEdit = () => {
-    setEditIdx(null);
-    setDraft(null);
-  };
-
-  const remove = (i: number) => {
-    update(data.items.filter((_: any, idx: number) => idx !== i));
-    if (editIdx === i) cancelEdit();
-  };
-
-  const add = () => {
-    update([...data.items, { ...emptyItem }]);
-    setEditIdx(data.items.length);
-    setDraft({ ...emptyItem });
-  };
+  const startEdit = (i: number) => { setEditIdx(i); setDraft({ ...data.items[i] }); };
+  const saveEdit = () => { if (editIdx === null || !draft.name.trim()) return; const items = [...data.items]; items[editIdx] = draft; update(items); setEditIdx(null); setDraft(null); };
+  const cancelEdit = () => { setEditIdx(null); setDraft(null); };
+  const remove = (i: number) => { update(data.items.filter((_: any, idx: number) => idx !== i)); if (editIdx === i) cancelEdit(); };
+  const add = () => { update([...data.items, { ...emptyItem }]); setEditIdx(data.items.length); setDraft({ ...emptyItem }); };
 
   return (
     <div className="space-y-6">
@@ -111,7 +78,7 @@ const IntegrationsSection = ({ data, onChange }: Props) => {
                 </div>
               </div>
             ) : (
-                <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4">
                 <div className="flex-1">
                   <p className="text-sm font-medium text-foreground">{item.name}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">{item.type}{item.auth ? ` · ${item.auth}` : ''}</p>

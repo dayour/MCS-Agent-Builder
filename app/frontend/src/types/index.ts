@@ -116,14 +116,10 @@ export interface AgentIdentity {
   targetUsers: string[];
 }
 
-export type CapabilityStatus = "not_started" | "building" | "passing" | "failing";
-
 export interface Capability {
   name: string;
   description: string;
-  tag: string;
-  enabled: boolean;
-  status: CapabilityStatus;
+  phase: string;
 }
 
 export interface Integration {
@@ -131,6 +127,7 @@ export interface Integration {
   type: string;
   auth: string;
   notes: string;
+  phase: string;
 }
 
 export interface KnowledgeSource {

@@ -30,7 +30,6 @@ import ArchitectureSection from "@/components/brief/ArchitectureSection";
 import EvalSetsSection from "@/components/brief/EvalSetsSection";
 import OpenQuestionsSection from "@/components/brief/OpenQuestionsSection";
 import { generateBriefReport, downloadFile } from "@/lib/reportGenerator";
-import { generateBriefPDF } from "@/lib/pdfReportGenerator";
 
 const iconMap: Record<string, React.ElementType> = {
   Briefcase, Bot, FileText, Zap, Plug, Database,
@@ -63,6 +62,7 @@ const BriefEditor = () => {
   } = useBriefStore();
 
   const [activeSection, setActiveSection] = useState(BRIEF_SECTIONS[0].id);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   // Load project + brief on mount
   useEffect(() => {
@@ -193,13 +193,20 @@ const BriefEditor = () => {
               variant="outline"
               size="sm"
               className="w-full gap-2 text-xs"
-              onClick={() => {
-                if (!data) return;
-                generateBriefPDF(agentForReport, data as unknown as Record<string, any>);
+              disabled={pdfLoading}
+              onClick={async () => {
+                if (!data || pdfLoading) return;
+                setPdfLoading(true);
+                try {
+                  const { generateBriefPDF } = await import("@/lib/pdf");
+                  await generateBriefPDF(agentForReport, data as unknown as Record<string, any>);
+                } finally {
+                  setPdfLoading(false);
+                }
               }}
             >
-              <FileDown className="h-3.5 w-3.5" />
-              Export PDF
+              {pdfLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />}
+              {pdfLoading ? "Generating..." : "Export PDF"}
             </Button>
           </div>
         </aside>

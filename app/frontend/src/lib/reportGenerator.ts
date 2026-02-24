@@ -13,6 +13,48 @@ export function generateBriefReport(agent: Agent, briefData: Record<string, any>
   lines.push(`> **Status:** ${agent.status} · **Readiness:** ${agent.readiness}%`);
   lines.push(hr);
 
+  // ── Executive Summary ─────────────────────────────────────────
+  {
+    lines.push("## Executive Summary\n");
+    const bc = briefData["business-context"];
+    if (bc?.problemStatement) {
+      lines.push(`${bc.problemStatement}\n`);
+    }
+
+    const caps = briefData["capabilities"]?.items ?? [];
+    const tools = briefData["tools"]?.items ?? [];
+    const ks = briefData["knowledge-sources"]?.items ?? [];
+    const evalSets = briefData["eval-sets"]?.sets ?? [];
+    const oq = briefData["open-questions"]?.items ?? [];
+
+    const mvpCaps = caps.filter((c: any) => (c.phase || "").toLowerCase() === "mvp");
+    const futureCaps = caps.filter((c: any) => (c.phase || "").toLowerCase() === "future");
+    const totalTests = evalSets.reduce((s: number, es: any) => s + (es.tests?.length ?? 0), 0);
+    const testedTests = evalSets.reduce((s: number, es: any) => s + (es.tests?.filter((t: any) => t.lastResult != null).length ?? 0), 0);
+    const passedTests = evalSets.reduce((s: number, es: any) => s + (es.tests?.filter((t: any) => t.lastResult?.pass).length ?? 0), 0);
+    const passRate = testedTests > 0 ? Math.round((passedTests / testedTests) * 100) : null;
+
+    lines.push("### Key Metrics\n");
+    lines.push(`| Metric | Value |`);
+    lines.push(`|--------|-------|`);
+    lines.push(`| Capabilities | ${caps.length}${mvpCaps.length > 0 ? ` (${mvpCaps.length} MVP / ${futureCaps.length} Future)` : ""} |`);
+    lines.push(`| Integrations | ${tools.length} |`);
+    lines.push(`| Knowledge Sources | ${ks.length} |`);
+    lines.push(`| Eval Tests | ${totalTests}${passRate !== null ? ` (${passRate}% pass)` : ""} |`);
+    lines.push(`| Readiness | ${agent.readiness}% |`);
+    lines.push("");
+
+    // Top priorities
+    const priorities: string[] = [];
+    oq.filter((q: any) => q.status !== "resolved").slice(0, 3).forEach((q: any) => priorities.push(`Resolve: ${q.question}`));
+    if (priorities.length > 0) {
+      lines.push("### Top Priorities");
+      priorities.forEach((p) => lines.push(`- ${p}`));
+      lines.push("");
+    }
+    lines.push(hr);
+  }
+
   // Business Context
   const bc = briefData["business-context"];
   if (bc) {
@@ -98,20 +140,30 @@ export function generateBriefReport(agent: Agent, briefData: Record<string, any>
   const caps = briefData["capabilities"];
   if (caps?.items?.length) {
     lines.push("## Capabilities\n");
-    lines.push("| Capability | Description | Phase | Enabled |");
-    lines.push("|------------|-------------|-------|---------|");
-    caps.items.forEach((c: any) => lines.push(`| ${c.name} | ${c.description} | ${c.tag} | ${c.enabled ? "✅" : "—"} |`));
+    lines.push("| Capability | Description | Phase |");
+    lines.push("|------------|-------------|-------|");
+    caps.items.forEach((c: any) => {
+      const phase = c.phase || "\u2014";
+      lines.push(`| ${c.name} | ${c.description} | ${phase} |`);
+    });
     lines.push("");
     lines.push(hr);
   }
 
-  // Tools / Integrations
+  // Tools / Integrations — adds phase column if present
   const tools = briefData["tools"];
   if (tools?.items?.length) {
+    const hasPhase = tools.items.some((t: any) => t.phase);
     lines.push("## Integrations\n");
-    lines.push("| Tool | Type | Auth |");
-    lines.push("|------|------|------|");
-    tools.items.forEach((t: any) => lines.push(`| ${t.name} | ${t.type} | ${t.auth} |`));
+    if (hasPhase) {
+      lines.push("| Tool | Type | Auth | Phase |");
+      lines.push("|------|------|------|-------|");
+      tools.items.forEach((t: any) => lines.push(`| ${t.name} | ${t.type} | ${t.auth} | ${t.phase || "\u2014"} |`));
+    } else {
+      lines.push("| Tool | Type | Auth |");
+      lines.push("|------|------|------|");
+      tools.items.forEach((t: any) => lines.push(`| ${t.name} | ${t.type} | ${t.auth} |`));
+    }
     lines.push("");
     lines.push(hr);
   }
@@ -149,17 +201,17 @@ export function generateBriefReport(agent: Agent, briefData: Record<string, any>
   if (sb) {
     lines.push("## Scope & Boundaries\n");
     if (sb.handles?.length) {
-      lines.push("### ✅ Handles");
+      lines.push("### Handles");
       sb.handles.forEach((h: string) => lines.push(`- ${h}`));
       lines.push("");
     }
     if (sb.politelyDeclines?.length) {
-      lines.push("### 🔶 Politely Declines");
+      lines.push("### Politely Declines");
       sb.politelyDeclines.forEach((d: string) => lines.push(`- ${d}`));
       lines.push("");
     }
     if (sb.hardRefuses?.length) {
-      lines.push("### 🚫 Hard Refuses");
+      lines.push("### Hard Refuses");
       sb.hardRefuses.forEach((r: string) => lines.push(`- ${r}`));
       lines.push("");
     }
@@ -188,8 +240,8 @@ export function generateBriefReport(agent: Agent, briefData: Record<string, any>
         lines.push("| Question | Expected | Capability | Result |");
         lines.push("|----------|----------|------------|--------|");
         set.tests.forEach((t: any) => {
-          const result = t.lastResult == null ? "—" : t.lastResult.pass ? "Pass" : "Fail";
-          lines.push(`| ${t.question} | ${t.expected || "—"} | ${t.capability || "—"} | ${result} |`);
+          const result = t.lastResult == null ? "\u2014" : t.lastResult.pass ? "Pass" : "Fail";
+          lines.push(`| ${t.question} | ${t.expected || "\u2014"} | ${t.capability || "\u2014"} | ${result} |`);
         });
         lines.push("");
       }
@@ -197,13 +249,61 @@ export function generateBriefReport(agent: Agent, briefData: Record<string, any>
     lines.push(hr);
   }
 
-  // Open Questions
+  // ── Best Practices & Recommendations ──────────────────────────
+  {
+    const isMultiAgent = briefData["architecture"]?.pattern?.toLowerCase().includes("multi");
+
+    lines.push("## Best Practices & Recommendations\n");
+    lines.push("*Industry-proven recommendations for Microsoft Copilot Studio agents.*\n");
+
+    lines.push("### Instructions & Design");
+    lines.push("- Keep system instructions under 8,000 characters for optimal generative orchestration");
+    lines.push("- Use explicit persona definitions for consistent tone across all responses");
+    lines.push("- Define clear scope boundaries \u2014 what the agent handles, declines, and refuses");
+    lines.push("- Include example responses for high-stakes scenarios to anchor model behavior");
+    lines.push("");
+
+    lines.push("### Knowledge & Grounding");
+    lines.push("- Prefer SharePoint or Dataverse knowledge sources over uploaded files for automatic refresh");
+    lines.push("- Use descriptive file names that help the retrieval engine find the right content");
+    lines.push("- Test with edge-case queries that probe content boundaries and gaps");
+    lines.push("- Enable strict grounding for factual or regulated content domains");
+    lines.push("");
+
+    lines.push("### Evaluation & Testing");
+    lines.push("- Maintain 100% pass rate on critical (boundary) tests before expanding scope");
+    lines.push("- Include at least 3 test cases per capability for adequate coverage");
+    lines.push("- Run regression tests after every instruction or topic change");
+    lines.push("- Use semantic matching (Compare meaning 70%+) for conversational responses");
+    lines.push("");
+
+    lines.push("### Deployment & Operations");
+    lines.push("- Publish to a test environment before production to validate end-to-end behavior");
+    lines.push("- Monitor conversation logs for the first 2 weeks post-launch to catch drift");
+    lines.push("- Set up fallback topics for unrecognized intents to prevent dead-ends");
+    lines.push("- Review knowledge sources quarterly to ensure content stays current");
+    lines.push("");
+
+    if (isMultiAgent) {
+      lines.push("### Multi-Agent Architecture");
+      lines.push("- Keep specialist agents focused on a single domain for clearer routing");
+      lines.push("- Define explicit routing rules with unambiguous trigger phrases");
+      lines.push("- Test cross-agent handoff scenarios in the integration eval set");
+      lines.push("");
+    }
+
+    lines.push(hr);
+  }
+
+  // Open Questions — uses notes (from assignee field), not "Assignee"
   const oq = briefData["open-questions"];
   if (oq?.items?.length) {
     lines.push("## Open Questions\n");
     oq.items.forEach((q: any) => {
-      const resolved = q.status === "resolved" ? ` ✅ *${q.resolution}*` : "";
-      lines.push(`- **${q.question}** — Assignee: ${q.assignee}${resolved}`);
+      const resolved = q.status === "resolved" ? ` *${q.resolution}*` : "";
+      const notes = q.notes || q.assignee || "";
+      const notesStr = notes ? ` — Notes: ${notes}` : "";
+      lines.push(`- **[${q.status === "resolved" ? "Resolved" : "Open"}]** ${q.question}${notesStr}${resolved}`);
     });
     lines.push("");
   }

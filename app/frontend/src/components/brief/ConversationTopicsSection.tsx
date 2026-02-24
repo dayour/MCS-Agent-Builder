@@ -49,7 +49,7 @@ const ConversationTopicsSection = ({ data, onChange }: Props) => {
                       <SelectItem value="custom">Custom</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Select value={draft.phase} onValueChange={(v) => setDraft({ ...draft, phase: v })}>
+                  <Select value={draft.phase || "MVP"} onValueChange={(v) => setDraft({ ...draft, phase: v })}>
                     <SelectTrigger><SelectValue placeholder="Phase" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="MVP">MVP</SelectItem>

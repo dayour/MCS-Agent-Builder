@@ -52,9 +52,7 @@ export function briefFromApi(raw: ApiBrief): BriefData {
       items: (raw.capabilities ?? []).map((c) => ({
         name: c.name ?? "",
         description: c.description ?? "",
-        tag: (c.phase ?? "mvp").toUpperCase() === "MVP" ? "MVP" : "Future",
-        enabled: (c.phase ?? "mvp").toLowerCase() === "mvp",
-        status: (c.status as any) ?? "not_started",
+        phase: (c.phase ?? "mvp").toUpperCase() === "MVP" ? "MVP" : "Future",
       })),
     },
     tools: {
@@ -63,6 +61,7 @@ export function briefFromApi(raw: ApiBrief): BriefData {
         type: i.type ?? "",
         auth: i.authMethod ?? "",
         notes: i.notes ?? "",
+        phase: (i.phase ?? "mvp").toUpperCase() === "MVP" ? "MVP" : "Future",
       })),
     },
     "knowledge-sources": {
@@ -170,8 +169,7 @@ export function briefToApi(ui: BriefData, raw: ApiBrief): ApiBrief {
       ...existing,
       name: c.name,
       description: c.description,
-      phase: c.enabled ? "mvp" : "future",
-      status: c.status ?? "not_started",
+      phase: (c.phase ?? "MVP").toLowerCase() === "mvp" ? "mvp" : "future",
     };
   });
 
@@ -184,6 +182,7 @@ export function briefToApi(ui: BriefData, raw: ApiBrief): ApiBrief {
       type: t.type,
       authMethod: t.auth,
       notes: t.notes,
+      phase: (t.phase ?? "MVP").toLowerCase() === "mvp" ? "mvp" : "future",
     };
   });
 
@@ -195,7 +194,7 @@ export function briefToApi(ui: BriefData, raw: ApiBrief): ApiBrief {
       name: k.name,
       purpose: k.purpose,
       scope: k.location,
-      phase: k.phase.toLowerCase() === "mvp" ? "mvp" : "future",
+      phase: (k.phase ?? "MVP").toLowerCase() === "mvp" ? "mvp" : "future",
       status: k.status,
     };
   });
@@ -209,7 +208,7 @@ export function briefToApi(ui: BriefData, raw: ApiBrief): ApiBrief {
         ...existing,
         name: t.name,
         topicType: t.type,
-        phase: t.phase.toLowerCase() === "mvp" ? "mvp" : "future",
+        phase: (t.phase ?? "MVP").toLowerCase() === "mvp" ? "mvp" : "future",
         description: t.description,
       };
     }),
