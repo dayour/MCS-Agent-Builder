@@ -110,11 +110,9 @@ def _load_manifest(folder: Path) -> dict | None:
 def _scan_docs(folder: Path) -> list[dict]:
     """Scan docs/ folder for documents. Uses filename as the unique key.
 
-    If doc-manifest.json exists, annotates each doc with isNew/isModified
-    so the dashboard can show a badge without a separate API call.
-
-    Hides extracted .md companions when the original binary file exists
-    (e.g. report.md is hidden if report.docx is present — avoids duplicates).
+    Only shows files Claude Code can read: text, images, PDFs.
+    Binary Office files (docx/pptx/xlsx) are converted at upload time
+    and the originals deleted — so only readable files remain.
     """
     docs_dir = folder / "docs"
     docs = []
@@ -125,33 +123,23 @@ def _scan_docs(folder: Path) -> list[dict]:
         for entry in manifest.get("docsProcessed", []):
             manifest_hashes[entry["filename"]] = entry.get("sha256")
 
-    # Collect all filenames first to detect extracted companion files
-    all_files = []
-    binary_stems = set()  # stems that have a binary Office original
     if docs_dir.exists():
         for fp in sorted(docs_dir.iterdir()):
-            if fp.is_file() and fp.suffix in DOC_EXTENSIONS:
-                all_files.append(fp)
-                if fp.suffix in NEEDS_CONVERSION:
-                    binary_stems.add(fp.stem)
-
-    for fp in all_files:
-        # Skip extracted companions: .md or .csv files whose stem matches a binary original
-        if fp.suffix in {".md", ".csv"} and fp.stem in binary_stems:
-            continue
-        is_new = True
-        is_modified = False
-        if manifest is not None:
-            known_hash = manifest_hashes.get(fp.name)
-            if known_hash is not None:
-                is_new = False
-                is_modified = known_hash.lower() != _file_sha256(fp)
-        docs.append({
-            "filename": fp.name,
-            "size": fp.stat().st_size,
-            "isNew": is_new,
-            "isModified": is_modified,
-        })
+            if not fp.is_file() or fp.suffix not in DOC_EXTENSIONS:
+                continue
+            is_new = True
+            is_modified = False
+            if manifest is not None:
+                known_hash = manifest_hashes.get(fp.name)
+                if known_hash is not None:
+                    is_new = False
+                    is_modified = known_hash.lower() != _file_sha256(fp)
+            docs.append({
+                "filename": fp.name,
+                "size": fp.stat().st_size,
+                "isNew": is_new,
+                "isModified": is_modified,
+            })
     return docs
 
 
@@ -448,29 +436,16 @@ def _get_project(project_id: str) -> dict:
     docs = _scan_docs(folder)
     agents = _scan_agents(folder)
 
-    # Read text content for preview — keyed by filename (the unique doc ID).
-    # Text files: read directly. PDFs/images: render natively in browser.
-    # Binary Office files: check for extracted .md companion (same stem).
+    # Read text content for preview — keyed by filename.
+    # Only text-based files. PDFs and images render natively in the browser.
     doc_content = {}
     for d in docs:
         fp = folder / "docs" / d["filename"]
-        if not fp.exists():
-            continue
-        if fp.suffix in {".md", ".csv", ".txt", ".json"}:
+        if fp.exists() and fp.suffix in {".md", ".csv", ".txt", ".json"}:
             try:
                 doc_content[d["filename"]] = fp.read_text(encoding="utf-8")
             except Exception:
                 pass
-        elif fp.suffix in NEEDS_CONVERSION:
-            # Check for extracted companion: .csv for xlsx/xls, .md for docx/pptx
-            for comp_suffix in [".csv", ".md"]:
-                companion = fp.with_suffix(comp_suffix)
-                if companion.exists():
-                    try:
-                        doc_content[d["filename"]] = companion.read_text(encoding="utf-8")
-                    except Exception:
-                        pass
-                    break
 
     return {
         "id": folder.name,
@@ -747,67 +722,68 @@ async def upload_document(
     if len(content) > 50 * 1024 * 1024:
         raise HTTPException(413, "File too large (max 50 MB)")
 
-    # Always save the original file
+    # Save the file. For binary Office files, convert to a readable format
+    # and delete the original (Claude Code can't read docx/pptx/xlsx).
     raw_name = f"{safe_base}{suffix}"
     raw_path = docs_dir / raw_name
     raw_path.write_bytes(content)
 
-    # For binary Office files, extract text so Claude Code can read it during research.
-    # xlsx/xls → .csv (preserves tabular structure), docx/pptx → .md (text content)
-    converted_name = None
+    final_name = raw_name  # what ends up in docs/ (may change after conversion)
     conversion_error = None
+
     if suffix in NEEDS_CONVERSION:
         try:
             from markitdown import MarkItDown
             converter = MarkItDown()
             loop = asyncio.get_event_loop()
             result = await loop.run_in_executor(None, converter.convert, str(raw_path))
+
             if result.text_content and result.text_content.strip():
                 if suffix in {".xlsx", ".xls"}:
-                    # Excel → CSV: extract the markdown table and convert to CSV
-                    csv_name = f"{safe_base}.csv"
+                    # Excel → CSV (preserves tabular structure)
+                    out_name = f"{safe_base}.csv"
                     text = result.text_content.strip()
-                    # MarkItDown outputs markdown tables — convert to CSV
                     csv_lines = []
                     for line in text.split("\n"):
                         line = line.strip()
                         if not line or line.startswith("|--") or line.startswith("| --"):
-                            continue  # skip separator rows
+                            continue
                         if line.startswith("|") and line.endswith("|"):
                             cells = [c.strip() for c in line.strip("|").split("|")]
                             csv_lines.append(",".join(f'"{c}"' for c in cells))
                     if csv_lines:
-                        (docs_dir / csv_name).write_text("\n".join(csv_lines), encoding="utf-8")
-                        converted_name = csv_name
+                        (docs_dir / out_name).write_text("\n".join(csv_lines), encoding="utf-8")
                     else:
-                        # Fallback: save raw extracted text as .md
-                        md_name = f"{safe_base}.md"
-                        (docs_dir / md_name).write_text(text, encoding="utf-8")
-                        converted_name = md_name
+                        # Fallback: save as .md if table parsing failed
+                        out_name = f"{safe_base}.md"
+                        (docs_dir / out_name).write_text(text, encoding="utf-8")
                 else:
                     # docx/pptx → .md
-                    md_name = f"{safe_base}.md"
-                    (docs_dir / md_name).write_text(result.text_content, encoding="utf-8")
-                    converted_name = md_name
+                    out_name = f"{safe_base}.md"
+                    (docs_dir / out_name).write_text(result.text_content, encoding="utf-8")
+
+                # Delete original binary — only the readable version stays
+                raw_path.unlink()
+                final_name = out_name
+                print(f"  [upload] Converted {raw_name} → {out_name}")
             else:
-                conversion_error = "No text content extracted (file may be empty or password-protected)"
-                print(f"  [upload] Empty extraction for {raw_name}")
+                conversion_error = "No text extracted (file may be empty or password-protected)"
+                print(f"  [upload] Empty extraction for {raw_name} — keeping original")
         except ImportError:
             conversion_error = "markitdown not installed — run: pip install 'markitdown[all]'"
-            print(f"  [upload] markitdown not installed")
+            print(f"  [upload] markitdown not installed — keeping original {raw_name}")
         except Exception as e:
             conversion_error = f"Text extraction failed: {str(e)[:200]}"
-            print(f"  [upload] Conversion error for {raw_name}: {e}")
+            print(f"  [upload] Conversion error for {raw_name}: {e} — keeping original")
 
     brief_outdated = (folder / "doc-manifest.json").exists()
 
     return {
         "uploaded": True,
-        "filename": raw_name,
-        "converted": converted_name,
+        "filename": final_name,
         "conversionError": conversion_error,
         "size": len(content),
-        "path": f"Build-Guides/{project_id}/docs/{raw_name}",
+        "path": f"Build-Guides/{project_id}/docs/{final_name}",
         "briefOutdated": brief_outdated,
     }
 
