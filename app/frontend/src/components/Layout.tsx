@@ -22,7 +22,7 @@ const Layout = ({ children, breadcrumbs }: LayoutProps) => {
       <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-sm">
         <div className="flex h-14 items-center px-6">
           <Link to="/" className="flex items-center gap-2.5">
-            <img src="/mcs_builder.png" alt="MCS Agent Builder" className="h-[26px] w-[26px]" />
+            <img src="/favicon.png" alt="MCS Agent Builder" className="h-[26px] w-[26px]" />
             <span className="text-sm font-semibold tracking-tight text-foreground">
               MCS Agent Builder
             </span>
