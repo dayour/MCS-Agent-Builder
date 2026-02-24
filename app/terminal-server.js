@@ -193,9 +193,14 @@ wss.on("connection", (ws) => {
   function submit(text) {
     if (!ptyProc) return;
     ready = false; // Mark busy — re-enabled when next prompt appears
-    // Write text + Enter atomically to prevent resize events from
-    // disrupting the TUI input state during a split-write window.
-    ptyProc.write(text + "\r");
+    // Write text first, then Enter separately after a brief delay.
+    // Claude Code's TUI treats an atomic write as a paste event — the
+    // trailing \r becomes a newline in the input buffer instead of a
+    // submit action. Splitting them makes the TUI see: paste → Enter.
+    ptyProc.write(text);
+    setTimeout(() => {
+      if (ptyProc) ptyProc.write("\r");
+    }, 100);
   }
 
   ws.on("message", (raw) => {
@@ -216,8 +221,9 @@ wss.on("connection", (ws) => {
         // Command — type into Claude and press Enter
         if (m.type === "command" && m.text) {
           if (inShell && ptyProc) {
-            // Plain shell — write text + Enter directly
-            ptyProc.write(m.text + "\r");
+            // Plain shell — write text then Enter
+            ptyProc.write(m.text);
+            setTimeout(() => { if (ptyProc) ptyProc.write("\r"); }, 50);
           } else if (ptyProc && ready) {
             submit(m.text);
           } else if (ptyProc) {
