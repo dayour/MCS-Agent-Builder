@@ -16,6 +16,7 @@
  */
 
 const { spawn, execSync } = require("child_process");
+const crypto = require("crypto");
 const http = require("http");
 const net = require("net");
 const path = require("path");
@@ -327,15 +328,54 @@ function checkClaudeCode() {
 }
 
 // ---------------------------------------------------------------------------
+// Hash-based dependency staleness detection
+// ---------------------------------------------------------------------------
+
+/**
+ * Check if node_modules is stale relative to package.json + package-lock.json.
+ * Works regardless of HOW deps changed (autoUpdate, manual git pull, branch switch).
+ */
+function depsStale(dir) {
+  if (!fs.existsSync(path.join(dir, "node_modules"))) return true;
+
+  const pkgFile = path.join(dir, "package.json");
+  const lockFile = path.join(dir, "package-lock.json");
+  const hashFile = path.join(dir, "node_modules", ".deps-hash");
+
+  let content = "";
+  try { content += fs.readFileSync(pkgFile, "utf8"); } catch { return true; }
+  try { content += fs.readFileSync(lockFile, "utf8"); } catch {}
+  const currentHash = crypto.createHash("sha256").update(content).digest("hex").slice(0, 16);
+
+  try {
+    return fs.readFileSync(hashFile, "utf8").trim() !== currentHash;
+  } catch {
+    return true; // No stored hash = never installed via this launcher
+  }
+}
+
+function writeDepsHash(dir) {
+  const pkgFile = path.join(dir, "package.json");
+  const lockFile = path.join(dir, "package-lock.json");
+  const hashFile = path.join(dir, "node_modules", ".deps-hash");
+
+  let content = "";
+  try { content += fs.readFileSync(pkgFile, "utf8"); } catch {}
+  try { content += fs.readFileSync(lockFile, "utf8"); } catch {}
+  const hash = crypto.createHash("sha256").update(content).digest("hex").slice(0, 16);
+  fs.writeFileSync(hashFile, hash, "utf8");
+}
+
+// ---------------------------------------------------------------------------
 // Preflight: auto-install dependencies
 // ---------------------------------------------------------------------------
 
 function ensureNodeModules() {
-  const missing = !fs.existsSync(path.join(__dirname, "node_modules"));
-  if (missing || depsChanged.npm) {
-    log(missing ? "node_modules not found — running npm install..." : "package.json changed — running npm install...");
+  if (depsStale(__dirname)) {
+    log("Root dependencies out of date — running npm install...");
     try {
       execSync("npm install", { stdio: "inherit", cwd: __dirname, timeout: 120000 });
+      writeDepsHash(__dirname);
       log("npm install complete");
     } catch {
       err("npm install failed");
@@ -565,19 +605,25 @@ ensureAzDevOps();
 // 4a. Clean Playwright MCP browser cache (accumulates 400MB+ over time)
 cleanPlaywrightCache();
 
-// 5. Auto-build frontend if dist is missing or stale (cleared by auto-update)
+// 5. Auto-install frontend deps if stale (independent of dist)
 const frontendDir = path.join(__dirname, "app", "frontend");
+if (fs.existsSync(path.join(frontendDir, "package.json")) && depsStale(frontendDir)) {
+  log("Frontend deps out of date — reinstalling...");
+  try {
+    execSync("npm install", { stdio: "inherit", cwd: frontendDir, timeout: 120000 });
+    writeDepsHash(frontendDir);
+  } catch {
+    warn("npm install failed in app/frontend — frontend may not work");
+  }
+  // Invalidate dist so rebuild triggers below
+  const staleDist = path.join(__dirname, "app", "dist", "index.html");
+  if (fs.existsSync(staleDist)) fs.unlinkSync(staleDist);
+}
+
+// 5a. Build frontend if dist is missing
 const distIndex = path.join(__dirname, "app", "dist", "index.html");
 if (fs.existsSync(path.join(frontendDir, "package.json")) && !fs.existsSync(distIndex)) {
   log("Frontend not built — building app/frontend...");
-  if (!fs.existsSync(path.join(frontendDir, "node_modules")) || depsChanged.frontend) {
-    log(depsChanged.frontend ? "Frontend deps changed — reinstalling..." : "Installing frontend deps...");
-    try {
-      execSync("npm install", { stdio: "inherit", cwd: frontendDir, timeout: 120000 });
-    } catch {
-      warn("npm install failed in app/frontend — frontend may not work");
-    }
-  }
   try {
     execSync("npm run build", { stdio: "inherit", cwd: frontendDir, timeout: 120000 });
     log("Frontend build complete");
