@@ -10,7 +10,7 @@ import SectionGuidelines from "./SectionGuidelines";
 
 interface Props { data: any; onChange?: (data: any) => void; }
 
-const emptyItem = { question: "", assignee: "", status: "open", resolution: "" };
+const emptyItem = { question: "", notes: "", status: "open", resolution: "" };
 
 const OpenQuestionsSection = ({ data, onChange }: Props) => {
   const [editIdx, setEditIdx] = useState<number | null>(null);
@@ -40,7 +40,7 @@ const OpenQuestionsSection = ({ data, onChange }: Props) => {
               <div className="space-y-3">
                 <Textarea placeholder="Question" value={draft.question} onChange={(e) => setDraft({ ...draft, question: e.target.value })} className="min-h-[60px]" />
                 <div className="grid grid-cols-2 gap-3">
-                  <Input placeholder="Assignee" value={draft.assignee} onChange={(e) => setDraft({ ...draft, assignee: e.target.value })} />
+                  <Input placeholder="Notes" value={draft.notes || draft.assignee || ""} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} />
                   <Select value={draft.status} onValueChange={(v) => setDraft({ ...draft, status: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -66,7 +66,7 @@ const OpenQuestionsSection = ({ data, onChange }: Props) => {
                     <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => remove(i)}><Trash2 className="h-3.5 w-3.5" /></Button>
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground">Assigned: <span className="text-foreground">{item.assignee}</span></p>
+                {(item.notes || item.assignee) && <p className="text-xs text-muted-foreground">Notes: <span className="text-foreground">{item.notes || item.assignee}</span></p>}
                 {item.resolution && (
                   <div className="mt-2 rounded-md bg-success/10 px-3 py-2">
                     <p className="text-xs text-success">{item.resolution}</p>

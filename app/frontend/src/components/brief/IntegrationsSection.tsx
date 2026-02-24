@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Plus, Trash2, Pencil, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import StatusBadge from "@/components/StatusBadge";
 import SectionGuidelines from "./SectionGuidelines";
 
 import {
@@ -26,7 +27,7 @@ const TOOL_TYPES = [
   "REST API (HTTP connector)",
 ];
 
-const emptyItem = { name: "", type: "", auth: "", notes: "" };
+const emptyItem = { name: "", type: "", auth: "", notes: "", phase: "MVP" };
 
 const IntegrationsSection = ({ data, onChange }: Props) => {
   const [editIdx, setEditIdx] = useState<number | null>(null);
@@ -93,7 +94,16 @@ const IntegrationsSection = ({ data, onChange }: Props) => {
                     </SelectContent>
                   </Select>
                 </div>
-                <Input placeholder="Auth method" value={draft.auth} onChange={(e) => setDraft({ ...draft, auth: e.target.value })} />
+                <div className="grid grid-cols-2 gap-3">
+                  <Input placeholder="Auth method" value={draft.auth} onChange={(e) => setDraft({ ...draft, auth: e.target.value })} />
+                  <Select value={draft.phase || "MVP"} onValueChange={(v) => setDraft({ ...draft, phase: v })}>
+                    <SelectTrigger><SelectValue placeholder="Phase" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="MVP">MVP</SelectItem>
+                      <SelectItem value="Future">Future</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 <Input placeholder="Notes" value={draft.notes || ""} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} />
                 <div className="flex gap-2 justify-end">
                   <Button variant="ghost" size="sm" onClick={cancelEdit}><X className="h-3.5 w-3.5" /></Button>
@@ -107,6 +117,7 @@ const IntegrationsSection = ({ data, onChange }: Props) => {
                   <p className="text-xs text-muted-foreground mt-0.5">{item.type}{item.auth ? ` · ${item.auth}` : ''}</p>
                   {item.notes && <p className="text-xs text-muted-foreground/70 mt-0.5">{item.notes}</p>}
                 </div>
+                <StatusBadge status={item.phase || "MVP"} />
                 <div className="flex gap-1">
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => startEdit(i)}><Pencil className="h-3.5 w-3.5" /></Button>
                   <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => remove(i)}><Trash2 className="h-3.5 w-3.5" /></Button>

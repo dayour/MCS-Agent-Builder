@@ -69,7 +69,7 @@ const KnowledgeSourcesSection = ({ data, onChange }: Props) => {
                   <div className="flex items-center gap-2 mb-1">
                     <p className="text-sm font-medium text-foreground">{item.name}</p>
                     <StatusBadge status={item.status} />
-                    <span className="text-[11px] text-muted-foreground">{item.phase || "MVP"}</span>
+                    <StatusBadge status={item.phase || "MVP"} />
                   </div>
                   {item.purpose && <p className="text-xs text-muted-foreground">{item.purpose}</p>}
                   <p className="text-xs text-muted-foreground/70 mt-0.5">{item.location}</p>

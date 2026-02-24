@@ -3,6 +3,7 @@ import { Plus, Trash2, Pencil, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import StatusBadge from "@/components/StatusBadge";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -75,7 +76,7 @@ const ConversationTopicsSection = ({ data, onChange }: Props) => {
                   <div className="flex items-center gap-2 mb-1">
                     <p className="text-sm font-medium text-foreground">{item.name}</p>
                     <span className="text-[11px] font-medium capitalize text-primary">{item.type || "generative"}</span>
-                    <span className="text-[11px] text-muted-foreground">{item.phase || "MVP"}</span>
+                    <StatusBadge status={item.phase || "MVP"} />
                   </div>
                   <p className="text-xs text-muted-foreground">{item.description}</p>
                   {item.type === "custom" && item.flowDescription && (

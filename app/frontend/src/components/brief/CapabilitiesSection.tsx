@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Plus, Trash2, Pencil, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
 import StatusBadge from "@/components/StatusBadge";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -11,7 +10,7 @@ import SectionGuidelines from "./SectionGuidelines";
 
 interface Props { data: any; onChange?: (data: any) => void; }
 
-const emptyItem = { name: "", description: "", enabled: true, tag: "MVP", status: "not_started" as const };
+const emptyItem = { name: "", description: "", phase: "MVP", status: "not_started" as const };
 
 const statusIndicator: Record<string, { color: string; label: string }> = {
   not_started: { color: "bg-muted-foreground/30", label: "Not started" },
@@ -51,19 +50,13 @@ const CapabilitiesSection = ({ data, onChange }: Props) => {
               <div className="space-y-3">
                 <Input placeholder="Capability name" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
                 <Input placeholder="Description" value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} />
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <Switch checked={draft.enabled} onCheckedChange={(v) => setDraft({ ...draft, enabled: v })} />
-                    <span className="text-xs text-muted-foreground">{draft.enabled ? "Enabled" : "Disabled"}</span>
-                  </div>
-                  <Select value={draft.tag} onValueChange={(v) => setDraft({ ...draft, tag: v })}>
-                    <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="MVP">MVP</SelectItem>
-                      <SelectItem value="Future">Future</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                <Select value={draft.phase || "MVP"} onValueChange={(v) => setDraft({ ...draft, phase: v })}>
+                  <SelectTrigger className="w-32"><SelectValue placeholder="Phase" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="MVP">MVP</SelectItem>
+                    <SelectItem value="Future">Future</SelectItem>
+                  </SelectContent>
+                </Select>
                 <div className="flex gap-2 justify-end">
                   <Button variant="ghost" size="sm" onClick={cancelEdit}><X className="h-3.5 w-3.5" /></Button>
                   <Button size="sm" onClick={saveEdit}><Check className="h-3.5 w-3.5" /></Button>
@@ -78,7 +71,7 @@ const CapabilitiesSection = ({ data, onChange }: Props) => {
                   <p className="text-sm font-medium text-foreground">{item.name}</p>
                   <p className="text-xs text-muted-foreground">{item.description}</p>
                 </div>
-                <StatusBadge status={item.tag} />
+                <StatusBadge status={item.phase || item.tag || "MVP"} />
                 <div className="flex gap-1">
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => startEdit(i)}><Pencil className="h-3.5 w-3.5" /></Button>
                   <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => remove(i)}><Trash2 className="h-3.5 w-3.5" /></Button>
