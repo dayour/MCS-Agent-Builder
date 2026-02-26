@@ -16,10 +16,12 @@ The MCS frontend communicates with a REST API called the **Island Control Plane*
 
 ## Authentication
 
-**Token resource:** `https://api.powerplatform.com`
+**Token resource:** `96ff4394-9197-43aa-b393-6a41652e21f8` (PVA app ID)
+
+> **Note:** The Connectivity API (connector metadata, `add-tool.js`) uses `https://service.powerapps.com/` as its token resource, while the Island Gateway (agent components) uses the PVA app ID. Do not confuse the two. (`api.powerplatform.com` is a hostname used in Connectivity API URLs, not a token resource.)
 
 ```bash
-az account get-access-token --resource https://api.powerplatform.com --query accessToken -o tsv
+az account get-access-token --resource 96ff4394-9197-43aa-b393-6a41652e21f8 --query accessToken -o tsv
 ```
 
 **Required headers** (from `IslandControlPlaneService.cs` lines 136-148):
@@ -334,7 +336,7 @@ node tools/add-tool.js list-connections --env <envId> --connector shared_todo
 
 ### Authentication
 
-**Token resource:** `https://service.powerapps.com/` (different from Island Gateway's `https://api.powerplatform.com`)
+**Token resource:** `https://service.powerapps.com/` (different from Island Gateway's PVA app ID `96ff4394-9197-43aa-b393-6a41652e21f8`)
 
 ```bash
 az account get-access-token --resource https://service.powerapps.com/ --query accessToken -o tsv

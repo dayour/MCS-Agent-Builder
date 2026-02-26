@@ -236,13 +236,13 @@ Remove-Bot -Ctx $ctx -BotId $botId
 
 | Operation | Why |
 |-----------|-----|
-| Model selection | Field not exposed in API |
-| Add tools/connectors | Tool attachment requires MCS internal sync |
+| Agent creation | Full wizard flow, no complete API |
 | Create OAuth connections | Interactive auth flow required |
 | Connect child agents | Agent connection requires MCS orchestration setup |
-| Generative AI settings | Internal MCS setting, not in Dataverse schema |
 | "Allow other agents to connect" | Security toggle not in public API |
 | Native eval upload/run | MCS evaluation service, no API |
+
+> **Note:** Model selection, instructions, topics, knowledge (sites/URLs), and tool editing are all now handled via LSP push (`mcs-lsp.js`). Tool addition uses `add-tool.js` + LSP push (if an OAuth connection already exists). See `knowledge/cache/api-capabilities.md` for the full capability matrix.
 
 ### CRITICAL: Creating New Components via Raw POST Is Broken
 
@@ -250,9 +250,9 @@ Remove-Bot -Ctx $ctx -BotId $botId
 
 | What You Want | Wrong Way (Looks Like It Works) | Right Way |
 |---------------|--------------------------------|-----------|
-| New topic | `POST /botcomponents` with componenttype=9 | Playwright: Topics → Add → Code Editor → paste YAML → Save |
-| New instructions | `POST /botcomponents` with componenttype=15 | Playwright: Overview → Instructions panel → paste text |
-| New knowledge source | `POST /botcomponents` with componenttype=16 | Playwright: Knowledge tab → Add → configure source |
+| New topic | `POST /botcomponents` with componenttype=9 | LSP push (`topics/*.mcs.yml` → `mcs-lsp.js push`). Playwright Code Editor is fallback. |
+| New instructions | `POST /botcomponents` with componenttype=15 | LSP push (`agent.mcs.yml` → `mcs-lsp.js push`). Playwright is fallback. |
+| New knowledge source | `POST /botcomponents` with componenttype=16 | LSP push (`knowledge/*.mcs.yml` → `mcs-lsp.js push`) for sites/URLs. Dataverse API for file uploads. Playwright is fallback. |
 | Update EXISTING instructions | `PATCH content` field (400 error) | **`PATCH data` field (YAML) + `PvaPublish` -- WORKS** (E2E tested 2026-02-20) |
 | Publish | — | `PvaPublish` bound action or `pac copilot publish` (MCP version) |
 
@@ -268,6 +268,17 @@ Remove-Bot -Ctx $ctx -BotId $botId
 | Publish agent | `PvaPublish` bound action | Or MCP `copilot_publish` |
 | Delete agent | `PvaDeleteBot` bound action | Or PowerShell `Remove-Bot` |
 | Get Direct Line token | `PvaGetDirectLineEndpoint` | For eval testing |
+
+### Bot Entity Name Update
+
+After Playwright creation, the bot entity `name` may not match the intended display name (LSP push updates GptComponent `displayName` but NOT the bot entity name). Patch it directly:
+
+```bash
+TOKEN=$(az account get-access-token --resource https://<org>.crm.dynamics.com --query accessToken -o tsv)
+curl -s -X PATCH "https://<org>.crm.dynamics.com/api/data/v9.2/bots(<botId>)" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"name":"<displayName>"}'
+```
 
 ### Common Pitfalls
 

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Automate Microsoft Copilot Studio (MCS) agent creation using a **hybrid build stack**: PAC CLI for lifecycle operations, MCS LSP Wrapper for component sync (topics, instructions, model, tools, knowledge, settings), Island Gateway API for model catalog and component reads, Dataverse API for security and file uploads, Direct Line API for testing, and Playwright MCP only for agent creation and new OAuth connections.
+Automate Microsoft Copilot Studio (MCS) agent creation using a **hybrid build stack**: PAC CLI for listing agents and solution ALM, MCS LSP Wrapper for component sync (instructions, model, topics, tools, knowledge, settings), Island Gateway API for model catalog and component reads, Dataverse API for file uploads, bot name PATCH, PvaPublish, and security, Direct Line API for testing, and Playwright MCP only for agent creation and new OAuth connections.
 
 **CRITICAL: Never assume components. Research BROADLY first (web, MS Learn, community — not just one source), recommend based on requirements.**
 
@@ -86,10 +86,10 @@ If `sessionDefaults` exist but `buildStatus` doesn't (new agent, returning user)
 
 | Priority | Tool | Use For |
 |----------|------|---------|
-| 1 | **PAC CLI** | Publishing, solution ALM, listing agents |
-| 2 | **MCS LSP Wrapper** | Topic push/pull, full component sync (`tools/mcs-lsp.js`) |
-| 3 | **Island Gateway API** | Model selection, model catalog, component reads, routing, settings |
-| 4 | **Dataverse API** | Knowledge upload, security settings, agent deletion |
+| 1 | **PAC CLI** | Listing agents, solution ALM |
+| 2 | **MCS LSP Wrapper** | Instructions, model, topics, knowledge (sites/URLs), full component sync (`tools/mcs-lsp.js`) |
+| 3 | **Island Gateway API** | Model catalog, component reads, routing, settings (`tools/island-client.js`) |
+| 4 | **Dataverse API** | File uploads (PDF/DOCX), bot name PATCH, PvaPublish, security, deletion |
 | 5 | **Direct Line API** | Evaluation / testing (send messages, compare responses) |
 | 6 | **Playwright MCP** | Agent creation, new OAuth connections, child agent connection |
 
@@ -102,7 +102,7 @@ Account selection determines everything — PAC CLI profile, Azure CLI tenant, a
 
 | Layer | What It Covers | How | Persisted In |
 |-------|---------------|-----|-------------|
-| **PAC CLI** | Publishing, solution ALM | `pac auth select` (automatic) | session-config.json `pacProfileIndex` |
+| **PAC CLI** | Listing agents, solution ALM | `pac auth select` (automatic) | session-config.json `pacProfileIndex` |
 | **Azure CLI** | LSP, Island Gateway, Dataverse, Direct Line | `az login --tenant` (auto, browser popup) | session-config.json `tenantId` + brief.json `azTenantId` |
 | **Browser** | Agent creation, OAuth, Test Chat | Playwright snapshot (on first use) | brief.json `buildStatus.account/environment` |
 
@@ -158,7 +158,7 @@ Lead executes validated outputs:
   - Pushes topic YAML via LSP Wrapper (mcs-lsp.js push)
   - Sets instructions via LSP push (agent.mcs.yml) or Dataverse API
   - Configures tools via add-tool.js + LSP push (Playwright only for new OAuth)
-  - Publishes (PAC CLI)
+  - Publishes (Dataverse PvaPublish, PAC CLI fallback)
 ```
 
 ### Rules
@@ -196,11 +196,11 @@ Before committing to designs that are hard to undo — schema changes, workflow 
 
 | Tool | Purpose |
 |------|---------|
-| **PAC CLI** | Agent lifecycle: publish, list, status, solution ALM (`pac copilot`, `pac solution`) |
-| **MCS LSP Wrapper** | Topic push/pull, full component sync via official LS (`tools/mcs-lsp.js`) |
+| **PAC CLI** | Listing agents, status, solution ALM (`pac copilot`, `pac solution`) |
+| **MCS LSP Wrapper** | Instructions, model, topics, knowledge sync, full component push/pull via official LS (`tools/mcs-lsp.js`) |
 | **Island Gateway API** | Model catalog, component reads, routing info, bot settings (`tools/island-client.js`) |
 | **Add Tool CLI** | Headless tool/connector addition — generates action YAML for LSP push (`tools/add-tool.js`) |
-| **Dataverse API** | Agent config: security, deletion, publish (via HTTP/PowerShell) |
+| **Dataverse API** | File uploads, bot name PATCH, PvaPublish bound action, security, deletion (via HTTP/PowerShell) |
 | **Code Editor YAML** | Topic authoring fallback: conversations, cards, branching (paste into MCS code editor) |
 | **ObjectModel CLI** | Full YAML validation + schema exploration (357 types, catches unknown nodes + missing fields): `tools/om-cli/om-cli.exe` (validate, schema, search, list, hierarchy, composition, examples) |
 | **Gen Constraints** | Pre-generation constraint extraction: `python tools/gen-constraints.py <types>` — required fields per node type |

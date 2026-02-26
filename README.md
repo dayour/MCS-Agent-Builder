@@ -104,10 +104,10 @@ Each build step uses the best tool, minimizing fragile browser automation:
 
 | Priority | Tool | Handles |
 |----------|------|---------|
-| 1 | **PAC CLI** | Publishing, solution ALM, listing agents |
-| 2 | **MCS LSP Wrapper** | Topic push/pull, instructions, model, tools, knowledge, full component sync |
+| 1 | **PAC CLI** | Listing agents, solution ALM |
+| 2 | **MCS LSP Wrapper** | Instructions, model, topics, knowledge (sites/URLs), full component sync |
 | 3 | **Island Gateway API** | Model catalog, component reads, routing info, bot settings |
-| 4 | **Dataverse API** | Security settings, agent deletion, bound actions |
+| 4 | **Dataverse API** | File uploads (PDF/DOCX), bot name PATCH, PvaPublish, security, deletion |
 | 5 | **Direct Line API** | Evaluation testing (send messages, compare responses) |
 | 6 | **Playwright** | Agent creation, new OAuth connections (last resort) |
 

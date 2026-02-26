@@ -5,7 +5,7 @@ description: "Build agent(s) in Copilot Studio using the hybrid build stack with
 
 # MCS Agent Builder — Unified Hybrid Build Stack
 
-Build agents in Microsoft Copilot Studio using the optimized hybrid approach: PAC CLI for lifecycle, LSP wrapper for topic sync, Island Gateway API for model/instructions, Dataverse API for configuration, and Playwright only where no API exists.
+Build agents in Microsoft Copilot Studio using the optimized hybrid approach: PAC CLI for listing agents and solution ALM, LSP wrapper for instructions, model, topics, knowledge, and full component sync, Dataverse API for file uploads and PvaPublish, and Playwright only for agent creation and new OAuth connections.
 
 This skill handles all build modes:
 - **Single Agent** — standalone build
@@ -175,7 +175,7 @@ In addition to Topic Engineer (YAML authoring, Step 4) and QA Challenger (review
 
 **After PE reports:**
 - QA Challenger does a quick consistency check (existing QA teammate, already active in Step 4)
-- Lead applies revised instructions via Dataverse API
+- Lead applies revised instructions via LSP push (edit agent.mcs.yml → push)
 - Update `brief.json.instructions` with the revised version
 - PE is dismissed (not kept alive for the whole build)
 
@@ -243,10 +243,18 @@ PAC CLI `create` requires an undocumented template YAML that only captures ~30% 
 4. Set icon if specified in brief.json
 5. Click **Create**
 
-After creation, capture bot ID:
-```powershell
-pac copilot list
-```
+After creation:
+1. Capture bot ID:
+   ```powershell
+   pac copilot list
+   ```
+2. Update the bot entity name (LSP push updates GptComponent `displayName` but NOT the bot entity `name`):
+   ```bash
+   TOKEN=$(az account get-access-token --resource <dataverseUrl> --query accessToken -o tsv)
+   curl -s -X PATCH "<dataverseUrl>/api/data/v9.2/bots(<botId>)" \
+     -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+     -d '{"name":"<displayName>"}'
+   ```
 
 **Fallback:** If browser is unavailable, use `pac copilot create --displayName "Name" --schemaName "cr_name" --solution "DefaultSolution" --templateFileName template.yaml` (requires extracting a template from an existing agent first).
 
@@ -278,12 +286,18 @@ The clone creates a subfolder named after the agent (e.g., `workspace/Agent Name
 
 **VERIFY:** Workspace directory exists with `.mcs/conn.json` and at least `agent.mcs.yml`.
 
+#### LSP Workflow Notes
+- Clone runs `postPullCleanup()` automatically — strips BOMs from `settings.mcs.yml` and removes `Signin.mcs.yml` (trailing space bug)
+- For updates: pull first (refreshes changetoken), then edit, then push
+- Gen orchestration topics: use `modelDescription` for routing — `triggerQueries` may block publish
+- Push response `localChanges` may under-report (shows "Settings" but actually pushes instructions, model, knowledge, topics)
+
 ### Step 2: Configure Instructions & Knowledge (LSP Push — no browser)
 
 **Skip check:** If `"instructions"` is in `completedSteps`, skip the instructions sub-step. If `"knowledge"` is in `completedSteps`, skip the knowledge sub-step. If both are completed, skip this entire step.
 
 **Instructions:** Edit `agent.mcs.yml` in the cloned workspace → set `instructions:` field → push via `mcs-lsp.js push`.
-**Fallback:** Dataverse API PATCH (see `knowledge/patterns/dataverse-patterns.md` § 3) → Playwright
+**Fallback:** Dataverse API PATCH `data` field + PvaPublish (see `knowledge/patterns/dataverse-patterns.md` § 3) → Playwright
 **Checkpoint:** After verified, add `"instructions"` to `brief.json.buildStatus.completedSteps` and set `lastCompletedStep` to `"instructions"`.
 
 **Knowledge:** For SharePoint sites and public websites, create `.mcs.yml` files in the workspace's `knowledge/` folder → push via `mcs-lsp.js push`. For file uploads (PDF, DOCX), use Dataverse API (see `knowledge/patterns/dataverse-patterns.md` § 4). See `knowledge/cache/knowledge-sources.md` for YAML format per source type.
@@ -298,7 +312,7 @@ pac copilot publish --bot <bot-id>
 
 **VERIFY:** Snapshot Overview → instructions text matches spec, knowledge sources listed.
 
-**On-demand PE trigger:** After Step 3 configures tools, if tool names in MCS differ from brief.json, spawn Prompt Engineer to adjust instructions (see "On-Demand Teammates" section above). Re-apply instructions via Dataverse API after PE revises them.
+**On-demand PE trigger:** After Step 3 configures tools, if tool names in MCS differ from brief.json, spawn Prompt Engineer to adjust instructions (see "On-Demand Teammates" section above). Re-apply instructions via LSP push after PE revises agent.mcs.yml.
 
 ### Before Step 3: Consult Connector & Integration Learnings
 
@@ -381,9 +395,11 @@ For each MVP topic in the spec:
 
 #### Phase 1: Initial Publish + Critical Gate
 
-1. **Publish** (PAC CLI):
-   ```powershell
-   pac copilot publish --bot <bot-id>
+1. **Publish** (Dataverse PvaPublish or PAC CLI fallback):
+   ```bash
+   TOKEN=$(az account get-access-token --resource <dataverseUrl> --query accessToken -o tsv)
+   curl -s -X POST "<dataverseUrl>/api/data/v9.2/bots(<botId>)/Microsoft.Dynamics.CRM.PvaPublish" \
+     -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{}'
    ```
 2. **Run critical eval set** via Direct Line API or optimized Playwright Test Chat (same method as `/mcs-eval` Tier 1/2):
    - Read `brief.json.evalSets[]`, find set where `name == "critical"`
@@ -395,7 +411,7 @@ For each MVP topic in the spec:
    - If ALL critical tests pass → proceed to Phase 2
    - If ANY critical test fails:
      - Classify failure (instruction gap or boundary violation)
-     - Fix instructions via Dataverse API (PE if needed)
+     - Fix instructions via LSP push (PE edits agent.mcs.yml)
      - Re-publish, re-run critical set
      - **Max 3 attempts.** If still failing after 3 → **HARD STOP**: "Critical gate failed after 3 attempts. Safety/boundary issues must be resolved manually."
      - Update `capabilities[].status` accordingly
@@ -415,7 +431,7 @@ For each MVP capability (in priority order from `capabilities[]` where `phase ==
    - If all tests pass → mark `capability.status = "passing"`, move to next capability
    - If tests fail:
      - Classify failures (instruction gap, routing, tool issue, knowledge gap)
-     - Apply targeted fix: PE for instructions (Dataverse API), TE for topics (write `.mcs.yml` to workspace + `mcs-lsp.js push`)
+     - Apply targeted fix: PE for instructions (LSP push), TE for topics (write `.mcs.yml` to workspace + `mcs-lsp.js push`)
      - Re-publish, re-run capability's tests
      - **Max 3 iterations per capability.** If still failing → mark `capability.status = "failing"`, move on
    - Update `capabilities[].status` = `"building"` while iterating
@@ -441,20 +457,30 @@ For each MVP capability (in priority order from `capabilities[]` where `phase ==
 - If `brief.json.evalSets` is empty or has no tests → skip to Step 5 (publish only, no iteration)
 - If `--skip-eval` flag provided → skip to Step 5
 
-### Step 5: Publish (PAC CLI — no browser)
+### Step 5: Publish (Dataverse PvaPublish — no browser)
 
 **Always runs** — even on resume. Publishing is cheap and ensures the latest state is live.
 
-```powershell
-pac copilot publish --bot <bot-id>
-pac copilot status --bot-id <bot-id>
+**Primary method (Dataverse bound action):**
+```bash
+TOKEN=$(az account get-access-token --resource <dataverseUrl> --query accessToken -o tsv)
+curl -s -X POST "<dataverseUrl>/api/data/v9.2/bots(<botId>)/Microsoft.Dynamics.CRM.PvaPublish" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{}'
+```
+
+**Fallback:** `pac copilot publish --bot <bot-id>` (crashes on some agents)
+
+**Verify:** Query `publishedon` field — timestamp should be fresh:
+```bash
+curl -s "<dataverseUrl>/api/data/v9.2/bots(<botId>)?$select=publishedon" \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 **If environments don't match:** Publish via browser Publish button.
 
 **Checkpoint:** After verified, add `"published"` to `completedSteps`, set `lastCompletedStep` to `"published"`. Clear `lastError`.
 
-**VERIFY:** Snapshot Overview → "Published [today]" visible.
+**VERIFY:** `publishedon` timestamp is today, or snapshot Overview → "Published [today]" visible.
 
 ### Step 5.5: QA Build Validation Gate (Agent Teams)
 
@@ -598,7 +624,7 @@ Write the complete buildStatus. Most fields were already written incrementally d
    e. Add tools/model (LSP push — `agent.mcs.yml` for model, `add-tool.js` for tools)
    f. Enable "Allow other agents to connect" (Playwright → Settings → Security)
    g. Author topics (LSP push — `topics/*.mcs.yml`)
-   h. Publish (PAC CLI)
+   h. Publish (Dataverse PvaPublish, PAC CLI fallback)
    i. **VERIFY:** Pull latest state via `mcs-lsp.js pull`, confirm all items
 
 2. Build orchestrator:
@@ -616,7 +642,7 @@ Write the complete buildStatus. Most fields were already written incrementally d
    e. Connect child agents (Playwright → Agents tab → Add agent → search → add)
    f. Add orchestrator-level tools/knowledge if needed (LSP push)
    g. Author topics if needed (LSP push — `topics/*.mcs.yml`)
-   h. Publish (PAC CLI)
+   h. Publish (Dataverse PvaPublish, PAC CLI fallback)
    i. **VERIFY:** All specialists connected, routing rules in instructions
 
 ### Multi-Agent Verification

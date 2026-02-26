@@ -10,7 +10,7 @@ refresh_trigger: on_error
 
 | Layer | Tool | Best For | Cost |
 |-------|------|----------|------|
-| 1 | PAC CLI (MSI + MCP) | Publishing, solution ALM, listing agents | Free |
+| 1 | PAC CLI (MSI + MCP) | Listing agents, solution ALM | Free |
 | 1.5 | **MCS LSP Wrapper** | **Topic push/pull, instructions, model, tools, knowledge, full sync** | **Free** |
 | 1.5 | **Island Gateway API** | **Model catalog, component reads, routing, settings** | **Free** |
 | 2 | Dataverse MCP Server | Record CRUD, schema discovery | Copilot Credits |
@@ -42,7 +42,7 @@ Handles YAML→JSON conversion automatically via `YamlPassThroughSerializationCo
 
 **Client:** `tools/island-client.js` (zero dependencies, Node.js)
 **Base:** `powervamg.{region}.gateway.prod.island.powerapps.com`
-**Auth:** `az account get-access-token --resource https://api.powerplatform.com`
+**Auth:** `az account get-access-token --resource 96ff4394-9197-43aa-b393-6a41652e21f8` (PVA app ID — NOT `api.powerplatform.com`)
 **Full reference:** `knowledge/cache/island-gateway-api.md`
 
 | Operation | Endpoint | Replaces |

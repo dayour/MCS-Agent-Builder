@@ -12,7 +12,7 @@
  * YAML→JSON conversion automatically. Use this client for lightweight operations:
  * model selection, model catalog, component reads, routing info, bot settings.
  *
- * Auth: az account get-access-token --resource https://api.powerplatform.com
+ * Auth: az account get-access-token --resource 96ff4394-9197-43aa-b393-6a41652e21f8  (PVA app ID)
  *
  * Usage:
  *   node tools/island-client.js read-components --env <envId> --bot <botId>

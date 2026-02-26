@@ -4,10 +4,10 @@
 
 | Priority | Tool | Use For |
 |----------|------|---------|
-| 1 | **PAC CLI** | Publishing, solution ALM, listing agents |
+| 1 | **PAC CLI** | Listing agents, solution ALM |
 | 2 | **MCS LSP Wrapper** | Topic push/pull, instructions, model, tools, knowledge, full component sync (`tools/mcs-lsp.js`) |
 | 3 | **Island Gateway API** | Model catalog, component reads, routing info, bot settings (`tools/island-client.js`) |
-| 4 | **Dataverse API** | Security settings, agent deletion, bound actions |
+| 4 | **Dataverse API** | File uploads (PDF/DOCX), bot name PATCH, PvaPublish, security, deletion |
 | 5 | **Direct Line API** | Evaluation / testing (send messages, compare responses) |
 | 6 | **Playwright MCP** | Agent creation, new OAuth connections, child agent connection |
 
@@ -43,13 +43,14 @@ See `knowledge/cache/api-capabilities.md` for the full breakdown of what each la
 | Set conversation starters | LSP Wrapper (`agent.mcs.yml` → push) | Playwright |
 | Set auth mode | LSP Wrapper (`settings.mcs.yml` → push) | Playwright |
 | Set agent settings | LSP Wrapper (`settings.mcs.yml` → push) | Playwright |
-| Upload knowledge | Dataverse API (POST botcomponent type 16) | Playwright |
+| Upload knowledge (sites/URLs) | LSP push (`knowledge/*.mcs.yml`) | Playwright |
+| Upload knowledge (PDF/DOCX) | Dataverse API (file upload) | Playwright |
 | Read components | Island Gateway API (POST botcomponents) | Dataverse queries |
 | Add tools/connectors | `add-tool.js` + LSP push (if connection exists) | Playwright (for new OAuth connections) |
 | Create connections | Playwright (OAuth browser flow) | — |
 | Author topics (new) | LSP Wrapper (`topics/*.mcs.yml` → push) | Island Gateway API / Playwright |
 | Author topics (update) | LSP Wrapper (`topics/*.mcs.yml` → push) | Island Gateway API / Playwright |
-| Publish | PAC CLI (`pac copilot publish`) | Playwright / Dataverse PvaPublish |
+| Publish | Dataverse PvaPublish (bound action) | PAC CLI (`pac copilot publish`) / Playwright |
 | Test | Direct Line API | Playwright test chat |
 | Connect child agents | Playwright (no API) | — |
 | Enable sharing | Playwright (no API) | — |
