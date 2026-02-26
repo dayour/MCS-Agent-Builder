@@ -28,6 +28,6 @@ ID format: in-NNN (instructions)
 - Boundary enforcement via instructions only (no dedicated topics mentioned)
 - Per MS best practices: "Avoid naming specific knowledge sources directly. Describe capabilities generically."
 **Better approach:** Use MS three-part structure (Constraints + Response Format + Guidance). Describe knowledge generically ("search policy documents") instead of hardcoding URLs. Include audience, follow-up guidance, and 2-3 examples. Rely on dedicated topics for hard boundaries, not instructions alone. Topic descriptions drive routing more than instructions (priority: description > name > parameters > instructions).
-**Confirmed:** 1 build(s) | Last confirmed: 2026-02-20
+**Confirmed:** 2 build(s) | Last confirmed: 2026-02-26
 **Related cache:** instructions-authoring.md, generative-orchestration.md
 **Tags:** #instructions #urls #anti-pattern #follow-up #audience #three-part-structure #boundaries

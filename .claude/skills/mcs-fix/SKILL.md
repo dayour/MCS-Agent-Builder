@@ -16,6 +16,17 @@ Analyze eval set failures from `/mcs-eval`, classify root causes, generate and a
 **Reads:** `Build-Guides/{projectId}/agents/{agentId}/brief.json` — evalSets (tests with lastResult), instructions, integrations, capabilities, conversations.topics
 **Writes:** `brief.json` (instructions, conversations.topics, evalSets, notes.fixHistory), agent in MCS (via hybrid stack)
 
+## Prerequisites: Azure CLI Tenant Verification
+
+Before applying fixes, verify az CLI is logged into the correct tenant (same check as mcs-build). LSP Wrapper, Dataverse API, and PAC CLI all need tokens for the agent's tenant.
+
+1. Read `brief.json.buildStatus.azTenantId` — if set, use it. Otherwise read from `tools/session-config.json` for the account in `buildStatus.accountId`.
+2. Run: `az account show --query tenantId -o tsv`
+3. Compare:
+   - **Match** → Log: `Azure CLI verified for tenant {tenantId}` — proceed
+   - **Mismatch** → Alert: `Azure CLI is on tenant {X} but agent is on {Y}. Run: az login --tenant {Y}` — WAIT for user
+   - **No azTenantId stored** → Ask user to confirm current az login is correct for this agent's tenant. If confirmed, persist to `brief.json.buildStatus.azTenantId`.
+
 ## Step 1: Read & Validate Eval Results (Lead)
 
 1. Read `brief.json.evalSets[]` — scan all tests for `lastResult`

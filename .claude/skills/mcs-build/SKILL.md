@@ -69,6 +69,29 @@ Every build targets a specific tenant and environment. This gate reads persisted
      Build target: {account} / {environment} (PAC CLI profile {index}).
      ```
 
+### Azure CLI Tenant Verification
+
+After PAC CLI profile selection, verify az CLI is logged into the correct tenant. This prevents silent failures in LSP Wrapper, Dataverse API, Island Gateway API, and Direct Line — all of which call `az account get-access-token`.
+
+1. Read target `tenantId` from `tools/session-config.json` for the selected account
+2. Run: `az account show --query "{tenantId:tenantId, user:user.name}" -o json`
+3. Compare `az.tenantId` against `config.tenantId`:
+
+| Result | Action |
+|--------|--------|
+| **Match** | Log: `Azure CLI verified: {user} (tenant {tenantId})` — proceed |
+| **Mismatch** | Alert: `Azure CLI is on tenant {X} but target is {Y}. Run: az login --tenant {Y}` — WAIT for user |
+| **No stored tenantId** | Ask: "Is {az.user} / {az.tenantId} correct for {account}?" If yes, persist tenantId to session-config.json |
+| **az CLI not logged in** | Alert: `Run: az login --tenant {tenantId}` — WAIT for user |
+
+4. After successful verification, persist to `brief.json.buildStatus.azTenantId`
+5. On resume (buildStatus.azTenantId exists): re-verify silently — same check, same rules
+
+**Rules:**
+- Never run `az logout` — just check and alert on mismatch
+- This runs ONCE at build start, not before every tool call
+- If the user says "skip az verification", note that API tools (LSP, Island Gateway, Dataverse, Direct Line) may fail and proceed with Playwright-only fallback
+
 ### Rules
 
 - If the user says "switch to [account/env]" at any point, re-run the picker and update both persistence locations

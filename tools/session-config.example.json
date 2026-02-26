@@ -4,6 +4,7 @@
       "id": "your-account-id",
       "label": "you@yourtenant.onmicrosoft.com",
       "tenant": "YourTenantName",
+      "tenantId": null,
       "pacProfileIndex": null,
       "environments": [
         {

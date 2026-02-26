@@ -96,6 +96,16 @@ If `sessionDefaults` exist but `buildStatus` doesn't (new agent, returning user)
 **Detailed capabilities per layer:** See `knowledge/cache/api-capabilities.md`
 **Decision flow and build phase mapping:** See `knowledge/frameworks/tool-priority.md`
 
+### Three Auth Layers (all verified before API operations)
+
+| Layer | What It Covers | Verified By | Persisted In |
+|-------|---------------|-------------|-------------|
+| **PAC CLI** | `pac copilot publish`, `pac solution`, `pac copilot list` | `pac auth select` in build gate | session-config.json `pacProfileIndex` |
+| **Azure CLI** | LSP Wrapper, Island Gateway API, Dataverse API, Direct Line token | `az account show` in build gate | session-config.json `tenantId` + brief.json `azTenantId` |
+| **Browser** | Playwright interactions (agent creation, OAuth, Test Chat) | Playwright snapshot in browser preflight | brief.json `buildStatus.account/environment` |
+
+**Azure CLI verification** is handled by the build/eval/fix skills (not the browser preflight). It checks `az account show` against the target tenant and alerts on mismatch — never runs `az logout`.
+
 ---
 
 ## Agent Teams (Experimental)
