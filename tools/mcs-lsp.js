@@ -23,6 +23,7 @@ const { spawn, execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { pathToFileURL } = require('url');
 
 // --- Configuration ---
 const LSP_STARTUP_TIMEOUT_MS = 15000;
@@ -334,7 +335,8 @@ function getTokens(connJson) {
     const dvUrl = connJson.DataverseEndpoint.replace(/\/$/, '');
 
     const dataverseToken = getAzToken(dvUrl);
-    const copilotStudioToken = getAzToken('https://api.powerplatform.com');
+    // PVA/Copilot Studio gateway expects audience = PVA app ID, not api.powerplatform.com
+    const copilotStudioToken = getAzToken('96ff4394-9197-43aa-b393-6a41652e21f8');
 
     return { dataverseToken, copilotStudioToken };
 }
@@ -364,7 +366,7 @@ function getAzToken(resource) {
  */
 function buildSyncRequest(workspacePath, connJson, tokens) {
     // Convert workspace path to file URI
-    const fileUri = 'file:///' + workspacePath.replace(/\\/g, '/').replace(/^\//, '');
+    const fileUri = pathToFileURL(workspacePath).href;
 
     return {
         workspaceUri: fileUri,
@@ -390,7 +392,7 @@ function buildSyncRequest(workspacePath, connJson, tokens) {
  * Send the LSP initialize request + initialized notification.
  */
 async function initializeLsp(client, workspacePath) {
-    const fileUri = 'file:///' + workspacePath.replace(/\\/g, '/').replace(/^\//, '');
+    const fileUri = pathToFileURL(workspacePath).href;
 
     const initResult = await client.send('initialize', {
         processId: process.pid,
@@ -428,7 +430,7 @@ async function openWorkspaceFiles(client, workspacePath) {
 
     for (const filePath of files) {
         const content = fs.readFileSync(filePath, 'utf8');
-        const fileUri = 'file:///' + filePath.replace(/\\/g, '/').replace(/^\//, '');
+        const fileUri = pathToFileURL(filePath).href;
 
         client.notify('textDocument/didOpen', {
             textDocument: {
@@ -557,7 +559,7 @@ async function preview(workspacePath, options = {}) {
  */
 async function info(workspacePath, options = {}) {
     const connJson = readConnJson(workspacePath);
-    const fileUri = 'file:///' + workspacePath.replace(/\\/g, '/').replace(/^\//, '');
+    const fileUri = pathToFileURL(workspacePath).href;
 
     const lspPath = options.lspPath || findLspBinary();
     const client = new LspClient(lspPath);
@@ -598,11 +600,11 @@ async function clone(workspacePath, connInfo, options = {}) {
 
     // Get tokens
     const dvToken = getAzToken(connInfo.dataverseUrl.replace(/\/$/, ''));
-    const csToken = getAzToken('https://api.powerplatform.com');
+    const csToken = getAzToken('96ff4394-9197-43aa-b393-6a41652e21f8');
 
-    // Build the account ID composite (accountGuid.tenantGuid)
-    const accountId = options.accountId ||
-        `${connInfo.tenantId}.${connInfo.tenantId}`;
+    // Use the account ID from config, options, or fall back to tenantId
+    const accountId = options.accountId || connInfo.accountId ||
+        connInfo.tenantId;
 
     const lspPath = options.lspPath || findLspBinary();
     const client = new LspClient(lspPath);
@@ -611,7 +613,7 @@ async function clone(workspacePath, connInfo, options = {}) {
         client.start();
 
         // Initialize LSP with the parent directory as workspace root
-        const fileUri = 'file:///' + workspacePath.replace(/\\/g, '/').replace(/^\//, '');
+        const fileUri = pathToFileURL(workspacePath).href;
         await client.send('initialize', {
             processId: process.pid,
             capabilities: {
@@ -641,7 +643,7 @@ async function clone(workspacePath, connInfo, options = {}) {
                 cloneConnectors: true,
                 cloneFlows: true
             },
-            rootFolder: workspacePath.replace(/\//g, '\\'),
+            rootFolder: pathToFileURL(workspacePath).href,
             environmentInfo: {
                 environmentId: connInfo.environmentId,
                 dataverseUrl: connInfo.dataverseUrl.replace(/\/?$/, '/'),

@@ -527,7 +527,8 @@ async function main() {
     }
 
     // Get auth token
-    const token = getToken('https://api.powerplatform.com');
+    // PVA/Copilot Studio gateway expects audience = PVA app ID
+    const token = getToken('96ff4394-9197-43aa-b393-6a41652e21f8');
     const headers = buildHeaders(token, tenantId, config.envId, config.botId);
 
     try {
