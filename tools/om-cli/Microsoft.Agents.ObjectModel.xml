@@ -27220,6 +27220,11 @@
             Returns a ToolDefinition for the specified dialog schema name if it exists.
             </summary>
         </member>
+        <member name="M:Microsoft.Agents.ObjectModel.BotDefinitionExtensions.TryGetToolDefinitionForProduct(Microsoft.Agents.ObjectModel.DefinitionBase,Microsoft.Agents.ObjectModel.DialogSchemaNameReference,Microsoft.Agents.ObjectModel.Product,Microsoft.Agents.ObjectModel.ToolDefinition@,System.String)">
+            <summary>
+            Returns a ToolDefinition for the specified product and dialog schema name if it exists.
+            </summary>
+        </member>
         <member name="M:Microsoft.Agents.ObjectModel.BotDefinitionExtensions.TryGetCopilotToolDefinition(Microsoft.Agents.ObjectModel.DefinitionBase,Microsoft.Agents.ObjectModel.DialogSchemaNameReference,Microsoft.Agents.ObjectModel.ToolDefinition@,System.String)">
             <summary>
             Returns a ToolDefinition for the Conversational Plugin dialog if it exists.
