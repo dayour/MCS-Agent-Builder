@@ -5702,6 +5702,10 @@
           "const": "Agent365"
         },
         {
+          "title": "Agents",
+          "const": "Agents"
+        },
+        {
           "title": "MsTeamsPhone",
           "const": "MsTeamsPhone"
         }
