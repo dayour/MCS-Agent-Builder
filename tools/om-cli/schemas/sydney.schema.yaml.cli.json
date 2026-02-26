@@ -842,9 +842,6 @@
           "$ref": "#/definitions/OnEscalate"
         },
         {
-          "$ref": "#/definitions/OnSelectIntent"
-        },
-        {
           "$ref": "#/definitions/OnError"
         },
         {
@@ -2229,9 +2226,6 @@
         },
         {
           "$ref": "#/definitions/OnEscalate"
-        },
-        {
-          "$ref": "#/definitions/OnSelectIntent"
         },
         {
           "$ref": "#/definitions/OnError"
@@ -4370,9 +4364,6 @@
         "x-abstract": true
       },
       "oneOf": [
-        {
-          "$ref": "#/definitions/OnSelectIntent"
-        },
         {
           "$ref": "#/definitions/OnError"
         },
@@ -12630,28 +12621,6 @@
       "properties": {
         "kind": {
           "const": "OnEscalate"
-        }
-      },
-      "required": [
-        "kind",
-        "id"
-      ]
-    },
-    "OnSelectIntent": {
-      "title": "On Select Intent",
-      "description": "Triggered when the recognizer recognizes more than 1 similar intent",
-      "type": "object",
-      "additionalProperties": false,
-      "x-base-ref": "#/definitions/SystemTrigger",
-      "properties": {
-        "kind": {
-          "const": "OnSelectIntent"
-        },
-        "triggerBehavior": {
-          "title": "On Select Intent Trigger Behavior",
-          "description": "Control when this trigger will execute",
-          "default": "Default",
-          "$ref": "#/definitions/OnSelectIntentTriggerBehavior"
         }
       },
       "required": [
