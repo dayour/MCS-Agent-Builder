@@ -177,6 +177,10 @@
           "question": "Test question to ask the agent",
           "expected": "What the response should contain or convey",
           "capability": "Which capability this tests (links to capabilities[].name, optional)",
+          "methods": null,
+          "scenarioId": null,
+          "scenarioCategory": null,
+          "coverageTag": null,
           "lastResult": null
         }
       ]
@@ -220,6 +224,8 @@
     "lastCompletedStep": "Last step that succeeded (e.g. tools) — used for resume",
     "lastError": "Optional — what failed on last attempt, cleared on next successful step"
   },
+
+  "evalCoverage": null,
 
   "notes": {
     "_description": "Flexible key-value store for anything that doesn't fit above. Keys are freeform.",

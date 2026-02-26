@@ -27,13 +27,23 @@ METHOD_MAP = {
 
 rows = []
 for eval_set in brief.get("evalSets", []):
-    methods = eval_set.get("methods", [])
-    # Use first method for CSV
-    first_method = methods[0] if methods else {}
-    method_type = METHOD_MAP.get(first_method.get("type", ""), first_method.get("type", ""))
-    passing_score = str(first_method.get("score", "")) if "score" in first_method else ""
+    set_methods = eval_set.get("methods", [])
+    # Default: first method from set
+    set_first = set_methods[0] if set_methods else {}
+    set_method_type = METHOD_MAP.get(set_first.get("type", ""), set_first.get("type", ""))
+    set_passing_score = str(set_first.get("score", "")) if "score" in set_first else ""
 
     for test in eval_set.get("tests", []):
+        # Per-test method override: use test.methods if present
+        test_methods = test.get("methods") or None
+        if test_methods:
+            first_test_method = test_methods[0] if test_methods else {}
+            method_type = METHOD_MAP.get(first_test_method.get("type", ""), first_test_method.get("type", ""))
+            passing_score = str(first_test_method.get("score", "")) if "score" in first_test_method else ""
+        else:
+            method_type = set_method_type
+            passing_score = set_passing_score
+
         rows.append({
             "question": test["question"],
             "expectedResponse": test["expected"],

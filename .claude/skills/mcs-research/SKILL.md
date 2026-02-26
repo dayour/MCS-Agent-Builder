@@ -586,31 +586,37 @@ Spawn **QA Challenger** to classify topics AND populate all 5 default eval sets 
 - Requires channel-specific behavior (adaptive cards, quick replies)
 - Maps to a capability that the brief marks as requiring "structured" or "workflow" behavior
 
-**Eval set generation:** QA populates 5 default eval sets from the brief:
+**Eval set generation — scenario-driven:** QA reads `knowledge/frameworks/eval-scenarios/index.json` and uses the **Scenario-Driven Eval Generation** protocol (defined in qa-challenger.md) to generate tests from proven patterns instead of ad-hoc from brief fields.
 
-| Set | What QA Generates | Source Material |
-|-----|-------------------|----------------|
-| **critical** (100% pass) | Boundary decline + refuse tests, identity/persona tests | `boundaries.decline[]`, `boundaries.refuse[]`, `agent.persona` |
-| **functional** (70% pass) | Happy-path tests per MVP capability | `capabilities[]` where `phase == "mvp"` |
-| **integration** (80% pass) | Tool/connector verification tests | `integrations[]` where `phase == "mvp"` |
-| **conversational** (60% pass) | Multi-turn, context carry, topic switching | Cross-capability scenarios, follow-ups |
-| **regression** (70% pass) | Cross-cutting end-to-end tests | Combined capabilities, edge cases |
+| Set | What QA Generates | Source Material | Target Count |
+|-----|-------------------|----------------|-------------|
+| **critical** (100% pass) | Boundary decline/refuse + PII protection + prompt injection + scope boundary + adversarial | `boundaries.*`, `agent.persona`, CAP-SB scenarios | **6-10** |
+| **functional** (70% pass) | Per-capability happy paths + scenario variations + negative tests | `capabilities[]` (mvp), BP-IR/BP-TS/BP-RS/BP-PN scenarios | **8-15** |
+| **integration** (80% pass) | Tool invoke + parameter extraction + error handling + auth boundary | `integrations[]` (mvp), CAP-TI scenarios | **5-8** |
+| **conversational** (60% pass) | Multi-turn + context carry + topic switching + tone + empathy | Cross-capability, CAP-TQ/CAP-TR scenarios | **4-8** |
+| **regression** (70% pass) | Cross-capability + end-to-end + per-change-type regression | Combined capabilities, CAP-RT scenarios | **5-8** |
+
+**Total target: 28-50 tests** across all sets (up from 15-25). Critical set must have at least 1 test per boundary refuse/decline, plus PII and prompt injection tests.
 
 **Each test includes:**
 - `question` — realistic user message (including typos, informal language)
 - `expected` — what the response should contain or convey
 - `capability` — links to `capabilities[].name` (optional for cross-cutting tests)
+- `scenarioId` — library scenario ID (e.g., "BP-IR-01", "CAP-SB-03") when generated from a scenario pattern
+- `scenarioCategory` — category name (e.g., "Safety & Boundary Enforcement")
+- `coverageTag` — "core-business" | "variations" | "architecture" | "edge-cases"
+- `methods` — per-test method override when scenario recommends different methods than set defaults (null = use set methods)
 
-**Target counts:** 15-25 total tests across all sets. Critical set must have at least 1 test per boundary refuse/decline.
-
-**Methods are preset per set (defaults from schema):**
+**Methods are preset per set (defaults from schema), with per-test overrides where scenarios recommend different methods:**
 - Critical: `Keyword match (all)` + `Exact match`
 - Functional: `Compare meaning (70)` + `Keyword match (any)`
 - Integration: `Capability use` + `Keyword match (any)`
 - Conversational: `General quality` + `Compare meaning (60)`
 - Regression: `Compare meaning (70)` + `General quality`
 
-Research may adjust methods per set based on agent specifics (e.g., raise Compare meaning threshold for precision-critical agents).
+Research may adjust methods per set based on agent specifics (e.g., raise Compare meaning threshold for precision-critical agents). Individual tests may override methods when a scenario's recommended methods differ from the set default.
+
+**After eval generation, QA reports coverage distribution** (core-business/variations/architecture/edge-cases percentages) and flags gaps against the scenario library's recommended categories.
 
 ### Step 1.5: Topic Feasibility Review — Topic Engineer (single pass)
 

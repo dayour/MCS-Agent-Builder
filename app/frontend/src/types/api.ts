@@ -172,6 +172,10 @@ export interface ApiBrief {
       question: string;
       expected?: string;
       capability?: string;
+      methods?: Array<{ type: string; score?: number; mode?: string }> | null;
+      scenarioId?: string | null;
+      scenarioCategory?: string | null;
+      coverageTag?: string | null;
       lastResult?: {
         pass: boolean;
         actual?: string;
@@ -180,6 +184,13 @@ export interface ApiBrief {
       } | null;
     }>;
   }>;
+  evalCoverage?: {
+    lastAnalyzed?: string;
+    scenariosCovered?: string[];
+    scenariosRecommended?: string[];
+    coverageDistribution?: Record<string, number>;
+    gaps?: Array<{ categoryId: string; reason: string }>;
+  } | null;
   evalConfig?: {
     targetPassRate?: number;
     maxIterationsPerCapability?: number;

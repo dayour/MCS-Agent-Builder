@@ -316,8 +316,11 @@ function parseEvalSets(briefPath, filterSets) {
                 question: test.question,
                 expected: test.expected,
                 capability: test.capability || null,
-                methods: set.methods || [],
+                methods: test.methods || set.methods || [],
                 passThreshold: set.passThreshold || 70,
+                scenarioId: test.scenarioId || null,
+                scenarioCategory: test.scenarioCategory || null,
+                coverageTag: test.coverageTag || null,
                 lastResult: test.lastResult || null
             });
         }

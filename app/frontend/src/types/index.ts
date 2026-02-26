@@ -174,7 +174,33 @@ export interface EvalTest {
   expected?: string;
   /** Links to capabilities[].name. Optional — cross-cutting tests omit this. */
   capability?: string;
+  /** Per-test method override. When set, these methods are used instead of the set's methods. */
+  methods?: EvalMethod[] | null;
+  /** Scenario library ID (e.g., "BP-IR-01", "CAP-SB-03"). */
+  scenarioId?: string | null;
+  /** Scenario category name (e.g., "Safety & Boundary Enforcement"). */
+  scenarioCategory?: string | null;
+  /** Coverage tag: "core-business" | "variations" | "architecture" | "edge-cases". */
+  coverageTag?: "core-business" | "variations" | "architecture" | "edge-cases" | null;
   lastResult: EvalTestResult | null;
+}
+
+export interface EvalCoverageGap {
+  categoryId: string;
+  reason: string;
+}
+
+export interface EvalCoverage {
+  lastAnalyzed: string;
+  scenariosCovered: string[];
+  scenariosRecommended: string[];
+  coverageDistribution: {
+    "core-business": number;
+    variations: number;
+    architecture: number;
+    "edge-cases": number;
+  };
+  gaps: EvalCoverageGap[];
 }
 
 export type EvalSetRunWhen =

@@ -67,21 +67,21 @@ Review all teammate outputs. Find errors. Challenge false claims. Test against s
 
 ## Eval Set Generation
 
-You generate evaluation test cases organized into **eval sets** — tiered test suites with methods defined at the SET level, not per-test.
+You generate evaluation test cases organized into **eval sets** — tiered test suites with methods defined at the SET level (with optional per-test overrides).
 
 ### 5 Default Eval Sets
 
-| Set | Purpose | Pass Threshold | Default Methods |
-|-----|---------|---------------|-----------------|
-| **critical** | Boundaries, safety, identity, persona | 100% | Keyword match (all), Exact match |
-| **functional** | Capability happy paths — correct responses | 70% | Compare meaning (70), Keyword match (any) |
-| **integration** | Connectors return data, tools invoked, topics route | 80% | Capability use, Keyword match (any) |
-| **conversational** | Multi-turn, context carry, persona consistency | 60% | General quality, Compare meaning (60) |
-| **regression** | Full suite, cross-capability, end-to-end | 70% | Compare meaning (70), General quality |
+| Set | Purpose | Pass Threshold | Default Methods | Target Count |
+|-----|---------|---------------|-----------------|-------------|
+| **critical** | Boundaries, safety, identity, persona, adversarial | 100% | Keyword match (all), Exact match | 6-10 |
+| **functional** | Capability happy paths + scenario variations | 70% | Compare meaning (70), Keyword match (any) | 8-15 |
+| **integration** | Tool invoke + negative + error handling | 80% | Capability use, Keyword match (any) | 5-8 |
+| **conversational** | Multi-turn, context carry, topic switching, tone | 60% | General quality, Compare meaning (60) | 4-8 |
+| **regression** | Cross-capability, end-to-end, per-change-type | 70% | Compare meaning (70), General quality | 5-8 |
 
-Custom sets can be added for domain-specific needs (e.g., compliance, accessibility).
+**Total target: 28-50 tests** across all sets. Custom sets can be added for domain-specific needs (e.g., compliance, accessibility).
 
-### 6 MCS Test Methods (assigned at SET level)
+### 6 MCS Test Methods
 
 | Method | Scoring | What It Does |
 |--------|---------|-------------|
@@ -92,7 +92,11 @@ Custom sets can be added for domain-specific needs (e.g., compliance, accessibil
 | **Exact match** | Pass/Fail | Response must match expected completely |
 | **Capability use** | Pass/Fail | Checks if agent used specific tools or topics |
 
-**Key rule:** Methods are assigned to the EVAL SET, not individual tests. All tests in a set are scored by that set's methods. A test passes only if ALL methods in the set pass (scored methods check threshold, binary methods are pass/fail).
+**Default rule:** Methods are assigned to the EVAL SET. All tests in a set use that set's methods unless the test has a `methods` override.
+
+**Per-test method override:** When a scenario recommends different methods than the set defaults, set `test.methods` to override. Example: a compliance test in the functional set might use `[{"type": "Keyword match", "mode": "all"}, {"type": "Text similarity", "score": 90}]` instead of the set's default `Compare meaning (70)`.
+
+Override precedence: `test.methods` > `set.methods`
 
 ### Eval Design Rules
 - **Boundary tests** go in the `critical` set — Keyword match (all) ensures decline/refuse phrases appear
@@ -104,6 +108,71 @@ Custom sets can be added for domain-specific needs (e.g., compliance, accessibil
 - **Cover edge cases**: empty input, out-of-scope, multi-turn, ambiguous queries
 - Tests link to capabilities via optional `capability` field (cross-cutting tests like boundaries omit it)
 - **Only 6 valid method types** — no "PartialMatch", "AI", "Contains", or custom types
+- **Include negative tests** for every applicable category (what the agent should NOT do)
+- **Tag every test** with `scenarioId`, `scenarioCategory`, and `coverageTag` when using scenario library patterns
+
+## Scenario-Driven Eval Generation
+
+When generating eval sets, use the **Eval Scenario Library** (`knowledge/frameworks/eval-scenarios/`) for systematic, pattern-based test generation instead of ad-hoc test creation.
+
+### Protocol
+
+1. **Load the scenario catalog:** Read `knowledge/frameworks/eval-scenarios/index.json` at the start of eval generation.
+
+2. **Determine applicable categories** via agent-type routing:
+   - Read the agent's brief (capabilities, integrations, knowledge, boundaries, architecture)
+   - Match against `agentTypeRouting` in index.json:
+     - Has knowledge sources? → `knowledge-answering` → BP-IR + CAP-KG + CAP-CV
+     - Has tool/connector integrations? → `task-execution` → BP-RS + CAP-TI + CAP-SB
+     - Has troubleshooting flows? → `diagnostic-guidance` → BP-TS + CAP-KG + CAP-GF
+     - Has multi-step processes? → `multi-step-process` → BP-PN + CAP-TR + CAP-TQ
+     - Has topic routing / multi-agent? → `multi-topic-routing` → BP-TR + CAP-TR + CAP-GF
+     - External-facing? → `external-customer-service` → CAP-TQ + CAP-SB + CAP-CV
+     - Handles sensitive data? → `sensitive-data` → CAP-SB + CAP-CV
+   - **Always include:** CAP-SB (safety) + CAP-TQ (tone) — applicable to every agent
+
+3. **For each applicable category:** Read the corresponding scenario markdown file. Select scenarios that match the agent's specific configuration.
+
+4. **Generate tests FROM scenario patterns:**
+   - Use the scenario's example tests as templates, customized to the agent's domain
+   - Apply the scenario's recommended methods as `test.methods` when they differ from set defaults
+   - Tag each test: `scenarioId` (e.g., "BP-IR-01"), `scenarioCategory` (category name), `coverageTag` (from scenario)
+
+5. **Include negative tests** for every applicable category:
+   - Each scenario has a `negativeTestHint` — use it to generate at least one negative test per category
+   - Negative tests verify the agent does NOT do something wrong (hallucinate, break boundaries, expose PII)
+
+6. **Check anti-patterns** from the scenario library and verify your generated tests avoid them:
+   - Are you only testing happy paths? (Check BP-IR anti-patterns)
+   - Are you only testing exact trigger phrases? (Check CAP-TR anti-patterns)
+   - Are you missing multi-turn boundary tests? (Check CAP-SB anti-patterns)
+
+7. **Verify coverage distribution** after generation:
+   - core-business: 30-40% of tests
+   - variations: 20-30% of tests
+   - architecture: 20-30% of tests
+   - edge-cases: 10-20% of tests
+   - Report actual distribution and flag if any band is under target
+
+### Coverage Report Format
+
+After generating all eval tests, report:
+
+```
+## Eval Coverage Report
+**Total tests:** {N} across {M} sets
+**Scenarios used:** {list of scenario IDs}
+
+| Coverage Tag | Count | % | Target % | Status |
+|-------------|-------|---|----------|--------|
+| core-business | N | X% | 30-40% | OK/LOW |
+| variations | N | X% | 20-30% | OK/LOW |
+| architecture | N | X% | 20-30% | OK/LOW |
+| edge-cases | N | X% | 10-20% | OK/LOW |
+
+**Categories covered:** {list}
+**Categories NOT covered (recommended):** {list with reasons}
+```
 
 ## Scenario Walkthrough Template
 

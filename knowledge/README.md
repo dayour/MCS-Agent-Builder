@@ -55,7 +55,30 @@ knowledge/
 └── frameworks/                  # Decision frameworks
     ├── component-selection.md   # How to evaluate and choose components
     ├── architecture-scoring.md  # Single vs multi-agent scoring
-    └── tool-priority.md         # API-first decision flow
+    ├── tool-priority.md         # API-first decision flow
+    └── eval-scenarios/          # Eval Scenario Library (74 scenarios, 13 categories)
+        ├── index.json           # Machine-readable scenario catalog + agent-type routing
+        ├── README.md            # Methodology: coverage model, entry paths, thresholds
+        ├── business-problem/    # 5 categories, 29 business-problem scenarios
+        │   ├── README.md
+        │   ├── information-retrieval.md
+        │   ├── troubleshooting.md
+        │   ├── request-submission.md
+        │   ├── process-navigation.md
+        │   └── triage-routing.md
+        ├── capability/          # 8 categories, 45 capability scenarios
+        │   ├── README.md
+        │   ├── knowledge-grounding.md
+        │   ├── tool-invocations.md
+        │   ├── trigger-routing.md
+        │   ├── compliance.md
+        │   ├── safety-boundary.md
+        │   ├── tone-quality.md
+        │   ├── graceful-failure.md
+        │   └── regression.md
+        └── resources/           # Flat index CSV + eval set template
+            ├── scenario-index.csv
+            └── eval-set-template.md
 ```
 
 ## Cache Files

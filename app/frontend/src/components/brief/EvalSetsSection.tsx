@@ -16,7 +16,15 @@ interface Props {
   onChange?: (data: any) => void;
 }
 
-const emptyTest: EvalTest = { question: "", expected: "", lastResult: null };
+const emptyTest: EvalTest = { question: "", expected: "", lastResult: null, methods: null, scenarioId: null, scenarioCategory: null, coverageTag: null };
+
+/** Coverage tag colors. */
+const coverageTagColors: Record<string, string> = {
+  "core-business": "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
+  "variations": "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300",
+  "architecture": "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300",
+  "edge-cases": "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
+};
 
 /** Compute pass rate for a set. */
 function setPassRate(set: EvalSet): { total: number; passed: number; rate: number | null } {
@@ -250,17 +258,36 @@ const EvalSetsSection = ({ data, onChange }: Props) => {
                                 )}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="text-xs text-foreground">"{test.question}"</p>
+                                <div className="flex items-center gap-1.5">
+                                  <p className="text-xs text-foreground">"{test.question}"</p>
+                                  {test.scenarioId && (
+                                    <Badge variant="secondary" className="text-[9px] font-mono px-1 py-0 shrink-0">
+                                      {test.scenarioId}
+                                    </Badge>
+                                  )}
+                                </div>
                                 {test.expected && (
                                   <p className="text-[11px] text-muted-foreground mt-0.5 italic">
                                     Expected: "{test.expected}"
                                   </p>
                                 )}
-                                {test.capability && (
-                                  <Badge variant="outline" className="text-[10px] mt-1 font-normal">
-                                    {test.capability}
-                                  </Badge>
-                                )}
+                                <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                  {test.capability && (
+                                    <Badge variant="outline" className="text-[10px] font-normal">
+                                      {test.capability}
+                                    </Badge>
+                                  )}
+                                  {test.coverageTag && (
+                                    <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${coverageTagColors[test.coverageTag] || "bg-muted text-muted-foreground"}`}>
+                                      {test.coverageTag}
+                                    </span>
+                                  )}
+                                  {test.methods && test.methods.length > 0 && (
+                                    <span className="text-[9px] text-muted-foreground italic">
+                                      override: {test.methods.map(m => m.type).join(", ")}
+                                    </span>
+                                  )}
+                                </div>
                                 {test.lastResult && !test.lastResult.pass && test.lastResult.actual && (
                                   <p className="text-[11px] text-destructive mt-1">
                                     Got: "{test.lastResult.actual.substring(0, 120)}

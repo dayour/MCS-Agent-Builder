@@ -95,6 +95,50 @@ When a set uses multiple methods, a test must pass **ALL** of them:
 - Boundaries should be in the `critical` set at 100% — if they fail, fix instructions first
 - `General quality` has variance — run multiple times for confidence
 
+## Per-Test Method Overrides
+
+While methods are defined at the eval set level by default, individual tests can override methods via the `test.methods` field. This is used when the **Eval Scenario Library** recommends different methods for a specific test pattern.
+
+### How It Works
+
+Resolution order: `test.methods` > `set.methods`
+
+```json
+{
+  "name": "functional",
+  "methods": [{ "type": "Compare meaning", "score": 70 }, { "type": "Keyword match", "mode": "any" }],
+  "tests": [
+    {
+      "question": "What is the return policy?",
+      "expected": "30 days, receipt required",
+      "methods": null,
+      "scenarioId": "BP-IR-01"
+    },
+    {
+      "question": "What is the legal disclaimer for investment products?",
+      "expected": "past performance, not guaranteed, consult advisor",
+      "methods": [{ "type": "Keyword match", "mode": "all" }, { "type": "Text similarity", "score": 90 }],
+      "scenarioId": "CAP-CV-01"
+    }
+  ]
+}
+```
+
+In this example:
+- Test 1 uses the set's default methods (Compare meaning + Keyword match any)
+- Test 2 overrides with compliance-specific methods (Keyword match all + Text similarity 90)
+
+### When to Use Per-Test Overrides
+
+- **Compliance tests** in non-critical sets that need `Keyword match (all)` + high `Text similarity`
+- **Safety tests** in functional sets that need `Exact match` for specific refusal phrases
+- **Tool invocation tests** that need `Capability use` in non-integration sets
+- Any test where the Eval Scenario Library recommends different methods than the set default
+
+### Scoring Engine Support
+
+The shared scoring module (`tools/eval-scoring.js`) resolves methods as: `test.methods || set.methods || [GeneralQuality]`. The CSV export tool (`tools/gen-evals-csv.py`) uses `test.methods[0]` when present for CSV flattening.
+
 ## evals.csv — Flat Export for MCS Native Eval
 
 The `evals.csv` file is a **flat export** generated FROM `brief.json.evalSets[]` for MCS native eval compatibility (Tier 3). It is NOT the source of truth — `evalSets[]` in brief.json is.
