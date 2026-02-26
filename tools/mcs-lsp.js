@@ -523,6 +523,10 @@ async function pull(workspacePath, options = {}) {
         }
 
         console.error('[mcs-lsp] Pull completed successfully.');
+
+        // Post-pull cleanup: strip BOMs from settings.mcs.yml and remove Signin.mcs.yml
+        postPullCleanup(workspacePath);
+
         return result;
     } finally {
         await client.shutdown();
@@ -676,9 +680,16 @@ async function clone(workspacePath, connInfo, options = {}) {
         const agentPath = path.join(workspacePath, agentFolder);
         const files = fs.existsSync(agentPath) ? findMcsYmlFiles(agentPath) : [];
 
-        console.error(`[mcs-lsp] Clone complete: ${files.length} .mcs.yml files in "${agentFolder}"`);
+        // Post-clone cleanup (same fixes as post-pull)
+        if (fs.existsSync(agentPath)) {
+            postPullCleanup(agentPath);
+        }
 
-        return { agentFolderName: agentFolder, agentPath, fileCount: files.length, result };
+        // Re-count after cleanup
+        const finalFiles = fs.existsSync(agentPath) ? findMcsYmlFiles(agentPath) : [];
+        console.error(`[mcs-lsp] Clone complete: ${finalFiles.length} .mcs.yml files in "${agentFolder}"`);
+
+        return { agentFolderName: agentFolder, agentPath, fileCount: finalFiles.length, result };
     } finally {
         await client.shutdown();
     }
@@ -737,6 +748,52 @@ function loadConnInfoFromConfig(accountLabel, envName) {
         } catch { /* config not found */ }
     }
     return null;
+}
+
+// --- Post-Pull Cleanup ---
+
+/**
+ * Fix known issues in files written by the LSP during pull/clone:
+ * 1. Strip UTF-8 BOMs from settings.mcs.yml (causes schema name errors on push)
+ * 2. Remove Signin.mcs.yml if it has a trailing space in the display name
+ *    (system topic "Sign in " generates invalid Dataverse schema names)
+ */
+function postPullCleanup(workspacePath) {
+    let fixes = 0;
+
+    // Strip BOMs from settings.mcs.yml
+    const settingsPath = path.join(workspacePath, 'settings.mcs.yml');
+    if (fs.existsSync(settingsPath)) {
+        const data = fs.readFileSync(settingsPath);
+        const BOM = Buffer.from([0xef, 0xbb, 0xbf]);
+        let clean = data;
+        let bomCount = 0;
+        let idx;
+        while ((idx = clean.indexOf(BOM)) !== -1) {
+            clean = Buffer.concat([clean.slice(0, idx), clean.slice(idx + 3)]);
+            bomCount++;
+        }
+        if (bomCount > 0) {
+            fs.writeFileSync(settingsPath, clean);
+            if (VERBOSE) console.error(`[mcs-lsp] Stripped ${bomCount} BOM(s) from settings.mcs.yml`);
+            fixes++;
+        }
+    }
+
+    // Remove Signin.mcs.yml if display name has trailing space
+    const signinPath = path.join(workspacePath, 'topics', 'Signin.mcs.yml');
+    if (fs.existsSync(signinPath)) {
+        const content = fs.readFileSync(signinPath, 'utf8');
+        if (content.includes('# Name: Sign in ') || content.match(/# Name:.*\s\n/)) {
+            fs.unlinkSync(signinPath);
+            if (VERBOSE) console.error('[mcs-lsp] Removed Signin.mcs.yml (trailing space in display name)');
+            fixes++;
+        }
+    }
+
+    if (fixes > 0 && !VERBOSE) {
+        console.error(`[mcs-lsp] Post-pull cleanup: ${fixes} fix(es) applied`);
+    }
 }
 
 // --- Utility ---
