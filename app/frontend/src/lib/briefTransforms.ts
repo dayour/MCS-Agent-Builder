@@ -278,15 +278,15 @@ export function briefToApi(ui: BriefData, raw: ApiBrief): ApiBrief {
 // ─── Eval Set Helpers ─────────────────────────────────────────────
 
 const DEFAULT_EVAL_CONFIG: EvalConfig = {
-  targetPassRate: 70,
+  targetPassRate: 85,
   maxIterationsPerCapability: 3,
   maxRegressionRounds: 2,
 };
 
 const DEFAULT_EVAL_SETS: EvalSet[] = [
   {
-    name: "critical",
-    description: "Safety, boundaries, identity — non-negotiable",
+    name: "safety",
+    description: "Compliance & safety — boundaries, PII, adversarial, disclaimers",
     methods: [
       { type: "Keyword match", mode: "all" },
       { type: "Exact match" },
@@ -296,46 +296,57 @@ const DEFAULT_EVAL_SETS: EvalSet[] = [
     tests: [],
   },
   {
+    name: "grounding",
+    description: "Knowledge accuracy — source retrieval, hallucination prevention",
+    methods: [
+      { type: "Compare meaning", score: 80 },
+      { type: "Keyword match", mode: "all" },
+    ],
+    passThreshold: 90,
+    runWhen: "after-knowledge",
+    tests: [],
+  },
+  {
     name: "functional",
-    description: "Core capability happy paths — does each feature work?",
+    description: "Business problem quality — does each capability solve the user's need?",
     methods: [
       { type: "Compare meaning", score: 70 },
       { type: "Keyword match", mode: "any" },
     ],
-    passThreshold: 70,
+    passThreshold: 85,
     runWhen: "per-capability",
     tests: [],
   },
   {
     name: "integration",
-    description: "Connectors return real data, tools actually invoked",
+    description: "Architecture — tools invoked, triggers route, errors handled",
     methods: [
       { type: "Capability use" },
       { type: "Keyword match", mode: "any" },
     ],
-    passThreshold: 80,
+    passThreshold: 90,
     runWhen: "after-tools",
     tests: [],
   },
   {
-    name: "conversational",
-    description: "Multi-turn, context carry, routing, topic switching",
+    name: "quality",
+    description: "Tone, helpfulness, graceful failure, escalation",
     methods: [
       { type: "General quality" },
       { type: "Compare meaning", score: 60 },
     ],
-    passThreshold: 60,
+    passThreshold: 75,
     runWhen: "after-functional",
     tests: [],
   },
   {
     name: "regression",
-    description: "Full suite, cross-capability, end-to-end",
+    description: "Cross-cutting — full suite before publish",
     methods: [
       { type: "Compare meaning", score: 70 },
       { type: "General quality" },
     ],
-    passThreshold: 70,
+    passThreshold: 85,
     runWhen: "final",
     tests: [],
   },
@@ -404,9 +415,9 @@ function evalSetsFromApi(raw: ApiBrief): { sets: EvalSet[]; config: EvalConfig }
 
     const cat = e.category ?? "happy-path";
     if (cat === "boundary-decline" || cat === "boundary-refuse") {
-      sets.find((s) => s.name === "critical")!.tests.push(test);
+      sets.find((s) => s.name === "safety")!.tests.push(test);
     } else if (cat === "multi-turn") {
-      sets.find((s) => s.name === "conversational")!.tests.push(test);
+      sets.find((s) => s.name === "quality")!.tests.push(test);
     } else {
       sets.find((s) => s.name === "functional")!.tests.push(test);
     }
@@ -428,9 +439,9 @@ function evalSetsFromApi(raw: ApiBrief): { sets: EvalSet[]; config: EvalConfig }
 
     const cat = s.category ?? "happy-path";
     if (cat === "boundary-decline" || cat === "boundary-refuse") {
-      sets.find((s) => s.name === "critical")!.tests.push(test);
+      sets.find((s) => s.name === "safety")!.tests.push(test);
     } else if (cat === "multi-turn") {
-      sets.find((s) => s.name === "conversational")!.tests.push(test);
+      sets.find((s) => s.name === "quality")!.tests.push(test);
     } else if (cat === "edge-case" || cat === "error-recovery") {
       sets.find((s) => s.name === "regression")!.tests.push(test);
     } else {

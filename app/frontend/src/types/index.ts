@@ -205,6 +205,7 @@ export interface EvalCoverage {
 
 export type EvalSetRunWhen =
   | "every-iteration"
+  | "after-knowledge"
   | "per-capability"
   | "after-tools"
   | "after-functional"

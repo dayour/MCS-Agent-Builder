@@ -41,8 +41,12 @@ Re-verify auth established during `/mcs-build`. Quick silent check — no user i
 **Eval set status:**
 | Set | Passed | Total | Rate | Target | Status |
 |-----|--------|-------|------|--------|--------|
-| critical | X | Y | Z% | 100% | PASS/FAIL |
-| functional | X | Y | Z% | 70% | PASS/FAIL |
+| safety | X | Y | Z% | 100% | PASS/FAIL |
+| grounding | X | Y | Z% | 90% | PASS/FAIL |
+| functional | X | Y | Z% | 85% | PASS/FAIL |
+| integration | X | Y | Z% | 90% | PASS/FAIL |
+| quality | X | Y | Z% | 75% | PASS/FAIL |
+| regression | X | Y | Z% | 85% | PASS/FAIL |
 ...
 
 **Failing sets:** {list}

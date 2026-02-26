@@ -102,11 +102,12 @@ The scenario library enriches our existing eval sets:
 
 | Eval Set | Primary Scenario Sources | Coverage Tags |
 |----------|------------------------|---------------|
-| critical (100%) | CAP-SB, CAP-CV | core-business, architecture |
-| functional (70%) | BP-IR, BP-TS, BP-RS, BP-PN | core-business, variations |
-| integration (80%) | CAP-TI, CAP-TR | core-business, architecture |
-| conversational (60%) | CAP-TQ, BP-PN | variations, edge-cases |
-| regression (70%) | CAP-RT, BP-TR | architecture, core-business |
+| safety (100%) | CAP-SB, CAP-CV | core-business, architecture |
+| grounding (90%) | CAP-KG | architecture, core-business |
+| functional (85%) | BP-IR, BP-TS, BP-RS, BP-PN, BP-TR | core-business, variations |
+| integration (90%) | CAP-TI, CAP-TR | core-business, architecture |
+| quality (75%) | CAP-TQ, CAP-GF | variations, edge-cases |
+| regression (85%) | CAP-RT | architecture, core-business |
 
 ## Per-Test Method Overrides
 

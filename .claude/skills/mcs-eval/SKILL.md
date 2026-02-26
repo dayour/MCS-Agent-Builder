@@ -23,7 +23,7 @@ Run evaluation tests for an agent and write results back to `brief.json` so the 
 
 | Sub-task | What it does | How to verify |
 |----------|-------------|--------------|
-| **Generate CSV** | Write evals.csv to disk (if not present) | Read the file back |
+| **Generate CSVs** | Write per-set CSVs to disk (if not present, for native eval only) | Read files back |
 | **Run evaluation** | Execute tests via Tier 1/2/3 | Results JSON exists with scores |
 | **Write results** | Update evalSets[].tests[].lastResult in brief.json | Read brief.json back |
 
@@ -31,17 +31,17 @@ Run evaluation tests for an agent and write results back to `brief.json` so the 
 
 ```
 /mcs-eval {projectId} {agentId}                    # Run all eval sets
-/mcs-eval {projectId} {agentId} --set critical,functional  # Run specific sets
+/mcs-eval {projectId} {agentId} --set safety,functional  # Run specific sets
 /mcs-eval {projectId} {agentId} --native           # Force Tier 3 (native MCS eval)
 /mcs-eval {projectId} {agentId} --check-results    # Check pending native eval results
 ```
 
 Reads from:
 - `Build-Guides/{projectId}/agents/{agentId}/brief.json` — evalSets array + buildStatus
-- `Build-Guides/{projectId}/agents/{agentId}/evals.csv` — if already generated (for native eval only)
+- `Build-Guides/{projectId}/agents/{agentId}/evals-*.csv` — if already generated (for native eval only)
 
 Writes to:
-- `Build-Guides/{projectId}/agents/{agentId}/evals.csv` — flat CSV (generated from evalSets for native eval)
+- `Build-Guides/{projectId}/agents/{agentId}/evals-{setName}.csv` — per-set CSVs (generated from evalSets for native eval)
 - `Build-Guides/{projectId}/agents/{agentId}/evals-results.json` — raw test results
 - `Build-Guides/{projectId}/agents/{agentId}/brief.json` — `evalSets[].tests[].lastResult` updated per test
 
@@ -72,19 +72,22 @@ Read `brief.json.evalSets[]`. If empty or missing → **exit:** "Run `/mcs-resea
 
 **Determine which sets to run:**
 - Default (no `--set` flag): run ALL sets
-- `--set critical,functional`: run only named sets
+- `--set safety,functional`: run only named sets
 - Skip sets with zero tests
 
-**Generate evals.csv** from evalSets if not present (needed for Tier 3 native eval only):
+**Generate per-set CSVs** from evalSets if not present (needed for Tier 3 native eval only):
 
 ```csv
-"question","expectedResponse","testMethodType","passingScore"
+Question,Expected response,Testing method
 ```
 
-Flattening rules:
-- Each test becomes one CSV row
-- `testMethodType` = first method from the test's set
-- `passingScore` = that method's score threshold, or empty for binary methods
+One CSV per eval set: `evals-safety.csv`, `evals-grounding.csv`, `evals-functional.csv`, etc.
+
+Generation rules:
+- Each test becomes one CSV row in its set's CSV
+- `Testing method` = first method from the test's resolved methods (display name)
+- Max 100 questions per CSV (MCS limit)
+- `Capability use` cannot be specified in CSV — add via MCS UI after import
 
 **VERIFY:** Eval sets loaded, target sets identified, test count > 0.
 
@@ -179,7 +182,7 @@ Results saved to `Build-Guides/{projectId}/agents/{agentId}/evals-results.json`:
 ```bash
 node tools/playwright-eval-runner.js --brief "Build-Guides/{projectId}/agents/{agentId}/brief.json" --action plan
 # Or for specific sets:
-node tools/playwright-eval-runner.js --brief "Build-Guides/{projectId}/agents/{agentId}/brief.json" --action plan --set critical,functional
+node tools/playwright-eval-runner.js --brief "Build-Guides/{projectId}/agents/{agentId}/brief.json" --action plan --set safety,functional
 ```
 
 Read the JSON output. Report to the user:
@@ -297,7 +300,7 @@ Results format matches Direct Line output:
   "status": "complete",
   "summary": { "total": 10, "executed": 10, "passed": 7, "failed": 3, "remaining": 0, "passRate": "70%" },
   "method": "PlaywrightTestChat",
-  "perSet": { "critical": { "total": 3, "passed": 3, "failed": 0, "passRate": "100%" } },
+  "perSet": { "safety": { "total": 3, "passed": 3, "failed": 0, "passRate": "100%" } },
   "results": [...]
 }
 ```
@@ -399,11 +402,12 @@ Also cache the token endpoint URL if we discovered it:
 **Per-Set Results:**
 | Set | Passed | Total | Rate | Target | Status |
 |-----|--------|-------|------|--------|--------|
-| critical | X | Y | Z% | 100% | PASS/FAIL |
-| functional | X | Y | Z% | 70% | PASS/FAIL |
-| integration | X | Y | Z% | 80% | PASS/FAIL |
-| conversational | X | Y | Z% | 60% | PASS/FAIL |
-| regression | X | Y | Z% | 70% | PASS/FAIL |
+| safety | X | Y | Z% | 100% | PASS/FAIL |
+| grounding | X | Y | Z% | 90% | PASS/FAIL |
+| functional | X | Y | Z% | 85% | PASS/FAIL |
+| integration | X | Y | Z% | 90% | PASS/FAIL |
+| quality | X | Y | Z% | 75% | PASS/FAIL |
+| regression | X | Y | Z% | 85% | PASS/FAIL |
 
 **Failed Cases:**
 | Set | Question | Expected | Got | Issue |

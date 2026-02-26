@@ -537,7 +537,7 @@ Also enrich existing fields with research findings:
 
 ## Phase D: Eval Sets & Topic Classification
 
-**Goal:** Generate eval sets (5 default tiers + custom), classify topic needs, and produce evaluation CSV.
+**Goal:** Generate eval sets (7 default sets aligned with [MS Eval Scenario Library](https://github.com/microsoft/ai-agent-eval-scenario-library) + custom), classify topic needs, and produce per-set evaluation CSVs.
 
 ### Incremental Path (processingPath == "incremental")
 
@@ -572,7 +572,7 @@ Since instructions are now generic (no hardcoded URLs, no tool listing, no namin
 
 ### Step 1: Classify Topics + Generate Eval Sets — QA Challenger (single pass)
 
-Spawn **QA Challenger** to classify topics AND populate all 5 default eval sets in one pass.
+Spawn **QA Challenger** to classify topics AND populate all 7 default eval sets in one pass.
 
 **Topic classification:** For each capability, QA determines:
 - **Topic type**: `generative` (handled by orchestration + knowledge) or `custom` (needs dedicated topic YAML)
@@ -590,13 +590,14 @@ Spawn **QA Challenger** to classify topics AND populate all 5 default eval sets 
 
 | Set | What QA Generates | Source Material | Target Count |
 |-----|-------------------|----------------|-------------|
-| **critical** (100% pass) | Boundary decline/refuse + PII protection + prompt injection + scope boundary + adversarial | `boundaries.*`, `agent.persona`, CAP-SB scenarios | **6-10** |
-| **functional** (70% pass) | Per-capability happy paths + scenario variations + negative tests | `capabilities[]` (mvp), BP-IR/BP-TS/BP-RS/BP-PN scenarios | **8-15** |
-| **integration** (80% pass) | Tool invoke + parameter extraction + error handling + auth boundary | `integrations[]` (mvp), CAP-TI scenarios | **5-8** |
-| **conversational** (60% pass) | Multi-turn + context carry + topic switching + tone + empathy | Cross-capability, CAP-TQ/CAP-TR scenarios | **4-8** |
-| **regression** (70% pass) | Cross-capability + end-to-end + per-change-type regression | Combined capabilities, CAP-RT scenarios | **5-8** |
+| **safety** (100% pass) | Boundary decline/refuse + PII protection + prompt injection + scope boundary + adversarial + disclaimers + compliance language | `boundaries.*`, `agent.persona`, CAP-SB + CAP-CV scenarios | **8-12** |
+| **grounding** (90% pass) | Source retrieval accuracy + hallucination prevention + conflicting sources + missing source handling | `knowledge.*`, CAP-KG scenarios | **5-8** |
+| **functional** (85% pass) | Per-capability happy paths + scenario variations + negative tests | `capabilities[]` (mvp), BP-IR/BP-TS/BP-RS/BP-PN/BP-TR scenarios | **8-15** |
+| **integration** (90% pass) | Tool invoke + parameter extraction + error handling + trigger routing + disambiguation | `integrations[]` (mvp), CAP-TI + CAP-TR scenarios | **5-8** |
+| **quality** (75% pass) | Tone + empathy + clarity + completeness + graceful failure + escalation triggers + limitation acknowledgment | Cross-capability, CAP-TQ + CAP-GF scenarios | **5-8** |
+| **regression** (85% pass) | Cross-capability + end-to-end + per-change-type regression | Combined capabilities, CAP-RT scenarios | **5-8** |
 
-**Total target: 28-50 tests** across all sets (up from 15-25). Critical set must have at least 1 test per boundary refuse/decline, plus PII and prompt injection tests.
+**Total target: 36-60 tests** across all sets. Safety set must have at least 1 test per boundary refuse/decline, plus PII, prompt injection, and any domain-specific compliance tests.
 
 **Each test includes:**
 - `question` — realistic user message (including typos, informal language)
@@ -608,10 +609,11 @@ Spawn **QA Challenger** to classify topics AND populate all 5 default eval sets 
 - `methods` — per-test method override when scenario recommends different methods than set defaults (null = use set methods)
 
 **Methods are preset per set (defaults from schema), with per-test overrides where scenarios recommend different methods:**
-- Critical: `Keyword match (all)` + `Exact match`
+- Safety: `Keyword match (all)` + `Exact match`
+- Grounding: `Compare meaning (80)` + `Keyword match (all)`
 - Functional: `Compare meaning (70)` + `Keyword match (any)`
 - Integration: `Capability use` + `Keyword match (any)`
-- Conversational: `General quality` + `Compare meaning (60)`
+- Quality: `General quality` + `Compare meaning (60)`
 - Regression: `Compare meaning (70)` + `General quality`
 
 Research may adjust methods per set based on agent specifics (e.g., raise Compare meaning threshold for precision-critical agents). Individual tests may override methods when a scenario's recommended methods differ from the set default.
@@ -649,18 +651,29 @@ TE reviews each proposed topic and produces a **per-topic feasibility assessment
 
 ### Step 2: Write evalSets to brief.json + Generate evals.csv (Lead)
 
-Write the 5 eval sets to `brief.json.evalSets[]` and `brief.json.evalConfig`.
+Write the 7 eval sets to `brief.json.evalSets[]` and `brief.json.evalConfig` (targetPassRate: 85%).
 
-Also generate `Build-Guides/{projectId}/agents/{agentId}/evals.csv` from the eval sets (flat format for MCS native eval compatibility):
+Also generate **per-set CSVs** in `Build-Guides/{projectId}/agents/{agentId}/` for MCS native eval compatibility:
 
-```csv
-"question","expectedResponse","testMethodType","passingScore"
+```
+evals-safety.csv
+evals-grounding.csv
+evals-functional.csv
+evals-integration.csv
+evals-quality.csv
+evals-regression.csv
 ```
 
-**Flattening rules (evalSets → CSV):**
-- Each test becomes one CSV row
-- `testMethodType` = first method from the test's set (e.g., functional → `CompareMeaning`)
-- `passingScore` = that method's score threshold (e.g., `70`), or empty for binary methods
+**CSV format (MCS test set import):**
+```csv
+Question,Expected response,Testing method
+```
+
+**Generation rules:**
+- One CSV per eval set (each uploads as a separate MCS test set)
+- `Testing method` = first method from the test's resolved methods (display name: "Compare meaning", "Keyword match", etc.)
+- Max 100 questions per CSV (MCS limit). If a set has > 100 tests, split into multiple CSVs.
+- `Capability use` cannot be specified in CSV — add via MCS UI after import
 
 ### Step 3: Update brief.json
 

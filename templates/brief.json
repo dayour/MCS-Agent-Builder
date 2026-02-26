@@ -160,8 +160,8 @@
 
   "evalSets": [
     {
-      "_description": "5 default sets (critical, functional, integration, conversational, regression) + custom sets",
-      "name": "critical | functional | integration | conversational | regression | <custom>",
+      "_description": "7 default sets (safety, grounding, functional, integration, quality, regression) + custom. Aligned with microsoft/ai-agent-eval-scenario-library quality dimensions.",
+      "name": "safety | grounding | functional | integration | quality | regression | <custom>",
       "description": "What this eval set verifies",
       "methods": [
         {
@@ -171,7 +171,7 @@
         }
       ],
       "passThreshold": 100,
-      "runWhen": "every-iteration | per-capability | after-tools | after-functional | final | custom",
+      "runWhen": "every-iteration | after-knowledge | per-capability | after-tools | after-functional | final | custom",
       "tests": [
         {
           "question": "Test question to ask the agent",
@@ -188,7 +188,7 @@
   ],
 
   "evalConfig": {
-    "targetPassRate": 70,
+    "targetPassRate": 85,
     "maxIterationsPerCapability": 3,
     "maxRegressionRounds": 2
   },

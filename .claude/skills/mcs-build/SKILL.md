@@ -1,6 +1,6 @@
 ---
 name: mcs-build
-description: "Build agent(s) in Copilot Studio using the hybrid build stack with eval-driven iteration. Bootstrap → critical gate → per-capability iteration → regression. Reads brief.json for architecture mode (single/multi-agent)."
+description: "Build agent(s) in Copilot Studio using the hybrid build stack with eval-driven iteration. Bootstrap → safety gate → grounding → per-capability → quality → regression. Reads brief.json for architecture mode (single/multi-agent)."
 ---
 
 # MCS Agent Builder — Unified Hybrid Build Stack
@@ -401,20 +401,26 @@ For each MVP topic in the spec:
    curl -s -X POST "<dataverseUrl>/api/data/v9.2/bots(<botId>)/Microsoft.Dynamics.CRM.PvaPublish" \
      -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{}'
    ```
-2. **Run critical eval set** via Direct Line API or optimized Playwright Test Chat (same method as `/mcs-eval` Tier 1/2):
-   - Read `brief.json.evalSets[]`, find set where `name == "critical"`
-   - Run all tests in the critical set
+2. **Run safety eval set** via Direct Line API or optimized Playwright Test Chat (same method as `/mcs-eval` Tier 1/2):
+   - Read `brief.json.evalSets[]`, find set where `name == "safety"`
+   - Run all tests in the safety set
    - Tier 2 uses the injected test chat harness (`tools/test-chat-harness.js`) for ~3-5s per boundary test instead of ~15-30s with snapshot polling
    - Write results to each test's `lastResult`
 
-3. **Evaluate critical gate:**
-   - If ALL critical tests pass → proceed to Phase 2
-   - If ANY critical test fails:
+3. **Evaluate safety gate:**
+   - If ALL safety tests pass → proceed to grounding check, then Phase 2
+   - If ANY safety test fails:
      - Classify failure (instruction gap or boundary violation)
      - Fix instructions via LSP push (PE edits agent.mcs.yml)
-     - Re-publish, re-run critical set
-     - **Max 3 attempts.** If still failing after 3 → **HARD STOP**: "Critical gate failed after 3 attempts. Safety/boundary issues must be resolved manually."
+     - Re-publish, re-run safety set
+     - **Max 3 attempts.** If still failing after 3 → **HARD STOP**: "Safety gate failed after 3 attempts. Safety/boundary/compliance issues must be resolved manually."
      - Update `capabilities[].status` accordingly
+
+4. **Run grounding eval set** (if agent has knowledge sources):
+   - Read `brief.json.evalSets[]`, find set where `name == "grounding"`
+   - Run all tests, write results. Target: 90%
+   - If grounding < 90%: fix knowledge sources or instructions, re-publish, re-run (max 2 attempts)
+   - Grounding failures after 2 attempts → proceed but flag for manual review
 
 #### Phase 2: Per-Capability Iteration
 
@@ -423,7 +429,7 @@ For each MVP capability (in priority order from `capabilities[]` where `phase ==
 1. **Gather this capability's tests** from across eval sets:
    - Functional set: tests where `capability == this.name`
    - Integration set: tests where `capability == this.name`
-   - Conversational set: tests where `capability == this.name`
+   - Quality set: tests where `capability == this.name`
 
 2. **Run capability's tests** (filtered from the sets above)
 
@@ -436,22 +442,24 @@ For each MVP capability (in priority order from `capabilities[]` where `phase ==
      - **Max 3 iterations per capability.** If still failing → mark `capability.status = "failing"`, move on
    - Update `capabilities[].status` = `"building"` while iterating
 
-4. **Always run critical set** between capabilities as a regression check (should still pass)
+4. **Always run safety set** between capabilities as a regression check (should still pass)
 
 #### Phase 3: Regression & Finalize
 
 1. **Final publish** (PAC CLI)
-2. **Run regression eval set** (full suite, cross-capability)
-3. **Run critical set again** (regression check)
+2. **Run quality eval set** (tone, graceful failure — target 75%)
+3. **Run regression eval set** (full suite, cross-capability — target 85%)
+4. **Run safety set again** (regression check)
 4. **Compute overall pass rates** per set
 5. If regression < threshold → targeted fix on worst areas (**max 2 rounds**)
 6. Update all `capabilities[].status` based on final results
 
 **Iteration limits (from `evalConfig`):**
-- Critical gate: max 3 attempts, then HARD STOP
+- Safety gate: max 3 attempts, then HARD STOP
+- Grounding: max 2 attempts (if knowledge sources present)
 - Per-capability: max `evalConfig.maxIterationsPerCapability` (default 3)
 - Regression: max `evalConfig.maxRegressionRounds` (default 2)
-- Overall target: `evalConfig.targetPassRate` (default 70%)
+- Overall target: `evalConfig.targetPassRate` (default 85%)
 
 **When to skip iteration loop:**
 - If `brief.json.evalSets` is empty or has no tests → skip to Step 5 (publish only, no iteration)
@@ -691,7 +699,7 @@ After reconciliation, generate **two outputs**:
 
 **Status:** Published | **Environment:** [env] | **Account:** [account]
 **QA Validation:** PASS ({N}/{N} items match, {M} cross-ref issues — see qa-validation.md)
-**Eval Sets:** critical {X}% | functional {X}% | integration {X}% | conversational {X}% | regression {X}%
+**Eval Sets:** safety {X}% | grounding {X}% | functional {X}% | integration {X}% | quality {X}% | regression {X}%
 **Capabilities:** {N} passing, {M} failing, {K} not tested
 **Deferred:** {J} future items (see build report Section 9)
 
