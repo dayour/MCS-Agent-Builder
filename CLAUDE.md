@@ -96,15 +96,17 @@ If `sessionDefaults` exist but `buildStatus` doesn't (new agent, returning user)
 **Detailed capabilities per layer:** See `knowledge/cache/api-capabilities.md`
 **Decision flow and build phase mapping:** See `knowledge/frameworks/tool-priority.md`
 
-### Three Auth Layers (all verified before API operations)
+### Unified Auth Gate (all layers verified together)
 
-| Layer | What It Covers | Verified By | Persisted In |
-|-------|---------------|-------------|-------------|
-| **PAC CLI** | `pac copilot publish`, `pac solution`, `pac copilot list` | `pac auth select` in build gate | session-config.json `pacProfileIndex` |
-| **Azure CLI** | LSP Wrapper, Island Gateway API, Dataverse API, Direct Line token | `az account show` in build gate | session-config.json `tenantId` + brief.json `azTenantId` |
-| **Browser** | Playwright interactions (agent creation, OAuth, Test Chat) | Playwright snapshot in browser preflight | brief.json `buildStatus.account/environment` |
+Account selection determines everything — PAC CLI profile, Azure CLI tenant, and browser target are all derived from the same account in session-config.json.
 
-**Azure CLI verification** is handled by the build/eval/fix skills (not the browser preflight). It checks `az account show` against the target tenant and alerts on mismatch — never runs `az logout`.
+| Layer | What It Covers | How | Persisted In |
+|-------|---------------|-----|-------------|
+| **PAC CLI** | Publishing, solution ALM | `pac auth select` (automatic) | session-config.json `pacProfileIndex` |
+| **Azure CLI** | LSP, Island Gateway, Dataverse, Direct Line | `az login --tenant` (auto, browser popup) | session-config.json `tenantId` + brief.json `azTenantId` |
+| **Browser** | Agent creation, OAuth, Test Chat | Playwright snapshot (on first use) | brief.json `buildStatus.account/environment` |
+
+**Build gate** runs all three at start. **Eval/fix** do a quick re-verify (silent, auto-fixes on mismatch via `az login`). **Browser preflight** runs separately before Playwright actions.
 
 ---
 
@@ -494,11 +496,12 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 **Reads:** `brief.json` (the single source of truth — architecture, instructions, tools, model, everything)
 **Writes:** `brief.json` buildStatus field (including step-level checkpoints for resume)
 
-**Smart Account & Environment Gate:**
+**Unified Auth Gate:**
+- Runs all three auth layers (PAC CLI, Azure CLI, Browser target) from one account selection
 - Reads target from `brief.json.buildStatus.account` / `.environment` / `.accountId`
-- If present → one-line confirmation ("Resuming build on {account} / {environment}"), no question asked
-- If missing (first build) → reads `session-config.json`, checks `sessionDefaults` for cross-project fallback, asks user only if no prior context exists
-- After selection, persists to BOTH `brief.json.buildStatus` AND `session-config.json.sessionDefaults`
+- If present → resumes with one-line confirmation. If missing → asks once, persists to both `brief.json.buildStatus` AND `session-config.json.sessionDefaults`
+- Sets PAC CLI profile, auto-runs `az login --tenant` on mismatch (browser popup), records browser target
+- Eval/fix do a quick re-verify (auto-fixes via `az login` on mismatch)
 - User can always override by saying "switch to [account/env]"
 
 **Find-or-Create Agent (Step 1):**

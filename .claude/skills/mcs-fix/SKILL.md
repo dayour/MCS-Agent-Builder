@@ -16,16 +16,16 @@ Analyze eval set failures from `/mcs-eval`, classify root causes, generate and a
 **Reads:** `Build-Guides/{projectId}/agents/{agentId}/brief.json` — evalSets (tests with lastResult), instructions, integrations, capabilities, conversations.topics
 **Writes:** `brief.json` (instructions, conversations.topics, evalSets, notes.fixHistory), agent in MCS (via hybrid stack)
 
-## Prerequisites: Azure CLI Tenant Verification
+## Prerequisites: Auth Verification
 
-Before applying fixes, verify az CLI is logged into the correct tenant (same check as mcs-build). LSP Wrapper, Dataverse API, and PAC CLI all need tokens for the agent's tenant.
+Re-verify auth established during `/mcs-build`. Quick silent check — no user interaction unless something changed.
 
-1. Read `brief.json.buildStatus.azTenantId` — if set, use it. Otherwise read from `tools/session-config.json` for the account in `buildStatus.accountId`.
-2. Run: `az account show --query tenantId -o tsv`
-3. Compare:
-   - **Match** → Log: `Azure CLI verified for tenant {tenantId}` — proceed
-   - **Mismatch** → Alert: `Azure CLI is on tenant {X} but agent is on {Y}. Run: az login --tenant {Y}` — WAIT for user
-   - **No azTenantId stored** → Ask user to confirm current az login is correct for this agent's tenant. If confirmed, persist to `brief.json.buildStatus.azTenantId`.
+1. Read `brief.json.buildStatus`: `azTenantId`, `accountId`, `environment`
+2. If `azTenantId` missing → "Run `/mcs-build` first to establish auth, or `az login --tenant {tenantId}` (tenantId from session-config.json)"
+3. Quick check: `az account show --query tenantId -o tsv`
+   - **Match** → log one line (`Azure CLI verified`), proceed
+   - **Mismatch** → run `az login --tenant {azTenantId}` (auto-login, same as build gate — opens browser popup)
+4. Verify PAC CLI: `pac auth list` (confirm correct profile active)
 
 ## Step 1: Read & Validate Eval Results (Lead)
 

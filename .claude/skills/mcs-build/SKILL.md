@@ -39,16 +39,13 @@ Writes to:
 
 Every build targets a specific tenant and environment. This gate reads persisted context first and only asks the user when no prior build context exists.
 
-### Flow
+### Unified Auth Gate
+
+All three auth layers (PAC CLI, Azure CLI, Browser target) derive from one account selection. This gate handles them together.
 
 1. **Read brief.json** → check `buildStatus.account`, `buildStatus.environment`, `buildStatus.accountId`
 2. **If all three exist** (previous build ran):
-   - Look up account in `tools/session-config.json` by `accountId` to get `pacProfileIndex`
-   - Set PAC CLI profile: `pac auth select --index {pacProfileIndex}`
-   - Output a one-line confirmation and proceed:
-     ```
-     Resuming build on {account} / {environment} (PAC CLI profile {index}).
-     ```
+   - Look up account in `tools/session-config.json` by `accountId` to get `pacProfileIndex` + `tenantId`
    - **No question asked.** If the user wants to change target, they can say so.
 3. **If missing** (first build for this agent):
    a. Read `tools/session-config.json`
@@ -60,41 +57,32 @@ Every build targets a specific tenant and environment. This gate reads persisted
    d. **If sessionDefaults empty** (truly first time) → use `AskUserQuestion`:
       - Q1: "Which account should we build under?" — options from session-config accounts
       - Q2: "Which environment?" — options from the selected account's environments
-   e. Set PAC CLI profile: `pac auth select --index {pacProfileIndex}`
-   f. **Persist the selection** to BOTH locations:
+   e. **Persist the selection** to BOTH locations:
       - `brief.json.buildStatus` → set `account`, `environment`, `accountId`
       - `session-config.json.sessionDefaults` → set `lastAccount`, `lastEnvironment`, `lastUpdated`
-   g. Output one-line confirmation:
-     ```
-     Build target: {account} / {environment} (PAC CLI profile {index}).
-     ```
-
-### Azure CLI Tenant Verification
-
-After PAC CLI profile selection, verify az CLI is logged into the correct tenant. This prevents silent failures in LSP Wrapper, Dataverse API, Island Gateway API, and Direct Line — all of which call `az account get-access-token`.
-
-1. Read target `tenantId` from `tools/session-config.json` for the selected account
-2. Run: `az account show --query "{tenantId:tenantId, user:user.name}" -o json`
-3. Compare `az.tenantId` against `config.tenantId`:
-
-| Result | Action |
-|--------|--------|
-| **Match** | Log: `Azure CLI verified: {user} (tenant {tenantId})` — proceed |
-| **Mismatch** | Alert: `Azure CLI is on tenant {X} but target is {Y}. Run: az login --tenant {Y}` — WAIT for user |
-| **No stored tenantId** | Ask: "Is {az.user} / {az.tenantId} correct for {account}?" If yes, persist tenantId to session-config.json |
-| **az CLI not logged in** | Alert: `Run: az login --tenant {tenantId}` — WAIT for user |
-
-4. After successful verification, persist to `brief.json.buildStatus.azTenantId`
-5. On resume (buildStatus.azTenantId exists): re-verify silently — same check, same rules
-
-**Rules:**
-- Never run `az logout` — just check and alert on mismatch
-- This runs ONCE at build start, not before every tool call
-- If the user says "skip az verification", note that API tools (LSP, Island Gateway, Dataverse, Direct Line) may fail and proceed with Playwright-only fallback
+4. **Set PAC CLI:** `pac auth select --index {pacProfileIndex}`
+5. **Verify & set Azure CLI:**
+   a. Run: `az account show --query "{tenantId:tenantId, user:user.name}" -o json`
+   b. Compare `az.tenantId` against `config.tenantId`:
+      - **Match** → proceed
+      - **Mismatch or not logged in** → Run: `az login --tenant {tenantId}` (opens browser popup — user authenticates — same UX as MCS login)
+      - **No stored tenantId** → `az account show`, ask user to confirm, persist tenantId to session-config.json
+   c. After login completes, re-verify: `az account show` → must match now
+   d. Persist `azTenantId` to `brief.json.buildStatus`
+6. **Log unified summary:**
+   ```
+   Auth verified: {account} / {environment}
+     PAC CLI: profile {index} ✓
+     Azure CLI: {user} (tenant {id}) ✓
+     Browser: will verify on first interaction
+   ```
 
 ### Rules
 
-- If the user says "switch to [account/env]" at any point, re-run the picker and update both persistence locations
+- Never run `az logout` — only `az login` to switch tenants
+- This gate runs ONCE at build start, not before every tool call
+- If `az login` fails (network, MFA timeout): alert user, offer "skip az" (Playwright-only fallback, API tools may fail)
+- If the user says "switch to [account/env]" at any point, re-run the entire gate and update both persistence locations
 - If an account has no environments listed, ask the user to provide the environment name manually
 - Silent browser verification (later in the build) compares the browser's account/env against this gate's selection
 
