@@ -6,8 +6,8 @@
       "file": "build-methods.md",
       "title": "PAC CLI create requires undocumented template YAML",
       "date": "2026-02-18",
-      "confirmed": 1,
-      "lastConfirmed": "2026-02-18",
+      "confirmed": 2,
+      "lastConfirmed": "2026-02-26",
       "tags": ["pac-cli", "playwright", "agent-creation", "template"],
       "status": "active",
       "projects": ["builder-pm"]
@@ -48,10 +48,10 @@
     {
       "id": "bm-004",
       "file": "build-methods.md",
-      "title": "PAC CLI publish (MSI) crashes — MCP copilot_publish is reliable fallback",
+      "title": "PAC CLI publish (MSI) crashes — PvaPublish bound action is reliable",
       "date": "2026-02-20",
-      "confirmed": 1,
-      "lastConfirmed": "2026-02-20",
+      "confirmed": 3,
+      "lastConfirmed": "2026-02-26",
       "tags": ["pac-cli", "publish", "mcp", "crash", "workaround"],
       "status": "active",
       "projects": ["cdw"]
@@ -88,6 +88,28 @@
       "tags": ["direct-line", "content-length", "node-js", "http", "bug-fix"],
       "status": "active",
       "projects": ["clint-project"]
+    },
+    {
+      "id": "bm-007",
+      "file": "build-methods.md",
+      "title": "LSP push is the primary build method — replaces Dataverse PATCH + Playwright Code Editor",
+      "date": "2026-02-26",
+      "confirmed": 2,
+      "lastConfirmed": "2026-02-26",
+      "tags": ["lsp", "push", "instructions", "model", "knowledge", "topics", "uri-encoding", "token-audience", "bom"],
+      "status": "active",
+      "projects": ["cdw"]
+    },
+    {
+      "id": "bm-008",
+      "file": "build-methods.md",
+      "title": "LSP push doesn't update bot entity name — use Dataverse PATCH",
+      "date": "2026-02-26",
+      "confirmed": 1,
+      "lastConfirmed": "2026-02-26",
+      "tags": ["lsp", "bot-name", "dataverse", "patch", "agent-creation"],
+      "status": "active",
+      "projects": ["cdw"]
     }
   ]
 }

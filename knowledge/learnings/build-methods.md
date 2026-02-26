@@ -30,7 +30,7 @@ Entry format:
 - NLU trigger phrase registration
 - `bot_botcomponent` M:M relationship setup
 - Dependency tracking and topic compilation
-**Better approach:** For NEW topics: use Playwright Code Editor paste. For EXISTING instructions: PATCH the `data` field (see bm-005). For publish: PvaPublish bound action (see bm-004).
+**Better approach:** For NEW topics: use LSP push (see bm-007) — write `.mcs.yml` to workspace, push. Playwright Code Editor is fallback only. For EXISTING instructions: LSP push via agent.mcs.yml (preferred) or PATCH the `data` field (see bm-005). For publish: PvaPublish bound action (see bm-004).
 **Confirmed:** 1 build(s) | Last confirmed: 2026-02-20
 **Related cache:** api-capabilities.md, dataverse-patterns.md
 **Tags:** #dataverse #botcomponent #topic-creation #instructions #playwright #code-editor
@@ -64,6 +64,24 @@ The MCS UI reads/writes the `data` field. PvaPublish syncs `data` -> `content` f
 **Confirmed:** 1 build(s) | Last confirmed: 2026-02-20
 **Related cache:** api-capabilities.md, dataverse-patterns.md
 **Tags:** #instructions #dataverse #data-field #content-field #yaml #custom-gpt #botcomponent
+
+### LSP push is the primary build method — replaces Dataverse PATCH + Playwright Code Editor {#bm-007} — 2026-02-26
+**Context:** CDW Legal HR Policy Advisor — full end-to-end build testing of LSP wrapper
+**Tried:** Previous builds used Dataverse API PATCH for instructions and Playwright Code Editor for topics. Tested LSP push (via `mcs-lsp.js`) for all components.
+**Result:** LSP push handles instructions, model, knowledge (SharePoint), and custom topics in a single operation. Three bugs fixed to enable this: (1) URI encoding — `pathToFileURL()` instead of manual string, (2) token audience — PVA app ID `96ff4394-9197-43aa-b393-6a41652e21f8` instead of `api.powerplatform.com`, (3) settings.mcs.yml BOM corruption — auto-stripped after pull/clone.
+**Better approach:** Clone workspace → edit agent.mcs.yml (instructions + model) → add knowledge/*.mcs.yml → add topics/*.mcs.yml → push (one operation). Post-clone: auto-cleanup strips BOMs and removes Signin.mcs.yml. For gen orchestration agents, topics must use `modelDescription` for routing — `triggerQueries` blocks publish.
+**Confirmed:** 2 build(s) | Last confirmed: 2026-02-26
+**Related cache:** api-capabilities.md
+**Tags:** #lsp #push #instructions #model #knowledge #topics #uri-encoding #token-audience #bom
+
+### LSP push doesn't update bot entity name — use Dataverse PATCH {#bm-008} — 2026-02-26
+**Context:** CDW Legal HR Policy Advisor — new agent created via Playwright showed as "Agent" in PAC CLI after LSP push
+**Tried:** LSP push with `displayName` in agent.mcs.yml
+**Result:** LSP updates the GptComponent `displayName` but NOT the bot entity `name` field. PAC CLI and MCS agent list show the old name. The bot entity `name` is separate from the GptComponent `displayName`.
+**Better approach:** After Playwright creates an agent, PATCH the bot entity name via Dataverse API: `PATCH /bots(<id>) { "name": "<displayName>" }`. Do this before clone so the clone picks up the correct name.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-02-26
+**Related cache:** dataverse-patterns.md
+**Tags:** #lsp #bot-name #dataverse #patch #agent-creation
 
 ### Az.Accounts not needed — az CLI provides reliable Dataverse tokens {#bm-006} — 2026-02-20
 **Context:** BY build — `Connect-DataverseFromPac` crashed because Az.Accounts module not installed
