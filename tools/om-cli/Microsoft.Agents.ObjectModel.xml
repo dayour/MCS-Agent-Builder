@@ -2838,7 +2838,7 @@
             The name of the option set type.
             </summary>
         </member>
-        <member name="M:Microsoft.Agents.ObjectModel.Internal.TableDataTypeGreen.GetElementType(System.Boolean)">
+        <member name="M:Microsoft.Agents.ObjectModel.Internal.TableDataTypeGreen.GetElementType(System.Boolean,System.Boolean)">
             <summary>
             Converts the table to its underlying type, uplifting a Value column if
             it's the only column in the table if specified.
