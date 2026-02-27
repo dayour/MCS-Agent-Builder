@@ -89,31 +89,13 @@ export interface TerminalSession {
 
 // ─── Brief Data Shapes (section payloads) ───────────────────────────
 
-export interface SuccessCriterion {
-  metric: string;
-  target: string;
-  current: string;
-}
-
-export interface Stakeholder {
-  name: string;
-  role: string;
-  type: string;
-}
-
-export interface BusinessContext {
-  problemStatement: string;
-  challenges: string[];
-  benefits: string[];
-  successCriteria: SuccessCriterion[];
-  stakeholders: Stakeholder[];
-}
-
-export interface AgentIdentity {
+export interface Overview {
   name: string;
   description: string;
-  persona: string;
+  problemStatement: string;
   targetUsers: string[];
+  challenges: string[];
+  benefits: string[];
 }
 
 export interface Capability {
@@ -273,8 +255,7 @@ export interface Architecture {
  * Each key maps to the corresponding section shape.
  */
 export interface BriefData {
-  "business-context": BusinessContext;
-  "agent-identity": AgentIdentity;
+  overview: Overview;
   instructions: { systemPrompt: string };
   capabilities: { items: Capability[] };
   tools: { items: Integration[] };

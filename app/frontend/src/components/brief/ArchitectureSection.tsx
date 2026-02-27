@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
+
 import { scaffoldChildren } from "@/lib/api";
 
 interface ArchitectureContext {
@@ -47,8 +47,7 @@ const ArchitectureSection = ({ data, onChange, context }: Props) => {
   const [metaDraft, setMetaDraft] = useState<any>(null);
   const [editAgentIdx, setEditAgentIdx] = useState<number | null>(null);
   const [agentDraft, setAgentDraft] = useState<any>(null);
-  const [editScoreIdx, setEditScoreIdx] = useState<number | null>(null);
-  const [scoreDraft, setScoreDraft] = useState<any>(null);
+
   const [scaffolding, setScaffolding] = useState(false);
 
   const update = (partial: any) => onChange?.({ ...data, ...partial });
@@ -159,15 +158,6 @@ const ArchitectureSection = ({ data, onChange, context }: Props) => {
     }
   };
 
-  // --- Scoring ---
-  const startScoreEdit = (i: number) => { setEditScoreIdx(i); setScoreDraft({ ...data.scoring[i] }); };
-  const saveScore = () => {
-    if (editScoreIdx === null) return;
-    const scoring = [...data.scoring];
-    scoring[editScoreIdx] = scoreDraft;
-    update({ scoring });
-    setEditScoreIdx(null);
-  };
 
   const isMultiAgent = data.pattern === "multi-agent";
   const selectedType = ARCH_TYPES.find((t) => t.value === data.pattern);
@@ -393,37 +383,7 @@ const ArchitectureSection = ({ data, onChange, context }: Props) => {
         </div>
       )}
 
-      {/* Complexity Scoring */}
-      <div className="rounded-lg border border-border bg-card p-4">
-        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Complexity Scoring</h3>
-        <div className="space-y-3">
-          {(data.scoring || []).map((s: any, i: number) => (
-            <div key={i}>
-              {editScoreIdx === i && scoreDraft ? (
-                <div className="flex items-center gap-3">
-                  <Input className="w-36 h-8 text-xs" value={scoreDraft.factor} onChange={(e) => setScoreDraft({ ...scoreDraft, factor: e.target.value })} />
-                  <div className="flex-1">
-                    <Slider value={[scoreDraft.score]} min={1} max={10} step={1} onValueChange={([v]) => setScoreDraft({ ...scoreDraft, score: v })} />
-                  </div>
-                  <span className="text-xs font-mono text-foreground w-6 text-right">{scoreDraft.score}</span>
-                  <Input className="w-40 h-8 text-[11px]" value={scoreDraft.notes} onChange={(e) => setScoreDraft({ ...scoreDraft, notes: e.target.value })} />
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditScoreIdx(null)}><X className="h-3.5 w-3.5" /></Button>
-                  <Button size="icon" className="h-7 w-7" onClick={saveScore}><Check className="h-3.5 w-3.5" /></Button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-3 cursor-pointer hover:bg-surface-2 rounded-md px-1 -mx-1 py-0.5 transition-colors" onClick={() => startScoreEdit(i)}>
-                  <span className="w-36 text-xs text-muted-foreground shrink-0">{s.factor}</span>
-                  <div className="flex-1 h-2 rounded-full bg-surface-3 overflow-hidden">
-                    <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${s.score * 10}%` }} />
-                  </div>
-                  <span className="text-xs font-mono text-foreground w-6 text-right">{s.score}</span>
-                  <span className="text-[11px] text-muted-foreground w-40 truncate">{s.notes}</span>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
+
     </div>
   );
 };

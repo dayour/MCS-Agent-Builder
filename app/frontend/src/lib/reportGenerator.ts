@@ -16,9 +16,9 @@ export function generateBriefReport(agent: Agent, briefData: Record<string, any>
   // ── Executive Summary ─────────────────────────────────────────
   {
     lines.push("## Executive Summary\n");
-    const bc = briefData["business-context"];
-    if (bc?.problemStatement) {
-      lines.push(`${bc.problemStatement}\n`);
+    const ov = briefData["overview"];
+    if (ov?.problemStatement) {
+      lines.push(`${ov.problemStatement}\n`);
     }
 
     const caps = briefData["capabilities"]?.items ?? [];
@@ -55,46 +55,28 @@ export function generateBriefReport(agent: Agent, briefData: Record<string, any>
     lines.push(hr);
   }
 
-  // Business Context
-  const bc = briefData["business-context"];
-  if (bc) {
-    lines.push("## Business Context\n");
-    lines.push(`### Problem Statement\n${bc.problemStatement}\n`);
-    if (bc.challenges?.length) {
-      lines.push("### Key Challenges");
-      bc.challenges.forEach((c: string) => lines.push(`- ${c}`));
-      lines.push("");
+  // Overview
+  const ov = briefData["overview"];
+  if (ov) {
+    lines.push("## Overview\n");
+    lines.push(`**Name:** ${ov.name}\n`);
+    lines.push(`**Description:** ${ov.description}\n`);
+    if (ov.problemStatement) {
+      lines.push(`### Problem Statement\n${ov.problemStatement}\n`);
     }
-    if (bc.benefits?.length) {
-      lines.push("### Expected Benefits");
-      bc.benefits.forEach((b: string) => lines.push(`- ${b}`));
-      lines.push("");
-    }
-    if (bc.successCriteria?.length) {
-      lines.push("### Success Criteria\n");
-      lines.push("| Metric | Target | Current |");
-      lines.push("|--------|--------|---------|");
-      bc.successCriteria.forEach((s: any) => lines.push(`| ${s.metric} | ${s.target} | ${s.current} |`));
-      lines.push("");
-    }
-    if (bc.stakeholders?.length) {
-      lines.push("### Stakeholders\n");
-      bc.stakeholders.forEach((s: any) => lines.push(`- **${s.name}** — ${s.role} (${s.type})`));
-      lines.push("");
-    }
-    lines.push(hr);
-  }
-
-  // Agent Identity
-  const ai = briefData["agent-identity"];
-  if (ai) {
-    lines.push("## Agent Identity\n");
-    lines.push(`**Name:** ${ai.name}\n`);
-    lines.push(`**Description:** ${ai.description}\n`);
-    lines.push(`### Persona\n${ai.persona}\n`);
-    if (ai.targetUsers?.length) {
+    if (ov.targetUsers?.length) {
       lines.push("### Target Users");
-      ai.targetUsers.forEach((u: string) => lines.push(`- ${u}`));
+      ov.targetUsers.forEach((u: string) => lines.push(`- ${u}`));
+      lines.push("");
+    }
+    if (ov.challenges?.length) {
+      lines.push("### Key Challenges");
+      ov.challenges.forEach((c: string) => lines.push(`- ${c}`));
+      lines.push("");
+    }
+    if (ov.benefits?.length) {
+      lines.push("### Expected Benefits");
+      ov.benefits.forEach((b: string) => lines.push(`- ${b}`));
       lines.push("");
     }
     lines.push(hr);
@@ -116,13 +98,7 @@ export function generateBriefReport(agent: Agent, briefData: Record<string, any>
       arch.childAgents.forEach((c: any) => lines.push(`- **${c.name}:** ${c.role}`));
       lines.push("");
     }
-    if (arch.scoring?.length) {
-      lines.push("### Complexity Scoring\n");
-      lines.push("| Factor | Score | Notes |");
-      lines.push("|--------|-------|-------|");
-      arch.scoring.forEach((s: any) => lines.push(`| ${s.factor} | ${s.score}/10 | ${s.notes} |`));
-      lines.push("");
-    }
+
     lines.push(hr);
   }
 

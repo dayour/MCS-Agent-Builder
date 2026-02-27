@@ -9,7 +9,7 @@
  * doesn't display are never lost.
  */
 import type { ApiBrief } from "@/types/api";
-import type { BriefData, EvalSet, EvalConfig } from "@/types";
+import type { BriefData, EvalSet, EvalConfig, Overview } from "@/types";
 
 /**
  * Convert raw brief.json → UI BriefData shape.
@@ -21,30 +21,21 @@ export function briefFromApi(raw: ApiBrief): BriefData {
   const bounds = raw.boundaries ?? {};
 
   return {
-    "business-context": {
+    overview: {
+      name: agent.name ?? "",
+      description: agent.description ?? "",
       problemStatement: biz.problemStatement ?? biz.useCase ?? "",
+      targetUsers: [
+        agent.primaryUsers ?? "",
+        agent.secondaryUsers ?? "",
+      ].filter(Boolean),
       challenges: (biz.challenges ?? []).map((c) =>
         typeof c === "string" ? c : c.challenge ?? ""
       ),
       benefits: (biz.benefits ?? []).map((b) =>
         typeof b === "string" ? b : b.benefit ?? ""
       ),
-      successCriteria: (biz.successCriteria ?? []).map((s) => ({
-        metric: s.metric ?? "",
-        target: s.target ?? "",
-        current: (s as any).current ?? s.measurement ?? "",
-      })),
-      stakeholders: stakeholdersFromApi(biz.stakeholders),
-    },
-    "agent-identity": {
-      name: agent.name ?? "",
-      description: agent.description ?? "",
-      persona: agent.persona ?? "",
-      targetUsers: [
-        agent.primaryUsers ?? "",
-        agent.secondaryUsers ?? "",
-      ].filter(Boolean),
-    },
+    } satisfies Overview,
     instructions: {
       systemPrompt: raw.instructions ?? "",
     },
@@ -130,33 +121,25 @@ export function briefFromApi(raw: ApiBrief): BriefData {
  */
 export function briefToApi(ui: BriefData, raw: ApiBrief): ApiBrief {
   const result = structuredClone(raw);
-  const bc = ui["business-context"];
-  const ai = ui["agent-identity"];
+  const ov = ui["overview"];
   const arch = ui["architecture"];
 
-  // Business
+  // Business — merge overview fields back, preserve raw fields the UI doesn't show
   result.business = {
     ...result.business,
-    problemStatement: bc.problemStatement,
-    useCase: result.business?.useCase ?? bc.problemStatement,
-    challenges: bc.challenges.map((c) => ({ challenge: c, impact: "medium" })),
-    benefits: bc.benefits.map((b) => ({ benefit: b, type: "experience" })),
-    successCriteria: bc.successCriteria.map((s) => ({
-      metric: s.metric,
-      target: s.target,
-      measurement: s.current,
-    })),
-    stakeholders: stakeholdersToApi(bc.stakeholders, result.business?.stakeholders),
+    problemStatement: ov.problemStatement,
+    useCase: result.business?.useCase ?? ov.problemStatement,
+    challenges: ov.challenges.map((c) => ({ challenge: c, impact: "medium" })),
+    benefits: ov.benefits.map((b) => ({ benefit: b, type: "experience" })),
   };
 
-  // Agent
+  // Agent — merge overview fields back, preserve raw fields the UI doesn't show
   result.agent = {
     ...result.agent,
-    name: ai.name,
-    description: ai.description,
-    persona: ai.persona,
-    primaryUsers: ai.targetUsers[0] ?? "",
-    secondaryUsers: ai.targetUsers[1] ?? "",
+    name: ov.name,
+    description: ov.description,
+    primaryUsers: ov.targetUsers[0] ?? "",
+    secondaryUsers: ov.targetUsers[1] ?? "",
   };
 
   // Instructions
@@ -446,27 +429,6 @@ function evalSetsToApi(ui: { sets: EvalSet[]; config: EvalConfig }) {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────
-
-function stakeholdersFromApi(
-  raw?: { sponsor?: string; owner?: string; users?: string }
-): Array<{ name: string; role: string; type: string }> {
-  if (!raw) return [];
-  const result: Array<{ name: string; role: string; type: string }> = [];
-  if (raw.sponsor) result.push({ name: raw.sponsor, role: "Executive Sponsor", type: "Sponsor" });
-  if (raw.owner) result.push({ name: raw.owner, role: "Agent Owner", type: "Owner" });
-  if (raw.users) result.push({ name: raw.users, role: "Primary Users", type: "User" });
-  return result;
-}
-
-function stakeholdersToApi(
-  ui: Array<{ name: string; role: string; type: string }>,
-  existing?: { sponsor?: string; owner?: string; users?: string }
-): { sponsor: string; owner: string; users: string } {
-  const sponsor = ui.find((s) => s.type === "Sponsor")?.name ?? existing?.sponsor ?? "";
-  const owner = ui.find((s) => s.type === "Owner")?.name ?? existing?.owner ?? "";
-  const users = ui.find((s) => s.type === "User")?.name ?? existing?.users ?? "";
-  return { sponsor, owner, users };
-}
 
 const FACTOR_NAMES = [
   "domainSeparation",

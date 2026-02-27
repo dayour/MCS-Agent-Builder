@@ -18,8 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import BusinessContextSection from "@/components/brief/BusinessContextSection";
-import AgentIdentitySection from "@/components/brief/AgentIdentitySection";
+import OverviewSection from "@/components/brief/OverviewSection";
 import InstructionsSection from "@/components/brief/InstructionsSection";
 import CapabilitiesSection from "@/components/brief/CapabilitiesSection";
 import IntegrationsSection from "@/components/brief/IntegrationsSection";
@@ -32,13 +31,12 @@ import OpenQuestionsSection from "@/components/brief/OpenQuestionsSection";
 import { generateBriefReport, downloadFile } from "@/lib/reportGenerator";
 
 const iconMap: Record<string, React.ElementType> = {
-  Briefcase, Bot, FileText, Zap, Plug, Database,
+  Briefcase, FileText, Zap, Plug, Database,
   MessageSquare, Shield, Network, TestTube, HelpCircle,
 };
 
 const sectionComponents: Record<string, React.ComponentType<{ data: any; onChange?: (data: any) => void; context?: any }>> = {
-  "business-context": BusinessContextSection,
-  "agent-identity": AgentIdentitySection,
+  overview: OverviewSection,
   instructions: InstructionsSection,
   capabilities: CapabilitiesSection,
   tools: IntegrationsSection,

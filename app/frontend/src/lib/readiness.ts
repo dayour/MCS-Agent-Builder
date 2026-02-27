@@ -21,7 +21,7 @@ function hasAnyEvalResult(data: BriefData): boolean {
 }
 
 export function calcReadiness(data: BriefData): number {
-  const bc = data["business-context"];
+  const ov = data["overview"];
   const arch = data["architecture"];
   const tools = data["tools"]?.items ?? [];
   const knowledge = data["knowledge-sources"]?.items ?? [];
@@ -31,7 +31,7 @@ export function calcReadiness(data: BriefData): number {
   const unanswered = questions.filter((q) => q.question && q.status !== "resolved");
 
   const checks = [
-    Boolean(bc.problemStatement),                                         // 1. Business context
+    Boolean(ov.problemStatement),                                         // 1. Business context
     Boolean(arch.pattern),                                                // 2. Architecture
     Boolean(data.instructions?.systemPrompt),                             // 3. Instructions
     tools.filter((t) => t.name).length + topics.filter((t) => t.name).length > 0,  // 4. Components
@@ -55,7 +55,7 @@ export function calcReadinessWithStatus(
   buildPublished: boolean,
   hasEvalResults: boolean
 ): number {
-  const bc = data["business-context"];
+  const ov = data["overview"];
   const arch = data["architecture"];
   const tools = data["tools"]?.items ?? [];
   const knowledge = data["knowledge-sources"]?.items ?? [];
@@ -65,7 +65,7 @@ export function calcReadinessWithStatus(
   const unanswered = questions.filter((q) => q.question && q.status !== "resolved");
 
   const checks = [
-    Boolean(bc.problemStatement),
+    Boolean(ov.problemStatement),
     Boolean(arch.pattern),
     Boolean(data.instructions?.systemPrompt),
     tools.filter((t) => t.name).length + topics.filter((t) => t.name).length > 0,
@@ -85,8 +85,7 @@ export function calcReadinessWithStatus(
  * Per-section completion check for the sidebar.
  */
 export function sectionCompletion(data: BriefData): Record<string, boolean> {
-  const bc = data["business-context"];
-  const ai = data["agent-identity"];
+  const ov = data["overview"];
   const arch = data["architecture"];
   const tools = data["tools"]?.items ?? [];
   const knowledge = data["knowledge-sources"]?.items ?? [];
@@ -95,8 +94,7 @@ export function sectionCompletion(data: BriefData): Record<string, boolean> {
   const questions = data["open-questions"]?.items ?? [];
 
   return {
-    "business-context": Boolean(bc.problemStatement),
-    "agent-identity": Boolean(ai.name && ai.description),
+    overview: Boolean(ov.name && ov.problemStatement),
     architecture: Boolean(arch.pattern),
     instructions: Boolean(data.instructions?.systemPrompt),
     capabilities: data["capabilities"]?.items?.some((c) => c.name) ?? false,

@@ -60,7 +60,7 @@ interface Props {
 }
 
 const ExecutiveSummary = ({ sectionNumber, briefData, readiness }: Props) => {
-  const bc = briefData["business-context"];
+  const ov = briefData["overview"];
   const caps = briefData["capabilities"]?.items ?? [];
   const tools = briefData["tools"]?.items ?? [];
   const ks = briefData["knowledge-sources"]?.items ?? [];
@@ -89,9 +89,9 @@ const ExecutiveSummary = ({ sectionNumber, briefData, readiness }: Props) => {
   unresolvedQs.slice(0, 3).forEach((q: any) => priorities.push(`Resolve: ${q.question}`));
 
   // Description paragraph
-  const descText = bc?.problemStatement
-    ? bc.problemStatement
-    : "No business context has been defined yet. Complete the Business Context section to generate an executive summary.";
+  const descText = ov?.problemStatement
+    ? ov.problemStatement
+    : "No overview has been defined yet. Complete the Overview section to generate an executive summary.";
 
   return (
     <View>

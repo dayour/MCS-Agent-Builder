@@ -56,23 +56,6 @@ const Architecture = ({ data, sectionNumber }: Props) => {
         </>
       )}
 
-      {data.scoring?.length > 0 && (
-        <>
-          <SubHeading>Complexity Scoring</SubHeading>
-          <DataTable
-            columns={[
-              { header: "Factor", flex: 3 },
-              { header: "Score", flex: 1 },
-              { header: "Notes", flex: 3 },
-            ]}
-            rows={data.scoring.map((s: any) => [
-              safe(s.factor),
-              `${safe(s.score)}/10`,
-              safe(s.notes),
-            ])}
-          />
-        </>
-      )}
 
       <Divider />
     </View>

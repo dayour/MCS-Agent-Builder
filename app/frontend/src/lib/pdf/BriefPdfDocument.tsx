@@ -6,8 +6,7 @@ import CoverPage from "./CoverPage";
 import TableOfContents from "./TableOfContents";
 import ExecutiveSummary from "./ExecutiveSummary";
 import BestPractices from "./BestPractices";
-import BusinessContext from "./sections/BusinessContext";
-import AgentIdentity from "./sections/AgentIdentity";
+import Overview from "./sections/Overview";
 import Architecture from "./sections/Architecture";
 import Instructions from "./sections/Instructions";
 import Capabilities from "./sections/Capabilities";
@@ -59,8 +58,7 @@ function buildToc(briefData: Record<string, any>): { number: number; title: stri
 
   entries.push({ number: ++n, title: "Executive Summary" });
 
-  if (briefData["business-context"]) entries.push({ number: ++n, title: "Business Context" });
-  if (briefData["agent-identity"]) entries.push({ number: ++n, title: "Agent Identity" });
+  if (briefData["overview"]) entries.push({ number: ++n, title: "Overview" });
   if (briefData["architecture"]) entries.push({ number: ++n, title: "Architecture" });
   if (briefData["instructions"]?.systemPrompt) entries.push({ number: ++n, title: "Instructions" });
   if (briefData["capabilities"]?.items?.length) entries.push({ number: ++n, title: "Capabilities" });
@@ -106,7 +104,7 @@ const BriefPdfDocument = ({ agent, briefData }: Props) => {
       {/* Cover Page (no header/footer) */}
       <CoverPage
         agentName={agent.name}
-        description={agent.description || briefData["agent-identity"]?.description || ""}
+        description={agent.description || briefData["overview"]?.description || ""}
         status={agent.status}
         readiness={agent.readiness}
       />
@@ -124,8 +122,7 @@ const BriefPdfDocument = ({ agent, briefData }: Props) => {
           readiness={agent.readiness}
         />
 
-        <BusinessContext data={briefData["business-context"]} sectionNumber={num()} />
-        <AgentIdentity data={briefData["agent-identity"]} sectionNumber={num()} />
+        <Overview data={briefData["overview"]} sectionNumber={num()} />
         <Architecture data={briefData["architecture"]} sectionNumber={num()} />
         <Instructions data={briefData["instructions"]} sectionNumber={num()} />
         <Capabilities data={briefData["capabilities"]} sectionNumber={num()} />

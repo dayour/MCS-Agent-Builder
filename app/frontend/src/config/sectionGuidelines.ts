@@ -11,34 +11,6 @@ export interface SectionGuidelineData {
 }
 
 export const sectionGuidelines: Record<string, SectionGuidelineData> = {
-  "business-context": {
-    what: "Why this agent exists — the business problem, who's affected, and how success is measured.",
-    bestPractices: [
-      "Quantify the problem (volume, cost, time wasted)",
-      "Define measurable success criteria with specific targets",
-      "Identify all stakeholder roles and their relationship to the problem",
-      "Describe the current process and its pain points",
-    ],
-    commonMistakes: [
-      "Vague problem statements like \"improve efficiency\"",
-      "Missing success metrics — without them, we can't measure impact",
-      "Forgetting secondary users (managers, admins, approvers)",
-    ],
-  },
-  "agent-identity": {
-    what: "The agent's name, personality, and who it serves.",
-    bestPractices: [
-      "Name should be clear and professional — users see this first",
-      "Description should be 1-2 sentences a user would see in a directory",
-      "Persona affects tone — be specific (\"concise, uses bullet points\" not just \"helpful\")",
-      "List all distinct user groups who will interact with the agent",
-    ],
-    commonMistakes: [
-      "Generic names like \"AI Assistant\" — make it domain-specific",
-      "No persona guidance — the agent defaults to generic tone",
-      "Missing target audience — the agent can't tailor responses",
-    ],
-  },
   architecture: {
     what: "How the agent is structured — single agent or multi-agent with specialists.",
     bestPractices: [
