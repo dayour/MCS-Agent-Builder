@@ -16303,12 +16303,12 @@
         </member>
         <member name="P:Microsoft.Agents.ObjectModel.Internal.InboundTranscriptRedactionSettingsGreen.IsRedactCreditCardEnabled">
             <summary>
-            Redact credit card numbers from inbound call and chat transcripts and logs. Audio recordings aren't redacted, and outbound interactions aren't included.
+            Redact credit card numbers from inbound calls, outbound messages, chat transcripts, and logs. Audio recordings aren't redacted.
             </summary>
         </member>
         <member name="P:Microsoft.Agents.ObjectModel.Internal.InboundTranscriptRedactionSettingsGreen.IsRedactSsnEnabled">
             <summary>
-            Redact Social Security numbers from inbound call and chat transcripts and logs. Audio recordings aren't redacted, and outbound interactions aren't included.
+            Redact Social Security numbers from inbound calls, outbound messages, chat transcripts, and logs. Audio recordings aren't redacted.
             </summary>
         </member>
         <member name="P:Microsoft.Agents.ObjectModel.Internal.BotConfigurationGreen.IsTelephonyEnabled">
@@ -65365,7 +65365,7 @@
         </member>
         <member name="P:Microsoft.Agents.ObjectModel.InboundTranscriptRedactionSettings.IsRedactCreditCardEnabled">
             <summary>
-            Redact credit card numbers from inbound call and chat transcripts and logs. Audio recordings aren't redacted, and outbound interactions aren't included.
+            Redact credit card numbers from inbound calls, outbound messages, chat transcripts, and logs. Audio recordings aren't redacted.
             </summary>
         </member>
         <member name="P:Microsoft.Agents.ObjectModel.InboundTranscriptRedactionSettings.IsRedactCreditCardEnabledIsDefaultValue">
@@ -65375,7 +65375,7 @@
         </member>
         <member name="P:Microsoft.Agents.ObjectModel.InboundTranscriptRedactionSettings.IsRedactSsnEnabled">
             <summary>
-            Redact Social Security numbers from inbound call and chat transcripts and logs. Audio recordings aren't redacted, and outbound interactions aren't included.
+            Redact Social Security numbers from inbound calls, outbound messages, chat transcripts, and logs. Audio recordings aren't redacted.
             </summary>
         </member>
         <member name="P:Microsoft.Agents.ObjectModel.InboundTranscriptRedactionSettings.IsRedactSsnEnabledIsDefaultValue">
@@ -65400,12 +65400,12 @@
         </member>
         <member name="P:Microsoft.Agents.ObjectModel.InboundTranscriptRedactionSettings.Builder.IsRedactCreditCardEnabled">
             <summary>
-            Redact credit card numbers from inbound call and chat transcripts and logs. Audio recordings aren't redacted, and outbound interactions aren't included.
+            Redact credit card numbers from inbound calls, outbound messages, chat transcripts, and logs. Audio recordings aren't redacted.
             </summary>
         </member>
         <member name="P:Microsoft.Agents.ObjectModel.InboundTranscriptRedactionSettings.Builder.IsRedactSsnEnabled">
             <summary>
-            Redact Social Security numbers from inbound call and chat transcripts and logs. Audio recordings aren't redacted, and outbound interactions aren't included.
+            Redact Social Security numbers from inbound calls, outbound messages, chat transcripts, and logs. Audio recordings aren't redacted.
             </summary>
         </member>
         <member name="M:Microsoft.Agents.ObjectModel.InboundTranscriptRedactionSettings.Builder.Build">
