@@ -87,7 +87,7 @@ Account+env is persisted and verified silently — see CLAUDE.md "MCS Browser Pr
 - `pac copilot create`: Template-based, captures topics/instructions only, NOT tools/knowledge/model
 
 ### Workflow Corrections
-- **7 MCS skills** + 2 utility (bug, suggest) = 9 skill folders total
+- **8 MCS skills** + 2 utility (bug, suggest) = 10 skill folders total
 - `/mcs-analyze` is deprecated — merged into `/mcs-research`
 - `/mcs-update` is removed — Phase 0 incremental in `/mcs-research` covers its use case
 

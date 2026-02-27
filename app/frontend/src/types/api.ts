@@ -151,9 +151,10 @@ export interface ApiBrief {
   };
   architecture?: {
     type?: string;
-    factors?: Record<string, boolean>;
+    factors?: Record<string, boolean | { value: boolean; reasoning?: string }>;
     score?: number;
     reason?: string;
+    typeReasoning?: string;
     triggers?: Array<{ type: string; description: string }>;
     channels?: Array<{ name: string; reason?: string }>;
     children?: Array<{ name: string; role: string; routingRule?: string; model?: string; agentFolderId?: string }>;

@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-02-13
-sources: [MS Learn, Power Platform connector catalog, MS Learn Salesforce connector reference, WebSearch]
+last_verified: 2026-02-27
+sources: [MS Learn, Power Platform connector catalog, MS Learn Salesforce connector reference, MS Learn Bing Search connector reference, WebSearch]
 confidence: high
 refresh_trigger: before_architecture
 -->
@@ -58,10 +58,15 @@ Some Power Platform connectors now include MCP server actions as operations. The
 
 Note: More connectors may have embedded MCP server actions. Check the connector reference page for `mcp_` operation IDs.
 
+### Search & News
+| Connector | Key Actions | Notes |
+|-----------|-------------|-------|
+| Bing Search | `GetNews` (list news by query), `TrigNewNews` (trigger on new article) | **Preview**. Standard tier (no premium needed). API key auth (Bing API key). Returns: name, URL, description, datePublished, category. 1,200 calls/min. Trigger poll: 1/900s. Market and safe search filters supported. Available in Copilot Studio, Power Automate, Power Apps, Logic Apps. Source: https://learn.microsoft.com/en-us/connectors/bingsearch/ |
+
 ### AI & Automation
 | Connector | Key Actions | Notes |
 |-----------|-------------|-------|
-| AI Builder | Prompt actions, extraction | Premium |
+| AI Builder | Prompt actions, document processing, contract processing (preview) | Premium. Copilot Credits required (AI Builder credits removed Nov 2026). |
 | Power Automate | Trigger flows | Standard |
 | Azure OpenAI | Custom completions | Premium |
 

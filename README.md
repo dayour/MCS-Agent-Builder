@@ -160,7 +160,7 @@ bin/
 
 .claude/
   settings.json             MCP servers, permissions, Agent Teams flag
-  skills/                   9 skills (7 workflow + 2 utility)
+  skills/                   10 skills (8 workflow + 2 utility)
   agents/                   6 AI teammate definitions
 
 app/

@@ -38,6 +38,19 @@ refresh_trigger: on_error
 
 Handles YAML→JSON conversion automatically via `YamlPassThroughSerializationContext`. Same code path as the official GA VS Code extension.
 
+### LSP Push Limitations
+
+Known limitations of `mcs-lsp.js push` discovered through E2E testing:
+
+| Limitation | Behavior | Workaround |
+|-----------|----------|------------|
+| Cannot create NEW action components | Push syncs existing actions only; new actions are silently skipped | Add tools via Playwright UI or `add-tool.js` first, then push edits to existing actions |
+| `settings.mcs.yml` not pushed | Reports "0 changes", settings silently ignored | Dataverse PATCH on `bot.configuration` JSON field |
+| "0 local changes synced" ambiguity | Could mean "nothing to sync" OR "push succeeded, no diff" | Verify via pull or Dataverse read-back after push |
+| Bot entity name unchanged by push | `displayName` updates GptComponent, not the bot record itself | Dataverse PATCH `/bots(<id>)` with `{ "name": "..." }` |
+
+> **Cross-reference:** These limitations also apply to the `replicate-agent.js` cross-environment replication tool, which skips actions (connection refs differ per env) and reports settings as a manual verification step.
+
 ## Layer 1.5b: Island Control Plane Gateway API
 
 **Client:** `tools/island-client.js` (zero dependencies, Node.js)

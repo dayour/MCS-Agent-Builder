@@ -521,11 +521,16 @@ Score single vs multi-agent using the 6-factor framework:
 
 **Score: 0-2 → Single Agent | 3+ → Multi-Agent**
 
+Also consider **Connected Agent** — when the agent bridges to an external agent system (e.g., Azure AI Foundry agent). Rule out explicitly if not applicable.
+
 Update `brief.json architecture`:
-- `architecture.type` — "Single Agent" or "Multi-Agent" (auto-computed from factors)
-- `architecture.factors` — 6-factor boolean checklist (domainSeparation, dataIsolation, teamOwnership, reusability, instructionSize, knowledgeIsolation)
+- `architecture.type` — `"single-agent"`, `"multi-agent"`, or `"connected-agent"` (kebab-case, matching dashboard UI card IDs)
+- `architecture.reason` — 2-4 sentences explaining WHY this type was selected. Reference the score, the key factors that drove the decision, and why the other types were ruled out. Example: "Score 0/6 — Single Agent. All capabilities serve one domain with shared data and one owning team. Multi-Agent rejected: no quality gain. Connected Agent ruled out: no external system."
+- `architecture.factors` — 6-factor object, each with `value` (true/false) and `reasoning` (1-2 sentences explaining why this factor scored the way it did, referencing the agent's specific capabilities and data)
 - `architecture.score` — count of true factors (0-6)
 - `architecture.children` — child agents if multi-agent
+
+**Every factor MUST have reasoning.** A bare `true`/`false` without explanation is incomplete. The reasoning should reference the agent's specific capabilities, data sources, teams, and constraints — not generic statements.
 
 ### Step 2: Instructions — Prompt Engineer (single pass)
 

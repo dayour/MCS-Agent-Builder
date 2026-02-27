@@ -126,15 +126,16 @@
 
   "architecture": {
     "_meeting": "Section 8 — 'How is it built?' Walk through 6 factors with the customer.",
-    "type": "Single Agent | Multi-Agent | Connected Agent",
+    "type": "single-agent | multi-agent | connected-agent",
+    "reason": "2-4 sentence explanation of WHY this architecture type was selected. Reference the score, key factors, and why other types were ruled out.",
     "factors": {
-      "_description": "6-factor scoring — check each with the customer. 0-2 checked = Single Agent, 3+ = Multi-Agent.",
-      "domainSeparation": false,
-      "dataIsolation": false,
-      "teamOwnership": false,
-      "reusability": false,
-      "instructionSize": false,
-      "knowledgeIsolation": false
+      "_description": "6-factor scoring — check each with the customer. 0-2 checked = Single Agent, 3+ = Multi-Agent. Each factor must include a 'value' (true/false) and 'reasoning' (1-2 sentences explaining why).",
+      "domainSeparation": { "value": false, "reasoning": "Why single domain or truly separate domains" },
+      "dataIsolation": { "value": false, "reasoning": "Why shared data or isolated data per capability" },
+      "teamOwnership": { "value": false, "reasoning": "Why same team or different teams own parts" },
+      "reusability": { "value": false, "reasoning": "Why one-off or reusable by other orchestrators" },
+      "instructionSize": { "value": false, "reasoning": "Why fits in 8000 chars or would exceed" },
+      "knowledgeIsolation": { "value": false, "reasoning": "Why shared KB or each needs own deep KB" }
     },
     "score": 0,
     "triggers": [

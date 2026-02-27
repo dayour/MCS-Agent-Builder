@@ -92,8 +92,8 @@ export function briefFromApi(raw: ApiBrief): BriefData {
       ),
     },
     architecture: {
-      pattern: arch.type ?? "",
-      patternReasoning: arch.reason ?? "",
+      pattern: normalizeArchType(arch.type ?? ""),
+      patternReasoning: arch.reason ?? arch.typeReasoning ?? "",
       triggers: (arch.triggers ?? []).map((t) => ({
         type: t.type ?? "",
         description: t.description ?? "",
@@ -237,6 +237,7 @@ export function briefToApi(ui: BriefData, raw: ApiBrief): ApiBrief {
     ...result.architecture,
     type: arch.pattern,
     reason: arch.patternReasoning,
+    typeReasoning: arch.patternReasoning,
     triggers: arch.triggers,
     channels: arch.channels.map((ch) => ({ name: ch.name, reason: ch.reason })),
     children: arch.childAgents.map((c) => {
@@ -485,22 +486,42 @@ const FACTOR_LABELS: Record<string, string> = {
   knowledgeIsolation: "Knowledge Isolation",
 };
 
+/** Normalize architecture type strings to kebab-case IDs used by the UI */
+function normalizeArchType(type: string): string {
+  const t = type.toLowerCase().trim();
+  if (t === "single agent" || t === "single-agent" || t === "single") return "single-agent";
+  if (t === "multi-agent" || t === "multi agent" || t === "multi") return "multi-agent";
+  if (t === "connected agent" || t === "connected-agent" || t === "connected") return "connected-agent";
+  return type; // pass through unknown values
+}
+
 function factorsToScoring(
-  factors?: Record<string, boolean>,
+  factors?: Record<string, boolean | { value: boolean; reasoning?: string }>,
   totalScore?: number
 ): Array<{ factor: string; score: number; notes: string }> {
   if (!factors) return [];
-  return FACTOR_NAMES.map((key) => ({
-    factor: FACTOR_LABELS[key] ?? key,
-    score: factors[key] ? 1 : 0,
-    notes: factors[key] ? "Applies" : "",
-  }));
+  return FACTOR_NAMES.map((key) => {
+    const f = factors[key];
+    // Handle both { value, reasoning } objects and bare booleans
+    if (typeof f === "object" && f !== null && "value" in f) {
+      return {
+        factor: FACTOR_LABELS[key] ?? key,
+        score: f.value ? 1 : 0,
+        notes: f.reasoning ?? (f.value ? "Applies" : ""),
+      };
+    }
+    return {
+      factor: FACTOR_LABELS[key] ?? key,
+      score: f ? 1 : 0,
+      notes: f ? "Applies" : "",
+    };
+  });
 }
 
 function scoringToFactors(
   scoring: Array<{ factor: string; score: number; notes: string }>
-): Record<string, boolean> {
-  const result: Record<string, boolean> = {};
+): Record<string, { value: boolean; reasoning: string }> {
+  const result: Record<string, { value: boolean; reasoning: string }> = {};
   // Reverse lookup: label → key
   const labelToKey: Record<string, string> = {};
   for (const [key, label] of Object.entries(FACTOR_LABELS)) {
@@ -508,7 +529,7 @@ function scoringToFactors(
   }
   for (const s of scoring) {
     const key = labelToKey[s.factor] ?? s.factor;
-    result[key] = s.score > 0;
+    result[key] = { value: s.score > 0, reasoning: s.notes ?? "" };
   }
   return result;
 }

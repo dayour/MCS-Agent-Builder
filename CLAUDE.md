@@ -210,6 +210,7 @@ Before committing to designs that are hard to undo — schema changes, workflow 
 | **Gen Constraints** | Pre-generation constraint extraction: `python tools/gen-constraints.py <types>` — required fields per node type |
 | **Drift Detection** | Compare brief.json specs vs built YAML: `python tools/drift-detect.py <brief.json>` — missing topics, trigger mismatches, variable drift |
 | **Semantic Gates** | 5 validation gates beyond structural checks: `python tools/semantic-gates.py <file.yaml> --brief <brief.json>` (PowerFx, cross-refs, variable flow, channel compat, connectors) |
+| **Replicate Agent** | Cross-environment agent replication: Dataverse create + LSP clone + push (`tools/replicate-agent.js`) |
 | **Direct Line API** | Agent testing: send messages, compare responses (`tools/direct-line-test.js`) |
 | **Test Chat Harness** | Optimized Playwright eval: injectable browser code for ~3-5s/test boundary tests (`tools/test-chat-harness.js`) |
 | **Eval Runner** | Test plan generation, scoring, tier detection for Playwright eval (`tools/playwright-eval-runner.js`) |
@@ -346,6 +347,7 @@ Learnings are consulted at these specific points across all workflow skills:
 | `/mcs-build` | Before Step 4 (topics) | `topics-triggers.md` |
 | `/mcs-eval` | Before Step 2 (run evaluation) | `eval-testing.md` |
 | `/mcs-fix` | Step 2 (classify failures) | `eval-testing.md`, `instructions.md`, `topics-triggers.md` |
+| `/mcs-retro` | All steps (collect + compare) | All learnings files + `index.json` + all cache files |
 
 ---
 
@@ -419,8 +421,8 @@ No SDR or requirements available.
 ## Workflow
 
 ```
-CREATE → UPLOAD → RESEARCH → BUILD → EVALUATE → [FIX]
-                  /mcs-research  /mcs-build  /mcs-eval  /mcs-fix
+CREATE → UPLOAD → RESEARCH → BUILD → EVALUATE → [FIX] → [RETRO]
+                  /mcs-research  /mcs-build  /mcs-eval  /mcs-fix  /mcs-retro
 ```
 
 | Step | Skill | Input | Output | Agent Teams |
@@ -431,12 +433,13 @@ CREATE → UPLOAD → RESEARCH → BUILD → EVALUATE → [FIX]
 | **Build** | `/mcs-build {projectId} {agentId}` | brief.json | MCS agent (published) + build-report.md | TE + QA (+ RA/PE on-demand) |
 | **Evaluate** | `/mcs-eval {projectId} {agentId}` | brief.json evalSets | evalSets[].tests[].lastResult | QA |
 | **Fix** | `/mcs-fix {projectId} {agentId}` | brief.json evalSets (failing tests) | brief.json (fixed) + re-eval results | PE + TE + QA |
+| **Retro** | `/mcs-retro` | Session context | Updated learnings + cache | None |
 
 > **`/mcs-context`** is optional but recommended — it pulls all M365 history for a customer via WorkIQ MCP and pre-fills 60-80% of research.
 
 ---
 
-## Skills (9 total — 7 workflow + 2 utility)
+## Skills (10 total — 8 workflow + 2 utility)
 
 | Skill | Purpose | Dashboard Button |
 |-------|---------|-----------------|
@@ -447,6 +450,7 @@ CREATE → UPLOAD → RESEARCH → BUILD → EVALUATE → [FIX]
 | **mcs-eval** | Run eval tests, write results to brief.json | **Evaluate** |
 | **mcs-fix** | Analyze eval failures, apply fixes (instructions/topics/evals), re-evaluate | **Fix Failures** (conditional — appears when eval < 70%) |
 | **mcs-refresh** | Refresh knowledge cache files | None (CLI) |
+| **mcs-retro** | Post-session retrospective: collect, classify, and persist learnings | None (CLI) |
 | **bug** | File bug reports via `az` CLI | Sidebar button |
 | **suggest** | File feature suggestions via `az` CLI | Sidebar button |
 
@@ -586,6 +590,25 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 
 ---
 
+## RETRO: Post-Session Retrospective (`/mcs-retro`)
+
+**Goal:** Capture and classify learnings from a build/eval/fix session into the knowledge system.
+
+**Input:** `/mcs-retro` (no arguments — scans the current session)
+**Reads:** Session context + all `knowledge/learnings/*.md` + `knowledge/learnings/index.json` + `knowledge/cache/*.md`
+**Writes:** Updated learnings files, index.json, cache corrections
+
+**5-step flow:**
+1. **Collect** — scan session for build errors, eval failures, manual workarounds, verbal discoveries, tool gaps
+2. **Compare** — for each item, search `index.json` for matching tags, check cache files
+3. **Classify** — REPEAT (auto-bump), NEW (add), CORRECTION (flag), ENHANCEMENT (update), TOOLING_GAP (file suggestion)
+4. **Present** — table of all items with classification, target file, proposed action
+5. **Apply** — auto-apply Tier 1 (REPEAT), ask user approval for Tier 2 (NEW/CORRECTION/ENHANCEMENT/TOOLING_GAP)
+
+**When to run:** After build/eval/fix sessions. Optional — never auto-triggered.
+
+---
+
 ## Component Selection & Architecture Decisions
 
 **Component selection framework:** See `knowledge/frameworks/component-selection.md`
@@ -679,7 +702,7 @@ requirements.txt            # Python dependencies
 .claude/
 ├── memory/                 # Persistent learnings across sessions
 ├── settings.json           # MCP servers, permissions, Agent Teams env flag
-├── skills/                 # 9 skills (7 workflow + 2 utility)
+├── skills/                 # 10 skills (8 workflow + 2 utility)
 │   ├── mcs-init/           # Create project folder
 │   ├── mcs-context/        # Pull M365 history via WorkIQ
 │   ├── mcs-research/       # Read docs + full enrichment → brief.json + evals
@@ -687,6 +710,7 @@ requirements.txt            # Python dependencies
 │   ├── mcs-eval/           # Run eval sets → evalSets[].tests[].lastResult
 │   ├── mcs-fix/            # Post-eval fix → re-eval loop
 │   ├── mcs-refresh/        # Refresh knowledge cache
+│   ├── mcs-retro/          # Post-session retrospective
 │   ├── bug/                # File bug reports via az CLI
 │   └── suggest/            # File feature suggestions via az CLI
 └── agents/                 # Agent Teams teammate definitions
@@ -751,6 +775,7 @@ tools/
 ├── eval-scoring.js         # Shared scoring module (6 MCS methods, used by Direct Line + Playwright runners)
 ├── test-chat-harness.js    # Injectable browser harness for fast Playwright Test Chat eval
 ├── playwright-eval-runner.js # Test plan generator, scorer, tier detector for Playwright eval
+├── replicate-agent.js      # Cross-environment agent replication via Dataverse + LSP clone + push
 ├── dataverse-helper.ps1    # PowerShell Dataverse Web API helper
 ├── pac-mcp-wrapper.js      # PAC CLI MCP server wrapper
 ├── update-om-cli.ps1       # Auto-update om-cli from ObjectModel source (called by pre-push hook)
