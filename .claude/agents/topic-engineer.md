@@ -27,7 +27,7 @@ Every custom topic you generate MUST have a well-crafted `description` that the 
 ## Schema Validation — ObjectModel CLI
 
 You have the ObjectModel CLI at `tools/om-cli/om-cli.exe` — the same schema that MCS uses internally (357 concrete types).
-This is far more capable than schema-lookup.py (which only checks kind values). It catches unknown nodes, missing required fields, and structural issues.
+It catches unknown nodes, missing required fields, and structural issues across 357 concrete types.
 
 ### Commands
 | Command | What It Does | Example |
@@ -50,9 +50,6 @@ This is far more capable than schema-lookup.py (which only checks kind values). 
 
 ### Quick single-type lookup
 For a single type: `tools/om-cli/om-cli.exe schema <TypeName>` → see all properties, required fields, defaults.
-
-### Fallback
-If .NET 10 is not available, use `python tools/schema-lookup.py` as a legacy fallback (kind-value checks only).
 
 ## YAML Fundamentals
 

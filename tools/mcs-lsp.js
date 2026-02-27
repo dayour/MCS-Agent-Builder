@@ -24,6 +24,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { pathToFileURL } = require('url');
+const { getToken: getAzToken } = require('./lib/http');
 
 // --- Configuration ---
 const LSP_STARTUP_TIMEOUT_MS = 15000;
@@ -341,24 +342,7 @@ function getTokens(connJson) {
     return { dataverseToken, copilotStudioToken };
 }
 
-/**
- * Get a single token via az CLI (same pattern as island-client.js).
- */
-function getAzToken(resource) {
-    try {
-        const result = execSync(
-            `az account get-access-token --resource ${resource} --query accessToken -o tsv`,
-            { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
-        );
-        return result.trim();
-    } catch (err) {
-        throw new Error(
-            `Failed to get token for ${resource}. Ensure az CLI is logged in.\n` +
-            `Run: az login\n` +
-            `Error: ${err.stderr || err.message}`
-        );
-    }
-}
+// getAzToken imported from ./lib/http
 
 /**
  * Build the SyncAgentRequest from conn.json + tokens.

@@ -27,9 +27,7 @@
  */
 
 const fs = require('fs');
-const https = require('https');
-const http = require('http');
-const { URL } = require('url');
+const { httpRequest, httpRequestWithRetry } = require('./lib/http');
 const { evaluateResult, parseCSV } = require('./eval-scoring');
 
 // --- Configuration ---
@@ -38,7 +36,6 @@ const DEFAULT_TIMEOUT_MS = 60000; // 60 seconds max wait per message
 const POLL_INTERVAL_MS = 1000;    // Poll every 1 second
 const TOKEN_REFRESH_THRESHOLD = 0.8; // Refresh when 80% of TTL elapsed
 const MAX_RETRIES = 3;
-const RETRY_BACKOFF_BASE_MS = 1000; // 1s, 2s, 4s
 
 // --- Parse CLI Args ---
 function parseArgs() {
@@ -88,72 +85,7 @@ Examples:
 }
 
 // CSV parsing and scoring now use shared module: ./eval-scoring.js
-
-// --- HTTP Helper with retry ---
-function httpRequest(method, url, headers, body) {
-    return new Promise((resolve, reject) => {
-        const parsed = new URL(url);
-        const transport = parsed.protocol === 'http:' ? http : https;
-        const bodyStr = body ? JSON.stringify(body) : null;
-        const options = {
-            hostname: parsed.hostname,
-            port: parsed.port || (parsed.protocol === 'http:' ? 80 : 443),
-            path: parsed.pathname + parsed.search,
-            method,
-            headers: {
-                ...headers,
-                'Content-Type': 'application/json',
-                ...(bodyStr ? { 'Content-Length': Buffer.byteLength(bodyStr) } : {})
-            }
-        };
-
-        const req = transport.request(options, (res) => {
-            let data = '';
-            res.on('data', chunk => data += chunk);
-            res.on('end', () => {
-                try {
-                    resolve({ status: res.statusCode, data: JSON.parse(data || '{}') });
-                } catch {
-                    resolve({ status: res.statusCode, data: data });
-                }
-            });
-        });
-
-        req.on('error', reject);
-        req.setTimeout(15000, () => {
-            req.destroy(new Error('Request timeout'));
-        });
-        if (bodyStr) req.write(bodyStr);
-        req.end();
-    });
-}
-
-async function httpRequestWithRetry(method, url, headers, body, retries = MAX_RETRIES) {
-    let lastError;
-    for (let attempt = 0; attempt <= retries; attempt++) {
-        try {
-            const res = await httpRequest(method, url, headers, body);
-
-            // Retry on 429 (rate limit) or 5xx (server error)
-            if ((res.status === 429 || res.status >= 500) && attempt < retries) {
-                const delay = RETRY_BACKOFF_BASE_MS * Math.pow(2, attempt);
-                console.log(`  [Retry ${attempt + 1}/${retries}] HTTP ${res.status}, waiting ${delay}ms...`);
-                await new Promise(r => setTimeout(r, delay));
-                continue;
-            }
-
-            return res;
-        } catch (err) {
-            lastError = err;
-            if (attempt < retries) {
-                const delay = RETRY_BACKOFF_BASE_MS * Math.pow(2, attempt);
-                console.log(`  [Retry ${attempt + 1}/${retries}] ${err.message}, waiting ${delay}ms...`);
-                await new Promise(r => setTimeout(r, delay));
-            }
-        }
-    }
-    throw lastError;
-}
+// HTTP request functions now use shared module: ./lib/http.js
 
 // --- Token Manager ---
 class TokenManager {

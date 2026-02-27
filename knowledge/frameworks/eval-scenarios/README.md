@@ -125,4 +125,4 @@ Override precedence: `test.methods` > `set.methods`
 1. **Orient** — Use Entry Path A (agent type) or Entry Path B (concern) to find your starting scenarios
 2. **Select** — Read the "When to Use" section in each file to confirm relevance. Most agents need 3-5 business-problem + 3-5 capability scenarios
 3. **Build** — Use the Practical Examples as templates, adapt to your agent's domain
-4. **Validate** — Check coverage distribution after generation (tools/eval-coverage.js)
+4. **Validate** — Check coverage distribution after generation

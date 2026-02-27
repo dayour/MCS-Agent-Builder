@@ -308,8 +308,6 @@ The `bot.configuration` Dataverse field also contains AI settings:
 | `kind: ConditionGroup` | `$kind: ConditionGroup` |
 | `kind: SetVariable` | `$kind: SetVariable` |
 
-**Captured payloads:** `reference/05-topic-save-captured.json` (update) and `reference/06-topic-create-captured.json` (insert)
-
 ## Connector Discovery (Connectivity API)
 
 The Power Platform Connectivity API at `{envId}.environment.api.powerplatform.com` exposes connector metadata, operations, and connections. This is a **separate API surface** from the Island Gateway — uses `https://service.powerapps.com/` as the token resource.

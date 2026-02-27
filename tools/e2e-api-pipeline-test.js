@@ -21,12 +21,10 @@
  */
 
 const { execSync } = require('child_process');
-const https = require('https');
-const http = require('http');
-const { URL } = require('url');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { httpRequest, getToken: getAzToken } = require('./lib/http');
 
 // --- Configuration ---
 const CONFIG = {
@@ -83,57 +81,14 @@ function logStep(stepNum, name, status, details, error) {
     RESULTS.push({ step: stepNum, name, status, details, error });
 }
 
-// --- Token Acquisition ---
-
-function getAzToken(resource) {
-    const result = execSync(
-        `az account get-access-token --resource ${resource} --query accessToken -o tsv`,
-        { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
-    );
-    return result.trim();
-}
+// --- Token Acquisition (getAzToken imported from ./lib/http) ---
 
 function refreshTokens() {
     STATE.dvToken = getAzToken(CONFIG.dataverseUrl);
     STATE.csToken = getAzToken('96ff4394-9197-43aa-b393-6a41652e21f8');
 }
 
-// --- HTTP Helper ---
-
-function httpRequest(method, url, headers, body, timeout = 30000) {
-    return new Promise((resolve, reject) => {
-        const parsed = new URL(url);
-        const transport = parsed.protocol === 'http:' ? http : https;
-        const bodyStr = body ? (typeof body === 'string' ? body : JSON.stringify(body)) : null;
-        const options = {
-            hostname: parsed.hostname,
-            port: parsed.port || (parsed.protocol === 'http:' ? 80 : 443),
-            path: parsed.pathname + parsed.search,
-            method,
-            headers: {
-                ...headers,
-                ...(bodyStr ? { 'Content-Length': Buffer.byteLength(bodyStr) } : {})
-            }
-        };
-
-        const req = transport.request(options, (res) => {
-            let data = '';
-            res.on('data', chunk => data += chunk);
-            res.on('end', () => {
-                try {
-                    resolve({ status: res.statusCode, headers: res.headers, data: JSON.parse(data || '{}') });
-                } catch {
-                    resolve({ status: res.statusCode, headers: res.headers, data });
-                }
-            });
-        });
-
-        req.on('error', reject);
-        req.setTimeout(timeout, () => req.destroy(new Error('Request timeout')));
-        if (bodyStr) req.write(bodyStr);
-        req.end();
-    });
-}
+// httpRequest imported from ./lib/http (supports configurable timeout, Content-Length, http+https)
 
 function dvHeaders(extraHeaders = {}) {
     return {

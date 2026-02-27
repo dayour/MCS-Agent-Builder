@@ -206,7 +206,6 @@ Before committing to designs that are hard to undo — schema changes, workflow 
 | **Gen Constraints** | Pre-generation constraint extraction: `python tools/gen-constraints.py <types>` — required fields per node type |
 | **Drift Detection** | Compare brief.json specs vs built YAML: `python tools/drift-detect.py <brief.json>` — missing topics, trigger mismatches, variable drift |
 | **Semantic Gates** | 5 validation gates beyond structural checks: `python tools/semantic-gates.py <file.yaml> --brief <brief.json>` (PowerFx, cross-refs, variable flow, channel compat, connectors) |
-| **Schema Lookup** | Legacy kind-value validation: `python tools/schema-lookup.py` (fallback if .NET 10 unavailable) |
 | **Direct Line API** | Agent testing: send messages, compare responses (`tools/direct-line-test.js`) |
 | **Test Chat Harness** | Optimized Playwright eval: injectable browser code for ~3-5s/test boundary tests (`tools/test-chat-harness.js`) |
 | **Eval Runner** | Test plan generation, scoring, tier detection for Playwright eval (`tools/playwright-eval-runner.js`) |
@@ -597,7 +596,7 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 
 ## Patterns & References
 
-**MCS Authoring Schema:** `reference/schema/bot.schema.yaml-authoring.json` (200KB+, 433 kind values / 357 concrete types) — query via `tools/om-cli/om-cli.exe` (primary, 357 types) or `python tools/schema-lookup.py` (legacy fallback, 433 kinds)
+**MCS Authoring Schema:** Query via `tools/om-cli/om-cli.exe` (357 concrete types, validates unknown nodes + missing fields). Schema files baked into `tools/om-cli/schemas/`.
 **Code Editor YAML reference:** See `knowledge/patterns/yaml-reference.md` (action types, entity catalog, binding rules, compile errors)
 **Topic YAML templates:** See `knowledge/patterns/topic-patterns/` (10 patterns including AI Builder model)
 **Playwright UI patterns:** See `knowledge/patterns/playwright-patterns.md`
@@ -712,10 +711,6 @@ app/                        # Dashboard application
     ├── package.json        # Frontend dependencies
     └── vite.config.ts      # Build config (outputs to app/dist/)
 
-reference/
-└── schema/
-    └── bot.schema.yaml-authoring.json  # Full MCS authoring schema (200KB+, 433 kind values)
-
 knowledge/
 ├── learnings/              # Experience-based insights from past builds (8 topic files + index.json)
 │   ├── index.json          # Machine-readable learnings index (dedup, confirmed counts, staleness)
@@ -740,11 +735,12 @@ tools/
 ├── om-cli/                 # ObjectModel CLI — full YAML validation + schema explorer (357 types, .NET 10)
 │   ├── om-cli.exe          # Main binary (framework-dependent, ~20MB)
 │   └── README.md           # Commands, rebuild instructions
+├── lib/
+│   └── http.js             # Shared HTTP request + Azure CLI token helpers (used by all JS tools)
 ├── gen-constraints.py      # Pre-generation constraint extraction (queries om-cli for required fields)
 ├── drift-detect.py         # Brief-vs-YAML drift detection (missing topics, trigger/variable mismatches)
 ├── semantic-gates.py       # 5 semantic validation gates (PowerFx, cross-refs, variables, channels, connectors)
 ├── powerfx-catalog.json    # Official PowerFx function catalog (loaded by semantic-gates.py)
-├── schema-lookup.py        # Legacy schema query tool (kind-value checks only, fallback)
 ├── mcs-lsp.js              # MCS Language Server wrapper — headless push/pull via official LS (topics, sync)
 ├── island-client.js        # Island Control Plane Gateway API client (model catalog, reads, routing, settings)
 ├── add-tool.js             # Headless tool/connector addition — generates action YAML + LSP push
@@ -753,7 +749,6 @@ tools/
 ├── test-chat-harness.js    # Injectable browser harness for fast Playwright Test Chat eval
 ├── playwright-eval-runner.js # Test plan generator, scorer, tier detector for Playwright eval
 ├── dataverse-helper.ps1    # PowerShell Dataverse Web API helper
-├── fetch-instructions.ps1  # Fetch agent instructions from Dataverse
 ├── pac-mcp-wrapper.js      # PAC CLI MCP server wrapper
 ├── update-om-cli.ps1       # Auto-update om-cli from ObjectModel source (called by pre-push hook)
 ├── start-edge-debug.cmd    # Launch Edge with remote debugging for Playwright CDP mode

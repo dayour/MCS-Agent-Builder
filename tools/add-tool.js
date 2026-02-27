@@ -14,60 +14,9 @@
  */
 
 const { execSync } = require('child_process');
-const https = require('https');
-const { URL } = require('url');
 const fs = require('fs');
 const path = require('path');
-
-// --- Token Helpers ---
-
-function getToken(resource) {
-    try {
-        return execSync(
-            `az account get-access-token --resource ${resource} --query accessToken -o tsv`,
-            { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
-        ).trim();
-    } catch (err) {
-        throw new Error(`Failed to get token for ${resource}: ${err.stderr || err.message}`);
-    }
-}
-
-// --- HTTP Helper ---
-
-function httpRequest(method, url, headers, body) {
-    return new Promise((resolve, reject) => {
-        const parsed = new URL(url);
-        const bodyStr = body ? JSON.stringify(body) : null;
-        const options = {
-            hostname: parsed.hostname,
-            port: parsed.port || 443,
-            path: parsed.pathname + parsed.search,
-            method,
-            headers: {
-                ...headers,
-                'Content-Type': 'application/json',
-                ...(bodyStr ? { 'Content-Length': Buffer.byteLength(bodyStr) } : {})
-            }
-        };
-
-        const req = https.request(options, (res) => {
-            let data = '';
-            res.on('data', chunk => data += chunk);
-            res.on('end', () => {
-                try {
-                    resolve({ status: res.statusCode, data: JSON.parse(data || '{}') });
-                } catch {
-                    resolve({ status: res.statusCode, data });
-                }
-            });
-        });
-
-        req.on('error', reject);
-        req.setTimeout(30000, () => req.destroy(new Error('Request timeout')));
-        if (bodyStr) req.write(bodyStr);
-        req.end();
-    });
-}
+const { httpRequest, getToken } = require('./lib/http');
 
 // --- Power Platform Connectivity API Helpers ---
 

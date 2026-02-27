@@ -8,8 +8,6 @@ Topics in Microsoft Copilot Studio can be authored via the built-in code editor 
 
 **Semantic Validation:** Use `python tools/semantic-gates.py <file.yaml> --brief <brief.json>` for 5 additional checks beyond structural validation: PowerFx functions, topic cross-references, variable flow, channel compatibility, and connector references.
 
-**Schema Validation (legacy fallback):** If .NET 10 is unavailable, use `python tools/schema-lookup.py` for kind-value and entity reference checks only.
-
 ## YAML Rules
 
 - Root element: `kind: AdaptiveDialog`
@@ -221,19 +219,6 @@ Every `Question` and `AutomaticTaskInput` MUST have an `entity` property. **Enti
 | `ColorPrebuiltEntity` | Color names |
 
 **Prefer specific entities** for automatic validation: `EmailPrebuiltEntity` over `StringPrebuiltEntity` when collecting email.
-
-## Schema Lookup Tool
-
-Query the full MCS authoring schema without loading 200KB+ into context:
-
-```bash
-python tools/schema-lookup.py lookup Question       # Get definition
-python tools/schema-lookup.py search "Card"          # Find matching definitions
-python tools/schema-lookup.py resolve SendActivity    # Expand all $refs
-python tools/schema-lookup.py kinds                   # List all 433 valid kind values
-python tools/schema-lookup.py entities                # List all prebuilt entities
-python tools/schema-lookup.py validate topic.yaml     # Validate kind + entity values
-```
 
 ## Common Compile Errors
 

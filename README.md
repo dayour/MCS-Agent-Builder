@@ -180,6 +180,7 @@ tools/
   om-cli/                   ObjectModel CLI — YAML validation (357 types, .NET 10)
   gen-constraints.py        Pre-generation constraint extraction
   drift-detect.py           Brief-vs-YAML drift detection
+  lib/http.js               Shared HTTP request + Azure CLI token helpers (used by all JS tools)
   semantic-gates.py         5 semantic validation gates (PowerFx, cross-refs, variables, channels, connectors)
   powerfx-catalog.json      Official PowerFx function catalog (139 functions from MS Learn)
   update-om-cli.ps1         Auto-update om-cli from ObjectModel source repo
@@ -188,7 +189,6 @@ tools/
   add-tool.js               Headless tool/connector addition via LSP push
   direct-line-test.js       Direct Line API test runner
   dataverse-helper.ps1      PowerShell Dataverse Web API helper
-  schema-lookup.py          Legacy schema query tool (fallback)
   git-hooks/                Pre-commit (file protection) + pre-push (om-cli auto-update)
 
 Build-Guides/               Per-project work (gitignored)
