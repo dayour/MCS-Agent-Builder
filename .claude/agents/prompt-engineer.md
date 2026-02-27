@@ -138,6 +138,7 @@ Good response: "[ideal response format and content]"
 | **Skip audience** | Agent can't tailor technicality | Always state who the audience is |
 | **Skip follow-up guidance** | Dead-end answers | "End responses with a relevant follow-up question" |
 | **Skip examples** | Complex behaviors executed inconsistently | 2-3 varied examples for complex scenarios |
+| **Hardcode escalation contacts** | Safety data trapped; M365 strips URLs; not independently updatable | Knowledge source + topic SendActivity; instructions use `/TopicName` routing hint |
 
 ## Review Checklist
 
@@ -166,6 +167,9 @@ When reviewing instructions (mine or others'):
 - [ ] Instructions describe what to do, topics enforce the hard stop
 - [ ] DECLINE scenarios have redirect topics
 - [ ] REFUSE scenarios have block topics
+- [ ] Escalation contacts NOT hardcoded in instructions — in knowledge + topics
+- [ ] Safety-critical behaviors (100% eval pass required) backed by dedicated topics
+- [ ] Instructions use `/TopicName` to route to safety topics, not inline the data
 
 ### Orchestration
 - [ ] Topic descriptions written/reviewed BEFORE instructions

@@ -83,7 +83,7 @@
       "file": "instructions.md",
       "title": "Hardcoded URLs and tool listing in instructions produce weak agents",
       "date": "2026-02-20",
-      "confirmed": 2,
+      "confirmed": 3,
       "lastConfirmed": "2026-02-26",
       "tags": ["instructions", "urls", "anti-pattern", "follow-up", "audience", "three-part-structure", "boundaries"],
       "status": "active",
@@ -198,6 +198,17 @@
       "tags": ["knowledge", "lsp", "yaml", "knowledge-source", "silent-failure", "public-url", "sharepoint"],
       "status": "active",
       "projects": ["e2e-test"]
+    },
+    {
+      "id": "in-002",
+      "file": "instructions.md",
+      "title": "Escalation contacts belong in topics + knowledge, not instructions",
+      "date": "2026-02-26",
+      "confirmed": 1,
+      "lastConfirmed": "2026-02-26",
+      "tags": ["instructions", "escalation", "contacts", "topics", "safety", "three-layer", "anti-pattern"],
+      "status": "active",
+      "projects": ["cdw"]
     }
   ]
 }

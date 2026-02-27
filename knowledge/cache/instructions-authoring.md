@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-02-20
-sources: [MS Learn authoring-instructions, MS Learn generative-mode-guidance, MCS UI, community blogs]
+last_verified: 2026-02-26
+sources: [MS Learn authoring-instructions, MS Learn generative-mode-guidance, MS Learn create-edit-topics, MS Learn advanced-generative-actions, MCS UI, community blogs]
 confidence: high
 refresh_trigger: before_architecture
 -->
@@ -133,6 +133,7 @@ You are [Name], an AI assistant for [audience] that [core purpose].
 | **Use nested lists** | Confuses the model | Flat lists only |
 | **Attempt to control retrieval** | Instructions can't modify search logic | Improve knowledge source descriptions and scoping instead |
 | **Skip audience specification** | Agent can't tailor technicality level | Always state who the audience is |
+| **Hardcode escalation contacts** | Safety data trapped in instructions; can't be updated independently; M365 strips URLs | Put in knowledge source + dedicated topic; reference topic via `/TopicName` in instructions |
 
 ## Best Practices Checklist
 
@@ -158,6 +159,8 @@ You are [Name], an AI assistant for [audience] that [core purpose].
 - [ ] Hard boundaries backed by dedicated topics (not instructions alone)
 - [ ] DECLINE redirects have corresponding manual-response topics
 - [ ] REFUSE scenarios have corresponding manual-response topics
+- [ ] Escalation contacts in knowledge sources + dedicated topics, NOT in instructions
+- [ ] Safety-critical behaviors backed by topics (100% pass eval threshold = needs a topic)
 
 ### Orchestration Awareness
 - [ ] Topic descriptions are well-written BEFORE instructions (routing priority #1)
@@ -215,6 +218,30 @@ Example: After answering about time-off policy, ask "Would you also like to know
 | **Custom Prompt** (Prompt Builder action) | Specific action only | Summarization, classification, extraction, structured output |
 
 **Decision:** "Should this be agent-level, topic-level, or Custom Prompt?" depends on scope and specificity. Agent-level = global rules. Topic-level = domain narrowing. Custom Prompt = data processing.
+
+## Three-Layer Architecture (Deterministic → Hybrid → AI)
+
+Microsoft recommends a three-layer design for agent behavior:
+
+| Layer | What | Guarantee | Use When |
+|-------|------|-----------|----------|
+| **Deterministic** (Topics) | Fixed messages, structured flows, hardcoded data | 100% | Safety-critical, must-pass-every-time behaviors |
+| **Hybrid** (Instructions + Topics) | Instructions route to topics via `/TopicName` | ~95% | Important behaviors that need a fallback guarantee |
+| **AI Orchestrator** (Instructions + Knowledge) | Generative responses grounded in knowledge | ~90% | Standard Q&A, low-risk interactions |
+
+### Decision Rule: Eval Threshold → Architecture Layer
+- **100% pass required** (safety evals) → Deterministic: dedicated topic with fixed content
+- **85-90% pass** (functional/integration) → Hybrid: instructions + `/TopicName` reference
+- **70-85% pass** (quality/regression) → AI Orchestrator: instructions + knowledge
+
+### Escalation Contact Pattern
+Escalation contacts (emails, phones, URLs) should NEVER be hardcoded in agent instructions.
+
+| Data | Where | Why |
+|------|-------|-----|
+| Specific contacts (email, phone, URL) | Knowledge source (document/page) | Retrieved with citations, independently updatable |
+| Safety-critical contacts | Topic SendActivity nodes | Guaranteed delivery regardless of knowledge retrieval |
+| Routing hint | Instructions via `/TopicName` | Points AI to the right topic for escalation scenarios |
 
 ## Updating via API
 
