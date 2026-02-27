@@ -124,7 +124,7 @@ Topic YAML goes through 4 validation layers before it reaches Copilot Studio:
 
 ## Agent Teams
 
-Complex builds use 5 AI teammates that challenge each other's work before execution:
+Complex builds use 6 AI teammates that challenge each other's work before execution:
 
 | Teammate | What They Do | Used In |
 |----------|-------------|---------|
@@ -133,6 +133,7 @@ Complex builds use 5 AI teammates that challenge each other's work before execut
 | **Topic Engineer** | Validates topic feasibility, generates YAML topics + adaptive cards | Research (feasibility), Build (YAML), Fix |
 | **QA Challenger** | Reviews all outputs, challenges claims, classifies failures | Research, Build, Fix |
 | **Repo Checker** | Validates repo integrity after changes | Development |
+| **Repo Optimizer** | Audits repo for dead files, duplication, bloat | Development |
 
 You interact with the lead only. The lead delegates to teammates, they debate and iterate, then the lead executes validated outputs in Copilot Studio.
 
@@ -160,7 +161,7 @@ bin/
 .claude/
   settings.json             MCP servers, permissions, Agent Teams flag
   skills/                   9 skills (7 workflow + 2 utility)
-  agents/                   5 AI teammate definitions
+  agents/                   6 AI teammate definitions
 
 app/
   server.py                 FastAPI backend (serves SPA from dist/)

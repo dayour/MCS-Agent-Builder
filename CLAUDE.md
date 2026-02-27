@@ -125,8 +125,9 @@ Agent Teams enables bidirectional communication between specialist teammates who
 | **Topic Engineer** | Generate validated YAML topics + adaptive cards | Syntax-correct YAML, channel-safe cards |
 | **QA Challenger** | Review ALL outputs, find gaps, challenge claims | Catches errors before they hit MCS |
 | **Repo Checker** | Validate repo integrity after changes | Catches broken paths, stale docs, drift |
+| **Repo Optimizer** | Audit repo for dead code, duplication, bloat | Catches waste before it accumulates |
 
-Definitions: `.claude/agents/` (research-analyst.md, prompt-engineer.md, topic-engineer.md, qa-challenger.md, repo-checker.md)
+Definitions: `.claude/agents/` (research-analyst.md, prompt-engineer.md, topic-engineer.md, qa-challenger.md, repo-checker.md, repo-optimizer.md)
 
 ### When to Use Agent Teams
 
@@ -188,6 +189,7 @@ Before committing to designs that are hard to undo — schema changes, workflow 
 | 3+ file changes or code changes | Tier 2: Repo Checker in background | No — runs async |
 | Schema change, workflow redesign, architecture decision | Tier 3: QA Challenger | Yes — worth the 2-3 min |
 | Before any commit | Tier 2: Repo Checker | No — runs async |
+| Before commits / weekly | Tier 2: Repo Optimizer in background | No — runs async |
 | Simple answer, status check, brainstorming | None | — |
 
 ---
@@ -692,7 +694,8 @@ requirements.txt            # Python dependencies
     ├── prompt-engineer.md  # Instructions & Custom Prompt specialist
     ├── topic-engineer.md   # YAML, adaptive cards & flow specialist
     ├── qa-challenger.md    # Adversarial reviewer & gap finder
-    └── repo-checker.md     # Cross-reference & sync validator
+    ├── repo-checker.md     # Cross-reference & sync validator
+    └── repo-optimizer.md   # Dead code, duplication & bloat auditor
 
 app/                        # Dashboard application
 ├── server.py               # FastAPI backend (CRUD, file upload, SPA serving)

@@ -11,6 +11,7 @@
 | Schema/workflow/architecture decision | Spawn **QA Challenger** (blocks response) |
 | Simple edit (1-2 files, docs only) | Self-check: grep for broken refs |
 | No file changes | Nothing needed |
+| Before commit (weekly or on request) | Spawn **Repo Optimizer** in background |
 
 ---
 
