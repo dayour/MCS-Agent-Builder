@@ -330,6 +330,51 @@ This manifest enables incremental research to detect new/changed documents witho
 
 **Key principle:** Don't research all 6 categories live for every agent. Stable categories use cache directly. Only dispatch live research for the agent's specific integration systems.
 
+### Step 0: Live MCP Catalog Scan (All Paths — runs before system-specific research)
+
+**Goal:** Proactively discover available MCP servers and recommend relevant ones the agent could use — even if no doc explicitly mentions them.
+
+This step runs at the START of Phase B for ALL processing paths (full, full-agent, incremental, re-enrich). It ensures the agent gets a complete picture of what's available before any component decisions are made.
+
+1. **Read catalog URLs** from `knowledge/cache/mcp-servers.md` metadata header (`catalog_url` and `agent365_url`)
+2. **Fetch both catalog pages** via MS Learn MCP (`microsoft_docs_fetch`):
+   - MCS built-in catalog: `catalog_url`
+   - Agent 365 tooling servers overview: `agent365_url`
+3. **Extract server names** from both pages (look for server names in tables, headings, and lists)
+4. **Diff against cache** — compare extracted servers against entries in `knowledge/cache/mcp-servers.md`:
+   - **New servers** = in catalog but not in cache
+   - **Removed servers** = in cache but no longer in catalog (may be deprecated)
+5. **If new servers found:**
+   - Research each via `microsoft_docs_fetch` (follow links from catalog page) or `microsoft_docs_search` for details
+   - Update `knowledge/cache/mcp-servers.md` with new entries (name, description, status, category)
+   - Update `last_verified` date in cache metadata
+6. **Match ALL available MCP servers against agent capabilities from Phase A:**
+   - For each capability's `dataSources` and `integrations[]`, check: is there an MCP server that covers this data domain?
+   - For each MCP server in the catalog, check: does this agent's use case overlap with the server's capabilities?
+   - Consider the agent's channels, knowledge needs, and workflow patterns — not just explicit data source mentions
+7. **Present discovery summary to user:**
+
+```
+## MCP Server Discovery: {agentName}
+
+**Catalog:** {N} servers in MCS catalog, {M} in Agent 365 catalog
+**Cache:** {K} servers cached | {new count} new since last scan
+
+**Available MCPs relevant to this agent:**
+| MCP Server | Why Relevant | Currently In Brief? |
+|------------|-------------|-------------------|
+| {server} | {matches capability X / data source Y} | Yes / No |
+
+**Recommended additions:** {list of MCPs not in brief but relevant}
+**No match:** {list of catalog MCPs not relevant to this agent}
+```
+
+8. **If relevant MCPs are missing from the brief's integrations**, add them as recommendations (don't auto-add — present for user decision). Flag with `source: "catalog-scan"` so the user knows this came from proactive discovery, not document extraction.
+
+**Skip conditions:**
+- If `mcp-servers.md` was refreshed < 1 day ago AND no new capabilities were added in Phase A, skip the catalog fetch (Steps 1-5) but still run the matching (Steps 6-7) using cached data
+- Never skip matching — even cached data may reveal MCPs relevant to newly discovered capabilities
+
 ### Incremental Path (processingPath == "incremental")
 
 When `processingPath == "incremental"`, Phase B is scoped to only what's new:

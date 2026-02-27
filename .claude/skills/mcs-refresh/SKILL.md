@@ -93,6 +93,29 @@ If either query surfaces a high-value page (detailed reference, release notes, "
 - Changed limits or behavior
 - New patterns or best practices
 
+### Step 3.5: MCP Catalog Diff (mcp-servers.md only)
+
+**When refreshing `mcp-servers.md`, add this catalog diff step after the standard research queries (Step 3) and before Compare and Update (Step 4).**
+
+1. **Read catalog URLs** from the cache file's metadata header: `catalog_url` and `agent365_url`
+2. **Fetch both catalog pages** via MS Learn MCP (`microsoft_docs_fetch`):
+   - MCS built-in catalog: `catalog_url` (https://learn.microsoft.com/en-us/microsoft-copilot-studio/mcp-microsoft-mcp-servers)
+   - Agent 365 tooling servers overview: `agent365_url` (https://learn.microsoft.com/en-us/microsoft-agent-365/tooling-servers-overview)
+3. **Extract server names** from both pages (look for server names in tables, headings, and lists)
+4. **Compare against current cache entries:**
+   - **New servers** = in catalog pages but not in `mcp-servers.md`
+   - **Removed servers** = in `mcp-servers.md` but no longer in either catalog page
+5. **Report the diff:**
+   ```
+   MCP Catalog Diff: {N} servers in catalog, {M} in cache.
+   New: [{list of new server names}]
+   Removed: [{list of removed server names}]
+   ```
+6. **For each new server:** Research via `microsoft_docs_fetch` (follow links from catalog) or `microsoft_docs_search` for details (description, status, auth, capabilities). Add to `mcp-servers.md` under the appropriate category.
+7. **For each removed server:** Mark as deprecated in `mcp-servers.md` (add "Deprecated" status, don't delete the entry). Note the removal date.
+
+**Skip this step** for all other cache files — it only applies to `mcp-servers.md`.
+
 ### Step 4: Compare and Update
 
 For each file:

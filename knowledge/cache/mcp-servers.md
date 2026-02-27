@@ -1,8 +1,10 @@
 <!-- CACHE METADATA
-last_verified: 2026-02-19
-sources: [MS Learn Built-in MCP catalog, Agent 365 tooling overview, WebSearch, Dynamics 365 MCP docs]
+last_verified: 2026-02-27
+sources: [MS Learn Built-in MCP catalog, Agent 365 tooling overview, WebSearch, Dynamics 365 MCP docs, Agent 365 server references, Power Apps MCP docs, Work IQ docs]
 confidence: high
 refresh_trigger: before_architecture
+catalog_url: https://learn.microsoft.com/en-us/microsoft-copilot-studio/mcp-microsoft-mcp-servers
+agent365_url: https://learn.microsoft.com/en-us/microsoft-agent-365/tooling-servers-overview
 -->
 # MCS Built-in MCP Servers
 
@@ -80,13 +82,25 @@ Source: https://learn.microsoft.com/en-us/microsoft-copilot-studio/mcp-microsoft
 |------------|-------------|--------|
 | **Box.com** | Cloud content management — file access, search, sharing via Box platform. Third-party certified MCP connector. | GA |
 
-### Category 8: Gieni Actions
+### Category 8: GitHub
+
+| MCP Server | Description | Status |
+|------------|-------------|--------|
+| **GitHub** | Repository and issue management via GitHub MCP server. Available in built-in catalog. | GA |
+
+### Category 9: Gieni Actions
 
 | MCP Server | Description | Status |
 |------------|-------------|--------|
 | **Gieni Actions for fetching answers** | Third-party MCP connector for fetching answers/insights. ISV-certified connector. | GA |
 
-### Category 9: Microsoft MCP Servers (Agent 365)
+### Category 10: Power Apps MCP Server
+
+| MCP Server | Description | Status |
+|------------|-------------|--------|
+| **Power Apps MCP Server** | Human-in-the-loop agent supervision for model-driven apps. Tools: `log_for_review` (passive oversight), `request_assistance` (async human handoff), `invoke_data_entry` (extract data from unstructured content into Dataverse forms with human review). Enhanced agent feed UI. NOT an Agent 365 server — it is a Power Platform MCP server. | **Preview** |
+
+### Category 11: Microsoft MCP Servers (Agent 365)
 
 These are enterprise-grade MCP servers under the Agent 365 umbrella. Require Microsoft 365 Copilot license + Frontier program enrollment for full access.
 
@@ -175,6 +189,21 @@ Some Power Platform connectors now include MCP server actions as built-in operat
 This is a new pattern where Microsoft embeds MCP server endpoints inside existing connectors. More connectors may have these -- check connector reference pages for `mcp_` operations.
 
 Source: https://learn.microsoft.com/en-us/connectors/salesforce/ (Actions section)
+
+## Work IQ — Clarification (Feb 2026)
+
+**Work IQ is NOT an MCP server, NOT a knowledge source, and NOT a search provider in the Copilot Studio UI.**
+
+Work IQ is the **intelligence layer** that powers Microsoft 365 Copilot's understanding of people, work artifacts, calendars, emails, files, and organizational context. It is the reasoning engine behind the Microsoft Graph that maps relationships and context.
+
+**How agents access Work IQ data:**
+- **Via Agent 365 MCP servers** — Outlook Mail, Calendar, Teams, SharePoint, User Profile, and especially the M365 Copilot (Search) MCP server all expose Work IQ-indexed data. These MCP servers "enable interoperability with Work IQ" (official docs).
+- **Via Work IQ CLI/MCP** — The `@microsoft/workiq` npm package provides a CLI and MCP server for developer tools (VS Code, GitHub Copilot, Claude Code). This is NOT available inside Copilot Studio as a built-in MCP server.
+- **Via M365 Copilot Search MCP** — This is the closest thing to "Work IQ in MCS settings." The Copilot Search MCP server searches across the entire M365 ecosystem (emails, Teams chats, SharePoint, OneDrive) using Work IQ's intelligence layer.
+
+**The "settings/search" reference** likely refers to enabling **Tenant Graph Grounding** or the **Microsoft 365 Copilot (Search) MCP server** in agent tools, which provides Work IQ-powered cross-M365 search. It could also refer to admin-level settings in the M365 admin center under "Search & intelligence."
+
+**Work IQ for custom agents** (announced Ignite 2025): Secure agent grounding that respects permissions, sensitivity labels, and compliance. Available in Copilot Studio or via API. Requires M365 Copilot license.
 
 ## Key Facts
 
