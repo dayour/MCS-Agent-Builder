@@ -114,7 +114,7 @@ These are enterprise-grade MCP servers under the Agent 365 umbrella. Require Mic
 | **Microsoft SharePoint Lists MCP** | Create lists, columns, items. Query with filters and pagination. | GA |
 | **Microsoft 365 Admin Center MCP** | Admin-focused capabilities for Microsoft 365 administration. | GA |
 | **Microsoft Word MCP** | Create/read documents, add comments, reply to comments. | GA |
-| **Microsoft 365 Copilot (Search) MCP** | Chat with M365 Copilot, multi-turn conversations, ground responses with files. Cross-tenant search. | GA |
+| **Microsoft 365 Copilot (Search) MCP** | Chat with M365 Copilot, multi-turn conversations, ground responses with files. Cross-tenant search. Tool: `copilot_chat`. operationId: `mcp_m365copilot`. | GA |
 
 ### Also Available (Agent 365 Tooling Platform)
 

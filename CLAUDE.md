@@ -25,7 +25,8 @@ Automate Microsoft Copilot Studio (MCS) agent creation using a **hybrid build st
 3. **Never mark complete until verified**: If you can't verify, tell the user "I did X but couldn't verify Y" rather than silently assuming success.
 4. **File ≠ deployment**: Writing a local file is NOT the same as uploading it to MCS. These are ALWAYS separate tasks.
 5. **Environment check**: Before PAC CLI operations, verify the agent's environment matches PAC CLI's active profile (`pac auth list`). If they differ, use browser instead.
-6. **End-of-build reconciliation + QA validation**: After ALL changes, walk the spec's build checklist and snapshot-verify every item against the actual agent state. Then spawn QA Challenger (Step 5.5) to validate brief-vs-actual, cross-references, and deviation impact. QA verdict determines whether the build proceeds to the report or escalates issues.
+6. **LSP workspace freshness**: Always `pull → modify → push` when using the LSP Wrapper. Never modify workspace `.mcs.yml` files without pulling first — stale row versions cause `ConcurrencyVersionMismatch` errors and force a re-pull that overwrites your changes.
+7. **End-of-build reconciliation + QA validation**: After ALL changes, walk the spec's build checklist and snapshot-verify every item against the actual agent state. Then spawn QA Challenger (Step 5.5) to validate brief-vs-actual, cross-references, and deviation impact. QA verdict determines whether the build proceeds to the report or escalates issues.
 
 ---
 
@@ -42,15 +43,16 @@ Automate Microsoft Copilot Studio (MCS) agent creation using a **hybrid build st
 ### Preflight Steps (every browser interaction)
 
 1. **Read persisted config:** Check `brief.json.buildStatus.account` / `.environment`. If not available, check `tools/session-config.json` sessionDefaults.
-2. `browser_navigate` to `https://copilotstudio.microsoft.com`
+2. `browser_navigate` to `https://copilotstudio.microsoft.com` (base URL only — NEVER navigate to an environment-specific URL until account is verified, as cross-tenant env URLs return "broken link" errors)
 3. `browser_snapshot` — wait for load (if "Loading...", re-snapshot after 2-3s)
 4. Extract from snapshot: **Account name** (top-right) + **Environment name** (header bar)
-5. **Compare** snapshot values against persisted config:
+5. **Compare ACCOUNT first, then environment** against persisted config:
 
 | Result | Action |
 |--------|--------|
-| **Match** | Log one line: `Browser verified: {account} / {environment}` — proceed immediately |
-| **Mismatch** | Alert: `Browser shows {X} but target is {Y}. Switch environment?` — WAIT for user |
+| **Account + Env match** | Log one line: `Browser verified: {account} / {environment}` — proceed immediately |
+| **Account matches, Env differs** | Use environment switcher (search by name) to switch — no sign-out needed |
+| **Account differs** | Sign out → pick correct account from account picker → then verify environment. Do NOT try to navigate to env URLs while on the wrong account — they will fail with "broken link" |
 | **No persisted config** | First-time flow (see below) — ask once and persist |
 
 ### First-Time Selection (no persisted config)
