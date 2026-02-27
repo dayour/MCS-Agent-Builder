@@ -548,6 +548,8 @@ Spawn the **Prompt Engineer** teammate to write the agent instructions. Provide 
 - **Include 2-3 examples** for complex behaviors (boundary enforcement, multi-step workflows)
 - **Boundaries in instructions are guidance only** — hard stops require dedicated topics (which are in `conversations.topics`)
 - **Topic descriptions drive routing** — instructions are lowest priority for routing. If a topic needs to be found, its description matters more than instructions mentioning it
+- **Address ALL capabilities where `phase == "mvp"`** in the instructions — every MVP capability must have corresponding instruction coverage
+- **Do NOT write dedicated sections for capabilities where `phase == "future"`** unless the capability's `implementationType` is `"prompt"` (in which case it should be re-tagged as MVP since it's zero-cost prompt guidance)
 - PE runs their own review checklist before returning (char count, anti-pattern check, reference validity, audience, follow-ups)
 
 ### Step 3: QA Review (single pass, no iteration)
@@ -556,6 +558,7 @@ Spawn the **QA Challenger** to review the PE's output in a **single pass**:
 - Verify instructions use three-part structure (Constraints + Response Format + Guidance)
 - Verify **no hardcoded URLs** and **no tool/knowledge listing**
 - Verify instructions reference only tools that are in `integrations[]`
+- **Capability-instruction alignment:** For each MVP capability, verify instructions address it (directly or via tool description). For each future capability, verify instructions do NOT include dedicated sections for it (unless `implementationType == "prompt"`, in which case flag: "Capability '{name}' is prompt-only — should be re-tagged as MVP"). Flag mismatches for PE to resolve before finalizing.
 - Verify boundaries match `boundaries.handle/decline/refuse`
 - Verify audience is stated in the Role section
 - Verify follow-up question guidance is included

@@ -78,7 +78,8 @@ The MCS UI reads/writes the `data` field. PvaPublish syncs `data` -> `content` f
 **Tried:** Previous builds used Dataverse API PATCH for instructions and Playwright Code Editor for topics. Tested LSP push (via `mcs-lsp.js`) for all components.
 **Result:** LSP push handles instructions, model, knowledge (SharePoint), and custom topics in a single operation. Three bugs fixed to enable this: (1) URI encoding — `pathToFileURL()` instead of manual string, (2) token audience — PVA app ID `96ff4394-9197-43aa-b393-6a41652e21f8` instead of `api.powerplatform.com`, (3) settings.mcs.yml BOM corruption — auto-stripped after pull/clone.
 **Better approach:** Clone workspace → edit agent.mcs.yml (instructions + model) → add knowledge/*.mcs.yml → add topics/*.mcs.yml → push (one operation). Post-clone: auto-cleanup strips BOMs and removes Signin.mcs.yml. For gen orchestration agents, topics must use `modelDescription` for routing — `triggerQueries` blocks publish.
-**Confirmed:** 2 build(s) | Last confirmed: 2026-02-26
+**Caveat:** Non-verbose push can report "0 local changes synced" even when changes were synced — stdout races with process exit. Use `MCS_LSP_VERBOSE=1` for reliable output, or verify via pull read-back.
+**Confirmed:** 4 build(s) | Last confirmed: 2026-02-27
 **Related cache:** api-capabilities.md
 **Tags:** #lsp #push #instructions #model #knowledge #topics #uri-encoding #token-audience #bom
 
@@ -163,3 +164,12 @@ File must be named using the component's schema name: `{botSchemaName}.topic.{Kn
 **Confirmed:** 1 build(s) | Last confirmed: 2026-02-20
 **Related cache:** dataverse-patterns.md
 **Tags:** #token #az-cli #az-accounts #authentication #dataverse
+
+### Build Step 4 must filter by topicType — generative topics need no YAML {#bm-015} — 2026-02-27
+**Context:** CDW Account Prospecting Agent — build skipped Step 4 entirely, `topics` never added to `completedSteps`, but build continued to publish and safety gate.
+**Tried:** Step 4 said "For each MVP topic, Topic Engineer generates YAML" but didn't distinguish `topicType: generative` from `topicType: custom`. 3 of 5 topics were generative (handled by orchestrator + instructions), 2 were custom.
+**Result:** Step 4 was silently skipped. The 2 custom topics (Conversation Start, Scheduled Prospect Delivery) were never built. Build proceeded to publish without flagging the gap. `topics` was missing from `completedSteps` so resume logic couldn't detect the skip.
+**Better approach:** Step 4 now explicitly filters: (1) Log generative topics as "handled by orchestration, no YAML needed". (2) Only generate YAML for `topicType: custom` or `system` (customized system topics). (3) If no custom/system MVP topics remain after filtering, add `topics` to `completedSteps` and skip cleanly. (4) For system topics like Conversation Start, overwrite the default file in the workspace.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-02-27
+**Related cache:** api-capabilities.md
+**Tags:** #build #topics #generative #custom #completedSteps #skip-logic #topic-type

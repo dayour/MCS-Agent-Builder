@@ -296,6 +296,17 @@ The clone creates a subfolder named after the agent (e.g., `workspace/Agent Name
 
 **Skip check:** If `"instructions"` is in `completedSteps`, skip the instructions sub-step. If `"knowledge"` is in `completedSteps`, skip the knowledge sub-step. If both are completed, skip this entire step.
 
+**Instruction-Capability Phase Alignment (before push):**
+Before pushing instructions to MCS, validate that instruction content matches MVP scope:
+1. Read `brief.json.capabilities[]`
+2. For each capability, search instructions text for the capability name (case-insensitive substring match, also check key nouns from the capability description)
+3. Record: `{ name, phase, implementationType, foundInInstructions: true/false }`
+4. Flag mismatches:
+   - WARN: MVP capability not found in instructions → "Capability '{name}' is MVP but instructions don't address it"
+   - WARN: Future capability found in instructions → "Instructions address '{name}' but it's tagged future — promote to MVP or remove from instructions"
+   - SKIP: Future capability with `implementationType: "prompt"` found in instructions → this is expected (prompt-only guidance is zero-cost, but capability should be re-tagged MVP)
+5. Present mismatches to user. Proceed after acknowledgment. This is a WARNING gate, not a blocker.
+
 **Instructions:** Edit `agent.mcs.yml` in the cloned workspace → set `instructions:` field → push via `mcs-lsp.js push`.
 **Fallback:** Dataverse API PATCH `data` field + PvaPublish (see `knowledge/patterns/dataverse-patterns.md` § 3) → Playwright
 **Checkpoint:** After verified, add `"instructions"` to `brief.json.buildStatus.completedSteps` and set `lastCompletedStep` to `"instructions"`.
@@ -373,13 +384,21 @@ Use **Topic Engineer** teammate to generate validated YAML.
 
 **Phase filter:** Only author `conversations.topics[]` entries where `phase == "mvp"`. Log skipped future topics.
 
-For each MVP topic in the spec:
+**Topic type filter:** Only generate YAML for topics where `topicType == "custom"` or `topicType == "system"` (customized system topics like Conversation Start). Topics with `topicType == "generative"` are handled by the orchestrator + instructions — no YAML needed. Log them:
+```
+Generative topics (handled by orchestration, no YAML needed): {list of names}
+Custom topics to build: {list of names}
+```
+
+**If no custom/system MVP topics remain after filtering:** Add `"topics"` to `completedSteps` and skip. This prevents the step from being silently skipped without being marked complete.
+
+For each MVP custom/system topic in the spec:
 1. Topic Engineer queries constraints: `python tools/gen-constraints.py <NodeTypes>` → gets required fields
 2. Topic Engineer generates YAML using constraints + `knowledge/patterns/topic-patterns/`
 3. Structural validation: `tools/om-cli/om-cli.exe validate -f <file.yaml>` → must pass
 4. Semantic validation: `python tools/semantic-gates.py <file.yaml> --brief <brief.json>` → must pass (or warnings acknowledged)
 5. QA Challenger reviews validated YAML
-6. Write the validated `.mcs.yml` file to the cloned workspace's `topics/` directory
+6. Write the validated `.mcs.yml` file to the cloned workspace's `topics/` directory (for system topics like Conversation Start, overwrite the existing default file)
 7. After all topic files are written, push to MCS in a single operation:
    ```bash
    node tools/mcs-lsp.js push --workspace "<buildStatus.workspacePath>"
@@ -534,6 +553,7 @@ These catch issues that simple reconciliation misses:
 | Instructions → Topics | Instructions reference a `/TopicName` that doesn't exist |
 | Topics → Variables | Topic YAML uses a variable that's never prompted for |
 | Topics → Integrations | Topic calls a connector action that wasn't added |
+| Capabilities → Instructions | Instructions include dedicated sections for future-tagged capabilities, or MVP capabilities missing from instructions |
 | Adaptive Cards → Channels | Card uses features unsupported on target channel |
 | (Multi-agent) Routing rules → Children | Instructions route to a child agent that isn't connected |
 

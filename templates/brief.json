@@ -47,6 +47,7 @@
       "_meeting": "Section 3 — 'What should it do?' (each flagged MVP or Future)",
       "name": "Capability name (e.g., Look up order status)",
       "phase": "mvp | future",
+      "implementationType": "prompt | topic | tool | knowledge | flow — what's required to implement this capability. 'prompt' = behavior encoded in instructions only (zero-cost, no separate tooling needed). 'topic' = requires custom YAML topic. 'tool' = requires a tool/connector/MCP. 'knowledge' = requires a knowledge source. 'flow' = requires a Power Automate flow.",
       "reason": "Why MVP or why deferred — shown next to Future items (e.g., pending security approval)",
       "description": "Optional detail for the build — PE uses this for instruction writing",
       "dataSources": ["Systems this capability reads from or writes to"],

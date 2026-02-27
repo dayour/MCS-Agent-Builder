@@ -44,3 +44,12 @@ Decision rule: if the behavior maps to a safety eval test (100% pass required), 
 **Confirmed:** 1 build(s) | Last confirmed: 2026-02-26
 **Related cache:** instructions-authoring.md
 **Tags:** #instructions #escalation #contacts #topics #safety #three-layer #anti-pattern
+
+### Capability-instruction phase mismatch — PE must respect phase tags {#in-003} — 2026-02-27
+**Context:** CDW Account Prospecting Agent — "Enrich prospects with relevance scoring" was tagged `phase: "future"` in capabilities but PE wrote a full `## Relevance Scoring` section into instructions. Build pushed without flagging.
+**Tried:** PE wrote instructions covering all capabilities regardless of phase. QA reviewed structure/anti-patterns but had no capability-phase cross-reference check. Build Step 2 pushed instructions as-is.
+**Result:** Future capability content shipped in instructions. No harm in this case (relevance scoring is prompt-only guidance) but the pattern is dangerous: a future capability requiring tooling could produce instructions that reference non-existent tools.
+**Better approach:** Three fixes applied: (1) Research Phase C — PE requirements now say "address ALL mvp capabilities, do NOT write sections for future capabilities unless `implementationType: prompt`". (2) Research Phase C — QA checklist now includes capability-instruction alignment check. (3) Build Step 2 — pre-push validation scans instructions against capabilities, flags mismatches as WARNINGs. Also added `implementationType` field to capability schema to distinguish prompt-only from tool-dependent capabilities.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-02-27
+**Related cache:** instructions-authoring.md
+**Tags:** #instructions #capabilities #phase #cross-reference #qa #validation
