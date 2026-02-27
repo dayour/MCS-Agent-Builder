@@ -133,7 +133,7 @@ Definitions: `.claude/agents/` (research-analyst.md, prompt-engineer.md, topic-e
 
 **During MCS workflow skills:**
 - **Research phase** (`/mcs-research`): Research Analyst searches for external connectors/MCP (only if needed), Prompt Engineer writes instructions (single pass), **Topic Engineer validates topic feasibility (Phase D)**, QA Challenger reviews instructions + generates eval sets (single pass each)
-- **Build phase** (`/mcs-build`): Topic Engineer generates YAML, QA Challenger reviews before execution, **eval-driven iteration loop** (safety gate → grounding → per-capability → quality → regression), **Research Analyst on-demand (connector issues)**, **Prompt Engineer on-demand (instruction adjustments + fix iteration)**
+- **Build phase** (`/mcs-build`): Topic Engineer generates YAML, QA Challenger reviews before execution, **eval-driven iteration loop** (safety gate → functional per-capability → resilience), **Research Analyst on-demand (connector issues)**, **Prompt Engineer on-demand (instruction adjustments + fix iteration)**
 - **Eval phase** (`/mcs-eval`): Runs eval sets (all or specific), writes per-test results to evalSets
 - **Fix phase** (`/mcs-fix`): QA Challenger classifies failures, Prompt Engineer fixes instructions, Topic Engineer fixes topics
 
@@ -469,7 +469,7 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 
 ## RESEARCH: Read Docs + Full Enrichment (`/mcs-research`)
 
-**Goal:** Read all project documents, identify agents, research MCS components, and produce fully enriched brief.json (the single source of truth) with evalSets (7 default sets: safety, grounding, functional, integration, quality, regression + custom).
+**Goal:** Read all project documents, identify agents, research MCS components, and produce fully enriched brief.json (the single source of truth) with evalSets (3 default sets: safety, functional, resilience + custom).
 
 **Input:** `/mcs-research {projectId}` (project-level) or `/mcs-research {projectId} {agentId}` (agent-level)
 **Reads:** `Build-Guides/{projectId}/docs/` + `customer-context.md` (if exists) + `knowledge/cache/` + `knowledge/learnings/`
@@ -481,7 +481,7 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 1. **Document comprehension & agent identification** — lead reads all docs, cross-references, identifies agents, extracts data, generates informed open questions using MCS cache
 2. **Component research (targeted)** — lead resolves stable categories from cache (channels, triggers, knowledge). Research Analyst spawned ONLY for external systems needing live MCP/connector lookup
 3. **Architecture + instructions (single-pass)** — lead scores architecture, Prompt Engineer writes instructions (self-verified), QA Challenger reviews once (no iteration loop)
-4. **Eval sets + topic classification** — QA Challenger populates 7 eval sets (safety, grounding, functional, integration, quality, regression + custom), **Topic Engineer validates feasibility**, classifies topic types
+4. **Eval sets + topic classification** — QA Challenger populates 3 eval sets (safety, functional, resilience + custom), **Topic Engineer validates feasibility**, classifies topic types
 
 **Uses Agent Teams:** Research Analyst (only if external systems need lookup), Prompt Engineer (instructions), QA Challenger (review + eval set generation), Topic Engineer (feasibility validation in Phase D).
 
@@ -517,10 +517,8 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 
 **Eval-Driven Iteration (Step 4.5 — after initial setup):**
 - **Safety gate** → must pass 100% before any capability work (max 3 attempts, then HARD STOP)
-- **Grounding check** → run grounding eval set after knowledge config (target 90%)
-- **Per-capability iteration** → run functional + integration tests, fix failures, re-run (max 3 iterations per capability)
-- **Quality tests** → run quality set after functional passes (target 75%)
-- **Regression suite** → cross-capability end-to-end (max 2 rounds, target 85%)
+- **Functional iteration** → run functional set per-capability (happy paths + grounding + routing), fix failures, re-run (max 3 iterations per capability, target 85%)
+- **Resilience** → run resilience set (edge cases, graceful failure, cross-cutting), fix regressions (max 2 rounds, target 80%)
 - Fix logic (PE for instructions, TE for topics) runs INSIDE the build loop — no separate `/mcs-fix` needed for initial build
 - Iteration limits from `evalConfig` (targetPassRate, maxIterationsPerCapability, maxRegressionRounds)
 
@@ -565,7 +563,7 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 |------|-----|
 | Knowledge Gap | Update knowledge sources |
 | Retrieval Failure | Improve search terms in instructions |
-| Grounding Violation | Strengthen boundaries in instructions |
+| Grounding / Hallucination | Strengthen boundaries in instructions |
 | Routing Failure | Expand trigger phrases, clarify routing rules |
 
 ---
@@ -627,7 +625,7 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 ## Key Principles
 
 1. **Brief is the blueprint** — brief.json drives the build (single source of truth)
-2. **Evals drive the build** — 7 eval sets aligned with [MS Eval Scenario Library](https://github.com/microsoft/ai-agent-eval-scenario-library), safety gate before capability work, grounding after knowledge, per-capability iteration, quality check, regression before publish
+2. **Evals drive the build** — 3 eval sets (safety, functional, resilience) aligned with [MS Eval Scenario Library](https://github.com/microsoft/ai-agent-eval-scenario-library), safety gate → functional per-capability → resilience before publish
 3. **Multi-agent first** — decompose into specialists (score objectively)
 4. **Never assume** — research broadly (web + docs + UI + community), present options
 5. **MVP first** — build what's possible now, plan what's blocked

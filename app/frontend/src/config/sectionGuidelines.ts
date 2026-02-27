@@ -152,12 +152,12 @@ export const sectionGuidelines: Record<string, SectionGuidelineData> = {
     ],
     commonMistakes: [
       "Empty safety set — boundaries and compliance go untested",
-      "No grounding tests — hallucination failures are hard to catch without dedicated tests",
+      "No hallucination tests in functional set — add 'does not exist' questions to catch grounding failures",
       "All tests in one set — loses the tiered pass/fail structure",
       "No capability links — can't track which features are passing or failing",
       "Unrealistic expected responses — tests should match what the agent actually says",
     ],
-    tip: "The 7 default sets (Safety, Grounding, Functional, Integration, Quality, Regression + Custom) cover most agents. Each maps to a quality dimension from the MS Eval Scenario Library.",
+    tip: "The 3 default sets (Safety, Functional, Resilience + Custom) cover most agents. Safety = boundaries (must pass 100%). Functional = everything that should work (happy paths, grounding, routing). Resilience = everything that could break (edge cases, graceful failure, cross-cutting).",
   },
   "open-questions": {
     what: "Unresolved items that need stakeholder input before the build can proceed.",

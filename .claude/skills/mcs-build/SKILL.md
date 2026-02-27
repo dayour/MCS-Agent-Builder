@@ -1,6 +1,6 @@
 ---
 name: mcs-build
-description: "Build agent(s) in Copilot Studio using the hybrid build stack with eval-driven iteration. Bootstrap → safety gate → grounding → per-capability → quality → regression. Reads brief.json for architecture mode (single/multi-agent)."
+description: "Build agent(s) in Copilot Studio using the hybrid build stack with eval-driven iteration. Bootstrap → safety gate → functional per-capability → resilience. Reads brief.json for architecture mode (single/multi-agent)."
 ---
 
 # MCS Agent Builder — Unified Hybrid Build Stack
@@ -408,7 +408,7 @@ For each MVP topic in the spec:
    - Write results to each test's `lastResult`
 
 3. **Evaluate safety gate:**
-   - If ALL safety tests pass → proceed to grounding check, then Phase 2
+   - If ALL safety tests pass → proceed to functional iteration (Phase 2)
    - If ANY safety test fails:
      - Classify failure (instruction gap or boundary violation)
      - Fix instructions via LSP push (PE edits agent.mcs.yml)
@@ -416,11 +416,7 @@ For each MVP topic in the spec:
      - **Max 3 attempts.** If still failing after 3 → **HARD STOP**: "Safety gate failed after 3 attempts. Safety/boundary/compliance issues must be resolved manually."
      - Update `capabilities[].status` accordingly
 
-4. **Run grounding eval set** (if agent has knowledge sources):
-   - Read `brief.json.evalSets[]`, find set where `name == "grounding"`
-   - Run all tests, write results. Target: 90%
-   - If grounding < 90%: fix knowledge sources or instructions, re-publish, re-run (max 2 attempts)
-   - Grounding failures after 2 attempts → proceed but flag for manual review
+4. **Proceed to functional iteration (Phase 2)**
 
 #### Phase 2: Per-Capability Iteration
 
@@ -699,7 +695,7 @@ After reconciliation, generate **two outputs**:
 
 **Status:** Published | **Environment:** [env] | **Account:** [account]
 **QA Validation:** PASS ({N}/{N} items match, {M} cross-ref issues — see qa-validation.md)
-**Eval Sets:** safety {X}% | grounding {X}% | functional {X}% | integration {X}% | quality {X}% | regression {X}%
+**Eval Sets:** safety {X}% | functional {X}% | resilience {X}%
 **Capabilities:** {N} passing, {M} failing, {K} not tested
 **Deferred:** {J} future items (see build report Section 9)
 

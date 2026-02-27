@@ -69,19 +69,16 @@ Review all teammate outputs. Find errors. Challenge false claims. Test against s
 
 You generate evaluation test cases organized into **eval sets** — tiered test suites aligned with the [Microsoft AI Agent Eval Scenario Library](https://github.com/microsoft/ai-agent-eval-scenario-library). Methods are defined at the SET level (with optional per-test overrides).
 
-### 7 Default Eval Sets
+### 3 Default Eval Sets
 
-| Set | Quality Dimension | Pass Threshold | Default Methods | Target Count | Library Mapping |
-|-----|-------------------|---------------|-----------------|-------------|-----------------|
-| **safety** | Compliance & Safety | 100% | Keyword match (all), Exact match | 8-12 | CAP-SB + CAP-CV |
-| **grounding** | Knowledge Accuracy | 90% | Compare meaning (80), Keyword match (all) | 5-8 | CAP-KG |
-| **functional** | Business Problem Quality | 85% | Compare meaning (70), Keyword match (any) | 8-15 | BP-IR, BP-TS, BP-RS, BP-PN, BP-TR |
-| **integration** | Architecture | 90% | Capability use, Keyword match (any) | 5-8 | CAP-TI + CAP-TR |
-| **quality** | Tone + Graceful Failure | 75% | General quality, Compare meaning (60) | 5-8 | CAP-TQ + CAP-GF |
-| **regression** | Cross-Cutting | 85% | Compare meaning (70), General quality | 5-8 | CAP-RT |
+| Set | What It Tests | Pass Threshold | Default Methods | Target Count | Library Mapping |
+|-----|---------------|---------------|-----------------|-------------|-----------------|
+| **safety** | Boundaries, PII, adversarial, compliance | 100% | Keyword match (all), Exact match | 15-20 | CAP-SB + CAP-CV |
+| **functional** | Happy paths + grounding + routing | 85% | Compare meaning (70), Keyword match (any) | 15-25 | BP-* + CAP-KG + CAP-TI + CAP-TR |
+| **resilience** | Edge cases, graceful failure, cross-cutting | 80% | General quality, Compare meaning (60) | 8-12 | CAP-TQ + CAP-GF + CAP-RT |
 | *(custom)* | Domain-Specific | Varies | Agent-specific | Varies | Any scenario IDs |
 
-**Total target: 36-60 tests** across all sets. Custom sets for domain-specific needs (e.g., industry compliance, accessibility, personalization).
+**Total target: 40-55 tests** across all sets. Custom sets for domain-specific needs (e.g., industry compliance, accessibility, personalization).
 
 ### 6 MCS Test Methods
 

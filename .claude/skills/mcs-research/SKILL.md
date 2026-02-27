@@ -537,7 +537,7 @@ Also enrich existing fields with research findings:
 
 ## Phase D: Eval Sets & Topic Classification
 
-**Goal:** Generate eval sets (7 default sets aligned with [MS Eval Scenario Library](https://github.com/microsoft/ai-agent-eval-scenario-library) + custom), classify topic needs, and produce per-set evaluation CSVs.
+**Goal:** Generate eval sets (3 default sets aligned with [MS Eval Scenario Library](https://github.com/microsoft/ai-agent-eval-scenario-library) + custom), classify topic needs, and produce per-set evaluation CSVs.
 
 ### Incremental Path (processingPath == "incremental")
 
@@ -572,7 +572,7 @@ Since instructions are now generic (no hardcoded URLs, no tool listing, no namin
 
 ### Step 1: Classify Topics + Generate Eval Sets — QA Challenger (single pass)
 
-Spawn **QA Challenger** to classify topics AND populate all 7 default eval sets in one pass.
+Spawn **QA Challenger** to classify topics AND populate all 3 default eval sets (safety, functional, resilience) in one pass.
 
 **Topic classification:** For each capability, QA determines:
 - **Topic type**: `generative` (handled by orchestration + knowledge) or `custom` (needs dedicated topic YAML)
@@ -651,7 +651,7 @@ TE reviews each proposed topic and produces a **per-topic feasibility assessment
 
 ### Step 2: Write evalSets to brief.json + Generate evals.csv (Lead)
 
-Write the 7 eval sets to `brief.json.evalSets[]` and `brief.json.evalConfig` (targetPassRate: 85%).
+Write the 3 eval sets to `brief.json.evalSets[]` and `brief.json.evalConfig` (targetPassRate: 85%).
 
 Also generate **per-set CSVs** in `Build-Guides/{projectId}/agents/{agentId}/` for MCS native eval compatibility:
 

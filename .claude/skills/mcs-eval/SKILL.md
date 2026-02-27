@@ -81,7 +81,7 @@ Read `brief.json.evalSets[]`. If empty or missing → **exit:** "Run `/mcs-resea
 Question,Expected response,Testing method
 ```
 
-One CSV per eval set: `evals-safety.csv`, `evals-grounding.csv`, `evals-functional.csv`, etc.
+One CSV per eval set: `evals-safety.csv`, `evals-functional.csv`, `evals-resilience.csv`, etc.
 
 Generation rules:
 - Each test becomes one CSV row in its set's CSV

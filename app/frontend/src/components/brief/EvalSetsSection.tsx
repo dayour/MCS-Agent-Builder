@@ -168,7 +168,7 @@ const EvalSetsSection = ({ data, onChange }: Props) => {
                       {total} test{total !== 1 ? "s" : ""}
                     </span>
                   </div>
-                  <p className="text-xs text-muted-foreground truncate">{set.description}</p>
+                  <p className="text-xs text-muted-foreground line-clamp-2">{set.description}</p>
                 </div>
 
                 {/* Pass rate + threshold */}
@@ -187,6 +187,11 @@ const EvalSetsSection = ({ data, onChange }: Props) => {
               {/* Expanded content */}
               {isExpanded && (
                 <div className="border-t border-border">
+                  {/* Set description */}
+                  <div className="px-4 py-3 bg-surface-2 border-b border-border">
+                    <p className="text-xs text-muted-foreground leading-relaxed">{set.description}</p>
+                  </div>
+
                   {/* Methods bar */}
                   <div className="px-4 py-2 bg-surface-2 flex flex-wrap items-center gap-1.5">
                     <span className="text-[10px] text-muted-foreground uppercase tracking-wider mr-1">Methods:</span>
