@@ -16,12 +16,12 @@ Entry format:
 ID format: et-NNN (eval-testing)
 -->
 
-### Direct Line does NOT support SSO — use Playwright Test Chat for MCP agents {#et-001} — 2026-02-21
-**Context:** Daily Briefing agent (clint-project) — 4 MCP tools (Outlook Mail, Calendar, Teams, User Profile) requiring user-delegated auth
+### Direct Line does NOT support Integrated auth — use Playwright Test Chat {#et-001} — 2026-02-21
+**Context:** Daily Briefing agent (MCP tools needing user auth) + CDW Legal HR Policy Advisor (Integrated auth for SharePoint knowledge)
 **Tried:** Direct Line API eval (Tier 1) via `tools/direct-line-test.js` with Token Endpoint auto-token
-**Result:** Every test fails with `IntegratedAuthenticationNotSupportedInChannel`. Direct Line cannot pass user auth context to MCP tools. This is an architectural limitation — MS Learn confirms Direct Line is NOT in the SSO-supported channel list.
-**Better approach:** Use Playwright Test Chat (Tier 2) for ALL agents with MCP tools that need user auth. Test Chat runs in the authenticated MCS UI context — no SSO config needed. Direct Line only works for agents without user-delegated tools.
-**Confirmed:** 1 build(s) | Last confirmed: 2026-02-21
+**Result:** Every test fails with `IntegratedAuthenticationNotSupportedInChannel`. Direct Line cannot pass user auth context. Applies to ALL agents with `authenticationMode: Integrated` — not just MCP tools. Also affects agents whose SharePoint knowledge sources require user identity for search. Disabling auth (authenticationmode: 0) makes Direct Line work but knowledge search returns empty/irrelevant results because the user context is missing.
+**Better approach:** Use Playwright Test Chat (Tier 2) for ALL agents with Integrated auth. Test Chat runs in the authenticated MCS UI context. Direct Line only works for agents with `authenticationMode: None` that don't need user identity for knowledge retrieval.
+**Confirmed:** 2 build(s) | Last confirmed: 2026-02-26
 **Related cache:** security-auth.md, eval-methods.md, channels.md
 **Tags:** #direct-line #sso #mcp #authentication #playwright #eval
 

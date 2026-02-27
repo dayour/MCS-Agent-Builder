@@ -14,14 +14,22 @@ Entry format:
 **Tags:** #tag1 #tag2
 -->
 
-### PAC CLI create requires undocumented template YAML {#bm-001} — 2026-02-18
-**Context:** Evaluating agent creation methods for the hybrid build stack
-**Tried:** `pac copilot create --templateFileName template.yaml` — requires a YAML template extracted from an existing agent via `pac copilot extract-template`
-**Result:** Template format is not published by Microsoft, no official samples exist, and templates only capture ~30% of agent config (topics/instructions — not tools, knowledge, or model). Model selection and tools are now headless via LSP push + add-tool.js, but Playwright is still needed for agent creation itself.
-**Better approach:** Create agents via Playwright (MCS UI → Create → New agent → Skip to configure → set name/description → Create), then clone workspace and configure everything else via LSP push. PAC CLI `create` is a fallback for environments where browser is unavailable.
-**Confirmed:** 1 build(s) | Last confirmed: 2026-02-18
-**Related cache:** agent-lifecycle.md, api-capabilities.md
-**Tags:** #pac-cli #playwright #agent-creation #template
+### Agent creation is fully headless: Dataverse POST + PvaProvision {#bm-001} — 2026-02-27
+**Context:** Tested full API agent creation pipeline — Dataverse POST + PvaProvision + LSP clone
+**Tried:** (1) `pac copilot create` — needs template YAML (~30% of config). (2) Playwright wizard. (3) Dataverse POST + PvaProvision.
+**Result:** Dataverse POST + PvaProvision WORKS. Full E2E pipeline tested Feb 27 (24/24 steps pass):
+  1. `POST /api/data/v9.2/bots` with name, schemaname, language:1033, runtimeprovider:0, configuration (JSON) → HTTP 201
+  2. `POST /bots(<id>)/Microsoft.Dynamics.CRM.PvaProvision` with {} body → HTTP 204
+  3. Poll statuscode: Provisioning(3) → Provisioned(1) in ~5-15s
+  4. Agent appears in `pac copilot list` immediately after provisioning
+  5. LSP clone works — gets agent.mcs.yml + settings.mcs.yml (system topics come later after clone detects them)
+  6. LSP push works for all config: instructions, model, topics, knowledge sources, conversation starters, web search toggle
+  7. Dataverse PATCH works for bot entity settings: configuration JSON, authenticationmode, isAgentConnectable
+  8. PvaPublish → publishedon updates. PvaDeleteBot → HTTP 204 cleanup.
+**Better approach:** Create agents via Dataverse API (2 calls, ~3 seconds total). No Playwright needed. Required fields: name (string), schemaname (publisher prefix e.g. cr509_name), language (1033), runtimeprovider (0), configuration (JSON BotConfiguration string). After creation: LSP clone → edit → push → PvaPublish.
+**Confirmed:** 2 build(s) | Last confirmed: 2026-02-27
+**Related cache:** agent-lifecycle.md, api-capabilities.md, dataverse-patterns.md
+**Tags:** #dataverse #api #agent-creation #pva-provision #headless #lsp
 
 ### Dataverse POST for new botcomponents skips MCS orchestration {#bm-002} — 2026-02-20
 **Context:** CDW Legal & HR Policy Advisor build — attempted to create topics and instructions via raw `POST /botcomponents`
@@ -82,6 +90,70 @@ The MCS UI reads/writes the `data` field. PvaPublish syncs `data` -> `content` f
 **Confirmed:** 1 build(s) | Last confirmed: 2026-02-26
 **Related cache:** dataverse-patterns.md
 **Tags:** #lsp #bot-name #dataverse #patch #agent-creation
+
+### Browser account must match build target BEFORE any Playwright operation {#bm-009} — 2026-02-27
+**Context:** CDW Legal HR build — browser was logged in as kimdennis@microsoft.com but build target was admin@M365CPI15209943 / dktest (different tenant)
+**Tried:** Navigating directly to agent URL in wrong-tenant browser. Also tried running evals via Playwright Test Chat.
+**Result:** MCS shows "Looks like that link is broken" when accessing cross-tenant environment URLs. Test Chat is inaccessible. Suggested Prompts config blocked. Settings changes blocked. Everything requiring browser was blocked.
+**Better approach:** During the Unified Auth Gate (build start), check if the Playwright browser is logged into the correct account. If not, switch BEFORE any browser operations: Account menu → Sign out → Navigate to MCS → Pick correct account from account picker → Switch environment. This is a ONE-TIME operation per tenant — the session persists at `~/.playwright-mcp-edge`. Add browser account verification to the auth gate alongside PAC CLI + Azure CLI checks.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-02-27
+**Related cache:** api-capabilities.md
+**Tags:** #playwright #browser #account-switch #tenant #auth-gate
+
+### LSP push does NOT handle settings.mcs.yml — use Dataverse API (fastest) or Playwright {#bm-010} — 2026-02-27
+**Context:** CDW build — tried to push `useModelKnowledge: false` via LSP, then tested Dataverse API
+**Tried:** (1) Edit settings.mcs.yml → LSP push. (2) PATCH bot.configuration via Dataverse API. (3) Playwright Settings UI.
+**Result:** LSP push reports "0 local changes synced" for settings.mcs.yml — does NOT push settings. BUT Dataverse API works: the `bot.configuration` field (Memo/JSON) contains all AI settings. Read current JSON → modify → PATCH back → PvaPublish. Round-trip confirmed for `useModelKnowledge` in ~2 seconds vs ~30 seconds via Playwright.
+**Better approach:** Use Dataverse API PATCH on `bot.configuration` field for: `useModelKnowledge` (general knowledge), `isFileAnalysisEnabled`, `contentModeration`, `optInUseLatestModels`. Use direct PATCH on `bot.authenticationmode` for auth mode. Use Dataverse PATCH on GptComponent `data` field for: `conversationStarters` (suggested prompts), `instructions`, `aISettings.model`. Playwright is last resort only. Web search (Bing) toggle location TBD — not in `configuration.aISettings`.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-02-27
+**Related cache:** api-capabilities.md, dataverse-patterns.md
+**Tags:** #lsp #settings #dataverse #api #playwright #general-knowledge #auth-mode #suggested-prompts #configuration
+
+### General knowledge must be OFF for policy/compliance agents {#bm-011} — 2026-02-27
+**Context:** CDW Legal HR Policy Advisor — agent must ONLY answer from CDW SharePoint knowledge sources
+**Tried:** Default agent creation leaves "Use general knowledge" ON in Settings > Generative AI > Knowledge
+**Result:** With general knowledge ON, the model can answer from its training data — not just the configured knowledge sources. For a compliance agent grounded in specific company policies, this means the agent may provide answers from generic knowledge that contradict or supplement company-specific policies without the user knowing the source. Two separate settings: (1) "Use general knowledge" = model training data, (2) "Use information from the Web" = Bing search. Both should be OFF for policy-grounded agents.
+**Better approach:** During /mcs-build Step 2 or Step 3 (after agent creation), check the agent's knowledge settings via Playwright Settings UI and disable "Use general knowledge" and "Use information from the Web" for agents whose brief specifies grounding in specific knowledge sources (SharePoint, files). This should be part of the standard build checklist for any agent with `knowledge[]` entries.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-02-27
+**Related cache:** knowledge-sources.md
+**Tags:** #general-knowledge #grounding #compliance #settings #knowledge
+
+### Connected agents via Island Gateway API — no Playwright needed {#bm-012} — 2026-02-27
+**Context:** E2E pipeline test — connect specialist agent to orchestrator programmatically
+**Tried:** Island Gateway API `PUT content/botcomponents` with `connectedAgentDefinitionChanges` array
+**Result:** WORKS. Payload: `{ connectedAgentDefinitionChanges: [{ "$kind": "ConnectedAgentDefinitionInsert", connectedAgentDefinition: { "$kind": "ConnectedAgentDefinition", connectedAgentSchemaName: "<schema>", isAgentConnectable: true } }], changeToken: "<from readComponents>" }`. Returns 200. Connected agent appears in orchestrator's component tree immediately.
+**Better approach:** Prerequisites: (1) target agent must have `isAgentConnectable: true` (Dataverse PATCH), (2) target agent must be published, (3) read orchestrator components to get changeToken. Then single PUT to write the connection.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-02-27
+**Related cache:** api-capabilities.md, island-gateway-api.md
+**Tags:** #connected-agents #island-gateway #multi-agent #orchestrator #headless
+
+### Eval test case upload via Dataverse API — componenttype 19 {#bm-013} — 2026-02-27
+**Context:** E2E pipeline test — create evaluation test cases programmatically
+**Tried:** `POST /botcomponents` with componenttype=19, content (JSON with testQuery/expectedResponse/keywords), and `parentbotid@odata.bind: /bots(<botId>)`
+**Result:** WORKS. Records created and automatically linked to parent bot. Queryable via `$filter=_parentbotid_value eq '<botId>' and componenttype eq 19`. Schemaname must be unique (use publisher prefix + timestamp + random). Note: `parentbotid@odata.bind` works for componenttype=19 (unlike type 9/15/16 which need LSP).
+**Better approach:** Create test cases via Dataverse POST. This is the ONLY componenttype where raw POST works correctly (because test cases don't need NLU registration or topic compilation). For test sets, use `botcomponentcollection` table.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-02-27
+**Related cache:** api-capabilities.md, eval-methods.md
+**Tags:** #eval #test-cases #dataverse #componenttype-19 #headless
+
+### Knowledge source YAML format must use KnowledgeSourceConfiguration kind {#bm-014} — 2026-02-27
+**Context:** E2E pipeline test — LSP push silently ignored knowledge source with wrong YAML format
+**Tried:** First attempt used `kind: KnowledgeSource` with `sourceType: publicUrl` and `urls:` array — LSP push returned 200 but created no knowledge component in Dataverse (0 sources).
+**Result:** The correct .mcs.yml format for knowledge sources (discovered from cloning an agent with knowledge):
+```yaml
+# Name: Display Name
+# Description text
+kind: KnowledgeSourceConfiguration
+source:
+  kind: PublicSiteSearchSource
+  site: https://example.com/path/
+  includeSubPages: true
+```
+File must be named using the component's schema name: `{botSchemaName}.topic.{KnowledgeName}.mcs.yml` (stored in `knowledge/` directory). Second attempt with correct format: push creates componenttype=16 record successfully.
+**Better approach:** Always use `kind: KnowledgeSourceConfiguration` with `source.kind` matching the ObjectModel type: `PublicSiteSearchSource` (public URLs), `SharePointSearchSource` (SharePoint), `FileGroupKnowledgeSource` (uploaded files), `DataverseStructuredSearchSource` (Dataverse tables). The LSP silently ignores invalid YAML — always verify via Dataverse read-back.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-02-27
+**Related cache:** knowledge-sources.md, api-capabilities.md
+**Tags:** #knowledge #lsp #yaml #knowledge-source #silent-failure #public-url #sharepoint
 
 ### Az.Accounts not needed — az CLI provides reliable Dataverse tokens {#bm-006} — 2026-02-20
 **Context:** BY build — `Connect-DataverseFromPac` crashed because Az.Accounts module not installed

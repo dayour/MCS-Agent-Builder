@@ -230,19 +230,93 @@ Remove-Bot -Ctx $ctx -BotId $botId
 
 ---
 
+## Bot Settings via API (No Playwright Needed)
+
+Agent settings that were previously Playwright-only can be configured via Dataverse API.
+
+### bot.configuration field (JSON in Memo field)
+
+Read current → modify JSON → PATCH back → PvaPublish. The `configuration` field stores all generative AI settings.
+
+```bash
+# Read
+CONFIG=$(curl -s -G "$DV_URL/api/data/v9.2/bots($BOT_ID)" \
+  --data-urlencode '$select=configuration' \
+  -H "Authorization: Bearer $TOKEN" | python -c "import json,sys; print(json.load(sys.stdin).get('configuration',''))")
+
+# Modify (example: turn off general knowledge)
+NEW_CONFIG=$(echo "$CONFIG" | python -c "import json,sys; c=json.load(sys.stdin); c['aISettings']['useModelKnowledge']=False; print(json.dumps(c))")
+
+# Write back (configuration value must be JSON-string-escaped)
+curl -s -X PATCH "$DV_URL/api/data/v9.2/bots($BOT_ID)" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -H "If-Match: *" \
+  -d "{\"configuration\": $(echo "$NEW_CONFIG" | python -c "import json,sys; print(json.dumps(sys.stdin.read()))")}"
+```
+
+| UI Setting | JSON Path in configuration | Values |
+|-----------|--------------------------|--------|
+| Use general knowledge | `aISettings.useModelKnowledge` | `true`/`false` |
+| File uploads | `aISettings.isFileAnalysisEnabled` | `true`/`false` |
+| Content moderation | `aISettings.contentModeration` | `"High"`, `"Medium"`, `"Low"` |
+| Use latest models | `aISettings.optInUseLatestModels` | `true`/`false` |
+| Generative orchestration | `settings.GenerativeActionsEnabled` | `true`/`false` |
+| Allow agent connection | `isAgentConnectable` | `true`/`false` |
+
+### Direct bot entity fields
+
+| UI Setting | Field | Values |
+|-----------|-------|--------|
+| Auth mode | `authenticationmode` | `0`=None, `1`=Integrated, `2`=GenericOauth |
+
+### GptComponent data field (YAML in botcomponent)
+
+The Custom GPT botcomponent (componenttype=15) `data` field contains YAML with:
+- `instructions:` — agent instructions
+- `aISettings.model.modelNameHint:` — model selection
+- `conversationStarters:` — suggested prompts (array of `title` + `text`)
+
+```yaml
+conversationStarters:
+  - title: Ask a policy question
+    text: What is CDW's policy on remote work?
+  - title: Report a concern
+    text: I need to report an ethics concern
+```
+
+Can be written via LSP push (edit `agent.mcs.yml` in workspace) or Dataverse PATCH on the botcomponent `data` field.
+
+### GptCapabilities in GptComponent (YAML in botcomponent data field)
+
+The web browsing (Bing search) toggle and other capabilities are in the `gptCapabilities` section:
+
+```yaml
+# In agent.mcs.yml or GptComponent data field
+gptCapabilities:
+  webBrowsing: true     # "Use information from the web" / Web Search toggle
+  codeInterpreter: false # Code interpreter capability
+  generateImages: false  # Image generation capability
+```
+
+Can be set via LSP push (`agent.mcs.yml`), Island Gateway API (`PUT botcomponents` GptComponent), or Dataverse PATCH on botcomponent `data` field.
+
+**Note:** This is the per-agent setting. There is also an environment-level admin toggle in Power Platform Admin Center that overrides per-agent settings.
+
+---
+
 ## What CANNOT Be Done via API (Requires Playwright)
 
-### UI-Only Operations (No API Exists)
+### UI-Only Operations (Updated 2026-02-27 — post E2E test)
 
-| Operation | Why |
-|-----------|-----|
-| Agent creation | Full wizard flow, no complete API |
-| Create OAuth connections | Interactive auth flow required |
-| Connect child agents | Agent connection requires MCS orchestration setup |
-| "Allow other agents to connect" | Security toggle not in public API |
-| Native eval upload/run | MCS evaluation service, no API |
+| Operation | Status | Notes |
+|-----------|--------|-------|
+| ~~Agent creation~~ | **REPLACED** | Dataverse POST + PvaProvision (E2E confirmed 2026-02-27). See `api-capabilities.md`. |
+| Create NEW OAuth connections | PARTIALLY REPLACEABLE | First-time OAuth consent needs browser. Existing connections reusable headlessly via `add-tool.js`. |
+| ~~Connect child agents~~ | **REPLACED** | Island Gateway `connectedAgentDefinitionChanges` (E2E confirmed 2026-02-27). |
+| ~~"Allow other agents to connect"~~ | **REPLACED** | Dataverse PATCH `bot.configuration.isAgentConnectable` (confirmed 2026-02-23). |
+| ~~Native eval upload~~ | **REPLACED** | Dataverse POST `botcomponent` componenttype=19 with `parentbotid@odata.bind` (E2E confirmed 2026-02-27). |
+| ~~Web search (Bing) toggle~~ | **REPLACED** | `gptCapabilities.webBrowsing` in GptComponent. LSP push, Island Gateway, or Dataverse PATCH. |
 
-> **Note:** Model selection, instructions, topics, knowledge (sites/URLs), and tool editing are all now handled via LSP push (`mcs-lsp.js`). Tool addition uses `add-tool.js` + LSP push (if an OAuth connection already exists). See `knowledge/cache/api-capabilities.md` for the full capability matrix.
+> **After E2E testing (2026-02-27): The ONLY Playwright-required operation is first-time OAuth consent for a new connector type.** Everything else — agent creation, model, instructions, topics, knowledge, tools, settings, connected agents, eval upload, publish, delete — is confirmed working via API/LSP. Full test: `tools/e2e-api-pipeline-test.js`.
 
 ### CRITICAL: Creating New Components via Raw POST Is Broken
 

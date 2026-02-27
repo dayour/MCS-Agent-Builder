@@ -2,7 +2,7 @@
 
 ## Overview
 
-Automate Microsoft Copilot Studio (MCS) agent creation using a **hybrid build stack**: PAC CLI for listing agents and solution ALM, MCS LSP Wrapper for component sync (instructions, model, topics, tools, knowledge, settings), Island Gateway API for model catalog and component reads, Dataverse API for file uploads, bot name PATCH, PvaPublish, and security, Direct Line API for testing, and Playwright MCP only for agent creation and new OAuth connections.
+Automate Microsoft Copilot Studio (MCS) agent creation using a **hybrid build stack**: PAC CLI for listing agents and solution ALM, MCS LSP Wrapper for component sync (instructions, model, topics, tools, knowledge, settings), Island Gateway API for model catalog, component reads, and connected agent setup, Dataverse API for agent creation (POST + PvaProvision), file uploads, bot name PATCH, PvaPublish, eval upload, and security, Direct Line API for testing, and Playwright MCP only for new OAuth connections (first-time consent).
 
 **CRITICAL: Never assume components. Research BROADLY first (web, MS Learn, community — not just one source), recommend based on requirements.**
 
@@ -91,7 +91,7 @@ If `sessionDefaults` exist but `buildStatus` doesn't (new agent, returning user)
 | 3 | **Island Gateway API** | Model catalog, component reads, routing, settings (`tools/island-client.js`) |
 | 4 | **Dataverse API** | File uploads (PDF/DOCX), bot name PATCH, PvaPublish, security, deletion |
 | 5 | **Direct Line API** | Evaluation / testing (send messages, compare responses) |
-| 6 | **Playwright MCP** | Agent creation, new OAuth connections, child agent connection |
+| 6 | **Playwright MCP** | New OAuth connections (first-time consent only) |
 
 **Detailed capabilities per layer:** See `knowledge/cache/api-capabilities.md`
 **Decision flow and build phase mapping:** See `knowledge/frameworks/tool-priority.md`
@@ -104,7 +104,7 @@ Account selection determines everything — PAC CLI profile, Azure CLI tenant, a
 |-------|---------------|-----|-------------|
 | **PAC CLI** | Listing agents, solution ALM | `pac auth select` (automatic) | session-config.json `pacProfileIndex` |
 | **Azure CLI** | LSP, Island Gateway, Dataverse, Direct Line | `az login --tenant` (auto, browser popup) | session-config.json `tenantId` + brief.json `azTenantId` |
-| **Browser** | Agent creation, OAuth, Test Chat | Playwright snapshot (on first use) | brief.json `buildStatus.account/environment` |
+| **Browser** | New OAuth consent, Test Chat (fallback) | Playwright snapshot (on first use) | brief.json `buildStatus.account/environment` |
 
 **Build gate** runs all three at start. **Eval/fix** do a quick re-verify (silent, auto-fixes on mismatch via `az login`). **Browser preflight** runs separately before Playwright actions.
 
@@ -210,7 +210,7 @@ Before committing to designs that are hard to undo — schema changes, workflow 
 | **Direct Line API** | Agent testing: send messages, compare responses (`tools/direct-line-test.js`) |
 | **Test Chat Harness** | Optimized Playwright eval: injectable browser code for ~3-5s/test boundary tests (`tools/test-chat-harness.js`) |
 | **Eval Runner** | Test plan generation, scoring, tier detection for Playwright eval (`tools/playwright-eval-runner.js`) |
-| **Playwright MCP** | Agent creation, new OAuth connections, child agent connection (`@playwright/mcp`) |
+| **Playwright MCP** | New OAuth connections (first-time consent only) (`@playwright/mcp`) |
 | **WorkIQ MCP** | M365 context: emails, meetings, documents, Teams, people (`workiq mcp`) |
 | **Microsoft Learn MCP** | Official docs, reference, code samples |
 | **WebSearch** | Latest announcements, preview features, community discoveries |
