@@ -89,8 +89,6 @@ interface Props {
 
 const BriefPdfDocument = ({ agent, briefData }: Props) => {
   const tocEntries = buildToc(briefData);
-  const isMultiAgent = briefData["architecture"]?.pattern?.toLowerCase().includes("multi");
-
   // Section numbering — must match TOC order
   let n = 0;
   const num = () => ++n;
@@ -132,7 +130,7 @@ const BriefPdfDocument = ({ agent, briefData }: Props) => {
         <ScopeBoundaries data={briefData["scope-boundaries"]} sectionNumber={num()} />
         <EvalSets data={briefData["eval-sets"]} sectionNumber={num()} />
 
-        <BestPractices sectionNumber={num()} isMultiAgent={isMultiAgent} />
+        <BestPractices sectionNumber={num()} items={briefData["recommendations"]?.items ?? []} />
 
         <OpenQuestions data={briefData["open-questions"]} sectionNumber={num()} />
       </Page>

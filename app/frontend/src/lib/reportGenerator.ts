@@ -1,5 +1,6 @@
 import { BRIEF_SECTIONS } from "@/config/briefSections";
-import type { Agent } from "@/types";
+import type { Agent, Recommendation } from "@/types";
+import { RECOMMENDATION_CATEGORY_LABELS } from "@/types";
 
 /**
  * Generates a clean markdown report from brief data.
@@ -227,45 +228,38 @@ export function generateBriefReport(agent: Agent, briefData: Record<string, any>
 
   // ── Best Practices & Recommendations ──────────────────────────
   {
-    const isMultiAgent = briefData["architecture"]?.pattern?.toLowerCase().includes("multi");
+    const recItems: Recommendation[] = briefData["recommendations"]?.items ?? [];
 
     lines.push("## Best Practices & Recommendations\n");
-    lines.push("*Industry-proven recommendations for Microsoft Copilot Studio agents.*\n");
 
-    lines.push("### Instructions & Design");
-    lines.push("- Keep system instructions under 8,000 characters for optimal generative orchestration");
-    lines.push("- Use explicit persona definitions for consistent tone across all responses");
-    lines.push("- Define clear scope boundaries \u2014 what the agent handles, declines, and refuses");
-    lines.push("- Include example responses for high-stakes scenarios to anchor model behavior");
-    lines.push("");
+    if (recItems.length === 0) {
+      lines.push("*No recommendations generated yet.*\n");
+    } else {
+      const categoryOrder = Object.keys(RECOMMENDATION_CATEGORY_LABELS);
+      const grouped = new Map<string, Recommendation[]>();
+      for (const r of recItems) {
+        const key = r.category || "other";
+        if (!grouped.has(key)) grouped.set(key, []);
+        grouped.get(key)!.push(r);
+      }
+      const sortedKeys = [...grouped.keys()].sort((a, b) => {
+        const ai = categoryOrder.indexOf(a);
+        const bi = categoryOrder.indexOf(b);
+        if (ai === -1 && bi === -1) return a.localeCompare(b);
+        if (ai === -1) return 1;
+        if (bi === -1) return -1;
+        return ai - bi;
+      });
 
-    lines.push("### Knowledge & Grounding");
-    lines.push("- Prefer SharePoint or Dataverse knowledge sources over uploaded files for automatic refresh");
-    lines.push("- Use descriptive file names that help the retrieval engine find the right content");
-    lines.push("- Test with edge-case queries that probe content boundaries and gaps");
-    lines.push("- Enable strict grounding for factual or regulated content domains");
-    lines.push("");
-
-    lines.push("### Evaluation & Testing");
-    lines.push("- Maintain 100% pass rate on critical (boundary) tests before expanding scope");
-    lines.push("- Include at least 3 test cases per capability for adequate coverage");
-    lines.push("- Run regression tests after every instruction or topic change");
-    lines.push("- Use semantic matching (Compare meaning 70%+) for conversational responses");
-    lines.push("");
-
-    lines.push("### Deployment & Operations");
-    lines.push("- Publish to a test environment before production to validate end-to-end behavior");
-    lines.push("- Monitor conversation logs for the first 2 weeks post-launch to catch drift");
-    lines.push("- Set up fallback topics for unrecognized intents to prevent dead-ends");
-    lines.push("- Review knowledge sources quarterly to ensure content stays current");
-    lines.push("");
-
-    if (isMultiAgent) {
-      lines.push("### Multi-Agent Architecture");
-      lines.push("- Keep specialist agents focused on a single domain for clearer routing");
-      lines.push("- Define explicit routing rules with unambiguous trigger phrases");
-      lines.push("- Test cross-agent handoff scenarios in the integration eval set");
-      lines.push("");
+      for (const cat of sortedKeys) {
+        const label = RECOMMENDATION_CATEGORY_LABELS[cat] ?? cat;
+        lines.push(`### ${label}`);
+        for (const r of grouped.get(cat)!) {
+          const suffix = r.source === "tailored" ? " *[Tailored]*" : "";
+          lines.push(`- ${r.text}${suffix}`);
+        }
+        lines.push("");
+      }
     }
 
     lines.push(hr);

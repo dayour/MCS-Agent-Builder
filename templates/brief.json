@@ -229,6 +229,14 @@
 
   "evalCoverage": null,
 
+  "recommendations": [
+    {
+      "category": "instructions-design | knowledge-grounding | connectors-mcp | evaluation-testing | deployment-operations | multi-agent | channels | security-compliance | <custom>",
+      "text": "Recommendation text — generic MCS best practices or agent-specific tailored advice",
+      "source": "generic | tailored"
+    }
+  ],
+
   "notes": {
     "_description": "Flexible key-value store for anything that doesn't fit above. Keys are freeform.",
     "fixHistory": [

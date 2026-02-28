@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Briefcase, Bot, FileText, Zap, Plug, Database,
   MessageSquare, Shield, Network, TestTube, HelpCircle,
-  Check, Circle, Download, FileDown, Loader2,
+  Lightbulb, Check, Circle, Download, FileDown, Loader2,
 } from "lucide-react";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
@@ -27,12 +27,13 @@ import ConversationTopicsSection from "@/components/brief/ConversationTopicsSect
 import ScopeBoundariesSection from "@/components/brief/ScopeBoundariesSection";
 import ArchitectureSection from "@/components/brief/ArchitectureSection";
 import EvalSetsSection from "@/components/brief/EvalSetsSection";
+import RecommendationsSection from "@/components/brief/RecommendationsSection";
 import OpenQuestionsSection from "@/components/brief/OpenQuestionsSection";
 import { generateBriefReport, downloadFile } from "@/lib/reportGenerator";
 
 const iconMap: Record<string, React.ElementType> = {
   Briefcase, FileText, Zap, Plug, Database,
-  MessageSquare, Shield, Network, TestTube, HelpCircle,
+  MessageSquare, Shield, Network, TestTube, Lightbulb, HelpCircle,
 };
 
 const sectionComponents: Record<string, React.ComponentType<{ data: any; onChange?: (data: any) => void; context?: any }>> = {
@@ -45,6 +46,7 @@ const sectionComponents: Record<string, React.ComponentType<{ data: any; onChang
   "scope-boundaries": ScopeBoundariesSection,
   architecture: ArchitectureSection,
   "eval-sets": EvalSetsSection,
+  recommendations: RecommendationsSection,
   "open-questions": OpenQuestionsSection,
 };
 

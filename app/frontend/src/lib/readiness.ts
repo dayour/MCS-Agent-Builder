@@ -105,6 +105,7 @@ export function sectionCompletion(data: BriefData): Record<string, boolean> {
       bounds.handles.length || bounds.politelyDeclines.length || bounds.hardRefuses.length
     ),
     "eval-sets": totalEvalTests(data) >= 5,
+    recommendations: (data.recommendations?.items?.length ?? 0) > 0,
     "open-questions": questions.filter((q) => q.question && q.status !== "resolved").length === 0,
   };
 }

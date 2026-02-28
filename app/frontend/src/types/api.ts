@@ -214,6 +214,11 @@ export interface ApiBrief {
     category?: string;
     capability?: string;
   }>;
+  recommendations?: Array<{
+    category: string;
+    text: string;
+    source?: string;
+  }>;
   openQuestions?: Array<{
     question: string;
     impact?: string;
