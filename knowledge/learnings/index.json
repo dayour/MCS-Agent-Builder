@@ -275,6 +275,17 @@
       "tags": ["schema", "capabilities", "implementationType", "phase", "architecture", "brief"],
       "status": "active",
       "projects": ["cdw"]
+    },
+    {
+      "id": "in-004",
+      "file": "instructions.md",
+      "title": "Multi-model instruction patterns — universal style over model-specific branching",
+      "date": "2026-02-27",
+      "confirmed": 1,
+      "lastConfirmed": "2026-02-27",
+      "tags": ["instructions", "multi-model", "claude", "gpt-5", "universal-style", "cross-model"],
+      "status": "active",
+      "projects": []
     }
   ]
 }

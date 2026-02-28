@@ -53,3 +53,12 @@ Decision rule: if the behavior maps to a safety eval test (100% pass required), 
 **Confirmed:** 1 build(s) | Last confirmed: 2026-02-27
 **Related cache:** instructions-authoring.md
 **Tags:** #instructions #capabilities #phase #cross-reference #qa #validation
+
+### Multi-model instruction patterns — universal style over model-specific branching {#in-004} — 2026-02-27
+**Context:** MCS now supports 10+ models across 3 families (GPT-5/5.2, Claude Sonnet/Opus 4.5/4.6, Grok 4.1). Agent instructions are a single 8,000-char system prompt with no API parameter access (reasoning_effort, verbosity, thinking). Investigated whether instructions should branch per model family.
+**Tried:** Model-specific instruction variants — different phrasing per GPT vs Claude vs Grok. Also tested aggressive emphasis ("CRITICAL: YOU MUST NEVER") for boundary enforcement.
+**Result:** Model-specific branching is impractical (makers switch models freely; instructions can't detect which model is running). Aggressive caps ("CRITICAL:", "YOU MUST") trigger over-compliance on Claude 4.6 (refuses valid requests) and get ignored by GPT-5.2. Personality padding ("world-class expert") is discarded by GPT-5.2 and ignored by Claude. "Be concise" without a floor produces bare-minimum responses on GPT-5.2 and Claude 4.6.
+**Better approach:** 7 universal style rules that work across all model families: (1) Role in first line — functional, no superlatives, (2) WHY on every constraint — reason in parentheses, (3) Tiered length with floor + ceiling per question type, (4) Plain emphasis — bold or "Never X", no aggressive caps, (5) No personality padding, (6) 2-3 varied examples — happy path + boundary + complex, (7) Flat lists only. Model-specific tuning is a lightweight post-generation scan (e.g., Claude: check for aggressive caps → soften; GPT-5.2: check for missing length floors → add). Universal template updated in instructions-authoring.md cache.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-02-27
+**Related cache:** instructions-authoring.md
+**Tags:** #instructions #multi-model #claude #gpt-5 #universal-style #cross-model

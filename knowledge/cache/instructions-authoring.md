@@ -57,9 +57,11 @@ Search within country-specific folders relevant to the employee's location.
 Use the FAQ documents only if the question is not about Hours, Appointments, or Billing.
 ```
 
-## Two Proven Instruction Patterns
+## Two Proven Instruction Patterns (Legacy)
 
-### Pattern A: Conversational Agent
+> **Note:** These patterns are preserved for reference. For new agents, use the **Universal Instruction Template** in the "Model-Aware Instruction Patterns" section below, which incorporates WHY-clauses, tiered length, and cross-model compatibility.
+
+### Pattern A: Conversational Agent (Legacy)
 ```markdown
 # [Agent Name]
 
@@ -82,7 +84,7 @@ You are [Name], an AI assistant for [audience] that [core purpose].
 - For [sensitive scenario], direct to [escalation resource]
 ```
 
-### Pattern B: Autonomous / Multi-Step Workflow
+### Pattern B: Autonomous / Multi-Step Workflow (Legacy)
 ```markdown
 # OBJECTIVE
 [One sentence goal]
@@ -101,6 +103,118 @@ You are [Name], an AI assistant for [audience] that [core purpose].
 - Only email [specified recipients]
 - Do not [restricted action]
 ```
+
+## Model-Aware Instruction Patterns
+
+MCS supports 10+ models across 3 families (GPT-5/5.2, Claude Sonnet/Opus 4.5/4.6, Grok 4.1). Agent instructions are a single 8,000-char system prompt that runs on whichever model the maker selects — there is no API parameter access (reasoning_effort, verbosity, thinking). A **universal style** works across all models; model-specific tuning is a lightweight scan step, not a restructure.
+
+### 7 Universal Style Rules
+
+| # | Rule | Why | Example |
+|---|------|-----|---------|
+| 1 | **Role in first line — functional, no superlatives** | All models anchor behavior from the opening role statement; superlatives are discarded or ignored | "You are PolicyBot, a benefits assistant for Contoso HR employees." (not "You are a world-class expert policy advisor") |
+| 2 | **WHY on every constraint — reason in parentheses** | Motivation improves adherence across all model families | "Do not provide medical advice (employees must consult HR Benefits for liability reasons)." |
+| 3 | **Tiered length (floor + ceiling) — per question type** | GPT-5.2 and Claude 4.6 both trend concise; "be concise" alone → bare-minimum responses | "Simple lookups: 2-4 sentences. Policy explanations: 3-5 bullet points. Procedures: numbered steps, up to 10." |
+| 4 | **Plain emphasis — bold or "Never X", no aggressive caps** | "CRITICAL: YOU MUST" triggers over-compliance on Claude 4.6, gets ignored by GPT-5.2 | "**Never** share personal medical details." (not "CRITICAL: YOU MUST NEVER share personal medical details") |
+| 5 | **No personality padding — no "world-class expert"** | GPT-5.2 discards it; Claude ignores superlatives; wastes chars | "You are PolicyBot, a benefits assistant" (not "You are an exceptional, world-class benefits expert") |
+| 6 | **2-3 varied examples — happy path + boundary + complex** | Claude needs examples for complex behavior; GPT-5 benefits too | Include one normal Q&A, one decline scenario, one multi-step workflow |
+| 7 | **Flat lists only — no nesting** | All models lose accuracy with nested structures | Single-level bullets and numbered lists only |
+
+### Model Family Tuning Guide
+
+After writing instructions using the universal rules, do a quick scan for model-specific risks:
+
+| Model Family | Behavioral Tendency | Extra Check |
+|-------------|-------------------|-------------|
+| **GPT-5 / GPT-5.2** | Trends terse; discards personality padding; follows explicit structure well | Verify length floors exist (not just ceilings). Check that examples have enough detail — GPT-5.2 may produce minimal responses without them. |
+| **Claude Sonnet/Opus 4.5/4.6** | Follows motivation-driven constraints well; over-complies on aggressive emphasis; ignores superlatives | Scan for "CRITICAL:", "YOU MUST", "ALWAYS" in caps → soften to bold or "Never X". Check that decline boundaries don't over-trigger (add positive scope clarification after each decline rule). |
+| **Grok 4.1** | Generally follows structured instructions; less tested in MCS context | Verify examples cover edge cases — Grok benefits from explicit boundary examples. |
+
+### Universal Instruction Template (Conversational Agent)
+
+```markdown
+# [Agent Name]
+
+## Role
+You are [Name], a [function] assistant for [AUDIENCE] that [core purpose].
+
+## Constraints
+- Only respond to [in-scope domains] (because [reason for scope])
+- For [out-of-scope topic], say: "[redirect message]" (to ensure [reason])
+- For [sensitive scenario], direct to [escalation resource] (because [liability/compliance reason])
+
+## Response Format
+- Simple lookups: [2-4 sentences / 1-3 bullet points]
+- Detailed explanations: [3-5 bullet points with source citations]
+- Procedures: [numbered steps, up to N]
+- End every response with a relevant follow-up question or next step
+
+## Guidance
+- When [ambiguous scenario], use /TopicName to [action]
+- For [domain], search [knowledge description — NOT specific filenames or URLs]
+- If no answer found: "I could not find a policy covering that. Contact [resource]."
+
+## Examples
+User: "[simple lookup question]"
+Response: "[ideal 2-3 sentence response with citation]"
+
+User: "[boundary/decline question]"
+Response: "[redirect message with reason and alternative]"
+
+User: "[complex multi-step question]"
+Response: "[structured response with numbered steps and follow-up]"
+```
+
+### Universal Instruction Template (Autonomous Workflow)
+
+```markdown
+# [Agent Name]
+
+## Role
+You are [Name], an autonomous assistant that [one-sentence goal] for [AUDIENCE].
+
+## Steps (follow in order)
+1. **[Step]**: Use /ToolName to [action] (needed because [reason]). When [condition], proceed to step 2.
+2. **[Step]**: [Action with /ToolReference] (this ensures [reason]). When [condition], proceed to step 3.
+3. **[Step]**: [Final action]. Confirm with user before completing.
+
+## Response Rules
+- Ask one clarifying question at a time (to avoid overwhelming the user)
+- Simple status: 1-2 sentences. Results: bullet points or table. Errors: state what failed and suggest next step.
+- Do not ask the user for details the tool can retrieve (to reduce friction)
+
+## Guardrails
+- Only [action] for [permitted scope] (because [compliance/security reason])
+- **Never** [restricted action] (because [specific risk])
+
+## Examples
+User: "[happy path trigger]"
+Response: "[ideal step-by-step execution summary]"
+
+User: "[edge case or boundary trigger]"
+Response: "[appropriate guardrail response with explanation]"
+```
+
+### Anti-Patterns Updated for Modern Models
+
+These 3 patterns join the existing anti-patterns table above:
+
+| Anti-Pattern | Why It's Bad | Do This Instead |
+|-------------|-------------|-----------------|
+| **Aggressive caps emphasis** ("CRITICAL:", "YOU MUST NEVER", "ALWAYS" in all-caps) | Claude 4.6 over-complies (refuses valid requests); GPT-5.2 ignores caps entirely | Use **bold** or "Never X" for emphasis; add WHY in parentheses |
+| **Personality padding** ("world-class expert", "exceptional specialist", "highly skilled") | GPT-5.2 discards it; Claude ignores superlatives; wastes char budget | Functional role only: "a benefits assistant for HR employees" |
+| **Length ceiling without floor** ("be concise", "keep it short") | GPT-5.2 and Claude 4.6 both trend toward bare-minimum responses | Tiered length: "Simple lookups: 2-4 sentences. Explanations: 3-5 bullets." |
+
+### Migration Guide for Existing Instructions
+
+To update existing instructions to the universal style:
+
+1. **Remove aggressive caps** — find "CRITICAL:", "YOU MUST", "ALWAYS" (all-caps) → replace with bold or "Never X"
+2. **Add WHY-clauses** — for every constraint, add "(because [reason])" in parentheses
+3. **Add length floors** — change "be concise" to tiered format: "Simple: 2-4 sentences. Detailed: 3-5 bullets."
+4. **Strip personality padding** — remove "world-class", "expert", "exceptional" from Role
+5. **Add 3 examples** — happy path + boundary + complex (if fewer than 3 exist)
+6. **Flatten nested lists** — any multi-level bullets → single-level with separate sections
 
 ## What Instructions CAN and CANNOT Do
 
@@ -134,6 +248,9 @@ You are [Name], an AI assistant for [audience] that [core purpose].
 | **Attempt to control retrieval** | Instructions can't modify search logic | Improve knowledge source descriptions and scoping instead |
 | **Skip audience specification** | Agent can't tailor technicality level | Always state who the audience is |
 | **Hardcode escalation contacts** | Safety data trapped in instructions; can't be updated independently; M365 strips URLs | Put in knowledge source + dedicated topic; reference topic via `/TopicName` in instructions |
+| **Aggressive caps emphasis** ("CRITICAL:", "YOU MUST NEVER") | Claude 4.6 over-complies; GPT-5.2 ignores caps entirely | **Bold** or "Never X" + WHY in parentheses |
+| **Personality padding** ("world-class expert") | GPT-5.2 discards; Claude ignores superlatives; wastes chars | Functional role: "a benefits assistant for HR employees" |
+| **Length ceiling without floor** ("be concise") | GPT-5.2 and Claude 4.6 produce bare-minimum responses | Tiered: "Simple: 2-4 sentences. Detailed: 3-5 bullets." |
 
 ## Best Practices Checklist
 
@@ -154,6 +271,14 @@ You are [Name], an AI assistant for [audience] that [core purpose].
 - [ ] Agent has an "out" for unknown queries ("respond with 'I could not find...'")
 - [ ] Follow-up question guidance included ("end with a relevant follow-up")
 - [ ] Few-shot examples for complex behaviors (2-3 varied examples)
+
+### Model Awareness
+- [ ] No aggressive caps ("CRITICAL:", "YOU MUST", "ALWAYS" in all-caps) — use bold or "Never X"
+- [ ] WHY-clause on every constraint (reason in parentheses)
+- [ ] Tiered length with floors AND ceilings per question type
+- [ ] No personality padding ("world-class", "exceptional", "highly skilled")
+- [ ] 2-3 varied examples: happy path + boundary + complex scenario
+- [ ] Functional role in first line — no superlatives
 
 ### Boundaries
 - [ ] Hard boundaries backed by dedicated topics (not instructions alone)

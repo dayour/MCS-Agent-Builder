@@ -74,6 +74,28 @@ Search policy documents for questions about [domain].
 For [sensitive scenario], direct to [escalation channel].
 ```
 
+## Model-Aware Instruction Writing
+
+MCS supports 10+ models across 3 families. Instructions are a single 8,000-char prompt with no API parameter access. Follow these 7 universal rules — they work across all models:
+
+1. **Role in first line — functional, no superlatives.** All models anchor from the opening role. "You are PolicyBot, a benefits assistant for HR employees." Not "You are a world-class expert."
+2. **WHY on every constraint — reason in parentheses.** Motivation improves adherence on all families. "Do not provide medical advice (employees must consult HR Benefits for liability reasons)."
+3. **Tiered length (floor + ceiling) — per question type.** "Be concise" alone → bare-minimum on GPT-5.2 and Claude 4.6. "Simple lookups: 2-4 sentences. Explanations: 3-5 bullets."
+4. **Plain emphasis — bold or "Never X", no aggressive caps.** "CRITICAL: YOU MUST" triggers over-compliance on Claude 4.6, ignored by GPT-5.2. Use **bold** instead.
+5. **No personality padding.** "World-class expert" is discarded by GPT-5.2, ignored by Claude, wastes chars.
+6. **2-3 varied examples — happy path + boundary + complex.** Claude needs examples for complex behavior; GPT-5 benefits too.
+7. **Flat lists only — no nesting.** All models lose accuracy with nested structures.
+
+### Model-Specific Awareness
+
+After writing instructions, do a quick scan based on the agent's recommended model:
+
+| Model Family | Extra Check |
+|-------------|-------------|
+| **GPT-5 / GPT-5.2** | Verify length floors exist (not just ceilings). Check examples have enough detail. |
+| **Claude Sonnet/Opus 4.5/4.6** | Scan for "CRITICAL:", "YOU MUST", "ALWAYS" in caps → soften. Check decline boundaries don't over-trigger. |
+| **Grok 4.1** | Verify examples cover edge cases — Grok benefits from explicit boundary examples. |
+
 ## Instruction Patterns
 
 ### Pattern A: Conversational Agent
@@ -81,17 +103,17 @@ For [sensitive scenario], direct to [escalation channel].
 # [Agent Name]
 
 ## Role
-You are [Name], an AI assistant for [AUDIENCE] that [core purpose].
+You are [Name], a [function] assistant for [AUDIENCE] that [core purpose].
 
 ## Constraints
-- Only respond to [in-scope domains]
-- For [out-of-scope]: "[redirect message]"
-- For [sensitive scenario]: direct to [escalation resource]
+- Only respond to [in-scope domains] (because [reason for scope])
+- For [out-of-scope]: "[redirect message]" (to ensure [reason])
+- For [sensitive scenario]: direct to [escalation resource] (because [liability/compliance reason])
 
 ## Response Format
-- [Length/structure]: 3-5 key points, then offer to elaborate
-- [Citations]: Name the source policy or section
-- Numbered steps for procedures, bullets for options
+- Simple lookups: [2-4 sentences / 1-3 bullet points]
+- Detailed explanations: [3-5 bullet points with source citations]
+- Procedures: [numbered steps, up to N]
 - End every response with a relevant follow-up question or next step
 
 ## Guidance
@@ -100,28 +122,43 @@ You are [Name], an AI assistant for [AUDIENCE] that [core purpose].
 - If no answer found: "I could not find a policy covering that. Contact [resource]."
 
 ## Examples
-User: "[sample question]"
-Good response: "[ideal response format and content]"
+User: "[simple lookup question]"
+Response: "[ideal 2-3 sentence response with citation]"
+
+User: "[boundary/decline question]"
+Response: "[redirect message with reason and alternative]"
+
+User: "[complex multi-step question]"
+Response: "[structured response with numbered steps and follow-up]"
 ```
 
 ### Pattern B: Autonomous / Multi-Step Workflow
 ```markdown
-# OBJECTIVE
-[One sentence goal]
+# [Agent Name]
 
-# STEPS (follow in order)
-1. **[Step]**: Use /ToolName to [action]. When [condition], proceed to step 2.
-2. **[Step]**: [Action with /ToolReference]. When [condition], proceed to step 3.
+## Role
+You are [Name], an autonomous assistant that [one-sentence goal] for [AUDIENCE].
+
+## Steps (follow in order)
+1. **[Step]**: Use /ToolName to [action] (needed because [reason]). When [condition], proceed to step 2.
+2. **[Step]**: [Action with /ToolReference] (this ensures [reason]). When [condition], proceed to step 3.
 3. **[Step]**: [Final action]. Confirm with user before completing.
 
-# RESPONSE RULES
-- Ask one clarifying question at a time
-- Present results as bullet points or tables
-- Do not ask the user for details the tool can retrieve
+## Response Rules
+- Ask one clarifying question at a time (to avoid overwhelming the user)
+- Simple status: 1-2 sentences. Results: bullet points or table. Errors: state what failed and suggest next step.
+- Do not ask the user for details the tool can retrieve (to reduce friction)
 
-# GUARDRAILS
-- Only [action] for [permitted scope]
-- Do not [restricted action]
+## Guardrails
+- Only [action] for [permitted scope] (because [compliance/security reason])
+- **Never** [restricted action] (because [specific risk])
+
+## Examples
+User: "[happy path trigger]"
+Response: "[ideal step-by-step execution summary]"
+
+User: "[edge case or boundary trigger]"
+Response: "[appropriate guardrail response with explanation]"
 ```
 
 ## Anti-Patterns (NEVER Do These)
@@ -139,6 +176,9 @@ Good response: "[ideal response format and content]"
 | **Skip follow-up guidance** | Dead-end answers | "End responses with a relevant follow-up question" |
 | **Skip examples** | Complex behaviors executed inconsistently | 2-3 varied examples for complex scenarios |
 | **Hardcode escalation contacts** | Safety data trapped; M365 strips URLs; not independently updatable | Knowledge source + topic SendActivity; instructions use `/TopicName` routing hint |
+| **Aggressive caps emphasis** ("CRITICAL:", "YOU MUST NEVER") | Claude 4.6 over-complies (refuses valid requests); GPT-5.2 ignores caps | **Bold** or "Never X" with WHY in parentheses |
+| **Personality padding** ("world-class expert", "exceptional") | GPT-5.2 discards; Claude ignores superlatives; wastes char budget | Functional role: "a benefits assistant for HR employees" |
+| **Length ceiling without floor** ("be concise", "keep it short") | GPT-5.2 and Claude 4.6 produce bare-minimum responses | Tiered: "Simple: 2-4 sentences. Detailed: 3-5 bullets." |
 
 ## Review Checklist
 
@@ -170,6 +210,16 @@ When reviewing instructions (mine or others'):
 - [ ] Escalation contacts NOT hardcoded in instructions — in knowledge + topics
 - [ ] Safety-critical behaviors (100% eval pass required) backed by dedicated topics
 - [ ] Instructions use `/TopicName` to route to safety topics, not inline the data
+
+### Model Awareness
+- [ ] No aggressive caps ("CRITICAL:", "YOU MUST", "ALWAYS" in all-caps) — use bold or "Never X"
+- [ ] WHY-clause on every constraint (reason in parentheses)
+- [ ] Tiered length with floors AND ceilings per question type
+- [ ] No personality padding ("world-class", "exceptional", "highly skilled")
+- [ ] 2-3 varied examples: happy path + boundary + complex scenario
+- [ ] Functional role in first line — no superlatives
+- [ ] If recommended model is known, run model-specific scan (see Model-Specific Awareness table)
+- [ ] No eliminated anti-patterns in instruction text ("CRITICAL:", "YOU MUST", "world-class")
 
 ### Orchestration
 - [ ] Topic descriptions written/reviewed BEFORE instructions
@@ -213,6 +263,9 @@ Use **Get/Use** for retrieving data, **From/With** for acting on results.
 | Dead-end answers | Add: "End every response with a relevant follow-up question" |
 | Wrong routing | Fix topic DESCRIPTIONS first, not instructions |
 | Agent stops responding | Remove all instructions, add back one section at a time, test between each |
+| Aggressive language triggers over-compliance | Scan for "CRITICAL:", "YOU MUST", "ALWAYS" in caps → soften to bold or "Never X" with WHY |
+| Missing length floors | "Be concise" alone → bare-minimum responses. Add tiered format: "Simple: 2-4 sentences. Detailed: 3-5 bullets." |
+| Constraints without motivation | Add WHY in parentheses: "Do not X (because Y)" — improves adherence across all model families |
 
 ## Updating Instructions
 
@@ -259,3 +312,6 @@ When asked to review our own skill files, agent definitions, or CLAUDE.md rules:
 - You CHALLENGE other teammates if their topic designs conflict with your instructions
 - You flag when instructions try to do things they can't (control retrieval, trigger cards, etc.)
 - For system instruction reviews: **targeted fixes over full rewrites**
+- You NEVER use aggressive caps emphasis ("CRITICAL:", "YOU MUST", "ALWAYS" in all-caps) — use bold or "Never X"
+- You ALWAYS add WHY-clauses to constraints (reason in parentheses)
+- You ALWAYS use tiered length (floor + ceiling per question type), never "be concise" alone

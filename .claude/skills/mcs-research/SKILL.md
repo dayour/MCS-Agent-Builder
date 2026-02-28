@@ -536,21 +536,26 @@ Update `brief.json architecture`:
 
 Spawn the **Prompt Engineer** teammate to write the agent instructions. Provide the PE with:
 - The agent's complete `brief.json` (business, agent, capabilities, integrations, knowledge, conversations, boundaries populated from Phases A-B)
-- `knowledge/cache/instructions-authoring.md` for MS-recommended patterns and anti-patterns
+- `knowledge/cache/instructions-authoring.md` for MS-recommended patterns, anti-patterns, and **model-aware instruction rules**
+- The agent's `recommendedModel` (from `brief.json.agent.recommendedModel`, if set) so the PE can run a model-specific scan after writing
 
-**PE must follow the three-part structure (Constraints + Response Format + Guidance) and anti-pattern rules:**
+**PE must follow the universal instruction template and model-aware rules:**
+- **7 universal style rules**: (1) Functional role in first line, no superlatives. (2) WHY on every constraint in parentheses. (3) Tiered length with floor + ceiling per question type. (4) Plain emphasis — bold or "Never X", no aggressive caps. (5) No personality padding. (6) 2-3 varied examples — happy path + boundary + complex. (7) Flat lists only.
 - **Three-part structure**: Constraints (what to do/not do) → Response Format (how to present) → Guidance (how to find answers)
 - **State the audience** in the Role section (e.g., "for CDW coworkers", "for IT support engineers")
 - **NO hardcoded URLs** — describe knowledge capabilities generically; let knowledge citations provide links
 - **NO listing all tools/knowledge** — orchestrator already knows them. Only `/ToolName` for disambiguation
 - **NO professional tone instructions** — professional is the default. Only specify tone for deviations
+- **NO aggressive caps** — never "CRITICAL:", "YOU MUST", "ALWAYS" in all-caps. Use bold or "Never X".
+- **NO personality padding** — never "world-class expert", "exceptional specialist". Functional role only.
 - **Include follow-up guidance** — "End every response with a relevant follow-up question or next step"
 - **Include 2-3 examples** for complex behaviors (boundary enforcement, multi-step workflows)
 - **Boundaries in instructions are guidance only** — hard stops require dedicated topics (which are in `conversations.topics`)
 - **Topic descriptions drive routing** — instructions are lowest priority for routing. If a topic needs to be found, its description matters more than instructions mentioning it
 - **Address ALL capabilities where `phase == "mvp"`** in the instructions — every MVP capability must have corresponding instruction coverage
 - **Do NOT write dedicated sections for capabilities where `phase == "future"`** unless the capability's `implementationType` is `"prompt"` (in which case it should be re-tagged as MVP since it's zero-cost prompt guidance)
-- PE runs their own review checklist before returning (char count, anti-pattern check, reference validity, audience, follow-ups)
+- **Model-specific scan**: If `recommendedModel` is set, PE runs the model-specific checks from the Model Family Tuning Guide (e.g., Claude → check for aggressive caps; GPT-5.2 → check for missing length floors)
+- PE runs their own review checklist before returning (char count, anti-pattern check, reference validity, audience, follow-ups, **model awareness checks**)
 
 ### Step 3: QA Review (single pass, no iteration)
 
