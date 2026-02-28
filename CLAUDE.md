@@ -91,9 +91,10 @@ If `sessionDefaults` exist but `buildStatus` doesn't (new agent, returning user)
 | 1 | **PAC CLI** | Listing agents, solution ALM |
 | 2 | **MCS LSP Wrapper** | Instructions, model, topics, knowledge (sites/URLs), full component sync (`tools/mcs-lsp.js`) |
 | 3 | **Island Gateway API** | Model catalog, component reads, routing, settings (`tools/island-client.js`) |
-| 4 | **Dataverse API** | File uploads (PDF/DOCX), bot name PATCH, PvaPublish, security, deletion |
-| 5 | **Direct Line API** | Evaluation / testing (send messages, compare responses) |
-| 6 | **Playwright MCP** | New OAuth connections (first-time consent only) |
+| 4 | **Flow Manager** | Power Automate cloud flow CRUD — trigger creation, schedule/message updates, activate/deactivate (`tools/flow-manager.js`) |
+| 5 | **Dataverse API** | File uploads (PDF/DOCX), bot name PATCH, PvaPublish, security, deletion |
+| 6 | **Direct Line API** | Evaluation / testing (send messages, compare responses) |
+| 7 | **Playwright MCP** | New OAuth connections (first-time consent only) |
 
 **Detailed capabilities per layer:** See `knowledge/cache/api-capabilities.md`
 **Decision flow and build phase mapping:** See `knowledge/frameworks/tool-priority.md`
@@ -210,6 +211,7 @@ Before committing to designs that are hard to undo — schema changes, workflow 
 | **Gen Constraints** | Pre-generation constraint extraction: `python tools/gen-constraints.py <types>` — required fields per node type |
 | **Drift Detection** | Compare brief.json specs vs built YAML: `python tools/drift-detect.py <brief.json>` — missing topics, trigger mismatches, variable drift |
 | **Semantic Gates** | 5 validation gates beyond structural checks: `python tools/semantic-gates.py <file.yaml> --brief <brief.json>` (PowerFx, cross-refs, variable flow, channel compat, connectors) |
+| **Flow Manager** | Power Automate cloud flow CRUD — create/update/activate triggers, discover connection refs (`tools/flow-manager.js`) |
 | **Replicate Agent** | Cross-environment agent replication: Dataverse create + LSP clone + push (`tools/replicate-agent.js`) |
 | **Direct Line API** | Agent testing: send messages, compare responses (`tools/direct-line-test.js`) |
 | **Test Chat Harness** | Optimized Playwright eval: injectable browser code for ~3-5s/test boundary tests (`tools/test-chat-harness.js`) |
@@ -778,6 +780,7 @@ tools/
 ├── mcs-lsp.js              # MCS Language Server wrapper — headless push/pull via official LS (topics, sync)
 ├── island-client.js        # Island Control Plane Gateway API client (model catalog, reads, routing, settings)
 ├── add-tool.js             # Headless tool/connector addition — generates action YAML + LSP push
+├── flow-manager.js         # Power Automate cloud flow CRUD — triggers, schedules, activate/deactivate
 ├── direct-line-test.js     # Direct Line API test runner
 ├── eval-scoring.js         # Shared scoring module (6 MCS methods, used by Direct Line + Playwright runners)
 ├── test-chat-harness.js    # Injectable browser harness for fast Playwright Test Chat eval

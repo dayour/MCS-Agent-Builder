@@ -117,3 +117,59 @@ Agent flows with `When an agent calls the flow` or `When an app calls a flow` tr
 **Polling frequency**: Free plan = 15 min, Office 365 = 5 min.
 
 **User credentials in flows**: Cloud flows can run with **user credentials** in supported authenticated agents. Not yet supported in environments using **customer-managed keys (CMK)** — use specific connections instead of "Provided by run-only user".
+
+## Programmatic Flow CRUD (`tools/flow-manager.js`)
+
+Event trigger flows (recurrence, SharePoint, email, etc.) are stored as `workflow` records in Dataverse with `category=5`. The Flow Manager tool provides headless CRUD without Playwright.
+
+### Commands
+
+| Command | What It Does |
+|---------|-------------|
+| `list` | List cloud flows (category=5) in the environment |
+| `get` | Get flow definition with parsed clientdata |
+| `create-trigger` | Create a recurrence trigger flow for an MCS agent |
+| `update-schedule` | Update recurrence schedule on existing flow |
+| `update-message` | Update payload message on existing flow |
+| `activate` | Turn on a flow (statecode=1) |
+| `deactivate` | Turn off a flow (statecode=0) |
+| `delete` | Delete a flow |
+| `discover` | Find MCS connector connection ref + copilot param |
+
+### Key Dataverse Fields
+
+| Field | Purpose |
+|-------|---------|
+| `category` | 5 = cloud flow |
+| `clientdata` | JSON string containing the Logic Apps workflow definition (triggers, actions, connections) |
+| `statecode` | 0 = draft/off, 1 = active/on |
+| `type` | 1 = definition |
+| `primaryentity` | "none" for cloud flows |
+
+### Discovery Pattern
+
+Before creating a new trigger flow, discover the environment-specific values:
+
+1. **Connection reference** — query `connectionreferences` table filtered by `connectorid` containing `microsoftcopilotstudio`
+2. **Copilot parameter** — search existing trigger flows' clientdata for `ExecuteCopilot` actions, extract the `Copilot` parameter value
+
+### Schedule Presets
+
+Built-in presets: `weekdays-7am-pst`, `weekdays-8am-est`, `weekdays-9am-utc`, `daily-9am-utc`, `daily-8am-pst`, `every-10-min`, `every-30-min`, `hourly`. Custom schedules via `--schedule` JSON.
+
+### clientdata Structure
+
+```
+clientdata (JSON string)
+├── properties
+│   ├── connectionReferences.shared_microsoftcopilotstudio
+│   │   ├── runtimeSource: "embedded"
+│   │   ├── connection.connectionReferenceLogicalName: "<discovered>"
+│   │   └── api.name: "shared_microsoftcopilotstudio"
+│   └── definition (Logic Apps schema 2016-06-01)
+│       ├── triggers.Recurrence (schedule config)
+│       └── actions.Sends_a_prompt_to_... (ExecuteCopilot action)
+│           ├── host.operationId: "ExecuteCopilot"
+│           └── parameters: { Copilot: "<discovered>", "body/message": "<payload>" }
+└── schemaVersion: "1.0.0.0"
+```

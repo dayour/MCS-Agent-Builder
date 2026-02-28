@@ -107,9 +107,10 @@ Each build step uses the best tool, minimizing fragile browser automation:
 | 1 | **PAC CLI** | Listing agents, solution ALM |
 | 2 | **MCS LSP Wrapper** | Instructions, model, topics, knowledge (sites/URLs), full component sync |
 | 3 | **Island Gateway API** | Model catalog, component reads, routing info, bot settings |
-| 4 | **Dataverse API** | File uploads (PDF/DOCX), bot name PATCH, PvaPublish, security, deletion |
-| 5 | **Direct Line API** | Evaluation testing (send messages, compare responses) |
-| 6 | **Playwright** | Agent creation, new OAuth connections (last resort) |
+| 4 | **Flow Manager** | Power Automate cloud flow CRUD — trigger creation, schedule/message updates (`tools/flow-manager.js`) |
+| 5 | **Dataverse API** | File uploads (PDF/DOCX), bot name PATCH, PvaPublish, security, deletion |
+| 6 | **Direct Line API** | Evaluation testing (send messages, compare responses) |
+| 7 | **Playwright** | Agent creation, new OAuth connections (last resort) |
 
 ### YAML Validation Pipeline
 
@@ -188,6 +189,7 @@ tools/
   mcs-lsp.js                MCS Language Server wrapper — headless push/pull via official LS
   island-client.js          Island Control Plane Gateway API client (model catalog, reads, routing)
   add-tool.js               Headless tool/connector addition via LSP push
+  flow-manager.js           Power Automate cloud flow CRUD (triggers, schedules, activate/deactivate)
   direct-line-test.js       Direct Line API test runner
   dataverse-helper.ps1      PowerShell Dataverse Web API helper
   git-hooks/                Pre-commit (file protection) + pre-push (om-cli auto-update)

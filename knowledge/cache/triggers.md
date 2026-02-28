@@ -156,6 +156,10 @@ Requires generative orchestration. Uses maker credentials only.
 Payload contains event data + optional instructions for the agent.
 See "Event Triggers (Autonomous Agents)" section above for full details.
 
+**Trigger payload is the key for autonomous agents.** The `body/message` parameter in the ExecuteCopilot action contains instructions for what the agent should do when triggered. For multi-trigger agents, different triggers can have different payloads, allowing the same agent to perform different tasks based on the event source.
+
+**Programmatic trigger management:** Use `tools/flow-manager.js` for headless CRUD of trigger flows via Dataverse Web API — no Playwright needed. Supports create, update schedule/message, activate/deactivate, and auto-discovery of connection references and copilot parameters.
+
 ## YAML Node Reference
 
 Key nodes: `SendActivity`/`SendMessage`, `Question`, `ConditionGroup`, `SetVariable`, `BeginDialog` (call subtopic), `ReplaceDialog` (switch, no return), `EndDialog`, `EndConversation`, `SearchAndSummarizeContent`, `OAuthInput`, `HttpRequest`
