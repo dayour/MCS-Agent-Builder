@@ -4,14 +4,14 @@
 
 **Playwright-only operations (as of 2026-02-23):** Agent creation, new OAuth connection creation, child agent connection, native eval upload.
 
-## MCS Browser Preflight — Silent Verification (MANDATORY)
+## MCS Browser Preflight — User Sign-In (MANDATORY)
 
 Before ANY Playwright interaction:
 
-1. Read persisted account/env from `brief.json.buildStatus` or `session-config.json`
-2. `browser_navigate` to `https://copilotstudio.microsoft.com`
-3. `browser_snapshot` — extract Account (top-right) + Environment (header bar)
-4. Compare against persisted config — if match, proceed silently; if mismatch, alert user
+1. `browser_navigate` to `https://copilotstudio.microsoft.com`
+2. `browser_snapshot` — extract Account (top-right) + Environment (header bar)
+3. Compare against persisted config from `brief.json.buildStatus` or `session-config.json`
+4. If match → proceed. If mismatch or not signed in → ask user to sign in and navigate to the correct environment. Wait for confirmation, re-snapshot.
 
 ## Model Selection — SUPERSEDED
 

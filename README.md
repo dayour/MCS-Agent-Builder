@@ -220,7 +220,7 @@ Ports are auto-discovered in pairs (app, app+1). If 8000/8001 are busy, the next
 | Dashboard won't load | Check terminal output for errors — both servers must be running |
 | Firewall prompt on startup | Should not happen (localhost-only binding). If it does, you can safely deny it |
 | PAC CLI not working | Ask Claude: "set up PAC CLI auth for me" |
-| Wrong MCS environment | Claude silently verifies before every browser interaction — it will alert you only if the environment doesn't match |
+| Wrong MCS environment | Claude checks the browser on first use — if the wrong account/env is loaded, it asks you to sign in to the right one |
 | Terminal not connecting | Close the tab and click "+" to create a new terminal session |
 
 ## Feedback

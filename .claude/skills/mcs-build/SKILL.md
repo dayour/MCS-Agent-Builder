@@ -74,7 +74,7 @@ All three auth layers (PAC CLI, Azure CLI, Browser target) derive from one accou
    Auth verified: {account} / {environment}
      PAC CLI: profile {index} ✓
      Azure CLI: {user} (tenant {id}) ✓
-     Browser: will verify on first interaction
+     Browser: user will sign in on first use
    ```
 
 ### Rules
@@ -84,7 +84,7 @@ All three auth layers (PAC CLI, Azure CLI, Browser target) derive from one accou
 - If `az login` fails (network, MFA timeout): alert user, offer "skip az" (Playwright-only fallback, API tools may fail)
 - If the user says "switch to [account/env]" at any point, re-run the entire gate and update both persistence locations
 - If an account has no environments listed, ask the user to provide the environment name manually
-- Silent browser verification (later in the build) compares the browser's account/env against this gate's selection
+- Browser verification on first Playwright use asks user to sign in if needed (see CLAUDE.md "MCS Browser Preflight")
 
 ---
 
@@ -233,11 +233,11 @@ pac copilot list
 - If a matching name is found → store its ID in `brief.json.buildStatus.mcsAgentId`, skip creation
 - If NOT found → proceed to 1c
 
-#### 1c. Create new agent (Playwright — silent browser verification required)
+#### 1c. Create new agent (Playwright)
 
 PAC CLI `create` requires an undocumented template YAML that only captures ~30% of config. Agent creation is one of the few remaining Playwright-only operations — after creation, all other configuration (model, instructions, topics, tools, knowledge) is done headlessly via LSP push and add-tool.js.
 
-1. **Run silent browser verification** (see CLAUDE.md "MCS Browser Preflight — Silent Verification")
+1. **Run browser preflight:** navigate to MCS, snapshot. If wrong account/env or not signed in, ask user to sign in and navigate to the right environment. Wait for confirmation, then proceed. (See CLAUDE.md "MCS Browser Preflight")
 2. Navigate to MCS home → **Create** → **New agent** → **Skip to configure**
 3. Set **Name** and **Description** from brief.json
 4. Set icon if specified in brief.json
@@ -638,7 +638,7 @@ Write the complete buildStatus. Most fields were already written incrementally d
 **Specialists first, then orchestrator:**
 
 1. For each specialist agent defined in the spec:
-   a. Create agent via Playwright (silent browser verification required)
+   a. Create agent via Playwright (browser preflight — user signs in if needed)
    b. Clone workspace (`mcs-lsp.js clone`)
    c. Set instructions (LSP push — `agent.mcs.yml`) — specialist-focused, with scope limits
    d. Add knowledge (LSP push — `knowledge/*.mcs.yml` for sites; Dataverse API for file uploads)
@@ -649,7 +649,7 @@ Write the complete buildStatus. Most fields were already written incrementally d
    i. **VERIFY:** Pull latest state via `mcs-lsp.js pull`, confirm all items
 
 2. Build orchestrator:
-   a. Create orchestrator via Playwright (silent browser verification required)
+   a. Create orchestrator via Playwright (browser preflight — user signs in if needed)
    b. Clone workspace (`mcs-lsp.js clone`)
    c. Set instructions with routing rules (LSP push — `agent.mcs.yml`):
       ```

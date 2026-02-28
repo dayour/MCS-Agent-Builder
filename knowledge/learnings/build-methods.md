@@ -96,7 +96,7 @@ The MCS UI reads/writes the `data` field. PvaPublish syncs `data` -> `content` f
 **Context:** CDW Legal HR build — browser was logged in as kimdennis@microsoft.com but build target was admin@M365CPI15209943 / dktest (different tenant)
 **Tried:** Navigating directly to agent URL in wrong-tenant browser. Also tried running evals via Playwright Test Chat.
 **Result:** MCS shows "Looks like that link is broken" when accessing cross-tenant environment URLs. Test Chat is inaccessible. Suggested Prompts config blocked. Settings changes blocked. Everything requiring browser was blocked.
-**Better approach:** During the Unified Auth Gate (build start), check if the Playwright browser is logged into the correct account. If not, switch BEFORE any browser operations: Account menu → Sign out → Navigate to MCS → Pick correct account from account picker → Switch environment. This is a ONE-TIME operation per tenant — the session persists at `~/.playwright-mcp-edge`. Add browser account verification to the auth gate alongside PAC CLI + Azure CLI checks.
+**Better approach:** On first Playwright use, navigate to MCS and snapshot. If the browser shows the wrong account or environment, ask the user to sign in to the correct account and navigate to the right environment manually. Wait for confirmation, then re-snapshot to verify. Never automate sign-out, account picker, or environment switcher via Playwright — the user handles these. Browser cookies persist at `~/.playwright-mcp-edge` so the user only needs to sign in once per session.
 **Confirmed:** 1 build(s) | Last confirmed: 2026-02-27
 **Related cache:** api-capabilities.md
 **Tags:** #playwright #browser #account-switch #tenant #auth-gate

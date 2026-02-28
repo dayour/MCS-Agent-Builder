@@ -19,7 +19,7 @@
 
 - Do NOT ask account/environment on session start
 - Account/env is selected once during first build and persisted in brief.json `buildStatus` + `session-config.json` `sessionDefaults`
-- All subsequent operations (build, eval, fix) use **silent verification**: navigate → snapshot → compare against persisted config → proceed on match, alert on mismatch
+- All subsequent operations (build, eval, fix) use **browser preflight**: navigate → snapshot → compare against persisted config → proceed on match, ask user to sign in if mismatch
 - `session-config.json.sessionDefaults` serves as cross-project fallback: pre-fills and asks one yes/no for new agents
 - User can always override by saying "switch to [account/env]"
 - Auto-refresh stale Tier 1 knowledge cache (> 7 days → refresh via MS Learn MCP + WebSearch)
@@ -60,7 +60,7 @@
 | admin@M365CPI15209943 | M365CPI15209943 | [2] | dktest (org04723bf3), Contoso (org39d3f1ca) | — |
 | kimdennis@microsoft.com | Microsoft | [1] | TBD | — |
 
-Account+env is persisted and verified silently — see CLAUDE.md "MCS Browser Preflight — Silent Verification".
+Account+env is persisted — browser verified via snapshot (user signs in manually if needed). See CLAUDE.md "MCS Browser Preflight".
 
 ---
 

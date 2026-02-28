@@ -30,53 +30,34 @@ Automate Microsoft Copilot Studio (MCS) agent creation using a **hybrid build st
 
 ---
 
-## MANDATORY: MCS Browser Preflight — Silent Verification
+## MANDATORY: MCS Browser Preflight — User Sign-In
 
-**Every browser interaction with Copilot Studio requires environment verification. But verification is silent — it only prompts the user when something is wrong.**
+**The user signs in and navigates to the right environment. We never automate sign-out, account selection, or environment switching via Playwright.**
 
-### Two-Tier Model
+### Browser Preflight Steps
 
-**Tier 1 — Persist Once:** Account and environment are selected once (during the first build for a new agent) and persisted to `brief.json.buildStatus` + `tools/session-config.json`. All subsequent operations read from persisted config.
+When Playwright needs the browser for the first time in a session:
 
-**Tier 2 — Verify Silently:** Before every Playwright interaction, navigate to MCS, snapshot, and compare the browser's actual account/environment against the persisted selection. If they match, proceed immediately. If they don't, alert the user.
-
-### Preflight Steps (every browser interaction)
-
-1. **Read persisted config:** Check `brief.json.buildStatus.account` / `.environment`. If not available, check `tools/session-config.json` sessionDefaults.
-2. `browser_navigate` to `https://copilotstudio.microsoft.com` (base URL only — NEVER navigate to an environment-specific URL until account is verified, as cross-tenant env URLs return "broken link" errors)
-3. `browser_snapshot` — wait for load (if "Loading...", re-snapshot after 2-3s)
-4. Extract from snapshot: **Account name** (top-right) + **Environment name** (header bar)
-5. **Compare ACCOUNT first, then environment** against persisted config:
+1. `browser_navigate` to `https://copilotstudio.microsoft.com` (base URL only — NEVER navigate to an environment-specific URL until account is confirmed, as cross-tenant env URLs return "broken link" errors)
+2. `browser_snapshot` — wait for load (if "Loading...", re-snapshot after 2-3s)
+3. Extract from snapshot: **Account name** (top-right) + **Environment name** (header bar)
+4. Three outcomes:
 
 | Result | Action |
 |--------|--------|
-| **Account + Env match** | Log one line: `Browser verified: {account} / {environment}` — proceed immediately |
-| **Account matches, Env differs** | Use environment switcher (search by name) to switch — no sign-out needed |
-| **Account differs** | Sign out → pick correct account from account picker → then verify environment. Do NOT try to navigate to env URLs while on the wrong account — they will fail with "broken link" |
-| **No persisted config** | First-time flow (see below) — ask once and persist |
+| **Correct account + env** | Log one line: `Browser verified: {account} / {environment}` — proceed immediately |
+| **Wrong account, wrong env, or not signed in** | Tell the user: "Browser shows {X}/{Y}. Please sign in to the right account and navigate to {target env}. Let me know when you're ready." Wait for user → re-snapshot → confirm |
+| **First time (no target known)** | Read snapshot, ask user: "You're signed in as {account} on {env}. Use this?" → persist to `brief.json.buildStatus` + `session-config.json.sessionDefaults` |
 
-### First-Time Selection (no persisted config)
-
-Only runs when BOTH `brief.json.buildStatus` and `session-config.json.sessionDefaults` lack account/environment:
-
-1. Use `AskUserQuestion` to pick account + environment
-2. Persist to `brief.json.buildStatus` AND `session-config.json.sessionDefaults`
-3. Proceed with the browser action
-
-If `sessionDefaults` exist but `buildStatus` doesn't (new agent, returning user): pre-fill from sessionDefaults and confirm with a single yes/no question.
-
-### When to Re-Ask Explicitly
-
-- **New project's first build** — no buildStatus exists
-- **New agent's first build** — agent has no buildStatus (but sessionDefaults may pre-fill)
-- **User says "switch to..."** — re-run picker and update both persistence locations
+5. Once verified, all subsequent Playwright calls in the same session skip re-verification (browser cookies persist).
+6. On new session: always redo steps 1-4 (don't assume cookies survived).
 
 ### Rules
 
 - If the page hasn't loaded yet (shows "Loading..."), WAIT and re-snapshot
-- If the user says the environment is wrong, help them switch BEFORE doing anything
 - NEVER click on an agent, tab, button, or form element until verification passes
-- On match, do NOT output a stamp or ask for confirmation — just log and proceed
+- NEVER use Playwright to automate sign-out, account picker, or environment switcher — the user handles these manually
+- If the user says "switch to [account/env]", tell them to switch in the browser and let you know when ready
 
 ---
 
@@ -107,9 +88,9 @@ Account selection determines everything — PAC CLI profile, Azure CLI tenant, a
 |-------|---------------|-----|-------------|
 | **PAC CLI** | Listing agents, solution ALM | `pac auth select` (automatic) | session-config.json `pacProfileIndex` |
 | **Azure CLI** | LSP, Island Gateway, Dataverse, Direct Line | `az login --tenant` (auto, browser popup) | session-config.json `tenantId` + brief.json `azTenantId` |
-| **Browser** | New OAuth consent, Test Chat (fallback) | Playwright snapshot (on first use) | brief.json `buildStatus.account/environment` |
+| **Browser** | New OAuth consent, Test Chat (fallback) | User signs in manually; snapshot confirms | brief.json `buildStatus.account/environment` |
 
-**Build gate** runs all three at start. **Eval/fix** do a quick re-verify (silent, auto-fixes on mismatch via `az login`). **Browser preflight** runs separately before Playwright actions.
+**Build gate** runs PAC CLI + Azure CLI at start. **Eval/fix** do a quick re-verify (auto-fixes via `az login`). **Browser preflight** runs on first Playwright use — user signs in if needed.
 
 ---
 
@@ -543,7 +524,7 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 
 **QA Build Validation Gate (Step 5.5):** After publish, QA Challenger validates brief-vs-actual (every MVP item), cross-references (instructions→tools, topics→variables, routing→children), and deviation impact (severity + can-ship assessment). QA verdict (PASS / PASS WITH CAVEATS / FAIL) determines whether the build report is generated or critical issues are escalated to the user. Output: `qa-validation.md` in the agent folder.
 
-**Silent browser verification** before any Playwright interaction (compares browser account/env against persisted buildStatus — proceeds on match, alerts on mismatch).
+**Browser preflight** before any Playwright interaction (snapshot, compare against persisted buildStatus — proceed on match, ask user to sign in if mismatch).
 
 ---
 
@@ -658,7 +639,7 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 4. **Never assume** — research broadly (web + docs + UI + community), present options
 5. **MVP first** — build what's possible now, plan what's blocked
 6. **Build specialists first** — children before orchestrator
-7. **Verify environment** — every browser session (silent verification — proceeds on match, alerts on mismatch)
+7. **Verify environment** — every browser session (snapshot + user signs in if needed)
 8. **Research errors** — don't blindly retry
 9. **Capture learnings** — every build makes next build smarter
 10. **Fill gaps before building** — incomplete brief → incomplete agent
