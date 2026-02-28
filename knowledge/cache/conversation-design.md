@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-02-19
-sources: [MS Learn, MCS UI, community]
+last_verified: 2026-02-27
+sources: [MS Learn, MCS UI, community, MS Learn guidance/topic-authoring-best-practices, MS Learn guidance/implement-overview, MS Learn guidance/channels, WebSearch Feb 2026]
 confidence: high
 refresh_trigger: weekly
 -->
@@ -75,12 +75,63 @@ Power Automate flow → personal chat only. Can send text + Adaptive Cards. Agen
 
 Send message (default), Open URL, Make a call, Send hidden message. Rich types: Text, Image, Video, Basic Card, Adaptive Card, Speech override, Message variations (random selection prevents repetition).
 
+## Send HTTP Request Node (GA)
+
+Direct HTTP calls from topics — avoids Power Automate flow overhead and reduces latency:
+- Supports GET, POST, PUT, DELETE with custom headers, body, parameters
+- Response stored as Power Fx variable with IntelliSense support
+- Error handling: default raises OnError, or store HTTP status code + error body in variables and continue
+- Recommended over cloud flows for simple API calls (per MS performance best practices)
+
+## Topic Authoring Best Practices (MS Learn Guidance)
+
+### Four Topic Trigger Types
+1. **User utterance + NLU** — entry point topics with trigger phrases
+2. **Redirect action** — reusable bite-size topics called by other topics (no trigger phrases needed)
+3. **Both** — topic can fire from NLU or explicit redirect
+4. **Events** — custom events, inactivity, etc.
+
+### Avoid Topic Overlap
+- Monitor "did you mean" (Multiple Topics Matched system topic) for overlap signals
+- Compare trigger phrases across topics, remove ambiguous pairs
+- Avoid same words in different topics' trigger phrases
+- Create **disambiguation topics** for overlapping intents (use entity slot filling to clarify)
+
+### Use Entities to Reduce Topics
+Instead of duplicating similar topics (Order Pizzas, Order Burgers, Order Drinks), create one "Order" topic with a "FoodType" entity.
+
+### Performance Best Practices (MS Learn Feb 2026)
+- Place API calls strategically to avoid making users wait
+- Cache retrieved info in variables instead of repeated API/flow calls
+- Use direct connector calls or Send HTTP Request instead of cloud flows where applicable
+- Understand NLU vs generative orchestration tradeoff (NLU: specific intents, lower latency; GenAI: broader inputs, higher latency)
+- Turn on **express mode** for flows
+
+## Multi-Agent Orchestration (Nov 2025)
+
+- Agents can call other agents as tools for task-specific delegation
+- Connect agents within environment or from external sources (Fabric data agents)
+- Enables modular, specialist agent architecture
+- **Multi-level chaining NOT supported.** Global vars NOT shared across agents.
+
+## Request for Information (Preview, Nov 2025)
+
+Pause an agent flow to collect details from designated reviewers via Outlook, then resume execution using their responses as dynamic parameters. Handles missing data/context without hard-coded values.
+
+## File & Image Input (Aug 2025)
+
+Users can upload files and images for agent analysis. Agent can pass files to downstream systems via Agent Flows, Power Automate, connectors, tools, and topics.
+
 ## Design Checklist
 
 - [ ] Welcome message with capabilities + suggested actions
 - [ ] Fallback with 3+ message variations
 - [ ] DECLINE/REFUSE boundary topics
-- [ ] Error handling for API failures
+- [ ] Error handling for API failures (or HTTP node error handling)
 - [ ] Confirmation before destructive actions
 - [ ] Multi-turn escape paths ("cancel", "start over")
 - [ ] Escalation path to human
+- [ ] Disambiguation topic for overlapping intents
+- [ ] Bite-size reusable topics (avoid large monolithic topics)
+- [ ] Entity-based topic consolidation (reduce duplication)
+- [ ] Performance: cache variables, minimize API calls per turn

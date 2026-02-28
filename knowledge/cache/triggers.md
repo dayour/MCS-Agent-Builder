@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-02-19
-sources: [MS Learn, MCS UI snapshot, knowledge/patterns/topic-patterns/]
+last_verified: 2026-02-27
+sources: [MS Learn (authoring-triggers, authoring-triggers-about, planned-features), MCS UI snapshot, WebSearch Feb 2026, knowledge/patterns/topic-patterns/]
 confidence: high
 refresh_trigger: before_architecture
 -->
@@ -35,13 +35,38 @@ refresh_trigger: before_architecture
 |---------|--------------|---------|
 | `OnKnowledgeRequested` | Name topic exactly `OnKnowledgeRequested` | Intercept knowledge search, inject custom results |
 
+## Event Triggers (Autonomous Agents)
+
+Event triggers enable autonomous agent behavior -- the agent acts without user input in response to external events. Requires generative orchestration.
+
+| Feature | Status | Details |
+|---------|--------|---------|
+| **Event trigger library** | GA | Built-in library of triggers for Microsoft and partner services (Power Automate connectors) |
+| **SharePoint event** | GA | Fires when an item is created/modified in SharePoint |
+| **OneDrive event** | GA | Fires when a file is created in OneDrive |
+| **Dataverse row event** | GA | Fires when a row is added, modified, or deleted |
+| **Recurrence (schedule)** | GA | Fires on a recurring time interval (e.g., every 10 minutes) |
+| **Planner task event** | GA | Fires when a task is completed in Planner |
+| **Email event** | GA | Fires when an email arrives |
+| **Custom connectors** | GA | Any Power Automate connector trigger can be used if allowed by data policies |
+
+**Key constraints:**
+- Event triggers use maker credentials only (not end-user) for authentication
+- All actions called by event-triggered agents must use maker auth for autonomous operation
+- Trigger payloads are JSON or plain text containing event data + instructions
+- Limit: calling fewer than 15 actions/topics consecutively is recommended
+- Billing: each trigger payload counts as a message for billing purposes
+- Requires solution-aware cloud flow sharing to be turned on in the environment
+- Administrators can block event triggers via data loss prevention policies
+
 ## Trigger Enhancements (Feb 2026)
 
 | Feature | Status | Details |
 |---------|--------|---------|
-| **Trigger conditions with PowerFx** | GA | Add PowerFx conditions to any trigger — filter when a topic fires based on variable values or expressions |
-| **Trigger priority** | GA | Explicit ordering — set priority when multiple topics could match the same intent |
+| **Trigger conditions with PowerFx** | GA | Add PowerFx conditions to any trigger -- filter when a topic fires based on variable values or expressions |
+| **Trigger priority** | GA | Explicit ordering -- set priority when multiple topics could match the same intent. Order: (1) An activity occurs, (2) A message is received / custom event / conversation changes / invoked, (3) The agent chooses / User says a phrase. Same-type: oldest first unless Priority property is set. |
 | **Configure triggers with end-user credentials** | GA (Feb 2026) | Triggers can run authenticated as the end user, enabling user-context-aware trigger logic |
+| **Simplify working with triggers and channels** | GA (Nov 2025) | Streamlined trigger/channel configuration UX |
 
 ## Key Patterns
 
@@ -120,13 +145,16 @@ beginDialog:
 
 ### Event Triggers (Autonomous, No User)
 
-Event triggers use Power Automate flows and fire without user input:
+Event triggers use Power Automate connector triggers and fire without user input:
 
 ```
-MCS UI: Add trigger > Schedule / SharePoint / Dataverse / Email
+MCS UI: Add trigger > Schedule / SharePoint / Dataverse / Email / OneDrive / Planner / etc.
 ```
 
-These are NOT topic YAML — they're Power Automate flows linked to the agent.
+These are NOT topic YAML -- they are Power Automate flows linked to the agent.
+Requires generative orchestration. Uses maker credentials only.
+Payload contains event data + optional instructions for the agent.
+See "Event Triggers (Autonomous Agents)" section above for full details.
 
 ## YAML Node Reference
 

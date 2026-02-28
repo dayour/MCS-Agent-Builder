@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-02-19
-sources: [MS Learn quotas page, pricing page, licensing docs, WebSearch Feb 2026]
+last_verified: 2026-02-27
+sources: [MS Learn quotas page, MS Learn billing-licensing, pricing page, licensing docs, WebSearch Feb 2026, Jan 2026 Licensing Guide]
 confidence: high
 refresh_trigger: weekly
 -->
@@ -65,10 +65,29 @@ refresh_trigger: weekly
 | Dataverse sources per agent | **2** |
 | Tables per source | **15** |
 
+### OneDrive Knowledge
+| Feature | Limit |
+|---------|-------|
+| Files per source | **1,000** |
+| Folders per source | **50** |
+| Subfolder depth | **10 layers** |
+| File size | **512 MB** |
+| Sync frequency | **4-6 hours** |
+| Supported types | DOC, DOCX, XLS, XLSX, PPT, PPTX, PDF |
+
+**Note:** Sensitivity-labeled (confidential/highly confidential) or password-protected docs cannot be indexed.
+
 ### Salesforce, Confluence, ServiceNow, ZenDesk
 - Articles: no limit
 - Article size: no limit
 - Sync: 4-6 hours
+
+### Unstructured Data Knowledge General Notes
+- **All unstructured data sources require user-level authentication** at runtime
+- **ALM not supported** for unstructured data knowledge sources (import does NOT trigger knowledge processing)
+- Exhaustive retrieval queries (hundreds of files) may degrade performance due to limited context window
+- Glossaries/synonyms NOT supported for SharePoint/OneDrive (supported for Dataverse only)
+- Ampersand `&` NOT supported in SharePoint document/folder names
 
 ## Throttling Quotas (per Dataverse Environment)
 
@@ -195,7 +214,9 @@ refresh_trigger: weekly
 ### Environment Capacity
 | Plan | Database | File | Log |
 |------|----------|------|-----|
-| Copilot Studio license | 5 GB | 20 GB | 2 GB |
+| Copilot Studio license | **15 GB** | **20 GB** | 2 GB |
+
+**Note (Dec 2025 change):** Database capacity tripled from 5 GB to 15 GB. File and log remain at 20 GB and 2 GB respectively. Additional Database, File, and Log capacity can be purchased in 1 GB increments.
 
 ## Quick Reference
 
@@ -217,6 +238,27 @@ refresh_trigger: weekly
 | Prepaid pack | $200/mo = 25K credits |
 | Overage enforcement | 125% |
 
+## Upcoming Changes
+
+- **AI Builder credits removal (Nov 2026):** Seeded AI Builder credits included with premium Power Platform licenses will be removed. AI Builder capabilities will then be billed through Copilot Credits at higher rates. Plan migration early.
+- **Copilot Credits Pre-Purchase Plan:** One-year prepaid option (CCCUs) available in Azure portal. Pool usable across eligible Microsoft products.
+- **Rate-limit increase requests:** Only available for pay-as-you-go environments. Contact Microsoft Support; subject to review and approval. Message-based environments are NOT eligible.
+- **Quotas are configurable:** Default quotas can be adjusted on a case-by-case basis (contact support).
+
+## Licensing Access Requirements
+
+To use Copilot Studio, you need ONE of:
+1. Copilot Studio user license (free, but requires tenant prepaid pack subscription first)
+2. Copilot Studio authors role in PPAC (via Entra security group)
+3. Microsoft 365 Copilot license
+4. Copilot Studio trial license
+
+## Usage Estimator
+
+**Tool:** Microsoft Copilot Studio Agent Usage Estimator
+**URL:** https://microsoft.github.io/copilot-studio-estimator/
+Create estimates by selecting agent type, traffic, orchestration, knowledge, and tools.
+
 ## Refresh Notes
 
 - Check pricing page for credit rate changes
@@ -224,4 +266,4 @@ refresh_trigger: weekly
 - Watch for throttling quota adjustments
 - Check for Teams plan feature expansion
 - Monitor pay-as-you-go rate changes
-- Tool: Copilot Studio Agent Usage Estimator (search MS Learn for latest URL)
+- Watch for AI Builder credits transition (Nov 2026 deadline)

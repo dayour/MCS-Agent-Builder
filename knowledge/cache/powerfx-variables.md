@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-02-19
-sources: [MS Learn formula reference, MCS docs, WebSearch Feb 2026]
+last_verified: 2026-02-27
+sources: [MS Learn formula reference, MCS docs, WebSearch Feb 2026, MS Learn advanced-power-fx, MS Learn authoring-variables-bot]
 confidence: high
 refresh_trigger: on_error
 -->
@@ -116,6 +116,33 @@ String, Number, Boolean, DateTime, Table, Record, Choice, Blank. Type is fixed a
 
 **JSON**: `ParseJSON` (returns Dynamic — must convert with `Text()`, `Value()`, `Boolean()`), `JSON` (value to string)
 
+## Global Variable Lifecycle & External Sources
+
+### Lifecycle
+- Global variable values persist until session ends
+- **Clear variable values** node resets all globals (used in Reset Conversation system topic)
+- "Start over" (user phrase or redirect) resets all globals
+
+### Auto-Initialization
+If a global variable is referenced before initialization, the agent automatically triggers the topic where the global was first defined, collects the value, then returns to the original topic. Seamless to user.
+
+### External Sources (Context Variables)
+- Set `External sources can set values` on a global variable
+- Optional **timeout** (ms) for how long agent waits for external value before using default
+- Recommended: create a dedicated topic ("Set context variables") with no trigger phrases
+- Use `Get value from this node if empty` (three-dot menu on Set variable value node)
+- If agent sets the variable internally during conversation, the internal value prevails (external value ignored)
+- **IVR agents (D365 Contact Center):** timeout values for global variables NOT supported
+
+### Deleting Globals
+- Removing a global used in other topics marks references as `Unknown`
+- Warning shown before confirming deletion
+- Topics with unknown variable references may stop working — fix all references before publishing
+
+## Regex in Power Fx (Jun 2025)
+
+Simplified text validation and extraction with regex support via `IsMatch`, `Match`, and `MatchAll` functions. Insert Power Fx formulas directly in the embedded prompt builder prompt editor.
+
 ## Critical Gotchas
 
 - **ParseJSON returns Dynamic** — no IntelliSense, must explicitly convert types
@@ -124,6 +151,9 @@ String, Number, Boolean, DateTime, Table, Record, Choice, Blank. Type is fixed a
 - **System.* cannot be used directly in card JSON** — assign to Topic variable first
 - **Date/time, Duration, Multiple choice, custom entities** cannot be passed between topics (classic mode)
 - **`Patch`, `Collect`, `Remove`** not available in MCS (Dataverse writes use API/connectors)
+- **Global variable name must be unique** across all topics in the agent
+- **Once a variable is made global, it CANNOT be reverted** to topic scope
+- **Flows/skills overwrite globals** — if a flow initializes a variable, it runs even if the variable was already filled, overwriting the previous value
 
 ## Passing Variables Between Topics
 

@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-02-19
-sources: [MS Learn, PAC CLI docs, VS Code Extension docs, Dataverse entity reference, WebSearch Feb 2026]
+last_verified: 2026-02-27
+sources: [MS Learn, PAC CLI docs, VS Code Extension docs, Dataverse entity reference, WebSearch Feb 2026, MS Learn guidance/alm, MS Learn whats-new]
 confidence: high
 refresh_trigger: weekly
 -->
@@ -75,11 +75,68 @@ Clone → Get (cloud→local) → Edit → Apply (local→cloud, does NOT publis
 - Sync changes back to MCS
 - **Limitation:** Clone and Apply operations are GUI-only (not scriptable)
 
+## Copy Agent from M365 Copilot to Copilot Studio (Nov 2025)
+
+Agents created in M365 Copilot Agent Builder can be copied to Copilot Studio to unlock:
+- Enhanced lifecycle management (versioning, staged deployments, rollback, structured release)
+- Usage monitoring and analytics dashboards
+- Governance controls (role-based access, data policies, compliance checks)
+- Advanced customization (multistep workflows, custom integrations, broader deployment)
+- Environment management (dev/test/prod)
+
+## Component Collections (Enhanced Nov 2025)
+
+Reusable sets of agent components (topics, knowledge, actions, entities) shared across agents within an environment.
+- Access collections directly from the sidebar
+- Export/import via solutions for ALM across environments
+- Support for primary agents, new connector types, child agents, and MCP
+- Enables independent release cadences per team
+- **ALM-ready**: Version-controlled, exportable as managed/unmanaged solutions
+
+## Agent Evaluation Versioning (Dec 2025)
+
+- Compare multiple agent versions side by side to validate improvements
+- Quickly spot regressions when evaluating agents with test sets
+
 ## Versioning & Rollback
 
-- **No built-in version numbering** for agents
+- **No built-in version numbering** for agents (but side-by-side comparison now available in evals)
 - Rollback via: solution reimport, Git revert + VS Code apply, template recreation
 - No native "rollback to previous version" button
+- **Copy to Copilot Studio** unlocks staged deployments and rollback options
+
+## Multitenant Mode (Preview)
+
+Agents can be used across different Entra tenants via Teams and M365 Copilot.
+- Agent hosted in one tenant, accessed from another
+- Discoverable on global Teams Store
+- **Limitations (preview)**: Not all features supported; SharePoint knowledge doesn't work cross-tenant
+- Requires higher testing standards (separate test tenant recommended)
+- Sideload via .ZIP package through Teams/MAC admin center
+
+## ALM-Specific Non-Solution Items
+
+These items are NOT included in solution export/import and require manual post-deployment configuration:
+1. Azure Application Insights settings
+2. Manual authentication settings
+3. Direct Line / Web channel security settings
+4. Deployed channels
+5. Sharing (with other makers or end-users)
+6. **Unstructured data knowledge sources** (SharePoint, OneDrive, Salesforce, Confluence, ServiceNow, ZenDesk) -- ALM not supported, importing agents doesn't trigger knowledge source processing
+
+## ALM Golden Rules
+
+1. Don't customize outside of a development environment
+2. Always work in the context of solutions
+3. Use a custom publisher and prefix
+4. Create separate solutions only for independently deployable components
+5. Use environment variables for settings/secrets that change across environments
+6. Export/deploy solutions as managed (unless setting up dev environment)
+7. Consider automating ALM for source control and automated deployments
+
+## API Namespace Update (Nov 2025)
+
+Update Power Platform API calls to use the new `copilotstudio` namespace. The previous namespace continues to work temporarily, but switching ensures future compatibility.
 
 ## PAC CLI Quick Reference
 

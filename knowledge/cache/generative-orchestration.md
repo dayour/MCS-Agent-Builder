@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-02-19
-sources: [MS Learn, MCS UI, community blogs, WebSearch Feb 2026]
+last_verified: 2026-02-27
+sources: [MS Learn, MCS UI, community blogs, WebSearch Feb 2026, MS Learn MCP Feb 2026]
 confidence: high
 refresh_trigger: before_architecture
 -->
@@ -26,21 +26,27 @@ LLM-driven planner: interprets intent → selects tools/topics/knowledge/agents 
 
 | Constraint | Value |
 |-----------|-------|
-| Conversation history considered | **Last 10 turns** |
+| Conversation history considered | **Last 10 turns** (limited — agent may lose earlier context) |
 | Messages per topic/action chain | **5 per turn** |
-| Topics/actions per agent | **128 max** |
+| Topics per agent | **1,000 max** (Dataverse envs); **250** (Dataverse for Teams) |
+| Skills per agent | **100 max** |
+| Trigger phrases per topic | **200 max** |
 | Consecutive actions (recommended) | **< 15** |
 | Performance degradation | **> 30-40 choices** → split into connected agents |
+| Instructions length | **8,000 characters** |
+| RPM quota (generative AI messages) | **50-100+ RPM** depending on message packs (see limits-licensing.md) |
 
 ## Classic vs Generative
 
 | Behavior | Generative | Classic |
 |----------|-----------|---------|
 | Topic selection | **Description**-based | **Trigger phrase** matching |
+| Child/connected agents | Selected by **description** | Not applicable |
 | Tools | Autonomously chosen | Explicitly called from topics |
-| Knowledge | Proactively searched | Fallback only (OnUnknownIntent) |
-| Missing inputs | Auto-generates questions | Must use Question nodes |
-| Responses | Auto-generated | Must use Message nodes |
+| Knowledge | Proactively searched | Fallback only (or explicit generative answers node) |
+| Multi-intent | Handles multiple intents in one utterance | Single topic per utterance |
+| Missing inputs | Auto-generates questions from input names/descriptions | Must use Question nodes |
+| Responses | Auto-generated from all outputs | Must use Message nodes |
 | Disambiguation | Planner handles internally | Multiple Topics Matched topic |
 
 ## System Topics in Generative Mode
@@ -62,23 +68,64 @@ LLM-driven planner: interprets intent → selects tools/topics/knowledge/agents 
 
 ## Knowledge in Generative Mode
 
-- Planner proactively searches — Conversational Boosting NOT used
+- Planner proactively searches — Conversational Boosting NOT used (and any modifications to that system topic are ignored)
 - **> 25 knowledge sources** → internal GPT filters by descriptions
 - Uploaded files exempt from 25-source limit
 - **"Official Sources" NOT compatible** with generative orchestration
 - **"Use general knowledge" OFF** → follow-up questions suppressed
 - Custom data / Bing Custom Search must be in topic generative answers nodes
+- Classic data sources configured in generative answers nodes also NOT used with generative orchestration
+- Hyperlinks from knowledge sources (Word/PDF/web) appear as **plain text** in responses (known limitation)
+- Custom entity inputs NOT yet supported for tools/topics — use Question node as workaround
 
 ## Multi-Agent
 
 - Connected agents treated as tools — selected by **description**
 - Conversation history passed by default (toggleable)
 - **Multi-level chaining NOT supported** (connected agent can't have its own connected agents)
+- Connected agents enable modularity and can **bypass plan limits**
 - Types: MCS (GA), Foundry/Fabric/SDK/A2A (preview)
+
+## Best Practices (from official guidance)
+
+- **Routing priority**: Description (most important) > Name > Input/output parameters > Agent instructions
+- Use **active voice, present tense** for descriptions ("This tool provides..." not "Weather info is provided by...")
+- Avoid overlapping descriptions — test and revise if agent invokes multiple similar topics
+- Return topic results as **output variables** (not message nodes) — lets orchestrator compose contextual responses
+- Avoid "double-handling" data — don't feed outputs back into LLM as open-ended context
+- Use **Clear variable values** node with "Conversation history for current session" to reset context
+- Use **End all topics** node to cancel remaining planned steps
+
+## Controlling Generative Orchestration
+
+| Control | Mechanism |
+|---------|-----------|
+| Cancel plan mid-execution | **End all topics** node |
+| Clear conversation memory | **Clear variable values** → "Conversation history for current session" |
+| Post-response hook | **AI Response Generated** trigger (`OnGeneratedResponse`) |
+| Post-plan hook | **On Plan Complete** trigger (`OnPlanComplete`) |
+| Pre-knowledge hook | **On Knowledge Requested** trigger (YAML-only) |
+| Switch to classic | Settings > Generative AI > Orchestration → No |
 
 ## Models (Feb 2026)
 
-GPT-4o **retired** (all commercial regions). **GPT-4.1** is the default. GPT-5 Chat GA in Europe + US. GPT-5 Reasoning, GPT-5 Auto in preview. Claude Sonnet 4.5 in preview. Generative orchestration available for all supported languages.
+GPT-4o **retired** (all commercial regions). **GPT-4.1** is the default.
+
+| Model | Category | Status | Notes |
+|-------|----------|--------|-------|
+| GPT-4.1 | General | **Default (GA)** | All regions |
+| GPT-5 Chat | General | **GA** (EU + US); Preview elsewhere | Cross-geo in non-GA regions |
+| GPT-5 Reasoning | Deep | **Preview** | Cross-geo outside EU/US |
+| GPT-5 Auto | Auto | **Preview** | Routes dynamically per query |
+| GPT-5.2 Chat | General | **Experimental** | Cross-geo |
+| GPT-5.2 Reasoning | Deep | **Experimental** | Cross-geo |
+| Claude Sonnet 4.5 | General | **Preview** | Cross-geo, external model (admin opt-in) |
+| Claude Sonnet 4.6 | General | **Experimental** | Cross-geo, external model |
+| Claude Opus 4.6 | Deep | **Experimental** | Cross-geo, external model |
+| Grok 4.1 Fast | General | **Experimental** | **US only**, external model (admin opt-in, xAI), safety caveats |
+
+GCC/GCCHigh/DoD: still GPT-4o only (Default).
+Generative orchestration available for all supported languages.
 
 ## Generative AI Settings
 
