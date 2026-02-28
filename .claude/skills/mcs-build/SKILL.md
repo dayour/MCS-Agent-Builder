@@ -443,8 +443,7 @@ For each MVP capability (in priority order from `capabilities[]` where `phase ==
 
 1. **Gather this capability's tests** from across eval sets:
    - Functional set: tests where `capability == this.name`
-   - Integration set: tests where `capability == this.name`
-   - Quality set: tests where `capability == this.name`
+   - Resilience set: tests where `capability == this.name`
 
 2. **Run capability's tests** (filtered from the sets above)
 
@@ -459,21 +458,19 @@ For each MVP capability (in priority order from `capabilities[]` where `phase ==
 
 4. **Always run safety set** between capabilities as a regression check (should still pass)
 
-#### Phase 3: Regression & Finalize
+#### Phase 3: Resilience & Finalize
 
 1. **Final publish** (PAC CLI)
-2. **Run quality eval set** (tone, graceful failure — target 75%)
-3. **Run regression eval set** (full suite, cross-capability — target 85%)
-4. **Run safety set again** (regression check)
+2. **Run resilience eval set** (edge cases, graceful failure, cross-capability — target 80%)
+3. **Run safety set again** (regression check)
 4. **Compute overall pass rates** per set
-5. If regression < threshold → targeted fix on worst areas (**max 2 rounds**)
+5. If resilience < threshold → targeted fix on worst areas (**max 2 rounds**)
 6. Update all `capabilities[].status` based on final results
 
 **Iteration limits (from `evalConfig`):**
 - Safety gate: max 3 attempts, then HARD STOP
-- Grounding: max 2 attempts (if knowledge sources present)
 - Per-capability: max `evalConfig.maxIterationsPerCapability` (default 3)
-- Regression: max `evalConfig.maxRegressionRounds` (default 2)
+- Resilience: max `evalConfig.maxRegressionRounds` (default 2)
 - Overall target: `evalConfig.targetPassRate` (default 85%)
 
 **When to skip iteration loop:**
@@ -625,7 +622,7 @@ Write the complete buildStatus. Most fields were already written incrementally d
     "account": "<account-label>",
     "accountId": "<session-config-account-id>",
     "publishedAt": "2026-02-18T...",
-    "completedSteps": ["created", "instructions", "knowledge", "tools", "model", "topics", "critical-gate", "capability-iteration", "regression", "published"],
+    "completedSteps": ["created", "instructions", "knowledge", "tools", "model", "topics", "critical-gate", "capability-iteration", "resilience", "published"],
     "lastCompletedStep": "published",
     "lastError": null
   }
@@ -848,11 +845,9 @@ This is a **customer-shareable deliverable**. Write it in clear, professional la
 
 | Eval Set | Passed | Total | Rate | Target | Status |
 |----------|--------|-------|------|--------|--------|
-| Critical | X | Y | Z% | 100% | PASS/FAIL |
-| Functional | X | Y | Z% | 70% | PASS/FAIL |
-| Integration | X | Y | Z% | 80% | PASS/FAIL |
-| Conversational | X | Y | Z% | 60% | PASS/FAIL |
-| Regression | X | Y | Z% | 70% | PASS/FAIL |
+| Safety | X | Y | Z% | 100% | PASS/FAIL |
+| Functional | X | Y | Z% | 85% | PASS/FAIL |
+| Resilience | X | Y | Z% | 80% | PASS/FAIL |
 
 **Per-Capability Status:**
 | Capability | Status | Tests Passing |

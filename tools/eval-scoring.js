@@ -392,8 +392,5 @@ module.exports = {
     qualityScore,
     parseCSV,
     parseEvalSets,
-    writeResultsToBrief,
-    writeOneResultToBrief,
-    normalizeMethod,
-    METHOD_ALIASES
+    writeResultsToBrief
 };

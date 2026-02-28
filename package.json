@@ -21,7 +21,6 @@
     "knowledge/",
     "tools/",
     "templates/",
-    "reference/",
     ".claude/",
     ".mcp.json",
     "start.js",

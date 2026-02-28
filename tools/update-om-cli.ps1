@@ -151,10 +151,13 @@ if ($localeDirs) {
     Write-Status "Removed $($localeDirs.Count) unnecessary locale folders"
 }
 
+# Remove XML IntelliSense docs (not needed at runtime — used only for .NET IDE support)
+Get-ChildItem $omCliOutput -Filter '*.xml' | Remove-Item -Force
+Write-Status "Removed XML IntelliSense docs (not needed at runtime)"
+
 # Preserve: README.md, .source-hash (our files, not from publish)
 # Preserve: schemas/ (essential for validation)
 # Preserve: all DLLs + exe (essential runtime)
-# Preserve: *.xml (type documentation used by CLI)
 
 # Write source hash for next comparison
 $currentHash | Out-File -FilePath $hashFile -NoNewline -Encoding ascii

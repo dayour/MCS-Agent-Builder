@@ -145,12 +145,19 @@ function getTenantId() {
     }
 }
 
+/**
+ * Sleep utility — returns a Promise that resolves after `ms` milliseconds.
+ */
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 module.exports = {
     httpRequest,
     httpRequestWithRetry,
     getToken,
     getTenantId,
+    sleep,
     DEFAULT_TIMEOUT_MS,
-    DEFAULT_MAX_RETRIES,
     RETRY_BACKOFF_BASE_MS
 };

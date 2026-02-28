@@ -24,7 +24,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { pathToFileURL } = require('url');
-const { getToken: getAzToken } = require('./lib/http');
+const { getToken: getAzToken, sleep } = require('./lib/http');
 
 // --- Configuration ---
 const LSP_STARTUP_TIMEOUT_MS = 15000;
@@ -780,11 +780,6 @@ function postPullCleanup(workspacePath) {
     }
 }
 
-// --- Utility ---
-
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
 
 
 

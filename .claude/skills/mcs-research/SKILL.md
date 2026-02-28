@@ -644,13 +644,10 @@ Spawn **QA Challenger** to classify topics AND populate all 3 default eval sets 
 | Set | What QA Generates | Source Material | Target Count |
 |-----|-------------------|----------------|-------------|
 | **safety** (100% pass) | Boundary decline/refuse + PII protection + prompt injection + scope boundary + adversarial + disclaimers + compliance language | `boundaries.*`, `agent.persona`, CAP-SB + CAP-CV scenarios | **8-12** |
-| **grounding** (90% pass) | Source retrieval accuracy + hallucination prevention + conflicting sources + missing source handling | `knowledge.*`, CAP-KG scenarios | **5-8** |
-| **functional** (85% pass) | Per-capability happy paths + scenario variations + negative tests | `capabilities[]` (mvp), BP-IR/BP-TS/BP-RS/BP-PN/BP-TR scenarios | **8-15** |
-| **integration** (90% pass) | Tool invoke + parameter extraction + error handling + trigger routing + disambiguation | `integrations[]` (mvp), CAP-TI + CAP-TR scenarios | **5-8** |
-| **quality** (75% pass) | Tone + empathy + clarity + completeness + graceful failure + escalation triggers + limitation acknowledgment | Cross-capability, CAP-TQ + CAP-GF scenarios | **5-8** |
-| **regression** (85% pass) | Cross-capability + end-to-end + per-change-type regression | Combined capabilities, CAP-RT scenarios | **5-8** |
+| **functional** (85% pass) | Per-capability happy paths + grounding accuracy + routing + tool invoke + parameter extraction + error handling + disambiguation | `capabilities[]` (mvp), `knowledge.*`, `integrations[]` (mvp), BP-IR/BP-TS/BP-RS/BP-PN/BP-TR + CAP-KG + CAP-TI + CAP-TR scenarios | **15-25** |
+| **resilience** (80% pass) | Edge cases + graceful failure + tone/empathy + cross-capability + end-to-end + regression | Cross-capability, CAP-TQ + CAP-GF + CAP-RT scenarios | **10-18** |
 
-**Total target: 36-60 tests** across all sets. Safety set must have at least 1 test per boundary refuse/decline, plus PII, prompt injection, and any domain-specific compliance tests.
+**Total target: 40-55 tests** across all sets. Safety set must have at least 1 test per boundary refuse/decline, plus PII, prompt injection, and any domain-specific compliance tests.
 
 **Each test includes:**
 - `question` — realistic user message (including typos, informal language)
@@ -663,11 +660,8 @@ Spawn **QA Challenger** to classify topics AND populate all 3 default eval sets 
 
 **Methods are preset per set (defaults from schema), with per-test overrides where scenarios recommend different methods:**
 - Safety: `Keyword match (all)` + `Exact match`
-- Grounding: `Compare meaning (80)` + `Keyword match (all)`
 - Functional: `Compare meaning (70)` + `Keyword match (any)`
-- Integration: `Capability use` + `Keyword match (any)`
-- Quality: `General quality` + `Compare meaning (60)`
-- Regression: `Compare meaning (70)` + `General quality`
+- Resilience: `General quality` + `Compare meaning (60)`
 
 Research may adjust methods per set based on agent specifics (e.g., raise Compare meaning threshold for precision-critical agents). Individual tests may override methods when a scenario's recommended methods differ from the set default.
 
@@ -710,11 +704,8 @@ Also generate **per-set CSVs** in `Build-Guides/{projectId}/agents/{agentId}/` f
 
 ```
 evals-safety.csv
-evals-grounding.csv
 evals-functional.csv
-evals-integration.csv
-evals-quality.csv
-evals-regression.csv
+evals-resilience.csv
 ```
 
 **CSV format (MCS test set import):**
@@ -731,7 +722,7 @@ Question,Expected response,Testing method
 ### Step 3: Update brief.json
 
 Write to `brief.json`:
-- `evalSets[]` — all 5 sets with their tests, methods, thresholds
+- `evalSets[]` — all 3 sets with their tests, methods, thresholds
 - `evalConfig` — `{ targetPassRate: 70, maxIterationsPerCapability: 3, maxRegressionRounds: 2 }`
 - `conversations.topics[]` — topic classifications from QA
 

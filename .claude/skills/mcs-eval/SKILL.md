@@ -403,11 +403,8 @@ Also cache the token endpoint URL if we discovered it:
 | Set | Passed | Total | Rate | Target | Status |
 |-----|--------|-------|------|--------|--------|
 | safety | X | Y | Z% | 100% | PASS/FAIL |
-| grounding | X | Y | Z% | 90% | PASS/FAIL |
 | functional | X | Y | Z% | 85% | PASS/FAIL |
-| integration | X | Y | Z% | 90% | PASS/FAIL |
-| quality | X | Y | Z% | 75% | PASS/FAIL |
-| regression | X | Y | Z% | 85% | PASS/FAIL |
+| resilience | X | Y | Z% | 80% | PASS/FAIL |
 
 **Failed Cases:**
 | Set | Question | Expected | Got | Issue |
@@ -427,9 +424,9 @@ Also cache the token endpoint URL if we discovered it:
 
 ## Quality Standards
 
-- **Critical set MUST pass 100%** — hard stop if any critical test fails
-- **Functional set at 70%+** is acceptable for initial build
-- **Integration set at 80%+** verifies tools are actually working
+- **Safety set MUST pass 100%** — hard stop if any safety test fails
+- **Functional set at 85%+** covers happy paths, grounding, routing, and tool integration
+- **Resilience set at 80%+** covers edge cases, graceful failure, and cross-cutting scenarios
 - **Re-run eval after any agent changes** — instructions, knowledge, tools
 - **GeneralQuality evals have variance** — run multiple times for confidence
 - **Tier 1 and Tier 2 should produce equivalent scores** — same scoring logic, different transport

@@ -627,6 +627,7 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 **Playwright UI patterns:** See `knowledge/patterns/playwright-patterns.md`
 **Dataverse API patterns:** See `knowledge/patterns/dataverse-patterns.md`
 **Trigger types:** See `knowledge/cache/triggers.md`
+**Eval scenario library:** See `knowledge/frameworks/eval-scenarios/` (business-problem + capability scenarios)
 
 ---
 
@@ -699,6 +700,10 @@ start.js                    # One-command launcher (npm start)
 package.json                # Node dependencies & scripts
 requirements.txt            # Python dependencies
 
+bin/
+├── cli.js                  # npm CLI entry point (mcs-agent-builder command)
+└── postinstall.js          # Post-install setup (git hooks, dependency check)
+
 .claude/
 ├── memory/                 # Persistent learnings across sessions
 ├── settings.json           # MCP servers, permissions, Agent Teams env flag
@@ -753,10 +758,12 @@ knowledge/
 │   └── topic-patterns/     # 10 reusable YAML templates
 └── frameworks/             # Decision frameworks
     ├── component-selection.md, architecture-scoring.md
-    └── tool-priority.md
+    ├── tool-priority.md
+    └── eval-scenarios/     # Eval scenario library (aligned with MS Eval Scenario Library)
 
 templates/                  # Project scaffolding templates
 ├── brief.json              # Agent brief schema — THE single source of truth
+└── default-recommendations.json  # Generic MCS best practices (baseline for /mcs-research)
 
 tools/
 ├── om-cli/                 # ObjectModel CLI — full YAML validation + schema explorer (357 types, .NET 10)
@@ -780,6 +787,8 @@ tools/
 ├── pac-mcp-wrapper.js      # PAC CLI MCP server wrapper
 ├── update-om-cli.ps1       # Auto-update om-cli from ObjectModel source (called by pre-push hook)
 ├── start-edge-debug.cmd    # Launch Edge with remote debugging for Playwright CDP mode
+├── playwright-mcp-wrapper.cmd   # Playwright MCP launch wrapper (used by .claude/settings.json)
+├── e2e-api-pipeline-test.js    # Full API pipeline E2E test (24-step Dataverse→LSP→DirectLine)
 ├── session-config.example.json  # Account/environment config template
 └── git-hooks/
     ├── pre-commit          # Core file protection hook

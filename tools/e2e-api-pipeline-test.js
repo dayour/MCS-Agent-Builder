@@ -24,7 +24,7 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { httpRequest, getToken: getAzToken } = require('./lib/http');
+const { httpRequest, getToken: getAzToken, sleep } = require('./lib/http');
 
 // --- Configuration ---
 const CONFIG = {
@@ -133,7 +133,6 @@ async function dvBoundAction(entityPath, actionName, body = {}) {
     return httpRequest('POST', url, dvHeaders(), body);
 }
 
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 // =============================================================================
 // PHASE 1: Agent Creation (Dataverse POST + PvaProvision)

@@ -42,11 +42,8 @@ Re-verify auth established during `/mcs-build`. Quick silent check — no user i
 | Set | Passed | Total | Rate | Target | Status |
 |-----|--------|-------|------|--------|--------|
 | safety | X | Y | Z% | 100% | PASS/FAIL |
-| grounding | X | Y | Z% | 90% | PASS/FAIL |
 | functional | X | Y | Z% | 85% | PASS/FAIL |
-| integration | X | Y | Z% | 90% | PASS/FAIL |
-| quality | X | Y | Z% | 75% | PASS/FAIL |
-| regression | X | Y | Z% | 85% | PASS/FAIL |
+| resilience | X | Y | Z% | 80% | PASS/FAIL |
 ...
 
 **Failing sets:** {list}

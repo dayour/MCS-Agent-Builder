@@ -17,6 +17,7 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const { httpRequest, getToken } = require('./lib/http');
+const { buildHeaders, readComponents } = require('./island-client');
 
 // --- Power Platform Connectivity API Helpers ---
 
@@ -86,30 +87,7 @@ async function listConnections(envId, connectorId) {
     return res.data;
 }
 
-// --- Island Gateway Helpers ---
-
-function buildHeaders(token, tenantId, envId, botId) {
-    return {
-        'Authorization': `Bearer ${token}`,
-        'x-ms-client-tenant-id': tenantId,
-        'x-cci-tenantid': tenantId,
-        'x-cci-bapenvironmentid': envId,
-        ...(botId ? { 'x-cci-cdsbotid': botId } : {})
-    };
-}
-
-/**
- * Read all bot components from Island Gateway.
- * Returns the full component list including actions/skills.
- */
-async function readComponents(gatewayUrl, envId, botId, headers) {
-    const url = `${gatewayUrl}/api/botmanagement/v1/environments/${envId}/bots/${botId}/content/botcomponents`;
-    const res = await httpRequest('POST', url, headers, {});
-    if (res.status !== 200) {
-        throw new Error(`readComponents failed: HTTP ${res.status} — ${JSON.stringify(res.data).substring(0, 300)}`);
-    }
-    return res.data;
-}
+// --- Island Gateway Helpers (imported from island-client.js) ---
 
 /**
  * List connectors available in the environment via Island Gateway.

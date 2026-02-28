@@ -19,7 +19,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
-const { httpRequest, getToken } = require('./lib/http');
+const { httpRequest, getToken, sleep } = require('./lib/http');
 const lsp = require('./mcs-lsp');
 
 // --- Arg Parsing ---
@@ -91,9 +91,6 @@ function listYmlFiles(dir) {
         .map(f => path.join(dir, f));
 }
 
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
 
 const DV_HEADERS = (token) => ({
     Authorization: `Bearer ${token}`,
