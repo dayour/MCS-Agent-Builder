@@ -708,7 +708,6 @@ bin/
 └── postinstall.js          # Post-install setup (git hooks, dependency check)
 
 .claude/
-├── memory/                 # Persistent learnings across sessions
 ├── settings.json           # MCP servers, permissions, Agent Teams env flag
 ├── skills/                 # 11 skills (9 workflow + 2 utility)
 │   ├── mcs-init/           # Create project folder
