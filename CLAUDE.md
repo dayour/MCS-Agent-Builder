@@ -231,7 +231,7 @@ The system captures learnings from every build and makes them available in futur
 |-------|----------|------|---------|
 | **Official cache** | `knowledge/cache/` | MCS capabilities from MS Learn + WebSearch | Auto (session start + before research) |
 | **Experience learnings** | `knowledge/learnings/` | Insights from past builds, user feedback, failures | After every build/research/eval |
-| **Stable patterns** | `knowledge/patterns/` | YAML syntax, Playwright patterns, Dataverse API | Manual (rarely changes) |
+| **Stable patterns** | `knowledge/patterns/` | YAML syntax, Playwright patterns, Dataverse API, solution patterns | Manual (rarely changes) |
 | **Decision frameworks** | `knowledge/frameworks/` | Component selection, architecture scoring | Manual (rarely changes) |
 
 ### Learnings Capture Points
@@ -323,7 +323,7 @@ Learnings are consulted at these specific points across all workflow skills:
 
 | Skill | Phase/Step | Learnings Files Read |
 |-------|-----------|---------------------|
-| `/mcs-research` | Phase B (component research) | `connectors.md`, `integrations.md`, `customer-patterns.md` |
+| `/mcs-research` | Phase B (component research) | `connectors.md`, `integrations.md`, `customer-patterns.md`, `patterns/solution-patterns.md` |
 | `/mcs-research` | Phase C (architecture + instructions) | `architecture.md`, `instructions.md` |
 | `/mcs-research` | Phase D (eval sets + topics) | `topics-triggers.md`, `eval-testing.md` |
 | `/mcs-build` | Before Step 1 (agent creation) | `build-methods.md` |
@@ -629,6 +629,7 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 **Topic YAML templates:** See `knowledge/patterns/topic-patterns/` (10 patterns including AI Builder model)
 **Playwright UI patterns:** See `knowledge/patterns/playwright-patterns.md`
 **Dataverse API patterns:** See `knowledge/patterns/dataverse-patterns.md`
+**Solution patterns:** See `knowledge/patterns/solution-patterns.md` (naive-to-proven implementation patterns, checked during research Phase B Step 2.5)
 **Trigger types:** See `knowledge/cache/triggers.md`
 **Eval scenario library:** See `knowledge/frameworks/eval-scenarios/` (business-problem + capability scenarios)
 
@@ -675,7 +676,7 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 Cached inventories, stable patterns, and decision frameworks live in `knowledge/`:
 
 - **`knowledge/cache/`** — 19 quick-reference cheat sheets covering MCS capabilities: options, limits, gotchas, and decision tables. For step-by-step details, use MS Learn MCP. Each file has freshness metadata. Check before architecture decisions.
-- **`knowledge/patterns/`** — Stable HOW-TO references (YAML syntax, Playwright patterns, Dataverse API patterns, topic templates).
+- **`knowledge/patterns/`** — Stable HOW-TO references (YAML syntax, Playwright patterns, Dataverse API patterns, solution patterns, topic templates).
 - **`knowledge/frameworks/`** — Decision frameworks (component selection, architecture scoring, tool priority).
 
 **Tiered refresh:**
@@ -761,6 +762,7 @@ knowledge/
 │   └── island-gateway-api.md
 ├── patterns/               # Stable HOW-TO references
 │   ├── yaml-reference.md, playwright-patterns.md, dataverse-patterns.md
+│   ├── solution-patterns.md  # Naive-to-proven implementation patterns (checked in research Phase B)
 │   └── topic-patterns/     # 10 reusable YAML templates
 └── frameworks/             # Decision frameworks
     ├── component-selection.md, architecture-scoring.md

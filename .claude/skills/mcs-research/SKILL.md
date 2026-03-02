@@ -379,10 +379,11 @@ This step runs at the START of Phase B for ALL processing paths (full, full-agen
 
 When `processingPath == "incremental"`, Phase B is scoped to only what's new:
 
-1. **Skip stable category resolution** unless Phase A-inc found new architecture-relevant data (new channels, triggers, knowledge types not already in the brief). If all new content maps to existing categories, skip directly to Step 3.
+1. **Skip stable category resolution** unless Phase A-inc found new architecture-relevant data (new channels, triggers, knowledge types not already in the brief). If all new content maps to existing categories, skip directly to Step 2.5.
 2. **Only research NEW external systems** from the new docs that aren't already in `integrations[]`. If a doc mentions "Jira" and the agent already has Jira in integrations, skip it.
-3. **Check learnings** (same as full — quick read of relevant `knowledge/learnings/` files).
-4. **Spawn Research Analyst only if new external systems were found** that need live MCP/connector lookup. If everything maps to existing integrations or Microsoft-native tools, skip RA entirely.
+3. **Run Step 2.5 (Solution Pattern Reality Check)** for NEW capabilities only — don't re-check existing capabilities.
+4. **Check learnings** (same as full — quick read of relevant `knowledge/learnings/` files).
+5. **Spawn Research Analyst only if new external systems were found** that need live MCP/connector lookup. If everything maps to existing integrations or Microsoft-native tools, skip RA entirely.
 
 Then proceed to Phase C (incremental).
 
@@ -419,6 +420,35 @@ Example: Agent needs Jira, ServiceNow, Confluence
 - The agent has no external system integrations (pure knowledge agent)
 - All systems are already in `knowledge/cache/connectors.md` or `knowledge/cache/mcp-servers.md` with recent `last_verified` dates
 
+### Step 2.5: Solution Pattern Reality Check (Lead)
+
+**Goal:** Catch naive implementation approaches before they reach the build phase. Traces each MVP capability's data flow and matches against proven solution patterns.
+
+1. **Read `knowledge/patterns/solution-patterns.md`** for the full pattern catalog
+2. **For each MVP capability** in the brief:
+   a. **Trace data flow:** What is the input? What processing happens? What is the output?
+   b. **Check "When to match" conditions** for each solution pattern (sp-001 through sp-010+)
+   c. **If a pattern matches:** Recommend the proven alternative. Update `integrations[]` if the proven pattern requires a different tool (e.g., Power Automate flow instead of HTTP connector). Add a note to `conversations.topics[].notes` explaining why the naive approach was replaced.
+   d. **If no pattern matches but the capability involves 3+ transformation steps:** Flag for manual review — it may need a new pattern or a Power Automate flow.
+3. **Present a reality check summary:**
+
+```
+## Implementation Reality Check: {agentName}
+
+| Capability | Pattern Match | Naive → Proven | Impact |
+|-----------|--------------|----------------|--------|
+| {name} | sp-001 | HTTP Request → Readability service | New Azure Function needed |
+| {name} | sp-003 | Topic loop → PA Apply-to-each | New PA flow needed |
+| {name} | (none) | — | OK as designed |
+| {name} | (flagged) | 4 transformation steps | Review recommended |
+```
+
+4. **User reviews and approves** the reality check before proceeding to Step 3. If a pattern match changes the integration approach significantly (e.g., adds a new Azure Function dependency), flag it as requiring customer discussion.
+
+**Skip conditions:**
+- If the agent has no MVP capabilities (shouldn't happen, but guard)
+- During `re-enrich` path: only check NEW capabilities added from answered questions
+
 ### Step 3: Check Past Learnings (only relevant files)
 
 Read learnings files only if they're relevant to this agent's systems and non-empty:
@@ -427,7 +457,7 @@ Read learnings files only if they're relevant to this agent's systems and non-em
 - `knowledge/learnings/integrations.md` — if the agent has complex integrations
 - `knowledge/learnings/customer-patterns.md` — if there's a matching industry
 
-**Also read `knowledge/learnings/index.json`** to check confirmed counts. Entries with higher `confirmed` values get stronger presentation weight.
+**Also read `knowledge/patterns/solution-patterns.md`** for implementation patterns that may apply to this agent's integrations, and **`knowledge/learnings/index.json`** to check confirmed counts. Entries with higher `confirmed` values get stronger presentation weight.
 
 **How to use learnings:**
 - Present as an additional option alongside official recommendations

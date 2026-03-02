@@ -30,10 +30,11 @@ Scan the current session for actionable items:
 - **Verbal discoveries** — user corrections, "remember that X", "this doesn't work because Y"
 - **Tool gaps** — operations that required Playwright when an API should exist
 - **Performance observations** — what was fast, what was slow, what could be parallelized
+- **Solution patterns** — naive implementation approaches that failed and the proven alternative that worked (e.g., HTTP connector for web scraping failed → containerized Readability succeeded)
 
 For each item, extract:
 - **Summary** (1-2 sentences)
-- **Category** (error, workaround, discovery, tool_gap, performance)
+- **Category** (error, workaround, discovery, tool_gap, performance, solution_pattern)
 - **Proposed tags** (2-4 tags for index.json matching, e.g. `["lsp", "push", "settings"]`)
 - **Proposed target file** (which `learnings/*.md` file it belongs in)
 
@@ -55,6 +56,7 @@ Each item gets exactly one classification:
 | **CORRECTION** | Contradicts an existing entry | Tier 2 (user) | Flag contradiction, propose update |
 | **ENHANCEMENT** | Enriches existing entry with new context | Tier 2 (user) | Update existing entry in .md + index.json |
 | **TOOLING_GAP** | Missing feature in tools/scripts | Tier 2 (user) | File as suggestion via `/suggest` |
+| **SOLUTION_PATTERN** | Naive approach failed, proven alternative found | Tier 2 (user) | Add/update entry in `knowledge/patterns/solution-patterns.md` |
 
 ### Step 4: Present
 
@@ -79,6 +81,7 @@ For approved items:
 3. **CORRECTION**: Update contradicted entry in `.md` + `index.json`, add correction note
 4. **ENHANCEMENT**: Append context to existing `.md` entry, update `index.json` `lastConfirmed`
 5. **TOOLING_GAP**: Invoke `/suggest` with pre-filled description
+6. **SOLUTION_PATTERN**: Write new pattern entry to `knowledge/patterns/solution-patterns.md` following the existing format (ID `sp-NNN`, sections: naive approach, why it fails, proven pattern, when to match, implementation, tags, confirmed builds). If the pattern updates an existing entry (same problem type), bump `Confirmed builds` count and add implementation notes. Update `knowledge/learnings/index.json` with `file: "patterns/solution-patterns.md"` (cross-directory reference).
 
 After all writes, report:
 - N items applied (X auto, Y user-approved)
@@ -93,6 +96,8 @@ All files in `knowledge/learnings/`:
 - `index.json`
 
 All files in `knowledge/cache/` (for cross-reference and correction detection).
+
+`knowledge/patterns/solution-patterns.md` (for SOLUTION_PATTERN matching and deduplication).
 
 ## Rules
 
