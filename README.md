@@ -84,6 +84,7 @@ You can also run skills directly in Claude Code:
 /mcs-build ProjectName agentId           Build agent(s) in Copilot Studio
 /mcs-eval ProjectName agentId            Run evals, write results
 /mcs-fix ProjectName agentId             Fix eval failures and re-evaluate
+/mcs-library list                        Browse team solution library
 /mcs-refresh                             Refresh knowledge cache
 ```
 
@@ -161,7 +162,7 @@ bin/
 
 .claude/
   settings.json             MCP servers, permissions, Agent Teams flag
-  skills/                   10 skills (8 workflow + 2 utility)
+  skills/                   11 skills (9 workflow + 2 utility)
   agents/                   6 AI teammate definitions
 
 app/
@@ -171,6 +172,7 @@ app/
   frontend/                 React + TypeScript SPA (Vite + shadcn/ui)
 
 knowledge/
+  solutions/                Team solution library (index + per-solution cache)
   learnings/                Experience from past builds (grows over time)
   cache/                    19 MCS capability cheat sheets (auto-refreshed)
   patterns/                 YAML, Playwright, Dataverse API patterns + 10 topic templates
@@ -183,6 +185,7 @@ tools/
   gen-constraints.py        Pre-generation constraint extraction
   drift-detect.py           Brief-vs-YAML drift detection
   lib/http.js               Shared HTTP request + Azure CLI token helpers (used by all JS tools)
+  lib/graph-sharepoint.js   SharePoint Graph API helper (list, download, upload, create folder)
   semantic-gates.py         5 semantic validation gates (PowerFx, cross-refs, variables, channels, connectors)
   powerfx-catalog.json      Official PowerFx function catalog (139 functions from MS Learn)
   update-om-cli.ps1         Auto-update om-cli from ObjectModel source repo
@@ -190,6 +193,7 @@ tools/
   island-client.js          Island Control Plane Gateway API client (model catalog, reads, routing)
   add-tool.js               Headless tool/connector addition via LSP push
   flow-manager.js           Power Automate cloud flow CRUD (triggers, schedules, activate/deactivate)
+  solution-library.js       Team SharePoint solution library CLI (list, download, analyze, upload)
   direct-line-test.js       Direct Line API test runner
   dataverse-helper.ps1      PowerShell Dataverse Web API helper
   git-hooks/                Pre-commit (file protection) + pre-push (om-cli auto-update)

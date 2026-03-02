@@ -197,6 +197,7 @@ Before committing to designs that are hard to undo — schema changes, workflow 
 | **Direct Line API** | Agent testing: send messages, compare responses (`tools/direct-line-test.js`) |
 | **Test Chat Harness** | Optimized Playwright eval: injectable browser code for ~3-5s/test boundary tests (`tools/test-chat-harness.js`) |
 | **Eval Runner** | Test plan generation, scoring, tier detection for Playwright eval (`tools/playwright-eval-runner.js`) |
+| **Solution Library** | Team SharePoint solution library: list, download, analyze, upload, index, search (`tools/solution-library.js`) |
 | **Playwright MCP** | New OAuth connections (first-time consent only) (`@playwright/mcp`) |
 | **WorkIQ MCP** | M365 context: emails, meetings, documents, Teams, people (`workiq mcp`) |
 | **Microsoft Learn MCP** | Official docs, reference, code samples |
@@ -422,7 +423,7 @@ CREATE → UPLOAD → RESEARCH → BUILD → EVALUATE → [FIX] → [RETRO]
 
 ---
 
-## Skills (10 total — 8 workflow + 2 utility)
+## Skills (11 total — 9 workflow + 2 utility)
 
 | Skill | Purpose | Dashboard Button |
 |-------|---------|-----------------|
@@ -434,6 +435,7 @@ CREATE → UPLOAD → RESEARCH → BUILD → EVALUATE → [FIX] → [RETRO]
 | **mcs-fix** | Analyze eval failures, apply fixes (instructions/topics/evals), re-evaluate | **Fix Failures** (conditional — appears when eval < 70%) |
 | **mcs-refresh** | Refresh knowledge cache files | None (CLI) |
 | **mcs-retro** | Post-session retrospective: collect, classify, and persist learnings | None (CLI) |
+| **mcs-library** | Browse, analyze, and contribute to team SharePoint solution library | None (CLI) |
 | **bug** | File bug reports via `az` CLI | Sidebar button |
 | **suggest** | File feature suggestions via `az` CLI | Sidebar button |
 
@@ -592,6 +594,24 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 
 ---
 
+## LIBRARY: Solution Library (`/mcs-library`)
+
+**Goal:** Browse, analyze, and contribute to the Builder PMs team's SharePoint "Solution & Demo Library" (~30 exported MCS agent solutions). Independent utility skill — not part of the linear build workflow.
+
+**Input:** `/mcs-library <command>` — see `.claude/skills/mcs-library/SKILL.md` for full command reference.
+
+**Commands:** `list`, `search <query>`, `download <name>`, `analyze <name>` (teams: RA + PE), `index` (teams: RA + PE), `upload <project> <agent>` (optional QA)
+
+**Tool:** `tools/solution-library.js` + `tools/lib/graph-sharepoint.js` (Graph API via `az login` delegated auth)
+
+**Index:** `knowledge/solutions/index.json` (committed, populated by `refresh`/`analyze`)
+
+**Cache:** `knowledge/solutions/cache/*.json` (per-solution analysis, committed)
+
+**Downloads:** OS temp dir (ephemeral — cleaned up after analysis)
+
+---
+
 ## Component Selection & Architecture Decisions
 
 **Component selection framework:** See `knowledge/frameworks/component-selection.md`
@@ -690,7 +710,7 @@ bin/
 .claude/
 ├── memory/                 # Persistent learnings across sessions
 ├── settings.json           # MCP servers, permissions, Agent Teams env flag
-├── skills/                 # 10 skills (8 workflow + 2 utility)
+├── skills/                 # 11 skills (9 workflow + 2 utility)
 │   ├── mcs-init/           # Create project folder
 │   ├── mcs-context/        # Pull M365 history via WorkIQ
 │   ├── mcs-research/       # Read docs + full enrichment → brief.json + evals
@@ -699,6 +719,7 @@ bin/
 │   ├── mcs-fix/            # Post-eval fix → re-eval loop
 │   ├── mcs-refresh/        # Refresh knowledge cache
 │   ├── mcs-retro/          # Post-session retrospective
+│   ├── mcs-library/        # SharePoint solution library integration
 │   ├── bug/                # File bug reports via az CLI
 │   └── suggest/            # File feature suggestions via az CLI
 └── agents/                 # Agent Teams teammate definitions
@@ -727,6 +748,9 @@ app/                        # Dashboard application
     └── vite.config.ts      # Build config (outputs to app/dist/)
 
 knowledge/
+├── solutions/              # Team solution library (populated by /mcs-library + /mcs-refresh)
+│   ├── index.json          # Solution metadata index (folder names, dates, agents, tags)
+│   └── cache/              # Per-solution deep analysis (committed, ~1KB each)
 ├── learnings/              # Experience-based insights from past builds (8 topic files + index.json)
 │   ├── index.json          # Machine-readable learnings index (dedup, confirmed counts, staleness)
 ├── cache/                  # 19 quick-reference cheat sheets (with freshness metadata)
@@ -753,7 +777,8 @@ tools/
 │   ├── om-cli.exe          # Main binary (framework-dependent, ~20MB)
 │   └── README.md           # Commands, rebuild instructions
 ├── lib/
-│   └── http.js             # Shared HTTP request + Azure CLI token helpers (used by all JS tools)
+│   ├── http.js             # Shared HTTP request + Azure CLI token helpers (used by all JS tools)
+│   └── graph-sharepoint.js # SharePoint Graph API helper (list, download, upload, create folder)
 ├── gen-constraints.py      # Pre-generation constraint extraction (queries om-cli for required fields)
 ├── drift-detect.py         # Brief-vs-YAML drift detection (missing topics, trigger/variable mismatches)
 ├── semantic-gates.py       # 5 semantic validation gates (PowerFx, cross-refs, variables, channels, connectors)
@@ -766,6 +791,7 @@ tools/
 ├── eval-scoring.js         # Shared scoring module (7 methods: 6 MCS native + PlanValidation, multi-turn support)
 ├── test-chat-harness.js    # Injectable browser harness for fast Playwright Test Chat eval
 ├── playwright-eval-runner.js # Test plan generator, scorer, tier detector for Playwright eval
+├── solution-library.js     # Team SharePoint solution library CLI (list, download, analyze, upload, index, search)
 ├── replicate-agent.js      # Cross-environment agent replication via Dataverse + LSP clone + push
 ├── dataverse-helper.ps1    # PowerShell Dataverse Web API helper
 ├── pac-mcp-wrapper.js      # PAC CLI MCP server wrapper
