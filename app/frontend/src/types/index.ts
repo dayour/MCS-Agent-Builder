@@ -231,23 +231,6 @@ export interface EvalConfig {
   maxRegressionRounds: number;
 }
 
-export interface Recommendation {
-  category: string;
-  text: string;
-  source: "generic" | "tailored";
-}
-
-export const RECOMMENDATION_CATEGORY_LABELS: Record<string, string> = {
-  "instructions-design": "Instructions & Design",
-  "knowledge-grounding": "Knowledge & Grounding",
-  "connectors-mcp": "Connectors & MCP Servers",
-  "evaluation-testing": "Evaluation & Testing",
-  "deployment-operations": "Deployment & Operations",
-  "multi-agent": "Multi-Agent Architecture",
-  "channels": "Channel-Specific",
-  "security-compliance": "Security & Compliance",
-};
-
 export interface OpenQuestion {
   question: string;
   assignee: string;
@@ -303,7 +286,6 @@ export interface BriefData {
   "scope-boundaries": { handles: string[]; politelyDeclines: string[]; hardRefuses: string[] };
   architecture: Architecture;
   "eval-sets": { sets: EvalSet[]; config: EvalConfig };
-  recommendations: { items: Recommendation[] };
   "open-questions": { items: OpenQuestion[] };
 }
 

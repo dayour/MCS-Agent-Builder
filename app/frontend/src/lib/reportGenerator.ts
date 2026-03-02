@@ -1,6 +1,6 @@
 import { BRIEF_SECTIONS } from "@/config/briefSections";
-import type { Agent, Recommendation } from "@/types";
-import { RECOMMENDATION_CATEGORY_LABELS } from "@/types";
+import type { Agent } from "@/types";
+import { sectionGuidelines } from "@/config/sectionGuidelines";
 
 /**
  * Generates a clean markdown report from brief data.
@@ -226,40 +226,24 @@ export function generateBriefReport(agent: Agent, briefData: Record<string, any>
     lines.push(hr);
   }
 
-  // ── Best Practices & Recommendations ──────────────────────────
+  // ── Best Practices & Guidelines ──────────────────────────────
   {
-    const recItems: Recommendation[] = briefData["recommendations"]?.items ?? [];
+    lines.push("## Best Practices & Guidelines\n");
 
-    lines.push("## Best Practices & Recommendations\n");
+    // Map section IDs to human-readable titles
+    const sectionTitles: Record<string, string> = {};
+    for (const s of BRIEF_SECTIONS) sectionTitles[s.id] = s.title;
 
-    if (recItems.length === 0) {
-      lines.push("*No recommendations generated yet.*\n");
-    } else {
-      const categoryOrder = Object.keys(RECOMMENDATION_CATEGORY_LABELS);
-      const grouped = new Map<string, Recommendation[]>();
-      for (const r of recItems) {
-        const key = r.category || "other";
-        if (!grouped.has(key)) grouped.set(key, []);
-        grouped.get(key)!.push(r);
+    for (const [sectionId, guide] of Object.entries(sectionGuidelines)) {
+      const title = sectionTitles[sectionId] ?? sectionId;
+      lines.push(`### ${title}`);
+      for (const bp of guide.bestPractices) {
+        lines.push(`- ${bp}`);
       }
-      const sortedKeys = [...grouped.keys()].sort((a, b) => {
-        const ai = categoryOrder.indexOf(a);
-        const bi = categoryOrder.indexOf(b);
-        if (ai === -1 && bi === -1) return a.localeCompare(b);
-        if (ai === -1) return 1;
-        if (bi === -1) return -1;
-        return ai - bi;
-      });
-
-      for (const cat of sortedKeys) {
-        const label = RECOMMENDATION_CATEGORY_LABELS[cat] ?? cat;
-        lines.push(`### ${label}`);
-        for (const r of grouped.get(cat)!) {
-          const suffix = r.source === "tailored" ? " *[Tailored]*" : "";
-          lines.push(`- ${r.text}${suffix}`);
-        }
-        lines.push("");
+      if (guide.tip) {
+        lines.push(`\n> **Tip:** ${guide.tip}`);
       }
+      lines.push("");
     }
 
     lines.push(hr);

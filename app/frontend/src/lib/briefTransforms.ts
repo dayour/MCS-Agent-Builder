@@ -9,7 +9,7 @@
  * doesn't display are never lost.
  */
 import type { ApiBrief } from "@/types/api";
-import type { BriefData, EvalSet, EvalConfig, Overview, Recommendation } from "@/types";
+import type { BriefData, EvalSet, EvalConfig, Overview } from "@/types";
 
 /**
  * Convert raw brief.json → UI BriefData shape.
@@ -103,13 +103,6 @@ export function briefFromApi(raw: ApiBrief): BriefData {
       scoring: factorsToScoring(arch.factors, arch.score),
     },
     "eval-sets": evalSetsFromApi(raw),
-    recommendations: {
-      items: (raw.recommendations ?? []).map((r): Recommendation => ({
-        category: r.category ?? "",
-        text: r.text ?? "",
-        source: (r.source === "tailored" ? "tailored" : "generic"),
-      })),
-    },
     "open-questions": {
       items: (raw.openQuestions ?? []).map((q) => ({
         question: q.question ?? "",
@@ -252,13 +245,6 @@ export function briefToApi(ui: BriefData, raw: ApiBrief): ApiBrief {
   delete result.scenarios;
   delete result.evals;
   delete result.evalResults;
-
-  // Recommendations
-  result.recommendations = ui.recommendations.items.map((r) => ({
-    category: r.category,
-    text: r.text,
-    source: r.source,
-  }));
 
   // Open questions
   result.openQuestions = ui["open-questions"].items.map((q) => {

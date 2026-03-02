@@ -73,7 +73,7 @@ function buildToc(briefData: Record<string, any>): { number: number; title: stri
 
   if (briefData["eval-sets"]?.sets?.length) entries.push({ number: ++n, title: "Eval Sets" });
 
-  entries.push({ number: ++n, title: "Best Practices & Recommendations" });
+  entries.push({ number: ++n, title: "Best Practices & Guidelines" });
 
   if (briefData["open-questions"]?.items?.length) entries.push({ number: ++n, title: "Open Questions" });
 
@@ -130,7 +130,7 @@ const BriefPdfDocument = ({ agent, briefData }: Props) => {
         <ScopeBoundaries data={briefData["scope-boundaries"]} sectionNumber={num()} />
         <EvalSets data={briefData["eval-sets"]} sectionNumber={num()} />
 
-        <BestPractices sectionNumber={num()} items={briefData["recommendations"]?.items ?? []} />
+        <BestPractices sectionNumber={num()} />
 
         <OpenQuestions data={briefData["open-questions"]} sectionNumber={num()} />
       </Page>
