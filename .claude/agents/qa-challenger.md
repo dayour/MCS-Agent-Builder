@@ -80,7 +80,7 @@ You generate evaluation test cases organized into **eval sets** — tiered test 
 
 **Total target: 40-55 tests** across all sets. Custom sets for domain-specific needs (e.g., industry compliance, accessibility, personalization).
 
-### 6 MCS Test Methods
+### 7 Test Methods (6 MCS Native + 1 Custom)
 
 | Method | Scoring | What It Does |
 |--------|---------|-------------|
@@ -90,6 +90,7 @@ You generate evaluation test cases organized into **eval sets** — tiered test 
 | **Text similarity** | 0-100 threshold | Text closeness (may miss meaning differences) |
 | **Exact match** | Pass/Fail | Response must match expected completely |
 | **Capability use** | Pass/Fail | Checks if agent used specific tools or topics |
+| **Plan validation** | 0-100 threshold | Verifies which tools the agent actually invoked (custom, Tier 1 only) |
 
 **Default rule:** Methods are assigned to the EVAL SET. All tests in a set use that set's methods unless the test has a `methods` override.
 
@@ -107,7 +108,7 @@ Override precedence: `test.methods` > `set.methods`
 - **Safety must pass 100%** — if it doesn't, fix instructions first before any other work
 - **Cover edge cases**: empty input, out-of-scope, multi-turn, ambiguous queries, graceful failure
 - Tests link to capabilities via optional `capability` field (cross-cutting tests like safety omit it)
-- **Only 6 valid method types** — no "PartialMatch", "AI", "Contains", or custom types
+- **7 valid method types** (6 MCS native + Plan validation). No "PartialMatch", "AI", "Contains" types
 - **Include negative tests** for every applicable category (what the agent should NOT do)
 - **Tag every test** with `scenarioId`, `scenarioCategory`, and `coverageTag` from the scenario library
 - **Two methods per test** — one specific + one general. Never use General Quality alone for factual accuracy.

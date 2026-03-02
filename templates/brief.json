@@ -167,7 +167,7 @@
       "description": "What this eval set verifies",
       "methods": [
         {
-          "type": "General quality | Compare meaning | Keyword match | Text similarity | Exact match | Capability use",
+          "type": "General quality | Compare meaning | Keyword match | Text similarity | Exact match | Capability use | Plan validation",
           "score": "0-100 threshold (for Compare meaning, Text similarity)",
           "mode": "any | all (for Keyword match only)"
         }
@@ -176,13 +176,16 @@
       "runWhen": "every-iteration | after-knowledge | per-capability | after-tools | after-functional | final | custom",
       "tests": [
         {
-          "question": "Test question to ask the agent",
+          "question": "Test question to ask the agent (or test label for multi-turn)",
           "expected": "What the response should contain or convey",
           "capability": "Which capability this tests (links to capabilities[].name, optional)",
           "methods": null,
           "scenarioId": null,
           "scenarioCategory": null,
           "coverageTag": null,
+          "turns": null,
+          "expectedTools": null,
+          "toolThreshold": null,
           "lastResult": null
         }
       ]

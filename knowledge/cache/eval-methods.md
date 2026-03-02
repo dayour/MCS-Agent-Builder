@@ -148,7 +148,7 @@ When a set uses multiple methods, a test must pass **ALL** of them:
 
 ### Important Rules
 
-- **Only 6 valid method types** — no "PartialMatch", "AI", "Contains", or custom types
+- **6 MCS native method types** + **Plan validation** (custom, 7th method). No "PartialMatch", "AI", "Contains" types
 - **passingScore** uses integer format: "70" not "0.7"
 - Only `Compare meaning`, `Text similarity` use score thresholds
 - `Keyword match` uses `mode` ("any" or "all") instead of a score
@@ -307,7 +307,7 @@ node tools/playwright-eval-runner.js --brief <path> --action detect-tier
 8. Results written to `brief.json.evalSets[].tests[].lastResult` + `evals-results.json`
 9. Falls back to legacy snapshot-poll loop if harness injection fails
 
-**Scoring:** Uses shared `tools/eval-scoring.js` module — identical scoring functions as Direct Line runner. All 6 MCS methods supported with display-name aliases and mode parameters.
+**Scoring:** Uses shared `tools/eval-scoring.js` module — identical scoring functions as Direct Line runner. All 6 MCS native methods supported with display-name aliases and mode parameters. Plan validation requires Direct Line (Tier 1) for activity capture.
 
 **Speed (with harness):** ~3-5s/test for boundary tests, ~15-30s/test for tool-calling tests
 **Speed (legacy snapshot loop):** ~15-30s/test for boundary tests, ~60-90s/test for tool-calling tests
@@ -372,6 +372,147 @@ Microsoft recommends migrating from Direct Line to the **M365 Agents SDK** for n
 
 **Current status (Feb 2026):** SDK is GA. Migration path is clear but not urgent — Direct Line remains functional. Consider for future eval runner v2.
 
+## Multi-Turn Test Support
+
+Multi-turn tests send an ordered sequence of messages in **one conversation** (same Direct Line conversation ID, watermark preserved between turns). This is critical for gen-orchestration agents where context accumulates across turns.
+
+### Schema
+
+```json
+{
+  "question": "Order lookup with follow-up questions",
+  "expected": null,
+  "turns": [
+    { "question": "I need to check my order status", "expected": null, "critical": false },
+    { "question": "Order number is ORD-12345", "expected": "status, tracking", "critical": true },
+    { "question": "Can you also show the delivery ETA?", "expected": "ETA, delivery, date", "critical": true }
+  ],
+  "expectedTools": null,
+  "capability": "Order Lookup"
+}
+```
+
+### Behavior
+
+- **`turns[]`** — Ordered message sequence. Each turn has `question`, optional `expected`, optional `critical` flag.
+- **`critical: true`** — This turn is scored against the set's methods. Non-critical turns are sent but only recorded (no scoring).
+- **Implicit critical** — If no turns are marked critical, the last turn is implicitly critical.
+- **Same conversation** — All turns share one Direct Line conversation (watermark preserved). Tool invocations accumulate across turns.
+- **Abort on critical fail** — If a critical turn fails, remaining turns still execute but the test is marked failed.
+
+### Scoring
+
+- Each critical turn is scored independently using `evaluateAllMethods()`.
+- **Test passes** if ALL critical turns pass all methods.
+- **Test score** = average of critical turn scores.
+- `turnResults[]` is written to `lastResult` for debugging (per-turn actual responses, scores, pass/fail).
+
+### Tier Support
+
+| Tier | Multi-Turn Support |
+|------|--------------------|
+| **Tier 1 (Direct Line)** | Full support — same conversation, watermark tracking, activity capture |
+| **Tier 2 (Playwright)** | Supported — skip `reset()` between turns within the same test (existing harness handles this) |
+| **Tier 3 (Native MCS)** | Not supported — MCS native eval is single-turn only |
+
+### Example Results
+
+```json
+{
+  "lastResult": {
+    "pass": true,
+    "score": 85,
+    "actual": "Your order ORD-12345 is estimated to arrive by March 5th.",
+    "turnResults": [
+      { "turnIndex": 0, "question": "I need to check my order status", "critical": false, "pass": null, "score": null, "actual": "Sure, I can help..." },
+      { "turnIndex": 1, "question": "Order number is ORD-12345", "critical": true, "pass": true, "score": 90, "actual": "Order ORD-12345 is in transit..." },
+      { "turnIndex": 2, "question": "Can you also show the delivery ETA?", "critical": true, "pass": true, "score": 80, "actual": "Estimated arrival: March 5th." }
+    ]
+  }
+}
+```
+
+## Plan Validation Method
+
+The 7th evaluation method (not a native MCS method — custom to our runner). Verifies which tools the agent **actually invoked**, not just what it said. Essential for agents where the right answer can come from the wrong source (e.g., hallucinated vs. looked up).
+
+### Schema
+
+```json
+{
+  "question": "What's the status of order ORD-12345?",
+  "expected": "status, tracking, order",
+  "expectedTools": "OrderLookup, GetTrackingInfo",
+  "toolThreshold": 70,
+  "methods": [
+    { "type": "Compare meaning", "score": 70 },
+    { "type": "Plan validation" }
+  ]
+}
+```
+
+### How It Works
+
+1. **During test execution** — Direct Line runner uses enhanced activity capture: collects ALL activities (traces, events, channelData), not just messages.
+2. **Tool extraction** — `extractToolInvocations()` scans traces, events, and channelData for tool/action names. Deliberately broad — captures everything MCS emits.
+3. **Scoring** — `expectedTools` is split by comma/semicolon into expected tool list. Each expected tool is matched case-insensitively against captured tools (substring match). Score = `(matched / expected) * 100`.
+4. **Pass** — Score >= threshold (default 70, configurable via `toolThreshold`).
+
+### Activity Capture Sources
+
+| Activity Type | Fields Scanned |
+|---------------|---------------|
+| `type: 'trace'` | `name`, `value.toolName`, `value.actionName`, nested `value` objects |
+| `type: 'event'` | `name`, `value.toolName`, `value.actionName` |
+| Any activity | `channelData.toolName`, `channelData.actionName`, `channelData.operationId`, `channelData.plan.actions[]` |
+
+### Tier Support
+
+| Tier | Plan Validation |
+|------|----------------|
+| **Tier 1 (Direct Line)** | Full support — enhanced activity capture provides trace/event data |
+| **Tier 2 (Playwright)** | Not supported — browser cannot access Direct Line activity stream |
+| **Tier 3 (Native MCS)** | Not supported |
+
+When Tier 2 is recommended (MCP agents) but plan validation tests exist, the runner suggests **split execution**: Direct Line for plan-validation tests, Playwright for MCP/user-delegated tests.
+
+### Known Limitation: Activity Stream Content
+
+What MCS emits in Direct Line beyond messages varies by agent configuration. `extractToolInvocations()` is deliberately broad. On first use:
+1. Run with `--verbose` to log all captured activities
+2. Examine what trace/event/channelData MCS provides
+3. If sparse → Phase B roadmap: enrich via Dataverse `ConversationTranscript` entity
+4. If rich → tighten extraction patterns based on actual data
+
+### Combining with Multi-Turn
+
+Plan validation works with multi-turn tests. Set `expectedTools` on the test alongside `turns[]`. Tool invocations accumulate across all turns and are validated at the end:
+
+```json
+{
+  "question": "Multi-step order + shipping lookup",
+  "turns": [
+    { "question": "Check order ORD-12345", "critical": true, "expected": "order status" },
+    { "question": "What's the shipping ETA?", "critical": true, "expected": "delivery date" }
+  ],
+  "expectedTools": "OrderLookup, ShippingTracker"
+}
+```
+
+## Copilot Studio Kit Comparison
+
+The [Power CAT Copilot Studio Kit](https://github.com/microsoft/Power-CAT-Copilot-Studio-Kit) provides multi-turn and plan validation through a different architecture:
+
+| Feature | Kit Approach | Our Approach |
+|---------|------------|-------------|
+| **Multi-turn** | Power Apps UI + cloud flows, stored in Dataverse `Test` entity | CLI-driven, brief.json `turns[]`, Direct Line API |
+| **Plan validation** | Reads `ConversationTranscript` Dataverse entity after test | Captures from Direct Line activity stream during test |
+| **Execution** | Cloud flow per test, sequential | Node.js CLI, parallel-capable |
+| **Scoring** | Custom Power Fx scoring | `eval-scoring.js` shared module (7 methods) |
+| **Integration** | Standalone Power App | Integrated into eval-driven build loop |
+
+Key difference: The Kit reads Dataverse `ConversationTranscript` (rich, complete, but requires post-test query with delay). We capture from the Direct Line activity stream (real-time, but content depends on what MCS emits). If activity capture proves sparse, Phase B will add Dataverse transcript enrichment as a fallback.
+
 ## Refresh Notes
 
 - Check MS Learn for new test method types
@@ -380,3 +521,4 @@ Microsoft recommends migrating from Direct Line to the **M365 Agents SDK** for n
 - Monitor M365 Agents SDK for eval-relevant features
 - Token Endpoint availability may change — verify in MCS Channels settings
 - Check [microsoft/ai-agent-eval-scenario-library](https://github.com/microsoft/ai-agent-eval-scenario-library) for new scenarios
+- Monitor Power CAT Kit for changes to ConversationTranscript schema (affects Phase B plan validation enrichment)

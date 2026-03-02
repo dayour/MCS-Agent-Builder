@@ -177,11 +177,23 @@ export interface ApiBrief {
       scenarioId?: string | null;
       scenarioCategory?: string | null;
       coverageTag?: string | null;
+      turns?: Array<{ question: string; expected?: string | null; critical?: boolean }> | null;
+      expectedTools?: string | null;
+      toolThreshold?: number | null;
       lastResult?: {
         pass: boolean;
         actual?: string;
         score?: number;
         timestamp?: string;
+        turnResults?: Array<{
+          turnIndex: number;
+          question: string;
+          critical: boolean;
+          pass: boolean | null;
+          score: number | null;
+          actual?: string;
+        }>;
+        toolInvocations?: string[];
       } | null;
     }>;
   }>;

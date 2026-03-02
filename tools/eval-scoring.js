@@ -2,15 +2,18 @@
  * Shared Scoring Module for MCS Eval Runners
  *
  * Extracted from direct-line-test.js. Used by both Direct Line and Playwright eval runners.
- * Supports all 6 MCS native methods with display-name aliases.
+ * Supports all 7 methods (6 MCS native + PlanValidation) with display-name aliases.
  *
  * Exports:
  *   evaluateResult(actual, expected, method, passingScore, mode)
+ *   evaluateAllMethods(actual, expected, methods, toolInvocations?)
+ *   evaluateMultiTurn(turnResults, methods, expectedTools?)
+ *   normalizeMethod(rawMethod)
  *   textSimilarity(a, b)
  *   semanticSimilarity(actual, expected)
  *   qualityScore(actual, expected)
  *   parseCSV(content)
- *   parseEvalSets(briefPath)
+ *   parseEvalSets(briefPath, filterSets?)
  *   writeResultsToBrief(briefPath, results)
  */
 
@@ -38,6 +41,9 @@ const METHOD_ALIASES = {
     'capabilityuse': 'CapabilityUse',
     // Legacy / incorrect names → mapped
     'partialmatch': 'KeywordMatch',  // PartialMatch doesn't exist in MCS
+    // Plan validation (7th method — tool invocation verification)
+    'plan validation': 'PlanValidation',
+    'planvalidation': 'PlanValidation',
 };
 
 /**
@@ -202,6 +208,44 @@ function evaluateResult(actual, expected, method, passingScore, mode) {
             return { pass: score >= (threshold), score, method: canonicalMethod };
         }
 
+        case 'PlanValidation': {
+            // Verify which tools the agent actually invoked
+            // `actual` should be JSON-stringified array of tool names (from activity capture)
+            // `expected` is comma/semicolon-separated list of expected tool names
+            let actualTools = [];
+            try {
+                actualTools = JSON.parse(actual);
+                if (!Array.isArray(actualTools)) actualTools = [];
+            } catch {
+                // JSON parse failed — no tool data captured, test fails gracefully
+                actualTools = [];
+            }
+
+            const expectedTools = expected.split(/[,;]+/).map(s => s.trim()).filter(Boolean);
+            if (expectedTools.length === 0) {
+                return { pass: actualTools.length > 0, score: actualTools.length > 0 ? 100 : 0, method: canonicalMethod };
+            }
+
+            const actualToolsLower = actualTools.map(t => (t || '').toLowerCase());
+            const matched = expectedTools.filter(exp => {
+                const expLower = exp.toLowerCase();
+                return actualToolsLower.some(act => act.includes(expLower) || expLower.includes(act));
+            });
+
+            const score = Math.round((matched.length / expectedTools.length) * 100);
+            const missing = expectedTools.filter(exp => {
+                const expLower = exp.toLowerCase();
+                return !actualToolsLower.some(act => act.includes(expLower) || expLower.includes(act));
+            });
+
+            return {
+                pass: score >= threshold,
+                score,
+                method: canonicalMethod,
+                ...(missing.length > 0 ? { error: `Missing tools: ${missing.join(', ')}` } : {})
+            };
+        }
+
         default:
             return { pass: false, score: 0, method: canonicalMethod, error: `Unknown test method: ${method}` };
     }
@@ -214,9 +258,10 @@ function evaluateResult(actual, expected, method, passingScore, mode) {
  * @param {string} actual - The agent's actual response
  * @param {string} expected - The expected response / keywords
  * @param {Array<{type: string, mode?: string, score?: number}>} methods - Methods from the eval set
+ * @param {string[]} [toolInvocations] - Optional array of tool names captured from Direct Line activities
  * @returns {{ pass: boolean, score: number, methodResults: Array<{method: string, pass: boolean, score: number}> }}
  */
-function evaluateAllMethods(actual, expected, methods) {
+function evaluateAllMethods(actual, expected, methods, toolInvocations) {
     if (!methods || methods.length === 0) {
         // Default to GeneralQuality if no methods specified
         const result = evaluateResult(actual, expected, 'GeneralQuality', 70);
@@ -230,6 +275,13 @@ function evaluateAllMethods(actual, expected, methods) {
     const methodResults = methods.map(m => {
         const passingScore = m.score || 70;
         const mode = m.mode || null;
+        const { method: canonical } = normalizeMethod(m.type);
+
+        // PlanValidation uses tool invocations instead of text response
+        if (canonical === 'PlanValidation' && toolInvocations) {
+            return evaluateResult(JSON.stringify(toolInvocations), expected, m.type, passingScore, mode);
+        }
+
         return evaluateResult(actual, expected, m.type, passingScore, mode);
     });
 
@@ -241,6 +293,82 @@ function evaluateAllMethods(actual, expected, methods) {
         pass: allPass,
         score: avgScore,
         methodResults
+    };
+}
+
+/**
+ * Evaluate a multi-turn test (ordered message sequence in one conversation).
+ *
+ * @param {Array<{turnIndex: number, question: string, expected?: string, critical?: boolean, actual: string, toolInvocations?: string[]}>} turnResults - Results from each turn
+ * @param {Array<{type: string, mode?: string, score?: number}>} methods - Methods from the eval set
+ * @param {string} [expectedTools] - Comma-separated expected tools (for PlanValidation across all turns)
+ * @returns {{ pass: boolean, score: number, turnResults: Array, methodResults: Array }}
+ */
+function evaluateMultiTurn(turnResults, methods, expectedTools) {
+    if (!turnResults || turnResults.length === 0) {
+        return { pass: false, score: 0, turnResults: [], methodResults: [] };
+    }
+
+    // Identify critical turns — if none marked, last turn is implicitly critical
+    const hasCritical = turnResults.some(t => t.critical);
+    const evaluated = turnResults.map((turn, idx) => {
+        const isCritical = hasCritical ? !!turn.critical : (idx === turnResults.length - 1);
+
+        if (!isCritical || !turn.expected) {
+            // Non-critical or no expected: record but don't score
+            return {
+                turnIndex: turn.turnIndex ?? idx,
+                question: turn.question,
+                critical: isCritical,
+                pass: null,
+                score: null,
+                actual: turn.actual || ''
+            };
+        }
+
+        // Score this critical turn
+        const allTools = turn.toolInvocations || [];
+        const evaluation = evaluateAllMethods(turn.actual || '', turn.expected, methods, allTools.length > 0 ? allTools : undefined);
+
+        return {
+            turnIndex: turn.turnIndex ?? idx,
+            question: turn.question,
+            critical: true,
+            pass: evaluation.pass,
+            score: evaluation.score,
+            actual: turn.actual || '',
+            methodResults: evaluation.methodResults
+        };
+    });
+
+    // If expectedTools is set, add a PlanValidation check across all captured tools
+    let planResult = null;
+    if (expectedTools) {
+        const allToolInvocations = turnResults.flatMap(t => t.toolInvocations || []);
+        const unique = [...new Set(allToolInvocations)];
+        planResult = evaluateResult(JSON.stringify(unique), expectedTools, 'PlanValidation', 70);
+    }
+
+    // Pass = ALL critical turns pass all methods (+ plan validation if present)
+    const criticalTurns = evaluated.filter(t => t.critical && t.pass !== null);
+    const allCriticalPass = criticalTurns.length > 0 && criticalTurns.every(t => t.pass);
+    const planPass = planResult ? planResult.pass : true;
+
+    // Score = average of critical turn scores
+    const criticalScores = criticalTurns.filter(t => t.score !== null).map(t => t.score);
+    const avgScore = criticalScores.length > 0
+        ? Math.round(criticalScores.reduce((a, b) => a + b, 0) / criticalScores.length)
+        : 0;
+
+    // Collect all method results from critical turns
+    const allMethodResults = criticalTurns.flatMap(t => t.methodResults || []);
+    if (planResult) allMethodResults.push(planResult);
+
+    return {
+        pass: allCriticalPass && planPass,
+        score: avgScore,
+        turnResults: evaluated,
+        methodResults: allMethodResults
     };
 }
 
@@ -321,7 +449,10 @@ function parseEvalSets(briefPath, filterSets) {
                 scenarioId: test.scenarioId || null,
                 scenarioCategory: test.scenarioCategory || null,
                 coverageTag: test.coverageTag || null,
-                lastResult: test.lastResult || null
+                lastResult: test.lastResult || null,
+                turns: test.turns || null,
+                expectedTools: test.expectedTools || null,
+                toolThreshold: test.toolThreshold || null
             });
         }
     }
@@ -352,7 +483,9 @@ function writeResultsToBrief(briefPath, results) {
             actual: r.actual,
             score: r.score,
             timestamp,
-            ...(r.methodResults ? { methodResults: r.methodResults } : {})
+            ...(r.methodResults ? { methodResults: r.methodResults } : {}),
+            ...(r.turnResults ? { turnResults: r.turnResults } : {}),
+            ...(r.toolInvocations ? { toolInvocations: r.toolInvocations } : {})
         };
     }
 
@@ -387,6 +520,8 @@ function writeOneResultToBrief(briefPath, result) {
 module.exports = {
     evaluateResult,
     evaluateAllMethods,
+    evaluateMultiTurn,
+    normalizeMethod,
     textSimilarity,
     semanticSimilarity,
     qualityScore,

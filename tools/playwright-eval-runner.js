@@ -93,6 +93,10 @@ Options:
  * Boundary tests typically expect decline/refusal responses.
  */
 function classifyTest(test) {
+    // Multi-turn and plan-validation tests always need full runtime (slow path)
+    if (test.turns && test.turns.length > 0) return 'tool';
+    if (test.expectedTools) return 'tool';
+
     // Critical set tests are almost always boundary tests
     if (BOUNDARY_SETS.includes(test.setName)) {
         return 'boundary';
@@ -183,8 +187,14 @@ function generatePlan(config) {
         methods: t.methods,
         type: t.type,
         needsReset: t.needsReset,
-        estimatedTime: t.estimatedTime
+        estimatedTime: t.estimatedTime,
+        ...(t.turns ? { isMultiTurn: true, turns: t.turns } : {}),
+        ...(t.expectedTools ? { requiresTier1: true, expectedTools: t.expectedTools } : {})
     }));
+
+    // Count multi-turn and plan validation tests
+    const multiTurnTests = ordered.filter(t => t.turns && t.turns.length > 0);
+    const planValidationTests = ordered.filter(t => t.expectedTools);
 
     const plan = {
         agentName,
@@ -196,9 +206,16 @@ function generatePlan(config) {
             slow: slowCount,
             resetCount,
             estimatedMinutes,
+            multiTurnCount: multiTurnTests.length,
+            totalTurns: multiTurnTests.reduce((s, t) => s + t.turns.length, 0),
+            planValidationCount: planValidationTests.length,
             setBreakdown: {}
         }
     };
+
+    if (planValidationTests.length > 0) {
+        plan.summary.tierWarning = `${planValidationTests.length} test(s) require Plan Validation (activity capture). Playwright cannot capture Direct Line activities — these tests require Tier 1 (Direct Line API). Consider split execution.`;
+    }
 
     // Set breakdown
     const setNames = [...new Set(ordered.map(t => t.setName))];
@@ -248,24 +265,45 @@ function scoreResults(config) {
         const expected = testInfo.expected || '';
         const methods = testInfo.methods || [];
 
-        const evaluation = evaluateAllMethods(actual, expected, methods);
+        let scoredResult;
 
-        const scoredResult = {
-            id: r.id,
-            setName: testInfo.setName,
-            setIndex: testInfo.setIndex,
-            testIndex: testInfo.testIndex,
-            question: testInfo.question,
-            expected,
-            actual,
-            pass: evaluation.pass,
-            score: evaluation.score,
-            methodResults: evaluation.methodResults
-        };
+        // Multi-turn results come pre-scored from Direct Line runner
+        if (r.turnResults && r.turnResults.length > 0) {
+            const lastCritical = [...(r.turnResults || [])].reverse().find(t => t.critical && t.pass !== null);
+            scoredResult = {
+                id: r.id,
+                setName: testInfo.setName,
+                setIndex: testInfo.setIndex,
+                testIndex: testInfo.testIndex,
+                question: testInfo.question,
+                expected,
+                actual: lastCritical ? lastCritical.actual : actual,
+                pass: r.pass ?? false,
+                score: r.score ?? 0,
+                methodResults: r.methodResults || [],
+                turnResults: r.turnResults,
+                toolInvocations: r.toolInvocations
+            };
+        } else {
+            const evaluation = evaluateAllMethods(actual, expected, methods, r.toolInvocations);
+            scoredResult = {
+                id: r.id,
+                setName: testInfo.setName,
+                setIndex: testInfo.setIndex,
+                testIndex: testInfo.testIndex,
+                question: testInfo.question,
+                expected,
+                actual,
+                pass: evaluation.pass,
+                score: evaluation.score,
+                methodResults: evaluation.methodResults,
+                ...(r.toolInvocations ? { toolInvocations: r.toolInvocations } : {})
+            };
+        }
 
         scored.push(scoredResult);
 
-        if (evaluation.pass) passed++;
+        if (scoredResult.pass) passed++;
         else failed++;
     }
 
@@ -357,6 +395,15 @@ function detectTier(config) {
             name.includes('planner');
     });
 
+    // Count plan validation tests in evalSets
+    const evalSets = brief.evalSets || [];
+    let planValidationCount = 0;
+    for (const set of evalSets) {
+        for (const test of (set.tests || [])) {
+            if (test.expectedTools) planValidationCount++;
+        }
+    }
+
     const hasMCP = mcpIntegrations.length > 0 || mcpTools.length > 0;
     const hasUserDelegated = userDelegatedTools.length > 0;
     const needsPlaywright = hasMCP || hasUserDelegated;
@@ -369,11 +416,16 @@ function detectTier(config) {
         mcpIntegrations: mcpIntegrations.map(i => i.name || i.type),
         userDelegatedTools: userDelegatedTools.map(t => t.name),
         mcpToolCount: mcpTools.length,
+        planValidationCount,
         details: {
-            tier1: 'Direct Line API — ~2s/test, auto-token, retry with backoff',
+            tier1: 'Direct Line API — ~2s/test, auto-token, retry with backoff, supports activity capture for plan validation',
             tier2: 'Playwright Test Chat — ~5-90s/test depending on tools, no token needed'
         }
     };
+
+    if (needsPlaywright && planValidationCount > 0) {
+        result.splitExecutionNote = `${planValidationCount} test(s) use Plan Validation which requires Direct Line activity capture. Consider split execution: Tier 1 for plan-validation tests, Tier 2 for MCP/user-delegated tests.`;
+    }
 
     console.log(JSON.stringify(result, null, 2));
 }

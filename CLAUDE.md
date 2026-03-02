@@ -763,7 +763,7 @@ tools/
 ├── add-tool.js             # Headless tool/connector addition — generates action YAML + LSP push
 ├── flow-manager.js         # Power Automate cloud flow CRUD — triggers, schedules, activate/deactivate
 ├── direct-line-test.js     # Direct Line API test runner
-├── eval-scoring.js         # Shared scoring module (6 MCS methods, used by Direct Line + Playwright runners)
+├── eval-scoring.js         # Shared scoring module (7 methods: 6 MCS native + PlanValidation, multi-turn support)
 ├── test-chat-harness.js    # Injectable browser harness for fast Playwright Test Chat eval
 ├── playwright-eval-runner.js # Test plan generator, scorer, tier detector for Playwright eval
 ├── replicate-agent.js      # Cross-environment agent replication via Dataverse + LSP clone + push

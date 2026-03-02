@@ -2,12 +2,12 @@
  * Direct Line API Test Runner for Copilot Studio Agents
  *
  * Sends test messages to an MCS agent via Direct Line API and compares
- * responses against expected results from evals.csv.
+ * responses against expected results from evals.csv or brief.json evalSets.
  *
  * Usage:
- *   node tools/direct-line-test.js --token <DL_TOKEN> --csv <path/to/evals.csv>
  *   node tools/direct-line-test.js --token-endpoint <URL> --csv <path/to/evals.csv>
- *   node tools/direct-line-test.js --token <DL_TOKEN> --csv <path/to/evals.csv> --endpoint <DL_ENDPOINT>
+ *   node tools/direct-line-test.js --token-endpoint <URL> --brief <path/to/brief.json> [--set safety,functional]
+ *   node tools/direct-line-test.js --token <DL_TOKEN> --csv <path/to/evals.csv>
  *
  * Token acquisition (in priority order):
  *   1. --token-endpoint <URL> — MCS Token Endpoint (GET, no secret needed)
@@ -17,8 +17,9 @@
  *      Found in: Copilot Studio → Settings → Security → Web channel security
  *   3. Dataverse API: PvaGetDirectLineEndpoint bound action on the bot entity
  *
- * CSV format (same as MCS native eval):
- *   "question","expectedResponse","testMethodType","passingScore"
+ * Input formats:
+ *   --csv <path>   CSV format: "question","expectedResponse","testMethodType","passingScore"
+ *   --brief <path> brief.json evalSets (supports multi-turn tests + plan validation)
  *
  * Exit codes:
  *   0 = all tests passed
@@ -28,7 +29,7 @@
 
 const fs = require('fs');
 const { httpRequest, httpRequestWithRetry } = require('./lib/http');
-const { evaluateResult, parseCSV } = require('./eval-scoring');
+const { evaluateResult, evaluateAllMethods, evaluateMultiTurn, parseCSV, parseEvalSets } = require('./eval-scoring');
 
 // --- Configuration ---
 const DEFAULT_ENDPOINT = 'https://directline.botframework.com/v3/directline';
@@ -47,6 +48,8 @@ function parseArgs() {
             case '--token': config.token = args[++i]; break;
             case '--token-endpoint': config.tokenEndpoint = args[++i]; break;
             case '--csv': config.csvPath = args[++i]; break;
+            case '--brief': config.briefPath = args[++i]; break;
+            case '--set': config.filterSets = args[++i].split(',').map(s => s.trim()); break;
             case '--endpoint': config.endpoint = args[++i]; break;
             case '--timeout': config.timeout = parseInt(args[++i]) || DEFAULT_TIMEOUT_MS; break;
             case '--verbose': config.verbose = true; break;
@@ -58,16 +61,20 @@ Token (one required):
   --token-endpoint <URL>     MCS Token Endpoint URL (auto-acquires token, no secret needed)
                              Found in: Copilot Studio → Channels → Mobile app
 
-Test configuration:
-  --csv <path>               Path to evals.csv file (required)
+Test input (one required):
+  --csv <path>               Path to evals.csv file
+  --brief <path>             Path to brief.json (supports multi-turn + plan validation)
+  --set <names>              Comma-separated eval set filter (with --brief only)
+
+Options:
   --endpoint <URL>           Direct Line endpoint (default: botframework.com)
   --timeout <ms>             Response timeout in ms (default: 60000)
   --verbose                  Show detailed output for failed tests
 
 Examples:
   node direct-line-test.js --token-endpoint "https://..." --csv evals.csv
-  node direct-line-test.js --token "abc123" --csv evals.csv --verbose
-  node direct-line-test.js --token "abc123" --csv evals.csv --timeout 90000`);
+  node direct-line-test.js --token-endpoint "https://..." --brief brief.json --set safety,functional
+  node direct-line-test.js --token "abc123" --brief brief.json --verbose`);
                 process.exit(0);
         }
     }
@@ -76,8 +83,8 @@ Examples:
         console.error('Error: --token or --token-endpoint is required');
         process.exit(2);
     }
-    if (!config.csvPath) {
-        console.error('Error: --csv is required');
+    if (!config.csvPath && !config.briefPath) {
+        console.error('Error: --csv or --brief is required');
         process.exit(2);
     }
 
@@ -157,6 +164,75 @@ class TokenManager {
     }
 }
 
+// --- Tool Invocation Extraction ---
+
+/**
+ * Recursively extract tool/action names from a trace or event value object.
+ */
+function extractToolsFromValue(value, toolsSet) {
+    if (!value || typeof value !== 'object') return;
+
+    // Direct tool name fields
+    for (const key of ['toolName', 'actionName', 'operationId', 'name']) {
+        if (typeof value[key] === 'string' && value[key].length > 0 && value[key].length < 200) {
+            toolsSet.add(value[key]);
+        }
+    }
+
+    // Plan actions array (e.g., channelData.plan.actions[])
+    if (Array.isArray(value.actions)) {
+        for (const action of value.actions) {
+            if (typeof action === 'string') toolsSet.add(action);
+            else if (action && typeof action.name === 'string') toolsSet.add(action.name);
+            else if (action && typeof action === 'object') extractToolsFromValue(action, toolsSet);
+        }
+    }
+
+    // Recurse into nested objects (1 level deep to avoid infinite recursion)
+    for (const key of Object.keys(value)) {
+        if (typeof value[key] === 'object' && value[key] !== null && !Array.isArray(value[key]) && key !== 'from') {
+            extractToolsFromValue(value[key], toolsSet);
+        }
+    }
+}
+
+/**
+ * Extract tool/action names from all Direct Line activities.
+ * Deliberately broad — logs all captures in verbose mode.
+ *
+ * @param {Array} activities - All activities from Direct Line
+ * @param {boolean} [verbose=false] - Log captured activities for debugging
+ * @returns {string[]} - Deduplicated tool names
+ */
+function extractToolInvocations(activities, verbose) {
+    const tools = new Set();
+
+    for (const a of activities) {
+        // Trace activities — primary source of tool invocation info
+        if (a.type === 'trace') {
+            if (verbose) console.log(`    [trace] name=${a.name}, valueType=${typeof a.value}`);
+            if (a.name) tools.add(a.name);
+            if (a.value) extractToolsFromValue(a.value, tools);
+        }
+
+        // Event activities
+        if (a.type === 'event') {
+            if (verbose) console.log(`    [event] name=${a.name}, valueType=${typeof a.value}`);
+            if (a.name) tools.add(a.name);
+            if (a.value) extractToolsFromValue(a.value, tools);
+        }
+
+        // Channel data on any activity type
+        if (a.channelData) {
+            extractToolsFromValue(a.channelData, tools);
+        }
+    }
+
+    // Filter out generic/noise names
+    const noise = new Set(['message', 'typing', 'conversationUpdate', 'endOfConversation', 'test-user']);
+    return [...tools].filter(t => !noise.has(t));
+}
+
 // --- Direct Line Client ---
 class DirectLineClient {
     constructor(tokenManager, endpoint) {
@@ -229,8 +305,16 @@ class DirectLineClient {
         return res.data.id;
     }
 
-    async getResponse(timeoutMs) {
+    /**
+     * Poll for the agent's response.
+     *
+     * @param {number} timeoutMs - Max wait time
+     * @param {boolean} [enhancedCapture=false] - When true, returns structured object with all activities
+     * @returns {string | {text: string, allActivities: Array, toolInvocations: string[]}}
+     */
+    async getResponse(timeoutMs, enhancedCapture) {
         const start = Date.now();
+        const allActivities = enhancedCapture ? new Map() : null; // keyed by activity id
 
         while (Date.now() - start < timeoutMs) {
             const token = await this.tokenManager.getToken();
@@ -248,6 +332,13 @@ class DirectLineClient {
             }
 
             if (res.status === 200 && res.data.activities) {
+                // Collect all activities for enhanced capture (dedup by id)
+                if (allActivities) {
+                    for (const a of res.data.activities) {
+                        if (a.id) allActivities.set(a.id, a);
+                    }
+                }
+
                 // Filter to bot responses only (not our own messages)
                 const botMessages = res.data.activities.filter(a =>
                     a.type === 'message' && a.from && a.from.id !== 'test-user'
@@ -255,9 +346,18 @@ class DirectLineClient {
 
                 if (botMessages.length > 0) {
                     this.watermark = res.data.watermark;
-                    // Return the last bot message (most complete response)
                     const lastMsg = botMessages[botMessages.length - 1];
-                    return lastMsg.text || '[No text - check attachments]';
+                    const text = lastMsg.text || '[No text - check attachments]';
+
+                    if (enhancedCapture) {
+                        const activitiesArr = [...allActivities.values()];
+                        return {
+                            text,
+                            allActivities: activitiesArr,
+                            toolInvocations: extractToolInvocations(activitiesArr, false)
+                        };
+                    }
+                    return text;
                 }
             }
 
@@ -265,18 +365,26 @@ class DirectLineClient {
             await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
         }
 
-        return '[TIMEOUT - No response within ' + (timeoutMs / 1000) + 's]';
+        const timeoutText = '[TIMEOUT - No response within ' + (timeoutMs / 1000) + 's]';
+        if (enhancedCapture) {
+            const activitiesArr = allActivities ? [...allActivities.values()] : [];
+            return {
+                text: timeoutText,
+                allActivities: activitiesArr,
+                toolInvocations: extractToolInvocations(activitiesArr, false)
+            };
+        }
+        return timeoutText;
     }
 }
 
 // Scoring functions now imported from shared module (./eval-scoring.js)
-// evaluateResult(actual, expected, method, passingScore, mode) handles all 6 MCS methods
+// evaluateResult() handles all 7 methods (6 MCS native + PlanValidation)
 // including display-name aliases and legacy PartialMatch → KeywordMatch mapping
 
 // --- Write partial results (for failover support) ---
 function writeResults(config, results, testCases, status, failedAtIndex) {
     const passed = results.filter(r => r.pass).length;
-    const failed = results.filter(r => !r.pass).length;
     const total = testCases.length;
 
     const output = {
@@ -292,10 +400,15 @@ function writeResults(config, results, testCases, status, failedAtIndex) {
         timestamp: new Date().toISOString(),
         method: 'DirectLine',
         ...(failedAtIndex !== undefined && { failedAt: failedAtIndex }),
-        results
+        results: results.map(r => ({
+            ...r,
+            ...(r.turnResults ? { turnResults: r.turnResults } : {}),
+            ...(r.toolInvocations ? { toolInvocations: r.toolInvocations } : {})
+        }))
     };
 
-    const resultsPath = config.csvPath.replace('.csv', '-results.json');
+    const basePath = config.briefPath || config.csvPath;
+    const resultsPath = basePath.replace(/\.(csv|json)$/, '-results.json');
     fs.writeFileSync(resultsPath, JSON.stringify(output, null, 2));
     return resultsPath;
 }
@@ -304,16 +417,37 @@ function writeResults(config, results, testCases, status, failedAtIndex) {
 async function runTests() {
     const config = parseArgs();
 
-    // Read and parse CSV
-    const csvContent = fs.readFileSync(config.csvPath, 'utf8');
-    const testCases = parseCSV(csvContent);
+    // Load test cases from CSV or brief.json
+    let testCases;
+    let inputSource;
+
+    if (config.briefPath) {
+        const { tests, agentName } = parseEvalSets(config.briefPath, config.filterSets);
+        testCases = tests.map(t => ({
+            ...t,
+            expectedResponse: t.expected || '',
+            testMethodType: t.methods && t.methods[0] ? t.methods[0].type : 'GeneralQuality',
+            passingScore: t.methods && t.methods[0] && t.methods[0].score ? t.methods[0].score : 70
+        }));
+        inputSource = `brief.json (${agentName})`;
+        if (config.filterSets) inputSource += ` [sets: ${config.filterSets.join(', ')}]`;
+    } else {
+        const csvContent = fs.readFileSync(config.csvPath, 'utf8');
+        testCases = parseCSV(csvContent);
+        inputSource = `CSV: ${config.csvPath}`;
+    }
+
+    const multiTurnCount = testCases.filter(tc => tc.turns && tc.turns.length > 0).length;
+    const planValidationCount = testCases.filter(tc => tc.expectedTools).length;
 
     console.log(`\n=== Direct Line Test Runner ===`);
     console.log(`Test cases: ${testCases.length}`);
+    if (multiTurnCount > 0) console.log(`  Multi-turn: ${multiTurnCount} (${testCases.filter(tc => tc.turns).reduce((s, tc) => s + tc.turns.length, 0)} total turns)`);
+    if (planValidationCount > 0) console.log(`  Plan validation: ${planValidationCount}`);
     console.log(`Endpoint: ${config.endpoint}`);
     console.log(`Timeout: ${config.timeout}ms`);
     console.log(`Token source: ${config.tokenEndpoint ? 'Token Endpoint (auto)' : 'Manual token'}`);
-    console.log(`CSV: ${config.csvPath}\n`);
+    console.log(`Input: ${inputSource}\n`);
 
     // Initialize token manager
     const tokenManager = new TokenManager(config.tokenEndpoint || null, config.token || null);
@@ -335,7 +469,10 @@ async function runTests() {
     for (let i = 0; i < testCases.length; i++) {
         const tc = testCases[i];
         const questionPreview = tc.question.length > 60 ? tc.question.substring(0, 57) + '...' : tc.question;
-        console.log(`[${i + 1}/${testCases.length}] Testing: "${questionPreview}"`);
+        const isMultiTurn = tc.turns && tc.turns.length > 0;
+        const hasPlanValidation = !!tc.expectedTools;
+        const label = isMultiTurn ? `[multi-turn, ${tc.turns.length} turns]` : hasPlanValidation ? '[plan-validation]' : '';
+        console.log(`[${i + 1}/${testCases.length}] Testing: "${questionPreview}" ${label}`);
 
         // Refresh token proactively between tests if needed
         try {
@@ -345,38 +482,124 @@ async function runTests() {
         }
 
         try {
-            // New conversation per test
-            await client.startConversation();
+            if (isMultiTurn) {
+                // --- Multi-turn path ---
+                await client.startConversation();
 
-            // Send message
-            await client.sendMessage(tc.question);
+                const turnResults = [];
+                let aborted = false;
 
-            // Wait for response
-            const response = await client.getResponse(config.timeout);
+                for (let t = 0; t < tc.turns.length; t++) {
+                    const turn = tc.turns[t];
+                    const turnPreview = turn.question.length > 50 ? turn.question.substring(0, 47) + '...' : turn.question;
+                    console.log(`  Turn ${t + 1}/${tc.turns.length}: "${turnPreview}"${turn.critical ? ' [critical]' : ''}`);
 
-            // Evaluate
-            const result = evaluateResult(response, tc.expectedResponse, tc.testMethodType, tc.passingScore);
+                    await client.sendMessage(turn.question);
+                    const resp = await client.getResponse(config.timeout, true);
+                    const text = typeof resp === 'string' ? resp : resp.text;
+                    const toolInvocations = typeof resp === 'object' ? resp.toolInvocations : [];
 
-            results.push({
-                ...tc,
-                actualResponse: response,
-                pass: result.pass,
-                score: result.score,
-                error: result.error
-            });
+                    if (config.verbose) {
+                        console.log(`    Response: ${text.substring(0, 80)}`);
+                        if (toolInvocations.length > 0) console.log(`    Tools: ${toolInvocations.join(', ')}`);
+                    }
 
-            const status = result.pass ? 'PASS' : 'FAIL';
-            console.log(`  ${status} (score: ${result.score}, method: ${tc.testMethodType})`);
+                    turnResults.push({
+                        turnIndex: t,
+                        question: turn.question,
+                        expected: turn.expected || null,
+                        critical: !!turn.critical,
+                        actual: text,
+                        toolInvocations
+                    });
 
-            if (config.verbose && !result.pass) {
-                console.log(`  Expected: ${tc.expectedResponse.substring(0, 100)}`);
-                console.log(`  Actual:   ${response.substring(0, 100)}`);
+                    // Small delay between turns
+                    await new Promise(r => setTimeout(r, 300));
+                }
+
+                // Score the multi-turn sequence
+                const methods = tc.methods || [];
+                const evaluation = evaluateMultiTurn(turnResults, methods, tc.expectedTools || null);
+
+                results.push({
+                    ...tc,
+                    actualResponse: turnResults[turnResults.length - 1]?.actual || '',
+                    actual: turnResults[turnResults.length - 1]?.actual || '',
+                    pass: evaluation.pass,
+                    score: evaluation.score,
+                    methodResults: evaluation.methodResults,
+                    turnResults: evaluation.turnResults,
+                    toolInvocations: turnResults.flatMap(t => t.toolInvocations || [])
+                });
+
+                const status = evaluation.pass ? 'PASS' : 'FAIL';
+                console.log(`  ${status} (score: ${evaluation.score}, ${evaluation.turnResults.filter(t => t.critical && t.pass !== null).length} critical turns)`);
+
+            } else if (hasPlanValidation) {
+                // --- Single-turn with plan validation ---
+                await client.startConversation();
+                await client.sendMessage(tc.question);
+
+                // Enhanced capture to get tool invocations
+                const resp = await client.getResponse(config.timeout, true);
+                const text = typeof resp === 'string' ? resp : resp.text;
+                const toolInvocations = typeof resp === 'object' ? resp.toolInvocations : [];
+
+                if (config.verbose) {
+                    console.log(`  Tools captured: ${toolInvocations.length > 0 ? toolInvocations.join(', ') : '(none)'}`);
+                    if (typeof resp === 'object' && resp.allActivities) {
+                        console.log(`  Activities: ${resp.allActivities.length} total (${resp.allActivities.filter(a => a.type === 'trace').length} traces, ${resp.allActivities.filter(a => a.type === 'event').length} events)`);
+                    }
+                }
+
+                // Evaluate with tool invocations
+                const methods = tc.methods || [];
+                const evaluation = evaluateAllMethods(text, tc.expectedResponse, methods, toolInvocations);
+
+                results.push({
+                    ...tc,
+                    actualResponse: text,
+                    actual: text,
+                    pass: evaluation.pass,
+                    score: evaluation.score,
+                    methodResults: evaluation.methodResults,
+                    toolInvocations
+                });
+
+                const status = evaluation.pass ? 'PASS' : 'FAIL';
+                console.log(`  ${status} (score: ${evaluation.score}, tools: [${toolInvocations.join(', ')}])`);
+
+            } else {
+                // --- Standard single-turn path (unchanged behavior) ---
+                await client.startConversation();
+                await client.sendMessage(tc.question);
+
+                const response = await client.getResponse(config.timeout);
+                const result = evaluateResult(response, tc.expectedResponse, tc.testMethodType, tc.passingScore);
+
+                results.push({
+                    ...tc,
+                    actualResponse: response,
+                    actual: response,
+                    pass: result.pass,
+                    score: result.score,
+                    error: result.error
+                });
+
+                const status = result.pass ? 'PASS' : 'FAIL';
+                console.log(`  ${status} (score: ${result.score}, method: ${tc.testMethodType})`);
+
+                if (config.verbose && !result.pass) {
+                    console.log(`  Expected: ${tc.expectedResponse.substring(0, 100)}`);
+                    console.log(`  Actual:   ${response.substring(0, 100)}`);
+                }
             }
 
         } catch (err) {
             results.push({
                 ...tc,
                 actualResponse: '',
+                actual: '',
                 pass: false,
                 score: 0,
                 error: err.message
@@ -411,10 +634,21 @@ async function runTests() {
 
     if (failed > 0) {
         console.log(`\nFailed tests:`);
-        results.filter(r => !r.pass).forEach((r, i) => {
-            console.log(`\n  ${i + 1}. [${r.testMethodType}] "${r.question}"`);
-            console.log(`     Expected: ${r.expectedResponse.substring(0, 150)}`);
-            console.log(`     Actual:   ${(r.actualResponse || r.error || 'N/A').substring(0, 150)}`);
+        results.filter(r => !r.pass).forEach((r, idx) => {
+            const method = r.testMethodType || (r.methods && r.methods[0] ? r.methods[0].type : 'N/A');
+            console.log(`\n  ${idx + 1}. [${method}] "${r.question}"`);
+            if (r.turnResults) {
+                console.log(`     Multi-turn: ${r.turnResults.length} turns, ${r.turnResults.filter(t => t.critical).length} critical`);
+                r.turnResults.filter(t => t.critical && t.pass === false).forEach(t => {
+                    console.log(`     Turn ${t.turnIndex + 1} FAIL: "${t.question.substring(0, 60)}" → "${(t.actual || '').substring(0, 60)}"`);
+                });
+            } else {
+                console.log(`     Expected: ${(r.expectedResponse || '').substring(0, 150)}`);
+                console.log(`     Actual:   ${(r.actualResponse || r.error || 'N/A').substring(0, 150)}`);
+            }
+            if (r.toolInvocations && r.toolInvocations.length > 0) {
+                console.log(`     Tools: [${r.toolInvocations.join(', ')}]`);
+            }
             console.log(`     Score: ${r.score}${r.passingScore ? ` (needed: ${r.passingScore})` : ''}`);
         });
     }

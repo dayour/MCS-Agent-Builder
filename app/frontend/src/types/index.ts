@@ -134,7 +134,8 @@ export type EvalMethodType =
   | "Keyword match"
   | "Text similarity"
   | "Exact match"
-  | "Capability use";
+  | "Capability use"
+  | "Plan validation";
 
 export interface EvalMethod {
   type: EvalMethodType;
@@ -149,6 +150,21 @@ export interface EvalTestResult {
   actual?: string;
   score?: number;
   timestamp?: string;
+  turnResults?: Array<{
+    turnIndex: number;
+    question: string;
+    critical: boolean;
+    pass: boolean | null;
+    score: number | null;
+    actual?: string;
+  }>;
+  toolInvocations?: string[];
+}
+
+export interface EvalTestTurn {
+  question: string;
+  expected?: string | null;
+  critical?: boolean;
 }
 
 export interface EvalTest {
@@ -164,6 +180,12 @@ export interface EvalTest {
   scenarioCategory?: string | null;
   /** Coverage tag: "core-business" | "variations" | "architecture" | "edge-cases". */
   coverageTag?: "core-business" | "variations" | "architecture" | "edge-cases" | null;
+  /** Multi-turn: ordered sequence of messages in one conversation. When set, `question` is the test label. */
+  turns?: EvalTestTurn[] | null;
+  /** Plan validation: comma-separated tool names the agent should invoke. */
+  expectedTools?: string | null;
+  /** Plan validation: score threshold for tool matching (default 70). */
+  toolThreshold?: number | null;
   lastResult: EvalTestResult | null;
 }
 

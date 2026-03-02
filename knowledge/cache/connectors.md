@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-02-27
-sources: [MS Learn, Power Platform connector catalog, MS Learn Salesforce connector reference, MS Learn Bing Search connector reference, WebSearch]
+last_verified: 2026-03-02
+sources: [MS Learn, Power Platform connector catalog, MS Learn Salesforce connector reference, MS Learn Bing Search connector reference, MS Learn ServiceNow connector reference, MS Learn Zoom Meetings connector reference, WebSearch]
 confidence: high
 refresh_trigger: before_architecture
 -->
@@ -38,7 +38,8 @@ refresh_trigger: before_architecture
 | Connector | Key Actions | Notes |
 |-----------|-------------|-------|
 | Salesforce | Get Account/Contact/Opportunity/Lead/Case/Product/User records, Execute SOQL query, Execute SOSL search, Create/Update/Delete/Upsert record, Send HTTP request, Bulk job operations, **MCP server action** (`mcp_SalesforceManagement`) | Premium. OAuth 2.0 (Salesforce login). API v58.0. Rate limit: 900 calls/60s/connection. Also a supported **Real-Time Knowledge** source (preview). |
-| ServiceNow | Create/update incidents, queries | Premium; also a supported Real-Time Knowledge source (preview) |
+| ServiceNow | **18 actions**: Create Record, Delete Record, Get Record, List Records, Update Record, Get Record Types, Get Knowledge Articles, Get/Delete/Retrieve Attachment (metadata+content), Upload Attachment (binary+multipart), Get Catalogs, Get Catalog Categories, Get Catalog Item(s), Order Item. `List Records` supports `sysparm_query` (ServiceNow encoded query syntax for filtering by priority, severity, state, assignment_group, etc.), `sysparm_limit`, `sysparm_offset`, `sysparm_fields`. Auth: Basic, OAuth2, Entra ID (Certificate or User Login). Rate limit: 600 calls/60s. Publisher: **Microsoft** (GA). Also a supported **Real-Time Knowledge** source (preview). | Premium |
+| Zoom Meetings (Independent Publisher) | **3 actions only**: Create Meeting, Get Meetings (list upcoming), Meeting Details (by ID). No recordings, no transcripts, no participants, no past meetings. Auth: OAuth 2.0 (Zoom). Rate limit: 100 calls/60s. Publisher: Akuthota Deekshith (community). **Preview** status. | Premium |
 | Jira | Create/update issues | Premium; on-prem needs data gateway |
 | Confluence | Create/update pages | Premium; on-prem needs data gateway; also Real-Time Knowledge (preview, Cloud only) |
 | Adobe PDF Services | Extract text, convert, merge | Premium |
