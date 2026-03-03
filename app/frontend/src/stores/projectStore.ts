@@ -124,9 +124,10 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   uploadFile: async (file: File) => {
     const id = get().projectId;
     if (!id) return;
-    await apiUpload(id, file);
+    const result = await apiUpload(id, file);
     // Fetch fresh doc list from server (gets real sanitized filename + conversion result)
     await get().refresh();
+    return result;
   },
 
   pasteText: async (title: string, text: string) => {

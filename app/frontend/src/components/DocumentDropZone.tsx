@@ -189,9 +189,17 @@ const DocumentDropZone = ({ projectId }: DocumentDropZoneProps) => {
     setUploading(true);
     for (const file of Array.from(files)) {
       try {
-        await uploadFile(file);
-      } catch {
-        toast.error(`Failed to upload ${file.name}`);
+        const result = await uploadFile(file);
+        if (result?.conversionError) {
+          toast.warning(`${file.name}: ${result.conversionError}`, { duration: 8000 });
+        }
+      } catch (e: any) {
+        const msg = e?.message || "";
+        if (msg.includes("encrypted") || msg.includes("protected")) {
+          toast.error(msg, { duration: 10000 });
+        } else {
+          toast.error(`Failed to upload ${file.name}`);
+        }
       }
     }
     setUploading(false);

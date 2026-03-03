@@ -22,6 +22,7 @@ import shutil
 import subprocess
 import sys
 import time
+import zipfile
 from datetime import datetime
 from pathlib import Path
 from fastapi import FastAPI, HTTPException, Request, UploadFile, File
@@ -732,6 +733,18 @@ async def upload_document(
     conversion_error = None
 
     if suffix in NEEDS_CONVERSION:
+        # Detect encrypted / MIP-protected Office files before attempting conversion.
+        # Normal .docx/.pptx/.xlsx are ZIP archives. Encrypted ones are OLE2 containers
+        # that tools like MarkItDown and python-docx can't read.
+        if suffix in {".docx", ".pptx", ".xlsx"} and not zipfile.is_zipfile(str(raw_path)):
+            raw_path.unlink()
+            raise HTTPException(
+                422,
+                "This file appears to be encrypted or protected (e.g. Microsoft Information "
+                "Protection). Please remove the protection in the original application and "
+                "re-upload, or paste the content as text instead."
+            )
+
         try:
             from markitdown import MarkItDown
             converter = MarkItDown()
@@ -978,6 +991,13 @@ async def get_doc_content(project_id: str, filename: str):
 
     # Binary docs: extract via MarkItDown
     if target.suffix in {".docx", ".pptx", ".xlsx", ".xls"}:
+        # Check for encrypted / MIP-protected files first
+        if target.suffix in {".docx", ".pptx", ".xlsx"} and not zipfile.is_zipfile(str(target)):
+            return {
+                "filename": safe,
+                "content": "",
+                "error": "This file is encrypted or protected and cannot be previewed.",
+            }
         try:
             from markitdown import MarkItDown
             converter = MarkItDown(enable_plugins=False)
@@ -987,7 +1007,7 @@ async def get_doc_content(project_id: str, filename: str):
         except ImportError:
             raise HTTPException(501, "Install markitdown for document preview: pip install 'markitdown[all]'")
         except Exception as e:
-            raise HTTPException(500, f"Extraction failed: {str(e)[:200]}")
+            return {"filename": safe, "content": "", "error": f"Extraction failed: {str(e)[:200]}"}
         return {"filename": safe, "content": ""}
 
     return {"filename": safe, "content": ""}

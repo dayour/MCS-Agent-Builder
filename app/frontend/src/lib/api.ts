@@ -25,7 +25,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText);
-    throw new Error(`API ${res.status}: ${text}`);
+    // FastAPI returns {"detail": "..."} — extract the message
+    let msg = text;
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed.detail) msg = parsed.detail;
+    } catch { /* use raw text */ }
+    throw new Error(msg);
   }
   return res.json();
 }
