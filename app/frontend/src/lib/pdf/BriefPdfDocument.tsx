@@ -1,11 +1,7 @@
 import React from "react";
-import { Document, Page, View, Text } from "@react-pdf/renderer";
+import { Document, Page, View, Text, StyleSheet } from "@react-pdf/renderer";
 import { baseStyles, colors } from "./styles";
-import { MsLogo } from "./primitives";
-import CoverPage from "./CoverPage";
-import TableOfContents from "./TableOfContents";
-import ExecutiveSummary from "./ExecutiveSummary";
-import BestPractices from "./BestPractices";
+import { MsLogo, ProgressBar, Spacer, MetricCard } from "./primitives";
 import Overview from "./sections/Overview";
 import Architecture from "./sections/Architecture";
 import Instructions from "./sections/Instructions";
@@ -14,24 +10,83 @@ import Integrations from "./sections/Integrations";
 import KnowledgeSources from "./sections/KnowledgeSources";
 import ConversationTopics from "./sections/ConversationTopics";
 import ScopeBoundaries from "./sections/ScopeBoundaries";
-import EvalSets from "./sections/EvalSets";
 import Decisions from "./sections/Decisions";
+import EvalSets from "./sections/EvalSets";
 import OpenQuestions from "./sections/OpenQuestions";
 import type { Agent } from "@/types";
 
-// ── Header (repeated on every content page) ──────────────────────
+const s = StyleSheet.create({
+  // Inline header block (replaces cover page)
+  titleBlock: {
+    marginBottom: 16,
+    paddingBottom: 14,
+    borderBottomWidth: 0.5,
+    borderBottomColor: colors.border,
+  },
+  logoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginBottom: 12,
+  },
+  logoText: {
+    fontSize: 7,
+    color: colors.muted,
+  },
+  agentName: {
+    fontSize: 22,
+    fontWeight: 700,
+    color: colors.foreground,
+    marginBottom: 2,
+  },
+  description: {
+    fontSize: 9,
+    color: colors.muted,
+    lineHeight: 1.5,
+    marginBottom: 10,
+    maxWidth: 400,
+  },
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  metaText: {
+    fontSize: 8,
+    color: colors.muted,
+  },
+  readinessLabel: {
+    fontSize: 8,
+    fontWeight: 600,
+    color: colors.muted,
+  },
+  readinessValue: {
+    fontSize: 8,
+    fontWeight: 700,
+    color: colors.primary,
+  },
+  // Exec summary metrics
+  metricsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    marginVertical: 10,
+  },
+});
+
+// ── Page Header (repeated) ──────────────────────────────────────
 
 const Header = ({ agentName }: { agentName: string }) => (
   <View style={baseStyles.header} fixed>
     <View style={baseStyles.headerLeft}>
-      <MsLogo size={12} />
+      <MsLogo size={10} />
       <Text style={baseStyles.headerText}>Microsoft</Text>
     </View>
     <Text style={baseStyles.headerRight}>{agentName} — Agent Brief</Text>
   </View>
 );
 
-// ── Footer (repeated on every content page) ──────────────────────
+// ── Page Footer (repeated) ──────────────────────────────────────
 
 const Footer = () => {
   const date = new Date().toLocaleDateString("en-US", {
@@ -51,36 +106,60 @@ const Footer = () => {
   );
 };
 
-// ── Build TOC entries based on which sections have data ──────────
+// ── Inline Title Block (replaces cover page) ─────────────────────
 
-function buildToc(briefData: Record<string, any>): { number: number; title: string }[] {
-  const entries: { number: number; title: string }[] = [];
-  let n = 0;
+const TitleBlock = ({ agent, briefData }: { agent: Agent; briefData: Record<string, any> }) => {
+  const desc = agent.description || briefData["overview"]?.description || "";
+  const date = new Date().toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+  return (
+    <View style={s.titleBlock} wrap={false}>
+      <View style={s.logoRow}>
+        <MsLogo size={14} />
+        <Text style={s.logoText}>Microsoft</Text>
+      </View>
+      <Text style={s.agentName}>{agent.name}</Text>
+      {desc ? <Text style={s.description}>{desc}</Text> : null}
+      <View style={s.metaRow}>
+        <Text style={s.metaText}>Generated {date}</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <Text style={s.readinessLabel}>Readiness</Text>
+          <ProgressBar value={agent.readiness} width={100} height={6} />
+          <Text style={s.readinessValue}>{agent.readiness}%</Text>
+        </View>
+      </View>
+    </View>
+  );
+};
 
-  entries.push({ number: ++n, title: "Executive Summary" });
+// ── Exec Summary Metrics ─────────────────────────────────────────
 
-  if (briefData["overview"]) entries.push({ number: ++n, title: "Overview" });
-  if (briefData["architecture"]) entries.push({ number: ++n, title: "Architecture" });
-  if (briefData["instructions"]?.systemPrompt) entries.push({ number: ++n, title: "Instructions" });
-  if (briefData["capabilities"]?.items?.length) entries.push({ number: ++n, title: "Capabilities" });
-  if (briefData["tools"]?.items?.length) entries.push({ number: ++n, title: "Integrations" });
-  if (briefData["knowledge-sources"]?.items?.length) entries.push({ number: ++n, title: "Knowledge Sources" });
-  if (briefData["conversation-topics"]?.items?.length) entries.push({ number: ++n, title: "Conversation Topics" });
+const ExecMetrics = ({ briefData }: { briefData: Record<string, any> }) => {
+  const caps = briefData["capabilities"]?.items ?? [];
+  const tools = briefData["tools"]?.items ?? [];
+  const ks = briefData["knowledge-sources"]?.items ?? [];
+  const evalSets = briefData["eval-sets"]?.sets ?? [];
 
-  const sb = briefData["scope-boundaries"];
-  if (sb?.handles?.length || sb?.politelyDeclines?.length || sb?.hardRefuses?.length) {
-    entries.push({ number: ++n, title: "Scope & Boundaries" });
-  }
+  const mvpCaps = caps.filter((c: any) => (c.phase || "").toLowerCase() === "mvp");
+  const totalTests = evalSets.reduce((sum: number, es: any) => sum + (es.tests?.length ?? 0), 0);
+  const testedTests = evalSets.reduce(
+    (sum: number, es: any) => sum + (es.tests?.filter((t: any) => t.lastResult != null).length ?? 0), 0);
+  const passedTests = evalSets.reduce(
+    (sum: number, es: any) => sum + (es.tests?.filter((t: any) => t.lastResult?.pass).length ?? 0), 0);
+  const passRate = testedTests > 0 ? Math.round((passedTests / testedTests) * 100) : null;
 
-  if (briefData["decisions"]?.items?.length) entries.push({ number: ++n, title: "Decisions" });
-  if (briefData["eval-sets"]?.sets?.length) entries.push({ number: ++n, title: "Eval Sets" });
-
-  entries.push({ number: ++n, title: "Best Practices & Guidelines" });
-
-  if (briefData["open-questions"]?.items?.length) entries.push({ number: ++n, title: "Open Questions" });
-
-  return entries;
-}
+  return (
+    <View style={s.metricsRow}>
+      <MetricCard value={caps.length} label={`Capabilities${mvpCaps.length > 0 ? `\n(${mvpCaps.length} MVP)` : ""}`} />
+      <MetricCard value={tools.length} label="Integrations" />
+      <MetricCard value={ks.length} label={"Knowledge\nSources"} />
+      <MetricCard value={totalTests} label={`Eval Tests${passRate !== null ? `\n(${passRate}% pass)` : ""}`} />
+    </View>
+  );
+};
 
 // ── Main Document ────────────────────────────────────────────────
 
@@ -90,52 +169,30 @@ interface Props {
 }
 
 const BriefPdfDocument = ({ agent, briefData }: Props) => {
-  const tocEntries = buildToc(briefData);
-  // Section numbering — must match TOC order
-  let n = 0;
-  const num = () => ++n;
-
   return (
     <Document
       title={`${agent.name} — Agent Brief`}
       author="Microsoft Copilot Studio"
       subject="Agent Brief"
     >
-      {/* Cover Page (no header/footer) */}
-      <CoverPage
-        agentName={agent.name}
-        description={agent.description || briefData["overview"]?.description || ""}
-        status={agent.status}
-        readiness={agent.readiness}
-      />
-
-      {/* Content Pages */}
       <Page size="A4" style={baseStyles.page} wrap>
         <Header agentName={agent.name} />
         <Footer />
 
-        <TableOfContents entries={tocEntries} />
+        <TitleBlock agent={agent} briefData={briefData} />
+        <ExecMetrics briefData={briefData} />
 
-        <ExecutiveSummary
-          sectionNumber={num()}
-          briefData={briefData}
-          readiness={agent.readiness}
-        />
-
-        <Overview data={briefData["overview"]} sectionNumber={num()} />
-        <Architecture data={briefData["architecture"]} sectionNumber={num()} />
-        <Instructions data={briefData["instructions"]} sectionNumber={num()} />
-        <Capabilities data={briefData["capabilities"]} sectionNumber={num()} />
-        <Integrations data={briefData["tools"]} sectionNumber={num()} />
-        <KnowledgeSources data={briefData["knowledge-sources"]} sectionNumber={num()} />
-        <ConversationTopics data={briefData["conversation-topics"]} sectionNumber={num()} />
-        <ScopeBoundaries data={briefData["scope-boundaries"]} sectionNumber={num()} />
-        <Decisions data={briefData["decisions"]} sectionNumber={num()} />
-        <EvalSets data={briefData["eval-sets"]} sectionNumber={num()} />
-
-        <BestPractices sectionNumber={num()} />
-
-        <OpenQuestions data={briefData["open-questions"]} sectionNumber={num()} />
+        <Overview data={briefData["overview"]} />
+        <Architecture data={briefData["architecture"]} />
+        <Instructions data={briefData["instructions"]} />
+        <Capabilities data={briefData["capabilities"]} />
+        <Integrations data={briefData["tools"]} />
+        <KnowledgeSources data={briefData["knowledge-sources"]} />
+        <ConversationTopics data={briefData["conversation-topics"]} />
+        <ScopeBoundaries data={briefData["scope-boundaries"]} />
+        <Decisions data={briefData["decisions"]} />
+        <EvalSets data={briefData["eval-sets"]} />
+        <OpenQuestions data={briefData["open-questions"]} />
       </Page>
     </Document>
   );

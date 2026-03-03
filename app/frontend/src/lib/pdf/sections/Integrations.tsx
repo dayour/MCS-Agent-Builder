@@ -1,69 +1,57 @@
 import React from "react";
 import { View, Text, StyleSheet } from "@react-pdf/renderer";
 import { colors } from "../styles";
-import { SectionHeading, StatusPill, Divider, safe } from "../primitives";
+import { SectionHeading, Card, StatusPill, Divider, safe } from "../primitives";
 
 const s = StyleSheet.create({
-  table: { marginVertical: 6 },
-  header: {
-    flexDirection: "row",
-    backgroundColor: colors.navy,
-    borderTopLeftRadius: 3,
-    borderTopRightRadius: 3,
-    paddingVertical: 5,
-    paddingHorizontal: 6,
-  },
-  headerCell: { fontSize: 7.5, fontWeight: 700, color: colors.white },
   row: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 5,
-    paddingHorizontal: 6,
-    borderBottomWidth: 0.3,
-    borderBottomColor: colors.s200,
+    gap: 8,
   },
-  rowAlt: { backgroundColor: colors.s50 },
-  cell: { fontSize: 8, color: colors.s700 },
+  name: {
+    fontSize: 9,
+    fontWeight: 600,
+    color: colors.foreground,
+  },
+  meta: {
+    fontSize: 8,
+    color: colors.muted,
+    marginTop: 1,
+  },
+  notes: {
+    fontSize: 7.5,
+    color: colors.subtle,
+    marginTop: 1,
+  },
 });
 
 interface Props {
   data: any;
-  sectionNumber: number;
 }
 
-const Integrations = ({ data, sectionNumber }: Props) => {
+const Integrations = ({ data }: Props) => {
   const items = data?.items;
   if (!items?.length) return null;
 
   return (
     <View>
-      <SectionHeading number={sectionNumber} title="Integrations" />
+      <SectionHeading title="Tools" subtitle="Connected systems, actions, and services" />
 
-      <View style={s.table}>
-        <View style={s.header} wrap={false}>
-          <View style={{ flex: 2 }}><Text style={s.headerCell}>Tool</Text></View>
-          <View style={{ flex: 2 }}><Text style={s.headerCell}>Type</Text></View>
-          <View style={{ flex: 1 }}><Text style={s.headerCell}>Auth</Text></View>
-          <View style={{ flex: 1 }}><Text style={s.headerCell}>Phase</Text></View>
-        </View>
-
-        {items.map((t: any, i: number) => (
-          <View key={i} style={[s.row, i % 2 === 1 && s.rowAlt]} wrap={false}>
-            <View style={{ flex: 2 }}>
-              <Text style={[s.cell, { fontWeight: 600, color: colors.s900 }]}>{safe(t.name)}</Text>
-            </View>
-            <View style={{ flex: 2 }}>
-              <Text style={s.cell}>{safe(t.type)}</Text>
-            </View>
+      {items.map((t: any, i: number) => (
+        <Card key={i}>
+          <View style={s.row}>
             <View style={{ flex: 1 }}>
-              <Text style={s.cell}>{safe(t.auth)}</Text>
+              <Text style={s.name}>{safe(t.name)}</Text>
+              <Text style={s.meta}>
+                {safe(t.type)}{t.auth ? ` \u00B7 ${t.auth}` : ""}
+              </Text>
+              {t.notes && <Text style={s.notes}>{t.notes}</Text>}
             </View>
-            <View style={{ flex: 1 }}>
-              <StatusPill label={t.phase || "MVP"} />
-            </View>
+            <StatusPill label={t.phase || "MVP"} />
           </View>
-        ))}
-      </View>
+        </Card>
+      ))}
 
       <Divider />
     </View>

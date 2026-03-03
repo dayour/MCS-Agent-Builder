@@ -3,71 +3,79 @@ import { View, Text, Svg, Rect, StyleSheet } from "@react-pdf/renderer";
 import { colors } from "./styles";
 
 const s = StyleSheet.create({
+  // Section heading — matches app's h2 + subtitle pattern
   sectionHeading: {
-    flexDirection: "row",
-    alignItems: "flex-end",
     marginBottom: 10,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.navy,
-    paddingLeft: 10,
-    paddingVertical: 2,
-  },
-  sectionNumber: {
-    fontSize: 8,
-    fontWeight: 600,
-    color: colors.s400,
-    marginRight: 6,
-    marginBottom: 1,
+    marginTop: 4,
   },
   sectionTitle: {
     fontSize: 14,
     fontWeight: 700,
-    color: colors.navy,
+    color: colors.foreground,
+    marginBottom: 2,
   },
+  sectionSubtitle: {
+    fontSize: 8,
+    color: colors.muted,
+  },
+  // Sub heading
   subHeading: {
     fontSize: 10,
     fontWeight: 600,
-    color: colors.navy,
+    color: colors.foreground,
     marginTop: 8,
     marginBottom: 4,
   },
+  // Paragraph
   paragraph: {
     fontSize: 9,
-    color: colors.s700,
+    color: colors.foreground,
     lineHeight: 1.5,
     marginBottom: 4,
   },
+  // Bullet list
   bulletRow: {
     flexDirection: "row",
     marginBottom: 3,
-    paddingLeft: 4,
+    paddingLeft: 2,
   },
   bulletDot: {
     width: 4,
     fontSize: 9,
-    color: colors.navy,
+    color: colors.primary,
     marginRight: 6,
   },
   bulletText: {
     flex: 1,
     fontSize: 9,
-    color: colors.s700,
+    color: colors.foreground,
     lineHeight: 1.5,
   },
+  // Card — matches app's rounded-lg border border-border bg-card p-4
+  card: {
+    backgroundColor: colors.card,
+    borderWidth: 0.5,
+    borderColor: colors.border,
+    borderRadius: 6,
+    padding: 10,
+    marginBottom: 6,
+  },
+  // Callout — matches app's blockquote/callout style
   calloutBox: {
-    backgroundColor: colors.navyBg,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.navy,
-    borderRadius: 3,
+    backgroundColor: colors.surfaceAlt,
+    borderLeftWidth: 2,
+    borderLeftColor: colors.primary,
+    borderRadius: 4,
     padding: 10,
     marginVertical: 6,
   },
   calloutText: {
     fontSize: 8.5,
-    color: colors.s700,
+    color: colors.muted,
     lineHeight: 1.5,
     fontStyle: "italic",
   },
+  // Key-value
   kvRow: {
     flexDirection: "row",
     marginBottom: 4,
@@ -76,7 +84,7 @@ const s = StyleSheet.create({
   kvLabel: {
     fontSize: 7.5,
     fontWeight: 700,
-    color: colors.s500,
+    color: colors.muted,
     textTransform: "uppercase",
     width: 80,
     letterSpacing: 0.5,
@@ -84,76 +92,91 @@ const s = StyleSheet.create({
   kvValue: {
     flex: 1,
     fontSize: 9.5,
-    color: colors.s900,
+    color: colors.foreground,
   },
+  // Divider
   divider: {
     borderBottomWidth: 0.5,
-    borderBottomColor: colors.s200,
-    marginVertical: 12,
+    borderBottomColor: colors.border,
+    marginVertical: 14,
   },
-  // Table styles
+  // Table — light headers matching app's clean look
   tableHeader: {
     flexDirection: "row",
-    backgroundColor: colors.navy,
-    borderTopLeftRadius: 3,
-    borderTopRightRadius: 3,
+    backgroundColor: colors.surfaceAlt,
+    borderTopLeftRadius: 4,
+    borderTopRightRadius: 4,
+    borderWidth: 0.5,
+    borderColor: colors.border,
     paddingVertical: 5,
-    paddingHorizontal: 6,
+    paddingHorizontal: 8,
   },
   tableHeaderCell: {
     fontSize: 7.5,
     fontWeight: 700,
-    color: colors.white,
+    color: colors.muted,
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
   },
   tableRow: {
     flexDirection: "row",
-    paddingVertical: 5,
-    paddingHorizontal: 6,
-    borderBottomWidth: 0.3,
-    borderBottomColor: colors.s200,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderLeftWidth: 0.5,
+    borderRightWidth: 0.5,
+    borderBottomWidth: 0.5,
+    borderColor: colors.border,
   },
   tableRowAlt: {
-    backgroundColor: colors.s50,
+    backgroundColor: colors.surface,
+  },
+  tableRowLast: {
+    borderBottomLeftRadius: 4,
+    borderBottomRightRadius: 4,
   },
   tableCell: {
     fontSize: 8,
-    color: colors.s700,
+    color: colors.foreground,
+    lineHeight: 1.4,
   },
-  // Status pill
+  tableCellMuted: {
+    fontSize: 8,
+    color: colors.muted,
+  },
+  // Status pill — matches app's StatusBadge
   pill: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
     alignSelf: "flex-start",
   },
   pillText: {
-    fontSize: 7,
+    fontSize: 6.5,
     fontWeight: 700,
-    color: colors.white,
     textTransform: "uppercase",
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
   // Code block
   codeBlock: {
     fontFamily: "Courier",
     fontSize: 7.5,
-    color: colors.s700,
-    backgroundColor: colors.s100,
+    color: colors.foreground,
+    backgroundColor: colors.surface,
     borderWidth: 0.5,
-    borderColor: colors.s200,
-    borderRadius: 3,
-    padding: 10,
+    borderColor: colors.border,
+    borderRadius: 6,
+    padding: 12,
     lineHeight: 1.6,
     marginVertical: 6,
   },
 });
 
-// ── Section Heading ───────────────────────────────────────────────
+// ── Section Heading — clean title + optional subtitle ─────────────
 
-export const SectionHeading = ({ number, title }: { number: number; title: string }) => (
+export const SectionHeading = ({ title, subtitle }: { title: string; subtitle?: string; number?: number }) => (
   <View style={s.sectionHeading} wrap={false}>
-    <Text style={s.sectionNumber}>{String(number).padStart(2, "0")}</Text>
     <Text style={s.sectionTitle}>{title}</Text>
+    {subtitle && <Text style={s.sectionSubtitle}>{subtitle}</Text>}
   </View>
 );
 
@@ -191,13 +214,33 @@ export const Paragraph = ({
   </Text>
 );
 
+// ── Card — bordered container matching app cards ──────────────────
+
+export const Card = ({
+  children,
+  accentColor,
+}: {
+  children: React.ReactNode;
+  accentColor?: string;
+}) => (
+  <View
+    style={[
+      s.card,
+      accentColor ? { borderLeftWidth: 3, borderLeftColor: accentColor } : undefined,
+    ]}
+    wrap={false}
+  >
+    {children}
+  </View>
+);
+
 // ── Bullet List ───────────────────────────────────────────────────
 
-export const BulletList = ({ items }: { items: string[] }) => (
+export const BulletList = ({ items, dotColor }: { items: string[]; dotColor?: string }) => (
   <View style={{ marginVertical: 4 }}>
     {items.map((item, i) => (
       <View key={i} style={s.bulletRow}>
-        <Text style={s.bulletDot}>{"\u2022"}</Text>
+        <Text style={[s.bulletDot, dotColor ? { color: dotColor } : undefined]}>{"\u2022"}</Text>
         <Text style={s.bulletText}>{item}</Text>
       </View>
     ))}
@@ -219,7 +262,6 @@ export const DataTable = ({
   rows: string[][];
 }) => (
   <View style={{ marginVertical: 6 }}>
-    {/* Header */}
     <View style={s.tableHeader} wrap={false}>
       {columns.map((col, i) => (
         <View key={i} style={{ flex: col.flex }}>
@@ -227,12 +269,19 @@ export const DataTable = ({
         </View>
       ))}
     </View>
-    {/* Body */}
     {rows.map((row, ri) => (
-      <View key={ri} style={[s.tableRow, ri % 2 === 1 && s.tableRowAlt]} wrap={false}>
+      <View
+        key={ri}
+        style={[
+          s.tableRow,
+          ri % 2 === 1 && s.tableRowAlt,
+          ri === rows.length - 1 && s.tableRowLast,
+        ]}
+        wrap={false}
+      >
         {row.map((cell, ci) => (
           <View key={ci} style={{ flex: columns[ci]?.flex ?? 1 }}>
-            <Text style={s.tableCell}>{cell}</Text>
+            <Text style={ci === 0 ? [s.tableCell, { fontWeight: 600 }] : s.tableCell}>{cell}</Text>
           </View>
         ))}
       </View>
@@ -263,8 +312,8 @@ export const ProgressBar = ({
   value,
   width = 120,
   height = 8,
-  color = colors.navy,
-  bgColor = colors.s200,
+  color = colors.primary,
+  bgColor = colors.border,
 }: {
   value: number;
   width?: number;
@@ -284,43 +333,46 @@ export const ProgressBar = ({
   );
 };
 
-// ── Status Pill ───────────────────────────────────────────────────
+// ── Status Pill — matches app's badge style ───────────────────────
 
-const pillColors: Record<string, string> = {
-  mvp: colors.navy,
-  future: colors.s500,
-  passing: colors.green,
-  failing: colors.red,
-  building: colors.amber,
-  not_started: colors.s400,
-  draft: colors.s500,
-  researched: colors.amber,
-  ready: colors.navy,
-  built: colors.green,
-  resolved: colors.green,
-  open: colors.amber,
+const pillConfig: Record<string, { bg: string; text: string }> = {
+  mvp: { bg: colors.primaryMuted, text: colors.primary },
+  future: { bg: colors.surfaceAlt, text: colors.muted },
+  passing: { bg: colors.greenLight, text: colors.green },
+  failing: { bg: colors.redLight, text: colors.red },
+  building: { bg: colors.amberLight, text: colors.amber },
+  not_started: { bg: colors.surfaceAlt, text: colors.subtle },
+  draft: { bg: colors.surfaceAlt, text: colors.muted },
+  researched: { bg: colors.amberLight, text: colors.amber },
+  ready: { bg: colors.primaryMuted, text: colors.primary },
+  built: { bg: colors.greenLight, text: colors.green },
+  available: { bg: colors.greenLight, text: colors.green },
+  confirmed: { bg: colors.greenLight, text: colors.green },
+  overridden: { bg: colors.primaryMuted, text: colors.primary },
+  pending: { bg: colors.amberLight, text: colors.amber },
+  resolved: { bg: colors.greenLight, text: colors.green },
+  open: { bg: colors.amberLight, text: colors.amber },
 };
 
 export const StatusPill = ({ label }: { label: string }) => {
-  const bg = pillColors[label.toLowerCase()] ?? colors.s400;
+  const config = pillConfig[label.toLowerCase()] ?? { bg: colors.surfaceAlt, text: colors.muted };
   return (
-    <View style={[s.pill, { backgroundColor: bg }]} wrap={false}>
-      <Text style={s.pillText}>{label}</Text>
+    <View style={[s.pill, { backgroundColor: config.bg }]} wrap={false}>
+      <Text style={[s.pillText, { color: config.text }]}>{label}</Text>
     </View>
   );
 };
 
 // ── Status Dot ────────────────────────────────────────────────────
 
-const dotColors: Record<string, string> = {
-  passing: colors.green,
-  failing: colors.red,
-  building: colors.amber,
-  not_started: colors.s400,
-};
-
 export const StatusDot = ({ status }: { status: string }) => {
-  const fill = dotColors[status] ?? colors.s400;
+  const dotColors: Record<string, string> = {
+    passing: colors.green,
+    failing: colors.red,
+    building: colors.amber,
+    not_started: colors.subtle,
+  };
+  const fill = dotColors[status] ?? colors.subtle;
   return (
     <Svg width={8} height={8} viewBox="0 0 8 8" style={{ marginRight: 4 }}>
       <Rect x={1} y={1} width={6} height={6} rx={3} ry={3} fill={fill} />
@@ -352,6 +404,30 @@ export const MsLogo = ({ size = 14 }: { size?: number }) => {
     </Svg>
   );
 };
+
+// ── Metric Card (for executive summary) ───────────────────────────
+
+export const MetricCard = ({ value, label }: { value: string | number; label: string }) => (
+  <View
+    style={{
+      width: "23%",
+      backgroundColor: colors.surface,
+      borderWidth: 0.5,
+      borderColor: colors.border,
+      borderRadius: 6,
+      padding: 10,
+      alignItems: "center",
+    }}
+    wrap={false}
+  >
+    <Text style={{ fontSize: 18, fontWeight: 700, color: colors.primary, marginBottom: 2 }}>
+      {value}
+    </Text>
+    <Text style={{ fontSize: 7, fontWeight: 600, color: colors.muted, textTransform: "uppercase", letterSpacing: 0.5, textAlign: "center" }}>
+      {label}
+    </Text>
+  </View>
+);
 
 // ── Helpers ───────────────────────────────────────────────────────
 

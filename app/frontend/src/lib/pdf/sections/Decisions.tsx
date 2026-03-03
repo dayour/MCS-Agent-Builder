@@ -1,117 +1,139 @@
 import React from "react";
 import { View, Text, StyleSheet } from "@react-pdf/renderer";
 import { colors } from "../styles";
-import { SectionHeading, SubHeading, Divider, safe } from "../primitives";
+import { SectionHeading, Card, Divider, safe } from "../primitives";
 
 const s = StyleSheet.create({
-  card: {
-    backgroundColor: colors.s50,
-    borderRadius: 4,
-    padding: 10,
-    marginBottom: 8,
+  // Category badge — small colored pill
+  categoryBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 8,
+    alignSelf: "flex-start",
   },
-  cardOverridden: {
-    borderLeftWidth: 3,
-    borderLeftColor: colors.amber,
+  categoryText: {
+    fontSize: 6.5,
+    fontWeight: 700,
   },
-  cardConfirmed: {
-    borderLeftWidth: 3,
-    borderLeftColor: colors.green,
+  statusBadge: {
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 8,
+    alignSelf: "flex-start",
   },
-  cardPending: {
-    borderLeftWidth: 3,
-    borderLeftColor: colors.s400,
+  statusText: {
+    fontSize: 6.5,
+    fontWeight: 700,
+  },
+  badgeRow: {
+    flexDirection: "row",
+    gap: 4,
+    marginBottom: 4,
   },
   title: {
     fontSize: 10,
     fontWeight: 700,
-    color: colors.s900,
-    marginBottom: 3,
-  },
-  metaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 6,
-  },
-  metaText: {
-    fontSize: 7,
-    color: colors.s500,
-  },
-  statusBadge: {
-    fontSize: 6.5,
-    fontWeight: 700,
-    color: colors.white,
-    paddingHorizontal: 5,
-    paddingVertical: 1.5,
-    borderRadius: 6,
+    color: colors.foreground,
+    marginBottom: 2,
   },
   context: {
     fontSize: 8,
-    color: colors.s700,
+    color: colors.muted,
     lineHeight: 1.5,
-    marginBottom: 6,
+    marginBottom: 8,
   },
-  // Options table
-  tableHeader: {
-    flexDirection: "row",
-    backgroundColor: colors.navy,
-    borderTopLeftRadius: 3,
-    borderTopRightRadius: 3,
-    paddingVertical: 4,
-    paddingHorizontal: 6,
+  // Options
+  optionCard: {
+    backgroundColor: colors.surface,
+    borderWidth: 0.5,
+    borderColor: colors.border,
+    borderRadius: 4,
+    padding: 8,
+    marginBottom: 4,
   },
-  headerCell: { fontSize: 7, fontWeight: 700, color: colors.white },
-  row: {
+  optionSelected: {
+    backgroundColor: colors.greenLight,
+    borderColor: colors.greenBorder,
+  },
+  optionHeader: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 4,
-    paddingHorizontal: 6,
-    borderBottomWidth: 0.3,
-    borderBottomColor: colors.s200,
+    gap: 4,
+    marginBottom: 2,
   },
-  rowSelected: {
-    backgroundColor: colors.navyBg,
+  optionLabel: {
+    fontSize: 8.5,
+    fontWeight: 600,
+    color: colors.foreground,
   },
-  rowAlt: { backgroundColor: colors.s50 },
-  cell: { fontSize: 7.5, color: colors.s700 },
-  cellBold: { fontSize: 7.5, fontWeight: 600, color: colors.s900 },
-  tag: {
+  optionTag: {
     fontSize: 6,
     fontWeight: 700,
-    color: colors.navy,
-    backgroundColor: colors.navyBg,
     paddingHorizontal: 4,
     paddingVertical: 1,
     borderRadius: 3,
-    marginLeft: 4,
   },
-  pendingNote: {
-    fontSize: 8,
-    color: colors.amber,
-    fontWeight: 600,
+  optionSummary: {
+    fontSize: 7.5,
+    color: colors.muted,
+    lineHeight: 1.4,
+  },
+  prosConsRow: {
+    flexDirection: "row",
+    gap: 8,
     marginTop: 4,
+  },
+  proConItem: {
+    fontSize: 7,
+    color: colors.foreground,
+    lineHeight: 1.4,
+  },
+  metaRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 3,
+  },
+  metaText: {
+    fontSize: 7,
+    color: colors.subtle,
+  },
+  pendingBanner: {
+    backgroundColor: colors.amberLight,
+    borderWidth: 0.5,
+    borderColor: colors.amberBorder,
+    borderRadius: 6,
+    padding: 8,
+    marginBottom: 8,
+  },
+  pendingText: {
+    fontSize: 8,
+    fontWeight: 700,
+    color: colors.amber,
   },
 });
 
-const statusColors: Record<string, string> = {
-  pending: colors.s400,
-  confirmed: colors.green,
-  overridden: colors.amber,
+const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
+  integration: { bg: "#DBEAFE", text: "#2563EB" },
+  architecture: { bg: "#F3E8FF", text: "#9333EA" },
+  model: { bg: "#FEF3C7", text: "#D97706" },
+  infrastructure: { bg: "#FFEDD5", text: "#EA580C" },
+  "topic-implementation": { bg: "#CCFBF1", text: "#0D9488" },
 };
 
-const statusCardStyle: Record<string, any> = {
-  pending: s.cardPending,
-  confirmed: s.cardConfirmed,
-  overridden: s.cardOverridden,
+const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
+  pending: { bg: colors.amberLight, text: colors.amber },
+  confirmed: { bg: colors.greenLight, text: colors.green },
+  overridden: { bg: colors.primaryLight, text: colors.primary },
 };
 
 interface Props {
   data: any;
-  sectionNumber: number;
 }
 
-const Decisions = ({ data, sectionNumber }: Props) => {
+const Decisions = ({ data }: Props) => {
   const items = data?.items;
   if (!items?.length) return null;
 
@@ -119,60 +141,92 @@ const Decisions = ({ data, sectionNumber }: Props) => {
 
   return (
     <View>
-      <SectionHeading number={sectionNumber} title="Decisions" />
+      <SectionHeading
+        title="Decisions"
+        subtitle="Research findings and selected approaches"
+      />
 
       {pending.length > 0 && (
-        <View style={{ backgroundColor: "#FEF3C7", borderRadius: 4, padding: 8, marginBottom: 8 }} wrap={false}>
-          <Text style={{ fontSize: 8, fontWeight: 700, color: colors.amber }}>
+        <View style={s.pendingBanner} wrap={false}>
+          <Text style={s.pendingText}>
             {pending.length} pending decision{pending.length > 1 ? "s" : ""} require resolution before build.
           </Text>
         </View>
       )}
 
-      {items.map((d: any, i: number) => (
-        <View key={i} style={[s.card, statusCardStyle[d.status] || s.cardPending]} wrap={false}>
-          <Text style={s.title}>{safe(d.title)}</Text>
-          <View style={s.metaRow}>
-            <Text style={[s.statusBadge, { backgroundColor: statusColors[d.status] || colors.s400 }]}>
-              {(d.status || "pending").toUpperCase()}
-            </Text>
-            <Text style={s.metaText}>{safe(d.category)}</Text>
-            {d.capability && <Text style={s.metaText}>{d.capability}</Text>}
-          </View>
-          {d.context && <Text style={s.context}>{d.context}</Text>}
+      {items.map((d: any, i: number) => {
+        const catColor = CATEGORY_COLORS[d.category] ?? { bg: colors.surfaceAlt, text: colors.muted };
+        const statColor = STATUS_COLORS[d.status] ?? STATUS_COLORS.pending;
+        const accentColor = d.status === "pending" ? colors.amber : d.status === "overridden" ? colors.primary : colors.green;
 
-          {/* Options mini-table */}
-          <View>
-            <View style={s.tableHeader}>
-              <View style={{ flex: 2 }}><Text style={s.headerCell}>Option</Text></View>
-              <View style={{ flex: 3 }}><Text style={s.headerCell}>Summary</Text></View>
-              <View style={{ flex: 1 }}><Text style={s.headerCell}>Confidence</Text></View>
+        return (
+          <Card key={i} accentColor={accentColor}>
+            {/* Badges */}
+            <View style={s.badgeRow}>
+              <View style={[s.categoryBadge, { backgroundColor: catColor.bg }]}>
+                <Text style={[s.categoryText, { color: catColor.text }]}>{d.category}</Text>
+              </View>
+              <View style={[s.statusBadge, { backgroundColor: statColor.bg }]}>
+                <Text style={[s.statusText, { color: statColor.text }]}>{(d.status || "pending").toUpperCase()}</Text>
+              </View>
             </View>
+
+            <Text style={s.title}>{safe(d.title)}</Text>
+            {d.context && <Text style={s.context}>{d.context}</Text>}
+
+            {/* Options */}
             {(d.options ?? []).map((o: any, oi: number) => {
               const isSelected = o.id === d.selectedOptionId;
               const isRecommended = o.id === d.recommendedOptionId;
               return (
-                <View
-                  key={oi}
-                  style={[s.row, isSelected && s.rowSelected, !isSelected && oi % 2 === 1 && s.rowAlt]}
-                >
-                  <View style={{ flex: 2, flexDirection: "row", alignItems: "center" }}>
-                    <Text style={isSelected ? s.cellBold : s.cell}>{safe(o.label)}</Text>
-                    {isSelected && <Text style={s.tag}>SELECTED</Text>}
-                    {isRecommended && !isSelected && <Text style={[s.tag, { color: colors.s500, backgroundColor: colors.s100 }]}>REC</Text>}
+                <View key={oi} style={[s.optionCard, isSelected && s.optionSelected]} wrap={false}>
+                  <View style={s.optionHeader}>
+                    <Text style={s.optionLabel}>{safe(o.label)}</Text>
+                    {isSelected && (
+                      <Text style={[s.optionTag, { backgroundColor: colors.greenBorder, color: colors.green }]}>
+                        SELECTED
+                      </Text>
+                    )}
+                    {isRecommended && !isSelected && (
+                      <Text style={[s.optionTag, { backgroundColor: colors.amberBorder, color: colors.amber }]}>
+                        REC
+                      </Text>
+                    )}
                   </View>
-                  <View style={{ flex: 3 }}>
-                    <Text style={s.cell}>{safe(o.summary)}</Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={s.cell}>{safe(o.confidence)}</Text>
+                  <Text style={s.optionSummary}>{safe(o.summary)}</Text>
+
+                  {/* Pros/Cons for selected */}
+                  {isSelected && (o.pros?.length > 0 || o.cons?.length > 0) && (
+                    <View style={s.prosConsRow}>
+                      {o.pros?.length > 0 && (
+                        <View style={{ flex: 1 }}>
+                          {o.pros.map((p: string, pi: number) => (
+                            <Text key={pi} style={s.proConItem}>{"\u2713"} {p}</Text>
+                          ))}
+                        </View>
+                      )}
+                      {o.cons?.length > 0 && (
+                        <View style={{ flex: 1 }}>
+                          {o.cons.map((c: string, ci: number) => (
+                            <Text key={ci} style={s.proConItem}>{"\u2717"} {c}</Text>
+                          ))}
+                        </View>
+                      )}
+                    </View>
+                  )}
+
+                  {/* Meta */}
+                  <View style={s.metaRow}>
+                    {o.confidence && <Text style={s.metaText}>{o.confidence} confidence</Text>}
+                    {o.cost && <Text style={s.metaText}>Cost: {o.cost}</Text>}
+                    {o.effort && <Text style={s.metaText}>Effort: {o.effort}</Text>}
                   </View>
                 </View>
               );
             })}
-          </View>
-        </View>
-      ))}
+          </Card>
+        );
+      })}
 
       <Divider />
     </View>

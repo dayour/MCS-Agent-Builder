@@ -1,66 +1,124 @@
 import React from "react";
-import { View } from "@react-pdf/renderer";
+import { View, Text, StyleSheet } from "@react-pdf/renderer";
+import { colors } from "../styles";
 import {
-  SectionHeading, SubHeading, BulletList,
-  Callout, KeyValue, DataTable, Divider, safe,
+  SectionHeading, SubHeading, Card, BulletList,
+  Callout, DataTable, Divider, safe,
 } from "../primitives";
+
+const s = StyleSheet.create({
+  patternCard: {
+    backgroundColor: colors.primaryLight,
+    borderWidth: 0.5,
+    borderColor: colors.primaryMuted,
+    borderRadius: 6,
+    padding: 10,
+    marginBottom: 6,
+  },
+  patternName: {
+    fontSize: 12,
+    fontWeight: 700,
+    color: colors.primary,
+    marginBottom: 2,
+  },
+  patternReason: {
+    fontSize: 8,
+    color: colors.muted,
+    lineHeight: 1.5,
+  },
+  agentRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 6,
+    marginBottom: 2,
+  },
+  agentDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.primary,
+    marginTop: 3,
+  },
+  agentName: {
+    fontSize: 9,
+    fontWeight: 600,
+    color: colors.foreground,
+  },
+  agentRole: {
+    fontSize: 8,
+    color: colors.muted,
+    lineHeight: 1.4,
+  },
+  agentMeta: {
+    fontSize: 7.5,
+    color: colors.muted,
+    fontStyle: "italic",
+  },
+});
 
 interface Props {
   data: any;
-  sectionNumber: number;
 }
 
-const Architecture = ({ data, sectionNumber }: Props) => {
+const Architecture = ({ data }: Props) => {
   if (!data) return null;
   return (
     <View>
-      <SectionHeading number={sectionNumber} title="Architecture" />
+      <SectionHeading title="Architecture" subtitle="Structure, channels, triggers, and specialist agents" />
 
-      <KeyValue label="Pattern" value={data.pattern} />
-      {data.patternReasoning && <Callout>{data.patternReasoning}</Callout>}
+      {/* Pattern card — matches the app's highlighted selection card */}
+      <View style={s.patternCard} wrap={false}>
+        <Text style={s.patternName}>{safe(data.pattern)}</Text>
+        {data.patternReasoning && <Text style={s.patternReason}>{data.patternReasoning}</Text>}
+      </View>
 
       {data.triggers?.length > 0 && (
         <>
           <SubHeading>Triggers</SubHeading>
-          <BulletList
-            items={data.triggers.map(
-              (t: any) => `${safe(t.type)}: ${safe(t.description)}`,
-            )}
-          />
+          {data.triggers.map((t: any, i: number) => (
+            <Card key={i}>
+              <Text style={{ fontSize: 9, fontWeight: 600, color: colors.foreground }}>{safe(t.type)}</Text>
+              {t.description && <Text style={{ fontSize: 8, color: colors.muted, marginTop: 1 }}>{t.description}</Text>}
+            </Card>
+          ))}
         </>
       )}
 
       {data.channels?.length > 0 && (
         <>
           <SubHeading>Channels</SubHeading>
-          <DataTable
-            columns={[
-              { header: "Channel", flex: 2 },
-              { header: "Reason", flex: 3 },
-            ]}
-            rows={data.channels.map((c: any) => [safe(c.name), safe(c.reason)])}
-          />
+          {data.channels.map((c: any, i: number) => (
+            <Card key={i}>
+              <Text style={{ fontSize: 9, fontWeight: 600, color: colors.foreground }}>{safe(c.name)}</Text>
+              {c.reason && <Text style={{ fontSize: 8, color: colors.muted, marginTop: 1 }}>{c.reason}</Text>}
+            </Card>
+          ))}
         </>
       )}
 
       {data.childAgents?.length > 0 && (
         <>
-          <SubHeading>Child Agents</SubHeading>
-          <DataTable
-            columns={[
-              { header: "Agent", flex: 2 },
-              { header: "Role", flex: 3 },
-              { header: "Routing Rule", flex: 3 },
-            ]}
-            rows={data.childAgents.map((c: any) => [safe(c.name), safe(c.role), safe(c.routingRule)])}
-          />
+          <SubHeading>Specialist Agents</SubHeading>
+          {data.childAgents.map((c: any, i: number) => (
+            <Card key={i}>
+              <View style={s.agentRow}>
+                <View style={s.agentDot} />
+                <View style={{ flex: 1 }}>
+                  <Text style={s.agentName}>{safe(c.name)}</Text>
+                  <Text style={s.agentRole}>{safe(c.role)}</Text>
+                  {c.routingRule && <Text style={s.agentMeta}>Route: {c.routingRule}</Text>}
+                  {c.model && <Text style={s.agentMeta}>Model: {c.model}</Text>}
+                </View>
+              </View>
+            </Card>
+          ))}
         </>
       )}
 
       {data.scoring?.length > 0 && (
         <>
           <SubHeading>
-            {`Architecture Score (${data.scoring.reduce((s: number, f: any) => s + (f.score || 0), 0)}/6)`}
+            {`Architecture Score (${data.scoring.reduce((sum: number, f: any) => sum + (f.score || 0), 0)}/6)`}
           </SubHeading>
           <DataTable
             columns={[

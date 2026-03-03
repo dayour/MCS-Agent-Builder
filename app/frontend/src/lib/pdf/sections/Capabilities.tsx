@@ -1,65 +1,49 @@
 import React from "react";
 import { View, Text, StyleSheet } from "@react-pdf/renderer";
 import { colors } from "../styles";
-import { SectionHeading, StatusPill, Divider, safe } from "../primitives";
+import { SectionHeading, Card, StatusPill, Divider, safe } from "../primitives";
 
 const s = StyleSheet.create({
-  table: { marginVertical: 6 },
-  header: {
-    flexDirection: "row",
-    backgroundColor: colors.navy,
-    borderTopLeftRadius: 3,
-    borderTopRightRadius: 3,
-    paddingVertical: 5,
-    paddingHorizontal: 6,
-  },
-  headerCell: { fontSize: 7.5, fontWeight: 700, color: colors.white },
   row: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 5,
-    paddingHorizontal: 6,
-    borderBottomWidth: 0.3,
-    borderBottomColor: colors.s200,
+    gap: 8,
   },
-  rowAlt: { backgroundColor: colors.s50 },
-  cell: { fontSize: 8, color: colors.s700 },
+  name: {
+    fontSize: 9,
+    fontWeight: 600,
+    color: colors.foreground,
+  },
+  desc: {
+    fontSize: 8,
+    color: colors.muted,
+    marginTop: 1,
+  },
 });
 
 interface Props {
   data: any;
-  sectionNumber: number;
 }
 
-const Capabilities = ({ data, sectionNumber }: Props) => {
+const Capabilities = ({ data }: Props) => {
   const items = data?.items;
   if (!items?.length) return null;
 
   return (
     <View>
-      <SectionHeading number={sectionNumber} title="Capabilities" />
+      <SectionHeading title="Capabilities" subtitle="Features this agent can perform" />
 
-      <View style={s.table}>
-        <View style={s.header} wrap={false}>
-          <View style={{ flex: 2 }}><Text style={s.headerCell}>Capability</Text></View>
-          <View style={{ flex: 3 }}><Text style={s.headerCell}>Description</Text></View>
-          <View style={{ flex: 1 }}><Text style={s.headerCell}>Phase</Text></View>
-        </View>
-
-        {items.map((c: any, i: number) => (
-          <View key={i} style={[s.row, i % 2 === 1 && s.rowAlt]} wrap={false}>
-            <View style={{ flex: 2 }}>
-              <Text style={[s.cell, { fontWeight: 600, color: colors.s900 }]}>{safe(c.name)}</Text>
-            </View>
-            <View style={{ flex: 3 }}>
-              <Text style={s.cell}>{safe(c.description)}</Text>
-            </View>
+      {items.map((c: any, i: number) => (
+        <Card key={i}>
+          <View style={s.row}>
             <View style={{ flex: 1 }}>
-              <StatusPill label={c.phase || "MVP"} />
+              <Text style={s.name}>{safe(c.name)}</Text>
+              <Text style={s.desc}>{safe(c.description)}</Text>
             </View>
+            <StatusPill label={c.phase || "MVP"} />
           </View>
-        ))}
-      </View>
+        </Card>
+      ))}
 
       <Divider />
     </View>
