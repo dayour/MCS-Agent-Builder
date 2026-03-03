@@ -1,9 +1,9 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Briefcase, Bot, FileText, Zap, Plug, Database,
   MessageSquare, Shield, Network, TestTube, HelpCircle,
-  GitPullRequestDraft,
+  GitPullRequestDraft, AlertTriangle,
   Check, Circle, Download, FileDown, Loader2,
 } from "lucide-react";
 import Layout from "@/components/Layout";
@@ -31,6 +31,7 @@ import EvalSetsSection from "@/components/brief/EvalSetsSection";
 import OpenQuestionsSection from "@/components/brief/OpenQuestionsSection";
 import DecisionsSection from "@/components/brief/DecisionsSection";
 import { generateBriefReport, downloadFile } from "@/lib/reportGenerator";
+import { computeDecisionImpact } from "@/lib/briefTransforms";
 
 const iconMap: Record<string, React.ElementType> = {
   Briefcase, FileText, Zap, Plug, Database,
@@ -59,7 +60,7 @@ const BriefEditor = () => {
   const projectName = useProjectStore((s) => s.projectName);
   const loadProject = useProjectStore((s) => s.loadProject);
   const {
-    data, agentName, completion, loading, saving, dirty, error,
+    data, rawBrief, agentName, completion, loading, saving, dirty, error,
     load: loadBrief, updateSection, save, poll,
   } = useBriefStore();
 
@@ -104,6 +105,14 @@ const BriefEditor = () => {
     readiness,
     sectionCompletion: completion,
   };
+
+  const decisionImpact = useMemo(() => {
+    if (!data || !rawBrief) return { needsReResearch: false, affectedSections: [] };
+    return computeDecisionImpact(
+      data.decisions?.items ?? [],
+      rawBrief.decisions ?? []
+    );
+  }, [data, rawBrief]);
 
   if (loading) {
     return (
@@ -219,6 +228,21 @@ const BriefEditor = () => {
             {error && (
               <div className="mb-4 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
                 {error}
+              </div>
+            )}
+            {decisionImpact.needsReResearch && (
+              <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-700 px-4 py-3 flex items-start gap-3">
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-amber-600" />
+                <div>
+                  <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                    Decisions changed &mdash; re-run Research to update
+                  </p>
+                  <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
+                    Overridden decisions affect {decisionImpact.affectedSections.join(", ")}.
+                    Instructions and eval sets may need regeneration.
+                    Run <code className="bg-amber-100 dark:bg-amber-900/40 px-1 rounded">/mcs-research</code> to apply.
+                  </p>
+                </div>
               </div>
             )}
             {ActiveComponent && sectionData && (

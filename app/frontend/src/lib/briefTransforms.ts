@@ -9,7 +9,7 @@
  * doesn't display are never lost.
  */
 import type { ApiBrief } from "@/types/api";
-import type { BriefData, EvalSet, EvalConfig, Overview, DecisionCategory, DecisionStatus, ConfidenceLevel } from "@/types";
+import type { BriefData, EvalSet, EvalConfig, Overview, Decision, DecisionCategory, DecisionStatus, ConfidenceLevel } from "@/types";
 
 /**
  * Convert raw brief.json → UI BriefData shape.
@@ -318,6 +318,16 @@ export function briefToApi(ui: BriefData, raw: ApiBrief): ApiBrief {
     };
   });
 
+  // Apply briefPatch from resolved decisions
+  for (const decision of result.decisions ?? []) {
+    if (decision.status === "pending" || !decision.selectedOptionId) continue;
+    const selectedOption = (decision.options ?? []).find(
+      (o: any) => o.id === decision.selectedOptionId
+    );
+    if (!selectedOption?.briefPatch) continue;
+    Object.assign(result, deepMergePatch(result, selectedOption.briefPatch));
+  }
+
   return result;
 }
 
@@ -546,6 +556,54 @@ function factorsToScoring(
       notes: f ? "Applies" : "",
     };
   });
+}
+
+/**
+ * Deep-merge a partial patch into a target object.
+ * Arrays in the patch are treated as complete replacements (not appends).
+ */
+function deepMergePatch(target: Record<string, any>, patch: Record<string, any>): Record<string, any> {
+  const result = { ...target };
+  for (const [key, value] of Object.entries(patch)) {
+    if (value && typeof value === "object" && !Array.isArray(value)
+        && result[key] && typeof result[key] === "object" && !Array.isArray(result[key])) {
+      result[key] = deepMergePatch(result[key], value as Record<string, any>);
+    } else {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
+/**
+ * Check if any non-recommended decisions have briefPatches that affect
+ * instruction-sensitive fields (requiring re-research).
+ */
+export function computeDecisionImpact(decisions: Decision[], rawDecisions: any[]): {
+  needsReResearch: boolean;
+  affectedSections: string[];
+} {
+  const INSTRUCTION_AFFECTING = ["integrations", "architecture", "capabilities",
+    "boundaries", "agent", "conversations"];
+  const affected = new Set<string>();
+
+  for (const d of decisions) {
+    if (d.status === "pending" || !d.selectedOptionId) continue;
+    if (d.selectedOptionId === d.recommendedOptionId) continue;
+
+    const rawD = rawDecisions.find((r: any) => r.id === d.id);
+    const selectedOpt = (rawD?.options ?? []).find((o: any) => o.id === d.selectedOptionId);
+    if (!selectedOpt?.briefPatch) continue;
+
+    for (const key of Object.keys(selectedOpt.briefPatch)) {
+      if (INSTRUCTION_AFFECTING.includes(key)) affected.add(key);
+    }
+  }
+
+  return {
+    needsReResearch: affected.size > 0,
+    affectedSections: Array.from(affected),
+  };
 }
 
 function scoringToFactors(
