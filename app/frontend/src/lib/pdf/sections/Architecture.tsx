@@ -50,12 +50,28 @@ const Architecture = ({ data, sectionNumber }: Props) => {
             columns={[
               { header: "Agent", flex: 2 },
               { header: "Role", flex: 3 },
+              { header: "Routing Rule", flex: 3 },
             ]}
-            rows={data.childAgents.map((c: any) => [safe(c.name), safe(c.role)])}
+            rows={data.childAgents.map((c: any) => [safe(c.name), safe(c.role), safe(c.routingRule)])}
           />
         </>
       )}
 
+      {data.scoring?.length > 0 && (
+        <>
+          <SubHeading>
+            {`Architecture Score (${data.scoring.reduce((s: number, f: any) => s + (f.score || 0), 0)}/6)`}
+          </SubHeading>
+          <DataTable
+            columns={[
+              { header: "Factor", flex: 2 },
+              { header: "Applies", flex: 1 },
+              { header: "Notes", flex: 3 },
+            ]}
+            rows={data.scoring.map((f: any) => [safe(f.factor), f.score ? "Yes" : "No", safe(f.notes)])}
+          />
+        </>
+      )}
 
       <Divider />
     </View>

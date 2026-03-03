@@ -15,6 +15,7 @@ import KnowledgeSources from "./sections/KnowledgeSources";
 import ConversationTopics from "./sections/ConversationTopics";
 import ScopeBoundaries from "./sections/ScopeBoundaries";
 import EvalSets from "./sections/EvalSets";
+import Decisions from "./sections/Decisions";
 import OpenQuestions from "./sections/OpenQuestions";
 import type { Agent } from "@/types";
 
@@ -71,6 +72,7 @@ function buildToc(briefData: Record<string, any>): { number: number; title: stri
     entries.push({ number: ++n, title: "Scope & Boundaries" });
   }
 
+  if (briefData["decisions"]?.items?.length) entries.push({ number: ++n, title: "Decisions" });
   if (briefData["eval-sets"]?.sets?.length) entries.push({ number: ++n, title: "Eval Sets" });
 
   entries.push({ number: ++n, title: "Best Practices & Guidelines" });
@@ -128,6 +130,7 @@ const BriefPdfDocument = ({ agent, briefData }: Props) => {
         <KnowledgeSources data={briefData["knowledge-sources"]} sectionNumber={num()} />
         <ConversationTopics data={briefData["conversation-topics"]} sectionNumber={num()} />
         <ScopeBoundaries data={briefData["scope-boundaries"]} sectionNumber={num()} />
+        <Decisions data={briefData["decisions"]} sectionNumber={num()} />
         <EvalSets data={briefData["eval-sets"]} sectionNumber={num()} />
 
         <BestPractices sectionNumber={num()} />

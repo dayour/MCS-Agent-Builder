@@ -94,12 +94,28 @@ export function generateBriefReport(agent: Agent, briefData: Record<string, any>
       arch.triggers.forEach((t: any) => lines.push(`- **${t.type}:** ${t.description}`));
       lines.push("");
     }
-    if (arch.childAgents?.length) {
-      lines.push("### Child Agents");
-      arch.childAgents.forEach((c: any) => lines.push(`- **${c.name}:** ${c.role}`));
+    if (arch.channels?.length) {
+      lines.push("### Channels");
+      lines.push("| Channel | Reason |");
+      lines.push("|---------|--------|");
+      arch.channels.forEach((c: any) => lines.push(`| ${c.name} | ${c.reason || "\u2014"} |`));
       lines.push("");
     }
-
+    if (arch.childAgents?.length) {
+      lines.push("### Child Agents");
+      lines.push("| Agent | Role | Routing Rule |");
+      lines.push("|-------|------|--------------|");
+      arch.childAgents.forEach((c: any) => lines.push(`| ${c.name} | ${c.role} | ${c.routingRule || "\u2014"} |`));
+      lines.push("");
+    }
+    if (arch.scoring?.length) {
+      const total = arch.scoring.reduce((s: number, f: any) => s + (f.score || 0), 0);
+      lines.push(`### Architecture Score (${total}/6)`);
+      lines.push("| Factor | Score | Notes |");
+      lines.push("|--------|-------|-------|");
+      arch.scoring.forEach((f: any) => lines.push(`| ${f.factor} | ${f.score ? "Yes" : "No"} | ${f.notes || "\u2014"} |`));
+      lines.push("");
+    }
     lines.push(hr);
   }
 
@@ -223,6 +239,50 @@ export function generateBriefReport(agent: Agent, briefData: Record<string, any>
         lines.push("");
       }
     }
+    lines.push(hr);
+  }
+
+  // Decisions
+  const decisions = briefData["decisions"];
+  if (decisions?.items?.length) {
+    lines.push("## Decisions\n");
+    const pending = decisions.items.filter((d: any) => d.status === "pending");
+    const resolved = decisions.items.filter((d: any) => d.status !== "pending");
+
+    if (pending.length > 0) {
+      lines.push(`> **${pending.length} pending decision${pending.length > 1 ? "s" : ""}** require resolution before build.\n`);
+    }
+
+    decisions.items.forEach((d: any) => {
+      const statusIcon = d.status === "pending" ? "\u{1F7E1}" : d.status === "overridden" ? "\u{1F7E0}" : "\u2705";
+      lines.push(`### ${statusIcon} ${d.title}`);
+      lines.push(`**Category:** ${d.category} · **Status:** ${d.status}${d.capability ? ` · **Capability:** ${d.capability}` : ""}\n`);
+      if (d.context) lines.push(`${d.context}\n`);
+
+      lines.push("| Option | Summary | Confidence | Cost | Effort |");
+      lines.push("|--------|---------|------------|------|--------|");
+      (d.options ?? []).forEach((o: any) => {
+        const selected = o.id === d.selectedOptionId ? " **\u2190 Selected**" : "";
+        const recommended = o.id === d.recommendedOptionId ? " *(Recommended)*" : "";
+        lines.push(`| ${o.label}${recommended}${selected} | ${o.summary} | ${o.confidence} | ${o.cost || "\u2014"} | ${o.effort || "\u2014"} |`);
+      });
+      lines.push("");
+
+      // Show pros/cons for selected option
+      const selected = (d.options ?? []).find((o: any) => o.id === d.selectedOptionId);
+      if (selected) {
+        if (selected.pros?.length) {
+          lines.push("**Pros:** " + selected.pros.join(" · "));
+        }
+        if (selected.cons?.length) {
+          lines.push("**Cons:** " + selected.cons.join(" · "));
+        }
+        if (selected.requirements?.length) {
+          lines.push("**Requirements:** " + selected.requirements.join(" · "));
+        }
+        lines.push("");
+      }
+    });
     lines.push(hr);
   }
 
