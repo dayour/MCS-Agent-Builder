@@ -292,7 +292,10 @@ const DecisionsSection = ({ data, onChange }: Props) => {
       ) : (
         <div className="rounded-lg border border-border bg-card p-8 text-center">
           <p className="text-sm text-muted-foreground">
-            No decisions yet. Run <code className="text-xs bg-muted px-1.5 py-0.5 rounded">/mcs-research</code> to generate decisions when multiple valid approaches exist.
+            No decisions needed — research found a clear best approach for each component.
+          </p>
+          <p className="text-xs text-muted-foreground/70 mt-1">
+            Decisions appear here when research identifies multiple viable options that require your input.
           </p>
         </div>
       )}
