@@ -8,7 +8,6 @@ const s = StyleSheet.create({
   categoryBadge: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 3,
     paddingHorizontal: 5,
     paddingVertical: 2,
     borderRadius: 8,
@@ -30,7 +29,6 @@ const s = StyleSheet.create({
   },
   badgeRow: {
     flexDirection: "row",
-    gap: 4,
     marginBottom: 4,
   },
   title: {
@@ -61,7 +59,6 @@ const s = StyleSheet.create({
   optionHeader: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
     marginBottom: 2,
   },
   optionLabel: {
@@ -75,6 +72,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 4,
     paddingVertical: 1,
     borderRadius: 3,
+    marginLeft: 4,
   },
   optionSummary: {
     fontSize: 7.5,
@@ -83,7 +81,6 @@ const s = StyleSheet.create({
   },
   prosConsRow: {
     flexDirection: "row",
-    gap: 8,
     marginTop: 4,
   },
   proConItem: {
@@ -93,12 +90,12 @@ const s = StyleSheet.create({
   },
   metaRow: {
     flexDirection: "row",
-    gap: 8,
     marginTop: 3,
   },
   metaText: {
     fontSize: 7,
     color: colors.subtle,
+    marginRight: 8,
   },
   pendingBanner: {
     backgroundColor: colors.amberLight,
@@ -160,13 +157,13 @@ const Decisions = ({ data }: Props) => {
         const accentColor = d.status === "pending" ? colors.amber : d.status === "overridden" ? colors.primary : colors.green;
 
         return (
-          <Card key={i} accentColor={accentColor}>
+          <Card key={i} accentColor={accentColor} allowWrap>
             {/* Badges */}
             <View style={s.badgeRow}>
               <View style={[s.categoryBadge, { backgroundColor: catColor.bg }]}>
                 <Text style={[s.categoryText, { color: catColor.text }]}>{d.category}</Text>
               </View>
-              <View style={[s.statusBadge, { backgroundColor: statColor.bg }]}>
+              <View style={[s.statusBadge, { backgroundColor: statColor.bg, marginLeft: 4 }]}>
                 <Text style={[s.statusText, { color: statColor.text }]}>{(d.status || "pending").toUpperCase()}</Text>
               </View>
             </View>
@@ -206,7 +203,7 @@ const Decisions = ({ data }: Props) => {
                         </View>
                       )}
                       {o.cons?.length > 0 && (
-                        <View style={{ flex: 1 }}>
+                        <View style={{ flex: 1, marginLeft: 8 }}>
                           {o.cons.map((c: string, ci: number) => (
                             <Text key={ci} style={s.proConItem}>{"\u2717"} {c}</Text>
                           ))}

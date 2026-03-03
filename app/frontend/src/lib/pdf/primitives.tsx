@@ -219,16 +219,18 @@ export const Paragraph = ({
 export const Card = ({
   children,
   accentColor,
+  allowWrap,
 }: {
   children: React.ReactNode;
   accentColor?: string;
+  allowWrap?: boolean;
 }) => (
   <View
     style={[
       s.card,
       accentColor ? { borderLeftWidth: 3, borderLeftColor: accentColor } : undefined,
     ]}
-    wrap={false}
+    wrap={allowWrap !== false}
   >
     {children}
   </View>

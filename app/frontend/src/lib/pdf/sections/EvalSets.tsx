@@ -13,12 +13,10 @@ const s = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 6,
     marginBottom: 10,
-    overflow: "hidden",
   },
   setHeader: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
     padding: 10,
     backgroundColor: colors.surface,
     borderBottomWidth: 0.5,
@@ -29,7 +27,6 @@ const s = StyleSheet.create({
     fontWeight: 700,
     color: colors.foreground,
     textTransform: "capitalize",
-    flex: 1,
   },
   setCount: {
     fontSize: 7.5,
@@ -43,7 +40,6 @@ const s = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     alignItems: "center",
-    gap: 4,
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderBottomWidth: 0.5,
@@ -62,6 +58,7 @@ const s = StyleSheet.create({
     borderRadius: 4,
     paddingHorizontal: 5,
     paddingVertical: 2,
+    marginLeft: 4,
   },
   testRow: {
     flexDirection: "row",
@@ -70,18 +67,17 @@ const s = StyleSheet.create({
     paddingVertical: 6,
     borderBottomWidth: 0.3,
     borderBottomColor: colors.border,
-    gap: 6,
   },
   testDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
     marginTop: 2,
+    marginRight: 6,
   },
   testQuestion: {
     fontSize: 8,
     color: colors.foreground,
-    flex: 1,
   },
   testExpected: {
     fontSize: 7.5,
@@ -102,6 +98,7 @@ const s = StyleSheet.create({
   resultText: {
     fontSize: 7.5,
     fontWeight: 600,
+    marginLeft: 6,
   },
 });
 
@@ -150,26 +147,26 @@ const EvalSets = ({ data }: Props) => {
           <View key={si} style={s.setCard}>
             {/* Set header */}
             <View style={s.setHeader} wrap={false}>
-              <View style={{ flex: 1 }}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                  <Text style={s.setName}>{set.name}</Text>
-                  <Text style={s.setCount}>{tests.length} test{tests.length !== 1 ? "s" : ""}</Text>
-                </View>
-              </View>
-              {rate !== null ? (
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Text style={s.setName}>{set.name}</Text>
+              <Text style={[s.setCount, { marginLeft: 6, marginRight: "auto" }]}>
+                {tests.length} test{tests.length !== 1 ? "s" : ""}
+              </Text>
+              {rate !== null && (
+                <>
                   <ProgressBar
                     value={rate}
                     width={60}
                     height={5}
                     color={rateColor(rate, set.passThreshold)}
                   />
-                  <Text style={[s.passRate, { color: rateColor(rate, set.passThreshold) }]}>{rate}%</Text>
-                </View>
-              ) : (
-                <Text style={{ fontSize: 7.5, color: colors.subtle }}>No results</Text>
+                  <Text style={[s.passRate, { color: rateColor(rate, set.passThreshold), marginLeft: 6 }]}>
+                    {rate}%
+                  </Text>
+                </>
               )}
-              <Text style={{ fontSize: 7, color: colors.subtle }}>target: {set.passThreshold}%</Text>
+              <Text style={{ fontSize: 7, color: colors.subtle, marginLeft: 8 }}>
+                target: {set.passThreshold}%
+              </Text>
             </View>
 
             {/* Methods */}
@@ -189,9 +186,9 @@ const EvalSets = ({ data }: Props) => {
                 <View key={ti} style={s.testRow} wrap={false}>
                   <View style={[s.testDot, { backgroundColor: dotColor }]} />
                   <View style={{ flex: 1 }}>
-                    <Text style={s.testQuestion}>&ldquo;{safe(t.question)}&rdquo;</Text>
+                    <Text style={s.testQuestion}>{"\u201C"}{safe(t.question)}{"\u201D"}</Text>
                     {t.expected && (
-                      <Text style={s.testExpected}>Expected: &ldquo;{t.expected}&rdquo;</Text>
+                      <Text style={s.testExpected}>Expected: {"\u201C"}{t.expected}{"\u201D"}</Text>
                     )}
                     {t.capability && <Text style={s.testCapability}>{t.capability}</Text>}
                   </View>
