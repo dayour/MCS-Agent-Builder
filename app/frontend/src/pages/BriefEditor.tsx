@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Briefcase, Bot, FileText, Zap, Plug, Database,
   MessageSquare, Shield, Network, TestTube, HelpCircle,
+  GitPullRequestDraft,
   Check, Circle, Download, FileDown, Loader2,
 } from "lucide-react";
 import Layout from "@/components/Layout";
@@ -28,11 +29,13 @@ import ScopeBoundariesSection from "@/components/brief/ScopeBoundariesSection";
 import ArchitectureSection from "@/components/brief/ArchitectureSection";
 import EvalSetsSection from "@/components/brief/EvalSetsSection";
 import OpenQuestionsSection from "@/components/brief/OpenQuestionsSection";
+import DecisionsSection from "@/components/brief/DecisionsSection";
 import { generateBriefReport, downloadFile } from "@/lib/reportGenerator";
 
 const iconMap: Record<string, React.ElementType> = {
   Briefcase, FileText, Zap, Plug, Database,
   MessageSquare, Shield, Network, TestTube, HelpCircle,
+  GitPullRequestDraft,
 };
 
 const sectionComponents: Record<string, React.ComponentType<{ data: any; onChange?: (data: any) => void; context?: any }>> = {
@@ -44,6 +47,7 @@ const sectionComponents: Record<string, React.ComponentType<{ data: any; onChang
   "conversation-topics": ConversationTopicsSection,
   "scope-boundaries": ScopeBoundariesSection,
   architecture: ArchitectureSection,
+  decisions: DecisionsSection,
   "eval-sets": EvalSetsSection,
   "open-questions": OpenQuestionsSection,
 };

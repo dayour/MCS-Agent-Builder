@@ -73,7 +73,7 @@ Spawn **QA Challenger** to analyze each failed test case. Provide QA with:
 - `brief.json.knowledge[]` (knowledge sources)
 - Relevant learnings from the files above (known patterns, prior fixes)
 
-QA classifies each failure into one of 5 root cause categories:
+QA classifies each failure into one of 6 root cause categories:
 
 | Root Cause | Signal | Fix Method |
 |-----------|--------|-----------|
@@ -82,6 +82,9 @@ QA classifies each failure into one of 5 root cause categories:
 | **Routing failure** | Wrong topic triggered, or no topic matched | TE adjusts trigger phrases or adds topic |
 | **Knowledge gap** | Agent can't find the information | Flag for manual knowledge update (can't auto-add) |
 | **Scoring issue** | Response is actually fine, eval method too strict | Adjust eval criteria (passingScore, method type) |
+| **Decision mismatch** | Failure caused by integration approach from a pre-applied default decision | Flag the relevant `decisions[]` entry — user should review and potentially select a different option |
+
+**Decision mismatch detection:** When a failure involves a tool/connector that came from a pending decision's recommended default (check `decisions[].status == "pending"` and `decisions[].briefPatch` matches the failing integration), QA should flag this as a decision mismatch rather than just an instruction or routing fix. The right action is often to revisit the decision, not patch around the wrong tool.
 
 QA outputs a fix plan: which failures, what category, what to change.
 

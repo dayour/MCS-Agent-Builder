@@ -1,7 +1,7 @@
 /**
  * Client-side readiness calculator — mirrors server.py _calc_readiness().
  *
- * 11 checks, each worth equal weight. Returns 0–100.
+ * 12 checks, each worth equal weight. Returns 0–100.
  * Eval sets replace the old scenarios + evals checks.
  */
 import type { BriefData } from "@/types";
@@ -29,6 +29,10 @@ export function calcReadiness(data: BriefData): number {
   const bounds = data["scope-boundaries"];
   const questions = data["open-questions"]?.items ?? [];
   const unanswered = questions.filter((q) => q.question && q.status !== "resolved");
+  const decisions = data.decisions?.items ?? [];
+  const pendingBlockers = decisions.filter(
+    (d) => d.status === "pending" && (d.category === "architecture" || d.category === "infrastructure")
+  );
 
   const checks = [
     Boolean(ov.problemStatement),                                         // 1. Business context
@@ -42,6 +46,7 @@ export function calcReadiness(data: BriefData): number {
     unanswered.length === 0,                                              // 9. Questions resolved
     false,                                                                // 10. Build published (set externally)
     false,                                                                // 11. Eval results exist (set externally)
+    pendingBlockers.length === 0,                                         // 12. No blocking decisions pending
   ];
 
   return Math.round((checks.filter(Boolean).length / checks.length) * 100);
@@ -63,6 +68,10 @@ export function calcReadinessWithStatus(
   const bounds = data["scope-boundaries"];
   const questions = data["open-questions"]?.items ?? [];
   const unanswered = questions.filter((q) => q.question && q.status !== "resolved");
+  const decisions = data.decisions?.items ?? [];
+  const pendingBlockers = decisions.filter(
+    (d) => d.status === "pending" && (d.category === "architecture" || d.category === "infrastructure")
+  );
 
   const checks = [
     Boolean(ov.problemStatement),
@@ -76,6 +85,7 @@ export function calcReadinessWithStatus(
     unanswered.length === 0,
     buildPublished,
     hasEvalResults || hasAnyEvalResult(data),
+    pendingBlockers.length === 0,
   ];
 
   return Math.round((checks.filter(Boolean).length / checks.length) * 100);
@@ -96,6 +106,11 @@ export function sectionCompletion(data: BriefData): Record<string, boolean> {
   return {
     overview: Boolean(ov.name && ov.problemStatement),
     architecture: Boolean(arch.pattern),
+    decisions: (() => {
+      const items = data.decisions?.items ?? [];
+      if (items.length === 0) return true;
+      return items.every((d) => d.status !== "pending");
+    })(),
     instructions: Boolean(data.instructions?.systemPrompt),
     capabilities: data["capabilities"]?.items?.some((c) => c.name) ?? false,
     tools: tools.some((t) => t.name),

@@ -160,10 +160,44 @@
     ]
   },
 
+  "decisions": [
+    {
+      "_description": "Structured choice points where research found multiple valid approaches. Each decision stores ranked options with pros/cons/requirements. The recommended option's briefPatch is pre-applied to brief fields as a default. User confirms or selects a different option, which re-applies that option's briefPatch. Only created when 2+ genuinely viable options exist — one clear winner is auto-applied with no decision entry. openQuestions[] remains for freeform unknowns; decisions[] are structured choices.",
+      "id": "d-001",
+      "category": "integration | architecture | model | infrastructure | topic-implementation",
+      "title": "Short customer-readable title (e.g., How should we extract web content?)",
+      "context": "Why this decision exists — the problem, why multiple paths are valid. Written for the customer.",
+      "targetField": "integrations[name=X] | architecture.type | agent.recommendedModel",
+      "capability": "Links to capabilities[].name (optional — omit for cross-cutting decisions)",
+      "status": "pending | confirmed | overridden",
+      "selectedOptionId": null,
+      "recommendedOptionId": "opt-1",
+      "resolvedAt": null,
+      "resolvedBy": "user | research | auto",
+      "options": [
+        {
+          "id": "opt-1",
+          "label": "Option display name (e.g., Azure Function + Readability)",
+          "summary": "One-line description of this approach",
+          "pros": ["Advantage 1", "Advantage 2"],
+          "cons": ["Disadvantage 1"],
+          "requirements": ["What the customer needs for this option (e.g., Azure subscription)"],
+          "cost": "Estimated cost (e.g., ~$0/mo, ~$16/mo)",
+          "effort": "Setup effort (e.g., Low, Medium — one-time ~2hr, High)",
+          "confidence": "high | medium | low",
+          "source": "Where this option came from: solution-pattern:sp-001:tier-1 | research-analyst | cache:connectors | learnings:connectors",
+          "briefPatch": {
+            "_description": "Fields to write to brief.json when this option is selected. Keys match brief.json top-level fields. Array values are merged, scalar values are replaced."
+          }
+        }
+      ]
+    }
+  ],
+
   "evalSets": [
     {
-      "_description": "7 default sets (safety, grounding, functional, integration, quality, regression) + custom. Aligned with microsoft/ai-agent-eval-scenario-library quality dimensions.",
-      "name": "safety | grounding | functional | integration | quality | regression | <custom>",
+      "_description": "3 default sets (safety, functional, resilience) + custom. Aligned with microsoft/ai-agent-eval-scenario-library quality dimensions.",
+      "name": "safety | functional | resilience | <custom>",
       "description": "What this eval set verifies",
       "methods": [
         {

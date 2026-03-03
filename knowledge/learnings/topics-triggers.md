@@ -1,6 +1,6 @@
 # Topic & Trigger Learnings
 
-Lessons learned about topic YAML, trigger types, generative orchestration, adaptive cards. Consulted during `/mcs-research` Phase D, `/mcs-build` Step 4, and `/mcs-fix` Step 2.
+Lessons learned about topic YAML, trigger types, generative orchestration, adaptive cards. Consulted during `/mcs-research` Phase C, `/mcs-build` Step 4, and `/mcs-fix` Step 2.
 
 <!--
 Entry format:
@@ -39,7 +39,7 @@ ID format: tt-NNN (topics-triggers)
 **Context:** CDW Account Prospecting — "Scheduled Prospect Delivery" topic tagged `mvp` but its Power Automate flow integration was tagged `future`
 **Tried:** Topic listed in brief as `phase: mvp`, `topicType: custom`, `triggerType: event`. Its `connectedIntegrations` referenced "Power Automate Agent Flow (Scheduled Prospect Delivery)" which was `phase: future`.
 **Result:** Build Step 4 would have tried to author the topic but it can't function without the event trigger flow. The topic was effectively undeliverable for MVP.
-**Better approach:** Research Phase D should validate: if ALL `connectedIntegrations` for a topic are `future`, the topic should be `future` too. Build Step 4 should also check: before authoring a topic, verify its dependencies (integrations, knowledge sources) exist in the MVP scope. Flag mismatches as WARNINGs: "Topic '{name}' depends on '{integration}' which is tagged future."
+**Better approach:** Research Phase C should validate: if ALL `connectedIntegrations` for a topic are `future`, the topic should be `future` too. Build Step 4 should also check: before authoring a topic, verify its dependencies (integrations, knowledge sources) exist in the MVP scope. Flag mismatches as WARNINGs: "Topic '{name}' depends on '{integration}' which is tagged future."
 **Confirmed:** 1 build(s) | Last confirmed: 2026-02-27
 **Related cache:** knowledge/cache/triggers.md
 **Tags:** #topics #phase #dependencies #integration #validation #event-trigger

@@ -9,7 +9,7 @@
  * doesn't display are never lost.
  */
 import type { ApiBrief } from "@/types/api";
-import type { BriefData, EvalSet, EvalConfig, Overview } from "@/types";
+import type { BriefData, EvalSet, EvalConfig, Overview, DecisionCategory, DecisionStatus, ConfidenceLevel } from "@/types";
 
 /**
  * Convert raw brief.json → UI BriefData shape.
@@ -101,6 +101,33 @@ export function briefFromApi(raw: ApiBrief): BriefData {
         agentFolderId: c.agentFolderId ?? "",
       })),
       scoring: factorsToScoring(arch.factors, arch.score),
+    },
+    decisions: {
+      items: (raw.decisions ?? []).map((d) => ({
+        id: d.id ?? "",
+        category: (d.category ?? "integration") as DecisionCategory,
+        title: d.title ?? "",
+        context: d.context ?? "",
+        targetField: d.targetField ?? "",
+        capability: d.capability ?? "",
+        status: (d.status ?? "pending") as DecisionStatus,
+        selectedOptionId: d.selectedOptionId ?? null,
+        recommendedOptionId: d.recommendedOptionId ?? "",
+        resolvedAt: d.resolvedAt ?? null,
+        resolvedBy: d.resolvedBy ?? null,
+        options: (d.options ?? []).map((o) => ({
+          id: o.id ?? "",
+          label: o.label ?? "",
+          summary: o.summary ?? "",
+          pros: o.pros ?? [],
+          cons: o.cons ?? [],
+          requirements: o.requirements ?? [],
+          cost: o.cost ?? "",
+          effort: o.effort ?? "",
+          confidence: (o.confidence ?? "medium") as ConfidenceLevel,
+          source: o.source ?? "",
+        })),
+      })),
     },
     "eval-sets": evalSetsFromApi(raw),
     "open-questions": {
@@ -245,6 +272,41 @@ export function briefToApi(ui: BriefData, raw: ApiBrief): ApiBrief {
   delete result.scenarios;
   delete result.evals;
   delete result.evalResults;
+
+  // Decisions — merge back, preserving briefPatch and extra fields
+  result.decisions = ui.decisions.items.map((d) => {
+    const existing = (raw.decisions ?? []).find((e) => e.id === d.id);
+    return {
+      ...existing,
+      id: d.id,
+      category: d.category,
+      title: d.title,
+      context: d.context,
+      targetField: d.targetField,
+      capability: d.capability,
+      status: d.status,
+      selectedOptionId: d.selectedOptionId,
+      recommendedOptionId: d.recommendedOptionId,
+      resolvedAt: d.resolvedAt,
+      resolvedBy: d.resolvedBy,
+      options: d.options.map((o) => {
+        const existingOpt = (existing?.options ?? []).find((eo) => eo.id === o.id);
+        return {
+          ...existingOpt, // preserves briefPatch
+          id: o.id,
+          label: o.label,
+          summary: o.summary,
+          pros: o.pros,
+          cons: o.cons,
+          requirements: o.requirements,
+          cost: o.cost,
+          effort: o.effort,
+          confidence: o.confidence,
+          source: o.source,
+        };
+      }),
+    };
+  });
 
   // Open questions
   result.openQuestions = ui["open-questions"].items.map((q) => {

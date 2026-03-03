@@ -114,6 +114,61 @@ If ALL items of a type are `future` (e.g., zero MVP knowledge sources), skip tha
 
 ---
 
+## Step 0.5: Decision Gate (after Auth Gate, before building)
+
+**Goal:** Ensure critical decisions from `/mcs-research` are resolved before the build starts. Decisions with pre-applied recommended defaults are buildable, but the user should be aware of unconfirmed choices.
+
+### Check Decisions
+
+1. Read `brief.json.decisions[]`
+2. Filter to MVP-relevant decisions only (decisions linked to `phase: "future"` capabilities are ignored)
+3. Categorize pending decisions:
+
+| Category | Gate Type | Behavior |
+|----------|-----------|----------|
+| `architecture` | **Hard block** | Cannot build without knowing single vs multi-agent. Stop and direct user to resolve. |
+| `infrastructure` | **Hard block** | Cannot build if infrastructure choice affects agent creation (e.g., connected-agent requires external system). |
+| `integration` | **Soft warning** | Recommended default pre-applied. Build proceeds. Warn user. |
+| `model` | **Soft warning** | Recommended default pre-applied. Build proceeds. Warn user. |
+| `topic-implementation` | **Soft warning** | Recommended default pre-applied. Build proceeds. Warn user. |
+
+### Output
+
+**If hard blocks exist:**
+```
+## Decision Gate: BLOCKED
+
+{N} architecture/infrastructure decisions must be resolved before building:
+| # | Decision | Category | Options |
+|---|----------|----------|---------|
+| d-001 | Single or multi-agent? | architecture | 2 options |
+
+Resolve in brief.json (set status: "confirmed" and selectedOptionId) or in the dashboard, then re-run /mcs-build.
+```
+**Stop the build.** Do not proceed.
+
+**If only soft warnings exist:**
+```
+## Decision Gate: PROCEEDING WITH DEFAULTS
+
+{N} decisions have recommended defaults pre-applied (not yet confirmed by user):
+| # | Decision | Category | Using Default |
+|---|----------|----------|---------------|
+| d-002 | How to extract web content? | integration | Azure Function + Readability |
+| d-003 | Which AI model? | model | GPT-4.1 |
+
+Building with recommended defaults. Review and confirm decisions after build, or re-run /mcs-research to change.
+```
+**Proceed with the build.** Log the warning and continue.
+
+**If all decisions are confirmed or no decisions exist:**
+```
+Decision Gate: OK ({N} decisions confirmed, 0 pending)
+```
+**Proceed immediately.**
+
+---
+
 ## Before Building — Knowledge Cache + Learnings Check
 
 1. Read `knowledge/cache/api-capabilities.md` — check `last_verified` date

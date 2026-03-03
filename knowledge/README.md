@@ -187,7 +187,7 @@ Learnings are consulted at specific points across **all workflow skills** (not j
 |-------|-----------|-----------|
 | `/mcs-research` | Phase B | `connectors.md`, `integrations.md`, `customer-patterns.md` |
 | `/mcs-research` | Phase C | `architecture.md`, `instructions.md` |
-| `/mcs-research` | Phase D | `topics-triggers.md`, `eval-testing.md` |
+| `/mcs-research` | Phase C | `topics-triggers.md`, `eval-testing.md` |
 | `/mcs-build` | Before Step 1 | `build-methods.md` |
 | `/mcs-build` | Before Step 3 | `connectors.md`, `integrations.md` |
 | `/mcs-build` | Before Step 4 | `topics-triggers.md` |

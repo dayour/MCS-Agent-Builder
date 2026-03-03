@@ -238,6 +238,32 @@ export interface ApiBrief {
     suggestedDefault?: string;
     answer?: string;
   }>;
+  decisions?: Array<{
+    id: string;
+    category?: string;
+    title?: string;
+    context?: string;
+    targetField?: string;
+    capability?: string;
+    status?: string;
+    selectedOptionId?: string | null;
+    recommendedOptionId?: string;
+    resolvedAt?: string | null;
+    resolvedBy?: string | null;
+    options?: Array<{
+      id: string;
+      label?: string;
+      summary?: string;
+      pros?: string[];
+      cons?: string[];
+      requirements?: string[];
+      cost?: string;
+      effort?: string;
+      confidence?: string;
+      source?: string;
+      briefPatch?: Record<string, unknown>;
+    }>;
+  }>;
   instructions?: string;
   mvpSummary?: {
     now?: string[];

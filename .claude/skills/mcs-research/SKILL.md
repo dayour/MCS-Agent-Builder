@@ -39,6 +39,23 @@ The session startup protocol already checks cache freshness and refreshes stale 
 
 **Cache files are read on-demand** in Phase A (for informed questions) and Phase B (for component research). Only read the specific files needed, not all 18.
 
+## Microsoft-First Component Priority
+
+**Enterprise agents run on the Microsoft stack.** When selecting components, follow this priority order:
+
+| Priority | Source | Examples | Research Needed? |
+|----------|--------|----------|-----------------|
+| 1 | **MCS Built-In** | MCP servers, native knowledge, generative orchestration | Cache only |
+| 2 | **Power Platform** | Power Automate flows, Dataverse, custom connectors | Cache only |
+| 3 | **Azure Services** | Azure Functions, Azure AI, Azure Storage | Cache + quick verify |
+| 4 | **M365 Connectors** | SharePoint, Outlook, Teams (Standard tier) | Cache only |
+| 5 | **Certified Premium Connectors** | Dynamics 365, ServiceNow, Salesforce | Cache + verify availability |
+| 6 | **Third-Party / Custom** | Custom MCP servers, HTTP endpoints, community tools | Full live research required |
+
+**Fast path rule:** If ALL agent integrations map to Priority 1-4, skip live MCP catalog scan (Phase B Step 0) and skip Research Analyst spawn (Phase B Step 4). Resolve everything from cache — these are well-documented, enterprise-supported, and GA.
+
+**Only escalate to live research** when the agent has Priority 5-6 integrations (external systems not in cache, or cache > 7 days stale for the specific system).
+
 ## Phase 0: Smart Research Routing (Unified)
 
 **Goal:** Determine the optimal processing path for ANY invocation — project or agent level. Detects new/changed docs, brief edits, and manually created agents.
@@ -111,7 +128,7 @@ Then proceed to Step 0.6 (drastic change detection).
 
 **For agent scope only** — if no doc changes were detected for this agent:
 - Compare brief.json file modification time vs `manifest.lastResearchAt`
-- If brief is newer → set `processingPath = "re-enrich"` (brief was edited, re-run Phase B→C→D)
+- If brief is newer → set `processingPath = "re-enrich"` (brief was edited, re-run Phase B→C)
 - If brief is NOT newer → set `processingPath = "none"` (truly nothing to do)
 
 **For project scope** — if no doc changes at all:
@@ -138,12 +155,12 @@ At agent scope, skip "new agent described" and "architecture change" thresholds 
 
 | Condition | `processingPath` | Phases |
 |-----------|-----------------|--------|
-| First project run (no manifest) | `full` | A → B → C → D (all docs, deep research) |
-| First agent run (empty brief) | `full-agent` | A → B → C → D (scoped to agent, reads all project docs for relevance) |
+| First project run (no manifest) | `full` | A → B → C (all docs, deep research) |
+| First agent run (empty brief) | `full-agent` | A → B → C (scoped to agent, reads all project docs for relevance) |
 | No changes, brief not edited | `none` | Exit with message |
-| Brief edited, no new docs | `re-enrich` | B → C → D (skip A, re-enrich with current brief context) |
-| Changes exist, not drastic | `incremental` | A-inc → B-inc → C-inc → D-inc |
-| Changes exist, drastic | `full` | Warning → A → B → C → D |
+| Brief edited, no new docs | `re-enrich` | B → C (skip A, re-enrich with current brief context) |
+| Changes exist, not drastic | `incremental` | A-inc → B-inc → C-inc |
+| Changes exist, drastic | `full` | Warning → A → B → C |
 
 **Output to user before proceeding:**
 
@@ -330,11 +347,21 @@ This manifest enables incremental research to detect new/changed documents witho
 
 **Key principle:** Don't research all 6 categories live for every agent. Stable categories use cache directly. Only dispatch live research for the agent's specific integration systems.
 
-### Step 0: Live MCP Catalog Scan (All Paths — runs before system-specific research)
+### Step 0: MCP Server Discovery (CONDITIONAL)
 
-**Goal:** Proactively discover available MCP servers and recommend relevant ones the agent could use — even if no doc explicitly mentions them.
+**Goal:** Discover available MCP servers and recommend relevant ones — but only when needed.
 
-This step runs at the START of Phase B for ALL processing paths (full, full-agent, incremental, re-enrich). It ensures the agent gets a complete picture of what's available before any component decisions are made.
+**This step is NOT unconditional.** Check these conditions first:
+
+| Condition | Action | Time Saved |
+|-----------|--------|-----------|
+| ALL integrations are M365-native (Priority 1-4) | **SKIP entirely** — cache has everything needed | ~5 min |
+| Cache `mcp-servers.md` refreshed < 24h AND no new capabilities from Phase A | **Skip fetch (Steps 1-5), run matching only (Steps 6-7)** from cached data | ~3 min |
+| Agent has Priority 5-6 integrations OR cache > 7 days OR first full research | **Run full scan** (Steps 1-7) | 0 (required) |
+
+**When skipped entirely, report it:** "Microsoft-native agent — MCP catalog scan skipped (all integrations Priority 1-4)."
+
+**When running full scan:**
 
 1. **Read catalog URLs** from `knowledge/cache/mcp-servers.md` metadata header (`catalog_url` and `agent365_url`)
 2. **Fetch both catalog pages** via MS Learn MCP (`microsoft_docs_fetch`):
@@ -371,17 +398,13 @@ This step runs at the START of Phase B for ALL processing paths (full, full-agen
 
 8. **If relevant MCPs are missing from the brief's integrations**, add them as recommendations (don't auto-add — present for user decision). Flag with `source: "catalog-scan"` so the user knows this came from proactive discovery, not document extraction.
 
-**Skip conditions:**
-- If `mcp-servers.md` was refreshed < 1 day ago AND no new capabilities were added in Phase A, skip the catalog fetch (Steps 1-5) but still run the matching (Steps 6-7) using cached data
-- Never skip matching — even cached data may reveal MCPs relevant to newly discovered capabilities
-
 ### Incremental Path (processingPath == "incremental")
 
 When `processingPath == "incremental"`, Phase B is scoped to only what's new:
 
 1. **Skip stable category resolution** unless Phase A-inc found new architecture-relevant data (new channels, triggers, knowledge types not already in the brief). If all new content maps to existing categories, skip directly to Step 2.5.
 2. **Only research NEW external systems** from the new docs that aren't already in `integrations[]`. If a doc mentions "Jira" and the agent already has Jira in integrations, skip it.
-3. **Run Step 2.5 (Solution Pattern Reality Check)** for NEW capabilities only — don't re-check existing capabilities.
+3. **Run Step 2.5 (Solution Pattern Reality Check)** for ALL MVP capabilities — patterns may have been added since initial research, and existing integrations may match newly documented anti-patterns.
 4. **Check learnings** (same as full — quick read of relevant `knowledge/learnings/` files).
 5. **Spawn Research Analyst only if new external systems were found** that need live MCP/connector lookup. If everything maps to existing integrations or Microsoft-native tools, skip RA entirely.
 
@@ -408,7 +431,13 @@ Write these directly to `brief.json`:
 
 ### Step 2: Identify What Needs Live Research
 
-From Phase A extraction, list the agent's **specific external systems** that need MCP/connector lookup:
+**Microsoft-native fast path:** Before identifying external systems, classify every integration:
+- **M365-native (Priority 1-4):** SharePoint, Outlook, Teams, OneDrive, Planner, Excel, Dataverse, Dynamics 365, Power Automate, Azure services → resolve from cache, no live research
+- **External (Priority 5-6):** Everything else → needs cache check + potential live research
+
+If ALL integrations are M365-native → **skip Steps 3-4 entirely** (no learnings check for connectors, no RA spawn). Proceed directly to Step 2.5 (reality check against solution patterns — this still runs because patterns catch naive implementations regardless of stack).
+
+**When M365-native fast path does NOT apply**, list the agent's **specific external systems** that need MCP/connector lookup:
 
 ```
 Example: Agent needs Jira, ServiceNow, Confluence
@@ -416,13 +445,19 @@ Example: Agent needs Jira, ServiceNow, Confluence
 ```
 
 **Skip live research if:**
-- The agent only uses Microsoft-native tools (Outlook, SharePoint, Teams) — these are well-documented in cache
+- The agent only uses Microsoft-native tools (Priority 1-4) — resolved from cache via fast path above
 - The agent has no external system integrations (pure knowledge agent)
 - All systems are already in `knowledge/cache/connectors.md` or `knowledge/cache/mcp-servers.md` with recent `last_verified` dates
 
-### Step 2.5: Solution Pattern Reality Check (Lead)
+### Step 2.5: Implementation Reality Check (Lead)
 
-**Goal:** Catch naive implementation approaches before they reach the build phase. Traces each MVP capability's data flow and matches against proven solution patterns.
+**Goal:** Challenge every MVP capability's implementation approach — both against known anti-patterns AND from first principles. Don't trust the SDR doc's proposed solution just because the customer wrote it. The customer describes their problem well; their proposed *technical approach* may be naive.
+
+**Why this matters:** Recommending something that doesn't work destroys credibility. If we tell a customer "use HTTP Request + AI Prompt to extract articles" and it returns garbage HTML in their first test, they lose trust in everything else we recommended. It's not about giving the right answer — it's about never giving the wrong one. A brief that says "this needs an Azure Function" is honest and buildable. A brief that says "HTTP connector handles this" is a lie that wastes everyone's time.
+
+**Two-part check: Pattern Matching + First-Principles Feasibility.**
+
+#### Part A: Solution Pattern Matching
 
 1. **Read `knowledge/patterns/solution-patterns.md`** for the full pattern catalog
 2. **For each MVP capability** in the brief:
@@ -430,24 +465,85 @@ Example: Agent needs Jira, ServiceNow, Confluence
    b. **Check "When to match" conditions** for each solution pattern (sp-001 through sp-010+)
    c. **If a pattern matches:** Recommend the proven alternative. Update `integrations[]` if the proven pattern requires a different tool (e.g., Power Automate flow instead of HTTP connector). Add a note to `conversations.topics[].notes` explaining why the naive approach was replaced.
    d. **If no pattern matches but the capability involves 3+ transformation steps:** Flag for manual review — it may need a new pattern or a Power Automate flow.
-3. **Present a reality check summary:**
+
+#### Part B: First-Principles Feasibility Challenge
+
+For EVERY MVP integration in `integrations[]`, ask these 5 questions:
+
+| Question | What You're Checking | Red Flag |
+|----------|---------------------|----------|
+| **1. What does this tool actually return?** | Read the tool/connector/MCP docs. Don't assume from the name. | "HTTP Request" doesn't return clean text. "Word MCP" can't do templates. |
+| **2. Does this solve the customer's problem or just move it?** | Compare the integration's actual output against what the capability needs. | Tool returns raw data that still needs the same cleanup the customer already struggles with. |
+| **3. What happens at realistic scale?** | Check limits, timeouts, token budgets, payload sizes. | 6-8 articles × 100KB HTML = 600-800KB through AI prompts with 5K char limits. |
+| **4. What fails silently?** | JS-rendered pages returning empty HTML, soft paywalls, rate limits, bot detection. | Tool "works" in testing but fails on real-world URLs. |
+| **5. Does this need something that doesn't exist yet?** | Custom deployment (Azure Function), licensing (M365 Copilot), customer infrastructure. | Brief assumes a tool is "available" but it needs provisioning, licensing, or deployment first. |
+
+**For each integration that fails any question**, mark it as `needsRework` and add to the reality check summary with:
+- Which question(s) it failed
+- What the actual behavior is (with source — docs link, community post, etc.)
+- What should replace it
+
+#### Output
+
+3. **Present the combined reality check:**
 
 ```
 ## Implementation Reality Check: {agentName}
 
-| Capability | Pattern Match | Naive → Proven | Impact |
-|-----------|--------------|----------------|--------|
+### Pattern Matches
+| Capability | Pattern | Naive → Proven | Impact |
+|-----------|---------|----------------|--------|
 | {name} | sp-001 | HTTP Request → Readability service | New Azure Function needed |
-| {name} | sp-003 | Topic loop → PA Apply-to-each | New PA flow needed |
 | {name} | (none) | — | OK as designed |
-| {name} | (flagged) | 4 transformation steps | Review recommended |
+
+### Feasibility Challenges
+| Integration | Failed Question | Issue | Recommendation |
+|------------|----------------|-------|----------------|
+| {name} | #1 (actual output) | Returns raw HTML, not clean text | Replace with extraction service |
+| {name} | #5 (doesn't exist yet) | Requires M365 Copilot license | Verify licensing or use standard connector |
+| {name} | — | Passes all checks | OK |
 ```
 
-4. **User reviews and approves** the reality check before proceeding to Step 3. If a pattern match changes the integration approach significantly (e.g., adds a new Azure Function dependency), flag it as requiring customer discussion.
+4. **Flag integrations that need rework** for Step 4 (RA research) or user discussion. If a feasibility failure changes the integration approach significantly (e.g., adds an Azure Function dependency, requires licensing), flag it as requiring customer discussion.
+
+#### Part C: Decision Generation from Pattern Matches
+
+When Step 2.5 finds a pattern match with **2+ viable implementation tiers**, create a structured decision instead of auto-selecting one approach:
+
+1. **Check tier viability:** For each matched pattern, filter implementation tiers against known customer constraints (from brief.json, open questions, or Phase A extraction). Remove tiers the customer clearly can't use (e.g., "Azure Function" when customer has no Azure subscription and answered "no" to Azure access).
+2. **Decision threshold:** If 2+ tiers survive filtering → **create a `decisions[]` entry**. If only 1 tier survives → **auto-apply** that tier to brief fields, no decision entry needed.
+3. **Map tiers to options:** Each surviving tier becomes an option in the decision. Use the pattern's tier data to populate `label`, `summary`, `pros`, `cons`, `requirements`, `cost`, `effort`. Set `confidence` based on the tier's track record (`confirmed` builds from the pattern).
+4. **Set recommended:** Default recommendation = highest-ranked surviving tier (Tier 1 unless disqualified). Set `recommendedOptionId` to that option's ID.
+5. **Pre-apply recommended:** Write the recommended option's `briefPatch` to the actual brief fields (integrations[], conversations.topics[].notes, etc.). This gives the brief a buildable default even if the user never reviews decisions.
+6. **Set source:** `"solution-pattern:{patternId}:tier-{N}"` for each option.
+
+**Decision entry format:**
+```json
+{
+  "id": "d-{NNN}",
+  "category": "integration",
+  "title": "How should we {capability description}?",
+  "context": "The naive approach ({naive}) fails because {reason}. Multiple proven alternatives exist.",
+  "targetField": "integrations[name={integration}]",
+  "capability": "{capability name from brief}",
+  "status": "pending",
+  "selectedOptionId": null,
+  "recommendedOptionId": "opt-1",
+  "resolvedAt": null,
+  "resolvedBy": null,
+  "options": [/* one per viable tier */]
+}
+```
+
+**When to skip decision generation:**
+- Pattern has only 1 viable tier after constraint filtering → auto-apply
+- Pattern match is clear-cut with no meaningful tradeoffs between tiers → auto-apply top tier
+- The capability is `phase: "future"` → skip entirely (no need to decide on deferred items)
 
 **Skip conditions:**
 - If the agent has no MVP capabilities (shouldn't happen, but guard)
-- During `re-enrich` path: only check NEW capabilities added from answered questions
+
+**Always runs against ALL MVP capabilities** regardless of processing path (full, full-agent, incremental, re-enrich). Solution patterns may be added to the catalog after initial research, and existing integrations may match newly documented anti-patterns. First-principles checks catch issues that no pattern catalog covers. The cost is low and the risk of missing a naive approach is high.
 
 ### Step 3: Check Past Learnings (only relevant files)
 
@@ -465,23 +561,51 @@ Read learnings files only if they're relevant to this agent's systems and non-em
 
 **If a cached category is confirmed by learnings** (e.g., same trigger approach worked in 3 builds), bump `confirmed` count in `index.json` (Tier 1 auto-capture — no user confirmation needed).
 
-### Step 4: Live Research via Research Analyst (only if needed)
+### Step 4: Live Research via Research Analyst (when needed)
 
-**If Step 2 identified systems needing live research**, spawn the **Research Analyst** teammate with **targeted tasks only**:
+Spawn the **Research Analyst** when ANY of these are true:
 
-```
-Research Analyst tasks (ONLY for systems not resolved from cache):
-- "Find MCS MCP servers or connectors for [System A], [System B]"
-- "What connector auth modes does [System C] support in MCS?"
-```
+| Trigger | RA Task |
+|---------|---------|
+| Step 2 found external systems not in cache | "Find MCS MCP servers or connectors for [System A], [System B]" |
+| Step 2.5 flagged an integration as `needsRework` | "Research alternatives for [integration] — current approach fails because [reason]. Find what actually works." |
+| Step 2.5 found a capability with no viable integration | "How can MCS implement [capability]? The obvious approach ([X]) doesn't work because [Y]." |
 
 The RA should:
 - Check `knowledge/cache/connectors.md` + `knowledge/cache/mcp-servers.md` for baseline
-- WebSearch for "[system] Copilot Studio connector" + current year
-- MS Learn MCP for official docs
-- Cross-reference and present options with pros/cons
+- WebSearch for the capability + "Copilot Studio" + current year (catch preview/new features)
+- MS Learn MCP for official docs on tool/connector actual behavior
+- Fetch actual API/tool documentation to verify what a tool returns (don't trust names)
+- Cross-reference and present **ranked options** with pros/cons, cost, reliability, and deployment requirements
+- **Challenge the doc's proposed approach** — if the SDR says "use HTTP to scrape," the RA should independently evaluate whether that works, not just find HTTP connector docs
 
-**If Step 2 found nothing needing live research**, skip the RA entirely — proceed to Phase C.
+**Skip RA entirely when:**
+- All integrations are M365-native (Priority 1-4) AND Step 2.5 passed all integrations
+- All systems are in `connectors.md` or `mcp-servers.md` cache with `last_verified` < 7 days
+- processingPath == "re-enrich" (brief edits only, no new integrations)
+
+**When skipped, report it:** "Microsoft-native agent — external connector research skipped."
+
+### Step 4.5: Decision Generation from RA Results
+
+When the Research Analyst returns results with **2+ viable approaches** for a system integration:
+
+1. **Rank options** by: native MCS support > certified connector > custom connector > Power Automate flow > HTTP request
+2. **Decision threshold:** If 2+ approaches are genuinely viable (not just "possible" — they must actually work for the customer's use case) → **create a `decisions[]` entry**. If 1 clear winner exists → **auto-apply**, no decision entry.
+3. **Map RA findings to options:** Each viable approach becomes an option with `label`, `summary`, `pros`, `cons`, `requirements`, `cost`, `effort`, `confidence` (based on RA's source quality — official docs = high, community blog = medium, untested = low).
+4. **Set source:** `"research-analyst"` for RA-discovered options, `"cache:connectors"` or `"cache:mcp-servers"` for cache-sourced options.
+5. **Pre-apply recommended:** Write the top-ranked option's `briefPatch` to brief fields as the buildable default.
+
+**What counts as "genuinely viable":**
+- Tool/connector exists and is GA or public preview
+- Auth method is compatible with the customer's environment
+- Tool actually returns the data the capability needs (verified by RA, not assumed from name)
+- Customer can reasonably set it up (no enterprise licensing for a 10-person team)
+
+**What does NOT count:**
+- Theoretical approaches no one has tried ("you could build a custom MCP server...")
+- Tools that exist but don't solve the actual problem (name matches but behavior doesn't)
+- Deprecated or private preview features
 
 ### Component Selection Rules
 
@@ -496,9 +620,11 @@ After research (live or cache-only), update:
 - `conversations.topics[]` — recommended conversation topics with `triggerType`, `topicType`, `implements[]`
 - `knowledge[]` — recommended knowledge sources with `type`, `purpose`, `scope`, `phase`
 
-## Phase C: Architecture Design + Instructions
+## Phase C: Architecture, Instructions, Eval Sets & Topics (PARALLEL)
 
-**Goal:** Score architecture, write instructions, and update brief.json with build-ready data.
+**Goal:** Score architecture, select model, write instructions, classify topics, generate eval sets, validate topic feasibility. **Teammates run in parallel** for speed.
+
+**Time budget:** ~8-12 min (parallel) vs ~20-25 min (old sequential).
 
 ### Re-enrich Path (processingPath == "re-enrich")
 
@@ -508,10 +634,8 @@ Phase A was skipped (no new docs to process). Go straight to:
 
 1. **Re-score architecture** if answered questions affect the 6-factor scoring (e.g., answered "Which teams own this?" could change teamOwnership factor). If score changes, update `architecture.score` and `architecture.factors`.
 2. **Generate `instructionsDelta`** noting what changed from answered questions. If `instructions` is empty (never written), write from scratch via Prompt Engineer (same as full mode). If instructions exist, generate delta and flag for review.
-3. **QA reviews consistency** — do the answered questions create contradictions with existing brief fields? Are there new integration needs revealed by the answers?
+3. **Parallel dispatch** (Step 2 below) — QA generates new eval tests if answered questions affect coverage, TE reviews topic changes if answers affect topic structure.
 4. **Update MVP fields** if applicable — answered questions may clarify what's now vs later.
-
-Then proceed to Phase D (re-enrich — QA generates new eval tests only if answered questions affect eval coverage).
 
 ### Incremental Path (processingPath == "incremental")
 
@@ -520,14 +644,12 @@ When `processingPath == "incremental"`, Phase C preserves existing architecture 
 1. **Re-score architecture only if** Phase A-inc added new capabilities or integrations that affect the 6-factor scoring. If the score changes, add to `_updateFlags` with the old and new score — do NOT automatically switch architecture type.
 2. **Do NOT rewrite instructions.** Instead, generate an `instructionsDelta` describing what changed (new capabilities, new tools, new boundaries) and store in `notes.instructionsDelta`. Flag for the user: "Instructions may need updating — review delta in dashboard."
    - **Exception:** If the `instructions` field is currently empty (never written), write from scratch via Prompt Engineer (same as full mode).
-3. **QA reviews incremental changes only** — consistency check of new fields against existing brief (do new integrations conflict with existing architecture? do new capabilities overlap with existing ones?). No full instruction review.
+3. **Parallel dispatch** (Step 2 below) — QA generates tests for NEW capabilities only (appends to existing evalSets). TE reviews new custom topics if any. PE skipped unless instructions empty.
 4. **Merge new fields only** — append to `mvp.now`/`mvp.later` where appropriate, don't overwrite existing MVP decisions.
-
-Then proceed to Phase D (incremental).
 
 ### Full Path (processingPath == "full" or "full-agent")
 
-Existing behavior — full architecture scoring + instructions as described below.
+Existing behavior — full architecture scoring + parallel dispatch as described below.
 
 ### Before Scoring: Consult Architecture + Instruction Learnings
 
@@ -535,6 +657,10 @@ Read `knowledge/learnings/architecture.md` and `knowledge/learnings/instructions
 - Architecture patterns that matched similar agent profiles (single vs multi-agent precedents)
 - Instruction patterns that improved quality (boundary language, tool reference patterns)
 - Present relevant learnings to PE alongside the brief data
+
+Also read `knowledge/learnings/topics-triggers.md` and `knowledge/learnings/eval-testing.md` (if non-empty) before topic classification and eval generation. Look for:
+- Topic patterns that improved routing (trigger phrase strategies, "by agent" description patterns)
+- Eval method insights (which test methods work best for which scenario types, threshold calibration)
 
 ### Step 1: Architecture Decision (Lead)
 
@@ -562,12 +688,147 @@ Update `brief.json architecture`:
 
 **Every factor MUST have reasoning.** A bare `true`/`false` without explanation is incomplete. The reasoning should reference the agent's specific capabilities, data sources, teams, and constraints — not generic statements.
 
-### Step 2: Instructions — Prompt Engineer (single pass)
+#### Architecture Decision Generation
 
-Spawn the **Prompt Engineer** teammate to write the agent instructions. Provide the PE with:
-- The agent's complete `brief.json` (business, agent, capabilities, integrations, knowledge, conversations, boundaries populated from Phases A-B)
-- `knowledge/cache/instructions-authoring.md` for MS-recommended patterns, anti-patterns, and **model-aware instruction rules**
-- The agent's `recommendedModel` (from `brief.json.agent.recommendedModel`, if set) so the PE can run a model-specific scan after writing
+| Score | Action |
+|-------|--------|
+| **0-1** (clearly single) | Auto-apply `single-agent`. No decision entry. Still write `architecture.reason` explaining why. |
+| **2-3** (borderline) | **Create architecture decision** with single-agent and multi-agent as options. Pre-apply the score-recommended type. |
+| **4-6** (clearly multi) | Auto-apply `multi-agent`. No decision entry. Note in `architecture.reason` that single was considered. |
+
+**Borderline decision format:**
+```json
+{
+  "id": "d-{NNN}",
+  "category": "architecture",
+  "title": "Single agent or multi-agent architecture?",
+  "context": "Score {N}/6 is borderline. Key factors: {factors that scored true}. Both approaches are viable.",
+  "targetField": "architecture.type",
+  "status": "pending",
+  "recommendedOptionId": "opt-1",
+  "options": [
+    {
+      "id": "opt-1",
+      "label": "{score-recommended type}",
+      "summary": "...",
+      "pros": ["..."],
+      "cons": ["..."],
+      "confidence": "medium",
+      "briefPatch": { "architecture": { "type": "{recommended}" } }
+    },
+    {
+      "id": "opt-2",
+      "label": "{alternative type}",
+      "summary": "...",
+      "pros": ["..."],
+      "cons": ["..."],
+      "confidence": "medium",
+      "briefPatch": { "architecture": { "type": "{alternative}" } }
+    }
+  ]
+}
+```
+
+### Step 1.5: Model Selection + Topic Classification (Lead — no teammates)
+
+#### Model Selection
+
+**Goal:** Select the AI model during research so the PE can write model-aware instructions and the customer can review the choice.
+
+1. **Query available models:** Read `knowledge/cache/models.md` for the current model catalog. If stale (> 7 days), query live via `node tools/island-client.js get-models --env <envId>`.
+2. **Evaluate model fit:** Consider the agent's requirements:
+   - Reasoning-heavy (complex multi-step logic, code generation) → models with reasoning capabilities (o3-mini, etc.)
+   - General-purpose (Q&A, summarization, routing) → latest GA model (default)
+   - Cost-sensitive → smaller/cheaper models
+   - Low-latency required → faster models
+3. **Decision threshold:**
+   - If the latest GA model is the obvious choice (general-purpose agent, no special requirements) → **auto-apply** to `agent.recommendedModel`, no decision entry.
+   - If meaningfully different options exist (e.g., GPT-4.1 vs o3-mini for a reasoning-heavy agent, or cost matters) → **create model decision** with options.
+4. **Write to brief.json:** Set `agent.recommendedModel` to the selected/recommended model name. PE uses this for model-aware instruction writing.
+
+**Model decision format (when created):**
+```json
+{
+  "id": "d-{NNN}",
+  "category": "model",
+  "title": "Which AI model for {agent name}?",
+  "context": "{Why multiple models are viable — e.g., 'This agent requires complex reasoning. Two models excel here with different cost/speed tradeoffs.'}",
+  "targetField": "agent.recommendedModel",
+  "status": "pending",
+  "recommendedOptionId": "opt-1",
+  "options": [/* one per viable model with pros/cons/cost */]
+}
+```
+
+#### Topic Classification (Lead — quick, before teammate dispatch)
+
+Before dispatching teammates, the Lead classifies each capability's topic type. This enables TE to start immediately without waiting for QA.
+
+**Classification rules** (any TRUE → custom topic):
+- Requires multi-step data collection (sequential questions)
+- Requires specific response format the model can't reliably produce (e.g., structured summaries, forms)
+- Is a hard boundary/decline/refuse scenario (instructions alone are unreliable — need manual response topic)
+- Requires tool calls in a specific sequence
+- Requires channel-specific behavior (adaptive cards, quick replies)
+- Maps to a capability that the brief marks as requiring "structured" or "workflow" behavior
+
+**Borderline cases:** When criteria are mixed, create a `topic-implementation` decision:
+
+```json
+{
+  "id": "d-{NNN}",
+  "category": "topic-implementation",
+  "title": "Generative or custom topic for {capability}?",
+  "context": "{Why both approaches could work}",
+  "targetField": "conversations.topics[name={topic}].topicType",
+  "capability": "{capability name}",
+  "status": "pending",
+  "recommendedOptionId": "opt-1",
+  "options": [
+    {
+      "id": "opt-1",
+      "label": "Custom topic",
+      "summary": "Dedicated YAML topic with explicit flow control",
+      "pros": ["Deterministic behavior", "Explicit error handling", "Structured data collection"],
+      "cons": ["Higher build effort", "Maintenance overhead", "Less flexible to prompt changes"],
+      "effort": "Medium-High",
+      "confidence": "high",
+      "briefPatch": { "conversations": { "topics": [{ "name": "{topic}", "topicType": "custom" }] } }
+    },
+    {
+      "id": "opt-2",
+      "label": "Generative orchestration",
+      "summary": "Handled by AI orchestrator with instructions + knowledge",
+      "pros": ["Zero build effort", "Flexible", "Easy to iterate"],
+      "cons": ["Less predictable", "May not reliably follow multi-step flows", "Harder to enforce exact formatting"],
+      "effort": "Low",
+      "confidence": "medium",
+      "briefPatch": { "conversations": { "topics": [{ "name": "{topic}", "topicType": "generative" }] } }
+    }
+  ]
+}
+```
+
+Write classifications to `conversations.topics[].topicType` before dispatching teammates.
+
+### The Generic-Instructions / Explicit-Topics Balance
+
+Since instructions are now generic (no hardcoded URLs, no tool listing, no naming knowledge sources per MS best practices), **routing must come from elsewhere**. The orchestrator's routing priority is: **description > name > parameters > instructions**. This means:
+
+- **Every capability** in `brief.json.capabilities[]` should map to either a well-described knowledge source OR a custom topic with a strong description
+- **Capabilities requiring specific behavior** (multi-step workflows, structured data collection, hard boundaries) → MUST be custom topics, not left to generative orchestration
+- **Capabilities handled by knowledge Q&A** → generative orchestration is fine, but the knowledge source description must be specific enough for routing
+- **Topic descriptions are the #1 routing signal** — every custom topic's `description` field must clearly state when to use it AND when NOT to use it
+
+### Step 2: Parallel Teammate Dispatch
+
+Spawn ALL teammates simultaneously. They do NOT depend on each other's output.
+
+#### Prompt Engineer — write agent instructions
+
+- Input: full brief.json (Phases A+B complete), `knowledge/cache/instructions-authoring.md`, model selection from Step 1.5
+- Output: instruction text (up to 8,000 chars, self-verified per PE checklist)
+- Runs independently — does NOT need QA or TE output
 
 **PE must follow the universal instruction template and model-aware rules:**
 - **7 universal style rules**: (1) Functional role in first line, no superlatives. (2) WHY on every constraint in parentheses. (3) Tiered length with floor + ceiling per question type. (4) Plain emphasis — bold or "Never X", no aggressive caps. (5) No personality padding. (6) 2-3 varied examples — happy path + boundary + complex. (7) Flat lists only.
@@ -587,92 +848,12 @@ Spawn the **Prompt Engineer** teammate to write the agent instructions. Provide 
 - **Model-specific scan**: If `recommendedModel` is set, PE runs the model-specific checks from the Model Family Tuning Guide (e.g., Claude → check for aggressive caps; GPT-5.2 → check for missing length floors)
 - PE runs their own review checklist before returning (char count, anti-pattern check, reference validity, audience, follow-ups, **model awareness checks**)
 
-### Step 3: QA Review (single pass, no iteration)
+#### QA Challenger — generate eval sets (3 default + custom)
 
-Spawn the **QA Challenger** to review the PE's output in a **single pass**:
-- Verify instructions use three-part structure (Constraints + Response Format + Guidance)
-- Verify **no hardcoded URLs** and **no tool/knowledge listing**
-- Verify instructions reference only tools that are in `integrations[]`
-- **Capability-instruction alignment:** For each MVP capability, verify instructions address it (directly or via tool description). For each future capability, verify instructions do NOT include dedicated sections for it (unless `implementationType == "prompt"`, in which case flag: "Capability '{name}' is prompt-only — should be re-tagged as MVP"). Flag mismatches for PE to resolve before finalizing.
-- Verify boundaries match `boundaries.handle/decline/refuse`
-- Verify audience is stated in the Role section
-- Verify follow-up question guidance is included
-- Verify instruction length < 8000 chars
-- Check for vague language, missing edge cases, nested lists
-
-**QA produces a verdict:**
-- **PASS** — instructions are ready as-is
-- **PASS WITH FIXES** — instructions are good but have specific issues. QA outputs the exact fixes needed (e.g., "Line 4: change `/JiraConnector` to `/Jira`", "Remove reference to `/TopicX` — not configured")
-- **FAIL** — fundamental problems requiring rewrite (rare — only if PE missed something major)
-
-**No iteration loop.** If QA returns PASS WITH FIXES, the lead applies the specific fixes directly. If QA returns FAIL, the lead spawns PE again with QA's feedback for one more attempt, then accepts the result.
-
-### Step 4: Write to brief.json
-
-Write the build-ready data directly to `brief.json`:
-
-- `instructions` — full system prompt text (QA-reviewed, up to 8000 chars)
-- `mvp.now` — what to build this sprint
-- `mvp.later` — what's deferred and why
-
-Also enrich existing fields with research findings:
-- `integrations[].status` — availability status per tool
-- `integrations[].notes` — auth details, config notes
-- `knowledge[].scope` — scoping/filtering details
-- `knowledge[].status` — readiness status
-- `conversations.topics[].triggerType` — how each topic is triggered
-- `notes` — any additional context discovered during research
-
-## Phase D: Eval Sets & Topic Classification
-
-**Goal:** Generate eval sets (3 default sets aligned with [MS Eval Scenario Library](https://github.com/microsoft/ai-agent-eval-scenario-library) + custom), classify topic needs, and produce per-set evaluation CSVs.
-
-### Incremental Path (processingPath == "incremental")
-
-When `processingPath == "incremental"`, Phase D generates eval tests only for what's new:
-
-1. **Generate tests only for NEW capabilities** added during Phase A-inc. Distribute into the appropriate eval sets.
-2. **Append new tests** to existing `evalSets[].tests[]`. Never remove or modify existing test entries.
-3. **QA reviews new tests only** — verify they don't duplicate existing test coverage.
-4. **Regenerate `evals.csv`** from the updated evalSets (flat export for MCS native eval compatibility).
-
-Then proceed to Final Output (incremental format).
-
-### Full Path (processingPath == "full" or "full-agent")
-
-Existing behavior — generate all eval sets and topics as described below.
-
-### Before Eval Generation: Consult Topic + Eval Learnings
-
-Read `knowledge/learnings/topics-triggers.md` and `knowledge/learnings/eval-testing.md` (if non-empty) before generating eval sets and classifying topics. Look for:
-- Topic patterns that improved routing (trigger phrase strategies, "by agent" description patterns)
-- Eval method insights (which test methods work best for which scenario types, threshold calibration)
-- Provide relevant learnings to QA Challenger alongside the brief data
-
-### The Generic-Instructions / Explicit-Topics Balance
-
-Since instructions are now generic (no hardcoded URLs, no tool listing, no naming knowledge sources per MS best practices), **routing must come from elsewhere**. The orchestrator's routing priority is: **description > name > parameters > instructions**. This means:
-
-- **Every capability** in `brief.json.capabilities[]` should map to either a well-described knowledge source OR a custom topic with a strong description
-- **Capabilities requiring specific behavior** (multi-step workflows, structured data collection, hard boundaries) → MUST be custom topics, not left to generative orchestration
-- **Capabilities handled by knowledge Q&A** → generative orchestration is fine, but the knowledge source description must be specific enough for routing
-- **Topic descriptions are the #1 routing signal** — every custom topic's `description` field must clearly state when to use it AND when NOT to use it
-
-### Step 1: Classify Topics + Generate Eval Sets — QA Challenger (single pass)
-
-Spawn **QA Challenger** to classify topics AND populate all 3 default eval sets (safety, functional, resilience) in one pass.
-
-**Topic classification:** For each capability, QA determines:
-- **Topic type**: `generative` (handled by orchestration + knowledge) or `custom` (needs dedicated topic YAML)
-- **Trigger type**: `by-agent` (AI routes via description) or `phrases` (explicit triggers) or `event` (autonomous)
-
-**Custom topic decision criteria** (if ANY are true → custom topic, not generative):
-- Requires multi-step data collection (sequential questions)
-- Requires specific response format the model can't reliably produce (e.g., structured summaries, forms)
-- Is a hard boundary/decline/refuse scenario (instructions alone are unreliable — need manual response topic)
-- Requires tool calls in a specific sequence
-- Requires channel-specific behavior (adaptive cards, quick replies)
-- Maps to a capability that the brief marks as requiring "structured" or "workflow" behavior
+- Input: full brief.json (capabilities, boundaries, integrations), eval-scenarios library, topic-triggers + eval-testing learnings
+- Output: 3 eval sets (safety/functional/resilience) with 40-55 tests, coverage report
+- Does NOT review instructions (Lead handles that inline in Step 3)
+- Does NOT classify topics (Lead already did in Step 1.5)
 
 **Eval set generation — scenario-driven:** QA reads `knowledge/frameworks/eval-scenarios/index.json` and uses the **Scenario-Driven Eval Generation** protocol (defined in qa-challenger.md) to generate tests from proven patterns instead of ad-hoc from brief fields.
 
@@ -702,17 +883,13 @@ Research may adjust methods per set based on agent specifics (e.g., raise Compar
 
 **After eval generation, QA reports coverage distribution** (core-business/variations/architecture/edge-cases percentages) and flags gaps against the scenario library's recommended categories.
 
-### Step 1.5: Topic Feasibility Review — Topic Engineer (single pass)
+#### Topic Engineer — topic feasibility validation (only if custom topics exist)
 
-Spawn **Topic Engineer** to validate the proposed topic structure before the build. This catches structural issues early — reducing rework.
+- Input: brief.json topics (classified by Lead in Step 1.5), capabilities, integrations, `knowledge/cache/adaptive-cards.md` + `knowledge/cache/conversation-design.md`
+- Output: per-topic feasibility assessment (OK / SPLIT / caveats)
+- Skip if no custom topics (all generative)
 
-Provide TE with:
-- `brief.json.conversations.topics[]` (topic list with types and triggers from QA)
-- `brief.json.capabilities[]` (what each topic needs to do)
-- `brief.json.integrations[]` (available tools)
-- `knowledge/cache/adaptive-cards.md` + `knowledge/cache/conversation-design.md`
-
-TE reviews each proposed topic and produces a **per-topic feasibility assessment:**
+TE reviews each proposed custom topic and produces a **per-topic feasibility assessment:**
 
 | Check | What TE Validates |
 |-------|------------------|
@@ -723,19 +900,37 @@ TE reviews each proposed topic and produces a **per-topic feasibility assessment
 | **Trigger viability** | Is the trigger type appropriate? "By agent" description specific enough for AI routing? |
 | **Description quality** | Is the topic description specific enough for routing? Does it say when to use AND when NOT to use? (Descriptions are routing priority #1 — more important than instructions) |
 
-**What happens with TE's output:**
+### Step 3: Lead Reconciliation
+
+After all teammates return (or as each finishes):
+
+**3a. Apply PE instructions + inline review:**
+- Write instructions to brief.json
+- **Lead does inline instruction review** (no separate QA spawn):
+  1. Three-part structure present? (Constraints + Response Format + Guidance)
+  2. No hardcoded URLs?
+  3. No tool/knowledge listing?
+  4. References match `integrations[]`?
+  5. Boundaries match `boundaries.*`?
+  6. Audience stated in Role section?
+  7. Follow-up guidance included?
+  8. Length < 8,000 chars?
+  9. **Capability-instruction alignment:** Every MVP capability addressed? No future capability dedicated sections (unless `implementationType == "prompt"`)?
+- If issues found: fix inline (minor) or re-spawn PE with specific fixes (rare)
+
+**3b. Apply QA eval sets:**
+- Write evalSets[] to brief.json
+- Write evalConfig — `{ targetPassRate: 70, maxIterationsPerCapability: 3, maxRegressionRounds: 2 }`
+- Review coverage report — flag gaps
+
+**3c. Apply TE recommendations:**
 - **OK** topics → no change to brief
 - **SPLIT** recommendations → update `conversations.topics[]` to reflect the split (add sub-topics, mark original as parent)
 - **Caveats** → add to `conversations.topics[].notes` field
-- QA does NOT re-review TE's output (this is a single-pass addition, not an iteration loop)
 
-**When to skip TE:** If the agent has no custom topics (all generative), skip this step — there's nothing structural to validate.
+**3d. Generate per-set CSVs:**
 
-### Step 2: Write evalSets to brief.json + Generate evals.csv (Lead)
-
-Write the 3 eval sets to `brief.json.evalSets[]` and `brief.json.evalConfig` (targetPassRate: 85%).
-
-Also generate **per-set CSVs** in `Build-Guides/{projectId}/agents/{agentId}/` for MCS native eval compatibility:
+Generate **per-set CSVs** in `Build-Guides/{projectId}/agents/{agentId}/` for MCS native eval compatibility:
 
 ```
 evals-safety.csv
@@ -754,12 +949,20 @@ Question,Expected response,Testing method
 - Max 100 questions per CSV (MCS limit). If a set has > 100 tests, split into multiple CSVs.
 - `Capability use` cannot be specified in CSV — add via MCS UI after import
 
-### Step 3: Update brief.json
+**3e. Write to brief.json:**
 
-Write to `brief.json`:
+Write all build-ready data:
+- `instructions` — full system prompt text (up to 8000 chars)
 - `evalSets[]` — all 3 sets with their tests, methods, thresholds
-- `evalConfig` — `{ targetPassRate: 70, maxIterationsPerCapability: 3, maxRegressionRounds: 2 }`
-- `conversations.topics[]` — topic classifications from QA
+- `evalConfig` — target pass rates and iteration limits
+- `conversations.topics[]` — topic classifications and feasibility notes
+- `mvp.now` — what to build this sprint
+- `mvp.later` — what's deferred and why
+- `integrations[].status` — availability status per tool
+- `integrations[].notes` — auth details, config notes
+- `knowledge[].scope` — scoping/filtering details
+- `knowledge[].status` — readiness status
+- `notes` — any additional context discovered during research
 
 ## Final Output
 
@@ -780,11 +983,12 @@ When `processingPath == "incremental"`, use this format:
 **Mode:** Incremental ({N} new/changed docs processed)
 **Agents updated:** {count}
 
-| Agent | +Capabilities | +Integrations | +Tests | Flags |
-|-------|--------------|---------------|--------|-------|
-| {name} | +{N} | +{M} | +{K} | {F} |
+| Agent | +Capabilities | +Integrations | +Tests | +Decisions | Flags |
+|-------|--------------|---------------|--------|------------|-------|
+| {name} | +{N} | +{M} | +{K} | +{D} | {F} |
 
 {If _updateFlags exist: "Review flagged items in dashboard. Instructions delta in notes."}
+{If new decisions: "New decisions added — review in brief before building."}
 
 **Next:** Review changes in dashboard. If instructions need updating, edit in dashboard or re-run with agentId.
 ```
@@ -794,15 +998,24 @@ When `processingPath == "incremental"`, use this format:
 ```
 ## Research Complete: {projectId}
 
-**Agents:** {count} | **Open Questions:** {count}
+**Agents:** {count} | **Open Questions:** {count} | **Decisions:** {count pending}
 
-| Agent | Architecture | Tools | Evals |
-|-------|-------------|-------|-------|
-| {name} | {Single/Multi} | {N} | {N} |
+| Agent | Architecture | Tools | Evals | Decisions |
+|-------|-------------|-------|-------|-----------|
+| {name} | {Single/Multi} | {N} | {N} | {N pending} |
+
+{If decisions exist:}
+## Decisions Requiring Review: {count}
+| # | Category | Decision | Recommended | Options |
+|---|----------|----------|-------------|---------|
+| d-001 | integration | How to extract web content? | Azure Function + Readability | 3 options |
+| d-002 | model | Which AI model? | GPT-4.1 | 2 options |
+
+Recommended defaults pre-applied to brief. Review and confirm before building.
 
 Files: brief.json + evals.csv per agent
 
-**Next:** Review brief in the dashboard. Resolve open questions. Then /mcs-build.
+**Next:** Review brief in the dashboard. Resolve open questions and decisions. Then /mcs-build.
 ```
 
 **No report file generated.** The dashboard renders brief.json directly. Customer-shareable reports will be an on-demand export feature (future).
@@ -870,11 +1083,11 @@ This timestamp lets incremental research know when the last full research was pe
 - **No working-paper files**: Do NOT leave intermediate artifacts like instruction drafts, QA reviews, connector research notes, or scenario docs as separate files. All research findings go INTO brief.json fields (instructions, integrations[].notes, notes{}, etc.). If teammates generate working documents during collaboration, consolidate their content into brief.json and delete the working files before completing.
 - **Targeted research, not exhaustive** — only spawn RA for systems that need live lookup. Stable categories (models, channels, triggers, knowledge) use cache.
 - **Single-pass QA** — no PE↔QA iteration loop. PE self-checks, QA reviews once, lead applies fixes.
-- **Topic Engineer validates feasibility in Phase D** but does NOT generate YAML. Full YAML authoring is reserved for `/mcs-build`. TE checks structural feasibility (complexity, node types, card limits, variable flow, triggers) and recommends splits where needed.
+- **Topic Engineer validates feasibility in Phase C** (parallel with PE and QA) but does NOT generate YAML. Full YAML authoring is reserved for `/mcs-build`. TE checks structural feasibility (complexity, node types, card limits, variable flow, triggers) and recommends splits where needed.
 - **Never assume components** — always research, always present options
 - **Update cache** — after live research, update relevant `knowledge/cache/` files
 - **Iteration comes from the user** — present open questions, let the customer/user resolve them, then re-run with `{agentId}` to re-enrich
-- **Don't stop between phases** — this is a single-pass skill. Run A→B→C→D continuously.
+- **Don't stop between phases** — this is a single-pass skill. Run A→B→C continuously.
 - **Phase 0 runs for ALL invocations** — project and agent level. No bypass, no skip.
 - **Document-to-agent mapping is auto-detected.** Ask user only when ambiguous.
 - **Brief edits trigger re-enrichment.** If brief was modified since last research (answered questions), re-enrich even without new docs.
@@ -883,6 +1096,22 @@ This timestamp lets incremental research know when the last full research was pe
 - **brief.json IS the context** — the existing brief contains all prior research. During incremental processing, read the brief for context instead of re-reading unchanged docs.
 - **Merge rules are sacred** — during incremental processing, follow incremental merge rules exactly. Never overwrite `instructions` or answered `openQuestions`. Append-only for arrays and evalSets tests. Flag conflicts in `_updateFlags`.
 - **Manifest consistency** — after ANY path (full, full-agent, incremental, or re-enrich), the manifest must reflect the current `docs/` state with accurate hashes and timestamps.
+- **Decisions are structured choices, not open questions** — `decisions[]` stores ranked options when 2+ approaches are viable. `openQuestions[]` stores freeform unknowns. Don't put a decision in openQuestions or vice versa.
+- **Only create decisions when genuinely needed** — one clear winner = auto-apply, no decision entry. Creating too many decisions overwhelms the customer and slows the workflow.
+- **Pre-apply the recommended option** — the brief must always be buildable, even if the user never reviews decisions. The recommended option's `briefPatch` is written to brief fields as the default.
+- **Decision generation rules summary:**
+
+| Trigger | Action |
+|---------|--------|
+| Step 2.5 pattern match with 2+ viable tiers | Create decision, one option per tier |
+| Step 2.5 pattern match with 1 viable tier | Auto-apply, no decision |
+| RA finds 2+ viable tools for a system | Create decision with ranked options |
+| RA finds 1 clear winner | Auto-apply, no decision |
+| Architecture score 2-3 (borderline) | Create architecture decision |
+| Architecture score 0-1 or 4-6 (clear) | Auto-apply, no decision |
+| Model choice has meaningful tradeoffs | Create model decision |
+| Topic type is borderline (generative vs custom) | Create topic decision |
+| Only one valid option exists | Auto-apply, no decision |
 
 ## Teammate Usage Summary
 
@@ -890,10 +1119,10 @@ This timestamp lets incremental research know when the last full research was pe
 |-------|------|-----------|-------------|-----------|
 | 0 | Lead | Lead | Lead | Lead |
 | A | Lead (all docs, all agents) | Lead (all docs, one agent) | Lead (new docs only) | Skipped |
-| B | Lead + **RA** (if needed) | Lead + **RA** (if needed) | Lead + **RA** (new systems only) | Lead only |
-| C | Lead + **PE** + **QA** | Lead + **PE** + **QA** | Lead + **QA** (PE skipped unless instructions empty) | Lead + **QA** |
-| D | Lead + **QA** + **TE** | Lead + **QA** + **TE** | Lead + **QA** (new caps) + **TE** (if new topics) | Lead + **QA** + **TE** (if answered questions affect topics) |
+| B | Lead + **RA** (if external systems) | Lead + **RA** (if external) | Lead + **RA** (new external only) | Lead only |
+| C | Lead + **PE** + **QA** + **TE** (PARALLEL) | Lead + **PE** + **QA** + **TE** (PARALLEL) | Lead + **QA** (PE skipped unless instructions empty) + **TE** (if new topics) | Lead + **QA** + **TE** (if topics affected) |
 
-**Maximum teammates per full/full-agent run:** 4 (RA + PE + QA + TE). Often just 3 (PE + QA + TE) for Microsoft-native agents.
-**Maximum teammates per incremental run:** 3 (RA + QA + TE). Often just 1-2 (QA, or QA + TE when new topics added).
-**Maximum teammates per re-enrich run:** 2 (QA + TE). PE only if instructions are empty. TE only if answered questions affect topics.
+**PARALLEL dispatch in Phase C:** PE, QA, and TE run simultaneously — not sequentially.
+**Maximum teammates per run:** 4 (RA + PE + QA + TE). RA runs in Phase B; PE + QA + TE run in parallel in Phase C.
+**Microsoft-native agents:** Often just 3 (PE + QA + TE) — RA skipped when no external systems.
+**Incremental runs:** Often just 1-2 (QA alone, or QA + TE for new topics).

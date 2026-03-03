@@ -89,6 +89,11 @@ def calc_readiness(brief: dict | None) -> int:
         know = brief.get("knowledge", [])
         convos = brief.get("conversations", {})
         bounds = brief.get("boundaries", {})
+        decisions = brief.get("decisions", [])
+        blocking_pending = [
+            d for d in decisions
+            if d.get("status") == "pending" and d.get("category") in ("architecture", "infrastructure")
+        ]
 
         checks = [
             bool(biz.get("problemStatement") or biz.get("useCase")),
@@ -102,6 +107,7 @@ def calc_readiness(brief: dict | None) -> int:
             len(unanswered) == 0,
             build_status.get("status") == "published",
             _has_eval_results(brief),
+            len(blocking_pending) == 0,
         ]
     else:
         # v1 fallback
@@ -138,7 +144,7 @@ def is_build_ready(brief: dict | None) -> bool:
         # v1: all 10 checks must pass — equivalent to calc_readiness == 100
         return calc_readiness(brief) == 100
 
-    # v2: check the 9 pre-build checks (all except build published + eval results)
+    # v2: check the 10 pre-build checks (all except build published + eval results)
     biz = brief.get("business", {})
     arch = brief.get("architecture", {})
     integ = brief.get("integrations", [])
@@ -147,6 +153,11 @@ def is_build_ready(brief: dict | None) -> bool:
     bounds = brief.get("boundaries", {})
     open_qs = brief.get("openQuestions", [])
     unanswered = [q for q in open_qs if q.get("question") and not q.get("answer")]
+    decisions = brief.get("decisions", [])
+    blocking_pending = [
+        d for d in decisions
+        if d.get("status") == "pending" and d.get("category") in ("architecture", "infrastructure")
+    ]
 
     return all([
         biz.get("problemStatement") or biz.get("useCase"),
@@ -158,6 +169,7 @@ def is_build_ready(brief: dict | None) -> bool:
         bounds.get("handle") or bounds.get("decline") or bounds.get("refuse"),
         len([c for c in arch.get("channels", []) if (c.get("name") if isinstance(c, dict) else c)]) > 0,
         len(unanswered) == 0,
+        len(blocking_pending) == 0,
     ])
 
 

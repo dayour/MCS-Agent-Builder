@@ -34,21 +34,23 @@ For every research request:
 
 ## Output Format
 
-Always structure your findings as:
+Always structure your findings as decision-ready options. When 2+ viable approaches exist, the lead creates structured `decisions[]` entries from your results — so make each option concrete and comparable.
 
 ```markdown
 ## [Topic] Research Results
 
 **Search date:** [today]
 **Sources checked:** [list]
-**Confidence:** high/medium/low
+**Clear winner?** Yes (auto-apply) / No (decision needed — 2+ viable options)
 
-### Available Options
-| Option | Status | Source | Notes |
-|--------|--------|--------|-------|
+### Available Options (ranked by recommendation)
+| # | Option | Status (GA/Preview) | Pros | Cons | Requirements | Cost | Effort | Confidence | Source |
+|---|--------|-------------------|------|------|-------------|------|--------|-----------|--------|
+| 1 | [name] | GA | [list] | [list] | [list] | [est] | Low/Med/High | high/med/low | [docs link] |
+| 2 | [name] | Preview | [list] | [list] | [list] | [est] | Low/Med/High | high/med/low | [docs link] |
 
 ### Recommendation
-[Your recommendation with rationale]
+[Your recommendation with rationale. If clear winner → "Auto-apply option 1." If 2+ viable → "Decision needed — options 1 and 2 are both viable with different tradeoffs."]
 
 ### Gaps / Unknowns
 [What you couldn't verify]
@@ -56,6 +58,13 @@ Always structure your findings as:
 ### Cache Update Needed
 [What should be updated in knowledge/cache/]
 ```
+
+**Key rules for structuring options:**
+- **Pros/cons must be concrete** — "fast" is vague; "$0/mo on consumption plan" is concrete
+- **Requirements must be customer-actionable** — "Azure subscription" not "cloud infrastructure"
+- **Confidence reflects source quality** — official docs = high, community blog = medium, untested = low
+- **Every option must actually work** — don't include theoretical approaches or deprecated features
+- **Rank by: native MCS support > certified connector > custom connector > Power Automate flow > HTTP request**
 
 ## Domain Knowledge — MCS Component Categories
 

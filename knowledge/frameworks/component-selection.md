@@ -2,50 +2,83 @@
 
 ## Principle
 
-**Never assume components. Research BROADLY first, recommend based on requirements.**
+**Microsoft-first, research externals only when needed.** Enterprise agents run on the Microsoft stack. Prefer MCS built-in capabilities, Power Platform, Azure, and M365 connectors before considering third-party or custom solutions.
 
-MCS ships continuously — preview features, new MCP servers, new connectors, and UI changes can appear at any time. Research at decision time, not from cached knowledge alone.
+MCS ships continuously — but the core Microsoft stack is well-documented in cache. Only escalate to live research for external systems not covered by cache.
 
-## Research Protocol (Run EVERY Architecture Phase)
+## Microsoft-First Priority Ladder
 
-For each agent capability, ask: **"What's the best way to implement this?"** then:
+| Priority | Source | Examples | Research Needed? |
+|----------|--------|----------|-----------------|
+| 1 | **MCS Built-In** | MCP servers, native knowledge, generative orchestration | Cache only |
+| 2 | **Power Platform** | Power Automate flows, Dataverse, custom connectors | Cache only |
+| 3 | **Azure Services** | Azure Functions, Azure AI, Azure Storage | Cache + quick verify |
+| 4 | **M365 Connectors** | SharePoint, Outlook, Teams (Standard tier) | Cache only |
+| 5 | **Certified Premium Connectors** | Dynamics 365, ServiceNow, Salesforce | Cache + verify availability |
+| 6 | **Third-Party / Custom** | Custom MCP servers, HTTP endpoints, community tools | Full live research required |
 
-1. **Check cache** — read relevant `knowledge/cache/` files first for baseline knowledge
-2. **Check freshness** — if cache is > 7 days old, proceed to live research
-3. **WebSearch** for the capability + "Copilot Studio" + current year (catch preview/new features)
-4. **MS Learn MCP** for official docs and code samples
-5. **MCS UI snapshot** — browse the actual Add Tool / Add Knowledge / Model picker UI to see what's available RIGHT NOW (preview badges, new entries)
-6. **Community search** if relevant (custom connectors, community MCP servers, sample repos)
-7. **Update cache** with any new findings
-8. Cross-reference findings across sources — if something shows in the UI but not in docs, it's likely preview. Note it.
+**Fast path:** Priority 1-4 integrations resolve from cache — no live research needed. Priority 5-6 require cache check + potential live research via Research Analyst.
+
+## Research Protocol
+
+For each agent capability, ask: **"What's the best way to implement this in the Microsoft stack?"** then:
+
+1. **Check cache** — read relevant `knowledge/cache/` files for baseline knowledge
+2. **Classify priority** — which tier does each integration fall into? (1-4 = fast path, 5-6 = needs research)
+3. **For Priority 1-4:** Resolve from cache. These are well-documented, enterprise-supported, and GA.
+4. **For Priority 5-6:** Check cache freshness (> 7 days → live research). Then:
+   - WebSearch for the capability + "Copilot Studio" + current year
+   - MS Learn MCP for official docs and code samples
+   - Community search if relevant (custom connectors, community MCP servers)
+5. **Update cache** with any new findings
+
+**When to escalate beyond Microsoft stack:**
+- No Microsoft-native solution exists for the requirement
+- Microsoft solution exists but has critical limitations (scale, latency, cost)
+- Customer has existing infrastructure on a different platform they must keep
+
+## Enterprise Selection Criteria
+
+When evaluating any component, score against these enterprise requirements:
+
+| Criterion | What to Check |
+|-----------|--------------|
+| **GA Status** | Is it Generally Available? Preview features need explicit customer approval |
+| **Support / SLA** | Does Microsoft or the vendor offer support? What's the uptime commitment? |
+| **Security Compliance** | SOC2, ISO 27001, GDPR? Does it meet customer's security requirements? |
+| **Managed vs Custom** | Managed service preferred. Custom code = ongoing maintenance burden |
+| **Licensing** | What licenses are required? Is it included in customer's existing plan? |
+| **Data Residency** | Where is data stored/processed? Relevant for regulated industries |
 
 ## Component Categories (Checklist)
 
-These are CATEGORIES of where to look, not a static inventory. Check each cache file for current details:
+Check each category in Microsoft-first order:
 
 | Category | Cache File | Key Question |
 |----------|-----------|-------------|
-| MCP Servers | `knowledge/cache/mcp-servers.md` | Does an MCP server exist for this? (prefer over connectors) |
-| Standard Connectors | `knowledge/cache/connectors.md` | Is there a built-in connector? |
-| Computer Use Tool | — | Does this task lack an API? Could a human do it in a GUI? |
-| Power Automate Flows | — | Does this need scheduling, loops, or multi-step orchestration? |
-| AI Builder / AI Tools | — | Does this need prompt actions, extraction, or classification? |
-| Third-Party Connectors | `knowledge/cache/connectors.md` | Is there a premium connector? |
-| Custom Code | — | Is Azure Functions / Custom Connector the only option? |
-| Custom MCP Servers | — | Does a community MCP server exist? |
+| MCP Servers | `knowledge/cache/mcp-servers.md` | Does an MCS built-in MCP server exist? (Priority 1) |
+| M365 Connectors | `knowledge/cache/connectors.md` | Is there a standard M365 connector? (Priority 4) |
+| Power Automate Flows | `knowledge/cache/power-automate-integration.md` | Does this need scheduling, loops, or multi-step orchestration? (Priority 2) |
+| AI Builder / AI Tools | `knowledge/cache/ai-tools-computer-use.md` | Does this need prompt actions, extraction, or classification? (Priority 1-2) |
+| Azure Services | — | Is Azure Functions / Azure AI the right layer? (Priority 3) |
+| Premium Connectors | `knowledge/cache/connectors.md` | Is there a certified premium connector? (Priority 5) |
 | Knowledge Sources | `knowledge/cache/knowledge-sources.md` | What data does the agent need to read? |
 | Channels | `knowledge/cache/channels.md` | Where will users interact with this agent? |
+| Computer Use Tool | — | Does this task lack an API? Could a human do it in a GUI? (Priority 6) |
+| Custom Code | — | Is a custom connector or HTTP endpoint the only option? (Priority 6) |
+| Custom MCP Servers | — | Does a community MCP server exist? (Priority 6) |
 | Agent Settings | — | What auth mode, access control, AI settings? |
 
 ## Selection Output
 
 For each capability in the spec, document:
 
-1. **Research performed** — what sources checked, what was found
-2. **Options considered** — minimum 2, with current status (GA / Preview / Private Preview)
-3. **What was selected and why**
-4. **What was rejected and why**
-5. **Status** — ready / needs setup / blocked
+1. **Priority tier** — which level (1-6) in the Microsoft-first ladder
+2. **Research performed** — cache-only for 1-4, live research for 5-6
+3. **Options considered** — minimum 2, with current status (GA / Preview / Private Preview)
+4. **What was selected and why**
+5. **What was rejected and why**
+6. **Status** — ready / needs setup / blocked
 
 ## Architecture Decision: Agent vs Tool vs Computer Use
 

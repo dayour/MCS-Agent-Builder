@@ -239,6 +239,40 @@ export interface OpenQuestion {
   resolution?: string;
 }
 
+// ─── Decisions ─────────────────────────────────────────────────────
+
+export type DecisionCategory = "integration" | "architecture" | "model" | "infrastructure" | "topic-implementation";
+export type DecisionStatus = "pending" | "confirmed" | "overridden";
+export type ConfidenceLevel = "high" | "medium" | "low";
+
+export interface DecisionOption {
+  id: string;
+  label: string;
+  summary: string;
+  pros: string[];
+  cons: string[];
+  requirements: string[];
+  cost: string;
+  effort: string;
+  confidence: ConfidenceLevel;
+  source: string;
+}
+
+export interface Decision {
+  id: string;
+  category: DecisionCategory;
+  title: string;
+  context: string;
+  targetField: string;
+  capability: string;
+  status: DecisionStatus;
+  selectedOptionId: string | null;
+  recommendedOptionId: string;
+  resolvedAt: string | null;
+  resolvedBy: string | null;
+  options: DecisionOption[];
+}
+
 export interface ArchitectureTrigger {
   type: string;
   description: string;
@@ -285,6 +319,7 @@ export interface BriefData {
   "conversation-topics": { items: ConversationTopic[] };
   "scope-boundaries": { handles: string[]; politelyDeclines: string[]; hardRefuses: string[] };
   architecture: Architecture;
+  decisions: { items: Decision[] };
   "eval-sets": { sets: EvalSet[]; config: EvalConfig };
   "open-questions": { items: OpenQuestion[] };
 }

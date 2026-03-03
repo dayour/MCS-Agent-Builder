@@ -4,6 +4,8 @@
 >
 > **How it works:** During research, each MVP capability's data flow is traced (input → processing → output) and checked against "When to match" conditions below. Matches trigger a recommendation to use the proven pattern instead of the naive approach.
 >
+> **Decision generation:** When a pattern matches and has 2+ viable implementation tiers (after filtering against customer constraints), research creates a structured `decisions[]` entry — one option per tier. If only 1 tier survives constraint filtering, it's auto-applied with no decision entry. Default recommendation is always Tier 1 unless customer constraints disqualify it.
+>
 > **Growth:** New patterns are added via `/mcs-retro` (classification: `SOLUTION_PATTERN`, Tier 2). Each pattern tracks `confirmed` builds for confidence weighting.
 
 ---
@@ -14,25 +16,52 @@
 
 **Why it fails:**
 - Raw HTML includes navigation, ads, scripts, cookie banners — 80%+ noise
-- Token limits exceeded on large pages (HTML is 3-5x larger than clean text)
-- AI hallucinates structure from noisy input, producing unreliable summaries
-- Dynamic/JS-rendered pages return empty or partial content
+- AI Builder / AI Prompt has ~5,000 char practical context limit — a raw HTML page is 100,000+ chars
+- AI hallucinates structure from noisy input, producing unreliable extraction
+- Dynamic/JS-rendered pages return empty or partial content via HTTP GET
+- Cookie consent banners (EU/UK sites) and anti-bot layers (Cloudflare, Akamai) return consent pages or 403s instead of content
+- Power Platform's built-in Content Conversion (HTML-to-Text) strips tags but returns a wall of mixed text (article + nav + ads + footer) with no structure — max 80 char lines
+- **This does NOT eliminate per-site rules — it just moves the same problem from Python to prompt engineering.** When news sites redesign their layout, the extraction breaks the same way the customer's current script breaks.
 
-**Proven pattern:** Containerized Readability service (Azure Function or Container App) that strips HTML to clean article text, then passes clean text to the agent.
+**Proven pattern:** Dedicated content extraction service that returns clean structured article data. Multiple implementation tiers available.
 
 **When to match:**
 - Capability mentions "extract from web", "summarize website", "read URL content", or "web scraping"
 - Integration lists HTTP connector with a URL-fetching purpose
 - Data flow includes: URL input → content extraction → AI processing
+- Customer is replacing a per-site scraping script (BeautifulSoup, Scrapy, Cheerio, etc.)
 
-**Implementation:**
-- Azure Function with `@mozilla/readability` + `jsdom` for HTML cleaning
-- Expose as custom connector or Power Automate HTTP action
-- Returns: title, author, text content, excerpt, word count
-- Fallback: If customer can't deploy Azure Function, use Power Automate with HTML-to-text action (loses structure but removes noise)
+**Implementation tiers (ranked by recommendation):**
 
-**Tags:** `web`, `http`, `content-extraction`, `html`, `azure-function`
+| Tier | Option | Deploy Effort | Cost | Handles JS? | Data Residency |
+|------|--------|--------------|------|-------------|----------------|
+| 1 | **Azure Function + @mozilla/readability + jsdom** | Medium (one-time ~2hr) | ~$0/mo (consumption plan) | No (static HTML only) | Customer tenant |
+| 2 | **Jina Reader API** (`r.jina.ai/{url}`) | Low (HTTP call) | $0 (free: 500 RPM) | Yes | Third-party (Jina/Elastic) |
+| 3 | **Firecrawl API** | Low-Medium | $0-16/mo | Yes + anti-bot | Third-party (Firecrawl) |
+| 4 | **Azure Container App + Playwright + Readability** | High (container) | ~$5-15/mo | Yes | Customer tenant |
+| 5 | **Custom MCP Server wrapping Readability** | Medium-High | ~$0 (Azure hosting) | Depends on stack | Customer tenant |
+
+**Recommended default: Tier 1** (Azure Function + Readability). Covers ~90% of news/content sites. If specific sites need JS rendering, upgrade those domains to Tier 4. If customer can't deploy Azure resources, use Tier 2 (Jina Reader — zero deployment, free tier).
+
+**Tier 5 note:** Custom MCP servers in Copilot Studio are in public preview (GA expected April 2026). Viable after GA, but too risky for MVP builds today.
+
+**What the extraction service returns:** `{ title, author/byline, content (clean text), excerpt, siteName, publishedTime, wordCount }` — structured JSON, not raw HTML.
+
+**Integration path to MCS:**
+1. Deploy extraction service (Azure Function, Jina API, or Firecrawl)
+2. Create custom connector in Power Platform (OpenAPI spec, function key or API key auth)
+3. Call from Power Automate flow (Apply to each → HTTP action → extraction endpoint) or add as agent tool
+4. Agent receives clean structured data, not raw HTML
+
+**Do NOT recommend:**
+- HTTP Request + AI Prompt on raw HTML (the naive approach — will fail and damage credibility)
+- Power Automate Content Conversion alone (strips structure, returns mixed text)
+- Computer Use Agent for content extraction (wrong tool — designed for UI automation, $0.40-1.20/page, ~80% success rate, 10-30s per page)
+
+**Tags:** `web`, `http`, `content-extraction`, `html`, `azure-function`, `readability`, `jina`, `firecrawl`
 **Confirmed builds:** 0
+**Last updated:** 2026-03-03
+**Decision generation:** 5 tiers available. Min tiers for decision: 2. Default recommendation: Tier 1 (Azure Function + Readability). Common constraint filters: no Azure subscription → eliminates Tier 1,4,5; data residency required → eliminates Tier 2,3.
 
 ---
 
@@ -62,6 +91,7 @@
 
 **Tags:** `document`, `generation`, `word`, `template`, `power-automate`, `sharepoint`
 **Confirmed builds:** 0
+**Decision generation:** 2 tiers (Power Automate + Word template vs adaptive card for simple docs). Min tiers for decision: 2. Default recommendation: Power Automate flow. Single-tier auto-apply if document is clearly multi-page or clearly < 1 page.
 
 ---
 
@@ -92,6 +122,7 @@
 
 **Tags:** `iteration`, `loop`, `batch`, `power-automate`, `apply-to-each`
 **Confirmed builds:** 0
+**Decision generation:** Single proven pattern (Power Automate). No decision entry — auto-apply. Exception: fixed small list (2-3 items) where sequential topic nodes are acceptable creates a 2-tier decision.
 
 ---
 
@@ -120,6 +151,7 @@
 
 **Tags:** `file-upload`, `teams`, `sharepoint`, `attachment`, `binary`
 **Confirmed builds:** 0
+**Decision generation:** 3 options (user-initiated SharePoint, flow-triggered, adaptive card link). Min tiers for decision: 2. Default recommendation: Option A (user-initiated). Channel determines viability — web chat can accept attachments directly.
 
 ---
 
@@ -150,6 +182,7 @@
 
 **Tags:** `transformation`, `calculation`, `csv`, `json`, `code-interpreter`, `azure-function`
 **Confirmed builds:** 0
+**Decision generation:** Multiple options (Power Automate expressions, Azure Function, code interpreter, hybrid). Min tiers for decision: 2. Default recommendation: Power Automate expressions for simple transforms, Azure Function for complex. Auto-apply if transformation type is clearly one category.
 
 ---
 
@@ -179,6 +212,7 @@
 
 **Tags:** `scheduled`, `batch`, `recurrence`, `power-automate`, `headless`
 **Confirmed builds:** 0
+**Decision generation:** Single proven pattern (Power Automate scheduled flow). No decision entry — auto-apply.
 
 ---
 
@@ -210,6 +244,7 @@
 
 **Tags:** `orchestration`, `multi-system`, `transaction`, `power-automate`, `chaining`
 **Confirmed builds:** 0
+**Decision generation:** 2 tiers (Power Automate flow for ordered/transactional, generative orchestration for simple 2-system reads). Min tiers for decision: 2. Default: Power Automate. Auto-apply generative if only 2 systems with no ordering dependency.
 
 ---
 
@@ -239,6 +274,7 @@
 
 **Tags:** `auth`, `oauth`, `custom-connector`, `azure-function`, `security`
 **Confirmed builds:** 0
+**Decision generation:** 3 options (custom connector, Azure Function proxy, Power Automate). Min tiers for decision: 2. Default recommendation: Custom connector for standard OAuth2, Power Automate when connector exists. Auto-apply if auth type clearly maps to one option.
 
 ---
 
@@ -270,6 +306,7 @@
 
 **Tags:** `large-dataset`, `pagination`, `aggregation`, `power-automate`, `performance`
 **Confirmed builds:** 0
+**Decision generation:** Single proven pattern (Power Automate with pagination). No decision entry — auto-apply. Small datasets (< 100 records) don't match this pattern.
 
 ---
 
@@ -299,3 +336,4 @@
 
 **Tags:** `notifications`, `real-time`, `event-driven`, `power-automate`, `proactive`
 **Confirmed builds:** 0
+**Decision generation:** Single proven pattern (Power Automate event-triggered flow). No decision entry — auto-apply. Batching vs immediate is a configuration choice within the pattern, not a separate tier.

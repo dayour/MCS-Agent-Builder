@@ -31,10 +31,11 @@ Scan the current session for actionable items:
 - **Tool gaps** — operations that required Playwright when an API should exist
 - **Performance observations** — what was fast, what was slow, what could be parallelized
 - **Solution patterns** — naive implementation approaches that failed and the proven alternative that worked (e.g., HTTP connector for web scraping failed → containerized Readability succeeded)
+- **Decision outcomes** — which `decisions[]` options were selected, whether they worked, and whether the recommendation should change (e.g., "Tier 2 Jina Reader was selected over Tier 1 Azure Function because customer had no Azure subscription — worked well for static sites")
 
 For each item, extract:
 - **Summary** (1-2 sentences)
-- **Category** (error, workaround, discovery, tool_gap, performance, solution_pattern)
+- **Category** (error, workaround, discovery, tool_gap, performance, solution_pattern, decision_outcome)
 - **Proposed tags** (2-4 tags for index.json matching, e.g. `["lsp", "push", "settings"]`)
 - **Proposed target file** (which `learnings/*.md` file it belongs in)
 
@@ -57,6 +58,7 @@ Each item gets exactly one classification:
 | **ENHANCEMENT** | Enriches existing entry with new context | Tier 2 (user) | Update existing entry in .md + index.json |
 | **TOOLING_GAP** | Missing feature in tools/scripts | Tier 2 (user) | File as suggestion via `/suggest` |
 | **SOLUTION_PATTERN** | Naive approach failed, proven alternative found | Tier 2 (user) | Add/update entry in `knowledge/patterns/solution-patterns.md` |
+| **DECISION_OUTCOME** | A `decisions[]` option was selected and built — record whether it worked | Tier 2 (user) | Update solution pattern `Confirmed builds` count + add learnings entry |
 
 ### Step 4: Present
 
@@ -82,6 +84,7 @@ For approved items:
 4. **ENHANCEMENT**: Append context to existing `.md` entry, update `index.json` `lastConfirmed`
 5. **TOOLING_GAP**: Invoke `/suggest` with pre-filled description
 6. **SOLUTION_PATTERN**: Write new pattern entry to `knowledge/patterns/solution-patterns.md` following the existing format (ID `sp-NNN`, sections: naive approach, why it fails, proven pattern, when to match, implementation, tags, confirmed builds). If the pattern updates an existing entry (same problem type), bump `Confirmed builds` count and add implementation notes. Update `knowledge/learnings/index.json` with `file: "patterns/solution-patterns.md"` (cross-directory reference).
+7. **DECISION_OUTCOME**: Record which `decisions[]` option was selected, whether it worked in production, and any surprises. If the option came from a solution pattern → bump that pattern's `Confirmed builds` count. If the recommended option failed and a different option worked better → write a learnings entry to the relevant file (e.g., `connectors.md`, `integrations.md`) noting the context where the non-default option was better. If the user overrode a recommendation and it worked → record why, so future recommendations can factor this in.
 
 After all writes, report:
 - N items applied (X auto, Y user-approved)

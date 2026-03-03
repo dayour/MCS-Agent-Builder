@@ -4,7 +4,7 @@
 
 Automate Microsoft Copilot Studio (MCS) agent creation using a **hybrid build stack**: PAC CLI for listing agents and solution ALM, MCS LSP Wrapper for component sync (instructions, model, topics, tools, knowledge, settings), Island Gateway API for model catalog, component reads, and connected agent setup, Dataverse API for agent creation (POST + PvaProvision), file uploads, bot name PATCH, PvaPublish, eval upload, and security, Direct Line API for testing, and Playwright MCP only for new OAuth connections (first-time consent).
 
-**CRITICAL: Never assume components. Research BROADLY first (web, MS Learn, community — not just one source), recommend based on requirements.**
+**CRITICAL: Never assume components. Research Microsoft-first (MCS built-in → Power Platform → Azure → M365 connectors), escalate to broad research only for external systems. Recommend based on requirements.**
 
 ---
 
@@ -116,7 +116,7 @@ Definitions: `.claude/agents/` (research-analyst.md, prompt-engineer.md, topic-e
 ### When to Use Agent Teams
 
 **During MCS workflow skills:**
-- **Research phase** (`/mcs-research`): Research Analyst searches for external connectors/MCP (only if needed), Prompt Engineer writes instructions (single pass), **Topic Engineer validates topic feasibility (Phase D)**, QA Challenger reviews instructions + generates eval sets (single pass each)
+- **Research phase** (`/mcs-research`): Research Analyst searches for external connectors/MCP (only if Priority 5-6 integrations), then **PE + QA + TE run in parallel** in Phase C: PE writes instructions, QA generates eval sets, TE validates topic feasibility. Lead does inline instruction review.
 - **Build phase** (`/mcs-build`): Topic Engineer generates YAML, QA Challenger reviews before execution, **eval-driven iteration loop** (safety gate → functional per-capability → resilience), **Research Analyst on-demand (connector issues)**, **Prompt Engineer on-demand (instruction adjustments + fix iteration)**
 - **Eval phase** (`/mcs-eval`): Runs eval sets (all or specific), writes per-test results to evalSets
 - **Fix phase** (`/mcs-fix`): QA Challenger classifies failures, Prompt Engineer fixes instructions, Topic Engineer fixes topics
@@ -251,8 +251,8 @@ The system captures learnings from every build and makes them available in futur
 | `integrations.md` | `/mcs-research` Phase B (system integration choices) |
 | `architecture.md` | `/mcs-research` Phase C (architecture scoring) |
 | `instructions.md` | `/mcs-research` Phase C (Prompt Engineer) |
-| `topics-triggers.md` | `/mcs-research` Phase D + `/mcs-build` Step 4 |
-| `eval-testing.md` | `/mcs-research` Phase D + `/mcs-eval` |
+| `topics-triggers.md` | `/mcs-research` Phase C + `/mcs-build` Step 4 |
+| `eval-testing.md` | `/mcs-research` Phase C + `/mcs-eval` |
 | `build-methods.md` | `/mcs-build` (tool selection per step) |
 | `customer-patterns.md` | `/mcs-research` Phase B (component research) |
 
@@ -324,8 +324,7 @@ Learnings are consulted at these specific points across all workflow skills:
 | Skill | Phase/Step | Learnings Files Read |
 |-------|-----------|---------------------|
 | `/mcs-research` | Phase B (component research) | `connectors.md`, `integrations.md`, `customer-patterns.md`, `patterns/solution-patterns.md` |
-| `/mcs-research` | Phase C (architecture + instructions) | `architecture.md`, `instructions.md` |
-| `/mcs-research` | Phase D (eval sets + topics) | `topics-triggers.md`, `eval-testing.md` |
+| `/mcs-research` | Phase C (architecture + instructions + evals + topics) | `architecture.md`, `instructions.md`, `topics-triggers.md`, `eval-testing.md` |
 | `/mcs-build` | Before Step 1 (agent creation) | `build-methods.md` |
 | `/mcs-build` | Before Step 3 (tools config) | `connectors.md`, `integrations.md` |
 | `/mcs-build` | Before Step 4 (topics) | `topics-triggers.md` |
@@ -340,7 +339,8 @@ Learnings are consulted at these specific points across all workflow skills:
 ### 1. Brief-Driven Build
 The **brief.json** is the single source of truth. Everything flows from it:
 - SDR/intake → **brief.json** → Build → Eval
-- The brief contains everything needed to execute a build (instructions, tools, model, topics, MVP scope)
+- The brief contains everything needed to execute a build (instructions, tools, model, topics, MVP scope, decisions)
+- `decisions[]` stores structured choice points where research found 2+ viable approaches — each with ranked options, pros/cons, requirements. The recommended option is pre-applied to brief fields as the buildable default. User confirms or overrides.
 - If the brief has gaps, fill them BEFORE building (research catches gaps early)
 - The dashboard reads/writes brief.json. The build skill reads it. Reports are generated from it.
 
@@ -355,17 +355,13 @@ Decompose into specialists by default. Score objectively (6 factors, 3+ = multi-
 
 **Always ask:** "What specialist domains does this problem require?"
 
-### 4. Never Assume — Research Broadly
-Research EVERY TIME before recommending components. Do NOT rely on a static list — MCS ships features continuously, including preview/experimental capabilities not yet in official docs. Present options with confidence, recommend the best one, let user override.
+### 4. Never Assume — Microsoft-First, Research Externals When Needed
+Research Microsoft-first: MCS built-in → Power Platform → Azure → M365 connectors → certified premium connectors. Only escalate to broad research (WebSearch, MS Learn, community) for external systems not covered by cache. When multiple valid approaches exist, present them as structured decisions with pros/cons/requirements. Recommend the best one, pre-apply it as the buildable default, but let the user choose.
 
-**Research sources (use ALL, not just one):**
-- **WebSearch** — latest announcements, blog posts, preview features, community discoveries
-- **MS Learn MCP** — official docs, reference, code samples
-- **Community** — repos, discussions, sample projects, MVP blogs
-- **MCS UI itself** — snapshot the actual UI to see what's available now (tools, models, knowledge types, settings)
-- **Community** — Power Platform community, MVP blogs, X/Twitter from product teams
+**Priority 1-4 (Microsoft-native):** Resolve from cache — well-documented, enterprise-supported, GA.
+**Priority 5-6 (external/custom):** Cache check + live research via Research Analyst when needed.
 
-**When to research:** Every Phase 1 component selection. Every time you encounter a capability you haven't verified recently. Every error you can't explain.
+**When to do live research:** External systems not in cache. Cache > 7 days stale for the specific system. Every error you can't explain.
 
 ### 5. Minimize Playwright — Use APIs First
 Every browser interaction is fragile. Before using Playwright, check if LSP Wrapper, Island Gateway API, add-tool.js, PAC CLI, Dataverse API, or Direct Line API can handle the operation. See "Hybrid Build Stack" section above.
@@ -413,7 +409,7 @@ CREATE → UPLOAD → RESEARCH → BUILD → EVALUATE → [FIX] → [RETRO]
 |------|-------|-------|--------|-------------|
 | **Init** | `/mcs-init` | Project name | Folder structure | None |
 | **Context** | `/mcs-context` | Customer name | customer-context.md | None |
-| **Research** | `/mcs-research {projectId}` or `/mcs-research {projectId} {agentId}` | docs/ | brief.json (fully enriched with evalSets) | RA (if needed) + PE + QA + TE |
+| **Research** | `/mcs-research {projectId}` or `/mcs-research {projectId} {agentId}` | docs/ | brief.json (enriched with evalSets + decisions[]) | RA (if needed) + PE + QA + TE |
 | **Build** | `/mcs-build {projectId} {agentId}` | brief.json | MCS agent (published) + build-report.md | TE + QA (+ RA/PE on-demand) |
 | **Evaluate** | `/mcs-eval {projectId} {agentId}` | brief.json evalSets | evalSets[].tests[].lastResult | QA |
 | **Fix** | `/mcs-fix {projectId} {agentId}` | brief.json evalSets (failing tests) | brief.json (fixed) + re-eval results | PE + TE + QA |
@@ -460,21 +456,20 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 
 ## RESEARCH: Read Docs + Full Enrichment (`/mcs-research`)
 
-**Goal:** Read all project documents, identify agents, research MCS components, and produce fully enriched brief.json (the single source of truth) with evalSets (3 default sets: safety, functional, resilience + custom).
+**Goal:** Read all project documents, identify agents, research MCS components, and produce fully enriched brief.json (the single source of truth) with evalSets (3 default sets: safety, functional, resilience + custom) and structured `decisions[]` for choice points where multiple valid approaches exist.
 
 **Input:** `/mcs-research {projectId}` (project-level) or `/mcs-research {projectId} {agentId}` (agent-level)
 **Reads:** `Build-Guides/{projectId}/docs/` + `customer-context.md` (if exists) + `knowledge/cache/` + `knowledge/learnings/`
-**Writes:** `brief.json` (all fields including instructions + evalSets) + `evals.csv` (derived flat export for MCS native eval compatibility)
+**Writes:** `brief.json` (all fields including instructions, evalSets, and decisions[]) + `evals.csv` (derived flat export for MCS native eval compatibility)
 
 **Smart at both levels:** Phase 0 runs for ALL invocations — detects new/changed docs, brief edits, and manually created agents. Routes to full, incremental, re-enrich, or full-agent processing as appropriate.
 
-**4 phases (optimized — targeted research, single-pass QA):**
+**3 phases (optimized — Microsoft-first, parallel teammates):**
 1. **Document comprehension & agent identification** — lead reads all docs, cross-references, identifies agents, extracts data, generates informed open questions using MCS cache
-2. **Component research (targeted)** — lead resolves stable categories from cache (channels, triggers, knowledge). Research Analyst spawned ONLY for external systems needing live MCP/connector lookup
-3. **Architecture + instructions (single-pass)** — lead scores architecture, Prompt Engineer writes instructions (self-verified), QA Challenger reviews once (no iteration loop)
-4. **Eval sets + topic classification** — QA Challenger populates 3 eval sets (safety, functional, resilience + custom), **Topic Engineer validates feasibility**, classifies topic types
+2. **Component research (targeted, Microsoft-first)** — lead resolves stable categories from cache (channels, triggers, knowledge). MCP catalog scan conditional (skipped for M365-native agents). Research Analyst spawned ONLY for Priority 5-6 integrations needing live lookup. **Generates structured `decisions[]`** when 2+ viable approaches exist.
+3. **Architecture, instructions, eval sets & topics (PARALLEL)** — lead scores architecture + selects model + classifies topics, then dispatches PE (instructions) + QA (eval sets) + TE (topic feasibility) **simultaneously**. Lead does inline instruction review after teammates return.
 
-**Uses Agent Teams:** Research Analyst (only if external systems need lookup), Prompt Engineer (instructions), QA Challenger (review + eval set generation), Topic Engineer (feasibility validation in Phase D).
+**Uses Agent Teams:** Research Analyst (only if Priority 5-6 integrations need lookup), Prompt Engineer (instructions — parallel), QA Challenger (eval set generation — parallel), Topic Engineer (feasibility validation — parallel in Phase C).
 
 **Iteration:** Customer reviews brief in the dashboard, answers open questions, then user re-runs `/mcs-research {projectId} {agentId}` to re-enrich (Phase 0 detects brief edits automatically).
 
@@ -495,6 +490,9 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 - Sets PAC CLI profile, auto-runs `az login --tenant` on mismatch (browser popup), records browser target
 - Eval/fix do a quick re-verify (auto-fixes via `az login` on mismatch)
 - User can always override by saying "switch to [account/env]"
+
+**Decision Gate (Step 0.5):**
+- After Auth Gate, before MVP filtering: reads `decisions[]`, blocks on pending architecture/infrastructure decisions, warns on pending integration/model/topic decisions (recommended defaults pre-applied, build proceeds with warning)
 
 **Find-or-Create Agent (Step 1):**
 - Reads `brief.json.buildStatus.mcsAgentId` — if set, verifies agent still exists via `pac copilot list`
@@ -614,11 +612,11 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 
 ## Component Selection & Architecture Decisions
 
-**Component selection framework:** See `knowledge/frameworks/component-selection.md`
+**Component selection framework:** See `knowledge/frameworks/component-selection.md` (Microsoft-first priority ladder: MCS built-in → Power Platform → Azure → M365 → Premium → Custom)
 **Architecture scoring (single vs multi-agent):** See `knowledge/frameworks/architecture-scoring.md`
 **Current inventories:** See `knowledge/cache/` (MCP servers, connectors, models, triggers, etc.)
 
-**CRITICAL:** Always check cache freshness before using. If > 7 days old, run `/mcs-refresh` or do live research before deciding.
+**CRITICAL:** Always check cache freshness before using. If > 7 days old for Priority 5-6 integrations, run `/mcs-refresh` or do live research before deciding. Priority 1-4 (Microsoft-native) can use cache as-is if < 30 days old.
 
 ---
 
@@ -657,7 +655,7 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 1. **Brief is the blueprint** — brief.json drives the build (single source of truth)
 2. **Evals drive the build** — 3 eval sets (safety, functional, resilience) aligned with [MS Eval Scenario Library](https://github.com/microsoft/ai-agent-eval-scenario-library), safety gate → functional per-capability → resilience before publish
 3. **Multi-agent first** — decompose into specialists (score objectively)
-4. **Never assume** — research broadly (web + docs + UI + community), present options
+4. **Never assume** — research Microsoft-first (MCS built-in → Power Platform → Azure → M365 connectors), escalate to broad research for external systems. Present structured decisions when multiple valid approaches exist
 5. **MVP first** — build what's possible now, plan what's blocked
 6. **Build specialists first** — children before orchestrator
 7. **Verify environment** — every browser session (snapshot + user signs in if needed)
@@ -666,8 +664,9 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 10. **Fill gaps before building** — incomplete brief → incomplete agent
 11. **Minimize Playwright** — use LSP Wrapper, Island Gateway API, add-tool.js, PAC CLI, Dataverse API, Direct Line first
 12. **MCP over connectors** — prefer MCP servers over individual connector actions
-13. **Research broadly** — use WebSearch, MS Learn, community sources, and MCS UI snapshots
+13. **Microsoft-first research** — use cache for M365-native components (Priority 1-4), escalate to WebSearch + MS Learn + community only for external systems (Priority 5-6) not in cache
 14. **LSP/API first, browser last** — every Playwright interaction is a fragility risk; prefer LSP Wrapper, Island Gateway, or API alternatives
+15. **Present options, don't prescribe** — when research finds 2+ genuinely viable approaches, create structured `decisions[]` entries with pros/cons/requirements. Recommend the best, pre-apply it as the buildable default, let the user choose. One clear winner = auto-apply, no decision entry.
 
 ---
 
@@ -807,7 +806,7 @@ tools/
 
 Build-Guides/[Project]/     # Per-project work (gitignored)
 ├── agents/[name]/
-│   ├── brief.json          # THE source of truth — design, instructions, tools, evalSets, build status
+│   ├── brief.json          # THE source of truth — design, instructions, tools, evalSets, decisions[], build status
 │   ├── build-report.md     # Customer-shareable build summary (generated after /mcs-build)
 │   ├── evals.csv           # Flat CSV export of evalSets (derived — for MCS native eval compatibility)
 │   ├── evals-results.json  # Direct Line test results backup (from /mcs-eval)

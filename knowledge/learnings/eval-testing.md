@@ -1,6 +1,6 @@
 # Evaluation & Testing Learnings
 
-Lessons learned about eval methods, thresholds, test design, Direct Line API usage. Consulted during `/mcs-research` Phase D, `/mcs-eval` Step 2, and `/mcs-fix` Step 2.
+Lessons learned about eval methods, thresholds, test design, Direct Line API usage. Consulted during `/mcs-research` Phase C, `/mcs-eval` Step 2, and `/mcs-fix` Step 2.
 
 <!--
 Entry format:
