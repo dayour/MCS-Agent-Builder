@@ -147,7 +147,7 @@ The tool continuously learns and improves:
 |-------|------|---------------------|
 | **Cache** (19 files) | MCS capabilities — models, connectors, MCP servers, triggers, etc. | Auto-refreshed at session start + before builds |
 | **Learnings** (8 files) | Experience from past builds — what worked, what didn't | Captured after each build/eval, user-confirmed |
-| **Patterns** | YAML syntax, Playwright patterns, Dataverse API patterns | Stable reference (manually updated) |
+| **Patterns** | YAML syntax, Playwright patterns, Dataverse API patterns, solution patterns | Stable reference (manually updated) |
 | **Frameworks** | Component selection, architecture scoring, tool priority | Stable reference (manually updated) |
 
 ## Project Structure
@@ -175,7 +175,7 @@ knowledge/
   solutions/                Team solution library (index + per-solution cache)
   learnings/                Experience from past builds (grows over time)
   cache/                    19 MCS capability cheat sheets (auto-refreshed)
-  patterns/                 YAML, Playwright, Dataverse API patterns + 10 topic templates
+  patterns/                 YAML, Playwright, Dataverse API, solution patterns + 10 topic templates
   frameworks/               Decision frameworks
 
 templates/                  brief.json (single source of truth schema)
