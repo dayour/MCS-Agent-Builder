@@ -32,6 +32,7 @@ mcs-agent-builder start       Start the dashboard server
 mcs-agent-builder stop        Stop a running instance
 mcs-agent-builder restart     Restart (stop + start)
 mcs-agent-builder health      Check status (pid, port, HTTP)
+mcs-agent-builder doctor      Check all prerequisites (pass/fail + fix instructions)
 mcs-agent-builder --version   Show version
 mcs-agent-builder --help      Show help
 ```
@@ -40,7 +41,7 @@ Flag syntax (`--start`, `--stop`, etc.) also accepted.
 
 ## Prerequisites
 
-**Mostly automatic** — `start.cmd` installs Node.js, Python, and dependencies via winget. It also auto-installs the VS Code Copilot Studio extension if VS Code is present (for headless component sync).
+**Fully automatic** — `start.cmd` installs Node.js, Python, Claude Code, and all dependencies via winget. No C++ build tools or manual setup needed. Run `mcs-agent-builder doctor` to verify your environment anytime.
 
 If you prefer to install manually:
 
@@ -216,6 +217,7 @@ Ports are auto-discovered in pairs (app, app+1). If 8000/8001 are busy, the next
 
 | Problem | Fix |
 |---------|-----|
+| Something not working | Run `mcs-agent-builder doctor` — it checks all 10 prerequisites and tells you exactly what's missing and how to fix it |
 | `start.cmd` fails | Make sure winget is available (built into Windows 11). Try `.\start.cmd --full` to force a re-check |
 | `npm start` fails | Run `.\start.cmd` instead — it installs missing dependencies automatically |
 | `mcs-agent-builder start` fails | Ensure Python 3.10+ is installed: `python --version`. Re-run `npm install -g mcs-agent-builder` |
