@@ -15,7 +15,7 @@
  *     plain text                               → terminal output
  */
 
-const pty = require("node-pty");
+const pty = require("@homebridge/node-pty-prebuilt-multiarch");
 const WebSocket = require("ws");
 const path = require("path");
 const os = require("os");

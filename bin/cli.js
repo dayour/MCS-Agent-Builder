@@ -7,8 +7,9 @@
  *   mcs-agent-builder stop      Stop a running instance
  *   mcs-agent-builder restart   Restart the dashboard
  *   mcs-agent-builder health    Check if the dashboard is running
+ *   mcs-agent-builder doctor    Check all prerequisites
  *
- * Flags --start, --stop, --restart, --health also accepted.
+ * Flags --start, --stop, --restart, --health, --doctor also accepted.
  */
 
 const { spawn, execSync } = require("child_process");
@@ -179,6 +180,192 @@ async function healthCheck() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Doctor — check all prerequisites
+// ---------------------------------------------------------------------------
+
+function doctor() {
+  console.log(`\n  \x1b[36mMCS Agent Builder\x1b[0m v${VERSION} — Environment Check\n`);
+
+  const checks = [];
+  let failures = 0;
+
+  function check(name, fn) {
+    try {
+      const result = fn();
+      if (result.ok) {
+        checks.push({ name, status: "pass", detail: result.detail });
+      } else {
+        checks.push({ name, status: "fail", detail: result.detail, fix: result.fix });
+        failures++;
+      }
+    } catch (e) {
+      checks.push({ name, status: "fail", detail: e.message, fix: "" });
+      failures++;
+    }
+  }
+
+  function run(cmd) {
+    return execSync(cmd, { encoding: "utf8", timeout: 15000, stdio: "pipe" }).trim();
+  }
+
+  function cmdExists(cmd) {
+    try {
+      const which = os.platform() === "win32" ? "where" : "which";
+      run(`${which} ${cmd}`);
+      return true;
+    } catch { return false; }
+  }
+
+  // 1. Node.js
+  check("Node.js (18+)", () => {
+    const ver = process.versions.node;
+    const major = parseInt(ver.split(".")[0], 10);
+    if (major >= 18) return { ok: true, detail: `v${ver}` };
+    return { ok: false, detail: `v${ver} (too old)`, fix: "Run start.cmd or: winget install OpenJS.NodeJS.LTS" };
+  });
+
+  // 2. Python
+  check("Python (3.10+)", () => {
+    for (const cmd of ["python", "python3"]) {
+      if (!cmdExists(cmd)) continue;
+      try {
+        const ver = run(`${cmd} -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"`);
+        const [maj, min] = ver.split(".").map(Number);
+        if (maj >= 3 && min >= 10) return { ok: true, detail: `v${ver} (${cmd})` };
+        return { ok: false, detail: `v${ver} (too old)`, fix: "Run start.cmd or: winget install Python.Python.3.12" };
+      } catch {}
+    }
+    return { ok: false, detail: "not found", fix: "Run start.cmd or: winget install Python.Python.3.12" };
+  });
+
+  // 3. Git
+  check("Git", () => {
+    if (!cmdExists("git")) return { ok: false, detail: "not found", fix: "Run start.cmd or: winget install Git.Git" };
+    const ver = run("git --version").replace("git version ", "");
+    return { ok: true, detail: `v${ver}` };
+  });
+
+  // 4. Claude Code
+  check("Claude Code", () => {
+    // Native install
+    const nativeDir = path.join(os.homedir(), ".claude-cli");
+    if (fs.existsSync(nativeDir)) {
+      try {
+        const versions = fs.readdirSync(nativeDir)
+          .filter(d => fs.statSync(path.join(nativeDir, d)).isDirectory())
+          .sort();
+        if (versions.length > 0) {
+          const latest = versions[versions.length - 1];
+          if (fs.existsSync(path.join(nativeDir, latest, "claude.exe"))) {
+            return { ok: true, detail: `native (${latest})` };
+          }
+        }
+      } catch {}
+    }
+    // npm global
+    const npmCli = path.join(os.homedir(), "AppData", "Roaming", "npm", "node_modules", "@anthropic-ai", "claude-code", "cli.js");
+    if (fs.existsSync(npmCli)) return { ok: true, detail: "npm global" };
+    // PATH
+    if (cmdExists("claude")) return { ok: true, detail: "PATH" };
+    return { ok: false, detail: "not found", fix: "npm install -g @anthropic-ai/claude-code" };
+  });
+
+  // 5. Python packages (FastAPI, uvicorn, markitdown)
+  check("Python packages", () => {
+    const pkgs = ["fastapi", "uvicorn", "markitdown"];
+    const missing = [];
+    for (const pkg of pkgs) {
+      try {
+        run(`python -c "import ${pkg}"`);
+      } catch { missing.push(pkg); }
+    }
+    if (missing.length === 0) return { ok: true, detail: "fastapi, uvicorn, markitdown" };
+    return { ok: false, detail: `missing: ${missing.join(", ")}`, fix: 'pip install fastapi uvicorn python-multipart "markitdown[all]"' };
+  });
+
+  // 6. Azure CLI (optional)
+  check("Azure CLI (optional)", () => {
+    if (!cmdExists("az")) return { ok: false, detail: "not found", fix: "winget install Microsoft.AzureCLI" };
+    try {
+      const ver = run('az version --output tsv --query "\\"azure-cli\\""');
+      return { ok: true, detail: `v${ver}` };
+    } catch {
+      return { ok: true, detail: "installed (version check failed)" };
+    }
+  });
+
+  // 7. .NET 10 runtime (optional — for om-cli)
+  check(".NET 10 runtime (optional)", () => {
+    try {
+      const runtimes = run("dotnet --list-runtimes");
+      if (runtimes.includes("Microsoft.NETCore.App 10.")) {
+        const match = runtimes.match(/Microsoft\.NETCore\.App (10\.\d+\.\d+)/);
+        return { ok: true, detail: match ? `v${match[1]}` : "v10.x" };
+      }
+      return { ok: false, detail: "not found", fix: "winget install Microsoft.DotNet.SDK.10" };
+    } catch {
+      return { ok: false, detail: "dotnet not found", fix: "winget install Microsoft.DotNet.SDK.10" };
+    }
+  });
+
+  // 8. PAC CLI (optional)
+  check("PAC CLI (optional)", () => {
+    if (!cmdExists("pac")) return { ok: false, detail: "not found", fix: "dotnet tool install --global Microsoft.PowerApps.CLI.Tool" };
+    try {
+      const ver = run("pac --version");
+      return { ok: true, detail: `v${ver}` };
+    } catch {
+      return { ok: true, detail: "installed" };
+    }
+  });
+
+  // 9. Frontend built
+  check("Frontend (app/dist)", () => {
+    const distIndex = path.join(PKG_DIR, "app", "dist", "index.html");
+    if (fs.existsSync(distIndex)) return { ok: true, detail: "built" };
+    return { ok: false, detail: "not built", fix: "npm run frontend:build" };
+  });
+
+  // 10. node-pty prebuilt
+  check("Terminal (node-pty)", () => {
+    try {
+      const pty = require("@homebridge/node-pty-prebuilt-multiarch");
+      if (typeof pty.spawn === "function") return { ok: true, detail: "prebuilt binaries loaded" };
+      return { ok: false, detail: "module loaded but spawn missing", fix: "npm install" };
+    } catch (e) {
+      return { ok: false, detail: e.message.split("\n")[0], fix: "npm install" };
+    }
+  });
+
+  // Print results
+  const PASS = "\x1b[32mPASS\x1b[0m";
+  const FAIL = "\x1b[31mFAIL\x1b[0m";
+  const WARN = "\x1b[33mFAIL\x1b[0m";
+
+  for (const c of checks) {
+    const isOptional = c.name.includes("optional");
+    const icon = c.status === "pass" ? PASS : (isOptional ? WARN : FAIL);
+    console.log(`  ${icon}  ${c.name.padEnd(30)} ${c.detail}`);
+    if (c.status === "fail" && c.fix) {
+      console.log(`         ${"".padEnd(30)} \x1b[90mFix: ${c.fix}\x1b[0m`);
+    }
+  }
+
+  const required = checks.filter(c => !c.name.includes("optional"));
+  const requiredFails = required.filter(c => c.status === "fail").length;
+
+  console.log("");
+  if (requiredFails === 0) {
+    console.log("  \x1b[32mAll required checks passed.\x1b[0m Ready to run: mcs-agent-builder start");
+  } else {
+    console.log(`  \x1b[31m${requiredFails} required check(s) failed.\x1b[0m Fix the issues above, or run start.cmd for auto-install.`);
+  }
+  console.log("");
+
+  process.exit(requiredFails > 0 ? 1 : 0);
+}
+
 function showHelp() {
   console.log(`
   \x1b[36mMCS Agent Builder\x1b[0m v${VERSION}
@@ -193,6 +380,7 @@ function showHelp() {
     stop, --stop         Stop a running instance
     restart, --restart   Stop then start
     health, --health     Check if the dashboard is running
+    doctor, --doctor     Check all prerequisites
     --version, -v        Show version
     --help, -h           Show this help
 
@@ -222,6 +410,10 @@ switch (command) {
     break;
   case "health":
     healthCheck();
+    break;
+  case "doctor":
+  case "doc":
+    doctor();
     break;
   case "version":
   case "v":
