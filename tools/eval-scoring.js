@@ -1,7 +1,7 @@
 /**
  * Shared Scoring Module for MCS Eval Runners
  *
- * Extracted from direct-line-test.js. Used by both Direct Line and Playwright eval runners.
+ * Extracted from direct-line-test.js. Used by Direct Line eval runner.
  * Supports all 7 methods (6 MCS native + PlanValidation) with display-name aliases.
  *
  * Exports:

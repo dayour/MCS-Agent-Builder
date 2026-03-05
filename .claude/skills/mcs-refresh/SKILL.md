@@ -36,7 +36,7 @@ These drive the actual build execution. Staleness here = build errors or subopti
 
 | File | What It Contains | Search Queries |
 |------|-----------------|----------------|
-| `api-capabilities.md` | What each API layer can do (LSP Wrapper, Island Gateway, PAC CLI, Dataverse, Playwright) | "Copilot Studio API Dataverse", "PAC CLI copilot commands" |
+| `api-capabilities.md` | What each API layer can do (LSP Wrapper, Island Gateway, PAC CLI, Dataverse) | "Copilot Studio API Dataverse", "PAC CLI copilot commands" |
 | `instructions-authoring.md` | Instruction writing patterns, limits, Custom Prompt | "Copilot Studio instructions authoring", "Custom Prompt actions" |
 | `generative-orchestration.md` | How gen orchestration routes topics | "Copilot Studio generative orchestration", "topic routing" |
 | `adaptive-cards.md` | Adaptive card syntax, channel limits, PowerFx in cards | "Copilot Studio adaptive cards", "adaptive card channel support" |
@@ -166,7 +166,7 @@ This keeps session start under 3-5 minutes while ensuring build-critical knowled
 - **Note confidence level** — if only one source mentions something, set confidence to "medium"
 - **Preserve the metadata header format** exactly — other tools parse it
 - **Parallel where possible** — run MS Learn + WebSearch queries for multiple files in parallel to speed up refresh
-- **If MCS UI snapshot would help** (e.g., checking current model list), mention it to user but don't require browser
+- **If MCS UI verification would help** (e.g., checking current model list), mention it to user
 
 ---
 

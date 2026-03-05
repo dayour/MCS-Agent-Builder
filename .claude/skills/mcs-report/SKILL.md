@@ -222,7 +222,6 @@ Replace ALL technical terms:
 
 | Technical | Customer-Friendly |
 |-----------|------------------|
-| Playwright | *(omit entirely)* |
 | PAC CLI | *(omit entirely)* |
 | Dataverse | data storage |
 | LSP | *(omit entirely)* |

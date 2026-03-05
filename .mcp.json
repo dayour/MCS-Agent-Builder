@@ -1,9 +1,6 @@
 {
   "mcpServers": {
-    "playwright": {
-      "command": "cmd",
-      "args": ["/c", "tools\\playwright-mcp-wrapper.cmd"]
-    },
+
     "microsoft-learn": {
       "type": "http",
       "url": "https://learn.microsoft.com/api/mcp"

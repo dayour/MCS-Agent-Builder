@@ -2,7 +2,7 @@
 
 ## Overview
 
-Automate Microsoft Copilot Studio (MCS) agent creation using a **hybrid build stack**: PAC CLI for listing agents and solution ALM, MCS LSP Wrapper for component sync (instructions, model, topics, tools, knowledge, settings), Island Gateway API for model catalog, component reads, and connected agent setup, Dataverse API for agent creation (POST + PvaProvision), file uploads, bot name PATCH, PvaPublish, eval upload, and security, Direct Line API for testing, and Playwright MCP only for new OAuth connections (first-time consent).
+Automate Microsoft Copilot Studio (MCS) agent creation using a **hybrid build stack**: PAC CLI for listing agents and solution ALM, MCS LSP Wrapper for component sync (instructions, model, topics, tools, knowledge, settings), Island Gateway API for model catalog, component reads, and connected agent setup, Dataverse API for agent creation (POST + PvaProvision), file uploads, bot name PATCH, PvaPublish, eval upload, and security, Direct Line API for testing, and user-guided manual steps for new OAuth connections and Computer Use tool setup.
 
 **CRITICAL: Never assume components. Research Microsoft-first (MCS built-in → Power Platform → Azure → M365 connectors), escalate to broad research only for external systems. Recommend based on requirements.**
 
@@ -16,54 +16,44 @@ Automate Microsoft Copilot Studio (MCS) agent creation using a **hybrid build st
 
 1. **Atomic tasks**: Every build step is a SEPARATE task in TaskCreate. "Generate CSV" + "upload to MCS" + "run eval" = THREE tasks, not one. Never combine steps that happen in different systems (local file vs MCS UI vs API).
 2. **Verify after every action**: After each change, snapshot/read-back to confirm it worked:
-   - Instructions updated → snapshot confirms text saved (not still in edit mode)
-   - Tool added/removed → snapshot Tools tab confirms tool list matches spec
-   - Trigger created/deleted → snapshot Triggers section confirms expected state
-   - Published → snapshot confirms Published date is today
+   - Instructions updated → LSP pull confirms text saved
+   - Tool added/removed → LSP pull or `add-tool.js list-connections` confirms tool list matches spec
+   - Trigger created/deleted → LSP pull confirms expected state
+   - Published → `pac copilot status` or Dataverse query confirms Published date is today
    - CSV generated → read file back to confirm content
-   - Eval uploaded → snapshot Evaluation tab confirms test case count
+   - Eval uploaded → Dataverse query confirms test case count
 3. **Never mark complete until verified**: If you can't verify, tell the user "I did X but couldn't verify Y" rather than silently assuming success.
 4. **File ≠ deployment**: Writing a local file is NOT the same as uploading it to MCS. These are ALWAYS separate tasks.
-5. **Environment check**: Before PAC CLI operations, verify the agent's environment matches PAC CLI's active profile (`pac auth list`). If they differ, use browser instead.
+5. **Environment check**: Before PAC CLI operations, verify the agent's environment matches PAC CLI's active profile (`pac auth list`). If they differ, ask user to switch PAC CLI profile.
 6. **LSP workspace freshness**: Always `pull → modify → push` when using the LSP Wrapper. Never modify workspace `.mcs.yml` files without pulling first — stale row versions cause `ConcurrencyVersionMismatch` errors and force a re-pull that overwrites your changes.
 7. **End-of-build reconciliation + QA validation**: After ALL changes, walk the spec's build checklist and snapshot-verify every item against the actual agent state. Then spawn QA Challenger (Step 5.5) to validate brief-vs-actual, cross-references, and deviation impact. QA verdict determines whether the build proceeds to the report or escalates issues.
 
 ---
 
-## MANDATORY: MCS Browser Preflight — User Sign-In
+## MANDATORY: User-Guided Manual Steps
 
-**The user signs in and navigates to the right environment. We never automate sign-out, account selection, or environment switching via Playwright.**
+Some operations require the user to perform actions in the Copilot Studio web UI. When these arise, we:
 
-### Browser Preflight Steps
+1. Tell the user exactly what to do (connector name, settings path, buttons to click)
+2. Wait for user confirmation
+3. Verify via API (LSP pull, Dataverse query, `add-tool.js list-connections`) that the change took effect
+4. Continue the build
 
-When Playwright needs the browser for the first time in a session:
-
-1. `browser_navigate` to `https://copilotstudio.microsoft.com` (base URL only — NEVER navigate to an environment-specific URL until account is confirmed, as cross-tenant env URLs return "broken link" errors)
-2. `browser_snapshot` — wait for load (if "Loading...", re-snapshot after 2-3s)
-3. Extract from snapshot: **Account name** (top-right) + **Environment name** (header bar)
-4. Three outcomes:
-
-| Result | Action |
-|--------|--------|
-| **Correct account + env** | Log one line: `Browser verified: {account} / {environment}` — proceed immediately |
-| **Wrong account, wrong env, or not signed in** | Tell the user: "Browser shows {X}/{Y}. Please sign in to the right account and navigate to {target env}. Let me know when you're ready." Wait for user → re-snapshot → confirm |
-| **First time (no target known)** | Read snapshot, ask user: "You're signed in as {account} on {env}. Use this?" → persist to `brief.json.buildStatus` + `session-config.json.sessionDefaults` |
-
-5. Once verified, all subsequent Playwright calls in the same session skip re-verification (browser cookies persist).
-6. On new session: always redo steps 1-4 (don't assume cookies survived).
+### When Manual Steps Are Needed
+- **New OAuth connection creation** — user creates in MCS portal, we verify via `add-tool.js list-connections`
+- **Computer Use tool addition** — user follows step-by-step guide in MCS UI
+- **Any operation where API verification shows a gap** — user checks MCS UI and reports
 
 ### Rules
-
-- If the page hasn't loaded yet (shows "Loading..."), WAIT and re-snapshot
-- NEVER click on an agent, tab, button, or form element until verification passes
-- NEVER use Playwright to automate sign-out, account picker, or environment switcher — the user handles these manually
-- If the user says "switch to [account/env]", tell them to switch in the browser and let you know when ready
+- NEVER leave the user without clear, numbered step-by-step instructions
+- ALWAYS verify via API after user confirms — trust but verify
+- NEVER block on manual steps if an API alternative exists
 
 ---
 
 ## Hybrid Build Stack — Tool Priority
 
-**Use the best tool for each job. Playwright is the last resort, not the default.**
+**Use the best tool for each job. User-guided manual steps as last resort.**
 
 ### Tool Priority Order
 
@@ -75,28 +65,25 @@ When Playwright needs the browser for the first time in a session:
 | 4 | **Flow Manager** | Power Automate cloud flow CRUD — trigger creation, schedule/message updates, activate/deactivate (`tools/flow-manager.js`) |
 | 5 | **Dataverse API** | File uploads (PDF/DOCX), bot name PATCH, PvaPublish, security, deletion |
 | 6 | **Direct Line API** | Evaluation / testing (send messages, compare responses) |
-| 7 | **Playwright MCP** | New OAuth connections (first-time consent only) |
-
 **Detailed capabilities per layer:** See `knowledge/cache/api-capabilities.md`
 **Decision flow and build phase mapping:** See `knowledge/frameworks/tool-priority.md`
 
 ### Unified Auth Gate (all layers verified together)
 
-Account selection determines everything — PAC CLI profile, Azure CLI tenant, and browser target are all derived from the same account in session-config.json.
+Account selection determines everything — PAC CLI profile and Azure CLI tenant are derived from the same account in session-config.json.
 
 | Layer | What It Covers | How | Persisted In |
 |-------|---------------|-----|-------------|
 | **PAC CLI** | Listing agents, solution ALM | `pac auth select` (automatic) | session-config.json `pacProfileIndex` |
 | **Azure CLI** | LSP, Island Gateway, Dataverse, Direct Line | `az login --tenant` (auto, browser popup) | session-config.json `tenantId` + brief.json `azTenantId` |
-| **Browser** | New OAuth consent, Test Chat (fallback) | User signs in manually; snapshot confirms | brief.json `buildStatus.account/environment` |
 
-**Build gate** runs PAC CLI + Azure CLI at start. **Eval/fix** do a quick re-verify (auto-fixes via `az login`). **Browser preflight** runs on first Playwright use — user signs in if needed.
+**Build gate** runs PAC CLI + Azure CLI at start. **Eval/fix** do a quick re-verify (auto-fixes via `az login`).
 
 ---
 
 ## Agent Teams (Experimental)
 
-Agent Teams enables bidirectional communication between specialist teammates who challenge each other's work. The lead (you) orchestrates, teammates do the reasoning/generation, and the lead handles MCS execution (LSP Wrapper, Island Gateway API, PAC CLI, Dataverse, Playwright where needed).
+Agent Teams enables bidirectional communication between specialist teammates who challenge each other's work. The lead (you) orchestrates, teammates do the reasoning/generation, and the lead handles MCS execution (LSP Wrapper, Island Gateway API, PAC CLI, Dataverse).
 
 **Enabled via:** `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` in `.claude/settings.json`
 
@@ -143,14 +130,14 @@ Lead spawns team for build:
 Lead executes validated outputs:
   - Pushes topic YAML via LSP Wrapper (mcs-lsp.js push)
   - Sets instructions via LSP push (agent.mcs.yml) or Dataverse API
-  - Configures tools via add-tool.js + LSP push (Playwright only for new OAuth)
+  - Configures tools via add-tool.js + LSP push (user creates OAuth connections manually if needed)
   - Publishes (Dataverse PvaPublish, PAC CLI fallback)
 ```
 
 ### Rules
 
 - **Lead does NOT generate instructions, YAML, or cards directly.** Delegate to teammates.
-- **Lead DOES handle all MCS execution** (LSP Wrapper, Island Gateway API, PAC CLI, Dataverse API, Playwright where needed) since MCP access in teammates is unreliable.
+- **Lead DOES handle all MCS execution** (LSP Wrapper, Island Gateway API, PAC CLI, Dataverse API) since MCP access in teammates is unreliable.
 - **QA Challenger reviews EVERY teammate output** before the lead executes it.
 - **Teammates challenge each other** — bidirectional communication is the point.
 - **All generated artifacts go to files** (Build-Guides/[Project]/topics/, instructions, etc.) so the lead can read and execute them.
@@ -196,10 +183,7 @@ Before committing to designs that are hard to undo — schema changes, workflow 
 | **Flow Manager** | Power Automate cloud flow CRUD — create/update/activate triggers, discover connection refs (`tools/flow-manager.js`) |
 | **Replicate Agent** | Cross-environment agent replication: Dataverse create + LSP clone + push (`tools/replicate-agent.js`) |
 | **Direct Line API** | Agent testing: send messages, compare responses (`tools/direct-line-test.js`) |
-| **Test Chat Harness** | Optimized Playwright eval: injectable browser code for ~3-5s/test boundary tests (`tools/test-chat-harness.js`) |
-| **Eval Runner** | Test plan generation, scoring, tier detection for Playwright eval (`tools/playwright-eval-runner.js`) |
 | **Solution Library** | Team SharePoint solution library: list, download, analyze, upload, index, search (`tools/solution-library.js`) |
-| **Playwright MCP** | New OAuth connections (first-time consent only) (`@playwright/mcp`) |
 | **WorkIQ MCP** | M365 context: emails, meetings, documents, Teams, people (`workiq mcp`) |
 | **Microsoft Learn MCP** | Official docs, reference, code samples |
 | **WebSearch** | Latest announcements, preview features, community discoveries |
@@ -232,7 +216,7 @@ The system captures learnings from every build and makes them available in futur
 |-------|----------|------|---------|
 | **Official cache** | `knowledge/cache/` | MCS capabilities from MS Learn + WebSearch | Auto (session start + before research) |
 | **Experience learnings** | `knowledge/learnings/` | Insights from past builds, user feedback, failures | After every build/research/eval |
-| **Stable patterns** | `knowledge/patterns/` | YAML syntax, Playwright patterns, Dataverse API, solution patterns | Manual (rarely changes) |
+| **Stable patterns** | `knowledge/patterns/` | YAML syntax, Dataverse API, solution patterns | Manual (rarely changes) |
 | **Decision frameworks** | `knowledge/frameworks/` | Component selection, architecture scoring | Manual (rarely changes) |
 
 ### Learnings Capture Points
@@ -364,8 +348,8 @@ Research Microsoft-first: MCS built-in → Power Platform → Azure → M365 con
 
 **When to do live research:** External systems not in cache. Cache > 7 days stale for the specific system. Every error you can't explain.
 
-### 5. Minimize Playwright — Use APIs First
-Every browser interaction is fragile. Before using Playwright, check if LSP Wrapper, Island Gateway API, add-tool.js, PAC CLI, Dataverse API, or Direct Line API can handle the operation. See "Hybrid Build Stack" section above.
+### 5. All-API Build Stack
+Zero browser automation. User-guided manual steps only when no API alternative exists (new OAuth connections, Computer Use tool). See "User-Guided Manual Steps" section above.
 
 ### 6. Not Every Use Case Needs an Agent
 Run the Solution Type Assessment (5 factors, see `knowledge/frameworks/solution-type-scoring.md`) after identifying agent candidates. Score 0-2 = recommend simpler solution (Power Automate flow, SharePoint views, etc.). Score 4-5 = proceed with agent. Never force-fit automation into an agent.
@@ -494,10 +478,10 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 **Writes:** `brief.json` buildStatus field (including step-level checkpoints for resume)
 
 **Unified Auth Gate:**
-- Runs all three auth layers (PAC CLI, Azure CLI, Browser target) from one account selection
+- Runs both auth layers (PAC CLI, Azure CLI) from one account selection
 - Reads target from `brief.json.buildStatus.account` / `.environment` / `.accountId`
 - If present → resumes with one-line confirmation. If missing → asks once, persists to both `brief.json.buildStatus` AND `session-config.json.sessionDefaults`
-- Sets PAC CLI profile, auto-runs `az login --tenant` on mismatch (browser popup), records browser target
+- Sets PAC CLI profile, auto-runs `az login --tenant` on mismatch (browser popup)
 - Eval/fix do a quick re-verify (auto-fixes via `az login` on mismatch)
 - User can always override by saying "switch to [account/env]"
 
@@ -514,12 +498,10 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 - On resume, completed steps are skipped — build continues from the failure point
 - Publish always re-runs since it's cheap and ensures latest state
 
-**Eval-Driven Iteration (Step 4.5 — after initial setup):**
-- **Safety gate** → must pass 100% before any capability work (max 3 attempts, then HARD STOP)
-- **Functional iteration** → run functional set per-capability (happy paths + grounding + routing), fix failures, re-run (max 3 iterations per capability, target 85%)
-- **Resilience** → run resilience set (edge cases, graceful failure, cross-cutting), fix regressions (max 2 rounds, target 80%)
-- Fix logic (PE for instructions, TE for topics) runs INSIDE the build loop — no separate `/mcs-fix` needed for initial build
-- Iteration limits from `evalConfig` (targetPassRate, maxIterationsPerCapability, maxRegressionRounds)
+**Post-Build Eval (Direct Line):**
+- After publish, runs Direct Line eval if agent supports it (no MCP/user-delegated tools)
+- For MCP agents: generates test cases, user tests manually in MCS
+- User requests `/mcs-fix` for issues found post-deployment
 
 **MVP Phase Filtering:**
 - Only builds items tagged `phase: "mvp"` — skips `phase: "future"` across capabilities, integrations, knowledge, and topics
@@ -527,14 +509,12 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 - Deferred items are listed in the build report for customer visibility
 
 **Routes by architecture:**
-- `Single Agent` → standalone build (PAC CLI + LSP Wrapper + Island Gateway + Dataverse + Playwright for creation/OAuth only)
+- `Single Agent` → standalone build (PAC CLI + LSP Wrapper + Island Gateway + Dataverse)
 - `Multi-Agent` → specialists first, then orchestrator with child connections
 
 **On-demand teammates:** Research Analyst (when tool configuration hits issues) and Prompt Engineer (when instructions need adjustment for actual tool names)
 
 **QA Build Validation Gate (Step 5.5):** After publish, QA Challenger validates brief-vs-actual (every MVP item), cross-references (instructions→tools, topics→variables, routing→children), and deviation impact (severity + can-ship assessment). QA verdict (PASS / PASS WITH CAVEATS / FAIL) determines whether the build report is generated or critical issues are escalated to the user. Output: `qa-validation.md` in the agent folder.
-
-**Browser preflight** before any Playwright interaction (snapshot, compare against persisted buildStatus — proceed on match, ask user to sign in if mismatch).
 
 ---
 
@@ -546,11 +526,10 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 **Reads:** `brief.json` evalSets array
 **Writes:** `brief.json` evalSets[].tests[].lastResult + `evals-results.json`
 
-**Three-tier eval strategy:**
-- **Tier 1: Direct Line API** (preferred) — hardened with auto-token via Token Endpoint, retry with backoff, 60s timeout, structured partial results
-- **Tier 2: Playwright Test Chat** (fallback) — drives Test Chat pane in MCS UI, no token needed, scores locally using same logic as Tier 1
-- **Tier 3: Native MCS Eval** (async, optional) — uploads CSV to Evaluation tab, starts eval, returns immediately. Check results later with `--check-results`
-- **Automatic failover:** Tier 1 → Tier 2. Tier 3 only on explicit user request (`--native` flag).
+**Two-mode eval strategy:**
+- **Auto (Direct Line API)** — automated for agents without user-delegated MCP tools. Hardened with auto-token, retry with backoff, 60s timeout, structured partial results.
+- **Manual (MCS Native Eval)** — generate tests → Dataverse API upload (populates Evaluation tab) + per-set CSV files (downloadable from dashboard). User runs in MCS or tests in chat.
+- **MCP Agent Manual Test Mode** — present test table (questions + expected answers), user tests in Test Chat, reports results or uses MCS native eval.
 
 **Per-set pass logic:** each test must pass ALL methods defined by its set. Scored methods check threshold, binary methods are pass/fail.
 
@@ -637,7 +616,7 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 | `customer` | Non-technical stakeholders | Simplified — zero jargon, features + decisions only | Anytime for exec review |
 | `deployment` | IT admin / deploy team | Pre/post deploy checklists, connection mapping, env mapping | Before or after deploy |
 
-**Customer report jargon rules:** No Playwright, PAC CLI, Dataverse, LSP, YAML, PowerFx, MCP, JSON, API, OAuth, Service Principal. Use plain language equivalents.
+**Customer report jargon rules:** No PAC CLI, Dataverse, LSP, YAML, PowerFx, MCP, JSON, API, OAuth, Service Principal. Use plain language equivalents.
 
 **No teammates** — lightweight lead-only generation.
 
@@ -676,7 +655,6 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 **MCS Authoring Schema:** Query via `tools/om-cli/om-cli.exe` (357 concrete types, validates unknown nodes + missing fields). Schema files baked into `tools/om-cli/schemas/`.
 **Code Editor YAML reference:** See `knowledge/patterns/yaml-reference.md` (action types, entity catalog, binding rules, compile errors)
 **Topic YAML templates:** See `knowledge/patterns/topic-patterns/` (10 patterns including AI Builder model)
-**Playwright UI patterns:** See `knowledge/patterns/playwright-patterns.md`
 **Dataverse API patterns:** See `knowledge/patterns/dataverse-patterns.md`
 **Solution patterns:** See `knowledge/patterns/solution-patterns.md` (naive-to-proven implementation patterns, checked during research Phase B Step 2.5)
 **Trigger types:** See `knowledge/cache/triggers.md`
@@ -694,7 +672,7 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
    - WebSearch for the error message + "Copilot Studio"
    - MS Learn MCP for official troubleshooting
    - Community forums for known bugs / workarounds
-   - MCS UI snapshot to verify current state
+   - API read-back to verify current state
 3. Log significant findings to knowledge/learnings/
 4. Retry with researched approach
 ```
@@ -709,14 +687,14 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 4. **Never assume** — research Microsoft-first (MCS built-in → Power Platform → Azure → M365 connectors), escalate to broad research for external systems. Present structured decisions when multiple valid approaches exist
 5. **MVP first** — build what's possible now, plan what's blocked
 6. **Build specialists first** — children before orchestrator
-7. **Verify environment** — every browser session (snapshot + user signs in if needed)
+7. **Verify environment** — confirm PAC CLI + Azure CLI target before operations
 8. **Research errors** — don't blindly retry
 9. **Capture learnings** — every build makes next build smarter
 10. **Fill gaps before building** — incomplete brief → incomplete agent
-11. **Minimize Playwright** — use LSP Wrapper, Island Gateway API, add-tool.js, PAC CLI, Dataverse API, Direct Line first
+11. **All-API build stack** — zero browser automation. User-guided manual steps for new OAuth connections only
 12. **MCP over connectors** — prefer MCP servers over individual connector actions
 13. **Microsoft-first research** — use cache for M365-native components (Priority 1-4), escalate to WebSearch + MS Learn + community only for external systems (Priority 5-6) not in cache
-14. **LSP/API first, browser last** — every Playwright interaction is a fragility risk; prefer LSP Wrapper, Island Gateway, or API alternatives
+14. **API verification** — every change verified via LSP pull, Dataverse query, or PAC CLI status — deterministic, not screenshot-based
 15. **Present options, don't prescribe** — when research finds 2+ genuinely viable approaches, create structured `decisions[]` entries with pros/cons/requirements. Recommend the best, pre-apply it as the buildable default, let the user choose. One clear winner = auto-apply, no decision entry.
 16. **Assess before building** — run solution type scoring after identifying agents. Force-fitting automation into an agent wastes effort and produces inferior results. A Power Automate flow that works is better than an agent that's just a thin API wrapper.
 
@@ -727,7 +705,7 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 Cached inventories, stable patterns, and decision frameworks live in `knowledge/`:
 
 - **`knowledge/cache/`** — 19 quick-reference cheat sheets covering MCS capabilities: options, limits, gotchas, and decision tables. For step-by-step details, use MS Learn MCP. Each file has freshness metadata. Check before architecture decisions.
-- **`knowledge/patterns/`** — Stable HOW-TO references (YAML syntax, Playwright patterns, Dataverse API patterns, solution patterns, topic templates).
+- **`knowledge/patterns/`** — Stable HOW-TO references (YAML syntax, Dataverse API patterns, solution patterns, topic templates).
 - **`knowledge/frameworks/`** — Decision frameworks (component selection, architecture scoring, tool priority).
 
 **Tiered refresh:**
@@ -815,7 +793,7 @@ knowledge/
 │   ├── adaptive-cards.md, ai-tools-computer-use.md, limits-licensing.md, conversation-design.md
 │   └── island-gateway-api.md
 ├── patterns/               # Stable HOW-TO references
-│   ├── yaml-reference.md, playwright-patterns.md, dataverse-patterns.md
+│   ├── yaml-reference.md, dataverse-patterns.md
 │   ├── solution-patterns.md  # Naive-to-proven implementation patterns (checked in research Phase B)
 │   └── topic-patterns/     # 10 reusable YAML templates
 └── frameworks/             # Decision frameworks
@@ -844,15 +822,11 @@ tools/
 ├── flow-manager.js         # Power Automate cloud flow CRUD — triggers, schedules, activate/deactivate
 ├── direct-line-test.js     # Direct Line API test runner
 ├── eval-scoring.js         # Shared scoring module (7 methods: 6 MCS native + PlanValidation, multi-turn support)
-├── test-chat-harness.js    # Injectable browser harness for fast Playwright Test Chat eval
-├── playwright-eval-runner.js # Test plan generator, scorer, tier detector for Playwright eval
 ├── solution-library.js     # Team SharePoint solution library CLI (list, download, analyze, upload, index, search)
 ├── replicate-agent.js      # Cross-environment agent replication via Dataverse + LSP clone + push
 ├── dataverse-helper.ps1    # PowerShell Dataverse Web API helper
 ├── pac-mcp-wrapper.js      # PAC CLI MCP server wrapper
 ├── update-om-cli.ps1       # Auto-update om-cli from ObjectModel source (called by pre-push hook)
-├── start-edge-debug.cmd    # Launch Edge with remote debugging for Playwright CDP mode
-├── playwright-mcp-wrapper.cmd   # Playwright MCP launch wrapper (used by .claude/settings.json)
 ├── e2e-api-pipeline-test.js    # Full API pipeline E2E test (24-step Dataverse→LSP→DirectLine)
 ├── session-config.example.json  # Account/environment config template
 └── git-hooks/
@@ -882,7 +856,7 @@ Build-Guides/[Project]/     # Per-project work (gitignored)
 # List agents
 pac copilot list
 
-# Create from template (fallback — prefer Playwright for creation)
+# Create from template (fallback — prefer Dataverse POST + PvaProvision for creation)
 pac copilot create --displayName "Name" --schemaName "cr_name" --solution "SolutionName" --templateFileName template.yaml
 
 # Publish

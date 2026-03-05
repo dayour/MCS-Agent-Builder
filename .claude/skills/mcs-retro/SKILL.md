@@ -28,7 +28,7 @@ Scan the current session for actionable items:
 - **Eval failures** — test cases that failed unexpectedly
 - **Manual workarounds** — steps that should have been automated but weren't
 - **Verbal discoveries** — user corrections, "remember that X", "this doesn't work because Y"
-- **Tool gaps** — operations that required Playwright when an API should exist
+- **Tool gaps** — operations that required manual steps when an API should exist
 - **Performance observations** — what was fast, what was slow, what could be parallelized
 - **Solution patterns** — naive implementation approaches that failed and the proven alternative that worked (e.g., HTTP connector for web scraping failed → containerized Readability succeeded)
 - **Decision outcomes** — which `decisions[]` options were selected, whether they worked, and whether the recommendation should change (e.g., "Tier 2 Jina Reader was selected over Tier 1 Azure Function because customer had no Azure subscription — worked well for static sites")

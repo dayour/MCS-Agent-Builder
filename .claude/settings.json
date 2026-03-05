@@ -15,21 +15,14 @@
       "Task",
       "Skill(*)",
       "NotebookEdit",
-      "mcp__playwright__*",
+
       "mcp__microsoft-learn__*",
       "mcp__workiq__*",
       "mcp__pac-cli__*"
     ]
   },
   "mcpServers": {
-    "playwright": {
-      "type": "stdio",
-      "command": "cmd",
-      "args": [
-        "/c",
-        "tools\\playwright-mcp-wrapper.cmd"
-      ]
-    },
+
     "microsoft-learn": {
       "type": "http",
       "url": "https://learn.microsoft.com/api/mcp"

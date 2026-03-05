@@ -48,10 +48,9 @@ Reusable YAML templates in `knowledge/patterns/topic-patterns/`:
 
 1. Generate topic YAML from spec using patterns above
 2. **Validate:** `tools/om-cli/om-cli.exe validate -f <file.yaml>` — catches unknown nodes, missing required fields, structural issues
-3. Playwright: Navigate to Topics tab → Create blank topic
-4. Playwright: Click "..." → "Open code editor"
-5. Playwright: Paste generated YAML into code editor
-6. Playwright: Save
+3. LSP push: Write `.mcs.yml` to workspace `topics/` directory
+4. Push: `node tools/mcs-lsp.js push --workspace <path>`
+5. Fallback: Island Gateway API `PUT content/botcomponents` with DialogComponent payload
 
 ## Limitation
 

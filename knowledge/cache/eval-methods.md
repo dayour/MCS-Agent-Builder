@@ -273,69 +273,20 @@ node tools/direct-line-test.js --token-endpoint "<URL>" --csv evals.csv --timeou
 
 Results saved to `evals-results.json`.
 
-### Tier 2: Playwright Test Chat (fallback — or primary for MCP agents)
+### Manual Mode: MCS Native Eval (for MCP agents or user preference)
 
-Drive the MCS Test Chat pane directly via Playwright. Uses the same agent runtime as Direct Line — same responses, same quality. No token acquisition needed. **Required** for agents with MCP/user-delegated tools (Outlook, Calendar, Teams, etc.) since Direct Line cannot authenticate users for these.
+For agents with MCP/user-delegated tools (Outlook, Calendar, Teams, etc.), Direct Line cannot authenticate users. Use MCS Native Eval instead:
+
+1. **Dataverse API upload** (Option B): Create test case records via `POST /botcomponents` with `componenttype=19` — populates MCS Evaluation tab directly
+2. **CSV generation** (Option A): Generate per-set CSVs for manual upload or dashboard download
+3. **User runs eval** in MCS UI or tests manually in Test Chat (signed in with appropriate permissions)
 
 **When to use:**
-- Agent uses MCP or user-delegated tools (auto-detected by `playwright-eval-runner.js --action detect-tier`)
+- Agent uses MCP or user-delegated tools (auto-detected by checking `brief.json.integrations[]`)
 - Direct Line token acquisition fails entirely
-- Tier 1 produced partial results and remaining tests need completion
-- User prefers browser-based testing
+- User prefers MCS-native evaluation
 
-**Tooling:**
-
-```bash
-# Generate optimized test plan (boundary tests first, tool tests after)
-node tools/playwright-eval-runner.js --brief <path> --action plan [--set safety,functional]
-
-# Score collected results and write to brief.json
-node tools/playwright-eval-runner.js --brief <path> --action score --results <results-file>
-
-# Auto-detect recommended tier based on agent config
-node tools/playwright-eval-runner.js --brief <path> --action detect-tier
-```
-
-**How it works:**
-1. Generate test plan → orders boundary tests first (fast), tool tests after (slow)
-2. Open agent in MCS → Test Chat pane
-3. Inject test chat harness once (`node tools/test-chat-harness.js --emit-install` → `browser_evaluate`)
-4. For each test: single `browser_evaluate(() => window.__testChat.sendAndWait(...))` call
-5. Boundary tests skip session reset between them (independent, no tool state)
-6. Tool tests get fresh sessions via `window.__testChat.reset()`
-7. After all tests: score results using shared `eval-scoring.js` module (identical logic to Tier 1)
-8. Results written to `brief.json.evalSets[].tests[].lastResult` + `evals-results.json`
-9. Falls back to legacy snapshot-poll loop if harness injection fails
-
-**Scoring:** Uses shared `tools/eval-scoring.js` module — identical scoring functions as Direct Line runner. All 6 MCS native methods supported with display-name aliases and mode parameters. Plan validation requires Direct Line (Tier 1) for activity capture.
-
-**Speed (with harness):** ~3-5s/test for boundary tests, ~15-30s/test for tool-calling tests
-**Speed (legacy snapshot loop):** ~15-30s/test for boundary tests, ~60-90s/test for tool-calling tests
-**Reliability:** High — no tokens, no API keys, uses existing browser session
-
-#### Optimized Test Chat Harness (`tools/test-chat-harness.js`)
-
-Injected once per eval run via `browser_evaluate`. Replaces the 5-step snapshot-poll loop with a single `browser_evaluate` call per test.
-
-**How it works:**
-1. Inject harness: `browser_evaluate(getInstallScript())` — installs `window.__testChat`
-2. Per test: `browser_evaluate(() => window.__testChat.sendAndWait("question", 30000))`
-   - Types question via native value setter (React-compatible)
-   - Clicks Send button (or falls back to Enter key)
-   - Uses MutationObserver + polling to detect new bot message
-   - Returns `{ response, elapsed }` directly — no extra snapshots needed
-3. Reset: `browser_evaluate(() => window.__testChat.reset())` — clicks reset button
-
-**Performance improvement:**
-
-| Test Type | Legacy (snapshot) | Harness (optimized) | Speedup |
-|-----------|-------------------|---------------------|---------|
-| Boundary (refusal) | ~15-30s | ~3-5s | 5-8x |
-| Tool-calling | ~60-90s | ~15-30s | 2-3x |
-| Session reset | ~10s | ~3s | 3x |
-| 20-test suite | ~15 min | ~3-5 min | 3-5x |
-
-**Fallback:** If harness injection fails (CSP restrictions, DOM changes), the eval skill falls back to the legacy per-test snapshot loop automatically.
+**Scoring:** MCS native scoring engine handles all 6 method types. Results are read from MCS UI by the user.
 
 ### Tier 3: Native MCS Evaluation (async, optional)
 
@@ -412,7 +363,7 @@ Multi-turn tests send an ordered sequence of messages in **one conversation** (s
 | Tier | Multi-Turn Support |
 |------|--------------------|
 | **Tier 1 (Direct Line)** | Full support — same conversation, watermark tracking, activity capture |
-| **Tier 2 (Playwright)** | Supported — skip `reset()` between turns within the same test (existing harness handles this) |
+| **Manual (MCS Native)** | Not supported — MCS native eval is single-turn only. Multi-turn requires Direct Line. |
 | **Tier 3 (Native MCS)** | Not supported — MCS native eval is single-turn only |
 
 ### Example Results
@@ -471,10 +422,9 @@ The 7th evaluation method (not a native MCS method — custom to our runner). Ve
 | Tier | Plan Validation |
 |------|----------------|
 | **Tier 1 (Direct Line)** | Full support — enhanced activity capture provides trace/event data |
-| **Tier 2 (Playwright)** | Not supported — browser cannot access Direct Line activity stream |
-| **Tier 3 (Native MCS)** | Not supported |
+| **Manual (MCS Native)** | Not supported — requires Direct Line activity stream |
 
-When Tier 2 is recommended (MCP agents) but plan validation tests exist, the runner suggests **split execution**: Direct Line for plan-validation tests, Playwright for MCP/user-delegated tests.
+When manual mode is recommended (MCP agents) but plan validation tests exist, the runner suggests **split execution**: Direct Line for plan-validation tests, manual testing for MCP/user-delegated tests.
 
 ### Known Limitation: Activity Stream Content
 

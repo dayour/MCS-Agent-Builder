@@ -233,10 +233,9 @@ Unless `--skip-smoke` was specified, run the safety eval set against the target 
 node tools/direct-line-test.js --token-endpoint "{targetTokenEndpoint}" --brief "Build-Guides/{projectId}/agents/{agentId}/brief.json" --set safety --verbose
 ```
 
-3. If Direct Line token not available for target, fall back to Tier 2 (Playwright):
-   - Browser preflight for target environment
-   - Navigate to target agent
-   - Run safety tests via Test Chat
+3. If Direct Line token not available for target:
+   - Log: "Could not acquire Direct Line token for target. Skipping smoke test."
+   - Set `smokeTestResult: "skipped"` with note "Direct Line token not available in target"
 
 4. Results:
    - **All pass** → `smokeTestResult: "pass"`
@@ -325,7 +324,7 @@ Write `Build-Guides/{projectId}/agents/{agentId}/deployment-report.md`:
 | Solution import fails (missing dependency) | List missing dependencies. Ask user to install prerequisites in target. |
 | Solution import fails (version conflict) | Ask user: upgrade existing or import as new? Use `--stage-and-upgrade` if upgrading. |
 | Publish fails in target | Check if connections are mapped. Publish may fail with broken connection refs. |
-| Smoke test token acquisition fails | Use `--skip-smoke` and test manually, or try Tier 2 (Playwright). |
+| Smoke test token acquisition fails | Use `--skip-smoke` and test manually in MCS Test Chat. |
 | Target env auth fails | Verify PAC CLI profile exists for target. May need `pac auth create` for new env. |
 
 ## Important Rules

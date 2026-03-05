@@ -7,7 +7,7 @@
 ```
 Layer 1: knowledge/cache/      — Official MCS capabilities, refreshed from MS Learn + WebSearch (REFRESHABLE)
 Layer 2: knowledge/learnings/   — Experience from past builds, user feedback, failures (GROWS OVER TIME)
-Layer 3: knowledge/patterns/    — Stable HOW-TO references: YAML, Playwright, Dataverse (STABLE)
+Layer 3: knowledge/patterns/    — Stable HOW-TO references: YAML, Dataverse (STABLE)
 Layer 4: knowledge/frameworks/  — Decision logic: component selection, architecture scoring (STABLE)
 ```
 
@@ -26,7 +26,7 @@ knowledge/
 │   ├── integrations.md          # System integration lessons (auth, custom connectors)
 │   ├── topics-triggers.md       # Topic/trigger patterns
 │   ├── eval-testing.md          # Eval method insights, thresholds, scoring
-│   ├── build-methods.md         # Build execution lessons (API vs Playwright)
+│   ├── build-methods.md         # Build execution lessons (API methods)
 │   └── customer-patterns.md     # Industry/customer-type patterns
 ├── cache/                       # Refreshable inventories (each file has metadata header)
 │   ├── triggers.md              # Topic trigger types, YAML kinds
@@ -49,7 +49,6 @@ knowledge/
 │   └── conversation-design.md   # Design patterns, entity types, escalation
 ├── patterns/                    # Stable HOW-TO patterns
 │   ├── yaml-reference.md        # YAML syntax rules, node types, variable scopes
-│   ├── playwright-patterns.md   # MCS UI automation patterns
 │   ├── dataverse-patterns.md    # API call patterns
 │   └── topic-patterns/          # Reusable YAML templates
 └── frameworks/                  # Decision frameworks

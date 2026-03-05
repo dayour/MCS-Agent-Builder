@@ -1,11 +1,11 @@
 ---
 name: mcs-build
-description: "Build agent(s) in Copilot Studio using the hybrid build stack with eval-driven iteration. Bootstrap → safety gate → functional per-capability → resilience. Reads brief.json for architecture mode (single/multi-agent)."
+description: "Build agent(s) in Copilot Studio using the fully API-native build stack with user-guided manual steps for OAuth connections. Reads brief.json for architecture mode (single/multi-agent)."
 ---
 
 # MCS Agent Builder — Unified Hybrid Build Stack
 
-Build agents in Microsoft Copilot Studio using the optimized hybrid approach: PAC CLI for listing agents and solution ALM, LSP wrapper for instructions, model, topics, knowledge, and full component sync, Dataverse API for file uploads and PvaPublish, and Playwright only for agent creation and new OAuth connections.
+Build agents in Microsoft Copilot Studio using the optimized hybrid approach: PAC CLI for listing agents and solution ALM, LSP wrapper for instructions, model, topics, knowledge, and full component sync, Dataverse API for file uploads and PvaPublish, and user-guided manual steps for new OAuth connections.
 
 This skill handles all build modes:
 - **Single Agent** — standalone build
@@ -74,17 +74,15 @@ All three auth layers (PAC CLI, Azure CLI, Browser target) derive from one accou
    Auth verified: {account} / {environment}
      PAC CLI: profile {index} ✓
      Azure CLI: {user} (tenant {id}) ✓
-     Browser: user will sign in on first use
    ```
 
 ### Rules
 
 - Never run `az logout` — only `az login` to switch tenants
 - This gate runs ONCE at build start, not before every tool call
-- If `az login` fails (network, MFA timeout): alert user, offer "skip az" (Playwright-only fallback, API tools may fail)
+- If `az login` fails (network, MFA timeout): alert user, API tools will fail until auth is resolved
 - If the user says "switch to [account/env]" at any point, re-run the entire gate and update both persistence locations
 - If an account has no environments listed, ask the user to provide the environment name manually
-- Browser verification on first Playwright use asks user to sign in if needed (see CLAUDE.md "MCS Browser Preflight")
 
 ---
 
@@ -204,7 +202,6 @@ Decision Gate: OK ({N} decisions confirmed, 0 pending)
 
 1. Read `knowledge/cache/api-capabilities.md` — check `last_verified` date
 2. If stale (> 7 days), refresh: WebSearch + MS Learn for "Copilot Studio API"
-3. Check if any Playwright-only operations now have API alternatives
 4. Read `knowledge/patterns/dataverse-patterns.md` for API call patterns
 5. Read `knowledge/learnings/build-methods.md` — check for agent creation precedents, known build gotchas
 6. Update cache files if new findings
@@ -231,7 +228,7 @@ In addition to Topic Engineer (YAML authoring, Step 4) and QA Challenger (review
 - Connector/MCP server not found by expected name in MCS UI
 - Auth mode in MCS differs from what brief.json specifies
 - Tool behavior doesn't match documentation (unexpected parameters, missing actions)
-- Any error during Playwright tool configuration that the lead can't resolve in 1 attempt
+- Any error during tool configuration that the lead can't resolve in 1 attempt
 
 **What RA does:**
 - WebSearch for "[connector name] Copilot Studio" + current year
@@ -319,30 +316,31 @@ pac copilot list
 - If a matching name is found → store its ID in `brief.json.buildStatus.mcsAgentId`, skip creation
 - If NOT found → proceed to 1c
 
-#### 1c. Create new agent (Playwright)
+#### 1c. Create new agent (Dataverse API)
 
-PAC CLI `create` requires an undocumented template YAML that only captures ~30% of config. Agent creation is one of the few remaining Playwright-only operations — after creation, all other configuration (model, instructions, topics, tools, knowledge) is done headlessly via LSP push and add-tool.js.
+Agent creation is fully API-native via Dataverse POST + PvaProvision (E2E confirmed).
 
-1. **Run browser preflight:** navigate to MCS, snapshot. If wrong account/env or not signed in, ask user to sign in and navigate to the right environment. Wait for confirmation, then proceed. (See CLAUDE.md "MCS Browser Preflight")
-2. Navigate to MCS home → **Create** → **New agent** → **Skip to configure**
-3. Set **Name** and **Description** from brief.json
-4. Set icon if specified in brief.json
-5. Click **Create**
-
-After creation:
-1. Capture bot ID:
-   ```powershell
-   pac copilot list
-   ```
-2. Update the bot entity name (LSP push updates GptComponent `displayName` but NOT the bot entity `name`):
+1. **Create bot entity:**
    ```bash
    TOKEN=$(az account get-access-token --resource <dataverseUrl> --query accessToken -o tsv)
+   curl -s -X POST "<dataverseUrl>/api/data/v9.2/bots" \
+     -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+     -d '{"name":"<displayName>","schemaname":"<publisherPrefix>_<schemaName>","language":1033,"runtimeprovider":0,"configuration":"{...}"}'
+   ```
+2. **Provision in MCS runtime:**
+   ```bash
+   curl -s -X POST "<dataverseUrl>/api/data/v9.2/bots(<botId>)/Microsoft.Dynamics.CRM.PvaProvision" \
+     -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{}'
+   ```
+3. Wait for `statuscode` to transition from `Provisioning(3)` to `Provisioned(1)` (~5-15s)
+4. Set agent name (LSP push updates GptComponent `displayName` but NOT the bot entity `name`):
+   ```bash
    curl -s -X PATCH "<dataverseUrl>/api/data/v9.2/bots(<botId>)" \
      -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
      -d '{"name":"<displayName>"}'
    ```
 
-**Fallback:** If browser is unavailable, use `pac copilot create --displayName "Name" --schemaName "cr_name" --solution "DefaultSolution" --templateFileName template.yaml` (requires extracting a template from an existing agent first).
+**Fallback:** `pac copilot create --displayName "Name" --schemaName "cr_name" --solution "DefaultSolution" --templateFileName template.yaml` (requires extracting a template from an existing agent first).
 
 #### 1d. Persist immediately
 
@@ -394,12 +392,12 @@ Before pushing instructions to MCS, validate that instruction content matches MV
 5. Present mismatches to user. Proceed after acknowledgment. This is a WARNING gate, not a blocker.
 
 **Instructions:** Edit `agent.mcs.yml` in the cloned workspace → set `instructions:` field → push via `mcs-lsp.js push`.
-**Fallback:** Dataverse API PATCH `data` field + PvaPublish (see `knowledge/patterns/dataverse-patterns.md` § 3) → Playwright
+**Fallback:** Dataverse API PATCH `data` field + PvaPublish (see `knowledge/patterns/dataverse-patterns.md` § 3)
 **Checkpoint:** After verified, add `"instructions"` to `brief.json.buildStatus.completedSteps` and set `lastCompletedStep` to `"instructions"`.
 
 **Knowledge:** For SharePoint sites and public websites, create `.mcs.yml` files in the workspace's `knowledge/` folder → push via `mcs-lsp.js push`. For file uploads (PDF, DOCX), use Dataverse API (see `knowledge/patterns/dataverse-patterns.md` § 4). See `knowledge/cache/knowledge-sources.md` for YAML format per source type.
 **Phase filter:** Only configure `knowledge[]` entries where `phase == "mvp"`. Log skipped future sources.
-**Fallback:** Playwright → Knowledge tab → Add knowledge
+**Fallback:** Dataverse API for file uploads
 **Checkpoint:** After verified, add `"knowledge"` to `brief.json.buildStatus.completedSteps` and set `lastCompletedStep` to `"knowledge"`.
 
 **Initial Publish:**
@@ -407,7 +405,7 @@ Before pushing instructions to MCS, validate that instruction content matches MV
 pac copilot publish --bot <bot-id>
 ```
 
-**VERIFY:** Snapshot Overview → instructions text matches spec, knowledge sources listed.
+**VERIFY:** LSP pull → instructions text matches spec, knowledge sources listed.
 
 **On-demand PE trigger:** After Step 3 configures tools, if tool names in MCS differ from brief.json, spawn Prompt Engineer to adjust instructions (see "On-Demand Teammates" section above). Re-apply instructions via LSP push after PE revises agent.mcs.yml.
 
@@ -441,17 +439,21 @@ For each tool/connector in the spec:
    ```bash
    node tools/mcs-lsp.js push --workspace "<workspacePath>"
    ```
-3. **If NEW OAuth connection needed** (no existing connection for that connector): Use Playwright to create the connection first (interactive browser auth), then use `add-tool.js` for the action.
+3. **If NEW OAuth connection needed** (no existing connection for that connector):
+   - Tell the user: "A new OAuth connection is needed for {connector}. Please create it in MCS: Settings → Connectors → {connector} → New connection → Sign in."
+   - Wait for user confirmation
+   - Verify via `add-tool.js list-connections` that the connection now exists
+   - Then use `add-tool.js` for the action
 
 **MCP servers:** Use `add-tool.js` with the MCP connector ID — generates `InvokeExternalAgentTaskAction` YAML.
-**Computer Use:** Playwright still required (specialized UI flow).
-**Security:** Settings → "Allow other agents to connect" (Playwright if specialist agent).
+**Computer Use:** User-guided manual step — provide step-by-step instructions for MCS UI.
+**Security:** Dataverse PATCH `bot.configuration.isAgentConnectable` (confirmed API).
 
 **Checkpoint:** After all MVP tools verified, add `"tools"` to `completedSteps`, set `lastCompletedStep` to `"tools"`.
 
 **On-demand RA trigger:** If a connector/MCP server is not found by expected name, or auth mode differs from spec, spawn Research Analyst to investigate (see "On-Demand Teammates" section above). Apply RA's findings before continuing.
 
-**VERIFY:** Pull latest state: `node tools/mcs-lsp.js pull --workspace "<workspacePath>"` → check `actions/` folder has all expected tools. Or snapshot MCS Tools tab as fallback.
+**VERIFY:** Pull latest state: `node tools/mcs-lsp.js pull --workspace "<workspacePath>"` → check `actions/` folder has all expected tools.
 
 **Error handling:** If a step fails, write the error to `brief.json.buildStatus.lastError` before stopping. On the next resume, `lastError` tells the lead what went wrong.
 
@@ -490,78 +492,37 @@ For each MVP custom/system topic in the spec:
    node tools/mcs-lsp.js push --workspace "<buildStatus.workspacePath>"
    ```
 
-**Fallback (if LSP push fails):** Use Playwright Code Editor — Topics → "Add a topic" → "From blank" → "..." → "Open code editor" → Paste YAML → Save.
+**Fallback (if LSP push fails):** Island Gateway API `PUT content/botcomponents` with DialogComponent payload.
 
 **Checkpoint:** After all topics verified, add `"topics"` to `completedSteps`, set `lastCompletedStep` to `"topics"`.
 
-### Step 4.5: Eval-Driven Iteration Loop (NEW — runs after initial setup)
+### Step 4.5: Post-Build Eval (Direct Line — if supported)
 
-**This is the core of the eval-driven build.** After the agent is configured (Steps 1-4), run eval sets iteratively to verify the build works.
+After the agent is configured and published, run a quick evaluation to verify the build works.
 
-#### Phase 1: Initial Publish + Critical Gate
+#### Check: Can This Agent Use Direct Line?
 
-1. **Publish** (Dataverse PvaPublish or PAC CLI fallback):
-   ```bash
-   TOKEN=$(az account get-access-token --resource <dataverseUrl> --query accessToken -o tsv)
-   curl -s -X POST "<dataverseUrl>/api/data/v9.2/bots(<botId>)/Microsoft.Dynamics.CRM.PvaPublish" \
-     -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{}'
-   ```
-2. **Run safety eval set** via Direct Line API or optimized Playwright Test Chat (same method as `/mcs-eval` Tier 1/2):
-   - Read `brief.json.evalSets[]`, find set where `name == "safety"`
-   - Run all tests in the safety set
-   - Tier 2 uses the injected test chat harness (`tools/test-chat-harness.js`) for ~3-5s per boundary test instead of ~15-30s with snapshot polling
-   - Write results to each test's `lastResult`
+Read `brief.json.integrations[]` — if the agent uses MCP servers with user-delegated auth (Outlook, Calendar, Teams, SharePoint), Direct Line cannot authenticate users for these tools.
 
-3. **Evaluate safety gate:**
-   - If ALL safety tests pass → proceed to functional iteration (Phase 2)
-   - If ANY safety test fails:
-     - Classify failure (instruction gap or boundary violation)
-     - Fix instructions via LSP push (PE edits agent.mcs.yml)
-     - Re-publish, re-run safety set
-     - **Max 3 attempts.** If still failing after 3 → **HARD STOP**: "Safety gate failed after 3 attempts. Safety/boundary/compliance issues must be resolved manually."
-     - Update `capabilities[].status` accordingly
+- **No user-delegated MCP tools** → run Direct Line eval (auto mode)
+- **Has user-delegated MCP tools** → skip automated eval, generate test cases for manual testing
 
-4. **Proceed to functional iteration (Phase 2)**
+#### Auto Mode: Direct Line Eval
 
-#### Phase 2: Per-Capability Iteration
+1. **Acquire token** via Token Endpoint (preferred) or Dataverse `PvaGetDirectLineEndpoint`
+2. **Run safety set** via `tools/direct-line-test.js` — must pass 100%
+3. **Run functional set** — target 85%
+4. **Write results** to `brief.json.evalSets[].tests[].lastResult`
+5. If failures found → log them in build report, user can run `/mcs-fix` post-build
 
-For each MVP capability (in priority order from `capabilities[]` where `phase == "mvp"`):
+#### Manual Mode: Generate Tests for User
 
-1. **Gather this capability's tests** from across eval sets:
-   - Functional set: tests where `capability == this.name`
-   - Resilience set: tests where `capability == this.name`
+1. Generate per-set CSVs from `brief.json.evalSets[]`
+2. Upload test cases to MCS Evaluation tab via Dataverse API (`POST /botcomponents` with `componenttype=19`)
+3. Present test summary: "Created {N} test cases in MCS Evaluation tab. Test in MCS Test Chat or click Run in the Evaluation tab."
+4. User tests and reports results, or runs `/mcs-eval` later
 
-2. **Run capability's tests** (filtered from the sets above)
-
-3. **Evaluate results:**
-   - If all tests pass → mark `capability.status = "passing"`, move to next capability
-   - If tests fail:
-     - Classify failures (instruction gap, routing, tool issue, knowledge gap)
-     - Apply targeted fix: PE for instructions (LSP push), TE for topics (write `.mcs.yml` to workspace + `mcs-lsp.js push`)
-     - Re-publish, re-run capability's tests
-     - **Max 3 iterations per capability.** If still failing → mark `capability.status = "failing"`, move on
-   - Update `capabilities[].status` = `"building"` while iterating
-
-4. **Always run safety set** between capabilities as a regression check (should still pass)
-
-#### Phase 3: Resilience & Finalize
-
-1. **Final publish** (PAC CLI)
-2. **Run resilience eval set** (edge cases, graceful failure, cross-capability — target 80%)
-3. **Run safety set again** (regression check)
-4. **Compute overall pass rates** per set
-5. If resilience < threshold → targeted fix on worst areas (**max 2 rounds**)
-6. Update all `capabilities[].status` based on final results
-
-**Iteration limits (from `evalConfig`):**
-- Safety gate: max 3 attempts, then HARD STOP
-- Per-capability: max `evalConfig.maxIterationsPerCapability` (default 3)
-- Resilience: max `evalConfig.maxRegressionRounds` (default 2)
-- Overall target: `evalConfig.targetPassRate` (default 85%)
-
-**When to skip iteration loop:**
-- If `brief.json.evalSets` is empty or has no tests → skip to Step 5 (publish only, no iteration)
-- If `--skip-eval` flag provided → skip to Step 5
+**No iterative safety→functional→resilience loop during build.** Build is single-pass. User runs `/mcs-fix` for issues found post-deployment.
 
 ### Step 5: Publish (Dataverse PvaPublish — no browser)
 
@@ -582,11 +543,11 @@ curl -s "<dataverseUrl>/api/data/v9.2/bots(<botId>)?$select=publishedon" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-**If environments don't match:** Publish via browser Publish button.
+**If environments don't match:** Ask user to switch PAC CLI profile or publish manually.
 
 **Checkpoint:** After verified, add `"published"` to `completedSteps`, set `lastCompletedStep` to `"published"`. Clear `lastError`.
 
-**VERIFY:** `publishedon` timestamp is today, or snapshot Overview → "Published [today]" visible.
+**VERIFY:** `publishedon` timestamp is today.
 
 ### Step 5.5: QA Build Validation Gate (Agent Teams)
 
@@ -724,18 +685,18 @@ Write the complete buildStatus. Most fields were already written incrementally d
 **Specialists first, then orchestrator:**
 
 1. For each specialist agent defined in the spec:
-   a. Create agent via Playwright (browser preflight — user signs in if needed)
+   a. Create agent via Dataverse POST + PvaProvision
    b. Clone workspace (`mcs-lsp.js clone`)
    c. Set instructions (LSP push — `agent.mcs.yml`) — specialist-focused, with scope limits
    d. Add knowledge (LSP push — `knowledge/*.mcs.yml` for sites; Dataverse API for file uploads)
    e. Add tools/model (LSP push — `agent.mcs.yml` for model, `add-tool.js` for tools)
-   f. Enable "Allow other agents to connect" (Playwright → Settings → Security)
+   f. Enable "Allow other agents to connect" (Dataverse PATCH `bot.configuration.isAgentConnectable`)
    g. Author topics (LSP push — `topics/*.mcs.yml`)
    h. Publish (Dataverse PvaPublish, PAC CLI fallback)
    i. **VERIFY:** Pull latest state via `mcs-lsp.js pull`, confirm all items
 
 2. Build orchestrator:
-   a. Create orchestrator via Playwright (browser preflight — user signs in if needed)
+   a. Create orchestrator via Dataverse POST + PvaProvision
    b. Clone workspace (`mcs-lsp.js clone`)
    c. Set instructions with routing rules (LSP push — `agent.mcs.yml`):
       ```
@@ -746,7 +707,7 @@ Write the complete buildStatus. Most fields were already written incrementally d
       - [Intent] → /[Specialist]
       ```
    d. Select model (LSP push — `agent.mcs.yml`)
-   e. Connect child agents (Playwright → Agents tab → Add agent → search → add)
+   e. Connect child agents (Island Gateway API `connectedAgentDefinitionChanges`)
    f. Add orchestrator-level tools/knowledge if needed (LSP push)
    g. Author topics if needed (LSP push — `topics/*.mcs.yml`)
    h. Publish (Dataverse PvaPublish, PAC CLI fallback)
@@ -811,7 +772,7 @@ Report saved: Build-Guides/{projectId}/agents/{agentId}/build-report.md
 
 Write to `Build-Guides/{projectId}/agents/{agentId}/build-report.md`.
 
-This is a **customer-shareable deliverable**. Write it in clear, professional language. No internal jargon (no "Playwright", "PAC CLI", "Dataverse API" — those are build methods, not customer concerns).
+This is a **customer-shareable deliverable**. Write it in clear, professional language. No internal jargon (no "PAC CLI", "Dataverse API", "LSP" — those are build methods, not customer concerns).
 
 ```markdown
 # Build Summary: [Agent Name]
@@ -977,7 +938,7 @@ This is a **customer-shareable deliverable**. Write it in clear, professional la
 
 Run automatically after every build. Scan for:
 
-1. **Zero-deviation builds:** If nothing deviated from the spec (build-report Section 9 is "Built as specified"), auto-bump `confirmed` count for every learnings entry whose tags overlap with this build's components (e.g., an agent using Playwright for creation confirms `bm-001`).
+1. **Zero-deviation builds:** If nothing deviated from the spec (build-report Section 9 is "Built as specified"), auto-bump `confirmed` count for every learnings entry whose tags overlap with this build's components (e.g., an agent using Dataverse API for creation confirms `bm-001`).
 2. **Cache corrections:** If any cache file was updated during the build (Step 3 refreshed api-capabilities), log the correction.
 3. **Confirmed approaches:** For each build step that used a known pattern from learnings, bump the entry's `confirmed` and `lastConfirmed` in `index.json`.
 

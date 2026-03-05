@@ -53,7 +53,7 @@ If you prefer to install manually:
 | **PAC CLI** | Power Platform operations (Claude will auth for you) |
 | **Azure CLI** | Bug/suggest work item creation (optional) |
 | **.NET 10 Runtime** | ObjectModel CLI for YAML validation (optional — om-cli tools skip gracefully if missing) |
-| **VS Code + Copilot Studio Extension** | Headless topic/component sync via LSP (optional — falls back to Playwright if missing) |
+| **VS Code + Copilot Studio Extension** | Headless topic/component sync via LSP (optional — build skips LSP steps if missing) |
 | **Microsoft Account** | Access to Copilot Studio |
 
 ## How It Works
@@ -104,7 +104,7 @@ After that, you're ready to build. Claude remembers your selection for the sessi
 
 ## Hybrid Build Stack
 
-Each build step uses the best tool, minimizing fragile browser automation:
+Each build step uses the best tool — fully API-native, zero browser automation:
 
 | Priority | Tool | Handles |
 |----------|------|---------|
@@ -114,7 +114,6 @@ Each build step uses the best tool, minimizing fragile browser automation:
 | 4 | **Flow Manager** | Power Automate cloud flow CRUD — trigger creation, schedule/message updates (`tools/flow-manager.js`) |
 | 5 | **Dataverse API** | File uploads (PDF/DOCX), bot name PATCH, PvaPublish, security, deletion |
 | 6 | **Direct Line API** | Evaluation testing (send messages, compare responses) |
-| 7 | **Playwright** | Agent creation, new OAuth connections (last resort) |
 
 ### YAML Validation Pipeline
 
@@ -151,7 +150,7 @@ The tool continuously learns and improves:
 |-------|------|---------------------|
 | **Cache** (19 files) | MCS capabilities — models, connectors, MCP servers, triggers, etc. | Auto-refreshed at session start + before builds |
 | **Learnings** (8 files) | Experience from past builds — what worked, what didn't | Captured after each build/eval, user-confirmed |
-| **Patterns** | YAML syntax, Playwright patterns, Dataverse API patterns, solution patterns | Stable reference (manually updated) |
+| **Patterns** | YAML syntax, Dataverse API patterns, solution patterns | Stable reference (manually updated) |
 | **Frameworks** | Component selection, architecture scoring, tool priority | Stable reference (manually updated) |
 
 ## Project Structure
@@ -179,7 +178,7 @@ knowledge/
   solutions/                Team solution library (index + per-solution cache)
   learnings/                Experience from past builds (grows over time)
   cache/                    19 MCS capability cheat sheets (auto-refreshed)
-  patterns/                 YAML, Playwright, Dataverse API, solution patterns + 10 topic templates
+  patterns/                 YAML, Dataverse API, solution patterns + 10 topic templates
   frameworks/               Decision frameworks
 
 templates/                  brief.json (single source of truth schema)
@@ -229,7 +228,7 @@ Ports are auto-discovered in pairs (app, app+1). If 8000/8001 are busy, the next
 | Dashboard won't load | Check terminal output for errors — both servers must be running |
 | Firewall prompt on startup | Should not happen (localhost-only binding). If it does, you can safely deny it |
 | PAC CLI not working | Ask Claude: "set up PAC CLI auth for me" |
-| Wrong MCS environment | Claude checks the browser on first use — if the wrong account/env is loaded, it asks you to sign in to the right one |
+| Wrong MCS environment | Claude verifies via PAC CLI and Azure CLI — if the wrong account/env is detected, it asks you to switch |
 | Terminal not connecting | Close the tab and click "+" to create a new terminal session |
 
 ## Feedback

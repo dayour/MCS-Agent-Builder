@@ -15,7 +15,6 @@ refresh_trigger: on_error
 | 1.5 | **Island Gateway API** | **Model catalog, component reads, routing, settings** | **Free** |
 | 2 | Dataverse MCP Server | Record CRUD, schema discovery | Copilot Credits |
 | 3 | PowerShell Web API | Bound actions, complex queries, unattended | Free |
-| 4 | Playwright | Agent creation, new OAuth connections | Free |
 
 ## Layer 1.5a: MCS LSP Wrapper
 
@@ -109,17 +108,13 @@ Tools: `read_query` (20-row limit), `create_record`, `update_record`, `delete_re
 
 **Use when**: bound actions, >20 rows, unattended/CI/CD, file upload.
 
-## Layer 4: Playwright (UI Only — Last Resort)
+## User-Guided Manual Steps (Last Resort)
 
-| Operation | Why Playwright | API Alternative? |
-|-----------|---------------|-----------------|
-| ~~Agent creation~~ | ~~Full wizard flow~~ | **REPLACED:** Dataverse POST + PvaProvision (E2E confirmed 2026-02-27) |
-| Create NEW OAuth connections | Interactive browser auth flow (first time only) | Non-OAuth connections are API-creatable; reuse existing OAuth connections headlessly |
-| ~~Connect child agents~~ | ~~MCS orchestration setup~~ | **REPLACED:** Island Gateway `connectedAgentDefinitionChanges` (E2E confirmed 2026-02-27) |
-| ~~"Allow other agents to connect"~~ | ~~Not in public API~~ | **REPLACED:** Dataverse PATCH `bot.configuration.isAgentConnectable` (confirmed 2026-02-23) |
-| ~~Native eval upload~~ | ~~No API for test cases~~ | **REPLACED:** Dataverse POST `botcomponent` componenttype=19 (E2E confirmed 2026-02-27) |
+| Operation | Why Manual | API Alternative? |
+|-----------|-----------|-----------------|
+| Create NEW OAuth connections | Interactive browser auth flow (first time only) | Non-OAuth connections are API-creatable; reuse existing OAuth connections headlessly via `add-tool.js` |
 
-> **After E2E testing (2026-02-27): Playwright is only needed for first-time OAuth consent.** Agent creation, child agent connection, eval upload, model selection, instructions, topics, knowledge sources, tool editing, settings, web search toggle — all confirmed working via API/LSP. See "API Replacement Research" section below and `tools/e2e-api-pipeline-test.js` for the full test.
+> **After E2E testing (2026-02-27): The only operation requiring user interaction is first-time OAuth consent.** Everything else is fully API-native.
 
 ## CRITICAL: What Raw Dataverse POST CANNOT Do
 
@@ -306,7 +301,7 @@ The Test Chat in MCS UI communicates via WebSocket to an internal endpoint that 
 **Why it doesn't matter:**
 - **Direct Line API** (our Tier 1) tests the PUBLISHED agent and is the standard programmatic testing path
 - Direct Line supports WebSocket streams for real-time communication
-- For agents with Integrated auth that block Direct Line, Playwright Test Chat (Tier 2) is the documented fallback
+- For agents with Integrated auth that block Direct Line, manual testing in MCS Test Chat is the fallback
 - The MCS "Run test" button in the Evaluation tab may eventually get an API (see item 4 above)
 
 **Bottom line:** Direct Line replaces the NEED for programmatic test chat. The MCS internal test chat WebSocket is not intended for external programmatic access and has no public API.
@@ -365,20 +360,20 @@ gptCapabilities:
 | 5 | Test Chat WebSocket | NOT REPLACEABLE | Direct Line API covers the programmatic testing need | High |
 | 6 | Web search (Bing) toggle | **CONFIRMED** | LSP push `gptCapabilities.webBrowsing` (E2E tested 2026-02-27) | **Proven** |
 
-### Impact on Playwright-Only List
+### Fully API-Native Build Stack
 
-**After E2E testing (2026-02-27), the true Playwright-only operation is:**
+**After removing Playwright (2026-03), the only user-guided manual step is:**
 
-1. **First-time OAuth consent** for a new connector type — requires interactive browser
+1. **First-time OAuth consent** for a new connector type — user creates connection in MCS portal
 
-**Everything else is now API-replaceable:**
-- ~~Agent creation~~ → Dataverse POST + PvaProvision (confirmed)
-- ~~Connect child agents~~ → Island Gateway `connectedAgentDefinitionChanges` (confirmed)
-- ~~"Allow other agents to connect"~~ → Dataverse PATCH `bot.configuration.isAgentConnectable` (confirmed)
-- ~~Native eval upload~~ → Dataverse POST `botcomponent` componenttype=19 (confirmed)
-- ~~Web search toggle~~ → LSP push `gptCapabilities.webBrowsing` (confirmed)
-- ~~Test Chat for evals~~ → Direct Line API (separate from MCS internal WebSocket)
-- ~~Native eval run trigger~~ → Not needed (Direct Line API handles programmatic testing)
+**Everything else is API-native:**
+- Agent creation → Dataverse POST + PvaProvision (confirmed)
+- Connect child agents → Island Gateway `connectedAgentDefinitionChanges` (confirmed)
+- "Allow other agents to connect" → Dataverse PATCH `bot.configuration.isAgentConnectable` (confirmed)
+- Native eval upload → Dataverse POST `botcomponent` componenttype=19 (confirmed)
+- Web search toggle → LSP push `gptCapabilities.webBrowsing` (confirmed)
+- Automated testing → Direct Line API
+- Manual testing → MCS Test Chat (user-driven) or MCS Native Eval
 
 ### E2E Test Reference
 

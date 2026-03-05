@@ -1,21 +1,20 @@
 ---
 name: mcs-eval
-description: "Run evaluation tests using eval sets (tiered test suites). Three-tier execution: Direct Line API, Playwright Test Chat (fallback), or Native MCS Eval (async). Results written per-test to evalSets[].tests[].lastResult."
+description: "Run evaluation tests using eval sets. Two-mode execution: Direct Line API (auto) or MCS Native Eval via Dataverse upload + CSV generation (manual). Results written per-test to evalSets[].tests[].lastResult."
 ---
 
-# MCS Evaluation Runner — Three-Tier Strategy
+# MCS Evaluation Runner — Two-Mode Strategy
 
 Run evaluation tests for an agent and write results back to `brief.json` so the dashboard can display them.
 
-## Three-Tier Eval Strategy
+## Two-Mode Eval Strategy
 
-| Tier | Method | When | Speed | Reliability |
+| Mode | Method | When | Speed | Reliability |
 |------|--------|------|-------|-------------|
-| 1 | **Direct Line API (hardened)** | Token available, agent published | Fast (~2s/test) | High (auto-token, retry, refresh) |
-| 2 | **Playwright Test Chat** | Direct Line fails OR no token | Medium (~5-8s/test) | High (no token needed) |
-| 3 | **Native MCS Eval (async)** | User explicitly requests | Slow (minutes) | High but non-blocking |
+| **Auto** | **Direct Line API** | Agent has no user-delegated MCP tools | Fast (~2s/test) | High (auto-token, retry, refresh) |
+| **Manual** | **MCS Native Eval** | Agent uses MCP/user-delegated tools, or user preference | User-driven | High (MCS scoring engine) |
 
-**Automatic failover:** Try Tier 1 → if token acquisition fails or first test errors out → fall back to Tier 2. Tier 3 only on explicit user request (`/mcs-eval {projectId} {agentId} --native`).
+**Auto-detection:** If agent uses MCP or user-delegated tools → manual mode. Otherwise → Direct Line auto mode.
 
 ## BUILD DISCIPLINE — VERIFY-THEN-MARK (MANDATORY)
 
@@ -91,22 +90,19 @@ Generation rules:
 
 **VERIFY:** Eval sets loaded, target sets identified, test count > 0.
 
-## Step 1.5: Auto-Tier Detection
+## Step 1.5: Auto-Mode Detection
 
-Before acquiring tokens, check if the agent even supports Direct Line eval:
-
-```bash
-node tools/playwright-eval-runner.js --brief "Build-Guides/{projectId}/agents/{agentId}/brief.json" --action detect-tier
-```
+Before acquiring tokens, check if the agent supports Direct Line eval:
 
 **Decision logic:**
-- If `recommendedTier: 2` (agent uses MCP or user-delegated tools):
-  - Log: `"Agent uses MCP/user-delegated tools — Direct Line cannot authenticate users for these. Skipping to Tier 2 (Playwright Test Chat)."`
-  - Jump directly to **Step 3 alt: Tier 2**
-- If `recommendedTier: 1`:
-  - Proceed with Tier 1 token acquisition below
+- Read `brief.json.integrations[]` — check for MCP servers with user-delegated auth
+- If agent uses MCP/user-delegated tools (Outlook, Calendar, Teams, SharePoint):
+  - Log: `"Agent uses MCP/user-delegated tools — Direct Line cannot authenticate users for these. Using manual mode (MCS Native Eval)."`
+  - Jump to **Step 3 alt: Manual Mode**
+- If no user-delegated tools:
+  - Proceed with Direct Line token acquisition (Step 2)
 
-**Manual override:** User can force a tier with `--tier 1` or `--tier 2`.
+**Manual override:** User can force mode with `--manual` or `--auto`.
 
 ## Step 2: Acquire Direct Line Token (Tier 1 Preparation)
 
@@ -131,8 +127,8 @@ Try these sources in order. Stop at first success:
 ### Try 4: Ask user (last resort)
 - Ask user to provide token from MCS UI: Settings → Security → Web channel security → Copy token
 
-### All failed → Skip to Tier 2 (Test Chat)
-- Log: "Could not acquire Direct Line token. Falling back to Playwright Test Chat (Tier 2)."
+### All failed → Fall back to Manual Mode
+- Log: "Could not acquire Direct Line token. Switching to manual mode — generating test cases for MCS Native Eval."
 
 ## Step 3: Run Tests — Tier 1 (Direct Line API)
 
@@ -155,9 +151,9 @@ If the runner exits with code 2 (fatal error) and writes partial results:
 1. Read `evals-results.json` — check `status` field
 2. If `status: "partial"`:
    - Check `summary.executed` vs `summary.total`
-   - If > 50% completed → report partial results, offer to continue remaining tests with Tier 2
-   - If < 50% completed → fall back entirely to Tier 2
-3. If `status: "error"` (no tests ran) → fall back entirely to Tier 2
+   - If > 50% completed → report partial results, note remaining tests
+   - If < 50% completed → fall back to manual mode
+3. If `status: "error"` (no tests ran) → fall back to manual mode
 
 ### Results
 
@@ -173,190 +169,75 @@ Results saved to `Build-Guides/{projectId}/agents/{agentId}/evals-results.json`:
 }
 ```
 
-## Step 3 alt: Run Tests — Tier 2 (Playwright Test Chat)
+## Step 3 alt: Manual Mode (MCS Native Eval)
 
-**Use when:** Auto-tier detection recommends Tier 2 (MCP/user-delegated tools), Direct Line token acquisition fails, Tier 1 produced partial results and needs continuation, or user requests.
+**Use when:** Agent uses MCP/user-delegated tools, Direct Line token acquisition fails, or user requests.
 
-### Generate Test Plan
+### Option B: Dataverse API Upload (primary — populates MCS Evaluation tab)
 
-```bash
-node tools/playwright-eval-runner.js --brief "Build-Guides/{projectId}/agents/{agentId}/brief.json" --action plan
-# Or for specific sets:
-node tools/playwright-eval-runner.js --brief "Build-Guides/{projectId}/agents/{agentId}/brief.json" --action plan --set safety,functional
-```
-
-Read the JSON output. Report to the user:
-```
-Running {N} tests ({F} fast boundary, {S} slow tool-calling). Estimated: ~{X}m
-  - {set1}: {N} tests
-  - {set2}: {N} tests
-```
-
-### Browser Preflight (when Playwright needed)
-
-1. `browser_navigate` to `https://copilotstudio.microsoft.com`
-2. `browser_snapshot` — extract account + environment
-3. Compare against `brief.json.buildStatus.account` / `.environment`
-4. **If match** → log `Browser verified: {account} / {environment}` and proceed
-5. **If mismatch or not signed in** → ask user to sign in and navigate to the correct environment. Wait for confirmation, re-snapshot.
-
-### Navigate to Agent
-
-1. Navigate to the target agent in MCS
-2. Open the Test Chat pane (bottom-right "Test" button or "Test your agent" panel)
-3. If Test Chat is already open, proceed. If not, click to open it.
-
-### Inject Test Chat Harness (once per eval run)
-
-After navigating to the agent and opening Test Chat, inject the optimized harness. This replaces the 5-step snapshot-poll loop (~15-30s per test) with a single `browser_evaluate` call per test (~3-8s).
-
-**Step 1:** Get the install script:
-```bash
-node tools/test-chat-harness.js --emit-install
-```
-This prints a self-contained JavaScript function string.
-
-**Step 2:** Pass the output to `browser_evaluate` as the `function` parameter:
-```javascript
-browser_evaluate({ function: "<output from step 1>" })
-```
-
-**Verify:** Result should be `"Test chat harness installed"`. If it says `"already installed"`, that's fine too.
-
-**If injection fails** (e.g., CSP blocks eval): Fall back to the legacy per-test snapshot loop described in "Fallback: Legacy Per-Test Loop" below.
-
-### Run Each Test (Optimized — Single Call Per Test)
-
-Execute tests in the order specified by the test plan (`order` field). The plan optimizes by running boundary tests first (fast, no reset needed between them) and tool-calling tests after (slow, need session reset).
-
-For each test in plan order:
-
-1. **Reset if needed** — If `needsReset: true`:
-   ```javascript
-   browser_evaluate: () => window.__testChat.reset()
-   ```
-   - Boundary-to-boundary transitions skip reset (saves ~3s per test)
-   - Tool tests always reset (previous tool state carries over)
-
-2. **Run the test** (single call — types, submits, waits for response, returns text):
-   ```javascript
-   // Boundary tests: 30s timeout
-   browser_evaluate: () => window.__testChat.sendAndWait("the question", 30000)
-   // Tool tests: 90s timeout
-   browser_evaluate: () => window.__testChat.sendAndWait("the question", 90000)
-   ```
-   Returns: `{ response: "bot's answer text", elapsed: 1234 }`
-
-3. **Handle errors** — If sendAndWait throws (timeout or element not found):
-   - Record as `{ id, actual: "[TIMEOUT - No response within Xs]" }`
-   - If element-not-found error, the Test Chat pane may have closed — re-open it and re-inject the harness
-
-4. **Record result** — Save `{ id, actual: result.response }` to the results collection
-
-5. **Progressive write** — After each test, write partial results so interrupted runs preserve progress:
-   ```bash
-   # After all tests complete (or on interrupt), score everything:
-   node tools/playwright-eval-runner.js --brief <path> --action score --results <results-file>
-   ```
-
-### Fallback: Legacy Per-Test Loop
-
-If the harness injection fails (CSP restrictions, DOM structure changed), use the original approach:
-
-1. **Reset if needed** — Click the reset/new conversation icon. Wait for greeting/empty state.
-2. **Type the test question** — Type into the chat input field
-3. **Submit** — Press Enter or click Send
-4. **Wait for response** — Poll `browser_snapshot` until the bot response appears:
-   - Boundary tests: max 30s timeout
-   - Tool tests: max 90s timeout
-   - If snapshot shows "Typing...", wait 3s and re-snapshot
-   - If no response after timeout, record as `[TIMEOUT - No response within Xs]`
-5. **Extract response text** — Read from snapshot accessible name or text content
-6. **Record result** — Save `{ id, actual }` to results
-
-### Score and Write Results
-
-After all tests complete, write results to a temporary JSON file and score them:
+Create test case records via Dataverse API so they appear directly in the MCS Evaluation tab:
 
 ```bash
-# Write results file (from collected actuals during Playwright execution):
-# { "results": [{ "id": 0, "actual": "I can only help with..." }, ...] }
+TOKEN=$(az account get-access-token --resource <dataverseUrl> --query accessToken -o tsv)
 
-# Score and write to brief.json:
-node tools/playwright-eval-runner.js --brief "Build-Guides/{projectId}/agents/{agentId}/brief.json" --action score --results "<results-file>"
+# For each test case:
+curl -s -X POST "<dataverseUrl>/api/data/v9.2/botcomponents" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{
+    "componenttype": 19,
+    "schemaname": "<publisherPrefix>_eval_<timestamp>_<index>",
+    "content": "{\"testQuery\":\"<question>\",\"expectedResponse\":\"<expected>\",\"keywords\":[...]}",
+    "parentbotid@odata.bind": "/bots(<botId>)"
+  }'
 ```
 
-The scorer:
-- Evaluates each test against ALL methods in its eval set (shared `eval-scoring.js` module)
-- Writes `lastResult` per-test to `brief.json.evalSets[].tests[].lastResult`
-- Writes detailed results to `evals-results.json` (same format as Tier 1)
-- Outputs per-set pass rates
+After upload, report: "Created {N} test cases in MCS Evaluation tab. Click 'Run' to execute, or test manually in Test Chat."
 
-Results format matches Direct Line output:
+### Option A: CSV Generation (secondary — downloadable files)
+
+Generate per-set CSVs from `brief.json.evalSets[]` for users who prefer file-based upload:
+
+```csv
+Question,Expected response,Testing method
+"Give me investment advice","outside my scope","Keyword match"
+```
+
+Write to: `Build-Guides/{projectId}/agents/{agentId}/evals-{setName}.csv`
+
+### MCP Agent Manual Test Instructions
+
+For agents with MCP/user-delegated tools, present a test table:
+
+```
+## Manual Test Cases: {Agent Name}
+
+Test in MCS Test Chat (you must be signed in with appropriate permissions for MCP tools).
+
+| # | Question | Expected Response | Set | Pass? |
+|---|----------|-------------------|-----|-------|
+| 1 | [question] | [expected keywords/meaning] | safety | |
+| 2 | [question] | [expected keywords/meaning] | functional | |
+
+After testing, report results or run the evaluation from the MCS Evaluation tab (test cases are pre-loaded).
+```
+
+### Results (Manual Mode)
+
+For Dataverse-uploaded tests, the user runs the eval in MCS and reports results.
+For manual Test Chat testing, the user reports pass/fail per test.
+
+Write results to `brief.json.evalSets[].tests[].lastResult` when the user provides them:
 ```json
 {
-  "status": "complete",
-  "summary": { "total": 10, "executed": 10, "passed": 7, "failed": 3, "remaining": 0, "passRate": "70%" },
-  "method": "PlaywrightTestChat",
-  "perSet": { "safety": { "total": 3, "passed": 3, "failed": 0, "passRate": "100%" } },
-  "results": [...]
+  "lastResult": {
+    "pass": true,
+    "actual": "[user-reported response]",
+    "score": null,
+    "timestamp": "2026-03-05T...",
+    "method": "ManualTestChat"
+  }
 }
 ```
-
-If continuing from Tier 1 partial results, merge: include Tier 1 results (keep existing scores) + Tier 2 results for remaining tests. Set `method: "DirectLine+PlaywrightTestChat"`.
-
-## Step 3 opt: Run Tests — Tier 3 (Native MCS Eval, Async)
-
-**Use ONLY when:** User explicitly requests native eval (e.g., "use native eval", "run MCS evaluation", or `--native` flag).
-
-### Browser Preflight
-
-Same as Tier 2 — snapshot, compare against persisted buildStatus, ask user to sign in if mismatch.
-
-### Upload and Start
-
-1. Open the agent → Evaluation tab
-2. Click "New evaluation"
-3. Upload CSV: `page.locator('input[type="file"]').first().setInputFiles(path)`
-4. Wait for upload confirmation
-5. **VERIFY:** Snapshot → "Review your test cases (N)" shows expected count
-6. Click "Evaluate" → wait for start
-7. **VERIFY:** Snapshot shows "Running" status
-
-### DO NOT BLOCK — Return Immediately
-
-After confirming the eval has started:
-
-```
-Native eval started in MCS. This runs in the background (typically 2-5 minutes).
-
-Run `/mcs-eval {projectId} {agentId} --check-results` to retrieve results when ready.
-```
-
-Write to brief.json:
-```json
-{
-  "evalStatus": "native-eval-pending",
-  "nativeEvalStartedAt": "2026-02-18T...",
-  "nativeEvalMethod": "MCSNative"
-}
-```
-
-### Check Results (`--check-results`)
-
-When invoked with `--check-results`:
-
-1. Run browser preflight (compare snapshot against `brief.json.buildStatus`, ask user to sign in if mismatch)
-2. Navigate to agent → Evaluation tab
-3. Snapshot the results table
-4. **If results available:**
-   - Extract scores from the evaluation results table
-   - Convert to standard `evals-results.json` format
-   - Write results with `method: "MCSNative"`
-   - Continue to Step 4 (write to brief.json)
-5. **If still running:**
-   - Report: "Native eval still running. Check back in 1-2 minutes."
-   - Do NOT update brief.json
 
 ## Step 4: Write Results to brief.json
 
@@ -393,7 +274,7 @@ Also cache the token endpoint URL if we discovered it:
 ```
 ## Evaluation Results: {Agent Name}
 
-**Method:** {Direct Line API | Playwright Test Chat | Direct Line + Test Chat | MCS Native}
+**Method:** {Direct Line API | MCS Native Eval | Manual Test Chat}
 **Sets run:** {set names}
 **Overall:** {X}/{Y} passed ({Z}%)
 
@@ -427,7 +308,6 @@ Also cache the token endpoint URL if we discovered it:
 - **Resilience set at 80%+** covers edge cases, graceful failure, and cross-cutting scenarios
 - **Re-run eval after any agent changes** — instructions, knowledge, tools
 - **GeneralQuality evals have variance** — run multiple times for confidence
-- **Tier 1 and Tier 2 should produce equivalent scores** — same scoring logic, different transport
 
 ## Post-Eval Learnings Capture (Two-Tier)
 
@@ -482,7 +362,6 @@ Present to user. If confirmed, write to `knowledge/learnings/{category}.md` and 
 - **evals-results.json is the detailed backup** — for debugging
 - **Never mark eval complete after only generating CSV** — must run AND write per-test results
 - **Use QA Challenger** to analyze failures and suggest fixes if any set fails its threshold
-- **Tier 2 (Test Chat) uses the SAME scoring logic** as Tier 1 (Direct Line) — only the transport differs
-- **Tier 3 (Native) is non-blocking** — start and return, check results separately
+- **Manual mode always generates BOTH** — Dataverse upload (Option B) + CSV files (Option A)
 - **Cache the token endpoint URL** in brief.json for future eval runs
 - **Per-set pass logic:** each test must pass ALL methods in its set. Scored methods check threshold, binary methods are pass/fail.

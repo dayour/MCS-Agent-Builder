@@ -466,43 +466,6 @@ function ensureGitHooks() {
 }
 
 // ---------------------------------------------------------------------------
-// Cleanup: purge Playwright MCP browser cache (keeps cookies/logins)
-// ---------------------------------------------------------------------------
-
-function cleanPlaywrightCache() {
-  const profileDir = path.join(os.homedir(), ".playwright-mcp-edge");
-  if (!fs.existsSync(profileDir)) return;
-
-  // Expendable dirs that regrow on next launch — safe to nuke
-  const expendable = [
-    path.join(profileDir, "Default", "Service Worker"),
-    path.join(profileDir, "Default", "Code Cache"),
-    path.join(profileDir, "Default", "Cache"),
-    path.join(profileDir, "Default", "GPUCache"),
-    path.join(profileDir, "Default", "DawnWebGPUCache"),
-    path.join(profileDir, "Default", "DawnGraphiteCache"),
-    path.join(profileDir, "GrShaderCache"),
-    path.join(profileDir, "ShaderCache"),
-    path.join(profileDir, "GraphiteDawnCache"),
-    path.join(profileDir, "BrowserMetrics"),
-    path.join(profileDir, "DeferredBrowserMetrics"),
-    path.join(profileDir, "Crashpad"),
-  ];
-
-  let freed = 0;
-  for (const dir of expendable) {
-    if (!fs.existsSync(dir)) continue;
-    try {
-      fs.rmSync(dir, { recursive: true, force: true });
-      freed++;
-    } catch {
-      // Locked by running browser — skip silently
-    }
-  }
-  if (freed > 0) log(`Cleaned ${freed} Playwright cache dirs (cookies & logins preserved)`);
-}
-
-// ---------------------------------------------------------------------------
 // Wait for server to respond
 // ---------------------------------------------------------------------------
 
@@ -601,9 +564,6 @@ ensurePythonDeps();
 // 4. Install git hooks + ensure az devops
 ensureGitHooks();
 ensureAzDevOps();
-
-// 4a. Clean Playwright MCP browser cache (accumulates 400MB+ over time)
-cleanPlaywrightCache();
 
 // 5. Auto-install frontend deps if stale (independent of dist)
 const frontendDir = path.join(__dirname, "app", "frontend");

@@ -178,7 +178,7 @@ Same tool priority as `/mcs-build`:
 
 **LSP workspace:** Read `brief.json.buildStatus.workspacePath` for the cloned workspace path. If missing, clone first via `node tools/mcs-lsp.js clone`.
 
-**Fallback:** If LSP push fails, use Playwright Code Editor (browser preflight required — see CLAUDE.md).
+**Fallback:** If LSP push fails, use Island Gateway API PUT content/botcomponents.
 
 **Apply fixes in order:**
 1. Instructions (Dataverse API — no browser needed)
@@ -190,7 +190,7 @@ Same tool priority as `/mcs-build`:
 pac copilot publish --bot <bot-id>
 ```
 
-**VERIFY:** Snapshot confirms publish date is today.
+**VERIFY:** Dataverse query confirms publish date is today.
 
 ## Step 5: Re-Evaluate & Compare (Lead)
 
@@ -264,7 +264,7 @@ Re-run eval via Direct Line API (same method as `/mcs-eval` Step 2):
 - **Fix history is append-only** — track improvement over iterations in `notes.fixHistory[]`
 - **Max 2 fix iterations per invocation** — if still failing after 2 rounds of fix→re-eval, exit with "Manual review needed. Remaining failures may require knowledge updates or architectural changes."
 - **brief.json evalSets is THE source of truth** — all fixes update evalSets + brief.json fields, not separate files
-- **Browser preflight for Playwright** — snapshot, compare against `brief.json.buildStatus`, proceed on match, ask user to sign in if mismatch
+
 - **Environment check** — verify PAC CLI profile matches agent's environment before publishing
 - **No working-paper files** — PE and TE outputs are applied directly to brief.json and MCS. No intermediate files left behind.
 
