@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   Plus, Trash2, Pencil, Check, X, ChevronDown, ChevronRight,
-  CheckCircle2, XCircle, Minus,
+  CheckCircle2, XCircle, Minus, Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import SectionGuidelines from "./SectionGuidelines";
 import type { EvalSet, EvalTest } from "@/types";
+import { downloadEvalCsv, downloadAllEvalCsvs } from "@/lib/evalCsvExport";
 
 interface Props {
   data: { sets: EvalSet[]; config: { targetPassRate: number; maxIterationsPerCapability: number; maxRegressionRounds: number } };
@@ -131,6 +132,16 @@ const EvalSetsSection = ({ data, onChange }: Props) => {
           </p>
           <SectionGuidelines sectionId="eval-sets" />
         </div>
+        {totalTests > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs shrink-0"
+            onClick={() => downloadAllEvalCsvs(data.sets)}
+          >
+            <Download className="h-3.5 w-3.5" /> Download CSVs
+          </Button>
+        )}
       </div>
 
       <div className="space-y-3">
@@ -170,6 +181,19 @@ const EvalSetsSection = ({ data, onChange }: Props) => {
                   </div>
                   <p className="text-xs text-muted-foreground line-clamp-2">{set.description}</p>
                 </div>
+
+                {/* Per-set CSV download */}
+                {set.tests.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 shrink-0"
+                    onClick={(e) => { e.stopPropagation(); downloadEvalCsv(set); }}
+                    title={`Download ${set.name} CSV`}
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                  </Button>
+                )}
 
                 {/* Pass rate + threshold */}
                 <div className="shrink-0 text-right">
