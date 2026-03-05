@@ -276,6 +276,19 @@
     "lastError": "Optional — what failed on last attempt, cleared on next successful step"
   },
 
+  "deployStatus": {
+    "status": "not_deployed",
+    "mode": null,
+    "targetEnvironment": "",
+    "targetAccountId": "",
+    "targetBotId": "",
+    "targetDataverseUrl": "",
+    "deployedAt": null,
+    "smokeTestResult": null,
+    "connectionsMapped": false,
+    "lastDeployError": null
+  },
+
   "evalCoverage": null,
 
   "recommendations": [

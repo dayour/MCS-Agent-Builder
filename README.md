@@ -85,6 +85,8 @@ You can also run skills directly in Claude Code:
 /mcs-build ProjectName agentId           Build agent(s) in Copilot Studio
 /mcs-eval ProjectName agentId            Run evals, write results
 /mcs-fix ProjectName agentId             Fix eval failures and re-evaluate
+/mcs-deploy ProjectName agentId          Deploy agent to target environment
+/mcs-report ProjectName agentId          Generate reports (brief/build/customer/deployment)
 /mcs-library list                        Browse team solution library
 /mcs-refresh                             Refresh knowledge cache
 ```
@@ -127,7 +129,7 @@ Topic YAML goes through 4 validation layers before it reaches Copilot Studio:
 
 ## Agent Teams
 
-Complex builds use 6 AI teammates that challenge each other's work before execution:
+Complex builds use 7 AI teammates that challenge each other's work before execution:
 
 | Teammate | What They Do | Used In |
 |----------|-------------|---------|
@@ -137,6 +139,7 @@ Complex builds use 6 AI teammates that challenge each other's work before execut
 | **QA Challenger** | Reviews all outputs, challenges claims, classifies failures | Research, Build, Fix |
 | **Repo Checker** | Validates repo integrity after changes | Development |
 | **Repo Optimizer** | Audits repo for dead files, duplication, bloat | Development |
+| **Flow Designer** | Designs Power Automate flow specs from brief.json capabilities | Research (flow/hybrid) |
 
 You interact with the lead only. The lead delegates to teammates, they debate and iterate, then the lead executes validated outputs in Copilot Studio.
 
@@ -163,8 +166,8 @@ bin/
 
 .claude/
   settings.json             MCP servers, permissions, Agent Teams flag
-  skills/                   11 skills (9 workflow + 2 utility)
-  agents/                   6 AI teammate definitions
+  skills/                   13 skills (11 workflow + 2 utility)
+  agents/                   7 AI teammate definitions
 
 app/
   server.py                 FastAPI backend (serves SPA from dist/)

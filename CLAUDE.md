@@ -110,13 +110,14 @@ Agent Teams enables bidirectional communication between specialist teammates who
 | **QA Challenger** | Review ALL outputs, find gaps, challenge claims | Catches errors before they hit MCS |
 | **Repo Checker** | Validate repo integrity after changes | Catches broken paths, stale docs, drift |
 | **Repo Optimizer** | Audit repo for dead code, duplication, bloat | Catches waste before it accumulates |
+| **Flow Designer** | Design Power Automate flow specs from brief.json capabilities | Actionable flow specs with triggers, actions, connectors |
 
-Definitions: `.claude/agents/` (research-analyst.md, prompt-engineer.md, topic-engineer.md, qa-challenger.md, repo-checker.md, repo-optimizer.md)
+Definitions: `.claude/agents/` (research-analyst.md, prompt-engineer.md, topic-engineer.md, qa-challenger.md, repo-checker.md, repo-optimizer.md, flow-designer.md)
 
 ### When to Use Agent Teams
 
 **During MCS workflow skills:**
-- **Research phase** (`/mcs-research`): Research Analyst searches for external connectors/MCP (only if Priority 5-6 integrations), then **PE + QA + TE run in parallel** in Phase C: PE writes instructions, QA generates eval sets, TE validates topic feasibility. Lead does inline instruction review.
+- **Research phase** (`/mcs-research`): Research Analyst searches for external connectors/MCP (only if Priority 5-6 integrations), then **PE + QA + TE (+ FD if flow/hybrid) run in parallel** in Phase C: PE writes instructions, QA generates eval sets, TE validates topic feasibility, Flow Designer writes flow-spec.md (only when solutionType is "flow" or "hybrid"). Lead does inline instruction review.
 - **Build phase** (`/mcs-build`): Topic Engineer generates YAML, QA Challenger reviews before execution, **eval-driven iteration loop** (safety gate → functional per-capability → resilience), **Research Analyst on-demand (connector issues)**, **Prompt Engineer on-demand (instruction adjustments + fix iteration)**
 - **Eval phase** (`/mcs-eval`): Runs eval sets (all or specific), writes per-test results to evalSets
 - **Fix phase** (`/mcs-fix`): QA Challenger classifies failures, Prompt Engineer fixes instructions, Topic Engineer fixes topics
@@ -404,10 +405,10 @@ No SDR or requirements available.
 ## Workflow
 
 ```
-CREATE → UPLOAD → RESEARCH → [SOLUTION TYPE GATE] → BUILD → EVALUATE → [FIX] → [RETRO]
-                  /mcs-research        |              /mcs-build  /mcs-eval  /mcs-fix  /mcs-retro
+CREATE → UPLOAD → RESEARCH → [SOLUTION TYPE GATE] → BUILD → EVALUATE → [FIX] → [DEPLOY] → [REPORT] → [RETRO]
+                  /mcs-research        |              /mcs-build  /mcs-eval  /mcs-fix  /mcs-deploy  /mcs-report  /mcs-retro
                                        |
-                                    flow/not-rec → simplified brief, recommendation only
+                                    flow/not-rec → Flow Designer writes flow-spec.md, simplified brief
 ```
 
 | Step | Skill | Input | Output | Agent Teams |
@@ -418,13 +419,15 @@ CREATE → UPLOAD → RESEARCH → [SOLUTION TYPE GATE] → BUILD → EVALUATE �
 | **Build** | `/mcs-build {projectId} {agentId}` | brief.json | MCS agent (published) + build-report.md | TE + QA (+ RA/PE on-demand) |
 | **Evaluate** | `/mcs-eval {projectId} {agentId}` | brief.json evalSets | evalSets[].tests[].lastResult | QA |
 | **Fix** | `/mcs-fix {projectId} {agentId}` | brief.json evalSets (failing tests) | brief.json (fixed) + re-eval results | PE + TE + QA |
+| **Deploy** | `/mcs-deploy {projectId} {agentId}` | brief.json (buildStatus, evalSets) | brief.json (deployStatus) + deployment-report.md | None |
+| **Report** | `/mcs-report {projectId} {agentId}` | brief.json (read-only) | {type}-report.md | None |
 | **Retro** | `/mcs-retro` | Session context | Updated learnings + cache | None |
 
 > **`/mcs-context`** is optional but recommended — it pulls all M365 history for a customer via WorkIQ MCP and pre-fills 60-80% of research.
 
 ---
 
-## Skills (11 total — 9 workflow + 2 utility)
+## Skills (13 total — 11 workflow + 2 utility)
 
 | Skill | Purpose | Dashboard Button |
 |-------|---------|-----------------|
@@ -436,6 +439,8 @@ CREATE → UPLOAD → RESEARCH → [SOLUTION TYPE GATE] → BUILD → EVALUATE �
 | **mcs-fix** | Analyze eval failures, apply fixes (instructions/topics/evals), re-evaluate | **Fix Failures** (conditional — appears when eval < 70%) |
 | **mcs-refresh** | Refresh knowledge cache files | None (CLI) |
 | **mcs-retro** | Post-session retrospective: collect, classify, and persist learnings | None (CLI) |
+| **mcs-deploy** | Deploy agents from dev to prod (agent-level or solution-level) | None (CLI) |
+| **mcs-report** | Generate reports from brief.json (brief/build/customer/deployment) | None (CLI) |
 | **mcs-library** | Browse, analyze, and contribute to team SharePoint solution library | None (CLI) |
 | **bug** | File bug reports via `az` CLI | Sidebar button |
 | **suggest** | File feature suggestions via `az` CLI | Sidebar button |
@@ -597,6 +602,47 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 
 ---
 
+## DEPLOY: Cross-Environment Promotion (`/mcs-deploy`)
+
+**Goal:** Deploy agents from dev to prod environments. Two modes: agent-level (fast, `replicate-agent.js`) and solution-level (PAC CLI export/import, ALM-ready).
+
+**Input:** `/mcs-deploy {projectId} {agentId}` or `/mcs-deploy {projectId} {agentId} --mode solution`
+**Reads:** `brief.json` (buildStatus, evalSets, integrations, architecture)
+**Writes:** `brief.json` (deployStatus) + `deployment-report.md`
+
+**Prerequisites (gates):** Agent must be published, evals should be passing (warn if below target), dual auth gate (source + target environments).
+
+**Mode auto-detection:** Multi-agent or named solution → `solution` mode. Single agent in default solution → `agent` mode. User can override with `--mode`.
+
+**7 steps:** Pre-deploy validation → Mode selection → Deploy (replicate or PAC CLI export/import) → Connection mapping report → Publish in target → Post-deploy smoke test (safety set) → Write deployStatus to brief.json + deployment-report.md.
+
+**No teammates** — lead-only execution (mechanical, no generation).
+
+---
+
+## REPORT: On-Demand Report Generation (`/mcs-report`)
+
+**Goal:** Generate reports from brief.json on demand — without running a build. Read-only, never modifies brief.json.
+
+**Input:** `/mcs-report {projectId} {agentId} --type {brief|build|customer|deployment}`
+**Reads:** `brief.json` (read-only)
+**Writes:** `Build-Guides/{projectId}/agents/{agentId}/{type}-report.md`
+
+**4 report types:**
+
+| Type | Audience | Key Content | When to Use |
+|------|----------|-------------|-------------|
+| `brief` | Internal / customer | Full design state + cross-reference summary + solution type | After research, before build |
+| `build` | Customer | Build status, deviations, eval results, next steps | After build |
+| `customer` | Non-technical stakeholders | Simplified — zero jargon, features + decisions only | Anytime for exec review |
+| `deployment` | IT admin / deploy team | Pre/post deploy checklists, connection mapping, env mapping | Before or after deploy |
+
+**Customer report jargon rules:** No Playwright, PAC CLI, Dataverse, LSP, YAML, PowerFx, MCP, JSON, API, OAuth, Service Principal. Use plain language equivalents.
+
+**No teammates** — lightweight lead-only generation.
+
+---
+
 ## LIBRARY: Solution Library (`/mcs-library`)
 
 **Goal:** Browse, analyze, and contribute to the Builder PMs team's SharePoint "Solution & Demo Library" (~30 exported MCS agent solutions). Independent utility skill — not part of the linear build workflow.
@@ -715,7 +761,7 @@ bin/
 
 .claude/
 ├── settings.json           # MCP servers, permissions, Agent Teams env flag
-├── skills/                 # 11 skills (9 workflow + 2 utility)
+├── skills/                 # 13 skills (11 workflow + 2 utility)
 │   ├── mcs-init/           # Create project folder
 │   ├── mcs-context/        # Pull M365 history via WorkIQ
 │   ├── mcs-research/       # Read docs + full enrichment → brief.json + evals
@@ -724,6 +770,8 @@ bin/
 │   ├── mcs-fix/            # Post-eval fix → re-eval loop
 │   ├── mcs-refresh/        # Refresh knowledge cache
 │   ├── mcs-retro/          # Post-session retrospective
+│   ├── mcs-deploy/         # Cross-environment agent promotion
+│   ├── mcs-report/         # On-demand report generation (4 types)
 │   ├── mcs-library/        # SharePoint solution library integration
 │   ├── bug/                # File bug reports via az CLI
 │   └── suggest/            # File feature suggestions via az CLI
@@ -733,7 +781,8 @@ bin/
     ├── topic-engineer.md   # YAML, adaptive cards & flow specialist
     ├── qa-challenger.md    # Adversarial reviewer & gap finder
     ├── repo-checker.md     # Cross-reference & sync validator
-    └── repo-optimizer.md   # Dead code, duplication & bloat auditor
+    ├── repo-optimizer.md   # Dead code, duplication & bloat auditor
+    └── flow-designer.md    # Power Automate flow spec designer
 
 app/                        # Dashboard application
 ├── server.py               # FastAPI backend (CRUD, file upload, SPA serving)
@@ -814,6 +863,8 @@ Build-Guides/[Project]/     # Per-project work (gitignored)
 ├── agents/[name]/
 │   ├── brief.json          # THE source of truth — design, instructions, tools, evalSets, decisions[], build status
 │   ├── build-report.md     # Customer-shareable build summary (generated after /mcs-build)
+│   ├── deployment-report.md # Deployment summary + connection mapping (from /mcs-deploy)
+│   ├── flow-spec.md        # Power Automate flow specification (from Flow Designer, for flow/hybrid)
 │   ├── evals.csv           # Flat CSV export of evalSets (derived — for MCS native eval compatibility)
 │   ├── evals-results.json  # Direct Line test results backup (from /mcs-eval)
 │   └── topics/             # Generated topic YAML files
