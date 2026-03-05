@@ -85,6 +85,25 @@ def calc_readiness(brief: dict | None) -> int:
     if _is_v2(brief):
         biz = brief.get("business", {})
         arch = brief.get("architecture", {})
+        solution_type = arch.get("solutionType", "agent")
+        is_non_agent = solution_type in ("flow", "not-recommended")
+
+        # Non-agent types use a reduced check set (5 checks)
+        if is_non_agent:
+            decisions = brief.get("decisions", [])
+            blocking_pending = [
+                d for d in decisions
+                if d.get("status") == "pending" and d.get("category") in ("architecture", "infrastructure")
+            ]
+            checks = [
+                bool(biz.get("problemStatement") or biz.get("useCase")),
+                bool(arch.get("solutionType")),
+                len(brief.get("capabilities", [])) > 0,
+                bool(arch.get("alternativeRecommendation")),
+                len(blocking_pending) == 0,
+            ]
+            return round(sum(checks) / len(checks) * 100)
+
         integ = brief.get("integrations", [])
         know = brief.get("knowledge", [])
         convos = brief.get("conversations", {})
@@ -147,6 +166,11 @@ def is_build_ready(brief: dict | None) -> bool:
     # v2: check the 10 pre-build checks (all except build published + eval results)
     biz = brief.get("business", {})
     arch = brief.get("architecture", {})
+
+    # Non-agent types are never "build ready" — they don't need MCS build
+    solution_type = arch.get("solutionType", "agent")
+    if solution_type in ("flow", "not-recommended"):
+        return False
     integ = brief.get("integrations", [])
     know = brief.get("knowledge", [])
     convos = brief.get("conversations", {})

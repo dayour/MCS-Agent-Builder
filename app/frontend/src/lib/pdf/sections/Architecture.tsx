@@ -6,7 +6,44 @@ import {
   Callout, DataTable, Divider, safe,
 } from "../primitives";
 
+const SOLUTION_TYPE_LABELS: Record<string, string> = {
+  agent: "Agent",
+  flow: "Power Automate Flow",
+  hybrid: "Hybrid",
+  "not-recommended": "Not Recommended",
+};
+
 const s = StyleSheet.create({
+  solutionTypeCard: {
+    borderWidth: 0.5,
+    borderRadius: 6,
+    padding: 10,
+    marginBottom: 6,
+  },
+  solutionTypeName: {
+    fontSize: 12,
+    fontWeight: 700,
+    marginBottom: 2,
+  },
+  altRecCard: {
+    backgroundColor: "#fffbeb",
+    borderWidth: 0.5,
+    borderColor: "#f59e0b",
+    borderRadius: 6,
+    padding: 10,
+    marginBottom: 6,
+  },
+  altRecLabel: {
+    fontSize: 8,
+    fontWeight: 700,
+    color: "#d97706",
+    marginBottom: 2,
+  },
+  altRecText: {
+    fontSize: 8,
+    color: colors.foreground,
+    lineHeight: 1.5,
+  },
   patternCard: {
     backgroundColor: colors.primaryLight,
     borderWidth: 0.5,
@@ -65,6 +102,31 @@ const Architecture = ({ data }: Props) => {
   return (
     <View>
       <SectionHeading title="Architecture" subtitle="Structure, channels, triggers, and specialist agents" />
+
+      {/* Solution type card */}
+      {data.solutionType && (
+        <View style={{
+          ...s.solutionTypeCard,
+          backgroundColor: data.solutionType === "agent" ? colors.primaryLight : data.solutionType === "flow" ? "#f3e8ff" : data.solutionType === "hybrid" ? "#fffbeb" : "#fef2f2",
+          borderColor: data.solutionType === "agent" ? colors.primaryMuted : data.solutionType === "flow" ? "#a855f7" : data.solutionType === "hybrid" ? "#f59e0b" : "#ef4444",
+        }} wrap={false}>
+          <Text style={{
+            ...s.solutionTypeName,
+            color: data.solutionType === "agent" ? colors.primary : data.solutionType === "flow" ? "#7c3aed" : data.solutionType === "hybrid" ? "#d97706" : "#dc2626",
+          }}>
+            {SOLUTION_TYPE_LABELS[data.solutionType] ?? data.solutionType} ({data.solutionTypeScore ?? 0}/5)
+          </Text>
+          {data.solutionTypeReason && <Text style={s.patternReason}>{data.solutionTypeReason}</Text>}
+        </View>
+      )}
+
+      {/* Alternative recommendation */}
+      {data.alternativeRecommendation && (data.solutionType === "flow" || data.solutionType === "not-recommended") && (
+        <View style={s.altRecCard} wrap={false}>
+          <Text style={s.altRecLabel}>Recommended Alternative</Text>
+          <Text style={s.altRecText}>{data.alternativeRecommendation}</Text>
+        </View>
+      )}
 
       {/* Pattern card — matches the app's highlighted selection card */}
       <View style={s.patternCard} wrap={false}>

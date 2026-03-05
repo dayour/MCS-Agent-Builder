@@ -23,6 +23,27 @@ function hasAnyEvalResult(data: BriefData): boolean {
 export function calcReadiness(data: BriefData): number {
   const ov = data["overview"];
   const arch = data["architecture"];
+  const solutionType = arch?.solutionType ?? "agent";
+  const isNonAgent = solutionType === "flow" || solutionType === "not-recommended";
+
+  // Non-agent types use a reduced check set (5 checks instead of 12)
+  if (isNonAgent) {
+    const questions = data["open-questions"]?.items ?? [];
+    const unanswered = questions.filter((q) => q.question && q.status !== "resolved");
+    const decisions = data.decisions?.items ?? [];
+    const pendingBlockers = decisions.filter(
+      (d) => d.status === "pending" && (d.category === "architecture" || d.category === "infrastructure")
+    );
+    const checks = [
+      Boolean(ov.problemStatement),                                       // 1. Business context
+      Boolean(arch.solutionType),                                         // 2. Solution type assessed
+      (data["capabilities"]?.items ?? []).some((c) => c.name),            // 3. Capabilities identified
+      Boolean(arch.alternativeRecommendation),                            // 4. Alternative recommendation
+      pendingBlockers.length === 0,                                       // 5. No blocking decisions
+    ];
+    return Math.round((checks.filter(Boolean).length / checks.length) * 100);
+  }
+
   const tools = data["tools"]?.items ?? [];
   const knowledge = data["knowledge-sources"]?.items ?? [];
   const topics = data["conversation-topics"]?.items ?? [];
@@ -62,6 +83,27 @@ export function calcReadinessWithStatus(
 ): number {
   const ov = data["overview"];
   const arch = data["architecture"];
+  const solutionType = arch?.solutionType ?? "agent";
+  const isNonAgent = solutionType === "flow" || solutionType === "not-recommended";
+
+  // Non-agent types use a reduced check set
+  if (isNonAgent) {
+    const questions = data["open-questions"]?.items ?? [];
+    const unanswered = questions.filter((q) => q.question && q.status !== "resolved");
+    const decisions = data.decisions?.items ?? [];
+    const pendingBlockers = decisions.filter(
+      (d) => d.status === "pending" && (d.category === "architecture" || d.category === "infrastructure")
+    );
+    const checks = [
+      Boolean(ov.problemStatement),
+      Boolean(arch.solutionType),
+      (data["capabilities"]?.items ?? []).some((c) => c.name),
+      Boolean(arch.alternativeRecommendation),
+      pendingBlockers.length === 0,
+    ];
+    return Math.round((checks.filter(Boolean).length / checks.length) * 100);
+  }
+
   const tools = data["tools"]?.items ?? [];
   const knowledge = data["knowledge-sources"]?.items ?? [];
   const topics = data["conversation-topics"]?.items ?? [];
@@ -105,7 +147,7 @@ export function sectionCompletion(data: BriefData): Record<string, boolean> {
 
   return {
     overview: Boolean(ov.name && ov.problemStatement),
-    architecture: Boolean(arch.pattern),
+    architecture: Boolean(arch.pattern || arch.solutionType),
     decisions: (() => {
       const items = data.decisions?.items ?? [];
       if (items.length === 0) return true;

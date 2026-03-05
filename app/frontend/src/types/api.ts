@@ -150,6 +150,12 @@ export interface ApiBrief {
     refuse?: Array<{ topic: string; reason?: string }>;
   };
   architecture?: {
+    solutionType?: string;
+    solutionTypeScore?: number;
+    solutionTypeFactors?: Record<string, boolean | { value: boolean; reasoning?: string }>;
+    solutionTypeReason?: string;
+    solutionTypeOverride?: boolean;
+    alternativeRecommendation?: string;
     type?: string;
     factors?: Record<string, boolean | { value: boolean; reasoning?: string }>;
     score?: number;

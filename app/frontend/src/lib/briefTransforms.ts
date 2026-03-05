@@ -9,7 +9,7 @@
  * doesn't display are never lost.
  */
 import type { ApiBrief } from "@/types/api";
-import type { BriefData, EvalSet, EvalConfig, Overview, Decision, DecisionCategory, DecisionStatus, ConfidenceLevel } from "@/types";
+import type { BriefData, EvalSet, EvalConfig, Overview, Decision, DecisionCategory, DecisionStatus, ConfidenceLevel, SolutionType } from "@/types";
 
 /**
  * Convert raw brief.json → UI BriefData shape.
@@ -83,6 +83,12 @@ export function briefFromApi(raw: ApiBrief): BriefData {
       ),
     },
     architecture: {
+      solutionType: (arch.solutionType ?? "agent") as SolutionType,
+      solutionTypeScore: arch.solutionTypeScore ?? 0,
+      solutionTypeFactors: solutionFactorsToScoring(arch.solutionTypeFactors, arch.solutionTypeScore),
+      solutionTypeReason: arch.solutionTypeReason ?? "",
+      solutionTypeOverride: arch.solutionTypeOverride ?? false,
+      alternativeRecommendation: arch.alternativeRecommendation ?? "",
       pattern: normalizeArchType(arch.type ?? ""),
       patternReasoning: arch.reason ?? arch.typeReasoning ?? "",
       triggers: (arch.triggers ?? []).map((t) => ({
@@ -245,6 +251,12 @@ export function briefToApi(ui: BriefData, raw: ApiBrief): ApiBrief {
   // Architecture
   result.architecture = {
     ...result.architecture,
+    solutionType: arch.solutionType,
+    solutionTypeScore: arch.solutionTypeFactors.reduce((s, f) => s + f.score, 0),
+    solutionTypeFactors: solutionScoringToFactors(arch.solutionTypeFactors),
+    solutionTypeReason: arch.solutionTypeReason,
+    solutionTypeOverride: arch.solutionTypeOverride,
+    alternativeRecommendation: arch.alternativeRecommendation,
     type: arch.pattern,
     reason: arch.patternReasoning,
     typeReasoning: arch.patternReasoning,
@@ -613,6 +625,61 @@ function scoringToFactors(
   // Reverse lookup: label → key
   const labelToKey: Record<string, string> = {};
   for (const [key, label] of Object.entries(FACTOR_LABELS)) {
+    labelToKey[label] = key;
+  }
+  for (const s of scoring) {
+    const key = labelToKey[s.factor] ?? s.factor;
+    result[key] = { value: s.score > 0, reasoning: s.notes ?? "" };
+  }
+  return result;
+}
+
+// ─── Solution Type Factor Helpers ────────────────────────────────
+
+const SOLUTION_FACTOR_NAMES = [
+  "conversationalNeed",
+  "interactionPattern",
+  "capabilityDistribution",
+  "userValueOfNL",
+  "mcsFeasibility",
+] as const;
+
+const SOLUTION_FACTOR_LABELS: Record<string, string> = {
+  conversationalNeed: "Conversational Need",
+  interactionPattern: "Interaction Pattern",
+  capabilityDistribution: "Capability Distribution",
+  userValueOfNL: "User Value of NL",
+  mcsFeasibility: "MCS Feasibility",
+};
+
+function solutionFactorsToScoring(
+  factors?: Record<string, boolean | { value: boolean; reasoning?: string }>,
+  _totalScore?: number
+): Array<{ factor: string; score: number; notes: string }> {
+  if (!factors) return [];
+  return SOLUTION_FACTOR_NAMES.map((key) => {
+    const f = factors[key];
+    if (typeof f === "object" && f !== null && "value" in f) {
+      return {
+        factor: SOLUTION_FACTOR_LABELS[key] ?? key,
+        score: f.value ? 1 : 0,
+        notes: f.reasoning ?? (f.value ? "Applies" : ""),
+      };
+    }
+    return {
+      factor: SOLUTION_FACTOR_LABELS[key] ?? key,
+      score: f ? 1 : 0,
+      notes: f ? "Applies" : "",
+    };
+  });
+}
+
+function solutionScoringToFactors(
+  scoring: Array<{ factor: string; score: number; notes: string }>
+): Record<string, { value: boolean; reasoning: string }> {
+  const result: Record<string, { value: boolean; reasoning: string }> = {};
+  const labelToKey: Record<string, string> = {};
+  for (const [key, label] of Object.entries(SOLUTION_FACTOR_LABELS)) {
     labelToKey[label] = key;
   }
   for (const s of scoring) {

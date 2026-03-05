@@ -241,7 +241,7 @@ export interface OpenQuestion {
 
 // ─── Decisions ─────────────────────────────────────────────────────
 
-export type DecisionCategory = "integration" | "architecture" | "model" | "infrastructure" | "topic-implementation";
+export type DecisionCategory = "integration" | "architecture" | "model" | "infrastructure" | "topic-implementation" | "solution-type";
 export type DecisionStatus = "pending" | "confirmed" | "overridden";
 export type ConfidenceLevel = "high" | "medium" | "low";
 
@@ -297,7 +297,21 @@ export interface ArchitectureScoring {
   notes: string;
 }
 
+export type SolutionType = "agent" | "flow" | "hybrid" | "not-recommended";
+
+export interface SolutionTypeFactor {
+  factor: string;
+  score: number;
+  notes: string;
+}
+
 export interface Architecture {
+  solutionType: SolutionType;
+  solutionTypeScore: number;
+  solutionTypeFactors: SolutionTypeFactor[];
+  solutionTypeReason: string;
+  solutionTypeOverride: boolean;
+  alternativeRecommendation: string;
   pattern: string;
   patternReasoning: string;
   triggers: ArchitectureTrigger[];

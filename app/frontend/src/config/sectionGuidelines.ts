@@ -12,18 +12,21 @@ export interface SectionGuidelineData {
 
 export const sectionGuidelines: Record<string, SectionGuidelineData> = {
   architecture: {
-    what: "How the agent is structured — single agent or multi-agent with specialists.",
+    what: "Solution type assessment and agent architecture — determines if this should be an agent, flow, or alternative, then structures the agent if applicable.",
     bestPractices: [
+      "Review the solution type assessment first — not every use case needs an agent",
+      "If most capabilities are automation (triggers, CRUD, notifications), a Power Automate flow is simpler",
+      "Hybrid = agent for conversational parts + flows for automation backbone",
       "Start with single-agent unless 3+ complexity factors apply",
       "Multi-agent adds latency — only split when domains truly need isolation",
-      "Choose channels based on where users already work (Teams, web, M365 Copilot)",
-      "Select triggers that match how users phrase requests",
     ],
     commonMistakes: [
+      "Force-fitting automation into an agent — the #1 waste of effort",
+      "Building an agent that's just a thin wrapper around API calls — Power Automate does this natively",
       "Over-engineering into multi-agent when a single agent suffices",
-      "Missing channel selection — defaults may not fit the audience",
-      "Ignoring channel limitations (e.g., M365 Copilot strips URLs from responses)",
+      "Ignoring the solution type assessment and jumping straight to agent build",
     ],
+    tip: "If 80% of your capabilities are 'when X happens, do Y,' you need a flow, not an agent.",
   },
   instructions: {
     what: "The system prompt that controls agent behavior — how it responds, what it handles, and what it refuses.",

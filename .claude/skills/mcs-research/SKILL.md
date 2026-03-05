@@ -36,6 +36,7 @@ The session startup protocol already checks cache freshness and refreshes stale 
 
 1. Read `knowledge/frameworks/component-selection.md` for the research protocol
 2. Read `knowledge/frameworks/architecture-scoring.md` for scoring criteria
+3. Read `knowledge/frameworks/solution-type-scoring.md` for the solution type pre-gate
 
 **Cache files are read on-demand** in Phase A (for informed questions) and Phase B (for component research). Only read the specific files needed, not all 18.
 
@@ -248,6 +249,74 @@ From the unified understanding, identify distinct agents. Look for:
 **If documents describe MULTIPLE agents:** Create one entry per agent.
 **If unclear:** Default to one agent, note uncertainty in openQuestions.
 
+### Step 3.5: Solution Type Assessment
+
+**Goal:** Determine whether each agent candidate actually needs to be an MCS agent, or if a simpler solution (Power Automate flow, SharePoint view, etc.) is more appropriate.
+
+**This step runs for each agent candidate identified in Step 3.** It uses the 5-factor framework from `knowledge/frameworks/solution-type-scoring.md`.
+
+**Skip this step if:** `solutionTypeOverride: true` exists in the agent's existing brief (user clicked "Build as Agent Anyway" in the dashboard).
+
+#### Assessment Process
+
+For each agent candidate:
+
+1. **Classify capabilities:** Read the capability descriptions from the SDR/docs. For each, assign a lightweight `implementationType` estimate:
+   - `prompt` — behavior encoded in instructions only
+   - `topic` — requires custom conversation flow
+   - `knowledge` — requires knowledge source Q&A
+   - `tool` — requires a tool/connector with deterministic I/O
+   - `flow` — requires a Power Automate flow (event-driven pipeline)
+
+2. **Score the 5 factors:**
+   - **Conversational Need:** Do users need dialogue, or just data moved/displayed?
+   - **Interaction Pattern:** Is the dominant pattern reactive (AI judgment) or procedural (deterministic pipeline)?
+   - **Capability Distribution:** Are 50%+ capabilities conversational types (prompt/topic/knowledge)?
+   - **User Value of NL:** Do users gain clear value from natural language over structured UI?
+   - **MCS Feasibility:** Does this fit within MCS technical constraints?
+
+3. **Write assessment to brief stub:**
+   - `architecture.solutionType` — `"agent"`, `"flow"`, `"hybrid"`, or `"not-recommended"`
+   - `architecture.solutionTypeScore` — 0-5
+   - `architecture.solutionTypeFactors` — per-factor value + reasoning
+   - `architecture.solutionTypeReason` — 2-4 sentence explanation
+   - `architecture.alternativeRecommendation` — if not agent, what to build instead
+
+4. **Route based on score:**
+
+| Score | solutionType | Research Path |
+|-------|-------------|---------------|
+| **4-5** | `agent` | Continue normally — Steps 4-6 then Phases B+C |
+| **3** | Borderline | Continue with agent research. Create `solution-type` decision with `agent`, `hybrid`, and `flow` options. Pre-apply `hybrid`. |
+| **1-2** | `flow` | Write simplified brief: populate `business.*`, `agent.name/description`, `capabilities[]`, `recommendations[]`, `architecture.alternativeRecommendation`. **Skip Phases B+C** (no instructions, eval sets, or architecture scoring). |
+| **0** | `not-recommended` | Write minimal brief with alternative. **Skip all deep research.** |
+
+#### Simplified Brief (flow / not-recommended)
+
+When `solutionType` is `flow` or `not-recommended`, the brief is intentionally minimal:
+- `business.*` — fully populated (problem statement, challenges, benefits)
+- `agent.name`, `agent.description` — set for identification
+- `capabilities[]` — all identified, with `implementationType` classifications
+- `architecture.solutionType*` — all assessment fields populated
+- `architecture.alternativeRecommendation` — detailed recommendation for what to build instead
+- `recommendations[]` — MCS best practices replaced with alternative-specific guidance
+- `openQuestions[]` — any remaining unknowns
+
+**Not populated:** `instructions`, `evalSets`, `architecture.type/factors/score` (arch scoring), `conversations.topics[]` (no topic YAML), `integrations[]` (minimal — list systems but no MCS connector research)
+
+#### Output Modification for Non-Agent Types
+
+When presenting the Phase A summary (Step 6):
+- **Agent types:** Normal output — "Proceeding to full MCS component research..."
+- **Flow/not-recommended:** Modified output:
+  ```
+  ## Solution Type Assessment: {agentName}
+  **Score:** {N}/5 → {solutionType}
+  **Recommendation:** {alternativeRecommendation summary}
+
+  Simplified brief written. Full MCS research skipped — this use case is better served by {alternative}.
+  ```
+
 ### Step 4: Extract Per-Agent Data & Generate Informed Open Questions
 
 For each agent, extract what's in the documents AND cross-reference against `knowledge/cache/` to generate *informed* open questions.
@@ -308,6 +377,8 @@ Present what was found and get confirmation before proceeding to research:
 
 Proceeding to full MCS component research for all {count} agents...
 ```
+
+**For agents assessed as `flow` or `not-recommended` in Step 3.5:** Do NOT proceed to Phase B for those agents. Their simplified briefs are already written. Only proceed to Phase B for agents with `solutionType == "agent"` or `"hybrid"`.
 
 Then continue directly to Phase B. **Do not stop and wait** — this is a single-pass skill. The user will provide feedback after the full research is complete.
 

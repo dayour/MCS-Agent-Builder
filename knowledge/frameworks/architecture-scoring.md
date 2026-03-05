@@ -1,5 +1,13 @@
 # Architecture Scoring: Single vs Multi-Agent
 
+## Pre-Gate: Solution Type Assessment
+
+Before scoring single vs multi-agent, confirm the use case needs an agent at all.
+See `knowledge/frameworks/solution-type-scoring.md` for the 5-factor assessment.
+
+Only proceed to architecture scoring when `solutionType == "agent"` or `"hybrid"`.
+If `solutionType` is `"flow"` or `"not-recommended"`, skip architecture scoring entirely.
+
 ## Architecture Types
 
 | Type | When to Use |

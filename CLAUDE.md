@@ -366,6 +366,9 @@ Research Microsoft-first: MCS built-in → Power Platform → Azure → M365 con
 ### 5. Minimize Playwright — Use APIs First
 Every browser interaction is fragile. Before using Playwright, check if LSP Wrapper, Island Gateway API, add-tool.js, PAC CLI, Dataverse API, or Direct Line API can handle the operation. See "Hybrid Build Stack" section above.
 
+### 6. Not Every Use Case Needs an Agent
+Run the Solution Type Assessment (5 factors, see `knowledge/frameworks/solution-type-scoring.md`) after identifying agent candidates. Score 0-2 = recommend simpler solution (Power Automate flow, SharePoint views, etc.). Score 4-5 = proceed with agent. Never force-fit automation into an agent.
+
 ---
 
 ## Intake Paths
@@ -401,8 +404,10 @@ No SDR or requirements available.
 ## Workflow
 
 ```
-CREATE → UPLOAD → RESEARCH → BUILD → EVALUATE → [FIX] → [RETRO]
-                  /mcs-research  /mcs-build  /mcs-eval  /mcs-fix  /mcs-retro
+CREATE → UPLOAD → RESEARCH → [SOLUTION TYPE GATE] → BUILD → EVALUATE → [FIX] → [RETRO]
+                  /mcs-research        |              /mcs-build  /mcs-eval  /mcs-fix  /mcs-retro
+                                       |
+                                    flow/not-rec → simplified brief, recommendation only
 ```
 
 | Step | Skill | Input | Output | Agent Teams |
@@ -667,6 +672,7 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 13. **Microsoft-first research** — use cache for M365-native components (Priority 1-4), escalate to WebSearch + MS Learn + community only for external systems (Priority 5-6) not in cache
 14. **LSP/API first, browser last** — every Playwright interaction is a fragility risk; prefer LSP Wrapper, Island Gateway, or API alternatives
 15. **Present options, don't prescribe** — when research finds 2+ genuinely viable approaches, create structured `decisions[]` entries with pros/cons/requirements. Recommend the best, pre-apply it as the buildable default, let the user choose. One clear winner = auto-apply, no decision entry.
+16. **Assess before building** — run solution type scoring after identifying agents. Force-fitting automation into an agent wastes effort and produces inferior results. A Power Automate flow that works is better than an agent that's just a thin API wrapper.
 
 ---
 

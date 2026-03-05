@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   Pencil, Check, X, Plus, Trash2, Bot, Network, Link, FolderTree,
+  Zap, AlertTriangle, GitBranch,
 } from "lucide-react";
 import SectionGuidelines from "./SectionGuidelines";
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,17 @@ const ARCH_TYPES = [
   { value: "single-agent", label: "Single Agent", icon: Bot, desc: "One agent handles everything" },
   { value: "multi-agent", label: "Multi-Agent", icon: Network, desc: "Orchestrator routes to specialists" },
   { value: "connected-agent", label: "Connected Agent", icon: Link, desc: "Agents linked across solutions" },
+] as const;
+
+const SOLUTION_TYPES = [
+  { value: "agent", label: "Agent", icon: Bot, desc: "Copilot Studio agent",
+    color: "border-primary bg-primary/5 text-primary" },
+  { value: "hybrid", label: "Hybrid", icon: GitBranch, desc: "Agent + Power Automate flows",
+    color: "border-amber-500 bg-amber-500/5 text-amber-600" },
+  { value: "flow", label: "Power Automate Flow", icon: Zap, desc: "Automation only — no agent needed",
+    color: "border-purple-500 bg-purple-500/5 text-purple-600" },
+  { value: "not-recommended", label: "Not Recommended", icon: AlertTriangle, desc: "Beyond MCS capabilities",
+    color: "border-destructive bg-destructive/5 text-destructive" },
 ] as const;
 
 const ArchitectureSection = ({ data, onChange, context }: Props) => {
@@ -162,16 +174,159 @@ const ArchitectureSection = ({ data, onChange, context }: Props) => {
   const isMultiAgent = data.pattern === "multi-agent";
   const selectedType = ARCH_TYPES.find((t) => t.value === data.pattern);
 
+  const solutionType = data.solutionType ?? "agent";
+  const solType = SOLUTION_TYPES.find((t) => t.value === solutionType);
+  const isNonAgent = (solutionType === "flow" || solutionType === "not-recommended") && !data.solutionTypeOverride;
+  const solutionTypeFactors = data.solutionTypeFactors ?? [];
+
+  const [editingSolutionType, setEditingSolutionType] = useState(false);
+  const [solTypeDraft, setSolTypeDraft] = useState<any>(null);
+
+  const startSolTypeEdit = () => {
+    setSolTypeDraft({
+      solutionType: data.solutionType ?? "agent",
+      solutionTypeReason: data.solutionTypeReason ?? "",
+      alternativeRecommendation: data.alternativeRecommendation ?? "",
+    });
+    setEditingSolutionType(true);
+  };
+  const saveSolType = () => {
+    update(solTypeDraft);
+    setEditingSolutionType(false);
+    setSolTypeDraft(null);
+  };
+
+  const handleOverride = () => {
+    update({ solutionType: "agent", solutionTypeOverride: true });
+  };
+
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-lg font-semibold text-foreground mb-1">Architecture</h2>
-        <p className="text-xs text-muted-foreground">How the agent is structured — type, channels, triggers, and specialist agents</p>
+        <p className="text-xs text-muted-foreground">Solution type assessment and agent structure — type, channels, triggers, and specialist agents</p>
         <SectionGuidelines sectionId="architecture" />
       </div>
 
+      {/* Solution Type Assessment */}
+      {editingSolutionType && solTypeDraft ? (
+        <div className="space-y-3">
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Solution Type</h3>
+          <div className="grid grid-cols-2 gap-3">
+            {SOLUTION_TYPES.map((t) => {
+              const Icon = t.icon;
+              const selected = solTypeDraft.solutionType === t.value;
+              return (
+                <button
+                  key={t.value}
+                  onClick={() => setSolTypeDraft({ ...solTypeDraft, solutionType: t.value })}
+                  className={`rounded-lg border-2 p-3 text-left transition-all ${
+                    selected ? t.color : "border-border bg-card hover:border-primary/40"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Icon className={`h-4 w-4 ${selected ? "" : "text-muted-foreground"}`} />
+                    <p className={`text-sm font-medium ${selected ? "" : "text-foreground"}`}>{t.label}</p>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-0.5 ml-6">{t.desc}</p>
+                </button>
+              );
+            })}
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">Why this solution type?</label>
+            <Textarea rows={2} placeholder="Reasoning for solution type choice" value={solTypeDraft.solutionTypeReason} onChange={(e) => setSolTypeDraft({ ...solTypeDraft, solutionTypeReason: e.target.value })} />
+          </div>
+          {(solTypeDraft.solutionType === "flow" || solTypeDraft.solutionType === "not-recommended") && (
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Alternative recommendation</label>
+              <Textarea rows={2} placeholder="What to build instead (Power Automate flow, SharePoint views, etc.)" value={solTypeDraft.alternativeRecommendation} onChange={(e) => setSolTypeDraft({ ...solTypeDraft, alternativeRecommendation: e.target.value })} />
+            </div>
+          )}
+          <div className="flex gap-2 justify-end">
+            <Button variant="ghost" size="sm" onClick={() => { setEditingSolutionType(false); setSolTypeDraft(null); }}><X className="h-3.5 w-3.5" /></Button>
+            <Button size="sm" onClick={saveSolType}><Check className="h-3.5 w-3.5" /></Button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Solution Type Assessment</h3>
+          </div>
+          <div className="cursor-pointer" onClick={startSolTypeEdit}>
+            {solType ? (
+              <div className={`rounded-lg border-2 p-4 transition-colors hover:opacity-90 ${solType.color}`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <solType.icon className="h-5 w-5" />
+                    <div>
+                      <p className="text-sm font-semibold">{solType.label}</p>
+                      <p className="text-xs opacity-70">{solType.desc}</p>
+                    </div>
+                  </div>
+                  <span className="text-lg font-bold">{data.solutionTypeScore ?? 0}/5</span>
+                </div>
+                {data.solutionTypeReason && <p className="text-xs mt-2 opacity-80">{data.solutionTypeReason}</p>}
+              </div>
+            ) : (
+              <div className="rounded-lg border border-dashed border-border bg-card p-4 hover:border-primary/40 transition-colors text-center">
+                <p className="text-sm text-muted-foreground">Click to set solution type</p>
+              </div>
+            )}
+          </div>
+
+          {/* Factor table */}
+          {solutionTypeFactors.length > 0 && (
+            <div className="rounded-lg border border-border bg-card p-3">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-muted-foreground">
+                    <th className="text-left font-medium pb-1">Factor</th>
+                    <th className="text-center font-medium pb-1 w-12">Score</th>
+                    <th className="text-left font-medium pb-1">Reasoning</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {solutionTypeFactors.map((f: any, i: number) => (
+                    <tr key={i} className="border-t border-border/50">
+                      <td className="py-1 font-medium text-foreground">{f.factor}</td>
+                      <td className="py-1 text-center">{f.score ? "Yes" : "No"}</td>
+                      <td className="py-1 text-muted-foreground">{f.notes || "\u2014"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Alternative recommendation callout */}
+          {data.alternativeRecommendation && isNonAgent && (
+            <div className="rounded-lg border-2 border-amber-500/50 bg-amber-500/5 p-3">
+              <p className="text-xs font-semibold text-amber-600 mb-1">Recommended Alternative</p>
+              <p className="text-xs text-foreground">{data.alternativeRecommendation}</p>
+            </div>
+          )}
+
+          {/* Override button */}
+          {isNonAgent && (
+            <Button variant="outline" size="sm" onClick={handleOverride} className="gap-1.5 text-xs">
+              <Bot className="h-3.5 w-3.5" /> Build as Agent Anyway
+            </Button>
+          )}
+
+          {data.solutionTypeOverride && (
+            <p className="text-xs text-amber-600">Override active — building as agent despite solution type assessment.</p>
+          )}
+        </div>
+      )}
+
       {/* Architecture Type — visual card selector */}
-      {editingMeta && metaDraft ? (
+      {isNonAgent && (
+        <div className="rounded-lg border border-dashed border-border bg-muted/30 p-4 text-center">
+          <p className="text-sm text-muted-foreground">Architecture details not applicable for {solutionType === "flow" ? "Power Automate flow" : "not-recommended"} solutions</p>
+        </div>
+      )}
+      {!isNonAgent && editingMeta && metaDraft ? (
         <div className="space-y-3">
           <div className="grid grid-cols-3 gap-3">
             {ARCH_TYPES.map((t) => {
@@ -203,7 +358,7 @@ const ArchitectureSection = ({ data, onChange, context }: Props) => {
             <Button size="sm" onClick={saveMeta}><Check className="h-3.5 w-3.5" /></Button>
           </div>
         </div>
-      ) : (
+      ) : !isNonAgent ? (
         <div className="cursor-pointer" onClick={startMetaEdit}>
           {selectedType ? (
             <div className="rounded-lg border-2 border-primary/30 bg-primary/5 p-4 hover:border-primary/50 transition-colors">
@@ -222,9 +377,11 @@ const ArchitectureSection = ({ data, onChange, context }: Props) => {
             </div>
           )}
         </div>
-      )}
+      ) : null}
 
-      {/* Triggers */}
+      {/* Triggers + Channels — hidden when non-agent */}
+      {!isNonAgent && (
+      <>
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Triggers</h3>
@@ -310,9 +467,11 @@ const ArchitectureSection = ({ data, onChange, context }: Props) => {
           )}
         </div>
       </div>
+      </>
+      )}
 
       {/* Child Agents (multi-agent only) */}
-      {isMultiAgent && (
+      {isMultiAgent && !isNonAgent && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Specialist Agents</h3>

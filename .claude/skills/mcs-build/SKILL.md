@@ -114,6 +114,37 @@ If ALL items of a type are `future` (e.g., zero MVP knowledge sources), skip tha
 
 ---
 
+## Step 0.25: Solution Type Gate (after Auth Gate, before Decision Gate)
+
+**Goal:** Prevent building agents for use cases that don't need an agent. Reads the solution type assessment from research.
+
+```
+Read brief.json.architecture.solutionType
+
+If "agent" or not set (backwards compat) or solutionTypeOverride == true:
+  → Proceed normally
+
+If "hybrid":
+  → Proceed. Log which capabilities are flow-only (won't become topics):
+    "Hybrid build: {N} capabilities are flow-only — will be implemented as
+    Power Automate flows, not agent topics."
+
+If "flow":
+  → HARD STOP: "This use case was assessed as a Power Automate flow, not
+    an MCS agent (score {solutionTypeScore}/5). See brief for details.
+    To override: set architecture.solutionTypeOverride to true in the brief,
+    or tell me to 'build it as an agent anyway'."
+
+If "not-recommended":
+  → HARD STOP: "This use case was assessed as not suitable for MCS
+    (score {solutionTypeScore}/5). See architecture.alternativeRecommendation
+    for the suggested approach. To override: set solutionTypeOverride to true."
+```
+
+**User override:** If the user says "build it as an agent anyway," set `architecture.solutionTypeOverride = true` and `architecture.solutionType = "agent"` in brief.json, then proceed normally.
+
+---
+
 ## Step 0.5: Decision Gate (after Auth Gate, before building)
 
 **Goal:** Ensure critical decisions from `/mcs-research` are resolved before the build starts. Decisions with pre-applied recommended defaults are buildable, but the user should be aware of unconfirmed choices.

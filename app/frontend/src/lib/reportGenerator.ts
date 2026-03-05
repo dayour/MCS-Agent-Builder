@@ -87,6 +87,13 @@ export function generateBriefReport(agent: Agent, briefData: Record<string, any>
   const arch = briefData["architecture"];
   if (arch) {
     lines.push("## Architecture\n");
+    if (arch.solutionType) {
+      lines.push(`**Solution Type:** ${arch.solutionType} (${arch.solutionTypeScore ?? 0}/5)\n`);
+      if (arch.solutionTypeReason) lines.push(`> ${arch.solutionTypeReason}\n`);
+      if (arch.alternativeRecommendation) {
+        lines.push(`**Recommendation:** ${arch.alternativeRecommendation}\n`);
+      }
+    }
     lines.push(`**Pattern:** ${arch.pattern}\n`);
     if (arch.patternReasoning) lines.push(`> ${arch.patternReasoning}\n`);
     if (arch.triggers?.length) {

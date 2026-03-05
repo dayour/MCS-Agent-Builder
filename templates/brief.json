@@ -127,6 +127,18 @@
 
   "architecture": {
     "_meeting": "Section 8 — 'How is it built?' Walk through 6 factors with the customer.",
+    "solutionType": "agent | flow | hybrid | not-recommended",
+    "solutionTypeScore": 0,
+    "solutionTypeFactors": {
+      "conversationalNeed": { "value": false, "reasoning": "" },
+      "interactionPattern": { "value": false, "reasoning": "" },
+      "capabilityDistribution": { "value": false, "reasoning": "" },
+      "userValueOfNL": { "value": false, "reasoning": "" },
+      "mcsFeasibility": { "value": false, "reasoning": "" }
+    },
+    "solutionTypeReason": "2-4 sentence explanation of why this solution type was selected",
+    "solutionTypeOverride": false,
+    "alternativeRecommendation": "If not agent: what to build instead + high-level approach",
     "type": "single-agent | multi-agent | connected-agent",
     "reason": "2-4 sentence explanation of WHY this architecture type was selected. Reference the score, key factors, and why other types were ruled out.",
     "factors": {
@@ -164,7 +176,7 @@
     {
       "_description": "Structured choice points where research found multiple valid approaches. Each decision stores ranked options with pros/cons/requirements. The recommended option's briefPatch is pre-applied to brief fields as a default. User confirms or selects a different option, which re-applies that option's briefPatch. Only created when 2+ genuinely viable options exist — one clear winner is auto-applied with no decision entry. openQuestions[] remains for freeform unknowns; decisions[] are structured choices.",
       "id": "d-001",
-      "category": "integration | architecture | model | infrastructure | topic-implementation",
+      "category": "integration | architecture | model | infrastructure | topic-implementation | solution-type",
       "title": "Short customer-readable title (e.g., How should we extract web content?)",
       "context": "Why this decision exists — the problem, why multiple paths are valid. Written for the customer.",
       "targetField": "integrations[name=X] | architecture.type | agent.recommendedModel",
