@@ -26,7 +26,8 @@ Automate Microsoft Copilot Studio (MCS) agent creation using a **hybrid build st
 4. **File ≠ deployment**: Writing a local file is NOT the same as uploading it to MCS. These are ALWAYS separate tasks.
 5. **Environment check**: Before PAC CLI operations, verify the agent's environment matches PAC CLI's active profile (`pac auth list`). If they differ, ask user to switch PAC CLI profile.
 6. **LSP workspace freshness**: Always `pull → modify → push` when using the LSP Wrapper. Never modify workspace `.mcs.yml` files without pulling first — stale row versions cause `ConcurrencyVersionMismatch` errors and force a re-pull that overwrites your changes.
-7. **End-of-build reconciliation + QA validation**: After ALL changes, walk the spec's build checklist and snapshot-verify every item against the actual agent state. Then spawn QA Challenger (Step 5.5) to validate brief-vs-actual, cross-references, and deviation impact. QA verdict determines whether the build proceeds to the report or escalates issues.
+7. **Never skip MVP items**: Attempt EVERY item tagged `phase: "mvp"`. If it fails, document: what was tried, the specific error, what's needed to unblock. A failed attempt with a clear error is valuable — a silently skipped item is a build gap.
+8. **End-of-build reconciliation + QA validation**: After ALL changes, walk the spec's build checklist and snapshot-verify every item against the actual agent state. Every MVP item must show MATCH, PARTIAL, FAILED, or BLOCKED — never SKIPPED. Then spawn QA Challenger (Step 5.5) to validate brief-vs-actual, cross-references, and deviation impact. QA verdict determines whether the build proceeds to the report or escalates issues.
 
 ---
 
@@ -70,14 +71,15 @@ Some operations require the user to perform actions in the Copilot Studio web UI
 
 ### Unified Auth Gate (all layers verified together)
 
-Account selection determines everything — PAC CLI profile and Azure CLI tenant are derived from the same account in session-config.json.
+Account + environment selection determines everything. **Never assume the environment** — always confirm with the user, even on resume. An account can have multiple environments.
 
-| Layer | What It Covers | How | Persisted In |
-|-------|---------------|-----|-------------|
-| **PAC CLI** | Listing agents, solution ALM | `pac auth select` (automatic) | session-config.json `pacProfileIndex` |
-| **Azure CLI** | LSP, Island Gateway, Dataverse, Direct Line | `az login --tenant` (auto, browser popup) | session-config.json `tenantId` + brief.json `azTenantId` |
+| Layer | What It Covers | How | Required? |
+|-------|---------------|-----|-----------|
+| **Azure CLI** | LSP, Island Gateway, Dataverse, Direct Line | `az login --tenant` (auto, browser popup) | **Yes — blocks build** |
+| **Dataverse API** | Environment reachable, token works | `az account get-access-token` + `GET /bots?$top=1` | **Yes — blocks build** |
+| **PAC CLI** | Listing agents, solution ALM | `pac auth select` (automatic) | **No — best-effort, API fallback** |
 
-**Build gate** runs PAC CLI + Azure CLI at start. **Eval/fix** do a quick re-verify (auto-fixes via `az login`).
+**Build gate:** Two-step selection (account → environment) + three-layer verification. **Eval/fix:** re-verify against `buildStatus` values + Dataverse reachable check.
 
 ---
 
@@ -478,11 +480,10 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 **Writes:** `brief.json` buildStatus field (including step-level checkpoints for resume)
 
 **Unified Auth Gate:**
-- Runs both auth layers (PAC CLI, Azure CLI) from one account selection
-- Reads target from `brief.json.buildStatus.account` / `.environment` / `.accountId`
-- If present → resumes with one-line confirmation. If missing → asks once, persists to both `brief.json.buildStatus` AND `session-config.json.sessionDefaults`
-- Sets PAC CLI profile, auto-runs `az login --tenant` on mismatch (browser popup)
-- Eval/fix do a quick re-verify (auto-fixes via `az login` on mismatch)
+- Two-step selection: account → environment. **Never assumes the environment** — always confirms with user, even on resume (accounts can have multiple environments)
+- Three-layer verification: Azure CLI (tenant match) → Dataverse API (env reachable) → PAC CLI (best-effort, not required)
+- Azure CLI + Dataverse must pass. PAC CLI failure = warning only (API fallback for everything)
+- Persists to both `brief.json.buildStatus` AND `session-config.json.sessionDefaults`
 - User can always override by saying "switch to [account/env]"
 
 **Decision Gate (Step 0.5):**

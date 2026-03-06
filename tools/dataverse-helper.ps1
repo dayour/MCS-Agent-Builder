@@ -327,11 +327,15 @@ function Add-BotKnowledgeFile {
     $createHeaders = $Ctx.Headers.Clone()
     $createHeaders['Prefer'] = 'return=representation'
 
+    # Use navigation property syntax (parentbotid@odata.bind), NOT _parentbotid_value
+    # Direct update of Entity Reference properties is not supported by Dataverse
+    $schemaName = "cr3f1_" + ($Name -replace '[^a-zA-Z0-9]', '').ToLower() + "_" + [guid]::NewGuid().ToString("N").Substring(0, 8)
     $knowledgeBody = @{
-        componenttype            = 16
-        name                     = $Name
-        content                  = "{`"sourceType`":`"file`",`"fileName`":`"$fileName`"}"
-        "_parentbotid_value"     = $BotId
+        componenttype                = 16
+        name                         = $Name
+        schemaname                   = $schemaName
+        content                      = "{`"sourceType`":`"file`",`"fileName`":`"$fileName`"}"
+        "parentbotid@odata.bind"     = "/bots($BotId)"
     } | ConvertTo-Json -Depth 5
 
     $newComponent = Invoke-RestMethod -Uri "$($Ctx.OrgUrl)/api/data/v9.2/botcomponents" `
@@ -340,16 +344,28 @@ function Add-BotKnowledgeFile {
     $componentId = $newComponent.botcomponentid
     Write-Host "Created knowledge component: $componentId" -ForegroundColor Cyan
 
-    # Upload file content
+    # Upload file via fileattachments endpoint (Dataverse file storage)
     $fileBytes = [System.IO.File]::ReadAllBytes($FilePath)
     $uploadHeaders = $Ctx.Headers.Clone()
     $uploadHeaders['Content-Type'] = 'application/octet-stream'
     $uploadHeaders['x-ms-file-name'] = $fileName
 
-    Invoke-RestMethod -Uri "$($Ctx.OrgUrl)/api/data/v9.2/botcomponents($componentId)/content" `
-        -Method PATCH -Body $fileBytes -Headers $uploadHeaders
-
-    Write-Host "File uploaded: $fileName ($($fileBytes.Length) bytes)" -ForegroundColor Green
+    try {
+        Invoke-RestMethod -Uri "$($Ctx.OrgUrl)/api/data/v9.2/botcomponents($componentId)/fileattachment" `
+            -Method PATCH -Body $fileBytes -Headers $uploadHeaders
+        Write-Host "File uploaded: $fileName ($($fileBytes.Length) bytes)" -ForegroundColor Green
+    } catch {
+        Write-Host "File upload via fileattachment failed: $($_.Exception.Message)" -ForegroundColor Yellow
+        Write-Host "Attempting upload via botcomponentfiledata..." -ForegroundColor Yellow
+        try {
+            Invoke-RestMethod -Uri "$($Ctx.OrgUrl)/api/data/v9.2/botcomponents($componentId)/botcomponentfiledata" `
+                -Method PATCH -Body $fileBytes -Headers $uploadHeaders
+            Write-Host "File uploaded via botcomponentfiledata: $fileName ($($fileBytes.Length) bytes)" -ForegroundColor Green
+        } catch {
+            Write-Host "File upload failed on both endpoints: $($_.Exception.Message)" -ForegroundColor Red
+            Write-Host "Component $componentId created but file not attached. Upload manually in MCS." -ForegroundColor Red
+        }
+    }
     return $componentId
 }
 

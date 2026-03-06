@@ -46,14 +46,17 @@ Writes to:
 
 ## Prerequisites: Auth Verification
 
-Re-verify auth established during `/mcs-build`. Quick silent check — no user interaction unless something changed.
+Re-verify auth established during `/mcs-build`. Quick check — confirm account, environment, and API access still work.
 
-1. Read `brief.json.buildStatus`: `azTenantId`, `accountId`, `environment`
-2. If `azTenantId` missing → "Run `/mcs-build` first to establish auth, or `az login --tenant {tenantId}` (tenantId from session-config.json)"
-3. Quick check: `az account show --query tenantId -o tsv`
-   - **Match** → log one line (`Azure CLI verified`), proceed
-   - **Mismatch** → run `az login --tenant {azTenantId}` (auto-login, same as build gate — opens browser popup)
-4. Verify PAC CLI: `pac auth list` (confirm correct profile active)
+1. Read `brief.json.buildStatus`: `azTenantId`, `accountId`, `environment`, `dataverseUrl`
+2. If `azTenantId` or `dataverseUrl` missing → "Run `/mcs-build` first to establish auth and build context."
+3. **Confirm environment with user**: Log `"Using: {account} / {environment}"` — one-line confirmation. User can say "switch to [env]" to re-target.
+4. **Azure CLI check**: `az account show --query tenantId -o tsv`
+   - **Match** → proceed
+   - **Mismatch** → `az login --tenant {azTenantId}` (browser popup)
+5. **Dataverse reachable check**: `az account get-access-token --resource <dataverseUrl>` → must succeed
+   - If token fails → auth is stale, re-run `az login`
+6. **PAC CLI check** (best-effort): `pac auth list` — if fails, log warning and continue (PAC CLI optional)
 
 ## Before Evaluating — Knowledge Cache + Learnings Check
 

@@ -319,6 +319,83 @@
       "tags": ["synchronizationstatus", "publish", "dataverse", "select-quirk", "verification"],
       "status": "active",
       "projects": ["by"]
+    },
+    {
+      "id": "bm-012",
+      "file": "build-methods.md",
+      "title": "OData $filter on _parentbotid_value unreliable — use FetchXML",
+      "date": "2026-03-06",
+      "confirmed": 1,
+      "lastConfirmed": "2026-03-06",
+      "tags": ["dataverse", "fetchxml", "odata", "parentbotid", "botcomponent"],
+      "status": "active",
+      "projects": ["TestNorthwind"]
+    },
+    {
+      "id": "bm-013",
+      "file": "build-methods.md",
+      "title": "$select=data on botcomponents returns empty — query full entity",
+      "date": "2026-03-06",
+      "confirmed": 1,
+      "lastConfirmed": "2026-03-06",
+      "tags": ["dataverse", "select-quirk", "botcomponent", "data-field"],
+      "status": "active",
+      "projects": ["TestNorthwind"]
+    },
+    {
+      "id": "bm-014",
+      "file": "build-methods.md",
+      "title": "LSP push 0 changes on new agents — verifyAndPatchBody fallback",
+      "date": "2026-03-06",
+      "confirmed": 1,
+      "lastConfirmed": "2026-03-06",
+      "tags": ["lsp", "push", "zero-changes", "dataverse", "fallback", "gpt-component"],
+      "status": "active",
+      "projects": ["TestNorthwind"]
+    },
+    {
+      "id": "bm-015",
+      "file": "build-methods.md",
+      "title": "Auth gate must explicitly ask for environment — never assume",
+      "date": "2026-03-06",
+      "confirmed": 1,
+      "lastConfirmed": "2026-03-06",
+      "tags": ["auth", "environment", "build-gate", "pac-cli", "verification"],
+      "status": "active",
+      "projects": ["TestNorthwind"]
+    },
+    {
+      "id": "bm-016",
+      "file": "build-methods.md",
+      "title": "Knowledge file upload: POST works but file attach endpoints don't exist",
+      "date": "2026-03-06",
+      "confirmed": 1,
+      "lastConfirmed": "2026-03-06",
+      "tags": ["knowledge", "file-upload", "dataverse", "botcomponent", "manual-step"],
+      "status": "active",
+      "projects": ["TestNorthwind"]
+    },
+    {
+      "id": "bm-017",
+      "file": "build-methods.md",
+      "title": "Connectivity API doesn't resolve — blocks add-tool.js",
+      "date": "2026-03-06",
+      "confirmed": 1,
+      "lastConfirmed": "2026-03-06",
+      "tags": ["connectivity-api", "add-tool", "tool-configuration", "manual-step", "tenant-issue"],
+      "status": "active",
+      "projects": ["TestNorthwind"]
+    },
+    {
+      "id": "bm-018b",
+      "file": "build-methods.md",
+      "title": "Build discipline: never skip MVP items — attempt and document failures",
+      "date": "2026-03-06",
+      "confirmed": 1,
+      "lastConfirmed": "2026-03-06",
+      "tags": ["build-discipline", "reconciliation", "skip-nothing", "test-builds"],
+      "status": "active",
+      "projects": ["TestNorthwind"]
     }
   ]
 }

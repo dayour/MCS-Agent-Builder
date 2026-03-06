@@ -212,3 +212,66 @@ Line 1 (`# Name:`) = GptComponent display name. Line 2 (`# ...`) = agent descrip
 **Confirmed:** 1 build(s) | Last confirmed: 2026-03-05
 **Related cache:** dataverse-patterns.md, agent-lifecycle.md
 **Tags:** #synchronizationstatus #publish #dataverse #select-quirk #verification
+
+### OData $filter on _parentbotid_value is unreliable — use FetchXML {#bm-012} — 2026-03-06
+**Context:** TestNorthwind build — querying botcomponents by parent bot ID after agent creation
+**Tried:** OData `GET /botcomponents?$filter=_parentbotid_value eq <guid>` and `$filter=_parentbotid_value eq <guid> and componenttype eq 15`
+**Result:** Both queries return 0 results despite 15 components existing. FetchXML with `parentbotid` (logical name) returns all 15 correctly.
+**Better approach:** Always use FetchXML with `parentbotid` for botcomponent parent lookups. OData filter on `_parentbotid_value` is unreliable — possibly a Dataverse GUID matching quirk on lookup fields. The `mcs-lsp.js` tool already uses FetchXML correctly; build scripts should too.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-03-06
+**Related cache:** dataverse-patterns.md (pitfall #1)
+**Tags:** #dataverse #fetchxml #odata #parentbotid #botcomponent
+
+### $select=data on botcomponents returns empty — query full entity {#bm-013} — 2026-03-06
+**Context:** TestNorthwind build — verifying GptComponent data field after Dataverse PATCH
+**Tried:** `GET /botcomponents(<id>)?$select=data` to read the YAML content
+**Result:** Returns empty string. `GET /botcomponents(<id>)` (full entity, no $select) returns the correct YAML content (4703 chars). Same Dataverse quirk as `synchronizationstatus` on bots.
+**Better approach:** Never use `$select=data` on botcomponents. Query the full entity. This extends the known `$select` quirk (bm-011) to include the `data` field on botcomponents, not just `synchronizationstatus`/`publishedon` on bots.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-03-06
+**Related cache:** dataverse-patterns.md (pitfall #4)
+**Tags:** #dataverse #select-quirk #botcomponent #data-field
+
+### LSP push "0 changes" on newly created agents — Dataverse PATCH fallback added {#bm-014} — 2026-03-06
+**Context:** TestNorthwind build — first push after creating agent via Dataverse API + PvaProvision + LSP clone
+**Tried:** Clone agent → write full agent.mcs.yml (instructions, model, starters) → LSP push
+**Result:** Push completes with "0 local changes synced". The metadata patch (name + description) succeeds, but the YAML body (instructions, model, conversation starters) is NOT synced to the GptComponent data field. A manual Dataverse PATCH of the full `data` field works.
+**Better approach:** `mcs-lsp.js push` now includes `verifyAndPatchBody()` which runs after every push: reads GptComponent data field (full entity, no $select), checks if instructions are present. If missing, patches via Dataverse API. This handles the LSP's failure to detect changes on fresh agents.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-03-06
+**Related cache:** api-capabilities.md
+**Tags:** #lsp #push #zero-changes #dataverse #fallback #gpt-component
+
+### Auth gate must explicitly ask for environment — never assume {#bm-015} — 2026-03-06
+**Context:** TestNorthwind build — user selected account admin@M365CPI15209943 which has 2 environments (dktest, Contoso)
+**Tried:** Selected account → assumed "dktest" from sessionDefaults without asking user
+**Result:** Built on dktest without confirming. If user wanted Contoso, the entire build would target the wrong environment. Also, PAC CLI had a device auth error (AADSTS700003) that was only caught after the build started.
+**Better approach:** Auth gate must ALWAYS: (1) Ask account, (2) Ask environment explicitly when account has 2+ environments, (3) Verify three layers with actual API calls: Azure CLI tenant match → Dataverse API reachable → PAC CLI best-effort. Build skill updated with two-step selection + three-layer verification. PAC CLI failure is now a warning, not a blocker.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-03-06
+**Related cache:** N/A (process change, not API pattern)
+**Tags:** #auth #environment #build-gate #pac-cli #verification
+
+### Knowledge file upload: POST works but file attach endpoints don't exist {#bm-016} — 2026-03-06
+**Context:** TestNorthwind build — uploading CommonFixes.csv as agent knowledge file
+**Tried:** (1) `POST /botcomponents` with componenttype=16 + `parentbotid@odata.bind` + schemaname → record created successfully. (2) `PATCH /botcomponents(<id>)/fileattachment` → HTTP 404. (3) `PATCH /botcomponents(<id>)/botcomponentfiledata` → HTTP 404. (4) Original helper used `_parentbotid_value` → "CRM does not support direct update of Entity Reference properties" error.
+**Result:** Knowledge component record is created in Dataverse, but no file upload endpoint exists on botcomponents. The `content` and `fileattachment` and `botcomponentfiledata` paths all return 404. This extends the bm-002 learning: even with correct navigation properties, raw POST creates records MCS doesn't fully recognize.
+**Better approach:** For file knowledge: use MCS UI to upload (user-guided manual step), or find the MCS-specific file upload API (not raw Dataverse). The `dataverse-helper.ps1` `Add-BotKnowledgeFile` function now uses `parentbotid@odata.bind` + `schemaname` (fixed from `_parentbotid_value`), but file attachment still needs the correct endpoint. For SharePoint/URL knowledge: LSP push works (`knowledge/*.mcs.yml`).
+**Confirmed:** 1 build(s) | Last confirmed: 2026-03-06
+**Related cache:** dataverse-patterns.md, knowledge-sources.md
+**Tags:** #knowledge #file-upload #dataverse #botcomponent #manual-step
+
+### Connectivity API doesn't resolve — blocks add-tool.js for tool configuration {#bm-017} — 2026-03-06
+**Context:** TestNorthwind build — attempting to list connections and add tools
+**Tried:** `node tools/add-tool.js list-connections --env <envId> --connector shared_sharepointonline`
+**Result:** `getaddrinfo ENOTFOUND {envId}.environment.api.powerplatform.com` — the Power Platform Connectivity API hostname doesn't resolve for this tenant (M365CPI15209943). This is a known issue for certain tenants (also noted in MEMORY.md).
+**Better approach:** When connectivity API is unreachable: (1) Try Island Gateway API for tool discovery, (2) Use LSP pull to discover existing connections from the workspace, (3) Fall back to user-guided manual step (tell user to add the tool in MCS UI, verify via LSP pull after). This is a tenant-level infrastructure issue, not a code bug.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-03-06
+**Related cache:** api-capabilities.md, connectors.md
+**Tags:** #connectivity-api #add-tool #tool-configuration #manual-step #tenant-issue
+
+### Build discipline: never skip MVP items — attempt and document failures {#bm-018b} — 2026-03-06
+**Context:** TestNorthwind build — first pass skipped tools, knowledge, and custom topics entirely with rationalization "fictional data sources"
+**Tried:** Skipped 9 of 17 MVP items because external systems were fictional
+**Result:** Reconciliation showed 8/17 match — build was incomplete. Second pass attempted every item: 14 matched, 1 partial (placeholder topic), 4 blocked with specific errors documented.
+**Better approach:** ALWAYS attempt every MVP item in the brief, even in test builds. If an item fails, document: (1) what was tried, (2) the specific error, (3) what needs to happen to unblock it. A failed attempt with a clear error is infinitely more valuable than a silently skipped item. The build skill already says "never mark complete until verified" — extend this to "never skip without attempting."
+**Confirmed:** 1 build(s) | Last confirmed: 2026-03-06
+**Related cache:** N/A (process discipline)
+**Tags:** #build-discipline #reconciliation #skip-nothing #test-builds

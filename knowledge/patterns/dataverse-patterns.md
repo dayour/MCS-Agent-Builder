@@ -370,13 +370,13 @@ curl -s -X PATCH "https://<org>.crm.dynamics.com/api/data/v9.2/bots(<botId>)" \
 
 ### Common Pitfalls
 
-1. **`_parentbotid_value` vs `parentbotid` vs `parentbotid@odata.bind`**: For **OData/SQL queries** (Dataverse MCP `read_query`, OData `$filter`), use `_parentbotid_value`. For **FetchXML** (`env_fetch`, curl with `fetchXml=`), use the logical name `parentbotid` — using `_parentbotid_value` in FetchXML returns: "entity doesn't contain attribute with Name = '_parentbotid_value'". For **POST/PATCH** with navigation properties, use `"parentbotid@odata.bind": "/bots(<guid>)"`. Direct update of `_parentbotid_value` returns: "CRM does not support direct update of Entity Reference properties."
+1. **`_parentbotid_value` vs `parentbotid` — prefer FetchXML**: OData `$filter` with `_parentbotid_value eq <guid>` is **unreliable** — sometimes returns 0 results even when components exist (confirmed Mar 2026). For **FetchXML** (`env_fetch`, curl with `fetchXml=`), use the logical name `parentbotid` — this is the reliable path. For **Dataverse MCP `read_query`** (SQL syntax), `_parentbotid_value` works. For **POST/PATCH** with navigation properties, use `"parentbotid@odata.bind": "/bots(<guid>)"`. **Rule of thumb: always use FetchXML for botcomponent parent lookups.**
 
 2. **`schemaname` is required**: POST without `schemaname` returns: "Attribute 'schemaname' cannot be NULL." Generate a unique schema name (e.g., `cr_componentname_<random>`).
 
 3. **OData `$filter` in Bash**: The `$` sign conflicts with Bash variable expansion. Use PowerShell for OData queries, or carefully escape: `\$filter` (but this can cause "Query option '\\' specified more than once" errors). Safest: use FetchXML via `env_fetch` instead of OData `$filter`.
 
-4. **`$select` doesn't work for JSON/computed fields**: `synchronizationstatus` and `publishedon` return null when requested via `$select=synchronizationstatus,publishedon`. Query the full entity (no `$select` parameter) to get these fields. This is a Dataverse quirk with JSON-typed memo fields.
+4. **`$select` doesn't work for JSON/computed fields**: `synchronizationstatus`, `publishedon`, and **`data` on botcomponents** return null/empty when requested via `$select`. Query the full entity (no `$select` parameter) to get these fields. This applies to both `bots` and `botcomponents` entities. Confirmed Mar 2026: `$select=data` on botcomponents returns empty string even when the full entity query returns the YAML content.
 
 ---
 

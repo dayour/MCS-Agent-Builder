@@ -107,7 +107,7 @@ const CapabilitiesSection = ({ data, onChange }: Props) => {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                     <p className="text-sm font-medium text-foreground">{item.name}</p>
-                    {item.implementationType && item.implementationType !== "prompt" && (
+                    {item.implementationType && (
                       <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${IMPL_STYLES[item.implementationType] || IMPL_STYLES.prompt}`}>
                         {item.implementationType}
                       </span>

@@ -20,7 +20,8 @@ This skill handles all build modes:
 3. **Never mark a task complete until verified**: If you can't verify, say "I did X but couldn't verify Y".
 4. **File generation ≠ deployment**: Writing a local file is NOT the same as uploading it to MCS.
 5. **Environment check**: Before PAC CLI ops, verify the agent's environment matches PAC CLI's active profile.
-6. **End-of-build reconciliation**: After ALL changes, walk the brief's component list and snapshot-verify each item.
+6. **Never skip MVP items**: Attempt EVERY item in the brief tagged `phase: "mvp"`. If an item fails (missing connector, API unreachable, endpoint not found), document: (a) what was tried, (b) the specific error, (c) what's needed to unblock it. A failed attempt with a clear error is valuable. A silently skipped item is a build gap. Even test builds with fictional data must attempt each step.
+7. **End-of-build reconciliation**: After ALL changes, walk the brief's component list and snapshot-verify each item. Every MVP item must show MATCH, PARTIAL (with reason), FAILED (with error), or BLOCKED (with dependency). Zero items should show SKIPPED.
 
 ## Input
 
@@ -41,48 +42,82 @@ Every build targets a specific tenant and environment. This gate reads persisted
 
 ### Unified Auth Gate
 
-All three auth layers (PAC CLI, Azure CLI, Browser target) derive from one account selection. This gate handles them together.
+All auth layers (PAC CLI, Azure CLI, Dataverse API) derive from one account + environment selection. This gate ALWAYS confirms both, then verifies all layers work.
+
+**Two-step selection: Account → Environment. Never assume the environment.**
+
+#### Step A: Account + Environment Selection
 
 1. **Read brief.json** → check `buildStatus.account`, `buildStatus.environment`, `buildStatus.accountId`
-2. **If all three exist** (previous build ran):
-   - Look up account in `tools/session-config.json` by `accountId` to get `pacProfileIndex` + `tenantId`
-   - **No question asked.** If the user wants to change target, they can say so.
-3. **If missing** (first build for this agent):
-   a. Read `tools/session-config.json`
-   b. Check `sessionDefaults.lastAccount` and `sessionDefaults.lastEnvironment`
-   c. **If sessionDefaults has values** → pre-fill and confirm with ONE yes/no question:
-      - `AskUserQuestion`: "Build on {lastAccount} / {lastEnvironment}?" — options: "Yes (Recommended)" / "Choose different account"
-      - If "Yes" → use sessionDefaults, skip picker
-      - If "Choose different" → full picker (step d)
-   d. **If sessionDefaults empty** (truly first time) → use `AskUserQuestion`:
-      - Q1: "Which account should we build under?" — options from session-config accounts
-      - Q2: "Which environment?" — options from the selected account's environments
-   e. **Persist the selection** to BOTH locations:
-      - `brief.json.buildStatus` → set `account`, `environment`, `accountId`
-      - `session-config.json.sessionDefaults` → set `lastAccount`, `lastEnvironment`, `lastUpdated`
-4. **Set PAC CLI:** `pac auth select --index {pacProfileIndex}`
-5. **Verify & set Azure CLI:**
-   a. Run: `az account show --query "{tenantId:tenantId, user:user.name}" -o json`
-   b. Compare `az.tenantId` against `config.tenantId`:
-      - **Match** → proceed
-      - **Mismatch or not logged in** → Run: `az login --tenant {tenantId}` (opens browser popup — user authenticates — same UX as MCS login)
-      - **No stored tenantId** → `az account show`, ask user to confirm, persist tenantId to session-config.json
-   c. After login completes, re-verify: `az account show` → must match now
-   d. Persist `azTenantId` to `brief.json.buildStatus`
-6. **Log unified summary:**
-   ```
-   Auth verified: {account} / {environment}
-     PAC CLI: profile {index} ✓
-     Azure CLI: {user} (tenant {id}) ✓
-   ```
+2. **Read `tools/session-config.json`** → get all accounts and their environments
+3. **Build the confirmation question:**
+   - If `buildStatus` has account + environment (previous build): pre-fill from buildStatus
+   - Else if `sessionDefaults` has values: pre-fill from sessionDefaults
+   - Else: no pre-fill (first time)
+
+4. **Always ask the user to confirm** — even on resume:
+   - **Q1: "Which account?"** — list accounts from session-config, pre-select the recommended one
+   - **Q2: "Which environment?"** — list environments for the selected account. **This is mandatory when the account has 2+ environments.** If only 1 environment exists, auto-select but still show it in the confirmation.
+   - **Single question shortcut:** If the pre-filled account has only 1 environment, combine into one yes/no: "Build on {account} / {environment}?" with "Yes (Recommended)" / "Choose different"
+   - **Two questions required:** If the pre-filled account has 2+ environments, ALWAYS ask Q2 separately. Do NOT assume the last-used environment.
+
+5. **Persist the selection** to BOTH locations:
+   - `brief.json.buildStatus` → set `account`, `environment`, `accountId`
+   - `session-config.json.sessionDefaults` → set `lastAccount`, `lastEnvironment`, `lastUpdated`
+
+#### Step B: Three-Layer Verification
+
+After account + environment are confirmed, verify ALL three layers actually work. Do not proceed until all pass.
+
+**Layer 1 — Azure CLI (primary auth):**
+```
+az account show --query "{tenantId:tenantId, user:user.name}" -o json
+```
+- Compare `tenantId` against session-config's `tenantId` for the selected account
+- **Match** → proceed
+- **Mismatch or not logged in** → `az login --tenant {tenantId}` (browser popup)
+- After login, re-verify: `az account show` must match
+
+**Layer 2 — Dataverse API (environment reachable):**
+```
+TOKEN=$(az account get-access-token --resource <dataverseUrl> --query accessToken -o tsv)
+curl -s "<dataverseUrl>/api/data/v9.2/bots?$top=1" -H "Authorization: Bearer $TOKEN"
+```
+- Must return HTTP 200 (regardless of how many bots exist)
+- If token fails → az CLI auth is wrong for this environment
+- If HTTP 4xx → Dataverse URL is wrong or environment is unreachable
+- **This is the critical check** — if Dataverse API doesn't work, the build cannot proceed
+
+**Layer 3 — PAC CLI (optional, best-effort):**
+```
+pac auth select --index {pacProfileIndex}
+pac copilot list
+```
+- If PAC CLI works → log "PAC CLI: profile {index} ✓"
+- If PAC CLI fails (device auth error, connection error) → log "PAC CLI: UNAVAILABLE — using Dataverse API as fallback" and continue. PAC CLI is optional in the build stack — every PAC CLI operation has a Dataverse API equivalent.
+- **Do NOT block the build** on PAC CLI failure
+
+#### Step C: Log Verification Summary
+
+```
+Auth verified: {account} / {environment}
+  Azure CLI: {user} (tenant {tenantId}) ✓
+  Dataverse: {dataverseUrl} reachable ✓
+  PAC CLI: profile {index} ✓ | UNAVAILABLE (using API fallback)
+```
+
+**If Layer 1 or Layer 2 fails → STOP the build.** Report the failure and what the user should do.
+**If only Layer 3 fails → WARN and continue.** The build uses Dataverse API for everything.
 
 ### Rules
 
+- **Never assume the environment** — always confirm, even on resume. An account can have multiple environments.
 - Never run `az logout` — only `az login` to switch tenants
 - This gate runs ONCE at build start, not before every tool call
-- If `az login` fails (network, MFA timeout): alert user, API tools will fail until auth is resolved
-- If the user says "switch to [account/env]" at any point, re-run the entire gate and update both persistence locations
+- If `az login` fails (network, MFA timeout): alert user, build cannot proceed
+- If the user says "switch to [account/env]" at any point, re-run the entire gate
 - If an account has no environments listed, ask the user to provide the environment name manually
+- **Verification must use actual API calls, not just config lookups** — config can be stale
 
 ---
 
@@ -96,8 +131,8 @@ After auth is verified, capture ALL derived state into `brief.json.buildStatus` 
    - `environmentId` ← `accounts[].environments[].environmentId`
 
 2. **From Dataverse** (if `mcsAgentId` exists — resume build):
-   - `botSchemaName` ← `GET <dataverseUrl>/api/data/v9.2/bots(<mcsAgentId>)?$select=schemaname` → `schemaname` field
-   - `gptComponentId` ← FetchXML query for botcomponent where `_parentbotid_value`=`<mcsAgentId>` AND `componenttype`=15
+   - `botSchemaName` ← `GET <dataverseUrl>/api/data/v9.2/bots(<mcsAgentId>)` → `schemaname` field (query full entity — `$select` can miss fields)
+   - `gptComponentId` ← FetchXML query for botcomponent where `parentbotid`=`<mcsAgentId>` AND `componenttype`=15. **Must use FetchXML with `parentbotid` (logical name) — OData filter with `_parentbotid_value` is unreliable.**
 
 3. **Persist to brief.json.buildStatus** — write all fields atomically.
 

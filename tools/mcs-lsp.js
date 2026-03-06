@@ -568,12 +568,96 @@ async function patchMetadata(workspacePath) {
     }
 }
 
+/**
+ * Verify GptComponent body content was synced after push. PATCH fallback if missing.
+ *
+ * The LSP's syncPush sometimes reports "0 changes" on newly created agents,
+ * leaving the GptComponent data field empty despite local modifications.
+ * This function verifies the body was actually synced and patches it if not.
+ *
+ * IMPORTANT: Must query full entity (no $select) because $select=data returns
+ * empty for JSON-type columns in Dataverse (same quirk as synchronizationstatus).
+ */
+async function verifyAndPatchBody(workspacePath) {
+    const agentYmlPath = path.join(workspacePath, 'agent.mcs.yml');
+    if (!fs.existsSync(agentYmlPath)) return null;
+
+    const localContent = fs.readFileSync(agentYmlPath, 'utf8');
+
+    // Skip if local file is minimal (just kind header, no instructions)
+    if (!localContent.includes('instructions:')) return null;
+
+    const connJson = readConnJson(workspacePath);
+    const dvUrl = connJson.DataverseEndpoint.replace(/\/$/, '');
+    const agentId = connJson.AgentId;
+    const token = getAzToken(dvUrl);
+
+    // Find GptComponent via FetchXML (use parentbotid, NOT _parentbotid_value)
+    const fetchXml = `<fetch top="1"><entity name="botcomponent"><attribute name="botcomponentid"/><filter><condition attribute="parentbotid" operator="eq" value="${agentId}"/><condition attribute="componenttype" operator="eq" value="15"/></filter></entity></fetch>`;
+
+    const searchRes = await httpRequest('GET',
+        `${dvUrl}/api/data/v9.2/botcomponents?fetchXml=${encodeURIComponent(fetchXml)}`,
+        { 'Authorization': `Bearer ${token}` },
+        null
+    );
+
+    if (searchRes.status !== 200 || !searchRes.data.value || searchRes.data.value.length === 0) {
+        console.error('[mcs-lsp] No GptComponent found for body verification — skipping');
+        return null;
+    }
+
+    const gptId = searchRes.data.value[0].botcomponentid;
+
+    // Query FULL entity (no $select — $select=data returns empty for JSON columns)
+    const fullRes = await httpRequest('GET',
+        `${dvUrl}/api/data/v9.2/botcomponents(${gptId})`,
+        { 'Authorization': `Bearer ${token}` },
+        null
+    );
+
+    if (fullRes.status !== 200) {
+        console.error(`[mcs-lsp] Failed to read GptComponent: HTTP ${fullRes.status}`);
+        return null;
+    }
+
+    const remoteData = fullRes.data.data || '';
+
+    // Check if remote body has instruction content
+    const localHasInstructions = localContent.includes('instructions:');
+    const remoteHasInstructions = remoteData.includes('instructions:');
+
+    if (localHasInstructions && !remoteHasInstructions) {
+        console.error('[mcs-lsp] GptComponent body missing after push — patching via Dataverse fallback...');
+
+        const patchRes = await httpRequest('PATCH',
+            `${dvUrl}/api/data/v9.2/botcomponents(${gptId})`,
+            {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                'If-Match': '*'
+            },
+            JSON.stringify({ data: localContent })
+        );
+
+        if (patchRes.status === 204 || patchRes.status === 200) {
+            console.error('[mcs-lsp] Body content patched successfully via Dataverse fallback');
+            return { patched: true, gptComponentId: gptId, reason: 'LSP push did not sync body content' };
+        } else {
+            console.error(`[mcs-lsp] Body patch failed: HTTP ${patchRes.status}`);
+            return { patched: false, error: patchRes.data, gptComponentId: gptId };
+        }
+    }
+
+    return { patched: false, gptComponentId: gptId, reason: 'Body content already present' };
+}
+
 // --- Commands ---
 
 /**
  * Push local changes to MCS (local → remote).
  * After LSP push, automatically patches agent metadata (name + description)
  * via Dataverse API since LSP does not sync comment headers.
+ * Then verifies body content was synced, with Dataverse PATCH fallback.
  */
 async function push(workspacePath, options = {}) {
     const connJson = readConnJson(workspacePath);
@@ -610,6 +694,17 @@ async function push(workspacePath, options = {}) {
     } catch (err) {
         console.error(`[mcs-lsp] Metadata patch error (non-fatal): ${err.message}`);
         result.metadataPatch = { patched: false, error: err.message };
+    }
+
+    // Verify body content was synced, PATCH fallback if missing (Fix #3: LSP 0-change bug)
+    try {
+        const bodyResult = await verifyAndPatchBody(workspacePath);
+        if (bodyResult) {
+            result.bodyPatch = bodyResult;
+        }
+    } catch (err) {
+        console.error(`[mcs-lsp] Body verification error (non-fatal): ${err.message}`);
+        result.bodyPatch = { patched: false, error: err.message };
     }
 
     return result;

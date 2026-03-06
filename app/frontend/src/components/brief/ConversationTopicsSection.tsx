@@ -29,14 +29,16 @@ const OUTPUT_FORMAT_STYLES: Record<string, string> = {
 const TRIGGER_STYLES = "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300";
 
 const TRIGGER_TYPES = [
-  { value: "agent-chooses", label: "Agent Chooses" },
-  { value: "phrases", label: "Phrases" },
-  { value: "auto-start", label: "Auto Start" },
-  { value: "on-event", label: "On Event" },
-  { value: "on-redirect", label: "On Redirect" },
-  { value: "fallback", label: "Fallback" },
-  { value: "escalation", label: "Escalation" },
-  { value: "inactivity", label: "Inactivity" },
+  { value: "agent-chooses", label: "Agent Chooses", desc: "AI matches based on topic description — most common" },
+  { value: "phrases", label: "Phrases", desc: "Fires when user says specific trigger phrases" },
+  { value: "conversation-start", label: "Conversation Start", desc: "Runs automatically when user first opens the chat" },
+  { value: "fallback", label: "Fallback", desc: "Catches messages when no other topic matches" },
+  { value: "on-redirect", label: "Redirected To", desc: "Called from another topic via redirect action" },
+  { value: "on-event", label: "On Event", desc: "Triggered by a system event (SharePoint, Dataverse, etc.)" },
+  { value: "escalation", label: "Escalation", desc: "User says 'talk to a person' or agent escalates" },
+  { value: "inactivity", label: "Inactivity", desc: "User hasn't responded for a while" },
+  { value: "on-error", label: "On Error", desc: "Handles errors during conversation" },
+  { value: "on-sign-in", label: "Sign In", desc: "Triggered when authentication is required" },
 ];
 
 const ConversationTopicsSection = ({ data, onChange }: Props) => {
@@ -92,7 +94,12 @@ const ConversationTopicsSection = ({ data, onChange }: Props) => {
                     <SelectTrigger><SelectValue placeholder="Trigger" /></SelectTrigger>
                     <SelectContent>
                       {TRIGGER_TYPES.map((t) => (
-                        <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                        <SelectItem key={t.value} value={t.value}>
+                          <div>
+                            <span>{t.label}</span>
+                            <span className="text-[10px] text-muted-foreground block">{t.desc}</span>
+                          </div>
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -160,7 +167,7 @@ const ConversationTopicsSection = ({ data, onChange }: Props) => {
                     )}
                     {item.triggerType && item.triggerType !== "agent-chooses" && (
                       <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${TRIGGER_STYLES}`}>
-                        {item.triggerType}
+                        {TRIGGER_TYPES.find(t => t.value === item.triggerType)?.label || item.triggerType}
                       </span>
                     )}
                   </div>

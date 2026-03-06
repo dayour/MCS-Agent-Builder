@@ -25,16 +25,37 @@ interface Props {
 }
 
 const emptyAgent = { name: "", role: "", routingRule: "", model: "", agentFolderId: "" };
-const emptyTrigger = { type: "user-initiated", description: "" };
+const emptyTrigger = { type: "conversational", description: "" };
 const emptyChannel = { name: "", reason: "" };
 
-const TRIGGER_TYPES = ["User-initiated", "Scheduled", "Event-driven"];
-const CHANNEL_OPTIONS = [
-  "Microsoft Teams", "M365 Copilot", "Web chat", "Direct Line", "Slack", "Mobile app",
+const TRIGGER_TYPES = [
+  { value: "conversational", label: "Conversational", desc: "Users chat directly — Teams, web chat, M365 Copilot" },
+  { value: "event-driven", label: "Event-driven", desc: "System event activates the agent — SharePoint, Dataverse, email" },
+  { value: "scheduled", label: "Scheduled", desc: "Runs on a recurring time interval" },
+  { value: "autonomous", label: "Autonomous", desc: "Agent acts proactively without user prompting" },
 ];
+
+const CHANNEL_OPTIONS = [
+  { value: "Microsoft Teams", label: "Microsoft Teams", desc: "Primary workspace for most enterprise users" },
+  { value: "M365 Copilot", label: "M365 Copilot", desc: "Appears as a plugin inside Microsoft 365 Copilot" },
+  { value: "Web chat", label: "Web chat", desc: "Embed in any website or internal portal" },
+  { value: "Direct Line", label: "Direct Line", desc: "API-based channel for custom apps and testing" },
+  { value: "Slack", label: "Slack", desc: "For organizations using Slack as primary messaging" },
+  { value: "Mobile app", label: "Mobile app", desc: "Custom mobile app integration via Direct Line" },
+];
+
 const MODEL_OPTIONS = [
-  "gpt-4o", "gpt-4o-mini", "gpt-4.1", "gpt-4.1-mini", "gpt-4.1-nano",
-  "o1", "o1-mini", "o3-mini", "DeepSeek-R1",
+  { value: "gpt-4o", label: "GPT-4o", desc: "Best balance of speed and quality" },
+  { value: "gpt-4o-mini", label: "GPT-4o Mini", desc: "Fast and cost-effective for simple tasks" },
+  { value: "gpt-4.1", label: "GPT-4.1", desc: "Latest GPT model — improved instruction following" },
+  { value: "gpt-4.1-mini", label: "GPT-4.1 Mini", desc: "Compact GPT-4.1 for routine tasks" },
+  { value: "gpt-4.1-nano", label: "GPT-4.1 Nano", desc: "Smallest GPT model — fastest, lowest cost" },
+  { value: "o1", label: "o1", desc: "Reasoning model for complex multi-step problems" },
+  { value: "o1-mini", label: "o1 Mini", desc: "Compact reasoning model" },
+  { value: "o3-mini", label: "o3 Mini", desc: "Latest compact reasoning model" },
+  { value: "DeepSeek-R1", label: "DeepSeek-R1", desc: "Open-source reasoning model" },
+  { value: "claude-sonnet-4-5", label: "Claude Sonnet 4.5", desc: "Anthropic — balanced reasoning and speed" },
+  { value: "claude-opus-4-6", label: "Claude Opus 4.6", desc: "Anthropic — most capable, complex analysis" },
 ];
 
 const ARCH_TYPES = [
@@ -54,6 +75,23 @@ const SOLUTION_TYPES = [
     color: "border-destructive bg-destructive/5 text-destructive" },
 ] as const;
 
+const SOL_TYPE_FACTOR_META = [
+  { name: "Conversational Need", desc: "Do users need dialogue — back-and-forth, follow-ups, explanations?" },
+  { name: "Interaction Pattern", desc: "Are most capabilities reactive (user asks, agent responds) vs procedural (event → pipeline)?" },
+  { name: "Capability Distribution", desc: "Are 50%+ capabilities prompt/topic/knowledge (agent) vs flow/tool (automation)?" },
+  { name: "User Value of NL", desc: "Do users gain value from natural language vs a structured UI (form, button, filter)?" },
+  { name: "MCS Feasibility", desc: "Are response times, data volumes, and connectors compatible with MCS?" },
+];
+
+const ARCH_SCORING_FACTOR_META = [
+  { name: "Domain Separation", desc: "Do capabilities span truly separate business domains?" },
+  { name: "Data Isolation", desc: "Does each capability need different backend systems?" },
+  { name: "Team Ownership", desc: "Would different teams own different parts of the agent?" },
+  { name: "Reusability", desc: "Could specialist agents be reused by other orchestrators?" },
+  { name: "Instruction Size", desc: "Would a single agent's instructions exceed 8,000 characters?" },
+  { name: "Knowledge Isolation", desc: "Does each domain need its own deep, isolated knowledge base?" },
+];
+
 const ArchitectureSection = ({ data, onChange, context }: Props) => {
   const [editingMeta, setEditingMeta] = useState(false);
   const [metaDraft, setMetaDraft] = useState<any>(null);
@@ -63,6 +101,71 @@ const ArchitectureSection = ({ data, onChange, context }: Props) => {
   const [scaffolding, setScaffolding] = useState(false);
 
   const update = (partial: any) => onChange?.({ ...data, ...partial });
+
+  const getFactors = (key: string, meta: typeof SOL_TYPE_FACTOR_META) => {
+    const existing: any[] = data[key] || [];
+    return meta.map(m => {
+      const found = existing.find((f: any) => f.factor === m.name);
+      return found || { factor: m.name, score: false, notes: "" };
+    });
+  };
+
+  const toggleFactor = (key: string, factorName: string, meta: typeof SOL_TYPE_FACTOR_META, scoreKey: string) => {
+    const factors = getFactors(key, meta);
+    const updated = factors.map((f: any) =>
+      f.factor === factorName ? { ...f, score: !f.score } : f
+    );
+    const score = updated.filter((f: any) => f.score).length;
+    update({ [key]: updated, [scoreKey]: score });
+  };
+
+  const updateFactorNotes = (key: string, factorName: string, notes: string, meta: typeof SOL_TYPE_FACTOR_META) => {
+    const factors = getFactors(key, meta);
+    const updated = factors.map((f: any) =>
+      f.factor === factorName ? { ...f, notes } : f
+    );
+    update({ [key]: updated });
+  };
+
+  const renderFactorTable = (factorKey: string, meta: typeof SOL_TYPE_FACTOR_META, scoreKey: string, title: string) => {
+    const factors = getFactors(factorKey, meta);
+    const yesCount = factors.filter((f: any) => f.score).length;
+    return (
+      <div className="rounded-lg border border-border bg-card p-3">
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="text-xs font-medium text-muted-foreground">{title}</h4>
+          <span className="text-sm font-bold text-foreground">{yesCount}/{meta.length}</span>
+        </div>
+        {factors.map((f: any, idx: number) => {
+          const m = meta[idx];
+          return (
+            <div key={m.name} className="flex items-start gap-3 py-2 border-t border-border/50">
+              <button
+                type="button"
+                onClick={() => toggleFactor(factorKey, m.name, meta, scoreKey)}
+                className={`shrink-0 mt-0.5 flex items-center w-9 h-5 rounded-full px-0.5 transition-colors ${
+                  f.score ? "bg-primary justify-end" : "bg-muted border border-border justify-start"
+                }`}
+              >
+                <span className="block w-4 h-4 rounded-full bg-white shadow-sm" />
+              </button>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-foreground">{m.name}</p>
+                <p className="text-[10px] text-muted-foreground leading-tight">{m.desc}</p>
+                <input
+                  type="text"
+                  className="mt-1 w-full text-[11px] bg-transparent border-b border-border/50 focus:border-primary outline-none py-0.5 text-muted-foreground placeholder:text-muted-foreground/50"
+                  placeholder="Reasoning..."
+                  value={f.notes || ""}
+                  onChange={(e) => updateFactorNotes(factorKey, m.name, e.target.value, meta)}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
 
   const startMetaEdit = () => {
     setMetaDraft({
@@ -177,7 +280,6 @@ const ArchitectureSection = ({ data, onChange, context }: Props) => {
   const solutionType = data.solutionType ?? "agent";
   const solType = SOLUTION_TYPES.find((t) => t.value === solutionType);
   const isNonAgent = (solutionType === "flow" || solutionType === "not-recommended") && !data.solutionTypeOverride;
-  const solutionTypeFactors = data.solutionTypeFactors ?? [];
 
   const [editingSolutionType, setEditingSolutionType] = useState(false);
   const [solTypeDraft, setSolTypeDraft] = useState<any>(null);
@@ -275,29 +377,14 @@ const ArchitectureSection = ({ data, onChange, context }: Props) => {
             )}
           </div>
 
-          {/* Factor table */}
-          {solutionTypeFactors.length > 0 && (
-            <div className="rounded-lg border border-border bg-card p-3">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="text-muted-foreground">
-                    <th className="text-left font-medium pb-1">Factor</th>
-                    <th className="text-center font-medium pb-1 w-12">Score</th>
-                    <th className="text-left font-medium pb-1">Reasoning</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {solutionTypeFactors.map((f: any, i: number) => (
-                    <tr key={i} className="border-t border-border/50">
-                      <td className="py-1 font-medium text-foreground">{f.factor}</td>
-                      <td className="py-1 text-center">{f.score ? "Yes" : "No"}</td>
-                      <td className="py-1 text-muted-foreground">{f.notes || "\u2014"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          {renderFactorTable("solutionTypeFactors", SOL_TYPE_FACTOR_META, "solutionTypeScore", "Assessment Factors")}
+          {(() => {
+            const s = getFactors("solutionTypeFactors", SOL_TYPE_FACTOR_META).filter(f => f.score).length;
+            if (s >= 4) return <p className="text-xs font-medium text-primary mt-1.5">Score {s}/5 — Agent</p>;
+            if (s === 3) return <p className="text-xs font-medium text-amber-600 mt-1.5">Score {s}/5 — Borderline: consider Hybrid (agent + flows)</p>;
+            if (s >= 1) return <p className="text-xs font-medium text-purple-600 mt-1.5">Score {s}/5 — Power Automate Flow recommended instead</p>;
+            return <p className="text-xs font-medium text-destructive mt-1.5">Score {s}/5 — Not recommended for MCS</p>;
+          })()}
 
           {/* Alternative recommendation callout */}
           {data.alternativeRecommendation && isNonAgent && (
@@ -379,6 +466,20 @@ const ArchitectureSection = ({ data, onChange, context }: Props) => {
         </div>
       ) : null}
 
+      {/* Architecture Scoring Factors — informs single vs multi-agent decision */}
+      {!isNonAgent && (
+        <div className="space-y-2">
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Architecture Scoring</h3>
+          <p className="text-[10px] text-muted-foreground">Score 3+ suggests multi-agent. These factors determine whether a single agent can handle all capabilities or specialists are needed.</p>
+          {renderFactorTable("scoring", ARCH_SCORING_FACTOR_META, "archScoreCache", "Scoring Factors")}
+          {(() => {
+            const s = getFactors("scoring", ARCH_SCORING_FACTOR_META).filter(f => f.score).length;
+            if (s >= 3) return <p className="text-xs font-medium text-amber-600 mt-1.5">Score {s}/6 — Multi-Agent recommended</p>;
+            return <p className="text-xs font-medium text-primary mt-1.5">Score {s}/6 — Single Agent</p>;
+          })()}
+        </div>
+      )}
+
       {/* Triggers + Channels — hidden when non-agent */}
       {!isNonAgent && (
       <>
@@ -396,7 +497,12 @@ const ArchitectureSection = ({ data, onChange, context }: Props) => {
                     <SelectTrigger><SelectValue placeholder="Trigger type" /></SelectTrigger>
                     <SelectContent>
                       {TRIGGER_TYPES.map((tt) => (
-                        <SelectItem key={tt} value={tt}>{tt}</SelectItem>
+                        <SelectItem key={tt.value} value={tt.value}>
+                          <div>
+                            <span>{tt.label}</span>
+                            <span className="text-[10px] text-muted-foreground block">{tt.desc}</span>
+                          </div>
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -409,7 +515,7 @@ const ArchitectureSection = ({ data, onChange, context }: Props) => {
               ) : (
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-foreground">{typeof t === "string" ? t : t.type}</p>
+                    <p className="text-sm font-medium text-foreground">{TRIGGER_TYPES.find(tt => tt.value === (typeof t === "string" ? t : t.type))?.label || (typeof t === "string" ? t : t.type)}</p>
                     {typeof t !== "string" && t.description && <p className="text-xs text-muted-foreground">{t.description}</p>}
                   </div>
                   <div className="flex gap-1">
@@ -438,7 +544,12 @@ const ArchitectureSection = ({ data, onChange, context }: Props) => {
                     <SelectTrigger><SelectValue placeholder="Select channel" /></SelectTrigger>
                     <SelectContent>
                       {CHANNEL_OPTIONS.map((c) => (
-                        <SelectItem key={c} value={c}>{c}</SelectItem>
+                        <SelectItem key={c.value} value={c.value}>
+                          <div>
+                            <span>{c.label}</span>
+                            <span className="text-[10px] text-muted-foreground block">{c.desc}</span>
+                          </div>
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -497,7 +608,12 @@ const ArchitectureSection = ({ data, onChange, context }: Props) => {
                       <SelectTrigger><SelectValue placeholder="Model preference" /></SelectTrigger>
                       <SelectContent>
                         {MODEL_OPTIONS.map((m) => (
-                          <SelectItem key={m} value={m}>{m}</SelectItem>
+                          <SelectItem key={m.value} value={m.value}>
+                            <div>
+                              <span>{m.label}</span>
+                              <span className="text-[10px] text-muted-foreground block">{m.desc}</span>
+                            </div>
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
