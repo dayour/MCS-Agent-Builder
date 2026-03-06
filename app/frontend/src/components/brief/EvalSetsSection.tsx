@@ -153,9 +153,12 @@ const EvalSetsSection = ({ data, onChange }: Props) => {
           return (
             <div key={set.name} className="rounded-lg border border-border bg-card overflow-hidden">
               {/* Set header */}
-              <button
+              <div
+                role="button"
+                tabIndex={0}
                 onClick={() => toggleSet(set.name)}
-                className="w-full flex items-center gap-3 p-4 hover:bg-surface-2 transition-colors text-left"
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleSet(set.name); } }}
+                className="w-full flex items-center gap-3 p-4 hover:bg-surface-2 transition-colors text-left cursor-pointer"
               >
                 {isExpanded ? (
                   <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -206,7 +209,7 @@ const EvalSetsSection = ({ data, onChange }: Props) => {
                   )}
                   <p className="text-[10px] text-muted-foreground">target: {set.passThreshold}%</p>
                 </div>
-              </button>
+              </div>
 
               {/* Expanded content */}
               {isExpanded && (
