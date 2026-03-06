@@ -5285,6 +5285,10 @@
         {
           "title": "Portuguese_Portugal",
           "const": 2070
+        },
+        {
+          "title": "Spanish_PR",
+          "const": 20490
         }
       ]
     },

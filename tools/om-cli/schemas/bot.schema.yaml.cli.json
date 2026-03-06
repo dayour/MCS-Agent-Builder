@@ -8323,13 +8323,13 @@
         },
         "isRedactCreditCardEnabled": {
           "title": "Redact credit card numbers",
-          "description": "Redact credit card numbers from inbound call and chat transcripts and logs. Audio recordings aren't redacted, and outbound interactions aren't included.",
+          "description": "Redact credit card numbers from inbound calls, outbound messages, chat transcripts, and logs. Audio recordings aren't redacted.",
           "default": false,
           "type": "boolean"
         },
         "isRedactSsnEnabled": {
           "title": "Redact social security numbers",
-          "description": "Redact Social Security numbers from inbound call and chat transcripts and logs. Audio recordings aren't redacted, and outbound interactions aren't included.",
+          "description": "Redact Social Security numbers from inbound calls, outbound messages, chat transcripts, and logs. Audio recordings aren't redacted.",
           "default": false,
           "type": "boolean"
         }
@@ -17852,6 +17852,10 @@
         {
           "title": "Portuguese_Portugal",
           "const": 2070
+        },
+        {
+          "title": "Spanish_PR",
+          "const": 20490
         }
       ]
     },
