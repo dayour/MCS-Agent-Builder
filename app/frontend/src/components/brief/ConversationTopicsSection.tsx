@@ -14,6 +14,7 @@ interface Props { data: any; onChange?: (data: any) => void; }
 const emptyItem = {
   name: "", description: "", type: "generative", phase: "MVP",
   flowDescription: "", outputFormat: "text", triggerType: "agent-chooses",
+  triggerPhrases: [] as string[],
   implements: [] as string[], connectedIntegrations: [] as string[],
 };
 
@@ -26,6 +27,17 @@ const OUTPUT_FORMAT_STYLES: Record<string, string> = {
 };
 
 const TRIGGER_STYLES = "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300";
+
+const TRIGGER_TYPES = [
+  { value: "agent-chooses", label: "Agent Chooses" },
+  { value: "phrases", label: "Phrases" },
+  { value: "auto-start", label: "Auto Start" },
+  { value: "on-event", label: "On Event" },
+  { value: "on-redirect", label: "On Redirect" },
+  { value: "fallback", label: "Fallback" },
+  { value: "escalation", label: "Escalation" },
+  { value: "inactivity", label: "Inactivity" },
+];
 
 const ConversationTopicsSection = ({ data, onChange }: Props) => {
   const [editIdx, setEditIdx] = useState<number | null>(null);
@@ -42,6 +54,9 @@ const ConversationTopicsSection = ({ data, onChange }: Props) => {
   const remove = (i: number) => { update(data.items.filter((_: any, idx: number) => idx !== i)); if (editIdx === i) cancelEdit(); };
   const add = () => { update([...data.items, { ...emptyItem }]); setEditIdx(data.items.length); setDraft({ ...emptyItem }); };
 
+  /** Parse comma-separated string to array */
+  const csvToArray = (s: string) => s.split(",").map((v) => v.trim()).filter(Boolean);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -53,20 +68,32 @@ const ConversationTopicsSection = ({ data, onChange }: Props) => {
         <Button variant="outline" size="sm" onClick={add} className="gap-1.5"><Plus className="h-3.5 w-3.5" /> Add Topic</Button>
       </div>
 
-      {/* ── Topic List ──────────────────────────────────────── */}
       <div className="space-y-2">
         {data.items.map((item: any, i: number) => (
           <div key={i} className="rounded-lg border border-border bg-card p-4">
             {editIdx === i && draft ? (
               <div className="space-y-3">
                 <Input placeholder="Topic name" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
-                <Input placeholder="Description" value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} />
-                <div className="grid grid-cols-2 gap-3">
+                <Textarea
+                  placeholder="Description — what this topic does (also used for AI routing: say when to use AND when NOT to use)"
+                  value={draft.description}
+                  onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+                  className="min-h-[50px] text-sm"
+                />
+                <div className="grid grid-cols-3 gap-3">
                   <Select value={draft.type} onValueChange={(v) => setDraft({ ...draft, type: v })}>
                     <SelectTrigger><SelectValue placeholder="Type" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="generative">Generative</SelectItem>
                       <SelectItem value="custom">Custom</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={draft.triggerType || "agent-chooses"} onValueChange={(v) => setDraft({ ...draft, triggerType: v })}>
+                    <SelectTrigger><SelectValue placeholder="Trigger" /></SelectTrigger>
+                    <SelectContent>
+                      {TRIGGER_TYPES.map((t) => (
+                        <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <Select value={draft.phase || "MVP"} onValueChange={(v) => setDraft({ ...draft, phase: v })}>
@@ -88,17 +115,24 @@ const ConversationTopicsSection = ({ data, onChange }: Props) => {
                       <SelectItem value="escalate">Escalate</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Select value={draft.triggerType || "agent-chooses"} onValueChange={(v) => setDraft({ ...draft, triggerType: v })}>
-                    <SelectTrigger><SelectValue placeholder="Trigger Type" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="agent-chooses">Agent Chooses</SelectItem>
-                      <SelectItem value="phrases">Phrases</SelectItem>
-                      <SelectItem value="auto-start">Auto Start</SelectItem>
-                      <SelectItem value="on-event">On Event</SelectItem>
-                      <SelectItem value="on-redirect">On Redirect</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Input
+                    placeholder="Implements (capability names, comma-separated)"
+                    value={(draft.implements ?? []).join(", ")}
+                    onChange={(e) => setDraft({ ...draft, implements: csvToArray(e.target.value || "") })}
+                  />
                 </div>
+                {draft.triggerType === "phrases" && (
+                  <Input
+                    placeholder="Trigger phrases (comma-separated)"
+                    value={(draft.triggerPhrases ?? []).join(", ")}
+                    onChange={(e) => setDraft({ ...draft, triggerPhrases: csvToArray(e.target.value || "") })}
+                  />
+                )}
+                <Input
+                  placeholder="Connected integrations (tool names, comma-separated)"
+                  value={(draft.connectedIntegrations ?? []).join(", ")}
+                  onChange={(e) => setDraft({ ...draft, connectedIntegrations: csvToArray(e.target.value || "") })}
+                />
                 {draft.type === "custom" && (
                   <Textarea
                     placeholder="Flow description — describe the full conversation design: inputs, logic, outputs, error handling. The Topic Engineer AI uses this to generate the implementation."
@@ -134,23 +168,17 @@ const ConversationTopicsSection = ({ data, onChange }: Props) => {
                   {item.type === "custom" && item.flowDescription && (
                     <p className="text-xs text-muted-foreground/70 mt-1 line-clamp-2">{item.flowDescription}</p>
                   )}
-                  {/* Linked capabilities */}
                   {item.implements?.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-1.5">
                       {item.implements.map((cap: string, j: number) => (
-                        <span key={j} className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-primary/10 text-primary">
-                          {cap}
-                        </span>
+                        <span key={j} className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-primary/10 text-primary">{cap}</span>
                       ))}
                     </div>
                   )}
-                  {/* Connected integrations */}
                   {item.connectedIntegrations?.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-1">
                       {item.connectedIntegrations.map((tool: string, j: number) => (
-                        <span key={j} className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300">
-                          {tool}
-                        </span>
+                        <span key={j} className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300">{tool}</span>
                       ))}
                     </div>
                   )}

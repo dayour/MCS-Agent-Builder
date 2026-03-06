@@ -7,10 +7,17 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 
-
 interface Props { data: any; onChange?: (data: any) => void; }
 
-const emptyItem = { question: "", notes: "", status: "open", resolution: "" };
+const SECTIONS = [
+  "capabilities", "integrations", "knowledge", "conversations",
+  "boundaries", "architecture", "agent", "instructions",
+];
+
+const emptyItem = {
+  question: "", notes: "", status: "open", resolution: "",
+  impact: "", section: "", suggestedDefault: "",
+};
 
 const OpenQuestionsSection = ({ data, onChange }: Props) => {
   const [editIdx, setEditIdx] = useState<number | null>(null);
@@ -29,7 +36,6 @@ const OpenQuestionsSection = ({ data, onChange }: Props) => {
         <div>
           <h2 className="text-lg font-semibold text-foreground mb-1">Open Questions</h2>
           <p className="text-xs text-muted-foreground">Unresolved items needing stakeholder input</p>
-
         </div>
         <Button variant="outline" size="sm" onClick={add} className="gap-1.5"><Plus className="h-3.5 w-3.5" /> Add</Button>
       </div>
@@ -39,8 +45,16 @@ const OpenQuestionsSection = ({ data, onChange }: Props) => {
             {editIdx === i && draft ? (
               <div className="space-y-3">
                 <Textarea placeholder="Question" value={draft.question} onChange={(e) => setDraft({ ...draft, question: e.target.value })} className="min-h-[60px]" />
+                <Input placeholder="Impact — what this blocks if unanswered" value={draft.impact || ""} onChange={(e) => setDraft({ ...draft, impact: e.target.value })} />
                 <div className="grid grid-cols-2 gap-3">
-                  <Input placeholder="Notes" value={draft.notes || draft.assignee || ""} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} />
+                  <Select value={draft.section || ""} onValueChange={(v) => setDraft({ ...draft, section: v })}>
+                    <SelectTrigger><SelectValue placeholder="Affected section" /></SelectTrigger>
+                    <SelectContent>
+                      {SECTIONS.map((s) => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <Select value={draft.status} onValueChange={(v) => setDraft({ ...draft, status: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -49,6 +63,7 @@ const OpenQuestionsSection = ({ data, onChange }: Props) => {
                     </SelectContent>
                   </Select>
                 </div>
+                <Input placeholder="Suggested default — our best guess if unanswered" value={draft.suggestedDefault || ""} onChange={(e) => setDraft({ ...draft, suggestedDefault: e.target.value })} />
                 {draft.status === "resolved" && (
                   <Input placeholder="Resolution" value={draft.resolution || ""} onChange={(e) => setDraft({ ...draft, resolution: e.target.value })} />
                 )}
@@ -60,13 +75,24 @@ const OpenQuestionsSection = ({ data, onChange }: Props) => {
             ) : (
               <>
                 <div className="flex items-start justify-between gap-3 mb-2">
-                  <p className="text-sm font-medium text-foreground">{item.question}</p>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                      <p className="text-sm font-medium text-foreground">{item.question}</p>
+                      {item.section && (
+                        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium bg-muted text-muted-foreground">{item.section}</span>
+                      )}
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${item.status === "resolved" ? "bg-success/15 text-success" : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"}`}>
+                        {item.status}
+                      </span>
+                    </div>
+                    {item.impact && <p className="text-xs text-muted-foreground mt-0.5">Blocks: {item.impact}</p>}
+                    {item.suggestedDefault && <p className="text-xs text-muted-foreground/70 mt-0.5">Default: {item.suggestedDefault}</p>}
+                  </div>
                   <div className="flex items-center gap-1.5 shrink-0">
                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => startEdit(i)}><Pencil className="h-3.5 w-3.5" /></Button>
                     <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => remove(i)}><Trash2 className="h-3.5 w-3.5" /></Button>
                   </div>
                 </div>
-                {(item.notes || item.assignee) && <p className="text-xs text-muted-foreground">Notes: <span className="text-foreground">{item.notes || item.assignee}</span></p>}
                 {item.resolution && (
                   <div className="mt-2 rounded-md bg-success/10 px-3 py-2">
                     <p className="text-xs text-success">{item.resolution}</p>

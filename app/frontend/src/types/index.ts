@@ -138,8 +138,29 @@ export interface ConversationTopic {
   flowDescription: string;
   outputFormat: string;
   triggerType: string;
+  triggerPhrases: string[];
   implements: string[];
   connectedIntegrations: string[];
+}
+
+export interface BoundaryDecline {
+  topic: string;
+  redirect: string;
+}
+
+export interface BoundaryRefuse {
+  topic: string;
+  reason: string;
+}
+
+export interface OpenQuestion {
+  question: string;
+  status: string;
+  notes: string;
+  resolution: string;
+  impact: string;
+  section: string;
+  suggestedDefault: string;
 }
 
 export type EvalMethodType =
@@ -345,7 +366,7 @@ export interface BriefData {
   tools: { items: Integration[] };
   "knowledge-sources": { items: KnowledgeSource[] };
   "conversation-topics": { items: ConversationTopic[]; starters: ConversationStarter[] };
-  "scope-boundaries": { handles: string[]; politelyDeclines: string[]; hardRefuses: string[] };
+  "scope-boundaries": { handles: string[]; politelyDeclines: BoundaryDecline[]; hardRefuses: BoundaryRefuse[] };
   architecture: Architecture;
   decisions: { items: Decision[] };
   "eval-sets": { sets: EvalSet[]; config: EvalConfig };

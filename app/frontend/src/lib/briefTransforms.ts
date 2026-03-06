@@ -78,6 +78,7 @@ export function briefFromApi(raw: ApiBrief): BriefData {
         flowDescription: "",
         outputFormat: t.outputFormat ?? "text",
         triggerType: t.triggerType ?? "agent-chooses",
+        triggerPhrases: t.triggerPhrases ?? [],
         implements: t.implements ?? [],
         connectedIntegrations: t.connectedIntegrations ?? [],
       })),
@@ -89,10 +90,10 @@ export function briefFromApi(raw: ApiBrief): BriefData {
     "scope-boundaries": {
       handles: bounds.handle ?? [],
       politelyDeclines: (bounds.decline ?? []).map((d) =>
-        typeof d === "string" ? d : d.topic ?? ""
+        typeof d === "string" ? { topic: d, redirect: "" } : { topic: d.topic ?? "", redirect: d.redirect ?? "" }
       ),
       hardRefuses: (bounds.refuse ?? []).map((r) =>
-        typeof r === "string" ? r : r.topic ?? ""
+        typeof r === "string" ? { topic: r, reason: "" } : { topic: r.topic ?? "", reason: r.reason ?? "" }
       ),
     },
     architecture: {
@@ -152,10 +153,12 @@ export function briefFromApi(raw: ApiBrief): BriefData {
     "open-questions": {
       items: (raw.openQuestions ?? []).map((q) => ({
         question: q.question ?? "",
-        assignee: "",
-        priority: "Medium",
+        notes: "",
         status: q.answer ? "resolved" : "open",
-        resolution: q.answer ?? undefined,
+        resolution: q.answer ?? "",
+        impact: q.impact ?? "",
+        section: q.section ?? "",
+        suggestedDefault: q.suggestedDefault ?? "",
       })),
     },
   };
@@ -246,6 +249,7 @@ export function briefToApi(ui: BriefData, raw: ApiBrief): ApiBrief {
         description: t.description,
         outputFormat: t.outputFormat,
         triggerType: t.triggerType,
+        triggerPhrases: t.triggerPhrases,
         implements: t.implements,
         connectedIntegrations: t.connectedIntegrations,
       };
@@ -262,18 +266,14 @@ export function briefToApi(ui: BriefData, raw: ApiBrief): ApiBrief {
   result.boundaries = {
     ...result.boundaries,
     handle: ui["scope-boundaries"].handles,
-    decline: ui["scope-boundaries"].politelyDeclines.map((topic) => {
-      const existing = (raw.boundaries?.decline ?? []).find(
-        (d) => (typeof d === "string" ? d : d.topic) === topic
-      );
-      return typeof existing === "object" ? { ...existing, topic } : { topic, redirect: "" };
-    }),
-    refuse: ui["scope-boundaries"].hardRefuses.map((topic) => {
-      const existing = (raw.boundaries?.refuse ?? []).find(
-        (r) => (typeof r === "string" ? r : r.topic) === topic
-      );
-      return typeof existing === "object" ? { ...existing, topic } : { topic, reason: "" };
-    }),
+    decline: ui["scope-boundaries"].politelyDeclines.map((d) => ({
+      topic: d.topic,
+      redirect: d.redirect,
+    })),
+    refuse: ui["scope-boundaries"].hardRefuses.map((r) => ({
+      topic: r.topic,
+      reason: r.reason,
+    })),
   };
 
   // Architecture
@@ -354,7 +354,10 @@ export function briefToApi(ui: BriefData, raw: ApiBrief): ApiBrief {
     return {
       ...existing,
       question: q.question,
-      answer: q.resolution ?? existing?.answer ?? "",
+      impact: q.impact,
+      section: q.section,
+      suggestedDefault: q.suggestedDefault,
+      answer: q.resolution || existing?.answer || "",
     };
   });
 
