@@ -59,7 +59,7 @@
     {
       "_meeting": "Section 4 — 'What systems does it connect to?'",
       "name": "Tool or integration name (e.g., SAP, SharePoint/OneDrive)",
-      "type": "mcp | connector | flow | ai-tool | custom-connector",
+      "type": "mcp | connector | flow | ai-tool | custom-connector | setting — 'setting' is for agent-level toggles like Bing Web Search grounding, General Knowledge, Content Moderation. These are NOT tools — they're configured via Settings > Generative AI or LSP push.",
       "purpose": "What data/actions this provides to the agent",
       "dataProvided": "Specific data fields: order number, status, ETA, tracking number",
       "authMethod": "OAuth 2.0 | API Key | Service Principal | User delegated | None",

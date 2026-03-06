@@ -102,14 +102,18 @@ Stored credentials (Power Platform or Key Vault), URL + app allow-lists, human s
 4. Optional: **Inputs** (dynamic values per run), **Machine** (hosted/Cloud PC/BYO)
 5. Test with real-time side-by-side video of reasoning chain + UI automation
 
-## Generative AI Settings
+## Generative AI Settings (NOT tools — these are toggles)
 
-| Setting | Default |
-|---------|---------|
-| Orchestration | Generative |
-| Moderation | High (5 levels: Lowest→Highest) |
-| General knowledge | On |
-| Web search (Bing) | Off |
+These are **agent-level settings**, NOT tools/connectors/MCPs. They are toggled in Settings > Generative AI (or via LSP push / Dataverse API). Do NOT add these as integrations with `type: "ai-tool"` — they are `type: "setting"`.
+
+| Setting | Default | How to Enable |
+|---------|---------|---------------|
+| Orchestration | Generative | Settings > Generative AI |
+| Moderation | High (5 levels: Lowest→Highest) | Settings > Generative AI |
+| General knowledge | On | Settings > Generative AI |
+| **Web search (Bing grounding)** | **Off** | Settings > Generative AI > "Use information from the web". LSP: `gptCapabilities.webBrowsing: true`. NOT a tool, NOT a connector — it's a setting that enables Bing grounding in the orchestrator. |
+
+**Common mistake:** Classifying "Bing Web Search" as an `ai-tool` integration. It's a SETTING. The separate "Bing Search" Power Platform CONNECTOR (in connectors.md) is a different thing — that's an actual connector with actions like `GetNews`.
 
 Moderation precedence: Topic-level > Agent-level. Prompt tool is independent.
 

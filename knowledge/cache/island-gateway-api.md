@@ -342,18 +342,18 @@ az account get-access-token --resource https://service.powerapps.com/ --query ac
 
 ---
 
-## What Still Requires Playwright
+## What Requires User-Guided Manual Steps (No Playwright — removed Mar 2026)
 
-| Operation | Why |
-|-----------|-----|
-| Agent creation | Different API surface (not component CRUD) |
-| Tool/connector attachment | **Captured** — see "Tool Addition API Flow" below |
-| Power Automate flow attach | Not yet captured — `cloudFlowDefinitionChanges[]` + `content/flows` exist |
-| Connected agent setup | Not yet captured — `connectedAgentDefinitionChanges[]` exists |
-| OAuth connection creation | Interactive auth flow — always needs browser |
-| Native eval upload/run | MCS eval service — separate system |
-
-**Next captures needed:** Power Automate flow, connected agents, publish trigger
+| Operation | Status | Headless Alternative |
+|-----------|--------|---------------------|
+| Agent creation | **SOLVED** | Dataverse POST + PvaProvision |
+| Tool/connector attachment | **SOLVED** | `discover-connections` → YAML → LSP push |
+| MCP server addition | **SOLVED** | Same as tool attachment — discover `shared_a365mcpservers` connection ref |
+| Connected agent setup | **SOLVED** | Island Gateway `connectedAgentDefinitionChanges` |
+| Power Automate flow attach | **Partial** | Agent flows need MCS flow designer; cloud flows via `flow-manager.js` |
+| **OAuth connection (first-time)** | **Manual** | No API — interactive auth popup required once per connector per environment |
+| Native eval upload | **SOLVED** | Dataverse POST componenttype=19 |
+| Knowledge file upload | **Partial** | Component created via Dataverse; file attachment endpoint not found — user uploads in MCS |
 
 ## Tool Addition API Flow — Captured 2026-02-23
 

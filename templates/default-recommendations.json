@@ -118,5 +118,20 @@
     "category": "multi-agent",
     "text": "Test cross-agent handoff scenarios in the integration eval set",
     "source": "generic"
+  },
+  {
+    "category": "channels",
+    "text": "Use an adaptive card for the Conversation Start topic instead of plain text. Shows users what the agent can do with action buttons that route to key capabilities. Standard pattern unless the agent is purely generative with no distinct actions.",
+    "source": "generic"
+  },
+  {
+    "category": "channels",
+    "text": "Always customize the 4 system topics: Conversation Start (welcome card), Escalation (specific contact info), Fallback (list what the agent CAN do), and On Error (apologize + suggest retry). Default MCS templates are generic and unhelpful.",
+    "source": "generic"
+  },
+  {
+    "category": "channels",
+    "text": "Test adaptive cards on the target channel before production. Teams supports full cards, WhatsApp only supports Action.Submit (max 3 buttons), Web Chat supports most features but not Action.Execute.",
+    "source": "generic"
   }
 ]

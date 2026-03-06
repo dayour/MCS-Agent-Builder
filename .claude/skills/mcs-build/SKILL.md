@@ -455,7 +455,7 @@ Agent creation is fully API-native via Dataverse POST + PvaProvision (E2E confir
    TOKEN=$(az account get-access-token --resource <dataverseUrl> --query accessToken -o tsv)
    curl -s -X POST "<dataverseUrl>/api/data/v9.2/bots" \
      -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-     -d '{"name":"<displayName>","schemaname":"<publisherPrefix>_<schemaName>","language":1033,"runtimeprovider":0,"configuration":"{...}"}'
+     -d '{"name":"<displayName>","schemaname":"<publisherPrefix>_<schemaName>","language":1033,"runtimeprovider":0,"configuration":"{\"$kind\":\"BotConfiguration\",\"isCustomizable\":true,\"settings\":{\"GenerativeActionsEnabled\":true},\"recognizer\":{\"$kind\":\"GenerativeAIRecognizer\"}}"}'
    ```
 2. **Provision in MCS runtime:**
    ```bash
@@ -607,26 +607,93 @@ Edit `agent.mcs.yml` in the cloned workspace → set `aISettings.model.modelName
 Always select the latest available model. Check available models via `node tools/island-client.js get-models --env <envId>`.
 **Checkpoint:** After model verified, add `"model"` to `completedSteps`, set `lastCompletedStep` to `"model"`.
 
-#### 3b. Tool/Connector Configuration (add-tool.js + LSP Push — mostly headless)
+#### 3b. Settings Configuration (type: "setting" integrations)
 
-**Phase filter:** Only configure `integrations[]` entries where `phase == "mvp"`. Log skipped future integrations.
+Before configuring tools, set agent-level settings via Dataverse `bot.configuration` JSON PATCH. These are NOT tools — they're toggles.
 
-For each tool/connector in the spec:
-1. **Check if connection exists:** If an OAuth connection for this connector type already exists in the environment, use `add-tool.js` to generate the action YAML:
-   ```bash
-   node tools/add-tool.js add --workspace "<workspacePath>" --connector <connectorId> --action <operationId> --connection <connectionRef> --name "Display Name"
-   ```
-2. **Push all tools at once:** After generating all action files:
-   ```bash
-   node tools/mcs-lsp.js push --workspace "<workspacePath>"
-   ```
-3. **If NEW OAuth connection needed** (no existing connection for that connector):
-   - Tell the user: "A new OAuth connection is needed for {connector}. Please create it in MCS: Settings → Connectors → {connector} → New connection → Sign in."
-   - Wait for user confirmation
-   - Verify via `add-tool.js list-connections` that the connection now exists
-   - Then use `add-tool.js` for the action
+**ALWAYS set these defaults on every agent (non-negotiable):**
+- **Generative Orchestration** → `settings.GenerativeActionsEnabled: true` — ALWAYS enable. Never use classic orchestration. Generative orchestration is required for MCP tools, knowledge grounding, and AI routing.
 
-**MCP servers:** Use `add-tool.js` with the MCP connector ID — generates `InvokeExternalAgentTaskAction` YAML.
+**Set per-brief (from `type: "setting"` integrations where `phase == "mvp"`):**
+- Bing Web Search → `gptCapabilities.webBrowsing: true` (only if brief specifies)
+- General Knowledge → `aISettings.useModelKnowledge: true/false`
+- Content Moderation → `aISettings.contentModeration: "High"/"Medium"/"Low"`
+
+**Standard configuration PATCH (run on every build):**
+```bash
+# CRITICAL: config MUST include $kind annotations and recognizer — missing these causes silent publish failure
+NEW_CONFIG='{
+  "$kind": "BotConfiguration",
+  "isCustomizable": true,
+  "settings": { "GenerativeActionsEnabled": true },
+  "aISettings": { "$kind": "AISettings", "useModelKnowledge": true, "contentModeration": "High" },
+  "recognizer": { "$kind": "GenerativeAIRecognizer" }
+}'
+# Add gptCapabilities.webBrowsing per brief
+# NEVER omit recognizer — publish silently fails without it
+```
+
+**Common mistake:** Trying to add "Bing Web Search" via `add-tool.js` — it's not a connector or MCP. It's a setting toggle.
+
+#### 3c. Tool/Connector/MCP Configuration (discover → YAML → LSP push)
+
+**Phase filter:** Only configure `integrations[]` entries where `phase == "mvp"` AND `type` is `mcp`, `connector`, `ai-tool`, or `custom-connector`. Skip `type: "setting"` (handled in 3b) and `type: "flow"` (handled separately in PA flow creation).
+
+**Step 1: Auto-discover connection references (ALWAYS do this first)**
+```bash
+node tools/add-tool.js discover-connections --dataverse-url <buildStatus.dataverseUrl>
+```
+This queries ALL existing connection references in the environment — from every agent, solution, and flow. If ANY agent in the environment has ever used the connector we need, the connection reference is reusable.
+
+**Step 2: Match discovered connections to brief integrations**
+For each MVP integration, find the matching connection reference:
+- MCP servers (Calendar, Mail, User Profile, Teams, SharePoint) → look for `shared_a365mcpservers` connector
+- Dataverse connector → look for `shared_commondataserviceforapps`
+- Planner connector → look for `shared_planner`
+- Outlook connector → look for `shared_office365`
+- SharePoint connector → look for `shared_sharepointonline`
+
+**Step 3: For each MATCHED integration — write YAML + push (fully headless)**
+```bash
+# Write action YAML to workspace/actions/ directory
+# MCP example:
+cat > actions/OutlookCalendarMCP.mcs.yml << EOF
+# Name: Microsoft Outlook Calendar MCP
+kind: TaskDialog
+modelDisplayName: Microsoft Outlook Calendar MCP
+modelDescription: "MCP server for calendar operations."
+action:
+  kind: InvokeExternalAgentTaskAction
+  connectionReference: <discovered logicalName>
+  connectionProperties:
+    mode: Invoker
+  operationDetails:
+    kind: ModelContextProtocolMetadata
+    operationId: <mcp_operationId>
+EOF
+
+# Push all at once
+node tools/mcs-lsp.js push --workspace "<buildStatus.workspacePath>"
+```
+
+**Step 4: For each UNMATCHED integration — user-guided manual step**
+Only when discover-connections returns NO matching connection for a required connector:
+1. Tell the user: "No existing connection found for {connector} in this environment. Please add it to ANY agent in MCS: Tools → Add tool → {connector name} → Authenticate."
+2. Wait for user confirmation
+3. Re-run `discover-connections` to pick up the new connection reference
+4. Proceed with YAML generation + push
+
+**Key principle: Auto-discover first, manual only as last resort.** In most production environments, common M365 connectors (Outlook, SharePoint, Teams, Planner) already have connection references from other agents or flows.
+
+**MCP operationId reference:**
+| MCP Server | operationId | Connector |
+|-----------|------------|-----------|
+| Outlook Calendar | `mcp_CalendarTools` | `shared_a365mcpservers` |
+| Outlook Mail | `mcp_MailTools` | `shared_a365mcpservers` |
+| User Profile | `mcp_MeServer` | `shared_a365mcpservers` |
+| Teams | `mcp_TeamsServer` | `shared_a365mcpservers` |
+| SharePoint/OneDrive | `mcp_ODSPRemoteServer` | `shared_a365mcpservers` |
+
 **Computer Use:** User-guided manual step — provide step-by-step instructions for MCS UI.
 **Security:** Dataverse PATCH `bot.configuration.isAgentConnectable` (confirmed API).
 

@@ -20,6 +20,18 @@ refresh_trigger: before_architecture
 | Premium connectors? | **Yes** (included with Copilot Studio plan) | Requires premium license |
 | Creation methods | Natural language OR visual designer | Visual designer |
 
+### Dataverse Workflow Fields — Agent Flow vs Cloud Flow
+
+| Field | Agent Flow | Cloud Flow |
+|-------|-----------|------------|
+| `category` | 5 | 5 |
+| `type` | 1 | 1 |
+| **`modernflowtype`** | **1** | **0** |
+| `primaryentity` | "none" | "none" |
+| Trigger `kind` | `Skills` | varies |
+
+**CRITICAL:** `modernflowtype` must be `1` for agent flows. Default is `0` (classic). If `0`, MCS shows "Flow was deleted or access rights were lost" because it looks for the flow in the modern runtime but finds nothing. Set explicitly in Dataverse POST: `"modernflowtype": 1`.
+
 ### Agent Flow Advantages Over Cloud Flows
 
 - **Higher throughput / lower latency** — optimized execution path

@@ -10,6 +10,8 @@ refresh_trigger: before_architecture
 
 LLM-driven planner: interprets intent → selects tools/topics/knowledge/agents → executes multi-step plans → synthesizes response. Default for all new agents.
 
+**ALWAYS use generative orchestration. Never use classic.** Generative orchestration is required for MCP tools, knowledge grounding, AI routing, and multi-step planning. Classic orchestration is legacy and does not support modern MCS features. Set via `bot.configuration`: `"settings": { "GenerativeActionsEnabled": true }`. Our build pipeline sets this on every agent at creation time AND in the settings configuration step.
+
 **Routing priority**: Description (most important) > Name > Input/output parameters > Agent instructions
 
 ## Requirements for Key Features

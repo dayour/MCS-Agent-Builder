@@ -29,11 +29,13 @@ refresh_trigger: before_architecture
 | Confluence | Wiki/documentation content | Cloud only. No article count/size limit. Sync every 4-6h. |
 | Zendesk | Support ticket/article data | No article count/size limit. Sync every 4-6h. Supports synonyms + glossary. |
 
-### Search & Grounding Settings
+### Search & Grounding Settings (NOT tools — these are toggles)
+
+**These are agent-level settings, NOT tools/connectors.** In brief.json, use `type: "setting"` (not `"ai-tool"`). Enable via Settings > Generative AI or LSP push (`gptCapabilities` in `settings.mcs.yml`).
 
 | Type | Description | Setup | Notes |
 |------|-------------|-------|-------|
-| Web Search (Bing grounding) | Open web search across ALL Bing-indexed sites | Toggle in Generative AI settings or Knowledge > Web Search. | Requires generative orchestration. Uses Grounding with Bing Search API. Runs in parallel with configured public website sources. |
+| Web Search (Bing grounding) | Open web search across ALL Bing-indexed sites | Toggle in Generative AI settings or Knowledge > Web Search. LSP: `gptCapabilities.webBrowsing: true` | Requires generative orchestration. Uses Grounding with Bing Search API. Runs in parallel with configured public website sources. **NOT the "Bing Search" Power Platform connector** (that's a separate connector with `GetNews` action). |
 | AI General Knowledge | LLM foundational knowledge | Toggle "Use general knowledge" in Generative AI settings. | Not real-time. Based on model training data. Can be turned off to restrict to configured sources only. |
 | **Tenant graph grounding** | Semantic search across M365 tenant data | Enable in Generative AI settings | **Requires M365 Copilot license** in same tenant. Requires "Authenticate with Microsoft" auth setting. Supports files up to 200 MB (or 512 MB for PDF/PPTX/DOCX). Enabled by default when license present. |
 | **Real-Time Knowledge connectors (Preview)** | Live API queries to external systems with no data movement | Add via Knowledge > Advanced > Real-time connector. Select tables. | Preview. Metadata-only indexing. Runtime-authenticated per user. |

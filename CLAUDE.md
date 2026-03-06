@@ -175,7 +175,7 @@ Before committing to designs that are hard to undo — schema changes, workflow 
 | **PAC CLI** | Listing agents, status, solution ALM (`pac copilot`, `pac solution`) |
 | **MCS LSP Wrapper** | Instructions, model, topics, knowledge sync, full component push/pull via official LS (`tools/mcs-lsp.js`) |
 | **Island Gateway API** | Model catalog, component reads, routing info, bot settings (`tools/island-client.js`) |
-| **Add Tool CLI** | Headless tool/connector addition — generates action YAML for LSP push (`tools/add-tool.js`) |
+| **Add Tool CLI** | Headless tool/connector/MCP addition — discovers connection refs from Dataverse, generates action YAML, LSP push (`tools/add-tool.js`). Key commands: `discover-connections` (query env), `add` (write YAML) |
 | **Dataverse API** | File uploads, bot name PATCH, PvaPublish bound action, security, deletion (via HTTP/PowerShell) |
 | **Code Editor YAML** | Topic authoring fallback: conversations, cards, branching (paste into MCS code editor) |
 | **ObjectModel CLI** | Full YAML validation + schema exploration (357 types, catches unknown nodes + missing fields): `tools/om-cli/om-cli.exe` (validate, schema, search, list, hierarchy, composition, examples) |

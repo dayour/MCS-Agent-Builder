@@ -71,14 +71,27 @@ Note: More connectors may have embedded MCP server actions. Check the connector 
 | Power Automate | Trigger flows | Standard |
 | Azure OpenAI | Custom completions | Premium |
 
-## How to Add a Connector
+## How to Add a Connector / MCP Server
 
-Requires Playwright (no API alternative for tool attachment):
-1. Go to Tools section → "Add tool"
-2. Search for connector name
-3. Select specific action(s)
-4. Create connection (may require auth popup)
-5. "Add and configure"
+**Headless (preferred):** Discover existing connection references → write YAML → LSP push.
+
+```bash
+# 1. Discover existing connection references in the environment
+node tools/add-tool.js discover-connections --dataverse-url <dvUrl> --connector <name>
+
+# 2. Write action YAML referencing the discovered connectionReference logicalName
+# (add-tool.js add or manual YAML in workspace/actions/)
+
+# 3. Push via LSP
+node tools/mcs-lsp.js push --workspace <path>
+```
+
+**If no connection reference exists** (first time for this connector type in this environment):
+1. User adds the tool to ANY agent via MCS UI (2-minute wizard — one-time OAuth consent)
+2. This creates the connection reference in Dataverse
+3. All subsequent agents in the environment reuse it headlessly via discover-connections
+
+**Note:** The Power Platform Connectivity API (`{envId}.environment.api.powerplatform.com`) does not resolve on some tenants. The `discover-connections` command bypasses it by querying Dataverse directly.
 
 ## Refresh Notes
 

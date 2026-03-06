@@ -1,5 +1,5 @@
 <!-- CACHE METADATA
-last_verified: 2026-02-27
+last_verified: 2026-03-06
 sources: [MS Learn Built-in MCP catalog, Agent 365 tooling overview, WebSearch, Dynamics 365 MCP docs, Agent 365 server references, Power Apps MCP docs, Work IQ docs]
 confidence: high
 refresh_trigger: before_architecture
@@ -161,12 +161,51 @@ Alternatives for news/web search capabilities:
 
 ## How to Add an MCP Server
 
-Requires Playwright (no API alternative):
-1. Go to Tools section → "Add tool"
+### Method 1: User-Guided Manual Step (first-time per connector per environment)
+When no connection reference exists for the MCP connector in the environment:
+1. User goes to Tools section in MCS UI → "Add tool"
 2. Select "Model Context Protocol" filter
 3. Search for the MCP server name
 4. Select → "Add to agent" or "Add and configure"
-5. Create connection if prompted (handle auth popup)
+5. Create connection if prompted (handle auth popup / OAuth consent)
+6. Connection reference + connection instance created automatically by MCS
+
+### Method 2: Headless Reuse (when connection reference already exists)
+When a connection reference for the MCP connector already exists in the environment (from any agent):
+1. Discover connectionReferenceLogicalName via Dataverse query:
+   `GET /connectionreferences?$filter=connectorid eq '/providers/Microsoft.PowerApps/apis/<connectorId>'`
+2. Generate action YAML: `node tools/add-tool.js add --kind mcp --workspace <path> --connector <id> --action <operationId> --connection <connRefLogicalName>`
+3. LSP push: `node tools/mcs-lsp.js push --workspace <path>`
+4. Publish via PvaPublish
+
+### Method 3: Template Agent Pattern (scalable, for repeated builds)
+Pre-configure a "golden" template agent with common MCP servers (Outlook Mail, Calendar, Teams, SharePoint):
+1. One-time: create template agent in MCS UI with all common MCP connections
+2. Export as solution: `pac solution export --name "MCPTemplate" --path template.zip`
+3. Import to target: `pac solution import --path template.zip --settings-file conn-map.json`
+4. Connection references travel with the solution; map connections at import via settings file
+
+### Method 4: MCP Management Server (Preview, Frontier only)
+For creating NEW custom MCP servers (not adding existing built-in ones):
+1. Requires Frontier program enrollment + M365 Copilot license
+2. Use CreateMCPServer + CreateToolWithConnector/Graph/CustomAPI/RemoteAPI
+3. Publish via PublishMCPServer
+4. Still requires MCS UI to connect the custom server to an agent
+
+### Programmatic Addition Blockers (Mar 2026)
+- **OAuth connection creation** cannot be done headlessly — no public API to create user-delegated OAuth connections in API Hub
+- **PvaShareConnection** action exists on connectionreference entity but is "internal use only" with no documented parameters
+- **connectionparametersconfig** field on connectionreference may enable pre-seeded connections but format is undocumented
+- **Connectivity API** (`{envId}.environment.api.powerplatform.com`) does not resolve for Microsoft internal tenant environments
+- **connectioninstance** table supports POST but requires `connectioninternalid` (API Hub ID) which cannot be fabricated
+
+### Dataverse Entities Involved (for headless approaches)
+| Entity | Table | Key Fields | Role |
+|--------|-------|-----------|------|
+| connectionreference | `connectionreferences` | connectionreferencelogicalname, connectorid, connectionid | Links connector type to agent |
+| connectioninstance | `connectioninstances` | connectioninternalid, connectionreferenceid, connectorinternalid | Stores authenticated connection |
+| botcomponent_connectionreference | M:M intersect | botcomponentid, connectionreferenceid | Associates tool action with connection |
+| bot.providerconnectionreferenceid | bot table | providerconnectionreferenceid → connectionreferenceid | Agent-level connection reference lookup |
 
 ## MCP vs Connector Decision
 

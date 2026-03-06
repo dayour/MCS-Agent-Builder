@@ -275,3 +275,61 @@ Line 1 (`# Name:`) = GptComponent display name. Line 2 (`# ...`) = agent descrip
 **Confirmed:** 1 build(s) | Last confirmed: 2026-03-06
 **Related cache:** N/A (process discipline)
 **Tags:** #build-discipline #reconciliation #skip-nothing #test-builds
+
+### MCP tool addition is fully headless via connection reference discovery {#bm-019} — 2026-03-06
+**Context:** TestBriefing build — needed to add Calendar, Mail, and User Profile MCPs to a new agent in dktest environment
+**Tried:** (1) `add-tool.js list-connections` → Connectivity API unreachable. (2) Assumed manual-only. (3) Discovered existing "Daily Briefing" agent in same env already had MCP tools.
+**Result:** Queried Dataverse `connectionreference` entity via FetchXML → found 16 connection references including `shared_a365mcpservers` with logicalName `auto_agent_3aiWd.shared_a365mcpservers.71cb47105718486088264bc29dbdd425`. Wrote 3 MCP action YAML files referencing this connection → LSP push → all 3 MCPs appeared on the agent as DialogComponents. Fully headless.
+**Better approach:** ALWAYS run `discover-connections` before asking user for manual setup. Connection references are environment-wide — any agent's connections are reusable by all other agents. The only manual step is first-time OAuth consent per connector type per environment. Built `add-tool.js discover-connections` command that queries Dataverse directly (bypasses broken Connectivity API). Updated build skill Step 3c with auto-discover-first flow.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-03-06
+**Related cache:** connectors.md, mcp-servers.md, island-gateway-api.md
+**Tags:** #mcp #tool-addition #connection-reference #discover #headless #dataverse
+
+### Agent flow creation: 3 required fields for MCS visibility {#bm-020} — 2026-03-06
+**Context:** TestBriefing build — creating Power Automate agent flow via Dataverse POST and linking to agent
+**Tried:** Dataverse `POST /workflows` with `category=5`, custom trigger name `When_an_agent_calls_the_flow`, default `modernflowtype=0`
+**Result:** Flow created in Dataverse but: (1) `modernflowtype=0` → MCS shows "Flow was deleted or access rights were lost". (2) Custom trigger name → flow doesn't appear in MCS "Add a tool" picker. (3) Missing `metadata.operationMetadataId` on trigger → may affect tool picker visibility.
+**Better approach:** Three required fields for MCS to fully recognize a programmatic agent flow:
+  1. `modernflowtype: 1` (not 0) — set in workflow record, controls modern vs classic runtime
+  2. Trigger name must be `manual` (not custom) — MCS looks for this exact name
+  3. Trigger must have `metadata.operationMetadataId` (any GUID) — standard for MCS-created flows
+Link to agent via YAML `InvokeFlowTaskAction` (NOT `InvokeFlowAction` — different type hierarchy: TaskAction vs DialogAction).
+**Confirmed:** 1 build(s) | Last confirmed: 2026-03-06
+**Related cache:** power-automate-integration.md
+**Tags:** #agent-flow #power-automate #modernflowtype #trigger-name #dataverse #headless
+
+### GenerativeAIRecognizer required in bot.configuration for publish {#bm-021} — 2026-03-06
+**Context:** TestBriefing build — enabling generative orchestration via Dataverse PATCH on bot.configuration
+**Tried:** Set `settings.GenerativeActionsEnabled: true` without `recognizer` field
+**Result:** Publish silently fails — `synchronizationstatus` shows "Failed" with no error message. Adding `"recognizer": {"$kind": "GenerativeAIRecognizer"}` to the same config fixes it.
+**Better approach:** The `bot.configuration` JSON must include BOTH `GenerativeActionsEnabled` AND `recognizer.$kind: GenerativeAIRecognizer`. Also include `$kind` annotations on sub-objects (`AISettings`). Reference pattern from existing working agents. Standard config template now in build skill Step 3b.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-03-06
+**Related cache:** generative-orchestration.md, api-capabilities.md
+**Tags:** #generative-orchestration #recognizer #configuration #publish #silent-failure
+
+### Wrong connector operationId causes silent publish failure {#bm-022} — 2026-03-06
+**Context:** TestBriefing build — added Planner connector with guessed operationId `CreateTask_V3`
+**Tried:** TaskDialog YAML with `InvokeConnectorTaskAction` + `operationId: CreateTask_V3` for the Planner connector
+**Result:** LSP push succeeded, but PvaPublish silently fails — no error message, just "Failed" status. Removing the component fixes publish. The operationId was a guess — the correct one might be different.
+**Better approach:** Never guess operationIds. Discover from: (1) existing agents in the environment (query their botcomponent data field), (2) Connectivity API `list-operations` if available, (3) MS Learn connector reference pages. A wrong operationId doesn't fail at push time — it fails silently at publish time.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-03-06
+**Related cache:** connectors.md
+**Tags:** #operationId #connector #planner #publish #silent-failure
+
+### Bing Web Search is a setting toggle, not a tool {#bm-023} — 2026-03-06
+**Context:** TestBriefing research — classified Bing Web Search as `type: "ai-tool"` in brief.json
+**Tried:** Listed Bing Web Search as an integration with `type: "ai-tool"`
+**Result:** Confusion during build — tried to add it as a tool. It's actually a toggle in Settings > Generative AI (`gptCapabilities.webBrowsing: true`), not a tool/connector/MCP.
+**Better approach:** Use `type: "setting"` in brief.json for agent-level toggles. Added `"setting"` to brief template type options. Updated ai-tools-computer-use.md cache with "NOT tools" callout. Updated build skill Step 3b to handle `type: "setting"` integrations separately. The separate "Bing Search" Power Platform connector IS a tool — different from the grounding toggle.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-03-06
+**Related cache:** ai-tools-computer-use.md, knowledge-sources.md
+**Tags:** #bing #web-search #setting #not-a-tool #classification
+
+### Adaptive card conversation start is a standard pattern {#bm-024} — 2026-03-06
+**Context:** TestBriefing build — user requested adaptive card welcome as standard for all agents
+**Tried:** Plain text Conversation Start topic (default MCS template)
+**Result:** Users don't know what the agent can do. Plain text greeting is generic and unhelpful.
+**Better approach:** Every agent should have an adaptive card Conversation Start topic with action buttons for key capabilities, unless purely generative with no distinct actions. Created `knowledge/patterns/topic-patterns/welcome-card.yaml` template. Added to `templates/default-recommendations.json` as standard recommendation. Also standard: customize Escalation (specific contacts), Fallback (list capabilities), and On Error topics.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-03-06
+**Related cache:** adaptive-cards.md, conversation-design.md
+**Tags:** #adaptive-card #conversation-start #welcome #standard-pattern #topic

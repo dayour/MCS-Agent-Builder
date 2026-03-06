@@ -209,6 +209,7 @@ function parseArgs() {
             case '--name': config.displayName = args[++i]; break;
             case '--description': config.description = args[++i]; break;
             case '--kind': config.kind = args[++i]; break;
+            case '--dataverse-url': config.dataverseUrl = args[++i]; break;
             case '--json': config.json = true; break;
         }
     }
@@ -221,11 +222,12 @@ function printUsage() {
 Usage: node add-tool.js <command> [options]
 
 Commands:
-  list-tools        List existing tools on an agent (via Island API component read)
-  list-connectors   List connectors in the environment (via Island API)
-  list-operations   List operations (actions/triggers) for a connector (via Connectivity API)
-  list-connections  List existing connections for a connector (via Connectivity API)
-  add               Add a connector action to an agent (via workspace YAML + LSP push)
+  list-tools            List existing tools on an agent (via Island API component read)
+  list-connectors       List connectors in the environment (via Island API)
+  list-operations       List operations (actions/triggers) for a connector (via Connectivity API)
+  list-connections      List existing connections for a connector (via Connectivity API)
+  discover-connections  Discover connection references via Dataverse query (works when Connectivity API is unreachable)
+  add                   Add a connector action to an agent (via workspace YAML + LSP push)
 
 list-tools / list-connectors options:
   --env <envId>       Environment ID
@@ -422,6 +424,70 @@ async function main() {
                 console.log(`Action file created: ${path.basename(actionPath)}`);
                 console.log(`\nNow push to MCS:`);
                 console.log(`  node tools/mcs-lsp.js push --workspace "${ws}"`);
+                break;
+            }
+
+            case 'discover-connections': {
+                // Query Dataverse connectionreference entity directly — bypasses broken Connectivity API
+                // Works on any tenant, including Microsoft internal tenants where {envId}.environment.api.powerplatform.com doesn't resolve
+                if (!config.dataverseUrl && !config.workspace) {
+                    console.error('Error: --dataverse-url or --workspace required');
+                    process.exit(2);
+                }
+                let dvUrl = config.dataverseUrl;
+                if (!dvUrl && config.workspace) {
+                    const connJson = JSON.parse(fs.readFileSync(path.join(path.resolve(config.workspace), '.mcs', 'conn.json'), 'utf8'));
+                    dvUrl = connJson.DataverseEndpoint.replace(/\/$/, '');
+                }
+                const dvToken = getToken(dvUrl);
+                const fetchXml = '<fetch><entity name="connectionreference">' +
+                    '<attribute name="connectionreferenceid"/>' +
+                    '<attribute name="connectionreferencedisplayname"/>' +
+                    '<attribute name="connectionreferencelogicalname"/>' +
+                    '<attribute name="connectorid"/>' +
+                    '</entity></fetch>';
+                const crRes = await httpRequest('GET',
+                    `${dvUrl}/api/data/v9.2/connectionreferences?fetchXml=${encodeURIComponent(fetchXml)}`,
+                    { 'Authorization': `Bearer ${dvToken}` }, null);
+                if (crRes.status !== 200) {
+                    console.error(`Dataverse query failed: HTTP ${crRes.status}`);
+                    process.exit(1);
+                }
+                const refs = crRes.data.value || [];
+                // Group by connectorId
+                const byConnector = {};
+                for (const r of refs) {
+                    const cid = r.connectorid || 'unknown';
+                    const shortId = cid.split('/').pop();
+                    if (!byConnector[shortId]) byConnector[shortId] = [];
+                    byConnector[shortId].push({
+                        logicalName: r.connectionreferencelogicalname,
+                        displayName: r.connectionreferencedisplayname,
+                        id: r.connectionreferenceid
+                    });
+                }
+                console.log(`Connection References in Environment (${refs.length} total):\n`);
+                // Filter by connector if specified
+                const filterConnector = config.connectorId;
+                for (const [connector, crs] of Object.entries(byConnector).sort()) {
+                    if (filterConnector && !connector.includes(filterConnector)) continue;
+                    console.log(`  ${connector} (${crs.length}):`);
+                    for (const cr of crs) {
+                        console.log(`    logicalName: ${cr.logicalName}`);
+                        if (cr.displayName && cr.displayName !== cr.logicalName)
+                            console.log(`    displayName: ${cr.displayName}`);
+                    }
+                    console.log();
+                }
+                if (refs.length === 0) {
+                    console.log('  No connection references found. Add a tool to any agent in this environment first (one-time manual setup).');
+                }
+                if (filterConnector) {
+                    const matches = Object.entries(byConnector).filter(([k]) => k.includes(filterConnector));
+                    if (matches.length === 0) {
+                        console.log(`  No connections matching "${filterConnector}". Available connectors: ${Object.keys(byConnector).join(', ')}`);
+                    }
+                }
                 break;
             }
 
