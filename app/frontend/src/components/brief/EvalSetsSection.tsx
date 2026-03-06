@@ -152,46 +152,49 @@ const EvalSetsSection = ({ data, onChange }: Props) => {
 
           return (
             <div key={set.name} className="rounded-lg border border-border bg-card overflow-hidden">
-              {/* Set header */}
-              <div
-                role="button"
-                tabIndex={0}
-                onClick={() => toggleSet(set.name)}
-                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleSet(set.name); } }}
-                className="w-full flex items-center gap-3 p-4 hover:bg-surface-2 transition-colors text-left cursor-pointer"
-              >
-                {isExpanded ? (
-                  <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-                ) : (
-                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-                )}
+              {/* Set header — clickable area and action buttons are SIBLINGS, not nested */}
+              <div className="flex items-center gap-3 p-4 hover:bg-surface-2 transition-colors">
+                {/* Clickable area: chevron + status + name/description */}
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => toggleSet(set.name)}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleSet(set.name); } }}
+                  className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
+                >
+                  {isExpanded ? (
+                    <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  )}
 
-                {/* Status indicator */}
-                {rate === null ? (
-                  <Minus className="h-4 w-4 shrink-0 text-muted-foreground" />
-                ) : meetsThreshold ? (
-                  <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />
-                ) : (
-                  <XCircle className="h-4 w-4 shrink-0 text-destructive" />
-                )}
+                  {/* Status indicator */}
+                  {rate === null ? (
+                    <Minus className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  ) : meetsThreshold ? (
+                    <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />
+                  ) : (
+                    <XCircle className="h-4 w-4 shrink-0 text-destructive" />
+                  )}
 
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-foreground capitalize">{set.name}</span>
-                    <span className="text-[11px] text-muted-foreground">
-                      {total} test{total !== 1 ? "s" : ""}
-                    </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-foreground capitalize">{set.name}</span>
+                      <span className="text-[11px] text-muted-foreground">
+                        {total} test{total !== 1 ? "s" : ""}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground line-clamp-2">{set.description}</p>
                   </div>
-                  <p className="text-xs text-muted-foreground line-clamp-2">{set.description}</p>
                 </div>
 
-                {/* Per-set CSV download */}
+                {/* Action buttons — OUTSIDE the clickable area */}
                 {set.tests.length > 0 && (
                   <Button
                     variant="ghost"
                     size="icon"
                     className="h-7 w-7 shrink-0"
-                    onClick={(e) => { e.stopPropagation(); downloadEvalCsv(set); }}
+                    onClick={() => downloadEvalCsv(set)}
                     title={`Download ${set.name} CSV`}
                   >
                     <Download className="h-3.5 w-3.5" />

@@ -141,7 +141,6 @@ export interface ApiBrief {
       variables?: Array<{ name: string; type: string; prompt: string; required: boolean }>;
       connectedIntegrations?: string[];
       outputFormat?: string;
-      cardDesign?: any;
       yaml?: string | null;
     }>;
   };

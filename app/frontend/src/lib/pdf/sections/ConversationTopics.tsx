@@ -36,21 +36,11 @@ interface Props {
 
 const ConversationTopics = ({ data }: Props) => {
   const items = data?.items;
-  const starters = data?.starters;
-  if (!items?.length && !starters?.length) return null;
+  if (!items?.length) return null;
 
   return (
     <View>
       <SectionHeading title="Conversation Topics" subtitle="Topic flows and routing" />
-
-      {starters?.length > 0 && (
-        <Card>
-          <Text style={s.name}>Conversation Starters</Text>
-          {starters.map((st: any, i: number) => (
-            <Text key={i} style={s.desc}>{safe(st.title)}{st.text && st.text !== st.title ? ` — ${st.text}` : ""}</Text>
-          ))}
-        </Card>
-      )}
 
       {items.map((t: any, i: number) => (
         <Card key={i}>

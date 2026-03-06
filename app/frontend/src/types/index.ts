@@ -339,7 +339,7 @@ export interface BriefData {
   capabilities: { items: Capability[] };
   tools: { items: Integration[] };
   "knowledge-sources": { items: KnowledgeSource[] };
-  "conversation-topics": { items: ConversationTopic[]; starters: ConversationStarter[]; cardDesign: any | null };
+  "conversation-topics": { items: ConversationTopic[]; starters: ConversationStarter[] };
   "scope-boundaries": { handles: string[]; politelyDeclines: string[]; hardRefuses: string[] };
   architecture: Architecture;
   decisions: { items: Decision[] };

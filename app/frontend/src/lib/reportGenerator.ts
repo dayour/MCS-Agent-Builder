@@ -181,49 +181,34 @@ export function generateBriefReport(agent: Agent, briefData: Record<string, any>
 
   // Conversation Topics
   const ct = briefData["conversation-topics"];
-  if (ct?.items?.length || ct?.starters?.length) {
+  if (ct?.items?.length) {
     lines.push("## Conversation Topics\n");
+    lines.push("| Topic | Type | Trigger | Output | Phase |");
+    lines.push("|-------|------|---------|--------|-------|");
+    ct.items.forEach((t: any) => {
+      const trigger = t.triggerType && t.triggerType !== "agent-chooses" ? t.triggerType : "\u2014";
+      const output = t.outputFormat && t.outputFormat !== "text" ? t.outputFormat : "\u2014";
+      lines.push(`| ${t.name} | ${t.type} | ${trigger} | ${output} | ${t.phase} |`);
+    });
+    lines.push("");
 
-    // Conversation Starters
-    if (ct?.starters?.length) {
-      lines.push("### Conversation Starters\n");
-      ct.starters.forEach((s: any) => {
-        lines.push(`- **${s.title}**${s.text && s.text !== s.title ? ` — ${s.text}` : ""}`);
-      });
+    ct.items.forEach((t: any) => {
+      lines.push(`### ${t.name}`);
+      lines.push(`${t.description}\n`);
+      if (t.implements?.length) {
+        lines.push(`**Implements:** ${t.implements.join(", ")}`);
+      }
+      if (t.connectedIntegrations?.length) {
+        lines.push(`**Connected Integrations:** ${t.connectedIntegrations.join(", ")}`);
+      }
+      if (t.flowDescription) {
+        lines.push("**Flow:**");
+        lines.push("```");
+        lines.push(t.flowDescription);
+        lines.push("```");
+      }
       lines.push("");
-    }
-
-    // Topics table
-    if (ct?.items?.length) {
-      lines.push("### Topics\n");
-      lines.push("| Topic | Type | Trigger | Output | Phase |");
-      lines.push("|-------|------|---------|--------|-------|");
-      ct.items.forEach((t: any) => {
-        const trigger = t.triggerType && t.triggerType !== "agent-chooses" ? t.triggerType : "\u2014";
-        const output = t.outputFormat && t.outputFormat !== "text" ? t.outputFormat : "\u2014";
-        lines.push(`| ${t.name} | ${t.type} | ${trigger} | ${output} | ${t.phase} |`);
-      });
-      lines.push("");
-
-      // Detailed descriptions
-      ct.items.forEach((t: any) => {
-        lines.push(`#### ${t.name}`);
-        lines.push(`${t.description}\n`);
-        if (t.implements?.length) {
-          lines.push(`**Implements:** ${t.implements.join(", ")}`);
-        }
-        if (t.connectedIntegrations?.length) {
-          lines.push(`**Connected Integrations:** ${t.connectedIntegrations.join(", ")}`);
-        }
-        if (t.flowDescription) {
-          lines.push("**Flow:**");
-          lines.push("```");
-          lines.push(t.flowDescription);
-          lines.push("```");
-        }
-        lines.push("");
-      });
-    }
+    });
     lines.push(hr);
   }
 

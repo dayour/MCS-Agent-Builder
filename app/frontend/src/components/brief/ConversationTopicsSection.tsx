@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Trash2, Pencil, Check, X, MessageCircle } from "lucide-react";
+import { Plus, Trash2, Pencil, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,7 +8,6 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import SectionGuidelines from "./SectionGuidelines";
-import AdaptiveCardPreview from "./AdaptiveCardPreview";
 
 interface Props { data: any; onChange?: (data: any) => void; }
 
@@ -17,8 +16,6 @@ const emptyItem = {
   flowDescription: "", outputFormat: "text", triggerType: "agent-chooses",
   implements: [] as string[], connectedIntegrations: [] as string[],
 };
-
-const emptyStarter = { title: "", text: "" };
 
 const OUTPUT_FORMAT_STYLES: Record<string, string> = {
   "adaptive-card": "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
@@ -33,13 +30,7 @@ const TRIGGER_STYLES = "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark
 const ConversationTopicsSection = ({ data, onChange }: Props) => {
   const [editIdx, setEditIdx] = useState<number | null>(null);
   const [draft, setDraft] = useState<any>(null);
-  const [editStarterIdx, setEditStarterIdx] = useState<number | null>(null);
-  const [starterDraft, setStarterDraft] = useState<any>(null);
 
-  const starters: any[] = data.starters ?? [];
-  const cardDesign = data.cardDesign ?? null;
-
-  // Topic CRUD
   const update = (items: any[]) => onChange?.({ ...data, items });
   const startEdit = (i: number) => { setEditIdx(i); setDraft({ ...data.items[i] }); };
   const saveEdit = () => {
@@ -50,18 +41,6 @@ const ConversationTopicsSection = ({ data, onChange }: Props) => {
   const cancelEdit = () => { setEditIdx(null); setDraft(null); };
   const remove = (i: number) => { update(data.items.filter((_: any, idx: number) => idx !== i)); if (editIdx === i) cancelEdit(); };
   const add = () => { update([...data.items, { ...emptyItem }]); setEditIdx(data.items.length); setDraft({ ...emptyItem }); };
-
-  // Starter CRUD
-  const updateStarters = (newStarters: any[]) => onChange?.({ ...data, starters: newStarters });
-  const startEditStarter = (i: number) => { setEditStarterIdx(i); setStarterDraft({ ...starters[i] }); };
-  const saveStarter = () => {
-    if (editStarterIdx === null || !starterDraft.title.trim()) return;
-    const s = [...starters]; s[editStarterIdx] = starterDraft;
-    updateStarters(s); setEditStarterIdx(null); setStarterDraft(null);
-  };
-  const cancelStarter = () => { setEditStarterIdx(null); setStarterDraft(null); };
-  const removeStarter = (i: number) => { updateStarters(starters.filter((_: any, idx: number) => idx !== i)); if (editStarterIdx === i) cancelStarter(); };
-  const addStarter = () => { updateStarters([...starters, { ...emptyStarter }]); setEditStarterIdx(starters.length); setStarterDraft({ ...emptyStarter }); };
 
   return (
     <div className="space-y-6">
@@ -74,68 +53,7 @@ const ConversationTopicsSection = ({ data, onChange }: Props) => {
         <Button variant="outline" size="sm" onClick={add} className="gap-1.5"><Plus className="h-3.5 w-3.5" /> Add Topic</Button>
       </div>
 
-      {/* ── A. Adaptive Card Preview ──────────────────────────── */}
-      {cardDesign && (
-        <div className="space-y-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Card Preview</h3>
-          <AdaptiveCardPreview cardDesign={cardDesign} agentName={data.items?.[0]?.name} />
-        </div>
-      )}
-
-      {/* ── B. Conversation Starters ─────────────────────────── */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Conversation Starters</h3>
-          <Button variant="ghost" size="sm" onClick={addStarter} className="gap-1 h-7 text-xs">
-            <Plus className="h-3 w-3" /> Add
-          </Button>
-        </div>
-        {starters.length === 0 ? (
-          <p className="text-xs text-muted-foreground/60 italic">No conversation starters defined</p>
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            {starters.map((s: any, i: number) => (
-              editStarterIdx === i && starterDraft ? (
-                <div key={i} className="flex items-center gap-2 rounded-lg border border-primary/30 bg-card p-2 w-full">
-                  <Input
-                    placeholder="Title (chip label)"
-                    value={starterDraft.title}
-                    onChange={(e) => setStarterDraft({ ...starterDraft, title: e.target.value })}
-                    className="h-7 text-xs flex-1"
-                  />
-                  <Input
-                    placeholder="Message text"
-                    value={starterDraft.text}
-                    onChange={(e) => setStarterDraft({ ...starterDraft, text: e.target.value })}
-                    className="h-7 text-xs flex-[2]"
-                  />
-                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={cancelStarter}><X className="h-3 w-3" /></Button>
-                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={saveStarter}><Check className="h-3 w-3" /></Button>
-                </div>
-              ) : (
-                <div
-                  key={i}
-                  className="group flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 hover:border-primary/30 transition-colors cursor-default"
-                >
-                  <MessageCircle className="h-3 w-3 text-muted-foreground" />
-                  <div className="min-w-0">
-                    <span className="text-xs font-medium text-foreground">{s.title}</span>
-                    {s.text && s.text !== s.title && (
-                      <span className="text-[10px] text-muted-foreground ml-1.5 truncate">{s.text.length > 40 ? s.text.slice(0, 40) + "..." : s.text}</span>
-                    )}
-                  </div>
-                  <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => startEditStarter(i)}><Pencil className="h-2.5 w-2.5" /></Button>
-                    <Button variant="ghost" size="icon" className="h-5 w-5 text-destructive" onClick={() => removeStarter(i)}><Trash2 className="h-2.5 w-2.5" /></Button>
-                  </div>
-                </div>
-              )
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* ── C. Topic List (enriched) ──────────────────────────── */}
+      {/* ── Topic List ──────────────────────────────────────── */}
       <div className="space-y-2">
         {data.items.map((item: any, i: number) => (
           <div key={i} className="rounded-lg border border-border bg-card p-4">

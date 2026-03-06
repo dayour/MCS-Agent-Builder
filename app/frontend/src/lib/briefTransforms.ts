@@ -80,9 +80,6 @@ export function briefFromApi(raw: ApiBrief): BriefData {
         title: s.title ?? "",
         text: s.text ?? "",
       })),
-      cardDesign: (raw.conversations?.topics ?? []).find(
-        (t) => t.triggerType === "auto-start" || t.name?.toLowerCase().includes("conversation start")
-      )?.cardDesign ?? null,
     },
     "scope-boundaries": {
       handles: bounds.handle ?? [],
