@@ -11,11 +11,11 @@ import SectionGuidelines from "./SectionGuidelines";
 interface Props { data: any; onChange?: (data: any) => void; }
 
 const KNOWLEDGE_TYPES = [
-  { value: "SharePoint", label: "SharePoint" },
-  { value: "Uploaded files", label: "Uploaded Files" },
-  { value: "Dataverse", label: "Dataverse" },
-  { value: "Public websites", label: "Public Websites" },
-  { value: "Graph connectors", label: "Graph Connectors" },
+  { value: "SharePoint", label: "SharePoint", desc: "SharePoint site or library — agent searches pages and documents" },
+  { value: "Uploaded files", label: "Uploaded Files", desc: "PDF, DOCX, XLSX uploaded directly — good for policies, manuals" },
+  { value: "Dataverse", label: "Dataverse", desc: "Structured data tables — good for records, lookups, CRM data" },
+  { value: "Public websites", label: "Public Websites", desc: "Public URLs the agent can crawl — FAQs, product pages, docs" },
+  { value: "Graph connectors", label: "Graph Connectors", desc: "Enterprise search via Microsoft Graph — spans multiple sources" },
 ];
 
 const TYPE_STYLES: Record<string, string> = {
@@ -25,6 +25,12 @@ const TYPE_STYLES: Record<string, string> = {
   "Public websites": "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
   "Graph connectors": "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300",
 };
+
+const STATUS_OPTIONS = [
+  { value: "available", label: "Available", desc: "URL/files ready — can be configured now" },
+  { value: "needs-setup", label: "Needs Setup", desc: "Source exists but needs permissions or preparation" },
+  { value: "blocked", label: "Blocked", desc: "Can't access — waiting on approval or doesn't exist yet" },
+];
 
 const emptyItem = { name: "", type: "", purpose: "", location: "", phase: "MVP", status: "needs-setup" };
 
@@ -44,7 +50,7 @@ const KnowledgeSourcesSection = ({ data, onChange }: Props) => {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-foreground mb-1">Knowledge</h2>
-          <p className="text-xs text-muted-foreground">Data sources the agent can reference to answer questions</p>
+          <p className="text-xs text-muted-foreground">Data sources the agent searches to answer questions — the agent's memory</p>
           <SectionGuidelines sectionId="knowledge-sources" />
         </div>
         <Button variant="outline" size="sm" onClick={add} className="gap-1.5"><Plus className="h-3.5 w-3.5" /> Add</Button>
@@ -54,24 +60,40 @@ const KnowledgeSourcesSection = ({ data, onChange }: Props) => {
           <div key={i} className="rounded-lg border border-border bg-card p-4">
             {editIdx === i && draft ? (
               <div className="space-y-3">
-                <Input placeholder="Name" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
-                <Input placeholder="Purpose — what questions does this answer?" value={draft.purpose || ""} onChange={(e) => setDraft({ ...draft, purpose: e.target.value })} />
-                <Input placeholder="Source location (URL / path / table)" value={draft.location} onChange={(e) => setDraft({ ...draft, location: e.target.value })} />
+                <Input placeholder="Name (e.g., HR Policy Library, Product Catalog)" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
+                <div>
+                  <Input placeholder="Purpose — what questions does this source answer?" value={draft.purpose || ""} onChange={(e) => setDraft({ ...draft, purpose: e.target.value })} />
+                  <p className="text-[10px] text-muted-foreground mt-1">Be specific — "US employee benefits policies" is better than "HR docs". The agent uses this to pick the right source.</p>
+                </div>
+                <div>
+                  <Input placeholder="Source location (URL, SharePoint path, or table name)" value={draft.location} onChange={(e) => setDraft({ ...draft, location: e.target.value })} />
+                  <p className="text-[10px] text-muted-foreground mt-1">Provide the actual URL or path — we need this to configure the agent during build</p>
+                </div>
                 <div className="grid grid-cols-3 gap-3">
                   <Select value={draft.type || ""} onValueChange={(v) => setDraft({ ...draft, type: v })}>
                     <SelectTrigger><SelectValue placeholder="Source type" /></SelectTrigger>
                     <SelectContent>
                       {KNOWLEDGE_TYPES.map((t) => (
-                        <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                        <SelectItem key={t.value} value={t.value}>
+                          <div>
+                            <span>{t.label}</span>
+                            <span className="text-[10px] text-muted-foreground block">{t.desc}</span>
+                          </div>
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                   <Select value={draft.status} onValueChange={(v) => setDraft({ ...draft, status: v })}>
                     <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="available">Available</SelectItem>
-                      <SelectItem value="needs-setup">Needs Setup</SelectItem>
-                      <SelectItem value="blocked">Blocked</SelectItem>
+                      {STATUS_OPTIONS.map((t) => (
+                        <SelectItem key={t.value} value={t.value}>
+                          <div>
+                            <span>{t.label}</span>
+                            <span className="text-[10px] text-muted-foreground block">{t.desc}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <Select value={draft.phase || "MVP"} onValueChange={(v) => setDraft({ ...draft, phase: v })}>
@@ -101,7 +123,7 @@ const KnowledgeSourcesSection = ({ data, onChange }: Props) => {
                     <StatusBadge status={item.phase || "MVP"} />
                   </div>
                   {item.purpose && <p className="text-xs text-muted-foreground">{item.purpose}</p>}
-                  <p className="text-xs text-muted-foreground/70 mt-0.5">{item.location}</p>
+                  {item.location && <p className="text-xs text-muted-foreground/70 mt-0.5">{item.location}</p>}
                 </div>
                 <div className="flex gap-1">
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => startEdit(i)}><Pencil className="h-3.5 w-3.5" /></Button>

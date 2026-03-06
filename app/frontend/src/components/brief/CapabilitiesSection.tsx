@@ -11,11 +11,11 @@ import SectionGuidelines from "./SectionGuidelines";
 interface Props { data: any; onChange?: (data: any) => void; }
 
 const IMPL_TYPES = [
-  { value: "prompt", label: "Prompt", desc: "Behavior encoded in instructions only" },
-  { value: "topic", label: "Topic", desc: "Requires custom YAML topic" },
-  { value: "tool", label: "Tool", desc: "Requires a tool/connector/MCP" },
-  { value: "knowledge", label: "Knowledge", desc: "Requires a knowledge source" },
-  { value: "flow", label: "Flow", desc: "Requires a Power Automate flow" },
+  { value: "prompt", label: "Prompt", desc: "Handled by instructions alone — no extra config needed" },
+  { value: "topic", label: "Topic", desc: "Needs a custom conversation flow with specific steps" },
+  { value: "tool", label: "Tool", desc: "Needs a connector, MCP server, or API to fetch/send data" },
+  { value: "knowledge", label: "Knowledge", desc: "Answered from a knowledge source (SharePoint, files, etc.)" },
+  { value: "flow", label: "Flow", desc: "Needs a Power Automate flow for automation/triggers" },
 ];
 
 const IMPL_STYLES: Record<string, string> = {
@@ -44,7 +44,7 @@ const CapabilitiesSection = ({ data, onChange }: Props) => {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-foreground mb-1">Capabilities</h2>
-          <p className="text-xs text-muted-foreground">Features this agent can perform</p>
+          <p className="text-xs text-muted-foreground">Features this agent can perform — each one becomes something we test and verify works</p>
           <SectionGuidelines sectionId="capabilities" />
         </div>
         <Button variant="outline" size="sm" onClick={add} className="gap-1.5">
@@ -57,22 +57,43 @@ const CapabilitiesSection = ({ data, onChange }: Props) => {
           <div key={i} className="rounded-lg border border-border bg-card p-4">
             {editIdx === i && draft ? (
               <div className="space-y-3">
-                <Input placeholder="Capability name" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
-                <Input placeholder="Description" value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} />
+                <div>
+                  <Input placeholder="Capability name (e.g., Check order status)" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
+                  <p className="text-[10px] text-muted-foreground mt-1">Write as a user-facing action — how would a customer describe what this does?</p>
+                </div>
+                <Input placeholder="Description — what this does and what data it needs" value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} />
                 <div className="grid grid-cols-2 gap-3">
-                  <Select value={draft.implementationType || "prompt"} onValueChange={(v) => setDraft({ ...draft, implementationType: v })}>
-                    <SelectTrigger><SelectValue placeholder="Implementation" /></SelectTrigger>
-                    <SelectContent>
-                      {IMPL_TYPES.map((t) => (
-                        <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div>
+                    <Select value={draft.implementationType || "prompt"} onValueChange={(v) => setDraft({ ...draft, implementationType: v })}>
+                      <SelectTrigger><SelectValue placeholder="How to implement" /></SelectTrigger>
+                      <SelectContent>
+                        {IMPL_TYPES.map((t) => (
+                          <SelectItem key={t.value} value={t.value}>
+                            <div>
+                              <span>{t.label}</span>
+                              <span className="text-[10px] text-muted-foreground block">{t.desc}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[10px] text-muted-foreground mt-1">Determines what we build — "Prompt" = free (just instructions), others need configuration</p>
+                  </div>
                   <Select value={draft.phase || "MVP"} onValueChange={(v) => setDraft({ ...draft, phase: v })}>
                     <SelectTrigger><SelectValue placeholder="Phase" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="MVP">MVP</SelectItem>
-                      <SelectItem value="Future">Future</SelectItem>
+                      <SelectItem value="MVP">
+                        <div>
+                          <span>MVP</span>
+                          <span className="text-[10px] text-muted-foreground block">Build now — included in this sprint</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="Future">
+                        <div>
+                          <span>Future</span>
+                          <span className="text-[10px] text-muted-foreground block">Deferred — documented but not built yet</span>
+                        </div>
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

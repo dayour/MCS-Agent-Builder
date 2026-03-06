@@ -11,33 +11,33 @@ import SectionGuidelines from "./SectionGuidelines";
 interface Props { data: any; onChange?: (data: any) => void; }
 
 const TOOL_TYPES = [
-  { value: "connector", label: "Connector" },
-  { value: "mcp", label: "MCP Server" },
-  { value: "flow", label: "Flow (Power Automate)" },
-  { value: "ai-tool", label: "AI Tool (Computer Use)" },
-  { value: "custom-connector", label: "Custom Connector" },
-  { value: "http", label: "REST API (HTTP)" },
+  { value: "connector", label: "Connector", desc: "Pre-built Power Platform connector (e.g., SharePoint, ServiceNow)" },
+  { value: "mcp", label: "MCP Server", desc: "Model Context Protocol — rich tool access to M365, APIs, databases" },
+  { value: "flow", label: "Flow (Power Automate)", desc: "Cloud flow for multi-step automation, approvals, scheduled tasks" },
+  { value: "ai-tool", label: "AI Tool (Computer Use)", desc: "AI-powered browser automation for legacy systems without APIs" },
+  { value: "custom-connector", label: "Custom Connector", desc: "Your own connector wrapping a REST API with custom auth" },
+  { value: "http", label: "REST API (HTTP)", desc: "Direct HTTP calls to any REST endpoint" },
 ];
 
 const AUTH_TYPES = [
-  { value: "none", label: "None" },
-  { value: "oauth2", label: "OAuth 2.0" },
-  { value: "api_key", label: "API Key" },
-  { value: "obo", label: "OAuth 2.0 (OBO)" },
-  { value: "service_principal", label: "Service Principal" },
-  { value: "basic", label: "Basic Auth" },
+  { value: "none", label: "None", desc: "No auth needed — public API or internal network" },
+  { value: "oauth2", label: "OAuth 2.0", desc: "User signs in via identity provider — most common for Microsoft services" },
+  { value: "api_key", label: "API Key", desc: "Simple key sent in header — good for third-party APIs" },
+  { value: "obo", label: "OAuth 2.0 (OBO)", desc: "On-Behalf-Of — seamless token pass-through, no re-prompting" },
+  { value: "service_principal", label: "Service Principal", desc: "App-only auth — runs without user interaction (background tasks)" },
+  { value: "basic", label: "Basic Auth", desc: "Username and password — custom connectors only" },
 ];
 
 const CREDENTIAL_MODES = [
-  { value: "end_user", label: "End-user credentials" },
-  { value: "maker", label: "Maker-provided" },
+  { value: "end_user", label: "End-user credentials", desc: "User signs in at runtime — most secure, sees only their data" },
+  { value: "maker", label: "Maker-provided", desc: "Agent uses your pre-configured credentials — user doesn't sign in" },
 ];
 
 const TOOL_STATUSES = [
-  { value: "available", label: "Available" },
-  { value: "needs-setup", label: "Needs Setup" },
-  { value: "needs-custom", label: "Needs Custom" },
-  { value: "blocked", label: "Blocked" },
+  { value: "available", label: "Available", desc: "Ready to use — connector exists in the environment" },
+  { value: "needs-setup", label: "Needs Setup", desc: "Requires one-time configuration (OAuth consent, API key)" },
+  { value: "needs-custom", label: "Needs Custom", desc: "No pre-built connector — must build a custom connector" },
+  { value: "blocked", label: "Blocked", desc: "Can't proceed — waiting on access, licensing, or approval" },
 ];
 
 const TYPE_STYLES: Record<string, string> = {
@@ -73,7 +73,7 @@ const IntegrationsSection = ({ data, onChange }: Props) => {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-foreground mb-1">Tools</h2>
-          <p className="text-xs text-muted-foreground">Connected systems, actions, and services</p>
+          <p className="text-xs text-muted-foreground">External systems the agent connects to — each tool gives the agent access to data or actions</p>
           <SectionGuidelines sectionId="tools" />
         </div>
         <Button variant="outline" size="sm" onClick={add} className="gap-1.5">
@@ -86,14 +86,22 @@ const IntegrationsSection = ({ data, onChange }: Props) => {
           <div key={i} className="rounded-lg border border-border bg-card p-4">
             {editIdx === i && draft ? (
               <div className="space-y-3">
-                <Input placeholder="Name" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
-                <Input placeholder="Purpose — what data/actions does this provide?" value={draft.purpose || ""} onChange={(e) => setDraft({ ...draft, purpose: e.target.value })} />
+                <Input placeholder="Name (e.g., SharePoint HR Site, SAP Order API)" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
+                <div>
+                  <Input placeholder="Purpose — what data or actions does this give the agent?" value={draft.purpose || ""} onChange={(e) => setDraft({ ...draft, purpose: e.target.value })} />
+                  <p className="text-[10px] text-muted-foreground mt-1">The agent uses this description to decide when to call this tool</p>
+                </div>
                 <div className="grid grid-cols-2 gap-3">
                   <Select value={draft.type || ""} onValueChange={(v) => setDraft({ ...draft, type: v })}>
                     <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
                     <SelectContent>
                       {TOOL_TYPES.map((t) => (
-                        <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                        <SelectItem key={t.value} value={t.value}>
+                          <div>
+                            <span>{t.label}</span>
+                            <span className="text-[10px] text-muted-foreground block">{t.desc}</span>
+                          </div>
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -101,7 +109,12 @@ const IntegrationsSection = ({ data, onChange }: Props) => {
                     <SelectTrigger><SelectValue placeholder="Auth type" /></SelectTrigger>
                     <SelectContent>
                       {AUTH_TYPES.map((t) => (
-                        <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                        <SelectItem key={t.value} value={t.value}>
+                          <div>
+                            <span>{t.label}</span>
+                            <span className="text-[10px] text-muted-foreground block">{t.desc}</span>
+                          </div>
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -111,7 +124,12 @@ const IntegrationsSection = ({ data, onChange }: Props) => {
                     <SelectTrigger><SelectValue placeholder="Credentials" /></SelectTrigger>
                     <SelectContent>
                       {CREDENTIAL_MODES.map((t) => (
-                        <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                        <SelectItem key={t.value} value={t.value}>
+                          <div>
+                            <span>{t.label}</span>
+                            <span className="text-[10px] text-muted-foreground block">{t.desc}</span>
+                          </div>
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -119,7 +137,12 @@ const IntegrationsSection = ({ data, onChange }: Props) => {
                     <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
                     <SelectContent>
                       {TOOL_STATUSES.map((t) => (
-                        <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                        <SelectItem key={t.value} value={t.value}>
+                          <div>
+                            <span>{t.label}</span>
+                            <span className="text-[10px] text-muted-foreground block">{t.desc}</span>
+                          </div>
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -131,7 +154,7 @@ const IntegrationsSection = ({ data, onChange }: Props) => {
                     </SelectContent>
                   </Select>
                 </div>
-                <Input placeholder="Notes" value={draft.notes || ""} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} />
+                <Input placeholder="Notes — config details, scoping, constraints" value={draft.notes || ""} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} />
                 <div className="flex gap-2 justify-end">
                   <Button variant="ghost" size="sm" onClick={cancelEdit}><X className="h-3.5 w-3.5" /></Button>
                   <Button size="sm" onClick={saveEdit}><Check className="h-3.5 w-3.5" /></Button>
