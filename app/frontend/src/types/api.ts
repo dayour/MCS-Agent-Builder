@@ -109,6 +109,7 @@ export interface ApiBrief {
     description?: string;
     dataSources?: string[];
     status?: string;
+    implementationType?: string;
   }>;
   integrations?: Array<{
     name: string;
@@ -116,6 +117,7 @@ export interface ApiBrief {
     purpose?: string;
     dataProvided?: string;
     authMethod?: string;
+    credentialMode?: string;
     status?: string;
     phase?: string;
     notes?: string;

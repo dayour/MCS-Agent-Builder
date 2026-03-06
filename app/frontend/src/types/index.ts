@@ -102,18 +102,23 @@ export interface Capability {
   name: string;
   description: string;
   phase: string;
+  implementationType: string;
 }
 
 export interface Integration {
   name: string;
   type: string;
   auth: string;
+  credentialMode: string;
+  purpose: string;
   notes: string;
   phase: string;
+  status: string;
 }
 
 export interface KnowledgeSource {
   name: string;
+  type: string;
   purpose: string;
   location: string;
   phase: string;

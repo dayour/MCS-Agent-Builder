@@ -10,7 +10,23 @@ import SectionGuidelines from "./SectionGuidelines";
 
 interface Props { data: any; onChange?: (data: any) => void; }
 
-const emptyItem = { name: "", purpose: "", location: "", phase: "MVP", status: "needs-setup" };
+const KNOWLEDGE_TYPES = [
+  { value: "SharePoint", label: "SharePoint" },
+  { value: "Uploaded files", label: "Uploaded Files" },
+  { value: "Dataverse", label: "Dataverse" },
+  { value: "Public websites", label: "Public Websites" },
+  { value: "Graph connectors", label: "Graph Connectors" },
+];
+
+const TYPE_STYLES: Record<string, string> = {
+  SharePoint: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
+  "Uploaded files": "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300",
+  Dataverse: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
+  "Public websites": "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
+  "Graph connectors": "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300",
+};
+
+const emptyItem = { name: "", type: "", purpose: "", location: "", phase: "MVP", status: "needs-setup" };
 
 const KnowledgeSourcesSection = ({ data, onChange }: Props) => {
   const [editIdx, setEditIdx] = useState<number | null>(null);
@@ -41,12 +57,13 @@ const KnowledgeSourcesSection = ({ data, onChange }: Props) => {
                 <Input placeholder="Name" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
                 <Input placeholder="Purpose — what questions does this answer?" value={draft.purpose || ""} onChange={(e) => setDraft({ ...draft, purpose: e.target.value })} />
                 <Input placeholder="Source location (URL / path / table)" value={draft.location} onChange={(e) => setDraft({ ...draft, location: e.target.value })} />
-                <div className="grid grid-cols-2 gap-3">
-                  <Select value={draft.phase || "MVP"} onValueChange={(v) => setDraft({ ...draft, phase: v })}>
-                    <SelectTrigger><SelectValue placeholder="Phase" /></SelectTrigger>
+                <div className="grid grid-cols-3 gap-3">
+                  <Select value={draft.type || ""} onValueChange={(v) => setDraft({ ...draft, type: v })}>
+                    <SelectTrigger><SelectValue placeholder="Source type" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="MVP">MVP</SelectItem>
-                      <SelectItem value="Future">Future</SelectItem>
+                      {KNOWLEDGE_TYPES.map((t) => (
+                        <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <Select value={draft.status} onValueChange={(v) => setDraft({ ...draft, status: v })}>
@@ -57,6 +74,13 @@ const KnowledgeSourcesSection = ({ data, onChange }: Props) => {
                       <SelectItem value="blocked">Blocked</SelectItem>
                     </SelectContent>
                   </Select>
+                  <Select value={draft.phase || "MVP"} onValueChange={(v) => setDraft({ ...draft, phase: v })}>
+                    <SelectTrigger><SelectValue placeholder="Phase" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="MVP">MVP</SelectItem>
+                      <SelectItem value="Future">Future</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="flex gap-2 justify-end">
                   <Button variant="ghost" size="sm" onClick={cancelEdit}><X className="h-3.5 w-3.5" /></Button>
@@ -65,9 +89,14 @@ const KnowledgeSourcesSection = ({ data, onChange }: Props) => {
               </div>
             ) : (
               <div className="flex items-center gap-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                     <p className="text-sm font-medium text-foreground">{item.name}</p>
+                    {item.type && (
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${TYPE_STYLES[item.type] || "bg-muted text-muted-foreground"}`}>
+                        {item.type}
+                      </span>
+                    )}
                     <StatusBadge status={item.status} />
                     <StatusBadge status={item.phase || "MVP"} />
                   </div>

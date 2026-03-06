@@ -44,6 +44,7 @@ export function briefFromApi(raw: ApiBrief): BriefData {
         name: c.name ?? "",
         description: c.description ?? "",
         phase: (c.phase ?? "mvp").toUpperCase() === "MVP" ? "MVP" : "Future",
+        implementationType: c.implementationType ?? "prompt",
       })),
     },
     tools: {
@@ -51,13 +52,17 @@ export function briefFromApi(raw: ApiBrief): BriefData {
         name: i.name ?? "",
         type: i.type ?? "",
         auth: i.authMethod ?? "",
+        credentialMode: i.credentialMode ?? "end_user",
+        purpose: i.purpose ?? "",
         notes: i.notes ?? "",
         phase: (i.phase ?? "mvp").toUpperCase() === "MVP" ? "MVP" : "Future",
+        status: i.status ?? "available",
       })),
     },
     "knowledge-sources": {
       items: (raw.knowledge ?? []).map((k) => ({
         name: k.name ?? "",
+        type: k.type ?? "",
         purpose: k.purpose ?? "",
         location: k.scope ?? "",
         phase: (k.phase ?? "mvp").toUpperCase() === "MVP" ? "MVP" : "Future",
@@ -194,6 +199,7 @@ export function briefToApi(ui: BriefData, raw: ApiBrief): ApiBrief {
       name: c.name,
       description: c.description,
       phase: (c.phase ?? "MVP").toLowerCase() === "mvp" ? "mvp" : "future",
+      implementationType: c.implementationType,
     };
   });
 
@@ -205,8 +211,11 @@ export function briefToApi(ui: BriefData, raw: ApiBrief): ApiBrief {
       name: t.name,
       type: t.type,
       authMethod: t.auth,
+      credentialMode: t.credentialMode,
+      purpose: t.purpose,
       notes: t.notes,
       phase: (t.phase ?? "MVP").toLowerCase() === "mvp" ? "mvp" : "future",
+      status: t.status,
     };
   });
 
@@ -216,6 +225,7 @@ export function briefToApi(ui: BriefData, raw: ApiBrief): ApiBrief {
     return {
       ...existing,
       name: k.name,
+      type: k.type,
       purpose: k.purpose,
       scope: k.location,
       phase: (k.phase ?? "MVP").toLowerCase() === "mvp" ? "mvp" : "future",
