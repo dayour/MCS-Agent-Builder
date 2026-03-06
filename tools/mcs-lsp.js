@@ -24,7 +24,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { pathToFileURL } = require('url');
-const { getToken: getAzToken, sleep } = require('./lib/http');
+const { getToken: getAzToken, httpRequest, sleep } = require('./lib/http');
 
 // --- Configuration ---
 const LSP_STARTUP_TIMEOUT_MS = 15000;
@@ -451,10 +451,129 @@ function findMcsYmlFiles(dir) {
     return results;
 }
 
+// --- Metadata Patch (comment headers not synced by LSP) ---
+
+/**
+ * Patch agent metadata (name + description) in Dataverse after LSP push.
+ *
+ * LSP push does NOT sync:
+ *   1. Comment headers (lines 1-2 of agent.mcs.yml) → stored in GptComponent `data` field
+ *   2. The `botcomponent.description` column → the ACTUAL field MCS UI reads for agent description
+ *
+ * This function reads from the local agent.mcs.yml and patches BOTH locations.
+ * The ObjectModel schema (AgentDefinition.description) confirms `description` is a
+ * first-class property on the botcomponent entity, separate from the YAML `data` field.
+ *
+ * @param {string} workspacePath - Path to agent workspace (with .mcs/conn.json)
+ * @returns {object|null} Patch result or null if skipped
+ */
+async function patchMetadata(workspacePath) {
+    // 1. Read local agent.mcs.yml
+    const agentYmlPath = path.join(workspacePath, 'agent.mcs.yml');
+    if (!fs.existsSync(agentYmlPath)) return null;
+
+    const localContent = fs.readFileSync(agentYmlPath, 'utf8');
+    const localLines = localContent.split('\n');
+    const localLine1 = localLines[0] || '';
+    const localLine2 = localLines[1] || '';
+
+    // Extract name from "# Name: X" and description from "# X"
+    const nameMatch = localLine1.match(/^#\s*Name:\s*(.+)/);
+    const descMatch = localLine2.match(/^#\s*(.+)/);
+    const localName = nameMatch ? nameMatch[1].trim() : '';
+    const localDesc = descMatch ? descMatch[1].trim() : '';
+
+    // Skip if still defaults (nothing useful to patch)
+    if (!localName || localName === 'default') {
+        console.error('[mcs-lsp] Skipping metadata patch — still default values');
+        return null;
+    }
+
+    // 2. Get conn.json for Dataverse URL + agent ID
+    const connJson = readConnJson(workspacePath);
+    const dvUrl = connJson.DataverseEndpoint.replace(/\/$/, '');
+    const agentId = connJson.AgentId;
+    const token = getAzToken(dvUrl);
+
+    // 3. Find GptComponent (componenttype=15) for this agent
+    // FetchXML uses logical name "parentbotid" (not OData "_parentbotid_value")
+    const fetchXml = `<fetch top="1"><entity name="botcomponent"><attribute name="botcomponentid"/><attribute name="data"/><attribute name="description"/><attribute name="name"/><filter><condition attribute="parentbotid" operator="eq" value="${agentId}"/><condition attribute="componenttype" operator="eq" value="15"/></filter></entity></fetch>`;
+
+    const searchRes = await httpRequest('GET',
+        `${dvUrl}/api/data/v9.2/botcomponents?fetchXml=${encodeURIComponent(fetchXml)}`,
+        { 'Authorization': `Bearer ${token}` },
+        null
+    );
+
+    if (searchRes.status !== 200 || !searchRes.data.value || searchRes.data.value.length === 0) {
+        console.error('[mcs-lsp] No GptComponent found for metadata patch — skipping');
+        return null;
+    }
+
+    const gptComponent = searchRes.data.value[0];
+    const gptId = gptComponent.botcomponentid;
+    const remoteData = gptComponent.data || '';
+    const remoteDesc = gptComponent.description || '';
+    const remoteName = gptComponent.name || '';
+
+    // 4. Build patch payload — only include fields that changed
+    const patchBody = {};
+    let changes = [];
+
+    // 4a. Check botcomponent.description column (what MCS UI actually displays)
+    if (localDesc && remoteDesc !== localDesc) {
+        patchBody.description = localDesc;
+        changes.push(`description: "${remoteDesc}" → "${localDesc}"`);
+    }
+
+    // 4b. Check botcomponent.name column
+    if (localName && remoteName !== localName) {
+        patchBody.name = localName;
+        changes.push(`name: "${remoteName}" → "${localName}"`);
+    }
+
+    // 4c. Check comment headers in data field (lines 1-2)
+    const remoteLines = remoteData.split('\n');
+    const remoteLine1 = remoteLines[0] || '';
+    const remoteLine2 = remoteLines[1] || '';
+    if (remoteLine1 !== localLine1 || remoteLine2 !== localLine2) {
+        remoteLines[0] = localLine1;
+        remoteLines[1] = localLine2;
+        patchBody.data = remoteLines.join('\n');
+        changes.push('data comment headers');
+    }
+
+    if (changes.length === 0) {
+        console.error('[mcs-lsp] Metadata already matches — no patch needed');
+        return { patched: false, gptComponentId: gptId };
+    }
+
+    // 5. PATCH all changed fields in one request
+    const patchRes = await httpRequest('PATCH',
+        `${dvUrl}/api/data/v9.2/botcomponents(${gptId})`,
+        {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'If-Match': '*'
+        },
+        JSON.stringify(patchBody)
+    );
+
+    if (patchRes.status === 204 || patchRes.status === 200) {
+        console.error(`[mcs-lsp] Metadata patched: ${changes.join(', ')}`);
+        return { patched: true, gptComponentId: gptId, name: localName, description: localDesc, changes };
+    } else {
+        console.error(`[mcs-lsp] Metadata patch failed: HTTP ${patchRes.status} ${JSON.stringify(patchRes.data)}`);
+        return { patched: false, error: patchRes.data, gptComponentId: gptId };
+    }
+}
+
 // --- Commands ---
 
 /**
  * Push local changes to MCS (local → remote).
+ * After LSP push, automatically patches agent metadata (name + description)
+ * via Dataverse API since LSP does not sync comment headers.
  */
 async function push(workspacePath, options = {}) {
     const connJson = readConnJson(workspacePath);
@@ -464,23 +583,36 @@ async function push(workspacePath, options = {}) {
     const lspPath = options.lspPath || findLspBinary();
     const client = new LspClient(lspPath);
 
+    let result;
     try {
         client.start();
         await initializeLsp(client, workspacePath);
         await openWorkspaceFiles(client, workspacePath);
 
         console.error('[mcs-lsp] Pushing local changes to MCS...');
-        const result = await client.send('powerplatformls/syncPush', syncRequest);
+        result = await client.send('powerplatformls/syncPush', syncRequest);
 
         if (result && result.code && result.code !== 0 && result.code !== 200) {
             throw new Error(`Push failed: ${result.message || JSON.stringify(result)}`);
         }
 
         console.error('[mcs-lsp] Push completed successfully.');
-        return result;
     } finally {
         await client.shutdown();
     }
+
+    // Patch metadata (name + description) — LSP push skips comment headers
+    try {
+        const metadataResult = await patchMetadata(workspacePath);
+        if (metadataResult) {
+            result.metadataPatch = metadataResult;
+        }
+    } catch (err) {
+        console.error(`[mcs-lsp] Metadata patch error (non-fatal): ${err.message}`);
+        result.metadataPatch = { patched: false, error: err.message };
+    }
+
+    return result;
 }
 
 /**
@@ -1038,6 +1170,7 @@ module.exports = {
     preview,
     info,
     clone,
+    patchMetadata,
     loadConnInfoFromConfig,
     findMcsYmlFiles
 };

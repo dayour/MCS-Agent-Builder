@@ -36,11 +36,21 @@ interface Props {
 
 const ConversationTopics = ({ data }: Props) => {
   const items = data?.items;
-  if (!items?.length) return null;
+  const starters = data?.starters;
+  if (!items?.length && !starters?.length) return null;
 
   return (
     <View>
       <SectionHeading title="Conversation Topics" subtitle="Topic flows and routing" />
+
+      {starters?.length > 0 && (
+        <Card>
+          <Text style={s.name}>Conversation Starters</Text>
+          {starters.map((st: any, i: number) => (
+            <Text key={i} style={s.desc}>{safe(st.title)}{st.text && st.text !== st.title ? ` — ${st.text}` : ""}</Text>
+          ))}
+        </Card>
+      )}
 
       {items.map((t: any, i: number) => (
         <Card key={i}>
@@ -48,7 +58,15 @@ const ConversationTopics = ({ data }: Props) => {
             <View style={{ flex: 1 }}>
               <Text style={s.name}>{safe(t.name)}</Text>
               {t.description && <Text style={s.desc}>{t.description}</Text>}
-              <Text style={s.typeText}>{safe(t.type)}</Text>
+              <View style={s.pillRow}>
+                <Text style={s.typeText}>{safe(t.type)}</Text>
+                {t.outputFormat && t.outputFormat !== "text" && (
+                  <Text style={s.typeText}> · {t.outputFormat}</Text>
+                )}
+                {t.triggerType && t.triggerType !== "agent-chooses" && (
+                  <Text style={s.typeText}> · {t.triggerType}</Text>
+                )}
+              </View>
             </View>
             <StatusPill label={t.phase || "MVP"} />
           </View>

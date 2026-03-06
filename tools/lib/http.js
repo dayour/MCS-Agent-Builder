@@ -106,19 +106,34 @@ async function httpRequestWithRetry(method, url, headers, body, retries = DEFAUL
     throw lastError;
 }
 
+// --- Token Cache ---
+const _tokenCache = {};
+const TOKEN_REFRESH_BUFFER_MS = 120000; // refresh 2 min before expiry
+
 /**
- * Get an Azure CLI access token for a resource.
+ * Get an Azure CLI access token for a resource, with TTL-aware caching.
+ * Returns a cached token if > 2 minutes remain before expiry.
+ * Fetches fresh via `az account get-access-token` otherwise.
  *
  * @param {string} resource - Token audience (URL or app ID)
  * @returns {string} Access token
  */
 function getToken(resource) {
+    const cached = _tokenCache[resource];
+    if (cached && cached.expiresAt > Date.now() + TOKEN_REFRESH_BUFFER_MS) {
+        return cached.token;
+    }
     try {
         const result = execSync(
-            `az account get-access-token --resource ${resource} --query accessToken -o tsv`,
+            `az account get-access-token --resource ${resource} -o json`,
             { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
         );
-        return result.trim();
+        const parsed = JSON.parse(result);
+        _tokenCache[resource] = {
+            token: parsed.accessToken,
+            expiresAt: new Date(parsed.expiresOn).getTime()
+        };
+        return parsed.accessToken;
     } catch (err) {
         throw new Error(
             `Failed to get token for ${resource}. Ensure az CLI is logged in.\n` +
@@ -126,6 +141,13 @@ function getToken(resource) {
             `Error: ${err.stderr || err.message}`
         );
     }
+}
+
+/**
+ * Clear the in-memory token cache. Use after `az login` to force fresh tokens.
+ */
+function clearTokenCache() {
+    Object.keys(_tokenCache).forEach(k => delete _tokenCache[k]);
 }
 
 /**
@@ -156,6 +178,7 @@ module.exports = {
     httpRequest,
     httpRequestWithRetry,
     getToken,
+    clearTokenCache,
     getTenantId,
     sleep,
     DEFAULT_TIMEOUT_MS,

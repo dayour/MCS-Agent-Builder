@@ -86,6 +86,67 @@ All three auth layers (PAC CLI, Azure CLI, Browser target) derive from one accou
 
 ---
 
+## Step 0.9: Populate Build Context
+
+After auth is verified, capture ALL derived state into `brief.json.buildStatus` so every subsequent step reads from ONE place instead of re-deriving URLs, IDs, and GUIDs.
+
+1. **From session-config.json** (looked up by accountId + environment name):
+   - `dataverseUrl` ← `accounts[].environments[].dataverseUrl`
+   - `gatewayUrl` ← `accounts[].environments[].gatewayUrl`
+   - `environmentId` ← `accounts[].environments[].environmentId`
+
+2. **From Dataverse** (if `mcsAgentId` exists — resume build):
+   - `botSchemaName` ← `GET <dataverseUrl>/api/data/v9.2/bots(<mcsAgentId>)?$select=schemaname` → `schemaname` field
+   - `gptComponentId` ← FetchXML query for botcomponent where `_parentbotid_value`=`<mcsAgentId>` AND `componenttype`=15
+
+3. **Persist to brief.json.buildStatus** — write all fields atomically.
+
+4. **Log Build Context:**
+   ```
+   Build Context:
+     Agent: {name} ({mcsAgentId || "new — will be created in Step 1"})
+     Environment: {environment} ({environmentId})
+     Dataverse: {dataverseUrl}
+     Gateway: {gatewayUrl}
+     Workspace: {workspacePath || "will be created in Step 1e"}
+     Tenant: {azTenantId}
+   ```
+
+**All subsequent steps use buildStatus fields directly:**
+- Dataverse calls → `buildStatus.dataverseUrl` + `buildStatus.mcsAgentId`
+- Island Gateway calls → `buildStatus.gatewayUrl` + `buildStatus.environmentId`
+- LSP push/pull → `buildStatus.workspacePath`
+- Description/starters PATCH → `buildStatus.gptComponentId`
+- PAC CLI → `buildStatus.botSchemaName`
+
+**After Step 1 (create agent):** Update `mcsAgentId`, `botSchemaName`, `gptComponentId` from the newly created agent.
+
+---
+
+## Step 0.95: Pre-flight Validation
+
+Verify all build prerequisites before starting expensive operations. Every check uses buildStatus fields from Step 0.9:
+
+1. **Token check**: `az account get-access-token --resource <buildStatus.dataverseUrl>` → must succeed
+2. **Environment reachable**: `GET <buildStatus.dataverseUrl>/api/data/v9.2/bots?$top=1` → HTTP 200
+3. **Workspace valid** (if resume): `buildStatus.workspacePath` directory exists AND has `.mcs/conn.json`
+4. **Agent exists** (if resume): `GET <buildStatus.dataverseUrl>/api/data/v9.2/bots(<mcsAgentId>)` → HTTP 200
+5. **Brief completeness**:
+   - `instructions` is non-empty and < 8000 chars
+   - `agent.name` is non-empty
+   - `agent.description` is non-empty (warn if missing — PE should have generated it)
+   - At least 1 MVP capability exists
+
+**If ANY of checks 1-4 fail → STOP with clear error.** Do NOT start building. Report which check failed and what the user should do:
+- Token failed → "Run `az login --tenant <tenantId>`"
+- Environment unreachable → "Verify Dataverse URL in session-config.json"
+- Workspace missing → "Will re-clone in Step 1e" (clear `workspacePath`, continue)
+- Agent gone → "Agent was deleted. Clearing mcsAgentId, will re-create in Step 1"
+
+**If check 5 has warnings → log them and proceed** (quality issues, not blockers).
+
+---
+
 ## MVP Phase Filtering
 
 **Only build items tagged `phase: "mvp"`. Skip items tagged `phase: "future"`.**
@@ -266,6 +327,40 @@ In addition to Topic Engineer (YAML authoring, Step 4) and QA Challenger (review
 
 ## Standalone Build (Single Agent)
 
+### Dataverse API Shorthand
+
+All Dataverse calls use buildStatus fields established in Step 0.9:
+
+```bash
+# Standard setup (copy-paste into any step)
+TOKEN=$(az account get-access-token --resource <buildStatus.dataverseUrl> --query accessToken -o tsv)
+DV="<buildStatus.dataverseUrl>"
+BOT="<buildStatus.mcsAgentId>"
+GPT="<buildStatus.gptComponentId>"
+```
+
+**Publish + verify pattern:**
+```bash
+curl -s -X POST "$DV/api/data/v9.2/bots($BOT)/Microsoft.Dynamics.CRM.PvaPublish" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{}'
+sleep 5
+# Query WITHOUT $select (synchronizationstatus returns null with $select)
+curl -s "$DV/api/data/v9.2/bots($BOT)" -H "Authorization: Bearer $TOKEN" | python -c "
+import json, sys
+data = json.load(sys.stdin)
+ss = json.loads(data.get('synchronizationstatus', '{}'))
+status = ss.get('lastFinishedPublishOperation', {}).get('status', 'pending')
+print(f'Publish status: {status}')
+"
+```
+
+**Description PATCH:** Now handled automatically by `mcs-lsp.js push` (patches lines 1-2 of GptComponent `data` field after LSP sync). For manual override:
+```bash
+curl -s -X PATCH "$DV/api/data/v9.2/botcomponents($GPT)" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -H "If-Match: *" \
+  -d '{"data":"<updated YAML with correct lines 1-2>"}'
+```
+
 ### Step 0: Resume Detection & Environment Verification
 
 **Resume check (runs before anything else):**
@@ -364,7 +459,11 @@ node tools/mcs-lsp.js clone \
 
 The clone creates a subfolder named after the agent (e.g., `workspace/Agent Name/`) containing `.mcs/conn.json`, `agent.mcs.yml`, `topics/`, `actions/`, etc.
 
-**Persist** the workspace path in `brief.json.buildStatus.workspacePath` for Steps 4 and 4.5.
+**Two paths to distinguish:**
+- `--workspace` argument = the **parent directory** (e.g., `Build-Guides/{projectId}/agents/{agentId}/workspace`)
+- Clone output = the **agent subfolder** inside it (e.g., `workspace/Agent Name/`) — this is where `.mcs/conn.json` lives
+
+**Store the agent subfolder** (the one containing `.mcs/conn.json`) in `brief.json.buildStatus.workspacePath`. All `mcs-lsp.js push` and `mcs-lsp.js pull` commands need this subfolder path, NOT the parent. If you store the parent, push/pull will fail with "no conn.json found."
 
 **Skip if:** `buildStatus.workspacePath` exists and the directory has `.mcs/conn.json`.
 
@@ -376,9 +475,56 @@ The clone creates a subfolder named after the agent (e.g., `workspace/Agent Name
 - Gen orchestration topics: use `modelDescription` for routing — `triggerQueries` may block publish
 - Push response `localChanges` may under-report (shows "Settings" but actually pushes instructions, model, knowledge, topics)
 
-### Step 2: Configure Instructions & Knowledge (LSP Push — no browser)
+#### Pre-push Validation (run before EVERY LSP push)
 
-**Skip check:** If `"instructions"` is in `completedSteps`, skip the instructions sub-step. If `"knowledge"` is in `completedSteps`, skip the knowledge sub-step. If both are completed, skip this entire step.
+Before running `node tools/mcs-lsp.js push --workspace <buildStatus.workspacePath>`:
+
+1. **Workspace exists**: `<workspacePath>/.mcs/conn.json` is present
+2. **agent.mcs.yml line 1**: Starts with `# Name:` and is NOT `# Name: default`
+3. **agent.mcs.yml line 2**: Is NOT `# default` (has actual description)
+4. **Conversation starters**: If `conversationStarters:` exists, every entry has both `title` and `text`
+5. **Instructions length**: < 8000 chars
+6. **Freshness**: If last pull was > 30 min ago, pull first to avoid ConcurrencyVersionMismatch
+
+If checks 1-3 fail → fix before pushing.
+If check 4 fails → fix (missing title = silent publish failure).
+If check 6 applies → pull first, then re-apply edits, then push.
+
+**Note on metadata:** `mcs-lsp.js push` now automatically patches `botcomponent.description` (the actual MCS UI field), `botcomponent.name`, and comment headers in the `data` field — all via Dataverse API after LSP sync. Check push output for `Metadata patched` confirmation.
+
+### Step 2: Configure Agent Metadata, Instructions & Knowledge (LSP Push — no browser)
+
+**Skip check:** If `"instructions"` is in `completedSteps`, skip sub-steps 2a and 2b. If `"knowledge"` is in `completedSteps`, skip sub-step 2c. If both are completed, skip this entire step.
+
+#### 2a. Agent Description & Conversation Starters
+
+After clone, edit `agent.mcs.yml` in the workspace to set agent metadata:
+
+**Agent description** — the MCS metadata comment on line 2 of `agent.mcs.yml`:
+- Line 1: `# Name: {brief.json.agent.name}`
+- Line 2: `# {brief.json.agent.description}`
+- These are NOT standard YAML comments — MCS runtime parses them as metadata. After clone of a new agent, they default to `# Name: default` / `# default` — overwrite them.
+- **LSP push now auto-patches metadata.** The `mcs-lsp.js push` command automatically patches three things via Dataverse API after LSP sync: (1) `botcomponent.description` column — the actual field MCS UI reads for agent description, (2) `botcomponent.name` column, (3) comment headers in the `data` YAML field. Values are read from lines 1-2 of the local `agent.mcs.yml`.
+
+**Conversation starters** — add to the YAML body:
+```yaml
+conversationStarters:
+  - title: "Chip label (short)"
+    text: "Full prompt text sent when clicked"
+  - title: "Another starter"
+    text: "Another full prompt"
+```
+
+Each starter **MUST have both `title` and `text`**. Missing `title` causes a silent publish failure: PvaPublish returns HTTP 200, but `synchronizationstatus` shows `"Failed"` with `MissingRequiredProperty: Title`. Pre-push validation: verify every starter object has both fields before pushing.
+
+Push metadata + starters via LSP:
+```bash
+node tools/mcs-lsp.js push --workspace "<buildStatus.workspacePath>"
+```
+
+**VERIFY:** Pull and confirm: `node tools/mcs-lsp.js pull --workspace "<buildStatus.workspacePath>"` → check line 2 has description, `conversationStarters` entries each have `title` + `text`.
+
+#### 2b. Instructions
 
 **Instruction-Capability Phase Alignment (before push):**
 Before pushing instructions to MCS, validate that instruction content matches MVP scope:
@@ -392,10 +538,10 @@ Before pushing instructions to MCS, validate that instruction content matches MV
 5. Present mismatches to user. Proceed after acknowledgment. This is a WARNING gate, not a blocker.
 
 **Instructions:** Edit `agent.mcs.yml` in the cloned workspace → set `instructions:` field → push via `mcs-lsp.js push`.
-**Fallback:** Dataverse API PATCH `data` field + PvaPublish (see `knowledge/patterns/dataverse-patterns.md` § 3)
+**Fallback:** Dataverse API PATCH botcomponent `data` field (YAML) + PvaPublish (see `knowledge/patterns/dataverse-patterns.md` § "GptComponent data field")
 **Checkpoint:** After verified, add `"instructions"` to `brief.json.buildStatus.completedSteps` and set `lastCompletedStep` to `"instructions"`.
 
-**Knowledge:** For SharePoint sites and public websites, create `.mcs.yml` files in the workspace's `knowledge/` folder → push via `mcs-lsp.js push`. For file uploads (PDF, DOCX), use Dataverse API (see `knowledge/patterns/dataverse-patterns.md` § 4). See `knowledge/cache/knowledge-sources.md` for YAML format per source type.
+**Knowledge:** For SharePoint sites and public websites, create `.mcs.yml` files in the workspace's `knowledge/` folder → push via `mcs-lsp.js push`. For file uploads (PDF, DOCX), use Dataverse API (see `knowledge/patterns/dataverse-patterns.md` § "Operations" → `Add-BotKnowledgeFile`). See `knowledge/cache/knowledge-sources.md` for YAML format per source type.
 **Phase filter:** Only configure `knowledge[]` entries where `phase == "mvp"`. Log skipped future sources.
 **Fallback:** Dataverse API for file uploads
 **Checkpoint:** After verified, add `"knowledge"` to `brief.json.buildStatus.completedSteps` and set `lastCompletedStep` to `"knowledge"`.
@@ -537,17 +683,32 @@ curl -s -X POST "<dataverseUrl>/api/data/v9.2/bots(<botId>)/Microsoft.Dynamics.C
 
 **Fallback:** `pac copilot publish --bot <bot-id>` (crashes on some agents)
 
-**Verify:** Query `publishedon` field — timestamp should be fresh:
-```bash
-curl -s "<dataverseUrl>/api/data/v9.2/bots(<botId>)?$select=publishedon" \
-  -H "Authorization: Bearer $TOKEN"
-```
+**Verify via `synchronizationstatus`** (not just HTTP 200 or `publishedon`):
+
+1. Wait 5 seconds after PvaPublish returns
+2. Query the bot **without `$select`** (full entity — `$select=synchronizationstatus` returns null due to a Dataverse quirk with JSON fields):
+   ```bash
+   curl -s "<dataverseUrl>/api/data/v9.2/bots(<botId>)" \
+     -H "Authorization: Bearer $TOKEN"
+   ```
+3. Parse `synchronizationstatus` (JSON string) → check `lastFinishedPublishOperation.status`:
+   - `"Succeeded"` → publish confirmed, proceed
+   - `"Failed"` → read `lastFinishedPublishOperation.errorMessage`, log to `buildStatus.lastError`, do NOT mark as published
+   - Field empty or status pending → poll again (up to 6 attempts, 5s intervals, 30s total)
+4. Also verify `publishedon` timestamp is today as a secondary check
+
+**Common publish failures:**
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `MissingRequiredProperty: Title` | Conversation starter without `title` field | Add `title` to all starters in `agent.mcs.yml` |
+| `ConcurrencyVersionMismatch` | Stale workspace — pushed without pulling first | Pull → re-edit → push |
+| `InvalidComponent` | Malformed YAML in a topic or action | Run `om-cli validate` on all workspace YAML files |
 
 **If environments don't match:** Ask user to switch PAC CLI profile or publish manually.
 
-**Checkpoint:** After verified, add `"published"` to `completedSteps`, set `lastCompletedStep` to `"published"`. Clear `lastError`.
+**Checkpoint:** After `synchronizationstatus` shows `"Succeeded"`, add `"published"` to `completedSteps`, set `lastCompletedStep` to `"published"`. Clear `lastError`.
 
-**VERIFY:** `publishedon` timestamp is today.
+**VERIFY:** `synchronizationstatus.lastFinishedPublishOperation.status` is `"Succeeded"` AND `publishedon` timestamp is today.
 
 ### Step 5.5: QA Build Validation Gate (Agent Teams)
 

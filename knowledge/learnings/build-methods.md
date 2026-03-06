@@ -173,3 +173,42 @@ File must be named using the component's schema name: `{botSchemaName}.topic.{Kn
 **Confirmed:** 1 build(s) | Last confirmed: 2026-02-27
 **Related cache:** api-capabilities.md
 **Tags:** #build #topics #generative #custom #completedSteps #skip-logic #topic-type
+
+### Conversation starters require 'title' field — text-only format blocks publish {#bm-016} — 2026-03-05
+**Context:** BY Solution Design Assistant — PvaPublish failed with "Missing required property 'Title'" (5 occurrences, one per conversation starter)
+**Tried:** `conversationStarters` in agent.mcs.yml with `text` only: `- text: Generate a baseline solution design`
+**Result:** PvaPublish returned 200 but `synchronizationstatus.lastFinishedPublishOperation.status` was "Failed" with 5x `MissingRequiredProperty` for `Title`. The `publishedon` field remained null.
+**Better approach:** Each conversation starter must include both `title` (short label, displayed as chip) and `text` (full prompt sent on click):
+```yaml
+conversationStarters:
+  - title: Solution design
+    text: Generate a baseline solution design for a WMS implementation
+```
+Always verify publish success by checking `synchronizationstatus` JSON, not just the HTTP 200 from PvaPublish — 200 means "accepted" not "succeeded".
+**Confirmed:** 1 build(s) | Last confirmed: 2026-03-05
+**Related cache:** api-capabilities.md, agent-lifecycle.md
+**Tags:** #conversation-starters #publish #title #pva-publish #agent-mcs-yml
+
+### Agent description lives in agent.mcs.yml comment line 2 — LSP pushable {#bm-017} — 2026-03-05
+**Context:** BY Solution Design Assistant — agent description was empty in MCS UI after build
+**Tried:** Checked bot entity for `description` column (doesn't exist), checked settings.mcs.yml (no description field), checked GptComponentMetadata schema (om-cli stack overflow)
+**Result:** The description is stored as the SECOND comment line in `agent.mcs.yml`, NOT as a YAML property:
+```yaml
+# Name: BY Solution Design Assistant
+# Helps Blue Yonder ProServ solution architects generate baseline solution designs...
+kind: GptComponentMetadata
+```
+Line 1 (`# Name:`) = GptComponent display name. Line 2 (`# ...`) = agent description shown in MCS overview. These are MCS metadata comments parsed by the LSP/MCS runtime, not standard YAML comments.
+**Better approach:** Always set both comment lines when writing `agent.mcs.yml`. Pull after clone to see the default `# Name: default / # default` placeholder, then replace with actual name and description. **Fixed (2026-03-05):** `mcs-lsp.js push` now auto-patches metadata via Dataverse API after LSP sync. Patches three fields: (1) `botcomponent.description` — the actual field MCS UI reads (discovered via ObjectModel `AgentDefinition.description`), (2) `botcomponent.name`, (3) comment headers in `data` YAML. PvaPublish still required to make changes live.
+**Confirmed:** 2 build(s) | Last confirmed: 2026-03-05
+**Related cache:** api-capabilities.md, agent-lifecycle.md, dataverse-patterns.md
+**Tags:** #agent-description #agent-mcs-yml #lsp #gpt-component #comment-metadata #dataverse-patch
+
+### synchronizationstatus requires full entity query — $select returns null {#bm-018} — 2026-03-05
+**Context:** BY Solution Design Assistant — implementing publish verification with `synchronizationstatus`
+**Tried:** `GET /bots(<id>)?$select=publishedon,synchronizationstatus` — both fields returned null/None even after successful publish
+**Result:** When queried with `$select`, `synchronizationstatus` and `publishedon` return null. Querying the full entity (no `$select`) returns both correctly. `synchronizationstatus` is a JSON string with `\r\n` line endings containing `lastFinishedPublishOperation.status` ("Succeeded" or "Failed").
+**Better approach:** Always query without `$select` for publish verification: `GET /bots(<id>)`. Parse `synchronizationstatus` as JSON, check `lastFinishedPublishOperation.status`. This is a Dataverse quirk — likely because the field is computed/JSON-typed.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-03-05
+**Related cache:** dataverse-patterns.md, agent-lifecycle.md
+**Tags:** #synchronizationstatus #publish #dataverse #select-quirk #verification

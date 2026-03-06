@@ -106,7 +106,7 @@ Definitions: `.claude/agents/` (research-analyst.md, prompt-engineer.md, topic-e
 **During MCS workflow skills:**
 - **Research phase** (`/mcs-research`): Research Analyst searches for external connectors/MCP (only if Priority 5-6 integrations), then **PE + QA + TE (+ FD if flow/hybrid) run in parallel** in Phase C: PE writes instructions, QA generates eval sets, TE validates topic feasibility, Flow Designer writes flow-spec.md (only when solutionType is "flow" or "hybrid"). Lead does inline instruction review.
 - **Build phase** (`/mcs-build`): Topic Engineer generates YAML, QA Challenger reviews before execution, **eval-driven iteration loop** (safety gate → functional per-capability → resilience), **Research Analyst on-demand (connector issues)**, **Prompt Engineer on-demand (instruction adjustments + fix iteration)**
-- **Eval phase** (`/mcs-eval`): Runs eval sets (all or specific), writes per-test results to evalSets
+- **Eval phase** (`/mcs-eval`): Runs eval sets (all or specific), writes per-test results to evalSets. QA Challenger analyzes failures when sets miss thresholds.
 - **Fix phase** (`/mcs-fix`): QA Challenger classifies failures, Prompt Engineer fixes instructions, Topic Engineer fixes topics
 
 **During general development (Tier 2-3 checks):**
@@ -492,6 +492,12 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 - Reads `brief.json.buildStatus.mcsAgentId` — if set, verifies agent still exists via `pac copilot list`
 - If no ID, checks `pac copilot list` for matching `displayName` before creating a new one
 - Prevents duplicate agents on build restart / session crash
+- Clones agent workspace via LSP; stores agent subfolder path (with `.mcs/conn.json`) in `buildStatus.workspacePath`
+
+**Agent Metadata (Step 2a):**
+- Sets agent description (comment line 2 in `agent.mcs.yml` — MCS metadata, not a standard YAML comment)
+- Adds conversation starters (each MUST have both `title` and `text` — missing `title` causes silent publish failure)
+- Publish verification uses `synchronizationstatus` field, not just HTTP 200 or `publishedon`
 
 **Step-Level Checkpoints (Resume Logic):**
 - `buildStatus.completedSteps` tracks which steps succeeded: `created`, `instructions`, `knowledge`, `tools`, `model`, `topics`, `critical-gate`, `capability-iteration`, `regression`, `published`
@@ -775,7 +781,9 @@ app/                        # Dashboard application
     │   ├── stores/         # Zustand stores (projects, project, brief, terminal)
     │   ├── lib/            # Utilities (api client, transforms, readiness, reports)
     │   ├── types/          # TypeScript types (domain + API response shapes)
-    │   └── config/         # App config (brief sections)
+    │   ├── config/         # App config (brief sections, guidelines)
+    │   ├── hooks/          # React hooks
+    │   └── test/           # Test utilities
     ├── package.json        # Frontend dependencies
     └── vite.config.ts      # Build config (outputs to app/dist/)
 

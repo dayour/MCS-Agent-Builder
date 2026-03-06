@@ -120,12 +120,21 @@ export interface KnowledgeSource {
   status: string;
 }
 
+export interface ConversationStarter {
+  title: string;
+  text: string;
+}
+
 export interface ConversationTopic {
   name: string;
   type: "generative" | "custom";
   phase: string;
   description: string;
   flowDescription: string;
+  outputFormat: string;
+  triggerType: string;
+  implements: string[];
+  connectedIntegrations: string[];
 }
 
 export type EvalMethodType =
@@ -330,7 +339,7 @@ export interface BriefData {
   capabilities: { items: Capability[] };
   tools: { items: Integration[] };
   "knowledge-sources": { items: KnowledgeSource[] };
-  "conversation-topics": { items: ConversationTopic[] };
+  "conversation-topics": { items: ConversationTopic[]; starters: ConversationStarter[]; cardDesign: any | null };
   "scope-boundaries": { handles: string[]; politelyDeclines: string[]; hardRefuses: string[] };
   architecture: Architecture;
   decisions: { items: Decision[] };

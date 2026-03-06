@@ -8,7 +8,7 @@ Reusable patterns for managing Copilot Studio agents via the **3-layer Dataverse
 | 2 | **PAC CLI MCP Server** | Solution ALM, publish, env management — native MCP tools | Free |
 | 3 | **PowerShell + Web API** | Bound actions, complex queries, fallback CRUD | Free |
 
-**Decision flow:** Dataverse MCP → PAC CLI MCP → PowerShell Web API → Playwright (last resort)
+**Decision flow:** Dataverse MCP → PAC CLI MCP → PowerShell Web API → User-guided manual steps (last resort, OAuth consent only)
 
 ---
 
@@ -285,6 +285,14 @@ conversationStarters:
 
 Can be written via LSP push (edit `agent.mcs.yml` in workspace) or Dataverse PATCH on the botcomponent `data` field.
 
+**Agent description** lives in `botcomponent.description` (a separate Dataverse entity column), NOT in the YAML `data` field or comment headers. This is the field MCS UI reads for the agent description shown to users. PATCH it directly:
+```bash
+curl -s -X PATCH "$DV_URL/api/data/v9.2/botcomponents($GPT_ID)" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -H "If-Match: *" \
+  -d '{"description":"Agent description text"}'
+```
+`mcs-lsp.js push` now auto-patches this field from line 2 of local `agent.mcs.yml`.
+
 ### GptCapabilities in GptComponent (YAML in botcomponent data field)
 
 The web browsing (Bing search) toggle and other capabilities are in the `gptCapabilities` section:
@@ -303,20 +311,26 @@ Can be set via LSP push (`agent.mcs.yml`), Island Gateway API (`PUT botcomponent
 
 ---
 
-## What CANNOT Be Done via API (Requires Playwright)
+## Remaining Manual Steps (All-API Stack — Updated 2026-03-05)
 
-### UI-Only Operations (Updated 2026-02-27 — post E2E test)
+### Operations Summary
 
-| Operation | Status | Notes |
-|-----------|--------|-------|
-| ~~Agent creation~~ | **REPLACED** | Dataverse POST + PvaProvision (E2E confirmed 2026-02-27). See `api-capabilities.md`. |
-| Create NEW OAuth connections | PARTIALLY REPLACEABLE | First-time OAuth consent needs browser. Existing connections reusable headlessly via `add-tool.js`. |
-| ~~Connect child agents~~ | **REPLACED** | Island Gateway `connectedAgentDefinitionChanges` (E2E confirmed 2026-02-27). |
-| ~~"Allow other agents to connect"~~ | **REPLACED** | Dataverse PATCH `bot.configuration.isAgentConnectable` (confirmed 2026-02-23). |
-| ~~Native eval upload~~ | **REPLACED** | Dataverse POST `botcomponent` componenttype=19 with `parentbotid@odata.bind` (E2E confirmed 2026-02-27). |
-| ~~Web search (Bing) toggle~~ | **REPLACED** | `gptCapabilities.webBrowsing` in GptComponent. LSP push, Island Gateway, or Dataverse PATCH. |
+All agent operations are fully API-native except first-time OAuth consent:
 
-> **After E2E testing (2026-02-27): The ONLY Playwright-required operation is first-time OAuth consent for a new connector type.** Everything else — agent creation, model, instructions, topics, knowledge, tools, settings, connected agents, eval upload, publish, delete — is confirmed working via API/LSP. Full test: `tools/e2e-api-pipeline-test.js`.
+| Operation | Method | Status |
+|-----------|--------|--------|
+| Agent creation | Dataverse POST + PvaProvision | **API** (E2E confirmed 2026-02-27) |
+| Instructions, model, topics, knowledge | LSP push (`mcs-lsp.js`) | **API** |
+| Tools/connectors (existing connection) | `add-tool.js` + LSP push | **API** |
+| Tools/connectors (NEW OAuth connection) | User creates in MCS portal | **Manual** — only remaining manual step |
+| Connected agents | Island Gateway `connectedAgentDefinitionChanges` | **API** (E2E confirmed 2026-02-27) |
+| Agent connectable setting | Dataverse PATCH `bot.configuration.isAgentConnectable` | **API** |
+| Eval upload | Dataverse POST componenttype=19 | **API** (E2E confirmed 2026-02-27) |
+| Web search toggle | `gptCapabilities.webBrowsing` in GptComponent | **API** |
+| Publish | PvaPublish bound action | **API** |
+| Delete | PvaDeleteBot bound action | **API** |
+
+> **The ONLY manual operation is first-time OAuth consent for a new connector type.** Everything else is confirmed working via API/LSP. Full test: `tools/e2e-api-pipeline-test.js`.
 
 ### CRITICAL: Creating New Components via Raw POST Is Broken
 
@@ -324,9 +338,9 @@ Can be set via LSP push (`agent.mcs.yml`), Island Gateway API (`PUT botcomponent
 
 | What You Want | Wrong Way (Looks Like It Works) | Right Way |
 |---------------|--------------------------------|-----------|
-| New topic | `POST /botcomponents` with componenttype=9 | LSP push (`topics/*.mcs.yml` → `mcs-lsp.js push`). Playwright Code Editor is fallback. |
-| New instructions | `POST /botcomponents` with componenttype=15 | LSP push (`agent.mcs.yml` → `mcs-lsp.js push`). Playwright is fallback. |
-| New knowledge source | `POST /botcomponents` with componenttype=16 | LSP push (`knowledge/*.mcs.yml` → `mcs-lsp.js push`) for sites/URLs. Dataverse API for file uploads. Playwright is fallback. |
+| New topic | `POST /botcomponents` with componenttype=9 | LSP push (`topics/*.mcs.yml` → `mcs-lsp.js push`) |
+| New instructions | `POST /botcomponents` with componenttype=15 | LSP push (`agent.mcs.yml` → `mcs-lsp.js push`) |
+| New knowledge source | `POST /botcomponents` with componenttype=16 | LSP push (`knowledge/*.mcs.yml` → `mcs-lsp.js push`) for sites/URLs. Dataverse API for file uploads. |
 | Update EXISTING instructions | `PATCH content` field (400 error) | **`PATCH data` field (YAML) + `PvaPublish` -- WORKS** (E2E tested 2026-02-20) |
 | Publish | — | `PvaPublish` bound action or `pac copilot publish` (MCP version) |
 
@@ -345,7 +359,7 @@ Can be set via LSP push (`agent.mcs.yml`), Island Gateway API (`PUT botcomponent
 
 ### Bot Entity Name Update
 
-After Playwright creation, the bot entity `name` may not match the intended display name (LSP push updates GptComponent `displayName` but NOT the bot entity name). Patch it directly:
+After Dataverse API creation, the bot entity `name` may not match the intended display name (LSP push updates GptComponent `displayName` but NOT the bot entity name). Patch it directly:
 
 ```bash
 TOKEN=$(az account get-access-token --resource https://<org>.crm.dynamics.com --query accessToken -o tsv)
@@ -356,8 +370,96 @@ curl -s -X PATCH "https://<org>.crm.dynamics.com/api/data/v9.2/bots(<botId>)" \
 
 ### Common Pitfalls
 
-1. **`_parentbotid_value` vs `parentbotid@odata.bind`**: For queries, use `_parentbotid_value`. For POST/PATCH with navigation properties, use `"parentbotid@odata.bind": "/bots(<guid>)"`. Direct update of `_parentbotid_value` returns: "CRM does not support direct update of Entity Reference properties."
+1. **`_parentbotid_value` vs `parentbotid` vs `parentbotid@odata.bind`**: For **OData/SQL queries** (Dataverse MCP `read_query`, OData `$filter`), use `_parentbotid_value`. For **FetchXML** (`env_fetch`, curl with `fetchXml=`), use the logical name `parentbotid` — using `_parentbotid_value` in FetchXML returns: "entity doesn't contain attribute with Name = '_parentbotid_value'". For **POST/PATCH** with navigation properties, use `"parentbotid@odata.bind": "/bots(<guid>)"`. Direct update of `_parentbotid_value` returns: "CRM does not support direct update of Entity Reference properties."
 
 2. **`schemaname` is required**: POST without `schemaname` returns: "Attribute 'schemaname' cannot be NULL." Generate a unique schema name (e.g., `cr_componentname_<random>`).
 
 3. **OData `$filter` in Bash**: The `$` sign conflicts with Bash variable expansion. Use PowerShell for OData queries, or carefully escape: `\$filter` (but this can cause "Query option '\\' specified more than once" errors). Safest: use FetchXML via `env_fetch` instead of OData `$filter`.
+
+4. **`$select` doesn't work for JSON/computed fields**: `synchronizationstatus` and `publishedon` return null when requested via `$select=synchronizationstatus,publishedon`. Query the full entity (no `$select` parameter) to get these fields. This is a Dataverse quirk with JSON-typed memo fields.
+
+---
+
+## Publish Verification Pattern (synchronizationstatus)
+
+**Do NOT rely on PvaPublish HTTP 200 or `publishedon` alone.** Both update even when publish fails internally (e.g., malformed conversation starters). The real publish status lives in the `synchronizationstatus` field.
+
+### Query Pattern
+
+**Important:** Query **without `$select`** — `$select=synchronizationstatus` returns null due to a Dataverse quirk with JSON/computed fields. Query the full entity instead:
+
+```bash
+TOKEN=$(az account get-access-token --resource <dataverseUrl> --query accessToken -o tsv)
+curl -s "<dataverseUrl>/api/data/v9.2/bots(<botId>)" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+### Response Structure
+
+The `synchronizationstatus` field is a JSON string. Parse it to extract:
+
+```json
+{
+  "lastFinishedPublishOperation": {
+    "status": "Succeeded",
+    "errorMessage": null,
+    "completedOn": "2026-03-05T10:30:00Z"
+  }
+}
+```
+
+### Status Values
+
+| Status | Meaning | Action |
+|--------|---------|--------|
+| `"Succeeded"` | Publish completed successfully | Proceed — agent is live |
+| `"Failed"` | Publish failed internally | Read `errorMessage`, fix the cause, re-publish |
+| Field empty / no `lastFinishedPublishOperation` | Publish still in progress | Poll again (up to 6 attempts, 5s apart) |
+
+### Common Failure Causes
+
+| Error in `errorMessage` | Cause | Fix |
+|------------------------|-------|-----|
+| `MissingRequiredProperty: Title` | Conversation starter missing `title` field | Add `title` to all starters in `agent.mcs.yml`, re-push, re-publish |
+| `ConcurrencyVersionMismatch` | Stale workspace — pushed without pulling first | Pull → re-edit → push → re-publish |
+| `InvalidComponent` | Malformed YAML in topic or action file | Run `om-cli validate` on workspace YAML files |
+| `DuplicateSchemaName` | Two components share the same schema name | Rename one component's `schemaName` field |
+
+### Polling Example (Bash)
+
+```bash
+TOKEN=$(az account get-access-token --resource <dataverseUrl> --query accessToken -o tsv)
+BOT_ID="<botId>"
+DV_URL="<dataverseUrl>"
+
+# Publish
+curl -s -X POST "$DV_URL/api/data/v9.2/bots($BOT_ID)/Microsoft.Dynamics.CRM.PvaPublish" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{}'
+
+# Poll synchronizationstatus (6 attempts, 5s intervals)
+for i in $(seq 1 6); do
+  sleep 5
+  STATUS=$(curl -s "$DV_URL/api/data/v9.2/bots($BOT_ID)" \
+    -H "Authorization: Bearer $TOKEN" | python -c "
+import json, sys
+data = json.load(sys.stdin)
+ss = data.get('synchronizationstatus', '')
+if ss:
+    parsed = json.loads(ss)
+    op = parsed.get('lastFinishedPublishOperation', {})
+    print(op.get('status', 'pending'))
+else:
+    print('pending')
+" 2>/dev/null)
+
+  if [ "$STATUS" = "Succeeded" ]; then
+    echo "Publish succeeded (attempt $i)"
+    break
+  elif [ "$STATUS" = "Failed" ]; then
+    echo "Publish FAILED — check synchronizationstatus for errorMessage"
+    break
+  else
+    echo "Publish pending (attempt $i/6)..."
+  fi
+done
+```

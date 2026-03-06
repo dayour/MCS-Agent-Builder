@@ -201,6 +201,8 @@ When reviewing instructions (mine or others'):
 - [ ] Few-shot examples for complex behaviors (2-3 varied)
 - [ ] Agent has an "out" for unknown queries
 - [ ] Professional tone NOT specified (it's default)
+- [ ] Agent description provided (`brief.json.agent.description` — separate from instructions, max 1,024 chars, third-person)
+- [ ] Conversation starters have both `title` AND `text` (missing `title` causes silent publish failure)
 
 ### Boundaries
 - [ ] Hard boundaries backed by dedicated topics
@@ -277,6 +279,39 @@ PATCH /api/data/v9.2/botcomponents(<id>)
 { "content": "new instructions" }
 ```
 Changes are draft-only until published.
+
+## Agent Description & Conversation Starters
+
+These are separate outputs from instructions, generated alongside them during `/mcs-research` Phase C.
+
+### Agent Description
+
+- **Purpose:** End-user-facing text shown when discovering the agent (Teams app card, MCS catalog, admin views)
+- **Stored as:** Comment line 2 in `agent.mcs.yml` (MCS metadata comment, NOT a standard YAML comment — MCS runtime parses it)
+- **Max length:** 1,024 characters
+- **Tone:** Third-person, customer-facing ("This agent helps HR teams manage..." not "You are an HR assistant...")
+- **Distinct from instructions:** Description tells users WHAT the agent does. Instructions tell the agent HOW to behave.
+
+### Conversation Starters
+
+- **Purpose:** 3-5 suggested prompts shown as clickable chips in the chat UI, mapping to key capabilities
+- **Format:** Each starter needs both `title` (chip label, keep short) and `text` (full prompt sent on click)
+- **Critical:** Omitting `title` causes a silent publish failure — PvaPublish returns 200 but `synchronizationstatus` shows "Failed" with `MissingRequiredProperty: Title`
+- **Best practice:** Map starters to the agent's top capabilities. Use natural language the target audience would use.
+
+```yaml
+conversationStarters:
+  - title: "Check my schedule"
+    text: "What meetings do I have today and are there any conflicts?"
+  - title: "Summarize project"
+    text: "Give me a status summary of my current project"
+```
+
+### When to Generate
+
+During `/mcs-research` Phase C, generate these alongside instructions:
+1. Description — from `brief.json.agent.description` (write it if empty)
+2. Conversation starters — from `brief.json.capabilities[]` (top 3-5 MVP capabilities → natural prompts)
 
 ## Domain 2: System Instruction Review
 

@@ -141,9 +141,11 @@ export interface ApiBrief {
       variables?: Array<{ name: string; type: string; prompt: string; required: boolean }>;
       connectedIntegrations?: string[];
       outputFormat?: string;
+      cardDesign?: any;
       yaml?: string | null;
     }>;
   };
+  conversationStarters?: Array<{ title: string; text: string }>;
   boundaries?: {
     handle?: string[];
     decline?: Array<{ topic: string; redirect?: string }>;

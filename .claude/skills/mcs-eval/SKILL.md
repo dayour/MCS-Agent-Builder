@@ -356,6 +356,17 @@ Present to user. If confirmed, write to `knowledge/learnings/{category}.md` and 
 
 ---
 
+## Agent Teams
+
+| Step | Teammates |
+|------|-----------|
+| 1-4: Load, detect mode, run tests, write results | Lead only |
+| 5: Analyze failures (when any set fails threshold) | Lead + **QA Challenger** |
+
+QA Challenger is dispatched on-demand when eval results show failures. QA classifies root causes and suggests targeted fixes. No teammates needed for passing eval runs.
+
+---
+
 ## Important Rules
 
 - **brief.json evalSets is the primary output** — the dashboard reads per-test lastResult from it

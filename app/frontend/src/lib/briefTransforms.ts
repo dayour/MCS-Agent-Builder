@@ -71,7 +71,18 @@ export function briefFromApi(raw: ApiBrief): BriefData {
         phase: (t.phase ?? "mvp").toUpperCase() === "MVP" ? "MVP" : "Future",
         description: t.description ?? "",
         flowDescription: "",
+        outputFormat: t.outputFormat ?? "text",
+        triggerType: t.triggerType ?? "agent-chooses",
+        implements: t.implements ?? [],
+        connectedIntegrations: t.connectedIntegrations ?? [],
       })),
+      starters: (raw.conversationStarters ?? []).map((s) => ({
+        title: s.title ?? "",
+        text: s.text ?? "",
+      })),
+      cardDesign: (raw.conversations?.topics ?? []).find(
+        (t) => t.triggerType === "auto-start" || t.name?.toLowerCase().includes("conversation start")
+      )?.cardDesign ?? null,
     },
     "scope-boundaries": {
       handles: bounds.handle ?? [],
@@ -226,9 +237,19 @@ export function briefToApi(ui: BriefData, raw: ApiBrief): ApiBrief {
         topicType: t.type,
         phase: (t.phase ?? "MVP").toLowerCase() === "mvp" ? "mvp" : "future",
         description: t.description,
+        outputFormat: t.outputFormat,
+        triggerType: t.triggerType,
+        implements: t.implements,
+        connectedIntegrations: t.connectedIntegrations,
       };
     }),
   };
+
+  // Conversation Starters
+  result.conversationStarters = ui["conversation-topics"].starters.map((s) => ({
+    title: s.title,
+    text: s.text,
+  }));
 
   // Boundaries
   result.boundaries = {

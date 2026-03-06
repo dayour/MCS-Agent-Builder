@@ -954,6 +954,14 @@ Research may adjust methods per set based on agent specifics (e.g., raise Compar
 
 **After eval generation, QA reports coverage distribution** (core-business/variations/architecture/edge-cases percentages) and flags gaps against the scenario library's recommended categories.
 
+#### Flow Designer — write flow specification (only if solutionType is "flow" or "hybrid")
+
+- Input: brief.json (capabilities where `implementationType == "flow"`), integrations, architecture
+- Output: `flow-spec.md` with triggers, actions, connectors, data flow, flow-manager.js commands
+- Skip if `architecture.solutionType` is "agent" or not set
+
+FD designs the Power Automate flow spec based on the enriched brief. The output file is written to `Build-Guides/{projectId}/agents/{agentId}/flow-spec.md` and is consumed by `/mcs-build` when constructing the flow/hybrid solution.
+
 #### Topic Engineer — topic feasibility validation (only if custom topics exist)
 
 - Input: brief.json topics (classified by Lead in Step 1.5), capabilities, integrations, `knowledge/cache/adaptive-cards.md` + `knowledge/cache/conversation-design.md`
@@ -1191,9 +1199,9 @@ This timestamp lets incremental research know when the last full research was pe
 | 0 | Lead | Lead | Lead | Lead |
 | A | Lead (all docs, all agents) | Lead (all docs, one agent) | Lead (new docs only) | Skipped |
 | B | Lead + **RA** (if external systems) | Lead + **RA** (if external) | Lead + **RA** (new external only) | Lead only |
-| C | Lead + **PE** + **QA** + **TE** (PARALLEL) | Lead + **PE** + **QA** + **TE** (PARALLEL) | Lead + **QA** (PE skipped unless instructions empty) + **TE** (if new topics) | Lead + **QA** + **TE** (if topics affected) |
+| C | Lead + **PE** + **QA** + **TE** + **FD** (if flow/hybrid) (PARALLEL) | Lead + **PE** + **QA** + **TE** + **FD** (if flow/hybrid) (PARALLEL) | Lead + **QA** (PE skipped unless instructions empty) + **TE** (if new topics) | Lead + **QA** + **TE** (if topics affected) |
 
-**PARALLEL dispatch in Phase C:** PE, QA, and TE run simultaneously — not sequentially.
-**Maximum teammates per run:** 4 (RA + PE + QA + TE). RA runs in Phase B; PE + QA + TE run in parallel in Phase C.
-**Microsoft-native agents:** Often just 3 (PE + QA + TE) — RA skipped when no external systems.
+**PARALLEL dispatch in Phase C:** PE, QA, TE (and FD if flow/hybrid) run simultaneously — not sequentially.
+**Maximum teammates per run:** 5 (RA + PE + QA + TE + FD). RA runs in Phase B; PE + QA + TE + FD run in parallel in Phase C. FD only for flow/hybrid solutionType.
+**Microsoft-native agents:** Often just 3 (PE + QA + TE) — RA skipped when no external systems, FD skipped when solutionType is "agent".
 **Incremental runs:** Often just 1-2 (QA alone, or QA + TE for new topics).

@@ -11,7 +11,7 @@ refresh_trigger: weekly
 | Method | Native MCS? | Captures Tools/Knowledge/Model? |
 |--------|------------|--------------------------------|
 | MCS UI | Yes | Yes (full) |
-| PAC CLI (`pac copilot create`) | Yes | **No** — topics/instructions only. Template format undocumented. **Prefer Playwright for creation.** PAC CLI template-based creation is a fallback for environments where browser is unavailable. |
+| PAC CLI (`pac copilot create`) | Yes | **No** — topics/instructions only. Template format undocumented. **Prefer Dataverse POST + PvaProvision for creation.** PAC CLI template-based creation is a fallback for environments where browser is unavailable. |
 | **VS Code Extension (GA Jan 2026)** | Yes | Yes (full YAML clone) — clone/edit/sync YAML, but clone/apply are GUI-only |
 | Agent Builder (M365) | Yes (limited) | Limited |
 | M365 Agents SDK | No — external | N/A |
@@ -52,6 +52,36 @@ Full list: 0-19 (also includes Skill, Variable, Entity, Dialog, Trigger, NLU, LG
 | `componentstate` | 0=Published, 1=Unpublished, 2=Deleted |
 | `accesscontrolpolicy` | 0=Any, 1=Copilot readers, 2=Group membership, 3=Any multi-tenant |
 | `authenticationmode` | 0=Unspecified, 1=None, 2=Integrated, 3=Custom AAD, 4=Generic OAuth2 |
+| `synchronizationstatus` | JSON string — contains `lastFinishedPublishOperation.status` (`Succeeded` / `Failed`) |
+
+## GptComponent Metadata (agent.mcs.yml)
+
+The Custom GPT botcomponent (componenttype=15) `data` field contains YAML with MCS-specific comment headers:
+
+**Comment header format (lines 1-2):**
+- Line 1: `# Name: {agent display name}`
+- Line 2: `# {agent description}`
+
+These are **NOT standard YAML comments** — MCS runtime parses them as agent metadata. Line 2 becomes the agent description shown to end users when discovering the agent.
+
+**After cloning a new agent**, the defaults are `# Name: default` / `# default` — these MUST be overwritten with the actual agent name and description during build Step 2a.
+
+**Agent description lives in `botcomponent.description` column** (Dataverse entity field), NOT in the YAML `data` field comment headers. The comment headers (lines 1-2) are local metadata only. MCS UI reads `botcomponent.description` for the agent description shown to users.
+
+**LSP push now auto-patches metadata (as of 2026-03-05).** The `mcs-lsp.js push` command reads lines 1-2 from local `agent.mcs.yml` and PATCHes three Dataverse fields: `botcomponent.description` (actual MCS UI field), `botcomponent.name`, and comment headers in the `data` YAML. This was discovered via the ObjectModel schema (`AgentDefinition.description` property). Publish is still required after push to make changes live.
+
+**Conversation starters** (in the YAML body):
+```yaml
+conversationStarters:
+  - title: "Chip label"
+    text: "Full prompt text"
+```
+Both `title` and `text` are **required**. Missing `title` → silent publish failure (PvaPublish returns HTTP 200 but `synchronizationstatus` shows `"Failed"` with `MissingRequiredProperty: Title`).
+
+**Publish verification:**
+- Do NOT rely solely on PvaPublish HTTP 200 or `publishedon` field — these update even when publish fails internally
+- Query `synchronizationstatus` field → parse JSON → check `lastFinishedPublishOperation.status`
+- `"Succeeded"` = real success. `"Failed"` = read `errorMessage` for details.
 
 ## Bound Actions on `bot` Entity
 
