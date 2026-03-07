@@ -763,12 +763,25 @@ Read `brief.json.integrations[]` — if the agent uses MCP servers with user-del
 4. **Write results** to `brief.json.evalSets[].tests[].lastResult`
 5. If failures found → log them in build report, user can run `/mcs-fix` post-build
 
-#### Manual Mode: Generate Tests for User
+#### Manual Mode: Upload Tests via Gateway API
 
-1. Generate per-set CSVs from `brief.json.evalSets[]`
-2. Upload test cases to MCS Evaluation tab via Dataverse API (`POST /botcomponents` with `componenttype=19`)
-3. Present test summary: "Created {N} test cases in MCS Evaluation tab. Test in MCS Test Chat or click Run in the Evaluation tab."
-4. User tests and reports results, or runs `/mcs-eval` later
+1. Upload eval sets to MCS Evaluation tab via Gateway API:
+   ```bash
+   node tools/island-client.js upload-evals \
+     --env <buildStatus.environmentId> \
+     --bot <buildStatus.mcsAgentId> \
+     --brief "Build-Guides/{projectId}/agents/{agentId}/brief.json"
+   ```
+2. Run evaluation for each uploaded set:
+   ```bash
+   node tools/island-client.js run-eval \
+     --env <buildStatus.environmentId> \
+     --bot <buildStatus.mcsAgentId> \
+     --set-id <mcsSetId>
+   ```
+3. Present test summary: "Uploaded {N} eval sets ({M} tests) to MCS Evaluation tab. Evaluation running — check results in MCS or run `/mcs-eval --check-results`."
+4. Generate per-set CSVs for dashboard download/reference (not for upload)
+5. User checks results in MCS, or runs `/mcs-eval` later
 
 **No iterative safety→functional→resilience loop during build.** Build is single-pass. User runs `/mcs-fix` for issues found post-deployment.
 

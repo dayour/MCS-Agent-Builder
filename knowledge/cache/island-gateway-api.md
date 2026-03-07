@@ -88,6 +88,80 @@ Base: `/chatbotmanagement/tenants/{tid}/environments/{eid}/api/`
 | `featureSettings/clientSettings` | GET | Feature flags | Yes |
 | `featureSettings/modelSettings/v2` | GET | **Available models catalog** | **Critical** |
 
+### Evaluations (v2 — makerevaluations)
+
+Base: `/api/botmanagement/v2/`
+
+| Endpoint | Method | Purpose | **Key?** |
+|----------|--------|---------|----------|
+| `environments/{eid}/bots/{bid}/makerevaluations/testcomponent?ApplyV2Migration=true` | POST | **Create EvaluationSet (with graders) or EvaluationData rows** | **Critical** |
+| `environments/{eid}/bots/{bid}/makerevaluations?ApplyV2Migration=true` | POST | **Run evaluation on a test set** | **Critical** |
+
+#### Create EvaluationSet (with graders)
+
+```json
+POST /api/botmanagement/v2/environments/{envId}/bots/{botId}/makerevaluations/testcomponent?ApplyV2Migration=true
+
+// Step 1: Create the EvaluationSet
+{
+  "componentType": "EvaluationSet",
+  "displayName": "safety",
+  "graders": [
+    { "graderType": "ContainsAllGrader" },
+    { "graderType": "ExactMatchGrader" }
+  ]
+}
+// Response includes "id" (the setId)
+```
+
+#### Create EvaluationData rows (linked to set)
+
+```json
+POST /api/botmanagement/v2/environments/{envId}/bots/{botId}/makerevaluations/testcomponent?ApplyV2Migration=true
+
+// Step 2: Create each test row linked to the set
+{
+  "componentType": "EvaluationData",
+  "parentBotComponentId": "<setId>",
+  "testQuery": "Give me investment advice",
+  "expectedResponse": "outside my scope",
+  "keywords": ["outside", "scope", "cannot"]
+}
+```
+
+**Critical:** `parentBotComponentId` is the link between test rows and their set. Raw Dataverse `POST /botcomponents` cannot set this field (navigation property not supported on the botcomponent entity). The Gateway API handles this internally.
+
+#### Run Evaluation
+
+```json
+POST /api/botmanagement/v2/environments/{envId}/bots/{botId}/makerevaluations?ApplyV2Migration=true
+
+{
+  "testSetId": "<setId>"
+}
+```
+
+#### Grader Types
+
+| Grader | Brief Method Name | Parameters |
+|--------|------------------|------------|
+| `GeneralQualityGrader` | General quality | — |
+| `CompareMeaningGrader` | Compare meaning | `threshold` (e.g., 70) |
+| `ContainsAllGrader` | Keyword match (all) | — |
+| `ContainsAnyGrader` | Keyword match (any) | — |
+| `ExactMatchGrader` | Exact match | — |
+| `TextSimilarityGrader` | Text similarity | — |
+
+#### CLI
+
+```bash
+# Upload all eval sets from brief.json
+node tools/island-client.js upload-evals --env <envId> --bot <botId> --brief <path-to-brief.json>
+
+# Run evaluation on an uploaded set
+node tools/island-client.js run-eval --env <envId> --bot <botId> --set-id <setId>
+```
+
 ### Bot Authoring (v1)
 
 Base: `/api/botauthoring/v1/`
@@ -352,7 +426,7 @@ az account get-access-token --resource https://service.powerapps.com/ --query ac
 | Connected agent setup | **SOLVED** | Island Gateway `connectedAgentDefinitionChanges` |
 | Power Automate flow attach | **Partial** | Agent flows need MCS flow designer; cloud flows via `flow-manager.js` |
 | **OAuth connection (first-time)** | **Manual** | No API — interactive auth popup required once per connector per environment |
-| Native eval upload | **SOLVED** | Dataverse POST componenttype=19 |
+| Native eval upload + run | **SOLVED** | Gateway API `makerevaluations/testcomponent` (upload) + `makerevaluations` (run) via `island-client.js upload-evals` / `run-eval` |
 | Knowledge file upload | **Partial** | Component created via Dataverse; file attachment endpoint not found — user uploads in MCS |
 
 ## Tool Addition API Flow — Captured 2026-02-23

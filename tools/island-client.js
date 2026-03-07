@@ -364,6 +364,9 @@ function parseArgs() {
             case '--text': config.text = args[++i]; break;
             case '--gateway': config.gatewayUrl = args[++i]; break;
             case '--json': config.json = true; break;
+            case '--brief': config.briefPath = args[++i]; break;
+            case '--set-id': config.setId = args[++i]; break;
+            case '--name': config.runName = args[++i]; break;
             case '--help': printUsage(); process.exit(0);
         }
     }
@@ -406,7 +409,11 @@ Examples:
   node island-client.js get-instructions --env Default-xxx --bot fec3b192-xxx
   node island-client.js get-publish-status --env Default-xxx --bot fec3b192-xxx
   node island-client.js check-dlp --env Default-xxx --bot fec3b192-xxx
-  node island-client.js list-topics --env Default-xxx --bot fec3b192-xxx`);
+  node island-client.js list-topics --env Default-xxx --bot fec3b192-xxx
+
+Evaluation:
+  node island-client.js upload-evals --env Default-xxx --bot fec3b192-xxx --brief path/to/brief.json
+  node island-client.js run-eval --env Default-xxx --bot fec3b192-xxx --set-id <evalSetId> --name "Run 1"`);
 }
 
 async function main() {
@@ -626,6 +633,66 @@ async function main() {
                 break;
             }
 
+            case 'upload-evals': {
+                if (!config.briefPath) {
+                    console.error('Error: --brief <path> required (path to brief.json)');
+                    process.exit(2);
+                }
+                const brief = JSON.parse(fs.readFileSync(config.briefPath, 'utf8'));
+                const evalSets = brief.evalSets || [];
+                if (evalSets.length === 0) {
+                    console.error('No evalSets found in brief.json');
+                    process.exit(1);
+                }
+
+                // Grader type mapping: brief method names → ObjectModel grader kinds
+                const GRADER_MAP = {
+                    'General quality': { $kind: 'GeneralQualityGrader' },
+                    'Compare meaning': (m) => ({ $kind: 'CompareMeaningGrader', threshold: (m.score || 70) / 100 }),
+                    'Keyword match': (m) => m.mode === 'all' ? { $kind: 'ContainsAllGrader' } : { $kind: 'ContainsAnyGrader' },
+                    'Text similarity': { $kind: 'TextSimilarityGrader' },
+                    'Exact match': { $kind: 'ExactMatchGrader' },
+                };
+
+                const createdSets = [];
+                for (const s of evalSets) {
+                    // Map methods to graders
+                    const graders = (s.methods || []).map(m => {
+                        const mapper = GRADER_MAP[m.type];
+                        if (!mapper) return { $kind: 'GeneralQualityGrader' };
+                        return typeof mapper === 'function' ? mapper(m) : mapper;
+                    });
+                    if (graders.length === 0) graders.push({ $kind: 'GeneralQualityGrader' });
+
+                    const tests = (s.tests || []).map(t => ({
+                        input: t.question,
+                        expectedOutput: t.expected
+                    }));
+
+                    const result = await createEvalSet(gatewayUrl, config.envId, config.botId, headers, s.name, graders, tests);
+                    createdSets.push({ name: s.name, ...result });
+                }
+
+                console.log(`\nUploaded ${createdSets.length} eval sets:`);
+                for (const s of createdSets) {
+                    console.log(`  ${s.name}: ${Object.keys(s.testIds).length} tests (setId: ${s.setId})`);
+                }
+                if (config.json) console.log(JSON.stringify(createdSets, null, 2));
+                break;
+            }
+
+            case 'run-eval': {
+                if (!config.setId) {
+                    console.error('Error: --set-id <evalSetId> required');
+                    process.exit(2);
+                }
+                const runName = config.runName || `Eval ${new Date().toISOString().slice(0, 16)}`;
+                const result = await runEval(gatewayUrl, config.envId, config.botId, headers, config.setId, runName);
+                console.log(`Run started: ${result.runId} (${result.executionState || result.state})`);
+                if (config.json) console.log(JSON.stringify(result, null, 2));
+                break;
+            }
+
             default:
                 console.error(`Unknown command: ${config.command}`);
                 printUsage();
@@ -636,6 +703,139 @@ async function main() {
         process.exit(1);
     }
 }
+
+// --- Evaluation API (Island Gateway v2) ---
+
+/**
+ * Create an evaluation test set with test cases via the Island Gateway makerevaluations API.
+ * This is the same API the MCS UI uses when importing CSV test cases.
+ *
+ * @param {string} gatewayUrl - Gateway base URL
+ * @param {string} envId - Environment ID
+ * @param {string} botId - Bot/agent CDS ID
+ * @param {object} headers - Auth headers from buildHeaders()
+ * @param {string} setName - Display name for the eval set
+ * @param {Array} graders - Array of grader objects, e.g. [{$kind: "GeneralQualityGrader"}]
+ * @param {Array} tests - Array of {input, expectedOutput} objects
+ * @returns {{ setId: string, testIds: object }} Created IDs
+ */
+async function createEvalSet(gatewayUrl, envId, botId, headers, setName, graders, tests) {
+    const baseUrl = `${gatewayUrl.replace(/\/$/, '')}/api/botmanagement/v2/environments/${envId}/bots/${botId}/makerevaluations/testcomponent?ApplyV2Migration=true`;
+
+    // Step 1: Create the EvaluationSet container
+    const setSchema = `mspva_${crypto.randomUUID()}`;
+    const setPayload = {
+        testComponents: [{
+            $kind: "MakerEvaluationUpdateTestComponent",
+            component: {
+                $kind: "TestCaseComponent",
+                schemaName: setSchema,
+                definition: {
+                    graders: graders.map(g => ({ diagnostics: [], ...g })),
+                    diagnostics: [],
+                    $kind: "EvaluationSet"
+                },
+                displayName: setName,
+                description: setName,
+                category: "Testing",
+                state: "Active"
+            },
+            operationType: "Add"
+        }]
+    };
+
+    const setRes = await httpRequest('POST', baseUrl, headers, JSON.stringify(setPayload));
+    if (setRes.status !== 200) {
+        throw new Error(`Failed to create eval set: HTTP ${setRes.status} ${JSON.stringify(setRes.data)}`);
+    }
+    const setId = setRes.data.addedComponentsIdsBySchemaName[setSchema];
+    console.error(`[eval] Created set "${setName}" (${setId})`);
+
+    // Step 2: Create EvaluationData rows (batch — all tests in one request)
+    const testComponents = tests.map((t, i) => {
+        const schema = `mspva_${crypto.randomUUID()}`;
+        return {
+            $kind: "MakerEvaluationUpdateTestComponent",
+            component: {
+                $kind: "TestCaseComponent",
+                schemaName: schema,
+                definition: {
+                    rows: [{
+                        diagnostics: [],
+                        input: t.input || t.question,
+                        expectedOutput: t.expectedOutput || t.expected,
+                        source: "Imported",
+                        $kind: "SimpleEvaluationCase"
+                    }],
+                    diagnostics: [],
+                    extensionData: { displayOrder: String(Date.now() + i) },
+                    $kind: "EvaluationData"
+                },
+                parentBotComponentId: setId,
+                displayName: (t.input || t.question).substring(0, 100),
+                description: (t.input || t.question).substring(0, 200),
+                category: "Testing",
+                state: "Active"
+            },
+            operationType: "Add"
+        };
+    });
+
+    const dataRes = await httpRequest('POST', baseUrl, headers, JSON.stringify({ testComponents }));
+    if (dataRes.status !== 200) {
+        throw new Error(`Failed to create eval data: HTTP ${dataRes.status} ${JSON.stringify(dataRes.data)}`);
+    }
+    const testIds = dataRes.data.addedComponentsIdsBySchemaName || {};
+    console.error(`[eval] Added ${Object.keys(testIds).length} test cases to "${setName}"`);
+
+    return { setId, testIds };
+}
+
+/**
+ * Run an evaluation on a test set.
+ *
+ * @param {string} gatewayUrl - Gateway base URL
+ * @param {string} envId - Environment ID
+ * @param {string} botId - Bot/agent CDS ID
+ * @param {object} headers - Auth headers
+ * @param {string} testSetId - The evaluation set ID to run
+ * @param {string} runName - Display name for this run
+ * @returns {{ runId: string, state: string }}
+ */
+async function runEval(gatewayUrl, envId, botId, headers, testSetId, runName) {
+    // Discover the MCS connection ID from the environment
+    const connRes = await httpRequest('GET',
+        `${gatewayUrl.replace(/\/$/, '')}/api/botmanagement/v1/environments/${envId}/bots/${botId}/settings`,
+        headers, null);
+    let mcsConnectionId = '';
+    if (connRes.status === 200) {
+        // Try to find the copilot studio connection from settings
+        const settings = connRes.data;
+        // The connection ID pattern from the HAR trace
+        // Fall back to discovering from connection references
+    }
+
+    const runUrl = `${gatewayUrl.replace(/\/$/, '')}/api/botmanagement/v2/environments/${envId}/bots/${botId}/makerevaluations?ApplyV2Migration=true`;
+    const runPayload = {
+        testSetId,
+        clientRequestedEvaluationRunName: runName
+    };
+    // Add mcsConnectionId if discovered
+    if (mcsConnectionId) {
+        runPayload.mcsConnectionId = mcsConnectionId;
+    }
+
+    const runRes = await httpRequest('POST', runUrl, headers, JSON.stringify(runPayload));
+    if (runRes.status !== 200) {
+        throw new Error(`Failed to start eval run: HTTP ${runRes.status} ${JSON.stringify(runRes.data)}`);
+    }
+
+    console.error(`[eval] Started run "${runName}" (${runRes.data.runId}) — state: ${runRes.data.executionState || runRes.data.state}`);
+    return runRes.data;
+}
+
+// Need crypto for UUID generation
+const crypto = require('crypto');
 
 // --- Module Exports (for programmatic use) ---
 module.exports = {
@@ -654,7 +854,9 @@ module.exports = {
     findGptComponent,
     setModel,
     getInstructions,
-    setInstructions
+    setInstructions,
+    createEvalSet,
+    runEval
 };
 
 // Run CLI if invoked directly

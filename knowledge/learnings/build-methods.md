@@ -128,14 +128,14 @@ The MCS UI reads/writes the `data` field. PvaPublish syncs `data` -> `content` f
 **Related cache:** api-capabilities.md, island-gateway-api.md
 **Tags:** #connected-agents #island-gateway #multi-agent #orchestrator #headless
 
-### Eval test case upload via Dataverse API — componenttype 19 {#bm-013} — 2026-02-27
+### Eval test case upload via Dataverse API — componenttype 19 {#bm-013} — 2026-02-27 [SUPERSEDED by bm-025]
 **Context:** E2E pipeline test — create evaluation test cases programmatically
 **Tried:** `POST /botcomponents` with componenttype=19, content (JSON with testQuery/expectedResponse/keywords), and `parentbotid@odata.bind: /bots(<botId>)`
-**Result:** WORKS. Records created and automatically linked to parent bot. Queryable via `$filter=_parentbotid_value eq '<botId>' and componenttype eq 19`. Schemaname must be unique (use publisher prefix + timestamp + random). Note: `parentbotid@odata.bind` works for componenttype=19 (unlike type 9/15/16 which need LSP).
-**Better approach:** Create test cases via Dataverse POST. This is the ONLY componenttype where raw POST works correctly (because test cases don't need NLU registration or topic compilation). For test sets, use `botcomponentcollection` table.
+**Result:** Creates records linked to parent bot but CANNOT set `parentBotComponentId` (the link between EvaluationData and EvaluationSet). Raw Dataverse POST creates orphaned test rows without proper set membership. Records are queryable but MCS Evaluation tab doesn't group them correctly.
+**Better approach:** **SUPERSEDED** — Use Gateway API `makerevaluations/testcomponent` endpoint instead (see bm-025). The Gateway API handles `parentBotComponentId` internally, creating properly linked EvaluationSet + EvaluationData records. Also supports grader configuration and eval execution (`run-eval`).
 **Confirmed:** 1 build(s) | Last confirmed: 2026-02-27
-**Related cache:** api-capabilities.md, eval-methods.md
-**Tags:** #eval #test-cases #dataverse #componenttype-19 #headless
+**Related cache:** api-capabilities.md, eval-methods.md, island-gateway-api.md
+**Tags:** #eval #test-cases #dataverse #componenttype-19 #headless #superseded
 
 ### Knowledge source YAML format must use KnowledgeSourceConfiguration kind {#bm-014} — 2026-02-27
 **Context:** E2E pipeline test — LSP push silently ignored knowledge source with wrong YAML format
@@ -333,3 +333,12 @@ Link to agent via YAML `InvokeFlowTaskAction` (NOT `InvokeFlowAction` — differ
 **Confirmed:** 1 build(s) | Last confirmed: 2026-03-06
 **Related cache:** adaptive-cards.md, conversation-design.md
 **Tags:** #adaptive-card #conversation-start #welcome #standard-pattern #topic
+
+### Eval upload is fully headless via Gateway API makerevaluations endpoint {#bm-025} — 2026-03-06
+**Context:** Eval upload to MCS — replacing Dataverse POST componenttype=19 approach
+**Tried:** (1) Dataverse `POST /botcomponents` with componenttype=19 — creates records but cannot set `parentBotComponentId` (navigation property not supported on botcomponent entity). Test cases appear as orphaned records, not linked to an EvaluationSet. (2) Gateway API `makerevaluations/testcomponent` endpoint.
+**Result:** Gateway API works end-to-end. Three-step process: (1) Create EvaluationSet with graders → returns setId. (2) Create EvaluationData rows with `parentBotComponentId: setId` — the critical parent link. (3) Run eval via `POST makerevaluations` with `testSetId`. Grader mapping: GeneralQualityGrader, CompareMeaningGrader (with threshold), ContainsAllGrader, ContainsAnyGrader, ExactMatchGrader, TextSimilarityGrader. Supersedes bm-013 (Dataverse componenttype=19 approach).
+**Better approach:** Use `node tools/island-client.js upload-evals --env <envId> --bot <botId> --brief <path>` to upload all eval sets from brief.json, then `run-eval --set-id <id>` to trigger scoring. Endpoint: `POST /api/botmanagement/v2/environments/{envId}/bots/{botId}/makerevaluations/testcomponent?ApplyV2Migration=true`. This is now the ONLY method for eval upload — Dataverse POST is deprecated for this use case.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-03-06
+**Related cache:** island-gateway-api.md, eval-methods.md
+**Tags:** #eval #gateway-api #makerevaluations #headless #upload #test-cases #supersedes-bm-013

@@ -226,7 +226,7 @@ Remove-Bot -Ctx $ctx -BotId $botId
 | 16 | Knowledge Source |
 | 17 | External Trigger |
 | 18 | Copilot Settings |
-| 19 | Test Case |
+| 19 | Test Case (**deprecated for creation** — use Gateway API `makerevaluations/testcomponent` instead; raw POST can't set `parentBotComponentId`) |
 
 ---
 
@@ -325,7 +325,7 @@ All agent operations are fully API-native except first-time OAuth consent:
 | Tools/connectors (NEW OAuth connection) | User creates in MCS portal | **Manual** — only remaining manual step |
 | Connected agents | Island Gateway `connectedAgentDefinitionChanges` | **API** (E2E confirmed 2026-02-27) |
 | Agent connectable setting | Dataverse PATCH `bot.configuration.isAgentConnectable` | **API** |
-| Eval upload | Dataverse POST componenttype=19 | **API** (E2E confirmed 2026-02-27) |
+| Eval upload + run | Gateway API `makerevaluations` via `island-client.js upload-evals` / `run-eval` | **API** (Gateway API — Dataverse POST componenttype=19 deprecated, can't set parentBotComponentId) |
 | Web search toggle | `gptCapabilities.webBrowsing` in GptComponent | **API** |
 | Publish | PvaPublish bound action | **API** |
 | Delete | PvaDeleteBot bound action | **API** |

@@ -1,6 +1,6 @@
 ---
 name: mcs-eval
-description: "Run evaluation tests using eval sets. Two-mode execution: Direct Line API (auto) or MCS Native Eval via Dataverse upload + CSV generation (manual). Results written per-test to evalSets[].tests[].lastResult."
+description: "Run evaluation tests using eval sets. Two-mode execution: Direct Line API (auto) or MCS Native Eval via Gateway API upload + run (manual). Results written per-test to evalSets[].tests[].lastResult."
 ---
 
 # MCS Evaluation Runner — Two-Mode Strategy
@@ -12,7 +12,7 @@ Run evaluation tests for an agent and write results back to `brief.json` so the 
 | Mode | Method | When | Speed | Reliability |
 |------|--------|------|-------|-------------|
 | **Auto** | **Direct Line API** | Agent has no user-delegated MCP tools | Fast (~2s/test) | High (auto-token, retry, refresh) |
-| **Manual** | **MCS Native Eval** | Agent uses MCP/user-delegated tools, or user preference | User-driven | High (MCS scoring engine) |
+| **Manual** | **MCS Native Eval** (Gateway API) | Agent uses MCP/user-delegated tools, or user preference | User-driven | High (MCS scoring engine) |
 
 **Auto-detection:** If agent uses MCP or user-delegated tools → manual mode. Otherwise → Direct Line auto mode.
 
@@ -22,8 +22,8 @@ Run evaluation tests for an agent and write results back to `brief.json` so the 
 
 | Sub-task | What it does | How to verify |
 |----------|-------------|--------------|
-| **Generate CSVs** | Write per-set CSVs to disk (if not present, for native eval only) | Read files back |
-| **Run evaluation** | Execute tests via Tier 1/2/3 | Results JSON exists with scores |
+| **Upload eval sets** | Upload to MCS via Gateway API (manual mode) or prepare Direct Line (auto mode) | Gateway API returns setId / Direct Line token acquired |
+| **Run evaluation** | Execute tests via Direct Line or Gateway API `run-eval` | Results JSON exists with scores |
 | **Write results** | Update evalSets[].tests[].lastResult in brief.json | Read brief.json back |
 
 ## Input
@@ -77,7 +77,7 @@ Read `brief.json.evalSets[]`. If empty or missing → **exit:** "Run `/mcs-resea
 - `--set safety,functional`: run only named sets
 - Skip sets with zero tests
 
-**Generate per-set CSVs** from evalSets if not present (needed for Tier 3 native eval only):
+**Generate per-set CSVs** for dashboard download/reference (NOT for upload — upload uses Gateway API):
 
 ```csv
 Question,Expected response,Testing method
@@ -89,7 +89,7 @@ Generation rules:
 - Each test becomes one CSV row in its set's CSV
 - `Testing method` = first method from the test's resolved methods (display name)
 - Max 100 questions per CSV (MCS limit)
-- `Capability use` cannot be specified in CSV — add via MCS UI after import
+- CSVs are for dashboard download and reference only — Gateway API handles upload to MCS
 
 **VERIFY:** Eval sets loaded, target sets identified, test count > 0.
 
@@ -172,44 +172,58 @@ Results saved to `Build-Guides/{projectId}/agents/{agentId}/evals-results.json`:
 }
 ```
 
-## Step 3 alt: Manual Mode (MCS Native Eval)
+## Step 3 alt: Manual Mode (MCS Native Eval via Gateway API)
 
 **Use when:** Agent uses MCP/user-delegated tools, Direct Line token acquisition fails, or user requests.
 
-### Option B: Dataverse API Upload (primary — populates MCS Evaluation tab)
+### Upload Eval Sets via Gateway API (fully headless)
 
-Create test case records via Dataverse API so they appear directly in the MCS Evaluation tab:
+Upload eval sets to MCS Evaluation tab via the Island Gateway `makerevaluations` endpoint. This creates proper EvaluationSet + EvaluationData records with correct parent linking (which raw Dataverse POST cannot do).
 
+**Step 1: Upload eval sets from brief.json:**
 ```bash
-TOKEN=$(az account get-access-token --resource <dataverseUrl> --query accessToken -o tsv)
-
-# For each test case:
-curl -s -X POST "<dataverseUrl>/api/data/v9.2/botcomponents" \
-  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{
-    "componenttype": 19,
-    "schemaname": "<publisherPrefix>_eval_<timestamp>_<index>",
-    "content": "{\"testQuery\":\"<question>\",\"expectedResponse\":\"<expected>\",\"keywords\":[...]}",
-    "parentbotid@odata.bind": "/bots(<botId>)"
-  }'
+node tools/island-client.js upload-evals \
+  --env <buildStatus.environmentId> \
+  --bot <buildStatus.mcsAgentId> \
+  --brief "Build-Guides/{projectId}/agents/{agentId}/brief.json"
 ```
 
-After upload, report: "Created {N} test cases in MCS Evaluation tab. Click 'Run' to execute, or test manually in Test Chat."
+This command:
+1. Reads `evalSets[]` from brief.json
+2. For each eval set, creates an EvaluationSet with graders via `POST /api/botmanagement/v2/environments/{envId}/bots/{botId}/makerevaluations/testcomponent?ApplyV2Migration=true`
+3. Creates EvaluationData rows for each test with `parentBotComponentId` linking to the set
+4. Returns the `setId` for each uploaded set — persisted to `brief.json.evalSets[].mcsSetId`
 
-### Option A: CSV Generation (secondary — downloadable files)
+**Grader mapping (brief method names to Gateway API graders):**
 
-Generate per-set CSVs from `brief.json.evalSets[]` for users who prefer file-based upload:
+| Brief Method | Gateway Grader |
+|-------------|----------------|
+| General quality | `GeneralQualityGrader` |
+| Compare meaning | `CompareMeaningGrader` (with `threshold` parameter) |
+| Keyword match (all) | `ContainsAllGrader` |
+| Keyword match (any) | `ContainsAnyGrader` |
+| Exact match | `ExactMatchGrader` |
+| Text similarity | `TextSimilarityGrader` |
 
-```csv
-Question,Expected response,Testing method
-"Give me investment advice","outside my scope","Keyword match"
+**Step 2: Run evaluation for each set:**
+```bash
+node tools/island-client.js run-eval \
+  --env <buildStatus.environmentId> \
+  --bot <buildStatus.mcsAgentId> \
+  --set-id <mcsSetId>
 ```
 
-Write to: `Build-Guides/{projectId}/agents/{agentId}/evals-{setName}.csv`
+This calls `POST /api/botmanagement/v2/environments/{envId}/bots/{botId}/makerevaluations?ApplyV2Migration=true` with `testSetId` to trigger the MCS scoring engine.
+
+**Step 3: Check results:**
+- Poll for completion or tell user to check MCS Evaluation tab
+- Results appear in MCS UI under the Evaluation tab for each set
+
+After upload + run, report: "Uploaded {N} eval sets ({M} total tests) to MCS Evaluation tab. Evaluation is running — check the Evaluation tab for results, or re-run `/mcs-eval --check-results` to pull scores."
 
 ### MCP Agent Manual Test Instructions
 
-For agents with MCP/user-delegated tools, present a test table:
+For agents with MCP/user-delegated tools where Gateway API eval run isn't sufficient (e.g., tests require user-delegated tool responses), present a test table:
 
 ```
 ## Manual Test Cases: {Agent Name}
@@ -221,12 +235,12 @@ Test in MCS Test Chat (you must be signed in with appropriate permissions for MC
 | 1 | [question] | [expected keywords/meaning] | safety | |
 | 2 | [question] | [expected keywords/meaning] | functional | |
 
-After testing, report results or run the evaluation from the MCS Evaluation tab (test cases are pre-loaded).
+After testing, report results or run the evaluation from the MCS Evaluation tab (test cases are pre-loaded via Gateway API).
 ```
 
 ### Results (Manual Mode)
 
-For Dataverse-uploaded tests, the user runs the eval in MCS and reports results.
+For Gateway API-uploaded tests, the user runs the eval in MCS and reports results.
 For manual Test Chat testing, the user reports pass/fail per test.
 
 Write results to `brief.json.evalSets[].tests[].lastResult` when the user provides them:
@@ -236,8 +250,8 @@ Write results to `brief.json.evalSets[].tests[].lastResult` when the user provid
     "pass": true,
     "actual": "[user-reported response]",
     "score": null,
-    "timestamp": "2026-03-05T...",
-    "method": "ManualTestChat"
+    "timestamp": "2026-03-06T...",
+    "method": "MCSNativeEval"
   }
 }
 ```
@@ -374,8 +388,8 @@ QA Challenger is dispatched on-demand when eval results show failures. QA classi
 
 - **brief.json evalSets is the primary output** — the dashboard reads per-test lastResult from it
 - **evals-results.json is the detailed backup** — for debugging
-- **Never mark eval complete after only generating CSV** — must run AND write per-test results
+- **Never mark eval complete after only uploading** — must run AND write per-test results
 - **Use QA Challenger** to analyze failures and suggest fixes if any set fails its threshold
-- **Manual mode always generates BOTH** — Dataverse upload (Option B) + CSV files (Option A)
+- **Manual mode uploads via Gateway API** — CSVs are generated for dashboard download/reference only, not for import
 - **Cache the token endpoint URL** in brief.json for future eval runs
 - **Per-set pass logic:** each test must pass ALL methods in its set. Scored methods check threshold, binary methods are pass/fail.

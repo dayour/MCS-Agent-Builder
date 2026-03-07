@@ -334,9 +334,11 @@
         "test-cases",
         "dataverse",
         "componenttype-19",
-        "headless"
+        "headless",
+        "superseded"
       ],
-      "status": "active",
+      "status": "superseded",
+      "supersededBy": "bm-025",
       "projects": [
         "e2e-test"
       ]
@@ -828,6 +830,25 @@
       "projects": [
         "TestBriefing"
       ]
+    },
+    {
+      "id": "bm-025",
+      "file": "build-methods.md",
+      "title": "Eval upload is fully headless via Gateway API makerevaluations endpoint",
+      "date": "2026-03-06",
+      "confirmed": 1,
+      "lastConfirmed": "2026-03-06",
+      "tags": [
+        "eval",
+        "gateway-api",
+        "makerevaluations",
+        "headless",
+        "upload",
+        "test-cases",
+        "supersedes-bm-013"
+      ],
+      "status": "active",
+      "projects": []
     }
   ]
 }

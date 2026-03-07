@@ -277,9 +277,10 @@ Results saved to `evals-results.json`.
 
 For agents with MCP/user-delegated tools (Outlook, Calendar, Teams, etc.), Direct Line cannot authenticate users. Use MCS Native Eval instead:
 
-1. **Dataverse API upload** (Option B): Create test case records via `POST /botcomponents` with `componenttype=19` — populates MCS Evaluation tab directly
-2. **CSV generation** (Option A): Generate per-set CSVs for manual upload or dashboard download
-3. **User runs eval** in MCS UI or tests manually in Test Chat (signed in with appropriate permissions)
+1. **Gateway API upload**: Upload eval sets via `island-client.js upload-evals` (Gateway API `makerevaluations/testcomponent`) — creates EvaluationSet + EvaluationData with proper parent linking
+2. **Gateway API run**: Trigger evaluation via `island-client.js run-eval --set-id <id>` (Gateway API `makerevaluations`)
+3. **CSV generation** (for dashboard download/reference only — NOT for upload): Generate per-set CSVs from evalSets
+4. **User checks results** in MCS Evaluation tab, or tests manually in Test Chat (signed in with appropriate permissions)
 
 **When to use:**
 - Agent uses MCP or user-delegated tools (auto-detected by checking `brief.json.integrations[]`)
@@ -288,20 +289,19 @@ For agents with MCP/user-delegated tools (Outlook, Calendar, Teams, etc.), Direc
 
 **Scoring:** MCS native scoring engine handles all 6 method types. Results are read from MCS UI by the user.
 
-### Tier 3: Native MCS Evaluation (async, optional)
+### Tier 3: Native MCS Evaluation (Gateway API — fully headless)
 
-Built-in MCS evaluation feature. Upload per-set CSVs as separate test sets, click Run, results computed server-side.
+Built-in MCS evaluation feature. Upload eval sets via Gateway API, trigger run, results computed server-side.
 
-**When to use:** Only on explicit user request (`--native` flag)
-
-**Key limitation:** No programmatic API for completion status. No webhook. Runs 2-5 minutes. The eval skill starts it and returns immediately — does NOT block.
+**When to use:** For MCP agents (auto-detected), on user request (`--native` flag), or when Direct Line is unavailable.
 
 **Workflow:**
-1. Generate per-set CSVs (`evals-safety.csv`, `evals-functional.csv`, etc.)
-2. Upload each CSV as a separate MCS test set in the Evaluation tab
-3. Click Run → confirm started
-4. Return immediately: "Run `/mcs-eval ... --check-results` to retrieve results"
-5. `--check-results` reads results from the Evaluation tab when ready
+1. Upload eval sets from brief.json via `island-client.js upload-evals` (Gateway API `makerevaluations/testcomponent`)
+2. Run evaluation via `island-client.js run-eval --set-id <id>` (Gateway API `makerevaluations`)
+3. Results appear in MCS Evaluation tab
+4. Return: "Run `/mcs-eval ... --check-results` to retrieve results, or check MCS Evaluation tab"
+
+**Note:** Per-set CSVs (`evals-safety.csv`, etc.) are still generated for dashboard download and reference, but are NOT used for upload — the Gateway API handles upload directly from brief.json.
 
 ## Eval-Driven Build Loop
 

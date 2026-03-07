@@ -265,23 +265,23 @@ Connected agents can be added programmatically via Island Gateway API `PUT conte
 
 ### 4. Native Eval Upload/Run
 
-**Verdict: UPLOAD CONFIRMED, RUN STILL NEEDS UI (E2E tested 2026-02-27)**
+**Verdict: FULLY CONFIRMED — Upload + Run via Gateway API (2026-03-06)**
 
-Test case creation via Dataverse API is confirmed working. Run triggering still requires MCS UI.
+Eval upload AND run are fully headless via the Island Gateway `makerevaluations` endpoints.
 
-**What's CONFIRMED working via API (E2E tested):**
-- **Create test case records** via `POST /botcomponents` with `componenttype = 19` and `parentbotid@odata.bind: /bots(<botId>)`
-- Records are automatically linked to the parent bot via the `parentbotid@odata.bind` navigation property
-- Content field accepts JSON with test case data (testQuery, expectedResponse, keywords)
-- Schemaname must be unique (use publisher prefix + timestamp + random suffix)
-- Multiple test cases can be created sequentially, each with its own component record
-- Records are queryable via `$filter=_parentbotid_value eq '<botId>' and componenttype eq 19`
+**What's CONFIRMED working via Gateway API:**
+- **Create EvaluationSet** with graders via `POST /api/botmanagement/v2/environments/{envId}/bots/{botId}/makerevaluations/testcomponent?ApplyV2Migration=true`
+- **Create EvaluationData rows** linked to set via `parentBotComponentId` (same endpoint, `componentType: "EvaluationData"`)
+- **Run evaluation** via `POST /api/botmanagement/v2/environments/{envId}/bots/{botId}/makerevaluations?ApplyV2Migration=true` with `testSetId`
+- Grader types: `GeneralQualityGrader`, `CompareMeaningGrader` (with threshold), `ContainsAllGrader`, `ContainsAnyGrader`, `ExactMatchGrader`, `TextSimilarityGrader`
+- CLI: `node tools/island-client.js upload-evals --brief <path>` then `run-eval --set-id <id>`
 
-**What CANNOT be done via API:**
-- **Trigger an evaluation run** — no public API endpoint found
-- **Check evaluation progress** — not found in public API
+**Why Dataverse POST (componenttype=19) was deprecated:**
+- Raw `POST /botcomponents` with componenttype=19 creates records but cannot set `parentBotComponentId` (navigation property not supported on the botcomponent entity)
+- Test cases appear as orphaned records not linked to any EvaluationSet
+- The Gateway API handles the parent link internally
 
-**Practical impact:** For our workflow, Direct Line API (Tier 1) handles all testing programmatically. Native eval upload is useful for populating the MCS Evaluation tab for customer review/manual runs.
+**Practical impact:** Full eval pipeline is now headless. Direct Line API (Tier 1) handles automated testing. Gateway API `makerevaluations` handles MCS Native Eval upload + run for MCP agents or user preference.
 
 ### 5. Test Chat API (MCS internal Test Chat WebSocket)
 
@@ -356,7 +356,7 @@ gptCapabilities:
 | 1 | Agent creation | **CONFIRMED** | Dataverse POST + PvaProvision (E2E tested 2026-02-27) | **Proven** |
 | 2 | OAuth connection creation | PARTIALLY REPLACEABLE | API for non-OAuth; browser for first OAuth consent only | High |
 | 3 | Child agent connection | **CONFIRMED** | Island Gateway `connectedAgentDefinitionChanges` (E2E tested 2026-02-27) | **Proven** |
-| 4 | Native eval upload/run | UPLOAD CONFIRMED | Upload test cases via Dataverse componenttype=19 (E2E tested); run still needs UI | **Upload: Proven** |
+| 4 | Native eval upload/run | **CONFIRMED** | Gateway API `makerevaluations/testcomponent` (upload) + `makerevaluations` (run) via `island-client.js upload-evals` / `run-eval` | **Proven** |
 | 5 | Test Chat WebSocket | NOT REPLACEABLE | Direct Line API covers the programmatic testing need | High |
 | 6 | Web search (Bing) toggle | **CONFIRMED** | LSP push `gptCapabilities.webBrowsing` (E2E tested 2026-02-27) | **Proven** |
 
@@ -370,7 +370,7 @@ gptCapabilities:
 - Agent creation → Dataverse POST + PvaProvision (confirmed)
 - Connect child agents → Island Gateway `connectedAgentDefinitionChanges` (confirmed)
 - "Allow other agents to connect" → Dataverse PATCH `bot.configuration.isAgentConnectable` (confirmed)
-- Native eval upload → Dataverse POST `botcomponent` componenttype=19 (confirmed)
+- Native eval upload + run → Gateway API `makerevaluations` via `island-client.js upload-evals` / `run-eval` (confirmed)
 - Web search toggle → LSP push `gptCapabilities.webBrowsing` (confirmed)
 - Automated testing → Direct Line API
 - Manual testing → MCS Test Chat (user-driven) or MCS Native Eval

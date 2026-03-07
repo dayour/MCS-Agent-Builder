@@ -2,7 +2,7 @@
 
 ## Overview
 
-Automate Microsoft Copilot Studio (MCS) agent creation using a **hybrid build stack**: PAC CLI for listing agents and solution ALM, MCS LSP Wrapper for component sync (instructions, model, topics, tools, knowledge, settings), Island Gateway API for model catalog, component reads, and connected agent setup, Dataverse API for agent creation (POST + PvaProvision), file uploads, bot name PATCH, PvaPublish, eval upload, and security, Direct Line API for testing, and user-guided manual steps for new OAuth connections and Computer Use tool setup.
+Automate Microsoft Copilot Studio (MCS) agent creation using a **hybrid build stack**: PAC CLI for listing agents and solution ALM, MCS LSP Wrapper for component sync (instructions, model, topics, tools, knowledge, settings), Island Gateway API for model catalog, component reads, connected agent setup, and eval upload/run (makerevaluations), Dataverse API for agent creation (POST + PvaProvision), file uploads, bot name PATCH, PvaPublish, and security, Direct Line API for testing, and user-guided manual steps for new OAuth connections and Computer Use tool setup.
 
 **CRITICAL: Never assume components. Research Microsoft-first (MCS built-in → Power Platform → Azure → M365 connectors), escalate to broad research only for external systems. Recommend based on requirements.**
 
@@ -62,7 +62,7 @@ Some operations require the user to perform actions in the Copilot Studio web UI
 |----------|------|---------|
 | 1 | **PAC CLI** | Listing agents, solution ALM |
 | 2 | **MCS LSP Wrapper** | Instructions, model, topics, knowledge (sites/URLs), full component sync (`tools/mcs-lsp.js`) |
-| 3 | **Island Gateway API** | Model catalog, component reads, routing, settings (`tools/island-client.js`) |
+| 3 | **Island Gateway API** | Model catalog, component reads, routing, settings, eval upload/run (`tools/island-client.js`) |
 | 4 | **Flow Manager** | Power Automate cloud flow CRUD — trigger creation, schedule/message updates, activate/deactivate (`tools/flow-manager.js`) |
 | 5 | **Dataverse API** | File uploads (PDF/DOCX), bot name PATCH, PvaPublish, security, deletion |
 | 6 | **Direct Line API** | Evaluation / testing (send messages, compare responses) |
@@ -174,7 +174,7 @@ Before committing to designs that are hard to undo — schema changes, workflow 
 |------|---------|
 | **PAC CLI** | Listing agents, status, solution ALM (`pac copilot`, `pac solution`) |
 | **MCS LSP Wrapper** | Instructions, model, topics, knowledge sync, full component push/pull via official LS (`tools/mcs-lsp.js`) |
-| **Island Gateway API** | Model catalog, component reads, routing info, bot settings (`tools/island-client.js`) |
+| **Island Gateway API** | Model catalog, component reads, routing info, bot settings, eval upload/run (`tools/island-client.js`) |
 | **Add Tool CLI** | Headless tool/connector/MCP addition — discovers connection refs from Dataverse, generates action YAML, LSP push (`tools/add-tool.js`). Key commands: `discover-connections` (query env), `add` (write YAML) |
 | **Dataverse API** | File uploads, bot name PATCH, PvaPublish bound action, security, deletion (via HTTP/PowerShell) |
 | **Code Editor YAML** | Topic authoring fallback: conversations, cards, branching (paste into MCS code editor) |
@@ -535,7 +535,7 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 
 **Two-mode eval strategy:**
 - **Auto (Direct Line API)** — automated for agents without user-delegated MCP tools. Hardened with auto-token, retry with backoff, 60s timeout, structured partial results.
-- **Manual (MCS Native Eval)** — generate tests → Dataverse API upload (populates Evaluation tab) + per-set CSV files (downloadable from dashboard). User runs in MCS or tests in chat.
+- **Manual (MCS Native Eval)** — upload eval sets via Gateway API `makerevaluations` (populates Evaluation tab) + run eval via Gateway API. Per-set CSVs generated for dashboard download/reference. User checks results in MCS or tests in chat.
 - **MCP Agent Manual Test Mode** — present test table (questions + expected answers), user tests in Test Chat, reports results or uses MCS native eval.
 
 **Per-set pass logic:** each test must pass ALL methods defined by its set. Scored methods check threshold, binary methods are pass/fail.
