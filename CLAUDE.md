@@ -63,7 +63,7 @@ Some operations require the user to perform actions in the Copilot Studio web UI
 | 1 | **PAC CLI** | Listing agents, solution ALM |
 | 2 | **MCS LSP Wrapper** | Instructions, model, topics, knowledge (sites/URLs), full component sync (`tools/mcs-lsp.js`) |
 | 3 | **Island Gateway API** | Model catalog, component reads, routing, settings, eval upload/run (`tools/island-client.js`) |
-| 4 | **Flow Manager** | Power Automate cloud flow CRUD — trigger creation, schedule/message updates, activate/deactivate (`tools/flow-manager.js`) |
+| 4 | **Flow Manager** | Power Automate cloud flow CRUD + composition — trigger creation, flow composition from specs, validation, connector discovery, schedule/message updates, activate/deactivate (`tools/flow-manager.js` + `tools/lib/flow-composer.js`) |
 | 5 | **Dataverse API** | File uploads (PDF/DOCX), bot name PATCH, PvaPublish, security, deletion |
 | 6 | **Direct Line API** | Evaluation / testing (send messages, compare responses) |
 **Detailed capabilities per layer:** See `knowledge/cache/api-capabilities.md`
@@ -182,7 +182,7 @@ Before committing to designs that are hard to undo — schema changes, workflow 
 | **Gen Constraints** | Pre-generation constraint extraction: `python tools/gen-constraints.py <types>` — required fields per node type |
 | **Drift Detection** | Compare brief.json specs vs built YAML: `python tools/drift-detect.py <brief.json>` — missing topics, trigger mismatches, variable drift |
 | **Semantic Gates** | 5 validation gates beyond structural checks: `python tools/semantic-gates.py <file.yaml> --brief <brief.json>` (PowerFx, cross-refs, variable flow, channel compat, connectors) |
-| **Flow Manager** | Power Automate cloud flow CRUD — create/update/activate triggers, discover connection refs (`tools/flow-manager.js`) |
+| **Flow Manager** | Power Automate cloud flow CRUD + composition — compose flows from specs, create from definitions, validate, discover operations, trigger creation, schedule/message updates, activate/deactivate (`tools/flow-manager.js` + `tools/lib/flow-composer.js` + `knowledge/patterns/flow-patterns/`) |
 | **Replicate Agent** | Cross-environment agent replication: Dataverse create + LSP clone + push (`tools/replicate-agent.js`) |
 | **Direct Line API** | Agent testing: send messages, compare responses (`tools/direct-line-test.js`) |
 | **Solution Library** | Team SharePoint solution library: list, download, analyze, upload, index, search (`tools/solution-library.js`) |
@@ -804,7 +804,8 @@ knowledge/
 ├── patterns/               # Stable HOW-TO references
 │   ├── yaml-reference.md, dataverse-patterns.md
 │   ├── solution-patterns.md  # Naive-to-proven implementation patterns (checked in research Phase B)
-│   └── topic-patterns/     # 10 reusable YAML templates
+│   ├── topic-patterns/     # 10 reusable YAML templates
+│   └── flow-patterns/     # 9 reusable flow JSON templates (triggers, actions, control flow)
 └── frameworks/             # Decision frameworks
     ├── component-selection.md, architecture-scoring.md
     ├── tool-priority.md
@@ -820,7 +821,8 @@ tools/
 │   └── README.md           # Commands, rebuild instructions
 ├── lib/
 │   ├── http.js             # Shared HTTP request + Azure CLI token helpers (used by all JS tools)
-│   └── graph-sharepoint.js # SharePoint Graph API helper (list, download, upload, create folder)
+│   ├── graph-sharepoint.js # SharePoint Graph API helper (list, download, upload, create folder)
+│   └── flow-composer.js    # Pure flow composition functions (builders, wiring, validation, patterns)
 ├── gen-constraints.py      # Pre-generation constraint extraction (queries om-cli for required fields)
 ├── drift-detect.py         # Brief-vs-YAML drift detection (missing topics, trigger/variable mismatches)
 ├── semantic-gates.py       # 5 semantic validation gates (PowerFx, cross-refs, variables, channels, connectors)
@@ -828,7 +830,7 @@ tools/
 ├── mcs-lsp.js              # MCS Language Server wrapper — headless push/pull via official LS (topics, sync)
 ├── island-client.js        # Island Control Plane Gateway API client (model catalog, reads, routing, settings)
 ├── add-tool.js             # Headless tool/connector addition — generates action YAML + LSP push
-├── flow-manager.js         # Power Automate cloud flow CRUD — triggers, schedules, activate/deactivate
+├── flow-manager.js         # Power Automate cloud flow CRUD + composition — compose, create-flow, validate, discover-operations, triggers
 ├── direct-line-test.js     # Direct Line API test runner
 ├── eval-scoring.js         # Shared scoring module (7 methods: 6 MCS native + PlanValidation, multi-turn support)
 ├── solution-library.js     # Team SharePoint solution library CLI (list, download, analyze, upload, index, search)

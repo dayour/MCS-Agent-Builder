@@ -141,12 +141,30 @@ Event trigger flows (recurrence, SharePoint, email, etc.) are stored as `workflo
 | `list` | List cloud flows (category=5) in the environment |
 | `get` | Get flow definition with parsed clientdata |
 | `create-trigger` | Create a recurrence trigger flow for an MCS agent |
+| `create-flow` | Create a flow from a definition JSON file (any trigger type) |
+| `compose` | Compose a flow from a high-level spec (uses flow-composer + patterns) |
+| `validate` | Validate a flow definition (local structure + optional remote API) |
+| `discover-operations` | List connector operations available in the environment |
 | `update-schedule` | Update recurrence schedule on existing flow |
 | `update-message` | Update payload message on existing flow |
 | `activate` | Turn on a flow (statecode=1) |
 | `deactivate` | Turn off a flow (statecode=0) |
 | `delete` | Delete a flow |
 | `discover` | Find MCS connector connection ref + copilot param |
+
+### Flow Composition Pipeline
+
+For medium-complexity flows (conditions, loops, multi-connector chains):
+
+```
+flow-spec.json → compose → flow-definition.json → validate → create-flow → Dataverse
+```
+
+**Composer library:** `tools/lib/flow-composer.js` — pure functions for building triggers, actions, control flow, wiring runAfter, and local validation.
+
+**Pattern library:** `knowledge/patterns/flow-patterns/` — 9 reusable JSON templates (agent-flow-basic, recurrence-copilot, condition-branch, foreach-loop, scope-try-catch, parallel-branches, event-trigger-email, event-trigger-dataverse, connector-action-template).
+
+**Flow spec format:** High-level JSON with trigger type, ordered actions (including nested conditions/loops), and connection references. The composer recursively builds WDL JSON and auto-wires runAfter dependencies.
 
 ### Key Dataverse Fields
 

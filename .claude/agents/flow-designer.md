@@ -22,27 +22,53 @@ Read brief.json capabilities where `implementationType == "flow"`, group them in
 
 ## Domain Knowledge
 
+### Flow Composition Pipeline
+
+`flow-manager.js` now supports a full composition pipeline for medium-complexity flows (conditions, loops, multi-connector chains):
+
+```
+flow-spec.json → compose → flow-definition.json → validate → create-flow → Dataverse
+```
+
+**Key commands:**
+| Command | What It Does |
+|---------|-------------|
+| `compose --spec <file> --output <file>` | Build full definition from high-level spec |
+| `create-flow --definition <file> --name "Name" --activate` | Create flow in Dataverse from definition |
+| `validate --definition <file> [--org <url>]` | Local + optional remote validation |
+| `discover-operations --org <url> [--connector <name>]` | List available connector operations |
+
+### Flow Pattern Library
+
+Reusable templates in `knowledge/patterns/flow-patterns/` (9 patterns). Use pattern names in flow-spec.json trigger config or reference them for action structure.
+
+| Pattern | Category | Use For |
+|---------|----------|---------|
+| `agent-flow-basic` | complete | Skills trigger + action + Response (agent flow reference) |
+| `recurrence-copilot` | complete | Scheduled trigger + ExecuteCopilot |
+| `condition-branch` | control | If/Else with expression examples |
+| `foreach-loop` | control | Loop over arrays (5,000 item limit) |
+| `scope-try-catch` | control | Try/Catch/Finally error handling |
+| `parallel-branches` | control | Concurrent execution + join point |
+| `event-trigger-email` | trigger | Outlook OnNewEmailV3 with filters |
+| `event-trigger-dataverse` | trigger | Dataverse row change webhook |
+| `connector-action-template` | action | Generic OpenApiConnection template |
+
 ### Trigger Types & flow-manager.js Support
 
-`flow-manager.js` supports 7 presets for automated flow creation:
+`flow-manager.js` supports recurrence presets for simple triggers and the compose pipeline for any trigger type:
 
-| Preset | Trigger | Automatable | Notes |
-|--------|---------|-------------|-------|
-| `daily` | Recurrence (daily at specified time) | Yes | `--preset daily --time "08:00"` |
-| `hourly` | Recurrence (every N hours) | Yes | `--preset hourly --interval 2` |
-| `weekly` | Recurrence (weekly on specified days) | Yes | `--preset weekly --days "Mon,Wed,Fri" --time "09:00"` |
-| `monthly` | Recurrence (monthly on specified day) | Yes | `--preset monthly --day 1 --time "06:00"` |
-| `every-n-minutes` | Recurrence (every N minutes) | Yes | `--preset every-n-minutes --interval 15` |
-| `on-dataverse-change` | When a Dataverse row is added/modified/deleted | Yes | `--preset on-dataverse-change --table "accounts" --change-type "create"` |
-| `on-email` | When a new email arrives (Outlook) | Yes | `--preset on-email --folder "Inbox" --filter "hasAttachments eq true"` |
-
-**Non-recurrence triggers that require manual PA portal setup:**
-- Manual/button trigger (Power Apps, Teams adaptive card)
-- HTTP request trigger (webhook)
-- When a Teams message is posted
-- When a file is created/modified (SharePoint)
-- When a row is selected (Dataverse — different from change trigger)
-- When a form response is submitted
+| Trigger | Automatable | Method |
+|---------|-------------|--------|
+| Recurrence (daily/weekly/hourly/minute) | Yes | `create-trigger --preset <name>` or compose pipeline |
+| Outlook email event | Yes | Compose pipeline with `event-trigger-email` pattern |
+| Dataverse row change | Yes | Compose pipeline with `event-trigger-dataverse` pattern |
+| Skills (agent flow) | Yes | Compose pipeline with `agent-flow-basic` pattern |
+| HTTP request (webhook) | Yes | Compose pipeline with http trigger type |
+| Manual/button (Power Apps, Teams) | No | Manual PA portal setup |
+| Teams message posted | No | Manual PA portal setup |
+| SharePoint file created/modified | Partial | Compose pipeline (connector known), manual PA for complex filters |
+| Form response submitted | No | Manual PA portal setup |
 
 **Always flag non-automatable triggers** — the lead will need the PA portal for these.
 
@@ -90,6 +116,42 @@ Before designing flows:
 5. **If external connectors involved** — check `knowledge/cache/connectors.md` for premium vs standard classification
 
 ## Output Format
+
+Write TWO files to `Build-Guides/{projectId}/agents/{agentId}/`:
+
+1. **`flow-spec.md`** — Human-readable specification (for lead review and customer docs)
+2. **`flow-spec.json`** — Machine-readable spec (for `flow-manager.js compose` pipeline)
+
+### flow-spec.json Structure
+
+```json
+{
+  "name": "Flow Name",
+  "trigger": {
+    "type": "recurrence|skills|event|http",
+    "pattern": "optional-pattern-name",
+    "config": { "frequency": "Day", "interval": 1 },
+    "params": { "key": "value" }
+  },
+  "actions": [
+    { "name": "Step_Name", "type": "connector", "connector": "shared_xxx", "operationId": "OpId", "params": {} },
+    { "name": "Check", "type": "condition", "expression": { "and": [{ "equals": ["@val", "target"] }] },
+      "ifActions": [{ "name": "Yes_Path", "type": "compose", "inputs": "..." }],
+      "elseActions": [{ "name": "No_Path", "type": "compose", "inputs": "..." }]
+    },
+    { "name": "Loop", "type": "foreach", "items": "@body('Step')?['value']", "sequential": true,
+      "actions": [{ "name": "Process", "type": "connector", "connector": "shared_xxx", "operationId": "OpId", "params": {} }]
+    }
+  ],
+  "connectionReferences": {
+    "shared_xxx": { "logicalName": "env_specific_logical_name" }
+  }
+}
+```
+
+**Action types:** connector, copilot, response, compose, parseJson, http, initVariable, setVariable, terminate, condition, foreach, until, switch, scope
+
+### flow-spec.md Format
 
 Write to `Build-Guides/{projectId}/agents/{agentId}/flow-spec.md`:
 
@@ -181,15 +243,21 @@ Trigger → [Step 1: Get data from {source}]
 Copy-paste these commands in order to create all automatable flows:
 
 ```bash
-# Flow 1: {name}
-node tools/flow-manager.js create --name "{name}" --env "{env}" --preset {preset} {options}
+# Compose flows from spec files
+node tools/flow-manager.js compose --spec flow-spec.json --output flow-1-def.json
 
-# Flow 2: {name}
-node tools/flow-manager.js create --name "{name}" --env "{env}" --preset {preset} {options}
+# Validate before creating
+node tools/flow-manager.js validate --definition flow-1-def.json
+
+# Create flows in Dataverse
+node tools/flow-manager.js create-flow --org "{orgUrl}" --definition flow-1-def.json --name "{name}" --activate
+
+# Or for simple recurrence triggers (legacy method):
+node tools/flow-manager.js create-trigger --org "{orgUrl}" --bot {id} --preset {preset} --message "{msg}"
 
 # Activate all flows
-node tools/flow-manager.js activate --name "{name1}" --env "{env}"
-node tools/flow-manager.js activate --name "{name2}" --env "{env}"
+node tools/flow-manager.js activate --org "{orgUrl}" --flow {flowId1}
+node tools/flow-manager.js activate --org "{orgUrl}" --flow {flowId2}
 ```
 ```
 

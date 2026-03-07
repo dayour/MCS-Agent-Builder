@@ -21,7 +21,10 @@
  */
 
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 const { httpRequest, httpRequestWithRetry, getToken } = require('./lib/http');
+const composer = require('./lib/flow-composer');
 
 // --- Constants ---
 
@@ -524,6 +527,191 @@ async function discover(orgUrl, token, botId) {
     };
 }
 
+// --- Flow Composition & Validation ---
+
+/**
+ * Create a flow from a complete definition (clientdata JSON or raw definition).
+ *
+ * @param {string} orgUrl - Dataverse org URL
+ * @param {string} token - Access token
+ * @param {object} params - { name, description, clientdata?, definition?, activate? }
+ * @returns {Promise<object>} Created workflow record
+ */
+async function createFlow(orgUrl, token, params) {
+    let clientdata;
+
+    if (params.clientdata) {
+        // Already-wrapped clientdata (string or object)
+        clientdata = typeof params.clientdata === 'string'
+            ? params.clientdata
+            : JSON.stringify(params.clientdata);
+    } else if (params.definition) {
+        // Raw definition — wrap in clientdata envelope
+        const properties = params.definition.properties
+            ? params.definition
+            : { properties: params.definition, schemaVersion: '1.0.0.0' };
+        clientdata = JSON.stringify(properties);
+    } else {
+        throw new Error('Either clientdata or definition is required');
+    }
+
+    const body = {
+        category: 5,
+        name: params.name || `Flow - ${new Date().toISOString().split('T')[0]}`,
+        type: 1,
+        primaryentity: 'none',
+        modernflowtype: params.modernflowtype !== undefined ? params.modernflowtype : 1,
+        description: params.description || '',
+        clientdata: clientdata
+    };
+
+    const url = buildApiUrl(orgUrl, 'workflows');
+    const headers = buildHeaders(token);
+
+    const res = await httpRequestWithRetry('POST', url, headers, body);
+    if (res.status !== 200 && res.status !== 201) {
+        throw new Error(`createFlow failed: HTTP ${res.status} — ${JSON.stringify(res.data).substring(0, 500)}`);
+    }
+
+    // Activate if requested
+    if (params.activate && res.data.workflowid) {
+        await activateFlow(orgUrl, token, res.data.workflowid);
+    }
+
+    return res.data;
+}
+
+/**
+ * Validate a flow definition (local + optional remote).
+ *
+ * @param {object} definition - Parsed clientdata or definition JSON
+ * @param {string} [orgUrl] - If provided, also runs remote validation
+ * @param {string} [token] - Required if orgUrl provided
+ * @returns {Promise<{local: object, remote?: object}>}
+ */
+async function validateFlow(definition, orgUrl, token) {
+    const local = composer.validateDefinition(definition);
+    const result = { local };
+
+    if (orgUrl && token) {
+        // Remote validation via Power Platform API (best-effort)
+        try {
+            // Derive environment URL from org URL
+            const envUrl = await deriveEnvironmentUrl(orgUrl, token);
+            if (envUrl) {
+                const [errRes, warnRes] = await Promise.all([
+                    httpRequest('POST', `${envUrl}/powerautomate/flows/new/checkFlowErrors?api-version=1`,
+                        { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                        definition),
+                    httpRequest('POST', `${envUrl}/powerautomate/flows/new/checkFlowWarnings?api-version=1`,
+                        { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                        definition)
+                ]);
+                result.remote = {
+                    errors: errRes.status === 200 ? errRes.data : { status: errRes.status, message: 'API unavailable' },
+                    warnings: warnRes.status === 200 ? warnRes.data : { status: warnRes.status, message: 'API unavailable' }
+                };
+            } else {
+                result.remote = { errors: { message: 'Could not derive environment URL' }, warnings: {} };
+            }
+        } catch (err) {
+            result.remote = { errors: { message: err.message }, warnings: {} };
+        }
+    }
+
+    return result;
+}
+
+/**
+ * Discover connector operations available in the environment.
+ *
+ * @param {string} orgUrl - Dataverse org URL
+ * @param {string} token - Access token
+ * @param {string} [connector] - Filter to specific connector
+ * @returns {Promise<object>} Operations grouped by connector
+ */
+async function discoverOperations(orgUrl, token, connector) {
+    // Try Power Platform environment API first
+    const envUrl = await deriveEnvironmentUrl(orgUrl, token);
+    if (envUrl) {
+        try {
+            const body = connector ? { filter: { connectorName: connector } } : {};
+            const res = await httpRequest('POST',
+                `${envUrl}/powerautomate/operations?api-version=1&$top=250`,
+                { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body);
+            if (res.status === 200) {
+                return { source: 'powerautomate-api', data: res.data };
+            }
+        } catch { /* fall through to Dataverse fallback */ }
+    }
+
+    // Fallback: inspect existing flows' clientdata for connector/operation patterns
+    const flows = await listFlows(orgUrl, token, {
+        select: 'name,workflowid,clientdata',
+        top: 50
+    });
+
+    const operations = {};
+    for (const flow of flows) {
+        if (!flow.clientdata) continue;
+        try {
+            const def = JSON.parse(flow.clientdata);
+            const actions = def.properties?.definition?.actions || {};
+            const triggers = def.properties?.definition?.triggers || {};
+            const allNodes = { ...actions, ...triggers };
+
+            for (const [name, node] of Object.entries(allNodes)) {
+                const connName = node.inputs?.host?.connectionName;
+                const opId = node.inputs?.host?.operationId;
+                if (connName && opId) {
+                    if (connector && connName !== connector) continue;
+                    if (!operations[connName]) operations[connName] = new Set();
+                    operations[connName].add(opId);
+                }
+            }
+        } catch { /* skip */ }
+    }
+
+    // Convert Sets to arrays
+    const result = {};
+    for (const [conn, ops] of Object.entries(operations)) {
+        result[conn] = [...ops];
+    }
+    return { source: 'dataverse-fallback', data: result };
+}
+
+/**
+ * Compose a flow from a high-level spec file.
+ *
+ * @param {object} spec - High-level flow specification
+ * @returns {object} Complete properties object (ready for buildWorkflowRecord or createFlow)
+ */
+function composeFlowFromSpec(spec) {
+    return composer.composeFlow(spec);
+}
+
+/**
+ * Derive the Power Platform environment URL from a Dataverse org URL.
+ * Queries the environment metadata to find the environment ID.
+ *
+ * @param {string} orgUrl
+ * @param {string} token
+ * @returns {Promise<string|null>} Environment URL or null
+ */
+async function deriveEnvironmentUrl(orgUrl, token) {
+    try {
+        const url = buildApiUrl(orgUrl, 'organizations', null, '$select=environmentid');
+        const headers = buildHeaders(token);
+        const res = await httpRequest('GET', url, headers);
+        if (res.status === 200 && res.data.value?.[0]?.environmentid) {
+            const envId = res.data.value[0].environmentid;
+            return `https://${envId}.environment.api.powerplatform.com`;
+        }
+    } catch { /* fall through */ }
+    return null;
+}
+
 // --- CLI ---
 
 function parseArgs() {
@@ -549,6 +737,12 @@ function parseArgs() {
             case '--description': config.description = args[++i]; break;
             case '--conn-ref': config.connRef = args[++i]; break;
             case '--copilot-param': config.copilotParam = args[++i]; break;
+            case '--definition': config.definitionFile = args[++i]; break;
+            case '--spec': config.specFile = args[++i]; break;
+            case '--output': config.outputFile = args[++i]; break;
+            case '--connector': config.connector = args[++i]; break;
+            case '--cache': config.cache = true; break;
+            case '--activate': config.activate = true; break;
             case '--json': config.json = true; break;
             case '--help': printUsage(); process.exit(0);
         }
@@ -558,35 +752,45 @@ function parseArgs() {
 }
 
 function printUsage() {
-    console.log(`Power Automate Flow Manager — CRUD via Dataverse Web API
+    console.log(`Power Automate Flow Manager — CRUD + Composition via Dataverse Web API
 
 Usage: node flow-manager.js <command> [options]
 
 Commands:
-  list              List cloud flows (category=5) in the environment
-  get               Get flow definition (parsed clientdata)
-  create-trigger    Create a recurrence trigger flow for an MCS agent
-  update-schedule   Update recurrence schedule on existing flow
-  update-message    Update payload message on existing flow
-  activate          Turn on a flow (statecode=1)
-  deactivate        Turn off a flow (statecode=0)
-  delete            Delete a flow
-  discover          Find MCS connector connection ref + copilot param
+  list                List cloud flows (category=5) in the environment
+  get                 Get flow definition (parsed clientdata)
+  create-trigger      Create a recurrence trigger flow for an MCS agent
+  create-flow         Create a flow from a definition JSON file
+  compose             Compose a flow from a high-level spec file
+  validate            Validate a flow definition (local + optional remote)
+  discover-operations List connector operations in the environment
+  update-schedule     Update recurrence schedule on existing flow
+  update-message      Update payload message on existing flow
+  activate            Turn on a flow (statecode=1)
+  deactivate          Turn off a flow (statecode=0)
+  delete              Delete a flow
+  discover            Find MCS connector connection ref + copilot param
 
 Required:
-  --org <url>       Dataverse org URL (e.g. https://orgXXX.crm.dynamics.com)
+  --org <url>         Dataverse org URL (e.g. https://orgXXX.crm.dynamics.com)
 
 Command-specific:
-  --flow <id>       Flow/workflow GUID (for get, update-*, activate, deactivate, delete)
-  --bot <id>        Bot/agent CDS ID (for create-trigger, discover)
-  --schedule <json> Schedule as JSON (for create-trigger, update-schedule)
-  --preset <name>   Schedule preset (for create-trigger, update-schedule)
-  --message <text>  Payload message (for create-trigger, update-message)
-  --name <text>     Flow display name (for create-trigger)
-  --description <t> Flow description (for create-trigger)
-  --conn-ref <name> Connection reference logical name (auto-discovered if omitted)
-  --copilot-param   Copilot parameter value (auto-discovered if omitted)
-  --json            Output raw JSON
+  --flow <id>         Flow/workflow GUID (for get, update-*, activate, deactivate, delete)
+  --bot <id>          Bot/agent CDS ID (for create-trigger, discover)
+  --schedule <json>   Schedule as JSON (for create-trigger, update-schedule)
+  --preset <name>     Schedule preset (for create-trigger, update-schedule)
+  --message <text>    Payload message (for create-trigger, update-message)
+  --name <text>       Flow display name (for create-trigger, create-flow)
+  --description <t>   Flow description (for create-trigger, create-flow)
+  --conn-ref <name>   Connection reference logical name (auto-discovered if omitted)
+  --copilot-param     Copilot parameter value (auto-discovered if omitted)
+  --definition <file> Definition JSON file path (for create-flow, validate)
+  --spec <file>       Flow spec JSON file path (for compose)
+  --output <file>     Output file path (for compose)
+  --connector <name>  Filter by connector (for discover-operations)
+  --cache             Cache results (for discover-operations)
+  --activate          Activate flow after creation (for create-flow)
+  --json              Output raw JSON
 
 Schedule presets:
   weekdays-7am-pst, weekdays-8am-est, weekdays-9am-utc,
@@ -606,17 +810,22 @@ Examples:
   node tools/flow-manager.js create-trigger --org https://orgXXX.crm.dynamics.com \\
     --bot <id> --preset weekdays-7am-pst --message "Generate daily briefing"
 
-  # Create trigger with custom schedule
-  node tools/flow-manager.js create-trigger --org https://orgXXX.crm.dynamics.com \\
-    --bot <id> --schedule '{"frequency":"Minute","interval":10}' --message "Check updates"
+  # Create flow from definition file
+  node tools/flow-manager.js create-flow --org https://orgXXX.crm.dynamics.com \\
+    --definition flow-def.json --name "My Flow" --activate
 
-  # Update message on existing flow
-  node tools/flow-manager.js update-message --org https://orgXXX.crm.dynamics.com \\
-    --flow <id> --message "New payload text"
+  # Compose flow from high-level spec
+  node tools/flow-manager.js compose --spec flow-spec.json --output flow-def.json
 
-  # Activate / deactivate
-  node tools/flow-manager.js activate --org https://orgXXX.crm.dynamics.com --flow <id>
-  node tools/flow-manager.js deactivate --org https://orgXXX.crm.dynamics.com --flow <id>`);
+  # Validate a flow definition (local only)
+  node tools/flow-manager.js validate --definition flow-def.json
+
+  # Validate with remote checks
+  node tools/flow-manager.js validate --definition flow-def.json --org https://orgXXX.crm.dynamics.com
+
+  # Discover connector operations
+  node tools/flow-manager.js discover-operations --org https://orgXXX.crm.dynamics.com
+  node tools/flow-manager.js discover-operations --org https://orgXXX.crm.dynamics.com --connector shared_office365`);
 }
 
 async function main() {
@@ -901,6 +1110,202 @@ async function main() {
                 break;
             }
 
+            case 'create-flow': {
+                if (!config.definitionFile) {
+                    console.error('Error: --definition is required for create-flow');
+                    process.exit(2);
+                }
+                const defPath = path.resolve(config.definitionFile);
+                if (!fs.existsSync(defPath)) {
+                    console.error(`Error: File not found: ${defPath}`);
+                    process.exit(2);
+                }
+
+                let defContent;
+                try {
+                    defContent = JSON.parse(fs.readFileSync(defPath, 'utf8'));
+                } catch (e) {
+                    console.error(`Error: Invalid JSON in ${defPath}: ${e.message}`);
+                    process.exit(2);
+                }
+
+                // Determine if this is raw definition or already-wrapped clientdata
+                const isRawDef = !!defContent['$schema'] || !!defContent.definition;
+                const createParams = {
+                    name: config.name,
+                    description: config.description,
+                    activate: config.activate
+                };
+
+                if (isRawDef) {
+                    createParams.definition = defContent;
+                } else {
+                    createParams.clientdata = defContent;
+                }
+
+                console.error('Creating flow...');
+                const created = await createFlow(config.orgUrl, token, createParams);
+                const createdId = created.workflowid;
+
+                if (config.json) {
+                    console.log(JSON.stringify(created, null, 2));
+                } else {
+                    console.log(`Flow created successfully.`);
+                    console.log(`  Name: ${created.name}`);
+                    console.log(`  ID: ${createdId}`);
+                    console.log(`  State: ${config.activate ? 'Active' : 'Draft'}`);
+                    if (!config.activate) {
+                        console.log(`\nActivate with:`);
+                        console.log(`  node tools/flow-manager.js activate --org ${config.orgUrl} --flow ${createdId}`);
+                    }
+                }
+                break;
+            }
+
+            case 'validate': {
+                if (!config.definitionFile) {
+                    console.error('Error: --definition is required for validate');
+                    process.exit(2);
+                }
+                const valPath = path.resolve(config.definitionFile);
+                if (!fs.existsSync(valPath)) {
+                    console.error(`Error: File not found: ${valPath}`);
+                    process.exit(2);
+                }
+
+                let valContent;
+                try {
+                    valContent = JSON.parse(fs.readFileSync(valPath, 'utf8'));
+                } catch (e) {
+                    console.error(`Error: Invalid JSON in ${valPath}: ${e.message}`);
+                    process.exit(2);
+                }
+
+                console.error('Validating flow definition...');
+                const valToken = config.orgUrl ? getToken(config.orgUrl) : null;
+                const valResult = await validateFlow(valContent, config.orgUrl, valToken);
+
+                if (config.json) {
+                    console.log(JSON.stringify(valResult, null, 2));
+                } else {
+                    // Local validation results
+                    const local = valResult.local;
+                    console.log(`Local Validation: ${local.valid ? 'PASSED' : 'FAILED'}`);
+                    if (local.errors.length > 0) {
+                        console.log(`\n  Errors (${local.errors.length}):`);
+                        for (const e of local.errors) console.log(`    - ${e}`);
+                    }
+                    if (local.warnings.length > 0) {
+                        console.log(`\n  Warnings (${local.warnings.length}):`);
+                        for (const w of local.warnings) console.log(`    - ${w}`);
+                    }
+                    if (local.valid && local.warnings.length === 0) {
+                        console.log('  No issues found.');
+                    }
+
+                    // Remote validation results
+                    if (valResult.remote) {
+                        console.log(`\nRemote Validation:`);
+                        if (valResult.remote.errors?.message) {
+                            console.log(`  ${valResult.remote.errors.message}`);
+                        } else {
+                            console.log(`  Errors: ${JSON.stringify(valResult.remote.errors)}`);
+                            console.log(`  Warnings: ${JSON.stringify(valResult.remote.warnings)}`);
+                        }
+                    }
+                }
+
+                // Exit with non-zero if local validation failed
+                if (!valResult.local.valid) process.exit(1);
+                break;
+            }
+
+            case 'discover-operations': {
+                console.error('Discovering connector operations...');
+                const opsResult = await discoverOperations(config.orgUrl, token, config.connector);
+
+                if (config.cache) {
+                    // Extract envId from org URL for cache filename
+                    const orgMatch = config.orgUrl.match(/\/\/(org[a-f0-9]+)\./);
+                    const envLabel = orgMatch ? orgMatch[1] : 'unknown';
+                    const cachePath = path.resolve(__dirname, `../knowledge/cache/pa-operations-${envLabel}.json`);
+                    fs.writeFileSync(cachePath, JSON.stringify(opsResult, null, 2));
+                    console.error(`Cached to: ${cachePath}`);
+                }
+
+                if (config.json) {
+                    console.log(JSON.stringify(opsResult, null, 2));
+                } else {
+                    console.log(`Source: ${opsResult.source}\n`);
+                    if (opsResult.source === 'dataverse-fallback') {
+                        const data = opsResult.data;
+                        const connectors = Object.keys(data);
+                        if (connectors.length === 0) {
+                            console.log('No operations found in existing flows.');
+                        } else {
+                            console.log(`Connectors found (${connectors.length}):\n`);
+                            for (const conn of connectors.sort()) {
+                                console.log(`  ${conn}`);
+                                for (const op of data[conn]) {
+                                    console.log(`    - ${op}`);
+                                }
+                            }
+                        }
+                    } else {
+                        console.log(JSON.stringify(opsResult.data, null, 2));
+                    }
+                }
+                break;
+            }
+
+            case 'compose': {
+                if (!config.specFile) {
+                    console.error('Error: --spec is required for compose');
+                    process.exit(2);
+                }
+                const specPath = path.resolve(config.specFile);
+                if (!fs.existsSync(specPath)) {
+                    console.error(`Error: File not found: ${specPath}`);
+                    process.exit(2);
+                }
+
+                let spec;
+                try {
+                    spec = JSON.parse(fs.readFileSync(specPath, 'utf8'));
+                } catch (e) {
+                    console.error(`Error: Invalid JSON in ${specPath}: ${e.message}`);
+                    process.exit(2);
+                }
+
+                console.error(`Composing flow from spec: ${spec.name || specPath}...`);
+                const composed = composeFlowFromSpec(spec);
+
+                // Validate the composed output
+                const composeValidation = composer.validateDefinition(composed);
+                if (!composeValidation.valid) {
+                    console.error(`\nWarning: Composed flow has validation issues:`);
+                    for (const e of composeValidation.errors) console.error(`  - ${e}`);
+                }
+                if (composeValidation.warnings.length > 0) {
+                    for (const w of composeValidation.warnings) console.error(`  Warning: ${w}`);
+                }
+
+                // Wrap in full clientdata envelope
+                const clientdata = {
+                    properties: composed,
+                    schemaVersion: '1.0.0.0'
+                };
+
+                if (config.outputFile) {
+                    const outPath = path.resolve(config.outputFile);
+                    fs.writeFileSync(outPath, JSON.stringify(clientdata, null, 2));
+                    console.log(`Composed flow written to: ${outPath}`);
+                } else {
+                    console.log(JSON.stringify(clientdata, null, 2));
+                }
+                break;
+            }
+
             default:
                 console.error(`Unknown command: ${config.command}`);
                 printUsage();
@@ -920,6 +1325,10 @@ module.exports = {
     listFlows,
     getFlow,
     createTriggerFlow,
+    createFlow,
+    validateFlow,
+    discoverOperations,
+    composeFlowFromSpec,
     updateSchedule,
     updateMessage,
     activateFlow,
@@ -927,7 +1336,8 @@ module.exports = {
     deleteFlow,
     discoverConnectionRef,
     discoverCopilotParam,
-    discover
+    discover,
+    composer
 };
 
 // Run CLI if invoked directly
