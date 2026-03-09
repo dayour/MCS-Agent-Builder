@@ -18630,6 +18630,10 @@
           "const": "EmptyActions"
         },
         {
+          "title": "SignInRequiredWithManualAuthentication",
+          "const": "SignInRequiredWithManualAuthentication"
+        },
+        {
           "title": "SynonymsNotUnique",
           "const": "SynonymsNotUnique"
         },

@@ -347,6 +347,12 @@
           "$ref": "#/definitions/ConversationHistory"
         },
         {
+          "$ref": "#/definitions/InterruptionPolicy"
+        },
+        {
+          "$ref": "#/definitions/IncludeSelectedTopics"
+        },
+        {
           "$ref": "#/definitions/ConnectionProperties"
         },
         {
@@ -1903,6 +1909,19 @@
         },
         {
           "$ref": "#/definitions/ConversationHistory"
+        }
+      ]
+    },
+    "InterruptionTopicListFilter": {
+      "x-definition": {
+        "title": "InterruptionTopicListFilter",
+        "type": "object",
+        "x-base-ref": "#/definitions/BotElement",
+        "x-abstract": true
+      },
+      "oneOf": [
+        {
+          "$ref": "#/definitions/IncludeSelectedTopics"
         }
       ]
     },
@@ -7477,6 +7496,10 @@
           "description": "Conversation history type to include when invoking the agent.",
           "$ref": "#/definitions/HistoryType"
         },
+        "interruptionPolicy": {
+          "title": "Interruption policy",
+          "$ref": "#/definitions/InterruptionPolicy"
+        },
         "shouldSendStartConversation": {
           "title": "Should send start conversation event",
           "description": "Decides whether the parent agent sends a startConversation activity to initialize the agent",
@@ -7520,6 +7543,52 @@
           "default": 5,
           "$role": "expression",
           "$ref": "#/definitions/IntExpression"
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
+    "InterruptionPolicy": {
+      "title": "InterruptionPolicy",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/BotElement",
+      "properties": {
+        "kind": {
+          "const": "InterruptionPolicy"
+        },
+        "allowInterruption": {
+          "title": "Allow switching to another topic",
+          "description": "If the user's response matches another topic with high confidence, that topic will be allowed to interrupt.",
+          "default": true,
+          "type": "boolean"
+        },
+        "interruptionTopicListFilter": {
+          "title": "Interruption topic list filter",
+          "$ref": "#/definitions/InterruptionTopicListFilter"
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
+    "IncludeSelectedTopics": {
+      "title": "Include selected topics",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/InterruptionTopicListFilter",
+      "properties": {
+        "kind": {
+          "const": "IncludeSelectedTopics"
+        },
+        "allowedInterruptTopics": {
+          "title": "Only selected topics",
+          "description": "Select topics that can interrupt this action.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       },
       "required": [
@@ -10060,6 +10129,10 @@
           "title": "Skill action Id",
           "description": "The id of the action within the skill to invoke.",
           "type": "string"
+        },
+        "interruptionPolicy": {
+          "title": "Interruption policy",
+          "$ref": "#/definitions/InterruptionPolicy"
         }
       },
       "required": [
@@ -15547,6 +15620,10 @@
       "properties": {
         "kind": {
           "const": "ActivityProtocolMetadata"
+        },
+        "interruptionPolicy": {
+          "title": "Interruption policy",
+          "$ref": "#/definitions/InterruptionPolicy"
         }
       },
       "required": [
@@ -15562,6 +15639,10 @@
       "properties": {
         "kind": {
           "const": "AgentToAgentProtocolMetadata"
+        },
+        "interruptionPolicy": {
+          "title": "Interruption policy",
+          "$ref": "#/definitions/InterruptionPolicy"
         },
         "extensions": {
           "title": "Extensions",
@@ -15777,6 +15858,10 @@
           "title": "Skill action Id",
           "description": "The id of the action within the skill to invoke.",
           "type": "string"
+        },
+        "interruptionPolicy": {
+          "title": "Interruption policy",
+          "$ref": "#/definitions/InterruptionPolicy"
         }
       },
       "required": [
@@ -17710,6 +17795,10 @@
         {
           "title": "EmptyActions",
           "const": "EmptyActions"
+        },
+        {
+          "title": "SignInRequiredWithManualAuthentication",
+          "const": "SignInRequiredWithManualAuthentication"
         },
         {
           "title": "SynonymsNotUnique",
