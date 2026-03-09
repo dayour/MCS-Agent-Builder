@@ -148,7 +148,7 @@ The tool continuously learns and improves:
 
 | Layer | What | How It Stays Current |
 |-------|------|---------------------|
-| **Cache** (19 files) | MCS capabilities — models, connectors, MCP servers, triggers, etc. | Auto-refreshed at session start + before builds |
+| **Cache** (20 files) | MCS capabilities — models, connectors, MCP servers, triggers, etc. | Auto-refreshed at session start + before builds |
 | **Learnings** (8 files) | Experience from past builds — what worked, what didn't | Captured after each build/eval, user-confirmed |
 | **Patterns** | YAML syntax, Dataverse API patterns, solution patterns | Stable reference (manually updated) |
 | **Frameworks** | Component selection, architecture scoring, tool priority | Stable reference (manually updated) |
@@ -177,8 +177,8 @@ app/
 knowledge/
   solutions/                Team solution library (index + per-solution cache)
   learnings/                Experience from past builds (grows over time)
-  cache/                    19 MCS capability cheat sheets + connector-schemas/ (auto-refreshed)
-  patterns/                 YAML, Dataverse API, solution patterns + 10 topic templates
+  cache/                    20 MCS capability cheat sheets + connector-schemas/ (auto-refreshed)
+  patterns/                 YAML, Dataverse API, solution patterns + 11 topic templates
   frameworks/               Decision frameworks
 
 templates/                  brief.json (single source of truth schema)
@@ -199,7 +199,9 @@ tools/
   add-tool.js               Headless tool/connector addition via LSP push
   flow-manager.js           Power Automate cloud flow CRUD + composition (compose, schema, validate, triggers)
   solution-library.js       Team SharePoint solution library CLI (list, download, analyze, upload)
-  direct-line-test.js       Direct Line API test runner
+  direct-line-test.js       Direct Line API test runner (--gpt for GPT-enhanced scoring)
+  multi-model-review.js     GPT cross-model review (instructions, topics, briefs, scoring)
+  lib/openai.js             Shared GPT client — GitHub Copilot API/GPT-5.4 via gh auth token + copilot scope
   dataverse-helper.ps1      PowerShell Dataverse Web API helper
   git-hooks/                Pre-commit (file protection) + pre-push (om-cli auto-update)
 

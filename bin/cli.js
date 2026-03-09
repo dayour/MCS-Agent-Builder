@@ -338,6 +338,28 @@ function doctor() {
     }
   });
 
+  // 11. GPT-5.4 review (optional — needs gh CLI + copilot scope)
+  check("GPT-5.4 review (optional)", () => {
+    if (!cmdExists("gh")) return { ok: false, detail: "gh CLI not found", fix: "winget install GitHub.cli" };
+    try {
+      const status = run("gh auth status 2>&1");
+      if (!status.includes("Logged in")) return { ok: false, detail: "gh not logged in", fix: "gh auth login" };
+      if (!status.includes("'copilot'") && !status.includes('"copilot"')) {
+        return { ok: false, detail: "missing copilot scope", fix: "gh auth refresh --scopes copilot" };
+      }
+      return { ok: true, detail: "gh + copilot scope" };
+    } catch (e) {
+      const output = (e.stdout || "") + (e.stderr || "");
+      if (output.includes("Logged in") && (output.includes("'copilot'") || output.includes('"copilot"'))) {
+        return { ok: true, detail: "gh + copilot scope" };
+      }
+      if (output.includes("Logged in")) {
+        return { ok: false, detail: "missing copilot scope", fix: "gh auth refresh --scopes copilot" };
+      }
+      return { ok: false, detail: "gh not logged in", fix: "gh auth login && gh auth refresh --scopes copilot" };
+    }
+  });
+
   // Print results
   const PASS = "\x1b[32mPASS\x1b[0m";
   const FAIL = "\x1b[31mFAIL\x1b[0m";

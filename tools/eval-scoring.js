@@ -15,6 +15,12 @@
  *   parseCSV(content)
  *   parseEvalSets(briefPath, filterSets?)
  *   writeResultsToBrief(briefPath, results)
+ *
+ * Async GPT-enhanced variants (optional — fall back to heuristics):
+ *   semanticSimilarityAsync(actual, expected)
+ *   qualityScoreAsync(actual, expected)
+ *   evaluateResultAsync(actual, expected, method, passingScore, mode)
+ *   evaluateAllMethodsAsync(actual, expected, methods, toolInvocations?)
  */
 
 const fs = require('fs');
@@ -492,29 +498,177 @@ function writeResultsToBrief(briefPath, results) {
     fs.writeFileSync(briefPath, JSON.stringify(brief, null, 2));
 }
 
+// --- Async GPT-Enhanced Scoring (optional — falls back to heuristics) ---
+
+let _openai = null;
+function _getOpenAI() {
+    if (_openai === undefined) return null;
+    if (_openai) return _openai;
+    try {
+        _openai = require('./lib/openai');
+        return _openai.isConfigured() ? _openai : (_openai = null);
+    } catch {
+        _openai = undefined; // Mark as permanently unavailable
+        return null;
+    }
+}
+
 /**
- * Write a single test result to brief.json (progressive writing).
- * Reads, patches one test, writes back. Slightly less efficient but crash-safe.
- *
- * @param {string} briefPath - Path to brief.json
- * @param {{setIndex: number, testIndex: number, pass: boolean, actual: string, score: number, methodResults?: Array}} result
+ * Parse JSON from GPT response, stripping markdown fences if present.
+ * Throws with a truncated preview on parse failure for debugging.
  */
-function writeOneResultToBrief(briefPath, result) {
-    const brief = JSON.parse(fs.readFileSync(briefPath, 'utf8'));
-    const timestamp = new Date().toISOString();
+function _parseGptJson(content) {
+    let cleaned = (content || '').trim();
+    if (cleaned.startsWith('```')) cleaned = cleaned.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '');
+    try {
+        return JSON.parse(cleaned);
+    } catch (e) {
+        throw new Error(`GPT returned invalid JSON: ${cleaned.substring(0, 100)}...`);
+    }
+}
 
-    const set = brief.evalSets[result.setIndex];
-    if (!set || !set.tests || !set.tests[result.testIndex]) return;
-
-    set.tests[result.testIndex].lastResult = {
-        pass: result.pass,
-        actual: result.actual,
-        score: result.score,
-        timestamp,
-        ...(result.methodResults ? { methodResults: result.methodResults } : {})
+/**
+ * Merge heuristic + GPT scores: run both in parallel, take the stricter (lower) score.
+ * If GPT fails, fall back to heuristic only. If they diverge >20 points, flag it.
+ */
+function _mergeScores(heuristicScore, gptScore, gptReasoning) {
+    if (gptScore === null || gptScore === undefined) {
+        return { score: heuristicScore, source: 'heuristic' };
+    }
+    const divergence = Math.abs(heuristicScore - gptScore);
+    const finalScore = Math.min(heuristicScore, gptScore); // stricter wins
+    return {
+        score: finalScore,
+        reasoning: gptReasoning,
+        source: 'dual',
+        heuristicScore,
+        gptScore,
+        ...(divergence > 20 ? { divergence, flagged: true } : {})
     };
+}
 
-    fs.writeFileSync(briefPath, JSON.stringify(brief, null, 2));
+/**
+ * GPT-enhanced semantic similarity. Runs heuristic + GPT in parallel, merges with stricter-wins.
+ * @param {string} actual
+ * @param {string} expected
+ * @returns {Promise<{score: number, reasoning?: string, source: string, heuristicScore?: number, gptScore?: number, flagged?: boolean}>}
+ */
+async function semanticSimilarityAsync(actual, expected) {
+    const hScore = semanticSimilarity(actual, expected);
+    const openai = _getOpenAI();
+    if (!openai) {
+        return { score: hScore, source: 'heuristic' };
+    }
+    try {
+        const result = await openai.chatCompletion([
+            { role: 'system', content: 'Compare the actual response to the expected response for semantic similarity. Output JSON: {"score": 0-100, "reasoning": "brief explanation"}' },
+            { role: 'user', content: `Actual: ${actual}\n\nExpected: ${expected}` }
+        ], { maxTokens: 256 });
+        const parsed = _parseGptJson(result.content);
+        return _mergeScores(hScore, parsed.score, parsed.reasoning);
+    } catch {
+        return { score: hScore, source: 'heuristic-fallback' };
+    }
+}
+
+/**
+ * GPT-enhanced quality score. Runs heuristic + GPT in parallel, merges with stricter-wins.
+ * @param {string} actual
+ * @param {string} expected
+ * @returns {Promise<{score: number, reasoning?: string, source: string, heuristicScore?: number, gptScore?: number, flagged?: boolean}>}
+ */
+async function qualityScoreAsync(actual, expected) {
+    const hScore = qualityScore(actual, expected);
+    const openai = _getOpenAI();
+    if (!openai) {
+        return { score: hScore, source: 'heuristic' };
+    }
+    try {
+        const prompt = expected
+            ? `Evaluate response quality and relevance to the expected answer. Output JSON: {"score": 0-100, "reasoning": "brief explanation"}`
+            : `Evaluate response quality, helpfulness, and completeness. Output JSON: {"score": 0-100, "reasoning": "brief explanation"}`;
+        const userContent = expected
+            ? `Actual: ${actual}\n\nExpected: ${expected}`
+            : `Response: ${actual}`;
+        const result = await openai.chatCompletion([
+            { role: 'system', content: prompt },
+            { role: 'user', content: userContent }
+        ], { maxTokens: 256 });
+        const parsed = _parseGptJson(result.content);
+        return _mergeScores(hScore, parsed.score, parsed.reasoning);
+    } catch {
+        return { score: hScore, source: 'heuristic-fallback' };
+    }
+}
+
+/**
+ * Async version of evaluateResult — uses GPT for CompareMeaning and GeneralQuality.
+ * All other methods use the sync implementation (deterministic, no LLM needed).
+ *
+ * @param {string} actual
+ * @param {string} expected
+ * @param {string} method
+ * @param {number} [passingScore=70]
+ * @param {string} [mode='all']
+ * @returns {Promise<{pass: boolean, score: number, method: string, reasoning?: string, source?: string}>}
+ */
+async function evaluateResultAsync(actual, expected, method, passingScore, mode) {
+    const normalized = normalizeMethod(method);
+    const canonicalMethod = normalized.method;
+    const threshold = passingScore || 70;
+
+    // Only CompareMeaning and GeneralQuality benefit from GPT scoring
+    if (canonicalMethod === 'CompareMeaning') {
+        const result = await semanticSimilarityAsync(actual || '', expected || '');
+        return {
+            pass: result.score >= threshold,
+            score: result.score,
+            method: canonicalMethod,
+            reasoning: result.reasoning,
+            source: result.source
+        };
+    }
+
+    if (canonicalMethod === 'GeneralQuality') {
+        const result = await qualityScoreAsync(actual || '', expected || '');
+        return {
+            pass: result.score >= threshold,
+            score: result.score,
+            method: canonicalMethod,
+            reasoning: result.reasoning,
+            source: result.source
+        };
+    }
+
+    // All other methods — use sync (deterministic, no LLM needed)
+    return evaluateResult(actual, expected, method, passingScore, mode);
+}
+
+/**
+ * Async version of evaluateAllMethods — uses GPT-enhanced scoring where applicable.
+ */
+async function evaluateAllMethodsAsync(actual, expected, methods, toolInvocations) {
+    if (!methods || methods.length === 0) {
+        const result = await evaluateResultAsync(actual, expected, 'GeneralQuality', 70);
+        return { pass: result.pass, score: result.score, methodResults: [result] };
+    }
+
+    const methodResults = await Promise.all(methods.map(async m => {
+        const passingScore = m.score || 70;
+        const modeVal = m.mode || null;
+        const { method: canonical } = normalizeMethod(m.type);
+
+        if (canonical === 'PlanValidation' && toolInvocations) {
+            return evaluateResult(JSON.stringify(toolInvocations), expected, m.type, passingScore, modeVal);
+        }
+
+        return evaluateResultAsync(actual, expected, m.type, passingScore, modeVal);
+    }));
+
+    const allPass = methodResults.every(r => r.pass);
+    const avgScore = Math.round(methodResults.reduce((sum, r) => sum + r.score, 0) / methodResults.length);
+
+    return { pass: allPass, score: avgScore, methodResults };
 }
 
 module.exports = {
@@ -527,5 +681,10 @@ module.exports = {
     qualityScore,
     parseCSV,
     parseEvalSets,
-    writeResultsToBrief
+    writeResultsToBrief,
+    // Async GPT-enhanced variants
+    semanticSimilarityAsync,
+    qualityScoreAsync,
+    evaluateResultAsync,
+    evaluateAllMethodsAsync
 };

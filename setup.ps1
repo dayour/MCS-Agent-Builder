@@ -385,8 +385,24 @@ Write-Host "  -----------------------"
 
 Install-Winget -PackageId 'Microsoft.PowerShell'    -DisplayName 'PowerShell 7'
 Install-Winget -PackageId 'Microsoft.AzureCLI'     -DisplayName 'Azure CLI'     -Optional
+Install-Winget -PackageId 'GitHub.cli'             -DisplayName 'GitHub CLI'    -Optional
 Install-Winget -PackageId 'Microsoft.DotNet.SDK.8'  -DisplayName '.NET SDK 8'    -Optional
 Install-Winget -PackageId 'Microsoft.DotNet.SDK.10' -DisplayName '.NET SDK 10'   -Optional
+
+# Check GitHub CLI copilot scope (for GPT-5.4 cross-model review)
+if (Test-Cmd 'gh') {
+    $ghStatus = & gh auth status 2>&1 | Out-String
+    if ($ghStatus -match 'Logged in') {
+        if ($ghStatus -notmatch "'copilot'") {
+            Write-Warn "GitHub CLI missing 'copilot' scope (needed for GPT-5.4 reviews)"
+            Write-Warn "Run: gh auth refresh --scopes copilot"
+        } else {
+            Write-Ok "GitHub CLI has copilot scope (GPT-5.4 reviews enabled)"
+        }
+    } else {
+        Write-Warn "GitHub CLI not logged in. For GPT-5.4 reviews, run: gh auth login && gh auth refresh --scopes copilot"
+    }
+}
 
 # ---------------------------------------------------------------------------
 

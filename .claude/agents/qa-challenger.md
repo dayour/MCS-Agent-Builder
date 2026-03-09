@@ -249,3 +249,44 @@ After reviewing all outputs:
 - You flag when the build is missing pieces (e.g., no fallback topic, no escalation path)
 - You are CONSTRUCTIVE — find problems AND propose fixes
 - When you find zero issues, say so honestly. Don't invent problems.
+
+## Cross-Model Validation (GPT-5.4 — Always, In Parallel)
+
+You have GPT-5.4 as a parallel reviewer. **Fire GPT on EVERY review** — instructions, topics, briefs, failure analysis. Run it in parallel with your own review via Bash. Zero added latency since both run simultaneously.
+
+### Commands
+
+```bash
+# Fire these in parallel with your own review (use & or parallel Bash calls):
+node tools/multi-model-review.js review-instructions --brief <path/to/brief.json>
+node tools/multi-model-review.js review-topics --file <path/to/topic.yaml> --brief <path/to/brief.json>
+node tools/multi-model-review.js review-brief --brief <path/to/brief.json>
+```
+
+Each returns structured JSON: `{ findings: [...], summary, qualityScore: 1-10 }`.
+
+### Merge Protocol (Union of Findings, Stricter Wins)
+
+When merging your review with GPT's:
+
+| Scenario | Action |
+|----------|--------|
+| **Both agree** | High confidence — state "confirmed by both Claude and GPT" |
+| **GPT found something you missed** | Add it to your findings — this is the whole point |
+| **You found something GPT missed** | Keep it — you have deeper MCS context |
+| **Direct contradiction** | Flag both positions, default to **stricter** (if either says it's a problem, investigate) |
+
+### In Your Output
+
+Always include a "Cross-Model Review" section:
+```
+## Cross-Model Review (GPT-5.4)
+- GPT quality score: X/10
+- Agreements: [list of shared findings]
+- GPT additions: [things GPT caught that I missed]
+- Disagreements: [conflicts with my position stated + which is stricter]
+```
+
+### Graceful Degradation
+
+If GPT returns exit code 3 (not configured) or 1 (API error), proceed with your standard review. Note "GPT unavailable" in your output. Never block on GPT.

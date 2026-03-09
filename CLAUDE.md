@@ -8,6 +8,42 @@ Automate Microsoft Copilot Studio (MCS) agent creation using a **hybrid build st
 
 ---
 
+## MANDATORY: Parallel GPT Review — Every Non-Trivial Task
+
+**For every task that isn't a simple one-liner, fire GPT-5.4 in parallel with your own work.** This applies to ALL work — MCS builds, code writing, reviews, cleanup, app updates, architecture decisions, documentation. Not just MCS skills.
+
+### When to Fire GPT (default: yes)
+
+| Task Type | GPT Action | How |
+|-----------|-----------|-----|
+| **Writing code** (3+ lines) | GPT reviews the code after you write it | Bash: `node tools/multi-model-review.js` or inline `chatCompletion` |
+| **Reviewing/auditing** | GPT reviews the same artifact in parallel | Fire GPT review alongside your own analysis |
+| **Architecture/design decisions** | GPT gives a second opinion | Send the decision context, get alternative perspective |
+| **Editing existing code** | GPT reviews the diff | Send before/after, check for regressions |
+| **Updating docs/config** | GPT checks completeness | Send the updated content for gap analysis |
+| **Cleanup/refactoring** | GPT spots things you miss | Send the files being cleaned up |
+| **Debugging/fixing** | GPT proposes alternative root causes | Send the error + context |
+
+### When to Skip GPT
+
+- Single-line fixes, typos, trivial renames
+- Pure git operations (commit, push, branch)
+- File reads, searches, status checks
+- When GPT is unavailable (exit code 3) — proceed without it
+
+### Merge Protocol (Same as MCS)
+
+- **Union of findings** — if either model flags something, it's worth looking at
+- **Stricter wins on conflicts** — the more conservative assessment prevails
+- **Flag divergence** — when opinions differ significantly, tell the user both positions
+- **Never block on GPT** — if GPT is slow or fails, proceed with Claude's work alone
+
+### How It Works
+
+GPT-5.4 runs via the GitHub Copilot Responses API (`tools/lib/openai.js`). Auth is automatic via `gh auth token` with `copilot` scope. For structured reviews, use `tools/multi-model-review.js`. For ad-hoc reviews, call `chatCompletion()` directly from a temp script via Bash.
+
+---
+
 ## MANDATORY: Build Discipline — Verify-Then-Mark
 
 **THIS IS A HARD STOP. Every build step must be verified before marking complete.**
@@ -111,6 +147,16 @@ Definitions: `.claude/agents/` (research-analyst.md, prompt-engineer.md, topic-e
 - **Eval phase** (`/mcs-eval`): Runs eval sets (all or specific), writes per-test results to evalSets. QA Challenger analyzes failures when sets miss thresholds.
 - **Fix phase** (`/mcs-fix`): QA Challenger classifies failures, Prompt Engineer fixes instructions, Topic Engineer fixes topics
 
+**GPT-5.4 parallel review (all phases):**
+GPT runs in parallel with every Claude review — zero added latency. QA Challenger fires `multi-model-review.js` alongside its own analysis and merges results. Protocol: **union of findings, stricter wins on conflicts.** If either model flags a problem, it gets investigated. GPT is never blocking — if unavailable, Claude proceeds alone.
+
+| Phase | GPT Reviews (parallel with Claude) |
+|-------|-----------------------------------|
+| Research Phase C | `review-instructions` after PE, `review-brief` after QA, `review-topics` after TE |
+| Build Step 5.5 | `review-brief` + `review-instructions` alongside QA validation |
+| Eval | Dual scoring (heuristic + GPT, lower score wins, >20pt divergence flagged) |
+| Fix | `review-instructions` on proposed fixes alongside QA classification |
+
 **During general development (Tier 2-3 checks):**
 - **Tier 2**: Repo Checker in background after 3+ file changes or code changes
 - **Tier 3**: QA Challenger before irreversible decisions (schema, workflow, architecture)
@@ -184,7 +230,8 @@ Before committing to designs that are hard to undo — schema changes, workflow 
 | **Semantic Gates** | 5 validation gates beyond structural checks: `python tools/semantic-gates.py <file.yaml> --brief <brief.json>` (PowerFx, cross-refs, variable flow, channel compat, connectors) |
 | **Flow Manager** | Power Automate cloud flow CRUD + composition — compose flows from specs, create from definitions, validate, connector schema lookup, discover operations, trigger creation, schedule/message updates, activate/deactivate (`tools/flow-manager.js` + `tools/lib/flow-composer.js` + `tools/lib/connector-schema.js` + `knowledge/patterns/flow-patterns/`) |
 | **Replicate Agent** | Cross-environment agent replication: Dataverse create + LSP clone + push (`tools/replicate-agent.js`) |
-| **Direct Line API** | Agent testing: send messages, compare responses (`tools/direct-line-test.js`) |
+| **Direct Line API** | Agent testing: send messages, compare responses. `--gpt` flag for GPT-enhanced scoring (`tools/direct-line-test.js`) |
+| **Multi-Model Review** | GPT-5.4 "fresh eyes" — cross-model review of instructions, topics, briefs, and eval scoring. Auto-detects via `gh auth token` + copilot scope → GitHub Copilot Responses API. Fully optional, graceful fallback (`tools/multi-model-review.js` + `tools/lib/openai.js`) |
 | **Solution Library** | Team SharePoint solution library: list, download, analyze, upload, index, search (`tools/solution-library.js`) |
 | **WorkIQ MCP** | M365 context: emails, meetings, documents, Teams, people (`workiq mcp`) |
 | **Microsoft Learn MCP** | Official docs, reference, code samples |
@@ -661,7 +708,7 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 
 **MCS Authoring Schema:** Query via `tools/om-cli/om-cli.exe` (357 concrete types, validates unknown nodes + missing fields). Schema files baked into `tools/om-cli/schemas/`.
 **Code Editor YAML reference:** See `knowledge/patterns/yaml-reference.md` (action types, entity catalog, binding rules, compile errors)
-**Topic YAML templates:** See `knowledge/patterns/topic-patterns/` (10 patterns including AI Builder model)
+**Topic YAML templates:** See `knowledge/patterns/topic-patterns/` (11 patterns including AI Builder model and welcome card)
 **Dataverse API patterns:** See `knowledge/patterns/dataverse-patterns.md`
 **Solution patterns:** See `knowledge/patterns/solution-patterns.md` (naive-to-proven implementation patterns, checked during research Phase B Step 2.5)
 **Trigger types:** See `knowledge/cache/triggers.md`
@@ -711,7 +758,7 @@ Use WorkIQ MCP to search all M365 data (emails, meetings, documents, Teams, peop
 
 Cached inventories, stable patterns, and decision frameworks live in `knowledge/`:
 
-- **`knowledge/cache/`** — 19 quick-reference cheat sheets covering MCS capabilities: options, limits, gotchas, and decision tables. For step-by-step details, use MS Learn MCP. Each file has freshness metadata. Check before architecture decisions.
+- **`knowledge/cache/`** — 20 quick-reference cheat sheets covering MCS capabilities: options, limits, gotchas, and decision tables. For step-by-step details, use MS Learn MCP. Each file has freshness metadata. Check before architecture decisions.
 - **`knowledge/patterns/`** — Stable HOW-TO references (YAML syntax, Dataverse API patterns, solution patterns, topic templates).
 - **`knowledge/frameworks/`** — Decision frameworks (component selection, architecture scoring, tool priority).
 
@@ -794,21 +841,23 @@ knowledge/
 │   └── cache/              # Per-solution deep analysis (committed, ~1KB each)
 ├── learnings/              # Experience-based insights from past builds (8 topic files + index.json)
 │   ├── index.json          # Machine-readable learnings index (dedup, confirmed counts, staleness)
-├── cache/                  # 19 quick-reference cheat sheets (with freshness metadata)
+├── cache/                  # 20 quick-reference cheat sheets (with freshness metadata)
 │   ├── triggers.md, models.md, mcp-servers.md, connectors.md
 │   ├── knowledge-sources.md, channels.md, api-capabilities.md, eval-methods.md
 │   ├── generative-orchestration.md, security-auth.md, instructions-authoring.md
 │   ├── powerfx-variables.md, agent-lifecycle.md, power-automate-integration.md
 │   ├── adaptive-cards.md, ai-tools-computer-use.md, limits-licensing.md, conversation-design.md
 │   ├── island-gateway-api.md
+│   ├── mcs-primer-gpt.md   # Condensed MCS domain primer injected into GPT review calls (~500 words)
 │   └── connector-schemas/  # Pre-cached connector Swagger schemas (populated by schema --cache-all)
 ├── patterns/               # Stable HOW-TO references
 │   ├── yaml-reference.md, dataverse-patterns.md
 │   ├── solution-patterns.md  # Naive-to-proven implementation patterns (checked in research Phase B)
-│   ├── topic-patterns/     # 10 reusable YAML templates
+│   ├── topic-patterns/     # 11 reusable YAML templates
 │   └── flow-patterns/     # 9 reusable flow JSON templates (triggers, actions, control flow)
 └── frameworks/             # Decision frameworks
     ├── component-selection.md, architecture-scoring.md
+    ├── solution-type-scoring.md
     ├── tool-priority.md
     └── eval-scenarios/     # Eval scenario library (aligned with MS Eval Scenario Library)
 
@@ -822,6 +871,7 @@ tools/
 │   └── README.md           # Commands, rebuild instructions
 ├── lib/
 │   ├── http.js             # Shared HTTP request + Azure CLI token helpers (used by all JS tools)
+│   ├── openai.js           # Shared GPT client — GitHub Copilot API/GPT-5.4 via gh auth token + copilot scope
 │   ├── graph-sharepoint.js # SharePoint Graph API helper (list, download, upload, create folder)
 │   ├── flow-composer.js    # Pure flow composition functions (builders, wiring, validation, patterns)
 │   └── connector-schema.js # Connector schema fetch, parse & cache (Swagger → operation params)
@@ -834,7 +884,8 @@ tools/
 ├── add-tool.js             # Headless tool/connector addition — generates action YAML + LSP push
 ├── flow-manager.js         # Power Automate cloud flow CRUD + composition — compose, create-flow, validate, schema, discover-operations, triggers
 ├── direct-line-test.js     # Direct Line API test runner
-├── eval-scoring.js         # Shared scoring module (7 methods: 6 MCS native + PlanValidation, multi-turn support)
+├── eval-scoring.js         # Shared scoring module (7 methods: 6 MCS native + PlanValidation, multi-turn support, async GPT-enhanced variants)
+├── multi-model-review.js   # GPT cross-model review CLI (review-instructions, review-topics, review-brief, score, usage)
 ├── solution-library.js     # Team SharePoint solution library CLI (list, download, analyze, upload, index, search)
 ├── replicate-agent.js      # Cross-environment agent replication via Dataverse + LSP clone + push
 ├── dataverse-helper.ps1    # PowerShell Dataverse Web API helper

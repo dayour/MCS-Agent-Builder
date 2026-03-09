@@ -29,7 +29,7 @@
 
 const fs = require('fs');
 const { httpRequest, httpRequestWithRetry } = require('./lib/http');
-const { evaluateResult, evaluateAllMethods, evaluateMultiTurn, parseCSV, parseEvalSets } = require('./eval-scoring');
+const { evaluateResult, evaluateResultAsync, evaluateAllMethods, evaluateAllMethodsAsync, evaluateMultiTurn, parseCSV, parseEvalSets } = require('./eval-scoring');
 
 // --- Configuration ---
 const DEFAULT_ENDPOINT = 'https://directline.botframework.com/v3/directline';
@@ -52,6 +52,7 @@ function parseArgs() {
             case '--set': config.filterSets = args[++i].split(',').map(s => s.trim()); break;
             case '--endpoint': config.endpoint = args[++i]; break;
             case '--timeout': config.timeout = parseInt(args[++i]) || DEFAULT_TIMEOUT_MS; break;
+            case '--gpt': config.gpt = true; break;
             case '--verbose': config.verbose = true; break;
             case '--help':
                 console.log(`Usage: node direct-line-test.js [options]
@@ -69,6 +70,7 @@ Test input (one required):
 Options:
   --endpoint <URL>           Direct Line endpoint (default: botframework.com)
   --timeout <ms>             Response timeout in ms (default: 60000)
+  --gpt                      Use GPT-enhanced scoring (CompareMeaning + GeneralQuality)
   --verbose                  Show detailed output for failed tests
 
 Examples:
@@ -440,12 +442,30 @@ async function runTests() {
     const multiTurnCount = testCases.filter(tc => tc.turns && tc.turns.length > 0).length;
     const planValidationCount = testCases.filter(tc => tc.expectedTools).length;
 
+    // GPT-enhanced scoring check
+    if (config.gpt) {
+        try {
+            const { isConfigured, getActiveMethod } = require('./lib/openai');
+            if (!isConfigured()) {
+                console.log('Warning: --gpt flag set but GPT not configured. Falling back to heuristic scoring.');
+                console.log('  Run: gh auth login && gh auth refresh --scopes copilot');
+                config.gpt = false;
+            } else {
+                config._gptMethod = getActiveMethod();
+            }
+        } catch {
+            console.log('Warning: --gpt flag set but openai.js not available. Falling back to heuristic scoring.');
+            config.gpt = false;
+        }
+    }
+
     console.log(`\n=== Direct Line Test Runner ===`);
     console.log(`Test cases: ${testCases.length}`);
     if (multiTurnCount > 0) console.log(`  Multi-turn: ${multiTurnCount} (${testCases.filter(tc => tc.turns).reduce((s, tc) => s + tc.turns.length, 0)} total turns)`);
     if (planValidationCount > 0) console.log(`  Plan validation: ${planValidationCount}`);
     console.log(`Endpoint: ${config.endpoint}`);
     console.log(`Timeout: ${config.timeout}ms`);
+    if (config.gpt) console.log(`Scoring: GPT-enhanced via ${config._gptMethod || 'unknown'} (CompareMeaning + GeneralQuality)`);
     console.log(`Token source: ${config.tokenEndpoint ? 'Token Endpoint (auto)' : 'Manual token'}`);
     console.log(`Input: ${inputSource}\n`);
 
@@ -554,7 +574,9 @@ async function runTests() {
 
                 // Evaluate with tool invocations
                 const methods = tc.methods || [];
-                const evaluation = evaluateAllMethods(text, tc.expectedResponse, methods, toolInvocations);
+                const evaluation = config.gpt
+                    ? await evaluateAllMethodsAsync(text, tc.expectedResponse, methods, toolInvocations)
+                    : evaluateAllMethods(text, tc.expectedResponse, methods, toolInvocations);
 
                 results.push({
                     ...tc,
@@ -575,7 +597,9 @@ async function runTests() {
                 await client.sendMessage(tc.question);
 
                 const response = await client.getResponse(config.timeout);
-                const result = evaluateResult(response, tc.expectedResponse, tc.testMethodType, tc.passingScore);
+                const result = config.gpt
+                    ? await evaluateResultAsync(response, tc.expectedResponse, tc.testMethodType, tc.passingScore)
+                    : evaluateResult(response, tc.expectedResponse, tc.testMethodType, tc.passingScore);
 
                 results.push({
                     ...tc,
@@ -583,11 +607,14 @@ async function runTests() {
                     actual: response,
                     pass: result.pass,
                     score: result.score,
-                    error: result.error
+                    error: result.error,
+                    ...(result.reasoning ? { reasoning: result.reasoning } : {}),
+                    ...(result.source ? { scoringSource: result.source } : {})
                 });
 
                 const status = result.pass ? 'PASS' : 'FAIL';
-                console.log(`  ${status} (score: ${result.score}, method: ${tc.testMethodType})`);
+                const srcLabel = result.source ? ` [${result.source}]` : '';
+                console.log(`  ${status} (score: ${result.score}, method: ${tc.testMethodType}${srcLabel})`);
 
                 if (config.verbose && !result.pass) {
                     console.log(`  Expected: ${tc.expectedResponse.substring(0, 100)}`);
@@ -651,6 +678,17 @@ async function runTests() {
             }
             console.log(`     Score: ${r.score}${r.passingScore ? ` (needed: ${r.passingScore})` : ''}`);
         });
+    }
+
+    // GPT usage summary
+    if (config.gpt) {
+        try {
+            const { getUsageSummary } = require('./lib/openai');
+            const usage = getUsageSummary();
+            if (usage.calls > 0) {
+                console.log(`\nGPT scoring: ${usage.calls} calls, ${usage.inputTokens + usage.outputTokens} tokens, ~$${usage.cost.toFixed(4)}`);
+            }
+        } catch { /* ignore */ }
     }
 
     // Write complete results
