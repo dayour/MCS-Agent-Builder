@@ -188,7 +188,7 @@ const EvalSets = ({ data }: Props) => {
                   <View style={{ flex: 1 }}>
                     <Text style={s.testQuestion}>{"\u201C"}{safe(t.question)}{"\u201D"}</Text>
                     {t.expected && (
-                      <Text style={s.testExpected}>Expected: {"\u201C"}{t.expected}{"\u201D"}</Text>
+                      <Text style={s.testExpected}>Expected: {"\u201C"}{safe(t.expected)}{"\u201D"}</Text>
                     )}
                     {t.capability && <Text style={s.testCapability}>{t.capability}</Text>}
                   </View>

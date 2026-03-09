@@ -255,6 +255,9 @@ const BriefEditor = () => {
                 try {
                   const { generateBriefPDF } = await import("@/lib/pdf");
                   await generateBriefPDF(agentForReport, data as unknown as Record<string, any>);
+                } catch (err) {
+                  console.error("PDF generation failed:", err);
+                  setError(`PDF export failed: ${err instanceof Error ? err.message : "Unknown error"}. Check the browser console for details.`);
                 } finally {
                   setPdfLoading(false);
                 }
