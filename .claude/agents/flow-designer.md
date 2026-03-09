@@ -54,6 +54,29 @@ Reusable templates in `knowledge/patterns/flow-patterns/` (9 patterns). Use patt
 | `event-trigger-dataverse` | trigger | Dataverse row change webhook |
 | `connector-action-template` | action | Generic OpenApiConnection template |
 
+### Connector Schema Discovery
+
+Before designing flows, look up connector operations and parameter schemas to get exact operationIds, required fields, and types:
+
+```bash
+# List all operations for a connector (from cache)
+node tools/flow-manager.js schema --connector shared_office365
+
+# Get detailed parameter schema for a specific operation
+node tools/flow-manager.js schema --connector shared_office365 --operation SendEmailV2
+
+# Fetch live and cache (when cache is empty or stale)
+node tools/flow-manager.js schema --connector shared_office365 --org https://orgXXX.crm.dynamics.com --cache
+```
+
+**Always check cached schemas** before writing connector actions in flow specs. The schema tells you:
+- Exact `operationId` values (not display names)
+- Required vs optional parameters
+- Parameter types and allowed enum values
+- Response structure
+
+Cached schemas live in `knowledge/cache/connector-schemas/`. If a connector isn't cached, note it in the flow spec as requiring `--cache` before compose.
+
 ### Trigger Types & flow-manager.js Support
 
 `flow-manager.js` supports recurrence presets for simple triggers and the compose pipeline for any trigger type:
@@ -183,7 +206,7 @@ Write to `Build-Guides/{projectId}/agents/{agentId}/flow-spec.md`:
 
 {If automatable:}
 ```bash
-node tools/flow-manager.js create --name "{flow-name}" --env "{envUrl}" --preset {preset} {--options}
+node tools/flow-manager.js create-trigger --org "{orgUrl}" --bot {botId} --preset {preset} --message "{msg}"
 ```
 
 ### Actions (in order)

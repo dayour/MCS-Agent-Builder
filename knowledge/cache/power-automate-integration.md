@@ -142,8 +142,9 @@ Event trigger flows (recurrence, SharePoint, email, etc.) are stored as `workflo
 | `get` | Get flow definition with parsed clientdata |
 | `create-trigger` | Create a recurrence trigger flow for an MCS agent |
 | `create-flow` | Create a flow from a definition JSON file (any trigger type) |
-| `compose` | Compose a flow from a high-level spec (uses flow-composer + patterns) |
+| `compose` | Compose a flow from a high-level spec (validates against cached schemas) |
 | `validate` | Validate a flow definition (local structure + optional remote API) |
+| `schema` | Show connector operations and parameter schemas (from cache or live API) |
 | `discover-operations` | List connector operations available in the environment |
 | `update-schedule` | Update recurrence schedule on existing flow |
 | `update-message` | Update payload message on existing flow |
@@ -186,6 +187,33 @@ Before creating a new trigger flow, discover the environment-specific values:
 ### Schedule Presets
 
 Built-in presets: `weekdays-7am-pst`, `weekdays-8am-est`, `weekdays-9am-utc`, `daily-9am-utc`, `daily-8am-pst`, `every-10-min`, `every-30-min`, `hourly`. Custom schedules via `--schedule` JSON.
+
+### Connector Schema Discovery
+
+Before writing flow specs, look up exact operation schemas:
+
+```bash
+# List operations (from cache or live)
+node tools/flow-manager.js schema --connector shared_office365
+
+# Detailed parameter schema for one operation
+node tools/flow-manager.js schema --connector shared_office365 --operation SendEmailV2
+
+# Fetch live + cache
+node tools/flow-manager.js schema --connector shared_office365 --org https://orgXXX.crm.dynamics.com --cache
+
+# Pre-cache top 20 connectors (one-time)
+node tools/flow-manager.js schema --cache-all --org https://orgXXX.crm.dynamics.com
+```
+
+**Data sources (cascading fallback):**
+1. **Power Platform Connectivity API** — env-specific, returns embedded Swagger
+2. **Azure ARM Managed APIs** — any tenant, fetches Swagger from `management.azure.com`
+3. **Local cache** — `knowledge/cache/connector-schemas/` (offline, populated by `--cache` or `--cache-all`)
+
+**Schema library:** `tools/lib/connector-schema.js` — fetch, parse, cache, validate. Used by `flow-manager.js schema` command and `compose` validation.
+
+**Compose-time validation:** When running `flow-manager.js compose`, the composer validates spec actions against cached schemas — warns on unknown operations or missing required params. Non-blocking (no failure if schema not cached).
 
 ### clientdata Structure
 

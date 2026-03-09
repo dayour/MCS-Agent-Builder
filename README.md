@@ -111,7 +111,7 @@ Each build step uses the best tool — fully API-native, zero browser automation
 | 1 | **PAC CLI** | Listing agents, solution ALM |
 | 2 | **MCS LSP Wrapper** | Instructions, model, topics, knowledge (sites/URLs), full component sync |
 | 3 | **Island Gateway API** | Model catalog, component reads, routing info, bot settings |
-| 4 | **Flow Manager** | Power Automate cloud flow CRUD — trigger creation, schedule/message updates (`tools/flow-manager.js`) |
+| 4 | **Flow Manager** | Power Automate cloud flow CRUD + composition — trigger creation, schema lookup, compose, validate (`tools/flow-manager.js`) |
 | 5 | **Dataverse API** | File uploads (PDF/DOCX), bot name PATCH, PvaPublish, security, deletion |
 | 6 | **Direct Line API** | Evaluation testing (send messages, compare responses) |
 
@@ -177,7 +177,7 @@ app/
 knowledge/
   solutions/                Team solution library (index + per-solution cache)
   learnings/                Experience from past builds (grows over time)
-  cache/                    19 MCS capability cheat sheets (auto-refreshed)
+  cache/                    19 MCS capability cheat sheets + connector-schemas/ (auto-refreshed)
   patterns/                 YAML, Dataverse API, solution patterns + 10 topic templates
   frameworks/               Decision frameworks
 
@@ -189,13 +189,15 @@ tools/
   drift-detect.py           Brief-vs-YAML drift detection
   lib/http.js               Shared HTTP request + Azure CLI token helpers (used by all JS tools)
   lib/graph-sharepoint.js   SharePoint Graph API helper (list, download, upload, create folder)
+  lib/flow-composer.js      Pure flow composition functions (builders, wiring, validation, patterns)
+  lib/connector-schema.js   Connector schema fetch, parse & cache (Swagger → operation params)
   semantic-gates.py         5 semantic validation gates (PowerFx, cross-refs, variables, channels, connectors)
   powerfx-catalog.json      Official PowerFx function catalog (139 functions from MS Learn)
   update-om-cli.ps1         Auto-update om-cli from ObjectModel source repo
   mcs-lsp.js                MCS Language Server wrapper — headless push/pull via official LS
   island-client.js          Island Control Plane Gateway API client (model catalog, reads, routing)
   add-tool.js               Headless tool/connector addition via LSP push
-  flow-manager.js           Power Automate cloud flow CRUD (triggers, schedules, activate/deactivate)
+  flow-manager.js           Power Automate cloud flow CRUD + composition (compose, schema, validate, triggers)
   solution-library.js       Team SharePoint solution library CLI (list, download, analyze, upload)
   direct-line-test.js       Direct Line API test runner
   dataverse-helper.ps1      PowerShell Dataverse Web API helper

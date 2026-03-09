@@ -25,6 +25,7 @@ const fs = require('fs');
 const path = require('path');
 const { httpRequest, httpRequestWithRetry, getToken } = require('./lib/http');
 const composer = require('./lib/flow-composer');
+const connectorSchema = require('./lib/connector-schema');
 
 // --- Constants ---
 
@@ -741,7 +742,9 @@ function parseArgs() {
             case '--spec': config.specFile = args[++i]; break;
             case '--output': config.outputFile = args[++i]; break;
             case '--connector': config.connector = args[++i]; break;
+            case '--operation': config.operation = args[++i]; break;
             case '--cache': config.cache = true; break;
+            case '--cache-all': config.cacheAll = true; break;
             case '--activate': config.activate = true; break;
             case '--json': config.json = true; break;
             case '--help': printUsage(); process.exit(0);
@@ -764,6 +767,7 @@ Commands:
   compose             Compose a flow from a high-level spec file
   validate            Validate a flow definition (local + optional remote)
   discover-operations List connector operations in the environment
+  schema              Show connector operations and parameter schemas
   update-schedule     Update recurrence schedule on existing flow
   update-message      Update payload message on existing flow
   activate            Turn on a flow (statecode=1)
@@ -787,8 +791,10 @@ Command-specific:
   --definition <file> Definition JSON file path (for create-flow, validate)
   --spec <file>       Flow spec JSON file path (for compose)
   --output <file>     Output file path (for compose)
-  --connector <name>  Filter by connector (for discover-operations)
-  --cache             Cache results (for discover-operations)
+  --connector <name>  Filter by connector (for discover-operations, schema)
+  --operation <id>    Operation ID for detailed schema (for schema)
+  --cache             Cache results (for discover-operations, schema)
+  --cache-all         Cache all top-20 connector schemas (for schema)
   --activate          Activate flow after creation (for create-flow)
   --json              Output raw JSON
 
@@ -825,19 +831,72 @@ Examples:
 
   # Discover connector operations
   node tools/flow-manager.js discover-operations --org https://orgXXX.crm.dynamics.com
-  node tools/flow-manager.js discover-operations --org https://orgXXX.crm.dynamics.com --connector shared_office365`);
+  node tools/flow-manager.js discover-operations --org https://orgXXX.crm.dynamics.com --connector shared_office365
+
+  # Show connector operations (from cache or live)
+  node tools/flow-manager.js schema --connector shared_office365
+
+  # Show detailed schema for a specific operation
+  node tools/flow-manager.js schema --connector shared_office365 --operation SendEmailV2
+
+  # Fetch live and cache a connector schema
+  node tools/flow-manager.js schema --connector shared_office365 --org https://orgXXX.crm.dynamics.com --cache
+
+  # Pre-cache all top-20 connector schemas (one-time setup)
+  node tools/flow-manager.js schema --cache-all --org https://orgXXX.crm.dynamics.com`);
+}
+
+function printOperationSchema(opSchema) {
+    const dep = opSchema.deprecated ? ' [DEPRECATED]' : '';
+    const trigger = opSchema.isTrigger ? ' [TRIGGER]' : '';
+    console.log(`Operation: ${opSchema.operationId} (${opSchema.displayName})${dep}${trigger}`);
+    console.log(`  Method: ${opSchema.method}`);
+    if (opSchema.description) console.log(`  ${opSchema.description}`);
+
+    const params = Object.entries(opSchema.parameters || {});
+    if (params.length > 0) {
+        console.log(`\n  Parameters:`);
+        // Find max name length for alignment
+        const maxLen = Math.max(...params.map(([n]) => n.length), 4);
+        for (const [name, def] of params) {
+            const req = def.required ? '[required]' : '[optional]';
+            const type = def.type || 'string';
+            const desc = def.description ? `  ${def.description}` : '';
+            const extra = [];
+            if (def.format) extra.push(`format: ${def.format}`);
+            if (def.enum) extra.push(`Enum: ${def.enum.join(', ')}`);
+            if (def.default !== undefined) extra.push(`default: ${def.default}`);
+            const extraStr = extra.length > 0 ? `  (${extra.join(', ')})` : '';
+            console.log(`    ${name.padEnd(maxLen)}  ${type.padEnd(8)}  ${req}${desc}${extraStr}`);
+        }
+    } else {
+        console.log(`\n  Parameters: none`);
+    }
+
+    if (opSchema.response) {
+        console.log(`\n  Response: ${opSchema.response.type || 'object'}`);
+        if (opSchema.response.properties) {
+            const props = Object.entries(opSchema.response.properties);
+            for (const [name, def] of props.slice(0, 10)) {
+                console.log(`    ${name}: ${def.type || 'string'}${def.description ? ' — ' + def.description : ''}`);
+            }
+            if (props.length > 10) console.log(`    ... and ${props.length - 10} more`);
+        }
+    }
 }
 
 async function main() {
     const config = parseArgs();
 
-    if (!config.orgUrl) {
+    // Commands that can run without --org (local-only or cache-based)
+    const noOrgCommands = new Set(['compose', 'schema']);
+    if (!config.orgUrl && !noOrgCommands.has(config.command)) {
         console.error('Error: --org is required');
         process.exit(2);
     }
 
-    // Get Dataverse token
-    const token = getToken(config.orgUrl);
+    // Get Dataverse token (lazy — only when --org is provided)
+    const token = config.orgUrl ? getToken(config.orgUrl) : null;
 
     try {
         switch (config.command) {
@@ -1290,6 +1349,13 @@ async function main() {
                     for (const w of composeValidation.warnings) console.error(`  Warning: ${w}`);
                 }
 
+                // Schema validation against cached connector schemas
+                const schemaWarnings = connectorSchema.validateSpecActions(spec.actions || []);
+                if (schemaWarnings.length > 0) {
+                    console.error(`\nSchema warnings:`);
+                    for (const w of schemaWarnings) console.error(`  - ${w}`);
+                }
+
                 // Wrap in full clientdata envelope
                 const clientdata = {
                     properties: composed,
@@ -1302,6 +1368,158 @@ async function main() {
                     console.log(`Composed flow written to: ${outPath}`);
                 } else {
                     console.log(JSON.stringify(clientdata, null, 2));
+                }
+                break;
+            }
+
+            case 'schema': {
+                if (!config.connector && !config.cacheAll) {
+                    console.error('Error: --connector or --cache-all required for schema');
+                    process.exit(2);
+                }
+
+                // Derive envId from orgUrl if provided (for Source A: Connectivity API)
+                let envId = null;
+                if (config.orgUrl && token) {
+                    try {
+                        const envUrl = await deriveEnvironmentUrl(config.orgUrl, token);
+                        if (envUrl) {
+                            const match = envUrl.match(/https:\/\/([^.]+)\./);
+                            envId = match ? match[1] : null;
+                        }
+                    } catch { /* envId remains null — Source A skipped */ }
+                }
+                const fetchOpts = { envId, forceRefresh: !!config.orgUrl };
+
+                if (config.cacheAll) {
+                    // Cache all top-20 connectors
+                    console.error(`Caching schemas for ${connectorSchema.TOP_CONNECTORS.length} connectors...`);
+                    let success = 0;
+                    let failed = 0;
+                    for (const connId of connectorSchema.TOP_CONNECTORS) {
+                        try {
+                            process.stderr.write(`  ${connId}... `);
+                            const result = await connectorSchema.processAndCacheConnector(connId, fetchOpts);
+                            if (result) {
+                                const opCount = Object.keys(result.processed.operations || {}).length;
+                                console.error(`${opCount} operations (${result.source})`);
+                                success++;
+                            } else {
+                                console.error('not found');
+                                failed++;
+                            }
+                        } catch (err) {
+                            console.error(`error: ${err.message}`);
+                            failed++;
+                        }
+                    }
+                    console.log(`\nCached: ${success}/${connectorSchema.TOP_CONNECTORS.length} connectors`);
+                    if (failed > 0) console.log(`Failed: ${failed}`);
+                    console.log(`Cache dir: ${connectorSchema.CACHE_DIR}`);
+                    break;
+                }
+
+                // Single connector
+                if (config.cache) {
+                    // Fetch live and cache
+                    console.error(`Fetching schema for ${config.connector}...`);
+                    const result = await connectorSchema.processAndCacheConnector(config.connector, fetchOpts);
+                    if (!result) {
+                        console.error(`Error: Could not fetch schema for ${config.connector}`);
+                        process.exit(1);
+                    }
+                    console.error(`Cached to: ${result.cachedPath} (source: ${result.source})`);
+                    // Fall through to display
+                }
+
+                // Fetch or read from cache
+                const fetchResult = await connectorSchema.fetchConnectorSwagger(config.connector, fetchOpts);
+                if (!fetchResult) {
+                    console.error(`Error: No schema found for ${config.connector}. Use --org to fetch live, or --cache-all first.`);
+                    process.exit(1);
+                }
+
+                // If we have raw swagger, extract operations
+                let operations;
+                let displayName = config.connector;
+                if (fetchResult.processed) {
+                    operations = fetchResult.processed.operations || {};
+                    displayName = fetchResult.processed._meta?.displayName || config.connector;
+                } else {
+                    const ops = connectorSchema.extractOperations(fetchResult.swagger);
+                    displayName = fetchResult.swagger?.info?.title || config.connector;
+
+                    if (config.operation) {
+                        // Single operation detail
+                        const opSchema = connectorSchema.extractOperationSchema(fetchResult.swagger, config.operation);
+                        if (!opSchema) {
+                            console.error(`Error: Operation "${config.operation}" not found in ${config.connector}`);
+                            process.exit(1);
+                        }
+                        if (config.json) {
+                            console.log(JSON.stringify(opSchema, null, 2));
+                        } else {
+                            printOperationSchema(opSchema);
+                        }
+                        break;
+                    }
+
+                    // Build operations map for display
+                    operations = {};
+                    for (const op of [...ops.actions, ...ops.triggers]) {
+                        const schema = connectorSchema.extractOperationSchema(fetchResult.swagger, op.operationId);
+                        if (schema) operations[op.operationId] = schema;
+                    }
+                }
+
+                // Single operation from processed cache
+                if (config.operation && fetchResult.processed) {
+                    const opSchema = operations[config.operation];
+                    if (!opSchema) {
+                        console.error(`Error: Operation "${config.operation}" not found in ${config.connector}`);
+                        process.exit(1);
+                    }
+                    // Add operationId since cache stores it as the key, not a property
+                    if (!opSchema.operationId) opSchema.operationId = config.operation;
+                    if (config.json) {
+                        console.log(JSON.stringify(opSchema, null, 2));
+                    } else {
+                        printOperationSchema(opSchema);
+                    }
+                    break;
+                }
+
+                // List all operations
+                if (config.json) {
+                    console.log(JSON.stringify({ connector: config.connector, displayName, source: fetchResult.source, operations }, null, 2));
+                } else {
+                    const opList = Object.entries(operations);
+                    const actions = opList.filter(([, o]) => !o.isTrigger);
+                    const triggers = opList.filter(([, o]) => o.isTrigger);
+
+                    console.log(`${displayName} (${config.connector})  [source: ${fetchResult.source}]\n`);
+
+                    if (actions.length > 0) {
+                        console.log(`Actions (${actions.length}):`);
+                        for (const [opId, op] of actions) {
+                            const dep = op.deprecated ? ' [DEPRECATED]' : '';
+                            const paramCount = Object.keys(op.parameters || {}).length;
+                            const reqCount = Object.values(op.parameters || {}).filter(p => p.required).length;
+                            console.log(`  ${opId}${dep}`);
+                            console.log(`    ${op.displayName || ''}  [${op.method}]  params: ${paramCount} (${reqCount} required)`);
+                        }
+                    }
+
+                    if (triggers.length > 0) {
+                        console.log(`\nTriggers (${triggers.length}):`);
+                        for (const [opId, op] of triggers) {
+                            const dep = op.deprecated ? ' [DEPRECATED]' : '';
+                            console.log(`  ${opId}${dep}`);
+                            console.log(`    ${op.displayName || ''}  [${op.method}]`);
+                        }
+                    }
+
+                    console.log(`\nUse --operation <id> for full parameter details.`);
                 }
                 break;
             }
@@ -1337,7 +1555,8 @@ module.exports = {
     discoverConnectionRef,
     discoverCopilotParam,
     discover,
-    composer
+    composer,
+    connectorSchema
 };
 
 // Run CLI if invoked directly
