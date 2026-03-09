@@ -14,6 +14,8 @@ export type { TerminalSession } from "@/types";
 const wsRegistry = new Map<string, WebSocket>();
 // Pending commands — queued when sendCommand is called before the WS is open.
 const pendingCommands = new Map<string, string>();
+// Pending writes — queued when writeCommand is called before the WS is open.
+const pendingWrites = new Map<string, string>();
 
 export function registerSessionWs(sessionId: string, ws: WebSocket) {
   wsRegistry.set(sessionId, ws);
@@ -23,11 +25,18 @@ export function registerSessionWs(sessionId: string, ws: WebSocket) {
     pendingCommands.delete(sessionId);
     ws.send(JSON.stringify({ type: "command", text: queued }));
   }
+  // Flush any write (pre-fill, no Enter) that was queued before the WS opened
+  const queuedWrite = pendingWrites.get(sessionId);
+  if (queuedWrite && ws.readyState === WebSocket.OPEN) {
+    pendingWrites.delete(sessionId);
+    ws.send(JSON.stringify({ type: "write", text: queuedWrite }));
+  }
 }
 
 export function unregisterSessionWs(sessionId: string) {
   wsRegistry.delete(sessionId);
   pendingCommands.delete(sessionId);
+  pendingWrites.delete(sessionId);
 }
 
 export function getSessionWs(sessionId: string): WebSocket | undefined {
@@ -64,6 +73,8 @@ interface TerminalStore {
   openOrCreate: () => void;
   /** Send a command to an existing session's WebSocket. */
   sendCommand: (sessionId: string, command: string) => void;
+  /** Write text into the terminal prompt without pressing Enter (pre-fill). */
+  writeCommand: (sessionId: string, text: string) => void;
 }
 
 const defaultSession = createDefaultSession();
@@ -154,6 +165,15 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
     } else {
       // WS not open yet — queue so it's sent when registerSessionWs fires
       pendingCommands.set(sessionId, command);
+    }
+  },
+
+  writeCommand: (sessionId, text) => {
+    const ws = wsRegistry.get(sessionId);
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: "write", text }));
+    } else {
+      pendingWrites.set(sessionId, text);
     }
   },
 }));

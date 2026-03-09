@@ -10,6 +10,7 @@
  *     {"type":"init","cols":N,"rows":N}       → spawn Claude Code
  *     {"type":"resize","cols":N,"rows":N}     → resize PTY
  *     {"type":"command","text":"..."}          → type prompt + submit
+ *     {"type":"write","text":"..."}            → type into prompt (no submit)
  *     plain text                               → raw terminal input
  *   Server → Client:
  *     plain text                               → terminal output
@@ -86,6 +87,7 @@ wss.on("connection", (ws) => {
   let ready = false;
   let inShell = false; // true when running a plain shell (post-exit)
   let pending = null; // queued command waiting for Claude to be ready
+  let pendingWrite = null; // queued write (no Enter) waiting for Claude to be ready
   let lastCols = 120;
   let lastRows = 30;
 
@@ -187,6 +189,9 @@ wss.on("connection", (ws) => {
     if (pending && ptyProc) {
       submit(pending);
       pending = null;
+    } else if (pendingWrite && ptyProc) {
+      ptyProc.write(pendingWrite);
+      pendingWrite = null;
     }
   }
 
@@ -215,6 +220,17 @@ wss.on("connection", (ws) => {
           lastCols = m.cols || 120;
           lastRows = m.rows || 30;
           ptyProc.resize(lastCols, lastRows);
+          return;
+        }
+
+        // Write — type into prompt without pressing Enter (pre-fill)
+        if (m.type === "write" && m.text) {
+          if (ptyProc && ready) {
+            ptyProc.write(m.text);
+          } else if (ptyProc) {
+            // Not ready yet — store as pending write (no auto-submit)
+            pendingWrite = m.text;
+          }
           return;
         }
 

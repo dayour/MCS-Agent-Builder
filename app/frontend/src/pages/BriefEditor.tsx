@@ -4,7 +4,7 @@ import {
   Briefcase, Bot, FileText, Zap, Plug, Database,
   MessageSquare, Shield, Network, TestTube, HelpCircle,
   GitPullRequestDraft, AlertTriangle,
-  Check, Circle, Download, FileDown, Loader2,
+  Check, Circle, Download, FileDown, Loader2, Hammer,
 } from "lucide-react";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,9 @@ import ReadinessRing from "@/components/ReadinessRing";
 import { BRIEF_SECTIONS } from "@/config/briefSections";
 import { useBriefStore } from "@/stores/briefStore";
 import { useProjectStore } from "@/stores/projectStore";
+import { useTerminalStore } from "@/stores/terminalStore";
+import { getTerminalWsUrl } from "@/lib/api";
+import type { TerminalSession } from "@/types";
 import {
   Select,
   SelectContent,
@@ -88,6 +91,37 @@ const BriefEditor = () => {
     updateSection(sectionId, newData);
   };
 
+  /** Pre-fill the terminal with /mcs-build without sending — user presses Enter. */
+  const prefillBuild = async () => {
+    if (!projectId || !agentId) return;
+    const store = useTerminalStore.getState();
+    const command = `/mcs-build ${projectId} ${agentId}`;
+
+    const existingId = store.findSession(projectId, agentId);
+    if (existingId) {
+      store.setActiveSession(existingId);
+      store.setPanelOpen(true);
+      store.writeCommand(existingId, command);
+      return;
+    }
+
+    // Create new session with the command as a pending write (not auto-send)
+    const wsUrl = await getTerminalWsUrl();
+    const session: TerminalSession = {
+      id: `${projectId}-${agentId}-${Date.now()}`,
+      label: agentName || agentId,
+      type: "build",
+      projectId,
+      agentName: agentName || agentId,
+      status: "connecting",
+      wsUrl,
+      // Don't set session.command — that would auto-send
+    };
+    store.addSession(session);
+    // Queue the write so it's flushed after WS connects
+    store.writeCommand(session.id, command);
+  };
+
   const completedCount = Object.values(completion).filter(Boolean).length;
   const readiness = BRIEF_SECTIONS.length > 0
     ? Math.round((completedCount / BRIEF_SECTIONS.length) * 100)
@@ -151,13 +185,23 @@ const BriefEditor = () => {
             </Select>
             <div className="flex items-center gap-3">
               <ReadinessRing value={readiness} size={44} />
-              <div>
+              <div className="flex-1 min-w-0">
                 <p className="text-xs font-semibold text-foreground">{completedCount}/{BRIEF_SECTIONS.length} complete</p>
                 <p className="text-[11px] text-muted-foreground">
                   {saving ? "Saving..." : dirty ? "Unsaved changes" : "Brief readiness"}
                 </p>
               </div>
             </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full gap-2 text-xs mt-3"
+              onClick={prefillBuild}
+              title="Opens terminal with build command — press Enter to run"
+            >
+              <Hammer className="h-3.5 w-3.5" />
+              Build
+            </Button>
           </div>
           <nav className="p-2">
             {BRIEF_SECTIONS.map((section) => {
