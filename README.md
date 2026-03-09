@@ -1,10 +1,12 @@
 # MCS Agent Builder
 
-Automate end-to-end Microsoft Copilot Studio agent builds — from customer intake through architecture, build, evaluation, and automated fix loops. Uses Claude Code with a hybrid build stack and AI teammate peer review.
+Automate end-to-end Microsoft Copilot Studio agent builds — from customer intake through architecture, build, evaluation, and automated fix loops.
+
+Two AI models work in parallel: **Claude** orchestrates, writes code, and executes against MCS APIs. **GPT-5.4** runs alongside as a second pair of eyes — reviewing every instruction, topic, brief, and eval score in real-time. Different models, different biases, better coverage.
+
+---
 
 ## Quick Start
-
-### Option A: `start.cmd` (Windows — installs everything)
 
 ```powershell
 git clone https://dev.azure.com/powercatteam/_git/FDE
@@ -12,232 +14,242 @@ cd FDE
 .\start.cmd
 ```
 
-Double-click `start.cmd` or run it from a terminal. On first run it installs Node.js, Python, Git, Claude Code, and all dependencies via winget — no admin needed. On subsequent runs it detects everything is present and launches instantly (~1 second). Every launch auto-updates from the repo, builds the frontend if needed, and opens your browser.
+That's it. First run installs everything (Node.js, Python, Git, Claude Code, GitHub CLI) via winget. Subsequent runs launch in ~1 second. Opens your browser to the dashboard automatically.
 
-Use `.\start.cmd --full` to force a full dependency check and upgrade pass.
-
-### Option B: `npm install` (cross-platform — requires Node.js + Python)
+**Other ways to run:**
 
 ```bash
-npm install -g mcs-agent-builder
-mcs-agent-builder start
+npm install -g mcs-agent-builder    # cross-platform (requires Node 18+ and Python 3.10+)
+mcs-agent-builder start             # launch the dashboard
+mcs-agent-builder doctor            # check all 11 prerequisites
 ```
 
-The install automatically sets up Python dependencies, builds the frontend, and configures environment variables. Requires Node.js 18+ and Python 3.10+ already installed.
+---
 
-### CLI Commands
+## What It Does
 
 ```
-mcs-agent-builder start       Start the dashboard server
-mcs-agent-builder stop        Stop a running instance
-mcs-agent-builder restart     Restart (stop + start)
-mcs-agent-builder health      Check status (pid, port, HTTP)
-mcs-agent-builder doctor      Check all prerequisites (pass/fail + fix instructions)
-mcs-agent-builder --version   Show version
-mcs-agent-builder --help      Show help
+  Documents  ──>  Research  ──>  Build  ──>  Evaluate  ──>  Fix  ──>  Deploy
+  (SDR, reqs)     (brief.json)   (MCS API)   (Direct Line)   (auto)   (prod env)
+                       │                          │
+                  GPT reviews                GPT scores
+                  in parallel                in parallel
 ```
 
-Flag syntax (`--start`, `--stop`, etc.) also accepted.
+1. **Upload** customer documents (SDR, requirements, notes)
+2. **Research** — Claude reads everything, identifies agents, researches MCS components, generates the full design (`brief.json`)
+3. **Build** — Claude builds the agent in Copilot Studio using a hybrid API stack
+4. **Evaluate** — automated tests run against the published agent, scored by both heuristics and GPT-5.4
+5. **Fix** — if eval pass rate is below target, Claude classifies failures, fixes instructions/topics, and re-evaluates
+6. **Deploy** — promote from dev to production (agent-level or solution-level)
 
-## Prerequisites
+The dashboard shows everything in real-time with an embedded Claude Code terminal. Multiple tabs let you work on several agents in parallel.
 
-**Fully automatic** — `start.cmd` installs Node.js, Python, Claude Code, and all dependencies via winget. No C++ build tools or manual setup needed. Run `mcs-agent-builder doctor` to verify your environment anytime.
-
-If you prefer to install manually:
-
-| Requirement | Why |
-|-------------|-----|
-| **Node.js 18+** | Dashboard and terminal server |
-| **Python 3.10+** | Backend API |
-| **Claude Code** | AI agent that runs the builds (org-provided) |
-| **PAC CLI** | Power Platform operations (Claude will auth for you) |
-| **Azure CLI** | Bug/suggest work item creation (optional) |
-| **.NET 10 Runtime** | ObjectModel CLI for YAML validation (optional — om-cli tools skip gracefully if missing) |
-| **VS Code + Copilot Studio Extension** | Headless topic/component sync via LSP (optional — build skips LSP steps if missing) |
-| **Microsoft Account** | Access to Copilot Studio |
-
-## How It Works
-
-### Dashboard
-
-The dashboard provides project management with an embedded Claude Code terminal:
-
-1. **Create project** — upload customer documents (SDR, requirements, etc.)
-2. **Research** — Claude reads docs, identifies agents, researches MCS components, generates the full design
-3. **Build** — Claude builds the agent in Copilot Studio using the hybrid stack
-4. **Evaluate** — Claude runs automated tests against the published agent
-5. **Fix** — if eval pass rate is below 70%, a "Fix Failures" button appears. Claude classifies root causes, fixes instructions/topics, and re-evaluates automatically
-6. **Export Report** — download a customer-shareable summary from the design
-
-Each button runs a Claude Code skill in the embedded terminal. You watch it work in real-time. Multiple terminal tabs let you work on several agents in parallel.
-
-The workflow is iterative: Research → Build → Evaluate → Fix → re-Evaluate until the agent meets quality bar.
-
-### CLI
-
-You can also run skills directly in Claude Code:
+### CLI Skills
 
 ```
 /mcs-init ProjectName                    Create project, detect SDR files
 /mcs-context CustomerName                Pull M365 history (emails, meetings, docs, Teams)
-/mcs-research ProjectName                Read docs, identify agents, full enrichment
-/mcs-research ProjectName agentId        Re-enrich a specific agent after feedback
+/mcs-research ProjectName                Full research + architecture + eval generation
 /mcs-build ProjectName agentId           Build agent(s) in Copilot Studio
-/mcs-eval ProjectName agentId            Run evals, write results
-/mcs-fix ProjectName agentId             Fix eval failures and re-evaluate
-/mcs-deploy ProjectName agentId          Deploy agent to target environment
+/mcs-eval ProjectName agentId            Run eval tests, write results
+/mcs-fix ProjectName agentId             Fix eval failures, re-evaluate
+/mcs-deploy ProjectName agentId          Deploy to target environment
 /mcs-report ProjectName agentId          Generate reports (brief/build/customer/deployment)
 /mcs-library list                        Browse team solution library
 /mcs-refresh                             Refresh knowledge cache
 ```
 
-## What Happens on First Use
+---
 
-When you open the Claude Code terminal for the first time, Claude will:
+## Dual-Model Review (Claude + GPT-5.4)
 
-1. Ask you to pick your **account** (which tenant)
-2. Ask you to pick your **environment** (which Copilot Studio environment)
-3. Set up **PAC CLI auth** for you (opens a browser sign-in — just click through)
-4. Check the **knowledge cache** is fresh (auto-refreshes if stale)
+Every non-trivial task gets two AI perspectives automatically:
 
-After that, you're ready to build. Claude remembers your selection for the session.
+| What Happens | Claude | GPT-5.4 (parallel) |
+|-------------|--------|-------------------|
+| Instructions written | Writes them | Reviews for gaps, contradictions, anti-patterns |
+| Topic YAML generated | Generates it | Reviews for dead ends, variable issues, UX problems |
+| Brief completed | Designs it | Reviews for completeness, blocking issues |
+| Eval tests run | Scores with heuristics | Scores with LLM understanding |
+| Failures analyzed | Classifies root causes | Cross-checks the analysis |
+
+**When they disagree:** both positions are shown, the stricter finding wins. If eval scores diverge >20 points, the test is flagged for human review.
+
+**Setup** (one-time, 30 seconds):
+
+```bash
+gh auth login                       # sign in with your GitHub account
+gh auth refresh --scopes copilot    # add Copilot API access
+```
+
+GPT is fully optional — if not configured, everything works with Claude alone. Run `mcs-agent-builder doctor` to check.
+
+---
 
 ## Hybrid Build Stack
 
 Each build step uses the best tool — fully API-native, zero browser automation:
 
-| Priority | Tool | Handles |
-|----------|------|---------|
-| 1 | **PAC CLI** | Listing agents, solution ALM |
-| 2 | **MCS LSP Wrapper** | Instructions, model, topics, knowledge (sites/URLs), full component sync |
-| 3 | **Island Gateway API** | Model catalog, component reads, routing info, bot settings |
-| 4 | **Flow Manager** | Power Automate cloud flow CRUD + composition — trigger creation, schema lookup, compose, validate (`tools/flow-manager.js`) |
-| 5 | **Dataverse API** | File uploads (PDF/DOCX), bot name PATCH, PvaPublish, security, deletion |
-| 6 | **Direct Line API** | Evaluation testing (send messages, compare responses) |
+| Tool | Handles |
+|------|---------|
+| **PAC CLI** | Listing agents, solution ALM |
+| **MCS LSP Wrapper** | Instructions, model, topics, knowledge sync |
+| **Island Gateway API** | Model catalog, component reads, routing, settings, eval upload |
+| **Flow Manager** | Power Automate flow CRUD + composition |
+| **Dataverse API** | File uploads, bot name, publish, security |
+| **Direct Line API** | Eval testing (+ GPT-5.4 scoring with `--gpt` flag) |
+| **GPT-5.4 Review** | Cross-model review of instructions, topics, briefs, scores |
 
 ### YAML Validation Pipeline
 
-Topic YAML goes through 4 validation layers before it reaches Copilot Studio:
+Topic YAML goes through 4 layers before reaching Copilot Studio:
 
-| Layer | Tool | What It Catches |
-|-------|------|----------------|
-| Pre-generation | `tools/gen-constraints.py` | Missing required fields (prevents errors at generation time) |
-| Structural | `tools/om-cli/om-cli.exe` | Unknown nodes, missing fields, invalid structure (357 types) |
-| Semantic | `tools/semantic-gates.py` | PowerFx errors, cross-refs, variable flow, channel compat, connectors |
-| Spec drift | `tools/drift-detect.py` | Missing/extra topics, trigger/variable mismatches vs brief |
+| Layer | Tool | Catches |
+|-------|------|---------|
+| Pre-generation | `gen-constraints.py` | Missing required fields |
+| Structural | `om-cli.exe` | Unknown nodes, invalid structure (357 types) |
+| Semantic | `semantic-gates.py` | PowerFx errors, cross-refs, variable flow, channel compat |
+| Spec drift | `drift-detect.py` | Missing topics, trigger mismatches vs brief |
+
+---
 
 ## Agent Teams
 
-Complex builds use 7 AI teammates that challenge each other's work before execution:
+Complex builds use 7 AI teammates + GPT-5.4 that challenge each other's work:
 
-| Teammate | What They Do | Used In |
-|----------|-------------|---------|
-| **Research Analyst** | Discovers MCS capabilities, prevents false limitation claims | Research, Build (on-demand) |
-| **Prompt Engineer** | Writes agent instructions, reviews system prompt quality | Research, Build (on-demand), Fix |
-| **Topic Engineer** | Validates topic feasibility, generates YAML topics + adaptive cards | Research (feasibility), Build (YAML), Fix |
-| **QA Challenger** | Reviews all outputs, challenges claims, classifies failures | Research, Build, Fix |
-| **Repo Checker** | Validates repo integrity after changes | Development |
-| **Repo Optimizer** | Audits repo for dead files, duplication, bloat | Development |
-| **Flow Designer** | Designs Power Automate flow specs from brief.json capabilities | Research (flow/hybrid) |
+| Teammate | Role |
+|----------|------|
+| **Research Analyst** | Discovers MCS capabilities, prevents false limitation claims |
+| **Prompt Engineer** | Writes agent instructions, reviews prompt quality |
+| **Topic Engineer** | Generates YAML topics + adaptive cards |
+| **QA Challenger** | Reviews all outputs, challenges claims, generates eval sets |
+| **Flow Designer** | Designs Power Automate flow specs |
+| **Repo Checker** | Validates repo integrity after changes |
+| **Repo Optimizer** | Finds dead code, duplication, bloat |
+| **GPT-5.4** | Parallel second opinion on every review (via Copilot API) |
 
-You interact with the lead only. The lead delegates to teammates, they debate and iterate, then the lead executes validated outputs in Copilot Studio.
+You interact with the lead only. The lead delegates, teammates debate and iterate, then the lead executes validated outputs in Copilot Studio.
+
+---
 
 ## Knowledge System
 
 The tool continuously learns and improves:
 
-| Layer | What | How It Stays Current |
-|-------|------|---------------------|
-| **Cache** (20 files) | MCS capabilities — models, connectors, MCP servers, triggers, etc. | Auto-refreshed at session start + before builds |
-| **Learnings** (8 files) | Experience from past builds — what worked, what didn't | Captured after each build/eval, user-confirmed |
-| **Patterns** | YAML syntax, Dataverse API patterns, solution patterns | Stable reference (manually updated) |
-| **Frameworks** | Component selection, architecture scoring, tool priority | Stable reference (manually updated) |
+| Layer | What | Stays Current |
+|-------|------|--------------|
+| **Cache** (20 files) | MCS capabilities — models, connectors, MCP servers, triggers | Auto-refreshed at session start |
+| **Learnings** (8 files) | Experience from past builds — what worked, what didn't | Captured after each build |
+| **Patterns** | YAML syntax, Dataverse API, 11 topic templates, 9 flow templates | Stable reference |
+| **Frameworks** | Component selection, architecture scoring, eval scenarios | Stable reference |
+
+---
+
+## Prerequisites
+
+**Fully automatic** — `start.cmd` installs everything via winget. Run `mcs-agent-builder doctor` to verify anytime.
+
+| Requirement | Required | Why |
+|-------------|----------|-----|
+| Node.js 18+ | Yes | Dashboard and terminal server |
+| Python 3.10+ | Yes | Backend API |
+| Claude Code | Yes | AI agent that runs the builds |
+| Git | Yes | Source control, auto-updates |
+| GitHub CLI + copilot scope | Optional | GPT-5.4 cross-model reviews |
+| Azure CLI | Optional | ADO work items (bug/suggest) |
+| PAC CLI | Optional | Power Platform operations |
+| .NET 10 Runtime | Optional | YAML validation (om-cli) |
+| VS Code + MCS Extension | Optional | Headless LSP sync |
+
+---
 
 ## Project Structure
 
 ```
-start.cmd                   Double-click entry point (installs deps + launches)
-setup.ps1                   Bootstrap script (winget/npm/pip, .NET 10 SDK)
-start.js                    Launcher (npm start) — installs hooks, checks deps
+start.cmd                     Double-click entry point
+setup.ps1                     Bootstrap (winget/npm/pip)
+start.js                      Launcher (npm start)
+
 bin/
-  cli.js                    CLI entry point (mcs-agent-builder command)
-  postinstall.js            Post-install setup (Python deps, frontend build, env vars)
+  cli.js                      CLI (start, stop, health, doctor)
+  postinstall.js               Post-install setup
 
 .claude/
-  settings.json             MCP servers, permissions, Agent Teams flag
-  skills/                   13 skills (11 workflow + 2 utility)
-  agents/                   7 AI teammate definitions
+  settings.json               MCP servers, permissions
+  skills/                     13 skills (11 workflow + 2 utility)
+  agents/                     7 AI teammate definitions
 
 app/
-  server.py                 FastAPI backend (serves SPA from dist/)
-  terminal-server.js        Claude Code terminal (multi-tab, WebSocket)
-  lib/                      Shared Python modules (readiness calc, project scanning)
-  frontend/                 React + TypeScript SPA (Vite + shadcn/ui)
+  server.py                   FastAPI backend
+  terminal-server.js          Claude Code terminal (multi-tab, WebSocket)
+  frontend/                   React + TypeScript SPA (Vite + shadcn/ui)
 
 knowledge/
-  solutions/                Team solution library (index + per-solution cache)
-  learnings/                Experience from past builds (grows over time)
-  cache/                    20 MCS capability cheat sheets + connector-schemas/ (auto-refreshed)
-  patterns/                 YAML, Dataverse API, solution patterns + 11 topic templates
-  frameworks/               Decision frameworks
-
-templates/                  brief.json (single source of truth schema)
+  cache/                      20 MCS capability cheat sheets (auto-refreshed)
+  learnings/                  Experience from past builds
+  patterns/                   YAML, Dataverse, solution patterns + topic/flow templates
+  frameworks/                 Decision frameworks + eval scenarios
 
 tools/
-  om-cli/                   ObjectModel CLI — YAML validation (357 types, .NET 10)
-  gen-constraints.py        Pre-generation constraint extraction
-  drift-detect.py           Brief-vs-YAML drift detection
-  lib/http.js               Shared HTTP request + Azure CLI token helpers (used by all JS tools)
-  lib/graph-sharepoint.js   SharePoint Graph API helper (list, download, upload, create folder)
-  lib/flow-composer.js      Pure flow composition functions (builders, wiring, validation, patterns)
-  lib/connector-schema.js   Connector schema fetch, parse & cache (Swagger → operation params)
-  semantic-gates.py         5 semantic validation gates (PowerFx, cross-refs, variables, channels, connectors)
-  powerfx-catalog.json      Official PowerFx function catalog (139 functions from MS Learn)
-  update-om-cli.ps1         Auto-update om-cli from ObjectModel source repo
-  mcs-lsp.js                MCS Language Server wrapper — headless push/pull via official LS
-  island-client.js          Island Control Plane Gateway API client (model catalog, reads, routing)
-  add-tool.js               Headless tool/connector addition via LSP push
-  flow-manager.js           Power Automate cloud flow CRUD + composition (compose, schema, validate, triggers)
-  solution-library.js       Team SharePoint solution library CLI (list, download, analyze, upload)
-  direct-line-test.js       Direct Line API test runner (--gpt for GPT-enhanced scoring)
-  multi-model-review.js     GPT cross-model review (instructions, topics, briefs, scoring)
-  lib/openai.js             Shared GPT client — GitHub Copilot API/GPT-5.4 via gh auth token + copilot scope
-  dataverse-helper.ps1      PowerShell Dataverse Web API helper
-  git-hooks/                Pre-commit (file protection) + pre-push (om-cli auto-update)
+  lib/openai.js               GPT-5.4 client (GitHub Copilot Responses API)
+  lib/http.js                 Shared HTTP + Azure CLI token helpers
+  lib/flow-composer.js        Flow composition (builders, wiring, validation)
+  lib/connector-schema.js     Connector Swagger fetch, parse & cache
+  lib/graph-sharepoint.js     SharePoint Graph API helper
+  multi-model-review.js       GPT review CLI (instructions, topics, briefs, scoring, models)
+  eval-scoring.js             Scoring module (7 methods, dual heuristic+GPT)
+  direct-line-test.js         Direct Line eval runner (--gpt for GPT scoring)
+  mcs-lsp.js                  MCS Language Server wrapper (push/pull)
+  island-client.js            Island Gateway API client
+  flow-manager.js             Power Automate flow CRUD + composition
+  add-tool.js                 Headless tool/connector addition
+  solution-library.js         Team SharePoint solution library
+  replicate-agent.js          Cross-environment agent replication
+  om-cli/                     ObjectModel CLI — YAML validation (357 types)
+  gen-constraints.py          Pre-generation constraint extraction
+  drift-detect.py             Brief-vs-YAML drift detection
+  semantic-gates.py           5 semantic validation gates
+  dataverse-helper.ps1        PowerShell Dataverse Web API helper
 
-Build-Guides/               Per-project work (gitignored)
+templates/                    brief.json schema (single source of truth)
+Build-Guides/                 Per-project work (gitignored)
 ```
+
+---
 
 ## Networking & Security
 
-Both servers bind to `127.0.0.1` (localhost only). No ports are exposed to the network — no firewall rules or port openings are needed. This is safe on corporate PCs and won't affect Teams, Outlook, VPN, or any other applications.
+Both servers bind to `127.0.0.1` (localhost only). No ports exposed to the network. Safe on corporate PCs — won't affect Teams, Outlook, VPN, or anything else.
 
 | Port | Service | Binding |
 |------|---------|---------|
-| 8000–8020 | Dashboard (FastAPI) | `127.0.0.1` — localhost only |
-| 8001–8021 | Terminal (WebSocket) | `127.0.0.1` — localhost only |
+| 8000-8020 | Dashboard (FastAPI) | localhost only |
+| 8001-8021 | Terminal (WebSocket) | localhost only |
 
-Ports are auto-discovered in pairs (app, app+1). If 8000/8001 are busy, the next available pair is used. The actual port is shown in the terminal output and lockfile.
+Ports auto-discovered in pairs. If 8000/8001 are busy, the next pair is used.
+
+---
 
 ## Troubleshooting
 
 | Problem | Fix |
 |---------|-----|
-| Something not working | Run `mcs-agent-builder doctor` — it checks all 10 prerequisites and tells you exactly what's missing and how to fix it |
-| `start.cmd` fails | Make sure winget is available (built into Windows 11). Try `.\start.cmd --full` to force a re-check |
-| `npm start` fails | Run `.\start.cmd` instead — it installs missing dependencies automatically |
-| `mcs-agent-builder start` fails | Ensure Python 3.10+ is installed: `python --version`. Re-run `npm install -g mcs-agent-builder` |
-| Port conflict | The launcher auto-discovers available ports (8000–8020). Run `mcs-agent-builder health` to see the actual port |
-| Bug/Suggest buttons not working | Run `.\start.cmd --full` to install Azure CLI, or install manually and run `az login` |
-| Dashboard won't load | Check terminal output for errors — both servers must be running |
-| Firewall prompt on startup | Should not happen (localhost-only binding). If it does, you can safely deny it |
+| Something not working | `mcs-agent-builder doctor` — checks all 11 prerequisites with fix instructions |
+| `start.cmd` fails | Ensure winget is available (built into Windows 11). Try `.\start.cmd --full` |
+| Port conflict | Auto-discovered. Run `mcs-agent-builder health` to see actual port |
+| GPT reviews not working | `gh auth login && gh auth refresh --scopes copilot` |
 | PAC CLI not working | Ask Claude: "set up PAC CLI auth for me" |
-| Wrong MCS environment | Claude verifies via PAC CLI and Azure CLI — if the wrong account/env is detected, it asks you to switch |
-| Terminal not connecting | Close the tab and click "+" to create a new terminal session |
+| Wrong MCS environment | Claude detects mismatches and asks you to switch |
+| Terminal not connecting | Close the tab and click "+" for a new session |
+
+---
 
 ## Feedback
 
-Found a bug or have a suggestion? Click the **Bug** or **Suggest** buttons in the dashboard header. A dialog collects your description, auto-gathers context (project, agent, page), and routes to Claude in the terminal — who creates an ADO work item for you. You can also file work items directly in the [ADO repo](https://dev.azure.com/powercatteam/_git/FDE).
+Click **Bug** or **Suggest** in the dashboard header. Claude creates an ADO work item for you with auto-gathered context. Or file directly in the [ADO repo](https://dev.azure.com/powercatteam/_git/FDE).
+
+---
 
 ## License
 
