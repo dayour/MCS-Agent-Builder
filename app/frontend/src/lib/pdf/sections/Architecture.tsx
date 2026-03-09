@@ -97,14 +97,16 @@ interface Props {
   data: any;
 }
 
-/** Split a paragraph string into bullet-point lines. */
-function toBullets(text: string): string[] {
-  if (!text) return [];
+/** Split a paragraph string into bullet-point lines. Handles non-string input safely. */
+function toBullets(text: any): string[] {
+  if (text == null) return [];
+  if (typeof text !== "string") return [String(text)];
+  if (!text.trim()) return [];
   // If already bullet-formatted, split on newlines
-  const lines = text.split(/\n/).map(l => l.replace(/^[\s\-\u2022*]+/, "").trim()).filter(Boolean);
+  const lines = text.split(/\n/).map((l: string) => l.replace(/^[\s\-\u2022*]+/, "").trim()).filter(Boolean);
   if (lines.length > 1) return lines;
   // Split long paragraphs on sentence boundaries
-  return text.split(/\.\s+/).map(s => s.replace(/\.$/, "").trim()).filter(Boolean);
+  return text.split(/\.\s+/).map((s: string) => s.replace(/\.$/, "").trim()).filter(Boolean);
 }
 
 const Architecture = ({ data }: Props) => {

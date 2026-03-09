@@ -238,12 +238,12 @@ export const Card = ({
 
 // ── Bullet List ───────────────────────────────────────────────────
 
-export const BulletList = ({ items, dotColor }: { items: string[]; dotColor?: string }) => (
+export const BulletList = ({ items, dotColor }: { items: any[]; dotColor?: string }) => (
   <View style={{ marginVertical: 4 }}>
-    {items.map((item, i) => (
+    {(items || []).filter((v) => v != null && v !== false).map((item, i) => (
       <View key={i} style={s.bulletRow}>
         <Text style={[s.bulletDot, dotColor ? { color: dotColor } : undefined]}>{"\u2022"}</Text>
-        <Text style={s.bulletText}>{item}</Text>
+        <Text style={s.bulletText}>{safe(item)}</Text>
       </View>
     ))}
   </View>

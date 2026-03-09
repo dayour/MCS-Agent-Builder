@@ -11,14 +11,21 @@ export async function generateBriefPDF(
   briefData: Record<string, any>,
 ): Promise<void> {
   // Dynamic imports — only loaded on demand
-  const [{ pdf }, { default: React }, { default: BriefPdfDocument }] = await Promise.all([
+  const [renderer, { default: React }, { default: BriefPdfDocument }] = await Promise.all([
     import("@react-pdf/renderer"),
     import("react"),
     import("./BriefPdfDocument"),
   ]);
 
+  // Disable hyphenation (must run after renderer is loaded, not at module scope)
+  try {
+    renderer.Font.registerHyphenationCallback((word: string) => [word]);
+  } catch {
+    // Non-fatal — hyphenation stays default
+  }
+
   const doc = React.createElement(BriefPdfDocument, { agent, briefData });
-  const blob = await pdf(doc).toBlob();
+  const blob = await renderer.pdf(doc).toBlob();
 
   // Trigger download
   const url = URL.createObjectURL(blob);

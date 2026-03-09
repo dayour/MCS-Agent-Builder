@@ -1,7 +1,4 @@
-import { StyleSheet, Font } from "@react-pdf/renderer";
-
-// Disable hyphenation for cleaner text
-Font.registerHyphenationCallback((word) => [word]);
+import { StyleSheet } from "@react-pdf/renderer";
 
 // ── Color palette — matches the app's shadcn/tailwind theme ──────
 export const colors = {
