@@ -172,7 +172,7 @@ function DocumentPreview({ doc, projectId, content }: { doc: Document; projectId
 // ---------------------------------------------------------------------------
 
 const DocumentDropZone = ({ projectId }: DocumentDropZoneProps) => {
-  const { documents, docContent, uploadFile, pasteText, removeDocument } = useProjectStore();
+  const { documents, docContent, loadDocContent, uploadFile, pasteText, removeDocument } = useProjectStore();
   const [dragOver, setDragOver] = useState(false);
   const [showTextForm, setShowTextForm] = useState(false);
   const [textTitle, setTextTitle] = useState("");
@@ -183,6 +183,13 @@ const DocumentDropZone = ({ projectId }: DocumentDropZoneProps) => {
 
   // Derive selectedDoc from documents list by name — always fresh after state changes
   const selectedDoc = selectedDocName ? documents.find((d) => d.name === selectedDocName) ?? null : null;
+
+  // Lazy-load doc content when a doc is selected for preview
+  useEffect(() => {
+    if (selectedDocName && !docContent[selectedDocName]) {
+      loadDocContent(selectedDocName);
+    }
+  }, [selectedDocName, docContent, loadDocContent]);
 
   // --- Upload ---
   const handleFiles = useCallback(async (files: FileList | File[]) => {

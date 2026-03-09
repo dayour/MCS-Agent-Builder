@@ -9,6 +9,7 @@ import type { Agent, Document } from "@/types";
 import type { ApiProjectDetail, ApiAgentSummary, ApiDoc } from "@/types/api";
 import {
   fetchProject,
+  fetchDocContent,
   uploadDocument as apiUpload,
   pasteDocument as apiPaste,
   deleteDocument as apiDeleteDoc,
@@ -25,6 +26,8 @@ interface ProjectStore {
   error: string | null;
   loadProject: (id: string) => Promise<void>;
   refresh: () => Promise<void>;
+  /** Lazy-load a single doc's content on demand (fetched when user opens preview). */
+  loadDocContent: (filename: string) => Promise<string>;
   uploadFile: (file: File) => Promise<void>;
   pasteText: (title: string, text: string) => Promise<void>;
   removeDocument: (filename: string) => Promise<void>;
@@ -98,7 +101,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         projectName: data.name,
         agents: data.agents.map(apiAgentToAgent),
         documents: data.docs.map(apiDocToDocument),
-        docContent: data.doc_content,
+        docContent: data.doc_content ?? {},
         loading: false,
       });
     } catch (e: any) {
@@ -114,10 +117,27 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       set({
         agents: data.agents.map(apiAgentToAgent),
         documents: data.docs.map(apiDocToDocument),
-        docContent: data.doc_content,
+        // Preserve already-loaded doc content; merge any new server-provided content
+        docContent: { ...get().docContent, ...(data.doc_content ?? {}) },
       });
     } catch {
       // Silent — don't break UI on background refresh failure
+    }
+  },
+
+  loadDocContent: async (filename: string) => {
+    const id = get().projectId;
+    if (!id) return "";
+    // Return cached content if already loaded
+    const existing = get().docContent[filename];
+    if (existing) return existing;
+    try {
+      const result = await fetchDocContent(id, filename);
+      const content = result.content ?? "";
+      set((s) => ({ docContent: { ...s.docContent, [filename]: content } }));
+      return content;
+    } catch {
+      return "";
     }
   },
 

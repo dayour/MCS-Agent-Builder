@@ -114,30 +114,44 @@ def _scan_docs(folder: Path) -> list[dict]:
     Only shows files Claude Code can read: text, images, PDFs.
     Binary Office files (docx/pptx/xlsx) are converted at upload time
     and the originals deleted — so only readable files remain.
+
+    Change detection uses (mtime, size) for speed. SHA256 is only computed
+    during /mcs-research when the manifest is created — not on every page load.
     """
     docs_dir = folder / "docs"
     docs = []
 
     manifest = _load_manifest(folder)
-    manifest_hashes = {}
+    manifest_entries = {}
     if manifest:
         for entry in manifest.get("docsProcessed", []):
-            manifest_hashes[entry["filename"]] = entry.get("sha256")
+            manifest_entries[entry["filename"]] = entry
 
     if docs_dir.exists():
         for fp in sorted(docs_dir.iterdir()):
             if not fp.is_file() or fp.suffix not in DOC_EXTENSIONS:
                 continue
+            stat = fp.stat()
             is_new = True
             is_modified = False
             if manifest is not None:
-                known_hash = manifest_hashes.get(fp.name)
-                if known_hash is not None:
+                known = manifest_entries.get(fp.name)
+                if known is not None:
                     is_new = False
-                    is_modified = known_hash.lower() != _file_sha256(fp)
+                    # Fast change detection: compare size + mtime instead of SHA256.
+                    # If manifest has size/mtime, use those. Fall back to "not modified"
+                    # if manifest only has sha256 (old format) — avoids expensive rehash.
+                    known_size = known.get("size")
+                    known_mtime = known.get("mtime")
+                    if known_size is not None and known_mtime is not None:
+                        is_modified = stat.st_size != known_size or abs(stat.st_mtime - known_mtime) > 1.0
+                    elif known.get("sha256"):
+                        # Old manifest without mtime — can't compare cheaply.
+                        # Assume unmodified to avoid blocking SHA256 on page load.
+                        is_modified = False
             docs.append({
                 "filename": fp.name,
-                "size": fp.stat().st_size,
+                "size": stat.st_size,
                 "isNew": is_new,
                 "isModified": is_modified,
             })
@@ -391,12 +405,18 @@ def _scan_agents(folder: Path) -> list[dict]:
                 "folder": str(agent_dir.relative_to(folder)),
                 "architecture_type": arch_type,
                 "architecture_children": arch_children,
+                "_brief": brief,  # internal — used for stage detection, stripped before response
             })
     return agents
 
 
 def _list_projects() -> list[dict]:
-    """Live scan of Build-Guides/ folders."""
+    """Live scan of Build-Guides/ folders.
+
+    Performance: uses _scan_agents + determine_stage instead of scan_project()
+    to avoid scanning agents twice per project. Doc count uses lightweight
+    directory listing instead of full _scan_docs (skips SHA256/mtime checks).
+    """
     projects = []
     if BUILD_GUIDES.exists():
         for item in sorted(BUILD_GUIDES.iterdir()):
@@ -413,21 +433,40 @@ def _list_projects() -> list[dict]:
 
             created_ts = os.path.getctime(str(item))
             agents = _scan_agents(item)
-            scanned = scan_project(item)
+
+            # Compute stage from already-scanned agents (no duplicate scan)
+            stage = determine_stage(agents)
+
+            # Strip internal _brief before sending to client
+            for a in agents:
+                a.pop("_brief", None)
+
+            # Lightweight doc count — just count files, skip change detection
+            docs_dir = item / "docs"
+            doc_count = 0
+            if docs_dir.exists():
+                doc_count = sum(1 for fp in docs_dir.iterdir()
+                                if fp.is_file() and fp.suffix in DOC_EXTENSIONS)
+
             projects.append({
                 "id": item.name,
                 "name": humanize_name(item.name),
                 "path": f"Build-Guides/{item.name}",
                 "agents": agents,
-                "doc_count": len(_scan_docs(item)),
-                "stage": scanned.get("stage", "discovery"),
+                "doc_count": doc_count,
+                "stage": stage,
                 "created_at": datetime.fromtimestamp(created_ts).strftime("%b %d, %Y"),
             })
     return projects
 
 
 def _get_project(project_id: str) -> dict:
-    """Get full project data."""
+    """Get full project data.
+
+    Performance: uses _scan_agents + determine_stage instead of scan_project()
+    to avoid a second full agent scan. Doc content is NOT eagerly loaded —
+    fetch individual docs via /docs/{filename}/content on demand.
+    """
     folder = BUILD_GUIDES / project_id
     if not folder.is_dir():
         raise HTTPException(404, f"Project '{project_id}' not found")
@@ -437,16 +476,12 @@ def _get_project(project_id: str) -> dict:
     docs = _scan_docs(folder)
     agents = _scan_agents(folder)
 
-    # Read text content for preview — keyed by filename.
-    # Only text-based files. PDFs and images render natively in the browser.
-    doc_content = {}
-    for d in docs:
-        fp = folder / "docs" / d["filename"]
-        if fp.exists() and fp.suffix in {".md", ".csv", ".txt", ".json"}:
-            try:
-                doc_content[d["filename"]] = fp.read_text(encoding="utf-8")
-            except Exception:
-                pass
+    # Compute stage from already-scanned agents (avoids duplicate scan_project call)
+    stage = determine_stage(agents)
+
+    # Strip internal _brief before sending to client
+    for a in agents:
+        a.pop("_brief", None)
 
     return {
         "id": folder.name,
@@ -454,8 +489,8 @@ def _get_project(project_id: str) -> dict:
         "path": f"Build-Guides/{folder.name}",
         "agents": agents,
         "docs": docs,
-        "doc_content": doc_content,
-        "stage": scan_project(folder).get("stage", "discovery"),
+        "doc_content": {},
+        "stage": stage,
     }
 
 

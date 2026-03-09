@@ -6,7 +6,7 @@ import { useProjectStore } from "@/stores/projectStore";
 
 const DocumentViewer = () => {
   const { projectId, docId } = useParams();
-  const { documents, docContent, projectName, loadProject } = useProjectStore();
+  const { documents, docContent, projectName, loadProject, loadDocContent } = useProjectStore();
 
   useEffect(() => {
     if (projectId) loadProject(projectId);
@@ -14,6 +14,13 @@ const DocumentViewer = () => {
 
   const doc = documents.find((d) => d.id === docId);
   const content = doc ? docContent[doc.id] ?? "" : "";
+
+  // Lazy-load doc content on demand
+  useEffect(() => {
+    if (doc && !docContent[doc.id]) {
+      loadDocContent(doc.id);
+    }
+  }, [doc, docContent, loadDocContent]);
 
   const renderCSV = (csv: string) => {
     const lines = csv.trim().split("\n");
