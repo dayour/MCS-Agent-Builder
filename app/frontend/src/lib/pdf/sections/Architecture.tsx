@@ -9,7 +9,7 @@ import {
 const SOLUTION_TYPE_LABELS: Record<string, string> = {
   agent: "Agent",
   flow: "Power Automate Flow",
-  hybrid: "Hybrid",
+  hybrid: "Hybrid (Agent + Flow)",
   "not-recommended": "Not Recommended",
 };
 
@@ -97,13 +97,29 @@ interface Props {
   data: any;
 }
 
+/** Split a paragraph string into bullet-point lines. */
+function toBullets(text: string): string[] {
+  if (!text) return [];
+  // If already bullet-formatted, split on newlines
+  const lines = text.split(/\n/).map(l => l.replace(/^[\s\-\u2022*]+/, "").trim()).filter(Boolean);
+  if (lines.length > 1) return lines;
+  // Split long paragraphs on sentence boundaries
+  return text.split(/\.\s+/).map(s => s.replace(/\.$/, "").trim()).filter(Boolean);
+}
+
 const Architecture = ({ data }: Props) => {
   if (!data) return null;
+
+  // Merge architecture score into the design card
+  const archScore = data.scoring?.length > 0
+    ? data.scoring.reduce((sum: number, f: any) => sum + (f.score || 0), 0)
+    : null;
+
   return (
     <View>
-      <SectionHeading title="Architecture" subtitle="Structure, channels, triggers, and specialist agents" />
+      <SectionHeading title="Architecture" subtitle="Design pattern, channels, triggers, and specialist agents" />
 
-      {/* Solution type card */}
+      {/* Solution type — single line */}
       {data.solutionType && (
         <View style={{
           ...s.solutionTypeCard,
@@ -114,9 +130,11 @@ const Architecture = ({ data }: Props) => {
             ...s.solutionTypeName,
             color: data.solutionType === "agent" ? colors.primary : data.solutionType === "flow" ? "#7c3aed" : data.solutionType === "hybrid" ? "#d97706" : "#dc2626",
           }}>
-            {SOLUTION_TYPE_LABELS[data.solutionType] ?? data.solutionType} ({data.solutionTypeScore ?? 0}/5)
+            {SOLUTION_TYPE_LABELS[data.solutionType] ?? data.solutionType} — {data.solutionTypeScore ?? 0}/5
           </Text>
-          {data.solutionTypeReason && <Text style={s.patternReason}>{data.solutionTypeReason}</Text>}
+          {data.solutionTypeReason && (
+            <BulletList items={toBullets(data.solutionTypeReason)} />
+          )}
         </View>
       )}
 
@@ -124,37 +142,50 @@ const Architecture = ({ data }: Props) => {
       {data.alternativeRecommendation && (data.solutionType === "flow" || data.solutionType === "not-recommended") && (
         <View style={s.altRecCard} wrap={false}>
           <Text style={s.altRecLabel}>Recommended Alternative</Text>
-          <Text style={s.altRecText}>{data.alternativeRecommendation}</Text>
+          <BulletList items={toBullets(data.alternativeRecommendation)} />
         </View>
       )}
 
-      {/* Pattern card — matches the app's highlighted selection card */}
+      {/* Design pattern — merged with architecture score */}
       <View style={s.patternCard} wrap={false}>
-        <Text style={s.patternName}>{safe(data.pattern)}</Text>
-        {data.patternReasoning && <Text style={s.patternReason}>{data.patternReasoning}</Text>}
+        <Text style={s.patternName}>
+          {safe(data.pattern)}{archScore != null ? ` (${archScore}/6)` : ""}
+        </Text>
+        {data.patternReasoning && (
+          <BulletList items={toBullets(data.patternReasoning)} />
+        )}
       </View>
+
+      {/* Scoring factors as compact list — only if there are factors */}
+      {data.scoring?.length > 0 && (
+        <Card>
+          <BulletList
+            items={data.scoring.map((f: any) =>
+              `${safe(f.factor)}: ${f.score ? "Yes" : "No"}${f.notes ? ` — ${f.notes}` : ""}`
+            )}
+          />
+        </Card>
+      )}
 
       {data.triggers?.length > 0 && (
         <>
           <SubHeading>Triggers</SubHeading>
-          {data.triggers.map((t: any, i: number) => (
-            <Card key={i}>
-              <Text style={{ fontSize: 9, fontWeight: 600, color: colors.foreground }}>{safe(t.type)}</Text>
-              {t.description && <Text style={{ fontSize: 8, color: colors.muted, marginTop: 1 }}>{t.description}</Text>}
-            </Card>
-          ))}
+          <Card>
+            <BulletList items={data.triggers.map((t: any) =>
+              `${safe(t.type)}${t.description ? ` — ${t.description}` : ""}`
+            )} />
+          </Card>
         </>
       )}
 
       {data.channels?.length > 0 && (
         <>
           <SubHeading>Channels</SubHeading>
-          {data.channels.map((c: any, i: number) => (
-            <Card key={i}>
-              <Text style={{ fontSize: 9, fontWeight: 600, color: colors.foreground }}>{safe(c.name)}</Text>
-              {c.reason && <Text style={{ fontSize: 8, color: colors.muted, marginTop: 1 }}>{c.reason}</Text>}
-            </Card>
-          ))}
+          <Card>
+            <BulletList items={data.channels.map((c: any) =>
+              `${safe(c.name)}${c.reason ? ` — ${c.reason}` : ""}`
+            )} />
+          </Card>
         </>
       )}
 
@@ -174,22 +205,6 @@ const Architecture = ({ data }: Props) => {
               </View>
             </Card>
           ))}
-        </>
-      )}
-
-      {data.scoring?.length > 0 && (
-        <>
-          <SubHeading>
-            {`Architecture Score (${data.scoring.reduce((sum: number, f: any) => sum + (f.score || 0), 0)}/6)`}
-          </SubHeading>
-          <DataTable
-            columns={[
-              { header: "Factor", flex: 2 },
-              { header: "Applies", flex: 1 },
-              { header: "Notes", flex: 3 },
-            ]}
-            rows={data.scoring.map((f: any) => [safe(f.factor), f.score ? "Yes" : "No", safe(f.notes)])}
-          />
         </>
       )}
 

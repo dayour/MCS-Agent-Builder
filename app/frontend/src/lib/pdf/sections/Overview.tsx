@@ -12,16 +12,6 @@ const s = StyleSheet.create({
     letterSpacing: 0.5,
     marginBottom: 3,
   },
-  nameText: {
-    fontSize: 14,
-    fontWeight: 700,
-    color: colors.foreground,
-  },
-  descText: {
-    fontSize: 9,
-    color: colors.foreground,
-    lineHeight: 1.5,
-  },
   problemText: {
     fontSize: 9,
     color: colors.foreground,
@@ -44,23 +34,7 @@ const Overview = ({ data }: Props) => {
   if (!data) return null;
   return (
     <View>
-      <SectionHeading title="Overview" subtitle="Agent identity, problem statement, and target users" />
-
-      {/* Name & Description side by side */}
-      <View style={s.twoCol}>
-        <View style={s.col}>
-          <Card>
-            <Text style={s.label}>Agent Name</Text>
-            <Text style={s.nameText}>{data.name || "\u2014"}</Text>
-          </Card>
-        </View>
-        <View style={s.col}>
-          <Card>
-            <Text style={s.label}>Description</Text>
-            <Text style={s.descText}>{data.description || "\u2014"}</Text>
-          </Card>
-        </View>
-      </View>
+      <SectionHeading title="Overview" subtitle="Problem statement and target users" />
 
       {/* Problem Statement */}
       {data.problemStatement && (

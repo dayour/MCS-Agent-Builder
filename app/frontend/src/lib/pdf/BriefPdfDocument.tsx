@@ -23,16 +23,6 @@ const s = StyleSheet.create({
     borderBottomWidth: 0.5,
     borderBottomColor: colors.border,
   },
-  logoRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    marginBottom: 12,
-  },
-  logoText: {
-    fontSize: 7,
-    color: colors.muted,
-  },
   agentName: {
     fontSize: 22,
     fontWeight: 700,
@@ -117,14 +107,10 @@ const TitleBlock = ({ agent, briefData }: { agent: Agent; briefData: Record<stri
   });
   return (
     <View style={s.titleBlock} wrap={false}>
-      <View style={s.logoRow}>
-        <MsLogo size={14} />
-        <Text style={s.logoText}>Microsoft</Text>
-      </View>
       <Text style={s.agentName}>{agent.name}</Text>
       {desc ? <Text style={s.description}>{desc}</Text> : null}
       <View style={s.metaRow}>
-        <Text style={s.metaText}>Generated {date}</Text>
+        <Text style={s.metaText}>{date}</Text>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
           <Text style={s.readinessLabel}>Readiness</Text>
           <ProgressBar value={agent.readiness} width={100} height={6} />
