@@ -943,6 +943,7 @@ Spawn ALL teammates simultaneously. They do NOT depend on each other's output.
 - `scenarioId` — library scenario ID (e.g., "BP-IR-01", "CAP-SB-03") when generated from a scenario pattern
 - `scenarioCategory` — category name (e.g., "Safety & Boundary Enforcement")
 - `coverageTag` — "core-business" | "variations" | "architecture" | "edge-cases"
+- `readiness` — "ready" (runs as-is without customer data: safety, boundary, scope tests) | "template" (needs customer-specific values: knowledge answers, tool outputs, routing targets)
 - `methods` — per-test method override when scenario recommends different methods than set defaults (null = use set methods)
 
 **Methods are preset per set (defaults from schema), with per-test overrides where scenarios recommend different methods:**

@@ -132,6 +132,7 @@ Override precedence: `test.methods` > `set.methods`
 - **7 valid method types** (6 MCS native + Plan validation). No "PartialMatch", "AI", "Contains" types
 - **Include negative tests** for every applicable category (what the agent should NOT do)
 - **Tag every test** with `scenarioId`, `scenarioCategory`, and `coverageTag` from the scenario library
+- **Set `readiness` on every test** — `ready` if it runs without customer data (safety, boundary, scope, adversarial, PII, prompt injection tests), `template` if it needs customer-specific values (knowledge answers, tool outputs, routing targets, domain facts)
 - **Two methods per test** — one specific + one general. Never use General Quality alone for factual accuracy.
 
 ## Scenario-Driven Eval Generation
@@ -195,6 +196,11 @@ After generating all eval tests, report:
 
 **Categories covered:** {list}
 **Categories NOT covered (recommended):** {list with reasons}
+
+| Readiness | Count | % | Notes |
+|-----------|-------|---|-------|
+| ready | N | X% | Run as-is (safety, boundary, scope) |
+| template | N | X% | Needs customer data (knowledge, tools, routing) |
 ```
 
 ## Scenario Walkthrough Template

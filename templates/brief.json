@@ -226,6 +226,7 @@
           "expected": "What the response should contain or convey",
           "capability": "Which capability this tests (links to capabilities[].name, optional)",
           "methods": null,
+          "readiness": "ready | template — 'ready' = runs as-is without customer data (safety, boundary, scope tests). 'template' = needs customer-specific values plugged in (knowledge answers, tool outputs, routing targets).",
           "scenarioId": null,
           "scenarioCategory": null,
           "coverageTag": null,

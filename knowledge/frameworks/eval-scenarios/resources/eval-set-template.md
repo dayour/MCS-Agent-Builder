@@ -35,6 +35,7 @@ For each selected scenario, use the Practical Examples table as a starting point
 | **Expected Value** | What the correct response should contain | Keywords: "25 days", "annual allowance", "pro-rated" |
 | **Test Methods** | Which evaluation methods to use — list all that apply, joined with " + " | Keyword Match (All) + Compare Meaning |
 | **Pass Criteria** | When this test case passes — one condition per method | All keywords present in response AND meaning aligns with expected value |
+| **Readiness** | `ready` = runs as-is without customer data; `template` = needs customer-specific values | `ready` (safety test) or `template` (knowledge answer test) |
 | **Priority** | How critical this test case is | High — core use case |
 
 > **Multi-method test cases:** Copilot Studio supports multiple test methods per test case. Use " + " to combine methods (e.g., `Keyword Match (All) + Compare Meaning + General Quality`). Each method catches a different failure mode — Keyword Match confirms specific facts are present, Compare Meaning validates overall correctness, General Quality assesses structure and completeness. Apply every method that adds value; don't limit yourself to one.
