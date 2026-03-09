@@ -59,9 +59,9 @@ const MODEL_OPTIONS = [
 ];
 
 const ARCH_TYPES = [
-  { value: "single-agent", label: "Single Agent", icon: Bot, desc: "One agent handles everything" },
+  { value: "single-agent", label: "Single-Agent", icon: Bot, desc: "One agent handles everything" },
   { value: "multi-agent", label: "Multi-Agent", icon: Network, desc: "Orchestrator routes to specialists" },
-  { value: "connected-agent", label: "Connected Agent", icon: Link, desc: "Agents linked across solutions" },
+  { value: "connected-agent", label: "Connected-Agent", icon: Link, desc: "Agents linked across solutions" },
 ] as const;
 
 const SOLUTION_TYPES = [
@@ -377,7 +377,7 @@ const ArchitectureSection = ({ data, onChange, context }: Props) => {
             )}
           </div>
 
-          {renderFactorTable("solutionTypeFactors", SOL_TYPE_FACTOR_META, "solutionTypeScore", "Assessment Factors")}
+          {renderFactorTable("solutionTypeFactors", SOL_TYPE_FACTOR_META, "solutionTypeScore", "Scoring Factors")}
           {(() => {
             const s = getFactors("solutionTypeFactors", SOL_TYPE_FACTOR_META).filter(f => f.score).length;
             if (s >= 4) return <p className="text-xs font-medium text-primary mt-1.5">Score {s}/5 — Agent</p>;
