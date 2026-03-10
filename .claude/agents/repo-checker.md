@@ -144,6 +144,44 @@ Always report in this exact structure:
 - Warnings: N
 ```
 
+## GPT Cross-Validation (Optional — After All Checks)
+
+After completing your 13 check categories, fire GPT to cross-validate your findings and catch issues your pattern-based scans miss:
+
+### Code File Review
+
+For any code files that were recently changed (provided in your task context), fire GPT for a quality review:
+
+```bash
+node tools/multi-model-review.js review-code --file <path> --context "Repo check — recently modified file"
+```
+
+### Semantic Consistency Review
+
+For documentation files where you found potential inconsistencies, fire GPT to verify:
+
+```bash
+# Check if CLAUDE.md and README.md tell a consistent story
+node tools/multi-model-review.js review-code --file CLAUDE.md --context "Check for internal contradictions, stale references, and section consistency"
+```
+
+### How to Use GPT's Feedback
+
+| GPT Finding | Action |
+|-------------|--------|
+| **GPT confirms your finding** | Increase confidence — note "confirmed by GPT" |
+| **GPT finds something you missed** | Add it to your report as a GPT-discovered issue |
+| **GPT false positive** (path that exists but GPT thinks is broken) | Ignore — your file system checks are authoritative |
+| **GPT catches semantic inconsistency** (section A says X, section B implies Y) | Add as WARN — these are hard for grep to catch |
+
+### When to Skip GPT
+
+- Quick checks with < 3 findings (low value from cross-validation)
+- When no code files were changed (doc-only changes — your grep checks are sufficient)
+- GPT unavailable (exit code 3) — proceed with your standard report
+
+**Never block on GPT** — your systematic checks are the primary output. GPT is supplementary.
+
 ## Rules
 
 - You NEVER fix issues yourself. You only report them.

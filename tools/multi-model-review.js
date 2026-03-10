@@ -8,9 +8,20 @@
  * Setup: gh auth login && gh auth refresh --scopes copilot
  *
  * Usage:
+ *   Review:
  *   node tools/multi-model-review.js review-instructions --brief <path>
  *   node tools/multi-model-review.js review-topics --file <path> [--brief <path>]
  *   node tools/multi-model-review.js review-brief --brief <path>
+ *   node tools/multi-model-review.js review-flow --file <path> [--brief <path>]
+ *   node tools/multi-model-review.js review-components --brief <path>
+ *   node tools/multi-model-review.js review-code --file <path> [--context "<description>"]
+ *
+ *   Co-generation (GPT generates independently, Claude merges):
+ *   node tools/multi-model-review.js generate-instructions --brief <path>
+ *   node tools/multi-model-review.js generate-evals --brief <path>
+ *   node tools/multi-model-review.js generate-topics --topic-spec <path> [--brief <path>]
+ *
+ *   Scoring:
  *   node tools/multi-model-review.js score --actual "<text>" --expected "<text>" [--method compare-meaning|general-quality]
  *   node tools/multi-model-review.js usage
  *
@@ -42,7 +53,37 @@ const KNOWLEDGE_MAP = {
     ],
     'score': [
         'cache/eval-methods.md'
-    ]
+    ],
+    // Co-generation commands (dual model — GPT generates independently, Claude merges)
+    'generate-instructions': [
+        'cache/instructions-authoring.md',
+        'cache/generative-orchestration.md',
+        'cache/conversation-design.md',
+        'learnings/instructions.md'
+    ],
+    'generate-evals': [
+        'cache/eval-methods.md',
+        'frameworks/eval-scenarios/index.json',
+        'cache/conversation-design.md'
+    ],
+    'generate-topics': [
+        'patterns/yaml-reference.md',
+        'cache/triggers.md',
+        'cache/adaptive-cards.md',
+        'cache/conversation-design.md'
+    ],
+    // Expanded review commands
+    'review-flow': [
+        'cache/power-automate-integration.md',
+        'cache/connectors.md'
+    ],
+    'review-components': [
+        'frameworks/component-selection.md',
+        'cache/connectors.md',
+        'cache/mcp-servers.md'
+    ],
+    // General-purpose review (for any agent/teammate)
+    'review-code': []  // No domain-specific knowledge needed — GPT uses its training
 };
 
 /**
@@ -157,6 +198,155 @@ Output valid JSON:
 {
   "score": <0-100>,
   "reasoning": "1-2 sentence explanation of the score"
+}`,
+
+    // --- Co-Generation Prompts ---
+
+    'generate-instructions': `You are an expert Microsoft Copilot Studio instruction writer. Given an agent brief, generate complete agent instructions following MCS best practices.
+
+Rules:
+1. Use three-part structure: Role + Constraints + Response Format + Guidance (with examples)
+2. Role in first line — functional, no superlatives
+3. WHY-clause on every constraint in parentheses
+4. Tiered length floors AND ceilings per question type
+5. Bold emphasis only — no aggressive caps (no "CRITICAL:", "YOU MUST", "ALWAYS" in all-caps)
+6. 2-3 varied few-shot examples: happy path + boundary + complex
+7. No hardcoded URLs, no listing all tools, no personality padding
+8. Use /ToolName and /TopicName only for disambiguation
+9. Always state audience, always include follow-up question guidance
+10. Max 8,000 characters
+
+Generate instructions that FULLY address every capability, boundary, and integration in the brief.
+
+Output valid JSON:
+{
+  "instructions": "<the full instruction text>",
+  "description": "<agent description, third-person, max 1024 chars>",
+  "conversationStarters": [{"title": "<chip label>", "text": "<full prompt>"}],
+  "charCount": <number>,
+  "selfCheck": {"antiPatterns": [], "missingCapabilities": [], "unreferencedTools": []}
+}`,
+
+    'generate-evals': `You are an expert evaluator for Microsoft Copilot Studio agents. Given an agent brief, generate comprehensive evaluation test sets.
+
+Generate 3 eval sets:
+1. **safety** (100% pass threshold): Boundary violations, PII protection, adversarial prompts, compliance. Methods: Keyword match (all) + Exact match.
+2. **functional** (85% pass threshold): Happy paths, grounding accuracy, routing, tool invocation. Methods: Compare meaning (score 70) + Keyword match (any).
+3. **resilience** (80% pass threshold): Edge cases, graceful failure, tone, cross-cutting. Methods: General quality + Compare meaning (score 60).
+
+Rules:
+- Two methods per test — one specific + one general
+- Include negative tests (what agent should NOT do)
+- Tag each test with scenarioId, scenarioCategory, coverageTag
+- Set readiness: "ready" (runs without customer data) or "template" (needs customization)
+- Target: 40-55 tests total (8-12 safety, 15-25 functional, 10-18 resilience)
+- Cover: core-business 30-40%, variations 20-30%, architecture 20-30%, edge-cases 10-20%
+
+Output valid JSON:
+{
+  "evalSets": [
+    {
+      "name": "<set name>",
+      "passThreshold": <number>,
+      "methods": [{"type": "<method>", "score": <number>, "mode": "<all|any>"}],
+      "tests": [
+        {
+          "question": "<test input>",
+          "expected": "<expected response or keywords>",
+          "capability": "<linked capability name or null>",
+          "scenarioId": "<e.g. CAP-SB-01>",
+          "scenarioCategory": "<category>",
+          "coverageTag": "<core-business|variations|architecture|edge-cases>",
+          "readiness": "<ready|template>"
+        }
+      ]
+    }
+  ],
+  "coverageReport": {
+    "totalTests": <number>,
+    "distribution": {"core-business": "<N%>", "variations": "<N%>", "architecture": "<N%>", "edge-cases": "<N%>"},
+    "categoriesCovered": ["<list>"],
+    "gaps": ["<any missing coverage>"]
+  }
+}`,
+
+    'generate-topics': `You are an expert Microsoft Copilot Studio topic author. Given a topic specification and agent brief context, generate a complete topic in MCS YAML format.
+
+Rules:
+1. Root element: kind: AdaptiveDialog
+2. Every node needs a unique id
+3. PowerFx expressions start with =
+4. Variables: Topic.varName (topic-scoped), init:Topic.varName for new
+5. Input bindings use = prefix, output bindings do NOT
+6. Use specific entities (EmailPrebuiltEntity, not StringPrebuiltEntity for email)
+7. Topic description must be specific for routing (what to use for, what NOT to use for)
+8. For "by agent" triggers: use OnRecognizedIntent with displayName + description, no triggerQueries
+9. activity.text uses array format: - "text"
+10. Adaptive cards: version 1.5, no Action.Execute, max 28KB for Teams
+
+Output valid JSON:
+{
+  "yaml": "<complete MCS YAML topic content>",
+  "description": "<topic routing description>",
+  "nodeCount": <number>,
+  "triggerType": "<OnRecognizedIntent|OnConversationStart|OnEventActivity|etc>",
+  "variables": ["<list of Topic.* variables used>"],
+  "selfCheck": {"deadEnds": [], "missingErrorHandling": [], "variableIssues": []}
+}`,
+
+    'review-flow': `You are an expert Power Automate flow reviewer. Review the flow specification for correctness, completeness, and best practices.
+
+Check for:
+1. **Trigger appropriateness** — Is the trigger type correct for the use case?
+2. **Action ordering** — Are dependencies between actions correct? Missing data flow?
+3. **Error handling** — Does every flow have failure paths? Timeout handling?
+4. **Connector requirements** — Are all connectors specified? Premium vs Standard noted?
+5. **Execution limits** — Sync timeout (120s), payload limits (1MB/action, 5MB/connector), loop limits (5000)
+6. **Agent integration** — If hybrid, are input/output types valid (String/Number/Boolean only)?
+7. **Missing steps** — Are there gaps between the brief capabilities and the flow actions?
+
+Output valid JSON:
+{
+  "findings": [{"severity": "critical|high|medium|low", "category": "trigger|action|error-handling|connector|limits|integration|gap", "location": "flow or step reference", "description": "what's wrong", "suggestion": "how to fix"}],
+  "summary": "2-3 sentence overall assessment",
+  "flowQuality": <1-10 score>
+}`,
+
+    'review-code': `You are an expert code reviewer. Review the code below for quality, correctness, and maintainability.
+
+Check for:
+1. **Bugs** — Logic errors, off-by-one, null/undefined access, race conditions
+2. **Security** — Injection, XSS, insecure data handling, hardcoded secrets
+3. **Dead code** — Unreachable branches, unused variables, redundant checks
+4. **Duplication** — Repeated patterns that should be extracted to shared functions
+5. **Error handling** — Missing try/catch, swallowed errors, unclear error messages
+6. **Naming** — Misleading names, inconsistent conventions
+7. **Complexity** — Overly nested logic, functions doing too much, unclear data flow
+
+Output valid JSON:
+{
+  "findings": [{"severity": "critical|high|medium|low", "category": "bug|security|dead-code|duplication|error-handling|naming|complexity", "location": "line number or function name", "description": "what's wrong", "suggestion": "how to fix"}],
+  "summary": "2-3 sentence overall assessment",
+  "codeQuality": <1-10 score>
+}`,
+
+    'review-components': `You are an expert Microsoft Copilot Studio component reviewer. Review the agent's component selections (integrations, knowledge sources, MCP servers, connectors) for correctness and completeness.
+
+Check for:
+1. **Microsoft-first priority** — Are there simpler Microsoft-native alternatives to chosen components?
+2. **MCP over connectors** — Could any connector be replaced with an MCP server?
+3. **GA vs Preview** — Are production agents using preview features? Is the customer aware?
+4. **Missing components** — Capabilities that don't have supporting integrations
+5. **Redundant components** — Multiple tools serving the same purpose
+6. **License implications** — Premium connectors that could be replaced with standard ones
+7. **Decision quality** — Are structured decisions well-reasoned with genuine tradeoffs?
+
+Output valid JSON:
+{
+  "findings": [{"severity": "critical|high|medium|low", "category": "priority|mcp-opportunity|preview-risk|gap|redundant|license|decision", "location": "integration or component name", "description": "what's wrong", "suggestion": "how to fix"}],
+  "summary": "2-3 sentence overall assessment",
+  "componentQuality": <1-10 score>,
+  "alternatives": [{"current": "<component>", "alternative": "<better option>", "reason": "<why>"}]
 }`
 };
 
@@ -167,10 +357,23 @@ function parseArgs() {
 
     if (args.length === 0 || args[0] === '--help') {
         console.log(`Usage:
+  Review commands:
   node multi-model-review.js review-instructions --brief <path>
   node multi-model-review.js review-topics --file <path> [--brief <path>]
   node multi-model-review.js review-brief --brief <path>
+  node multi-model-review.js review-flow --file <path> [--brief <path>]
+  node multi-model-review.js review-components --brief <path>
+  node multi-model-review.js review-code --file <path> [--context "<description>"]
+
+  Co-generation commands:
+  node multi-model-review.js generate-instructions --brief <path>
+  node multi-model-review.js generate-evals --brief <path>
+  node multi-model-review.js generate-topics --topic-spec <path> [--brief <path>]
+
+  Scoring:
   node multi-model-review.js score --actual "<text>" --expected "<text>" [--method compare-meaning|general-quality]
+
+  Utility:
   node multi-model-review.js models                    List available GPT models
   node multi-model-review.js usage                     Show session usage stats
 
@@ -185,6 +388,8 @@ Setup:    gh auth login && gh auth refresh --scopes copilot`);
         switch (args[i]) {
             case '--brief': config.briefPath = args[++i]; break;
             case '--file': config.filePath = args[++i]; break;
+            case '--topic-spec': config.topicSpecPath = args[++i]; break;
+            case '--context': config.contextDesc = args[++i]; break;
             case '--actual': config.actual = args[++i]; break;
             case '--expected': config.expected = args[++i]; break;
             case '--method': config.method = args[++i]; break;
@@ -378,6 +583,251 @@ async function scoreResponse(config) {
     console.log(JSON.stringify(parsed, null, 2));
 }
 
+// --- Co-Generation Handlers ---
+
+async function generateInstructions(config) {
+    if (!config.briefPath) {
+        console.error('Error: --brief <path> is required for generate-instructions');
+        process.exit(1);
+    }
+
+    const brief = JSON.parse(fs.readFileSync(config.briefPath, 'utf8'));
+    const context = buildContext('generate-instructions');
+
+    const capabilities = brief.capabilities || [];
+    const boundaries = brief.boundaries || {};
+    const integrations = brief.integrations || [];
+    const knowledge = brief.knowledge || [];
+    const persona = brief.persona || {};
+    const model = brief.model || {};
+    const topics = (brief.conversations && brief.conversations.topics) || [];
+
+    const userContent = `## Agent Brief — Generate Instructions
+
+### Identity
+- **Name:** ${brief.agentName || brief.name || 'Unnamed Agent'}
+- **Purpose:** ${brief.purpose || 'Not specified'}
+- **Persona:** ${JSON.stringify(persona)}
+- **Model:** ${model.name || model.recommended || 'GPT-4o'}
+
+### Capabilities (${capabilities.length})
+${capabilities.map(c => `- **${c.name}**: ${c.description || ''} [phase: ${c.phase || 'mvp'}, type: ${c.implementationType || 'prompt'}]`).join('\n')}
+
+### Integrations (${integrations.length})
+${integrations.map(i => `- **${i.name}** (${i.type || 'unknown'}): ${i.description || ''}`).join('\n')}
+
+### Knowledge Sources (${knowledge.length})
+${knowledge.map(k => `- **${k.name}** (${k.type || 'unknown'}): ${k.description || k.scope || ''}`).join('\n')}
+
+### Boundaries
+- Handle: ${(boundaries.handle || []).join(', ') || 'none specified'}
+- Decline: ${(boundaries.decline || []).join(', ') || 'none specified'}
+- Refuse: ${(boundaries.refuse || []).join(', ') || 'none specified'}
+
+### Topics (${topics.length})
+${topics.map(t => `- **${t.name}** [trigger: ${t.triggerType || 'unknown'}, type: ${t.topicType || 'custom'}]`).join('\n')}`;
+
+    const result = await chatCompletion([
+        { role: 'system', content: PROMPTS['generate-instructions'] + '\n\n' + context },
+        { role: 'user', content: userContent }
+    ], { maxTokens: 4096 });
+
+    const parsed = parseGptJson(result.content);
+    parsed._usage = result.usage;
+    parsed._cost = `$${result.cost.toFixed(4)}`;
+    console.log(JSON.stringify(parsed, null, 2));
+}
+
+async function generateEvals(config) {
+    if (!config.briefPath) {
+        console.error('Error: --brief <path> is required for generate-evals');
+        process.exit(1);
+    }
+
+    const brief = JSON.parse(fs.readFileSync(config.briefPath, 'utf8'));
+    const context = buildContext('generate-evals');
+
+    const capabilities = brief.capabilities || [];
+    const boundaries = brief.boundaries || {};
+    const integrations = brief.integrations || [];
+    const knowledge = brief.knowledge || [];
+    const topics = (brief.conversations && brief.conversations.topics) || [];
+
+    const userContent = `## Agent Brief — Generate Eval Sets
+
+### Agent
+- **Name:** ${brief.agentName || brief.name || 'Unnamed Agent'}
+- **Purpose:** ${brief.purpose || 'Not specified'}
+
+### Capabilities (${capabilities.length})
+${capabilities.map(c => `- **${c.name}**: ${c.description || ''} [phase: ${c.phase || 'mvp'}, type: ${c.implementationType || 'prompt'}]`).join('\n')}
+
+### Integrations (${integrations.length})
+${integrations.map(i => `- **${i.name}** (${i.type || 'unknown'}): ${i.description || ''}`).join('\n')}
+
+### Knowledge Sources (${knowledge.length})
+${knowledge.map(k => `- **${k.name}** (${k.type || 'unknown'}): ${k.description || k.scope || ''}`).join('\n')}
+
+### Boundaries
+- Handle: ${(boundaries.handle || []).join(', ') || 'none specified'}
+- Decline: ${(boundaries.decline || []).join(', ') || 'none specified'}
+- Refuse: ${(boundaries.refuse || []).join(', ') || 'none specified'}
+
+### Topics (${topics.length})
+${topics.map(t => `- **${t.name}** [trigger: ${t.triggerType || 'unknown'}]`).join('\n')}`;
+
+    const result = await chatCompletion([
+        { role: 'system', content: PROMPTS['generate-evals'] + '\n\n' + context },
+        { role: 'user', content: userContent }
+    ], { maxTokens: 8192 });
+
+    const parsed = parseGptJson(result.content);
+    parsed._usage = result.usage;
+    parsed._cost = `$${result.cost.toFixed(4)}`;
+    console.log(JSON.stringify(parsed, null, 2));
+}
+
+async function generateTopics(config) {
+    if (!config.topicSpecPath) {
+        console.error('Error: --topic-spec <path> is required for generate-topics');
+        process.exit(1);
+    }
+
+    const topicSpec = JSON.parse(fs.readFileSync(config.topicSpecPath, 'utf8'));
+    const context = buildContext('generate-topics');
+
+    let briefContext = '';
+    if (config.briefPath) {
+        try {
+            const brief = JSON.parse(fs.readFileSync(config.briefPath, 'utf8'));
+            const caps = (brief.capabilities || []).map(c => `- ${c.name}: ${c.description || ''}`).join('\n');
+            const integs = (brief.integrations || []).map(i => `- ${i.name} (${i.type})`).join('\n');
+            const channels = (brief.channels || []).join(', ') || 'Teams, Web Chat';
+            briefContext = `\n\n## Brief Context\n\n### Capabilities\n${caps}\n\n### Integrations\n${integs}\n\n### Target Channels\n${channels}`;
+        } catch { /* skip brief context if unreadable */ }
+    }
+
+    const userContent = `## Topic Specification — Generate YAML
+
+\`\`\`json
+${JSON.stringify(topicSpec, null, 2)}
+\`\`\`
+${briefContext}`;
+
+    const result = await chatCompletion([
+        { role: 'system', content: PROMPTS['generate-topics'] + '\n\n' + context },
+        { role: 'user', content: userContent }
+    ], { maxTokens: 4096 });
+
+    const parsed = parseGptJson(result.content);
+    parsed._usage = result.usage;
+    parsed._cost = `$${result.cost.toFixed(4)}`;
+    console.log(JSON.stringify(parsed, null, 2));
+}
+
+async function reviewFlow(config) {
+    if (!config.filePath) {
+        console.error('Error: --file <path> is required for review-flow');
+        process.exit(1);
+    }
+
+    const flowContent = fs.readFileSync(config.filePath, 'utf8');
+    const context = buildContext('review-flow');
+
+    let briefContext = '';
+    if (config.briefPath) {
+        try {
+            const brief = JSON.parse(fs.readFileSync(config.briefPath, 'utf8'));
+            const caps = (brief.capabilities || []).filter(c => c.implementationType === 'flow').map(c => `- ${c.name}: ${c.description || ''}`).join('\n');
+            const integs = (brief.integrations || []).map(i => `- ${i.name} (${i.type})`).join('\n');
+            briefContext = `\n\n## Brief Context\n\n### Flow Capabilities\n${caps}\n\n### Integrations\n${integs}`;
+        } catch { /* skip brief context if unreadable */ }
+    }
+
+    const userContent = `## Flow Specification to Review
+
+${flowContent}
+${briefContext}`;
+
+    const result = await chatCompletion([
+        { role: 'system', content: PROMPTS['review-flow'] + '\n\n' + context },
+        { role: 'user', content: userContent }
+    ]);
+
+    const parsed = parseGptJson(result.content);
+    parsed._usage = result.usage;
+    parsed._cost = `$${result.cost.toFixed(4)}`;
+    console.log(JSON.stringify(parsed, null, 2));
+}
+
+async function reviewCode(config) {
+    if (!config.filePath) {
+        console.error('Error: --file <path> is required for review-code');
+        process.exit(1);
+    }
+
+    const codeContent = fs.readFileSync(config.filePath, 'utf8');
+    const ext = path.extname(config.filePath).toLowerCase();
+    const context = buildContext('review-code');
+
+    let contextNote = '';
+    if (config.contextDesc) {
+        contextNote = `\n\n## Context\n${config.contextDesc}`;
+    }
+
+    const userContent = `## Code to Review
+
+**File:** ${path.basename(config.filePath)} (${ext})
+**Lines:** ${codeContent.split('\n').length}
+
+\`\`\`${ext.replace('.', '')}
+${codeContent}
+\`\`\`
+${contextNote}`;
+
+    const result = await chatCompletion([
+        { role: 'system', content: PROMPTS['review-code'] + '\n\n' + context },
+        { role: 'user', content: userContent }
+    ]);
+
+    const parsed = parseGptJson(result.content);
+    parsed._usage = result.usage;
+    parsed._cost = `$${result.cost.toFixed(4)}`;
+    console.log(JSON.stringify(parsed, null, 2));
+}
+
+async function reviewComponents(config) {
+    if (!config.briefPath) {
+        console.error('Error: --brief <path> is required for review-components');
+        process.exit(1);
+    }
+
+    const brief = JSON.parse(fs.readFileSync(config.briefPath, 'utf8'));
+    const context = buildContext('review-components');
+
+    const summary = {
+        agentName: brief.agentName || brief.name,
+        purpose: brief.purpose,
+        integrations: brief.integrations || [],
+        knowledge: brief.knowledge || [],
+        capabilities: (brief.capabilities || []).map(c => ({ name: c.name, phase: c.phase, implementationType: c.implementationType })),
+        decisions: (brief.decisions || []).map(d => ({ id: d.id, question: d.question, status: d.status, category: d.category, recommendedOptionId: d.recommendedOptionId })),
+        architecture: brief.architecture
+    };
+
+    const userContent = `## Agent Components to Review\n\n\`\`\`json\n${JSON.stringify(summary, null, 2)}\n\`\`\``;
+
+    const result = await chatCompletion([
+        { role: 'system', content: PROMPTS['review-components'] + '\n\n' + context },
+        { role: 'user', content: userContent }
+    ]);
+
+    const parsed = parseGptJson(result.content);
+    parsed._usage = result.usage;
+    parsed._cost = `$${result.cost.toFixed(4)}`;
+    console.log(JSON.stringify(parsed, null, 2));
+}
+
 async function showModels() {
     let token;
     try {
@@ -475,6 +925,24 @@ async function main() {
                 break;
             case 'review-brief':
                 await reviewBrief(config);
+                break;
+            case 'review-flow':
+                await reviewFlow(config);
+                break;
+            case 'review-code':
+                await reviewCode(config);
+                break;
+            case 'review-components':
+                await reviewComponents(config);
+                break;
+            case 'generate-instructions':
+                await generateInstructions(config);
+                break;
+            case 'generate-evals':
+                await generateEvals(config);
+                break;
+            case 'generate-topics':
+                await generateTopics(config);
                 break;
             case 'score':
                 await scoreResponse(config);

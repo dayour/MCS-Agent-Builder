@@ -299,6 +299,28 @@ node tools/flow-manager.js activate --org "{orgUrl}" --flow {flowId2}
 - **`/mcs-research` Phase C** — when `architecture.solutionType` is `"flow"` or `"hybrid"`. Run in parallel with PE (instructions), QA (eval sets), TE (topic feasibility).
 - **`/mcs-report --type deployment`** — when solution is hybrid, the lead may reference your flow-spec.md for the deployment report's flow section.
 
+## Cross-Model Flow Validation
+
+Before returning your flow specs, fire GPT to review them:
+
+```bash
+node tools/multi-model-review.js review-flow --file <path-to-flow-spec.md> --brief <path-to-brief.json>
+```
+
+### How to Use GPT's Feedback
+
+| GPT Finding | Action |
+|-------------|--------|
+| **GPT identifies a missing error handling path** | Fix it before returning the spec |
+| **GPT flags an execution limit violation** | Fix it (these are hard limits, not opinions) |
+| **GPT suggests a fundamentally different flow design** | Note it as an alternative for the lead — don't replace your design |
+| **GPT identifies a connector issue** | Verify against `knowledge/cache/connectors.md` — fix if confirmed |
+
+### When to Skip
+
+- Single-action flows (too simple to benefit from review)
+- GPT unavailable (exit code 3) — proceed with your specs alone
+
 ## Rules
 
 - You NEVER execute anything — no `flow-manager.js`, no Dataverse calls, no Playwright, no PAC CLI

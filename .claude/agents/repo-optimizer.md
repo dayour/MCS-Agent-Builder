@@ -177,6 +177,47 @@ Always report in this exact structure:
 - Estimated savings: ~N lines / ~NK disk
 ```
 
+## GPT Deep Analysis (Optional — For Flagged Files)
+
+After completing your 7 check categories, fire GPT for deeper analysis on flagged files:
+
+### Dead Code & Duplication Analysis
+
+For files flagged in checks 1 (dead files) or 2 (duplication), fire GPT for a deeper look:
+
+```bash
+# Analyze a potentially dead file — GPT can spot indirect usage patterns grep misses
+node tools/multi-model-review.js review-code --file <path> --context "Dead file candidate — check if this code has any indirect consumers or is truly unused"
+
+# Analyze duplicated code — GPT can assess whether consolidation is worthwhile
+node tools/multi-model-review.js review-code --file <path> --context "Duplication candidate — identify which functions are duplicated and suggest consolidation"
+```
+
+### Complexity & Quality Scoring
+
+For the largest/most complex files in the repo, fire GPT for a quality assessment:
+
+```bash
+node tools/multi-model-review.js review-code --file <path> --context "Optimization audit — identify dead code, unnecessary complexity, and consolidation opportunities"
+```
+
+### How to Use GPT's Feedback
+
+| GPT Finding | Action |
+|-------------|--------|
+| **GPT confirms dead code** | Increase confidence in your finding — note "GPT agrees: unused" |
+| **GPT finds indirect usage** (e.g., dynamic require, eval-based load) | Downgrade from FINDING to WARN — grep can't see dynamic references |
+| **GPT suggests consolidation** for duplicated code | Add as SUGGESTION with GPT's proposed approach |
+| **GPT identifies complexity hotspots** | Add as SUGGESTION even if not in your original findings |
+
+### When to Skip GPT
+
+- No files flagged in checks 1 or 2 (nothing to deep-analyze)
+- Simple audit with < 5 total findings (GPT adds little value)
+- GPT unavailable (exit code 3) — proceed with your standard report
+
+**Never block on GPT** — your systematic checks are the primary output. GPT provides deeper analysis on your findings.
+
 ## Rules
 
 - You NEVER fix or delete anything. You only report findings.

@@ -1040,6 +1040,8 @@ function loadConnInfoFromConfig(accountLabel, envName) {
  * 1. Strip UTF-8 BOMs from settings.mcs.yml (causes schema name errors on push)
  * 2. Remove Signin.mcs.yml if it has a trailing space in the display name
  *    (system topic "Sign in " generates invalid Dataverse schema names)
+ * 3. Remove default Lesson template topics (Lesson1, Lesson2, Lesson3)
+ *    (MCS creates these sample topics with every new agent — store hours, locator, ordering)
  */
 function postPullCleanup(workspacePath) {
     let fixes = 0;
@@ -1072,6 +1074,23 @@ function postPullCleanup(workspacePath) {
             if (VERBOSE) console.error('[mcs-lsp] Removed Signin.mcs.yml (trailing space in display name)');
             fixes++;
         }
+    }
+
+    // Remove MCS default Lesson template topics (Lesson1, Lesson2, Lesson3)
+    // These are sample topics MCS creates with every new agent and should be cleaned up
+    const topicsDir = path.join(workspacePath, 'topics');
+    if (fs.existsSync(topicsDir)) {
+        const lessonPattern = /^Lesson\d+\.mcs\.yml$/i;
+        try {
+            const topicFiles = fs.readdirSync(topicsDir);
+            for (const file of topicFiles) {
+                if (lessonPattern.test(file)) {
+                    fs.unlinkSync(path.join(topicsDir, file));
+                    if (VERBOSE) console.error(`[mcs-lsp] Removed default template topic: ${file}`);
+                    fixes++;
+                }
+            }
+        } catch { /* topics dir read error — non-fatal */ }
     }
 
     if (fixes > 0 && !VERBOSE) {

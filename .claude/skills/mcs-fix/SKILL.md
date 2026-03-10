@@ -126,9 +126,12 @@ Spawn **Prompt Engineer** when QA identified `instruction gap` or `boundary viol
 - Boundary violations → check if dedicated topic exists (instructions alone are unreliable for hard boundaries)
 - If routing was wrong → fix topic descriptions FIRST (routing priority: description > name > parameters > instructions)
 
+**PE uses dual model co-generation** for fix proposals — fires `generate-instructions` via GPT and merges (union of constraints, stricter boundaries win). See PE agent definition for full merge protocol.
+
 PE produces:
 - Revised instructions draft (or targeted delta for specific sections)
 - Self-verification: char count < 8000, no anti-patterns, all referenced tools exist, boundaries intact
+- Co-generation summary (if GPT was used): what GPT added, contradictions resolved
 
 ### Topic Fixes — Topic Engineer
 
@@ -138,8 +141,11 @@ Spawn **Topic Engineer** when QA identified `routing failure` failures. Provide 
 - `knowledge/patterns/yaml-reference.md` for YAML syntax
 - `knowledge/cache/triggers.md` for trigger options
 
+**TE uses dual model co-generation** for complex topic fixes (3+ nodes) — fires `generate-topics` via GPT and merges. See TE agent definition for full merge protocol.
+
 TE produces:
 - Revised topic YAML (new trigger phrases, adjusted descriptions for "by agent" routing, new topic if needed)
+- Co-generation summary (if GPT was used): what GPT contributed, validation results
 - TE runs full validation pipeline:
   1. `tools/om-cli/om-cli.exe validate -f <file.yaml>` — structural validation
   2. `python tools/semantic-gates.py <file.yaml> --brief <brief.json>` — semantic gates (PowerFx, cross-refs, variables, channels, connectors)

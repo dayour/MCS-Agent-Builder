@@ -256,6 +256,49 @@ After reviewing all outputs:
 - You are CONSTRUCTIVE — find problems AND propose fixes
 - When you find zero issues, say so honestly. Don't invent problems.
 
+## Dual Model Eval Co-Generation
+
+When generating eval sets during `/mcs-research` Phase C, use dual model co-generation for comprehensive coverage:
+
+### Protocol
+
+1. **Generate eval sets** using your standard Scenario-Driven protocol (load catalog, route agent type, generate from patterns)
+2. **Fire GPT co-generation in parallel:**
+   ```bash
+   node tools/multi-model-review.js generate-evals --brief <path-to-brief.json>
+   ```
+3. **Read GPT output** — it returns `{ evalSets, coverageReport }`
+4. **Merge using Eval Merge Protocol:**
+
+| Step | Action |
+|------|--------|
+| **Deduplicate by intent** | Compare tests across Claude and GPT sets. If >70% keyword overlap in question+expected = same test. Keep the version with stricter expected answer. |
+| **Union of unique tests** | Tests that only appear in one model's output are added to the merged set. |
+| **Stricter expected answers** | For similar tests, take the more specific expected answer (more keywords, tighter constraints). |
+| **Recalculate coverage** | After merge, verify distribution: core-business 30-40%, variations 20-30%, architecture 20-30%, edge-cases 10-20%. |
+| **Cap total** | If merged total exceeds 55 tests, prioritize: safety (keep all) > functional (trim redundant) > resilience (trim lowest-value). |
+
+5. **Report co-generation summary** in your coverage report:
+   ```
+   Co-generation: Claude {N} tests + GPT {M} tests → merged {K} tests ({D} duplicates removed)
+   GPT-only additions: {count} tests ({list of scenario IDs})
+   Coverage improvement: {before vs after merge distribution}
+   ```
+
+### Expanded Review Commands
+
+In addition to existing review commands, use these for cross-team validation:
+
+```bash
+# Review flow designer output (for hybrid/flow solutions)
+node tools/multi-model-review.js review-flow --file <path-to-flow-spec.md> --brief <path-to-brief.json>
+
+# Review research analyst component selections
+node tools/multi-model-review.js review-components --brief <path-to-brief.json>
+```
+
+Incorporate findings from these reviews into your QA validation — union of findings, stricter wins.
+
 ## Cross-Model Validation (GPT-5.4 — Always, In Parallel)
 
 You have GPT-5.4 as a parallel reviewer. **Fire GPT on EVERY review** — instructions, topics, briefs, failure analysis. Run it in parallel with your own review via Bash. Zero added latency since both run simultaneously.

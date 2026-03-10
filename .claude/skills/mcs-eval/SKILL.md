@@ -286,15 +286,26 @@ Also cache the token endpoint URL if we discovered it:
 
 **VERIFY:** Read brief.json back. Confirm each test in the run sets has a `lastResult` with `pass`, `actual`, and `timestamp`.
 
-### Step 4.5: GPT Dual Scoring (Borderline Tests)
+### Step 4.5: GPT Dual Scoring (Borderline Tests — 4 Semantic Methods)
 
-For tests with borderline scores (within 15 points of the pass/fail threshold), fire GPT-5.4 for a second opinion:
+For tests with borderline scores (within 15 points of the pass/fail threshold), the eval runner uses GPT-enhanced async scoring automatically. Four semantic methods now support dual scoring:
 
+| Method | Async Variant | Dual Scoring |
+|--------|--------------|-------------|
+| Compare meaning | `semanticSimilarityAsync` | Yes — heuristic + GPT, stricter wins |
+| General quality | `qualityScoreAsync` | Yes — heuristic + GPT, stricter wins |
+| Text similarity | `textSimilarityAsync` | Yes — heuristic + GPT, stricter wins |
+| Capability use | `capabilityUseAsync` | Yes — heuristic + GPT, stricter wins |
+| Exact match | (sync only) | No — deterministic, no LLM needed |
+| Keyword match | (sync only) | No — deterministic, no LLM needed |
+| Plan validation | (sync only) | No — deterministic, no LLM needed |
+
+**When dual scoring activates:** `evaluateAllMethodsAsync()` routes CompareMeaning, GeneralQuality, TextSimilarity, and CapabilityUse through their async variants. Each runs heuristic + GPT in parallel, merges with `_mergeScores()` (stricter/lower score wins). >20pt divergence = flagged.
+
+For additional borderline review, fire the CLI scorer:
 ```bash
-node tools/multi-model-review.js score --brief <path-to-brief.json>
+node tools/multi-model-review.js score --actual "<response>" --expected "<expected>" --method compare-meaning
 ```
-
-**When to fire:** Any test where the heuristic score is within 15 points of the threshold (e.g., score 55-85 when threshold is 70). Skip for clearly passing (>threshold+15) or clearly failing (<threshold-15) tests.
 
 **Merge protocol:** Lower score wins. If GPT and Claude scores diverge by >20 points, flag the test as "borderline — manual review recommended" in `lastResult.notes`.
 

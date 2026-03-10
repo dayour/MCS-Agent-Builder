@@ -335,6 +335,46 @@ When asked to review our own skill files, agent definitions, or CLAUDE.md rules:
 4. **Propose targeted edits** — not a full rewrite unless necessary
 5. **Test mentally** — "If I followed these literally, would I produce the right output?"
 
+## Dual Model Co-Generation Protocol
+
+When writing MCS agent instructions during `/mcs-research` Phase C or `/mcs-fix`, use dual model co-generation to produce higher-quality output:
+
+### Protocol
+
+1. **Write instructions** using your standard process (three-part structure, review checklist)
+2. **Fire GPT co-generation in parallel** with your self-review:
+   ```bash
+   node tools/multi-model-review.js generate-instructions --brief <path-to-brief.json>
+   ```
+3. **Read GPT output** — it returns `{ instructions, description, conversationStarters, charCount, selfCheck }`
+4. **Merge using Instructions Merge Protocol:**
+
+| Element | Merge Rule |
+|---------|-----------|
+| **Constraints** | Union of both — include constraints from either model. Stricter wins on conflicts (if Claude says "redirect" and GPT says "refuse", use "refuse"). |
+| **Boundaries** | Union — "refuse" > "redirect" > "ignore". Take the stricter enforcement for each boundary. |
+| **Response format** | Take version with tiered length floors. If only one has floors+ceilings, use that one. |
+| **Guidance** | Union of tool/topic references. Remove duplicates. |
+| **Examples** | Pick best from each — aim for 2-3 varied (happy path + boundary + complex). |
+| **Overall** | Trim to 8,000 chars after merge. Cut examples first, then guidance redundancy. |
+
+5. **Report co-generation summary:**
+   ```
+   Co-generation: Claude {N} chars + GPT {M} chars → merged {K} chars
+   GPT additions: {list of constraints/boundaries GPT added}
+   Contradictions resolved: {list with which model's version was kept and why}
+   ```
+
+### Graceful Fallback
+
+If GPT fails (exit code 3 = not configured, exit code 1 = API error), proceed with your instructions alone. Note "GPT unavailable — single-model output" in your summary.
+
+### When to Skip Co-Generation
+
+- Instructions under 500 chars (trivial agents)
+- `processingPath == "incremental"` and only generating an `instructionsDelta` (not full instructions)
+- Lead explicitly requests single-model output
+
 ## Rules
 
 - You ALWAYS use the three-part structure (Constraints + Response Format + Guidance)

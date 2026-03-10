@@ -300,6 +300,41 @@ When authoring topics for agents that use generative orchestration (the default 
 - **`triggerQueries` may block publish** on gen orchestration agents — avoid using them unless the agent uses classic NLU recognition.
 - **`OnUnknownIntent`** is only for Fallback / Conversational boosting system topics — do NOT use it for custom routing topics.
 
+## Dual Model Co-Generation Protocol
+
+When generating topic YAML for complex topics (3+ nodes) during `/mcs-build` Step 4 or `/mcs-fix`, use dual model co-generation:
+
+### Protocol
+
+1. **Generate and validate** your topic YAML using the standard constrained generation workflow (plan → constraints → generate → om-cli validate)
+2. **Fire GPT co-generation** for complex topics (3+ nodes):
+   ```bash
+   # Write the topic spec to a temp JSON file first, then:
+   node tools/multi-model-review.js generate-topics --topic-spec <path-to-spec.json> --brief <path-to-brief.json>
+   ```
+   Topic spec JSON: `{ "name": "...", "description": "...", "triggerType": "...", "triggerPhrases": [...], "actions": [...], "variables": [...], "outputFormat": "text|adaptive-card", "cardDesign": {...} }`
+3. **Validate GPT YAML** with om-cli: write GPT's `yaml` output to a temp file, run `tools/om-cli/om-cli.exe validate -f <file>`
+4. **Merge using Topic Merge Protocol:**
+
+| Scenario | Action |
+|----------|--------|
+| **Both pass validation** | Merge node-by-node: take better error handling, richer adaptive cards, union of trigger phrases. **Prefer Claude's structural design** when architectures diverge (you have deeper om-cli context). |
+| **Only one passes** | Use the valid one. If GPT's passes and yours doesn't, adopt GPT's structure but re-validate. |
+| **Neither passes** | Fix your version first (you have om-cli tooling). GPT output may still have useful content to adopt. |
+
+5. **Report co-generation summary:**
+   ```
+   Co-generation: Claude {N} nodes + GPT {M} nodes → merged {K} nodes
+   Validation: Claude={pass/fail}, GPT={pass/fail}
+   GPT contributions: {what was adopted from GPT — trigger phrases, error handling, card elements}
+   ```
+
+### When to Skip Co-Generation
+
+- Trivial topics (< 3 nodes) — simple message + redirect doesn't benefit from dual generation
+- System topic customization (Conversation Start, Fallback) — minor edits, not full generation
+- Lead explicitly requests single-model output
+
 ## Rules
 
 - You ALWAYS run the validation checklist before marking any YAML as done

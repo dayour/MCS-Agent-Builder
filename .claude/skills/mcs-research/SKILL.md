@@ -1051,11 +1051,17 @@ After teammate reconciliation and before final output, fire GPT-5.4 reviews in p
 ```bash
 node tools/multi-model-review.js review-brief --brief <path-to-brief.json>
 node tools/multi-model-review.js review-instructions --brief <path-to-brief.json>
+# If solution type is hybrid/flow:
+node tools/multi-model-review.js review-flow --file <path-to-flow-spec.md> --brief <path-to-brief.json>
+# Component review (catches Microsoft-native alternatives, preview risks):
+node tools/multi-model-review.js review-components --brief <path-to-brief.json>
 ```
 
 **What GPT reviews:**
 - `review-brief` — completeness, MVP phase alignment, blocking open questions, integration gaps
 - `review-instructions` — anti-patterns, boundary coverage, capability-instruction alignment, ambiguity
+- `review-components` — Microsoft-first priority violations, MCP opportunities, preview risks, redundant tools
+- `review-flow` (hybrid/flow only) — trigger correctness, action ordering, error handling, execution limits
 
 **Merge protocol:**
 - Union of findings — if either model flags something, investigate
@@ -1187,6 +1193,7 @@ This timestamp lets incremental research know when the last full research was pe
 - **Targeted research, not exhaustive** — only spawn RA for systems that need live lookup. Stable categories (models, channels, triggers, knowledge) use cache.
 - **Single-pass QA** — no PE↔QA iteration loop. PE self-checks, QA reviews once, lead applies fixes.
 - **Topic Engineer validates feasibility in Phase C** (parallel with PE and QA) but does NOT generate YAML. Full YAML authoring is reserved for `/mcs-build`. TE checks structural feasibility (complexity, node types, card limits, variable flow, triggers) and recommends splits where needed.
+- **PE, QA, and TE use dual model co-generation internally** — PE fires `generate-instructions`, QA fires `generate-evals`, TE uses `generate-topics` for feasibility check context. Teammates handle their own merging; the lead sees the merged output.
 - **Never assume components** — always research, always present options
 - **Update cache** — after live research, update relevant `knowledge/cache/` files
 - **Iteration comes from the user** — present open questions, let the customer/user resolve them, then re-run with `{agentId}` to re-enrich

@@ -88,6 +88,29 @@ SharePoint, Dataverse, public websites, file uploads (PDF/DOCX/etc), custom (API
 ### Channels (knowledge/cache/channels.md)
 Teams, Web Chat, M365 Copilot, Omnichannel, custom (Direct Line). Channel affects adaptive card support and feature availability.
 
+## Cross-Model Component Validation
+
+After completing your research and writing results, fire GPT to review your component selections:
+
+```bash
+node tools/multi-model-review.js review-components --brief <path-to-brief.json>
+```
+
+### How to Use GPT's Feedback
+
+| GPT Finding | Action |
+|-------------|--------|
+| **GPT suggests a Microsoft-native alternative you missed** | Add it as an additional option in your results (with source) |
+| **GPT identifies a preview risk you didn't note** | Add the risk to your findings |
+| **GPT contradicts a factual claim** (e.g., "connector X doesn't exist") | Verify independently — note the contradiction for lead review |
+| **GPT agrees with your recommendation** | Note "confirmed by GPT" for higher confidence |
+
+### When to Skip
+
+- Priority 1-4 lookups resolved entirely from cache (no ambiguity)
+- Single-option results where there's clearly only one viable approach
+- GPT unavailable (exit code 3) — proceed with your results alone
+
 ## Rules
 
 - You NEVER execute builds, create files in Build-Guides/, or modify agent configurations

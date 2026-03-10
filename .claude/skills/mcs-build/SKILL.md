@@ -505,7 +505,7 @@ The clone creates a subfolder named after the agent (e.g., `workspace/Agent Name
 **VERIFY:** Workspace directory exists with `.mcs/conn.json` and at least `agent.mcs.yml`.
 
 #### LSP Workflow Notes
-- Clone runs `postPullCleanup()` automatically — strips BOMs from `settings.mcs.yml` and removes `Signin.mcs.yml` (trailing space bug)
+- Clone runs `postPullCleanup()` automatically — strips BOMs from `settings.mcs.yml`, removes `Signin.mcs.yml` (trailing space bug), and deletes default Lesson template topics (Lesson1-3)
 - For updates: pull first (refreshes changetoken), then edit, then push
 - Gen orchestration topics: use `modelDescription` for routing — `triggerQueries` may block publish
 - Push response `localChanges` may under-report (shows "Settings" but actually pushes instructions, model, knowledge, topics)
@@ -716,7 +716,7 @@ Read `knowledge/learnings/topics-triggers.md` (if non-empty) before authoring to
 
 **Skip check:** If `"topics"` is in `completedSteps`, skip this entire step.
 
-Use **Topic Engineer** teammate to generate validated YAML.
+Use **Topic Engineer** teammate to generate validated YAML. **TE uses dual model co-generation** for complex topics (3+ nodes) — fires `generate-topics` via GPT and merges results. Trivial topics (< 3 nodes) use single-model generation.
 
 **Phase filter:** Only author `conversations.topics[]` entries where `phase == "mvp"`. Log skipped future topics.
 
@@ -1015,9 +1015,11 @@ After QA validation verdict (Step 5.5) and before finalizing buildStatus, fire G
 ```bash
 node tools/multi-model-review.js review-brief --brief <path-to-brief.json>
 node tools/multi-model-review.js review-instructions --brief <path-to-brief.json>
+# Per-topic review for each custom topic YAML:
+node tools/multi-model-review.js review-topics --file <path-to-topic.yaml> --brief <path-to-brief.json>
 ```
 
-**What GPT checks:** Drift between brief spec and actual built agent, instruction issues that QA's structural check missed, integration gaps.
+**What GPT checks:** Drift between brief spec and actual built agent, instruction issues that QA's structural check missed, integration gaps, per-topic logic issues (dead-end branches, missing error handling, trigger coverage).
 
 **Merge with QA verdict:** GPT findings merge into the QA validation — union of findings, stricter wins. If GPT finds a critical issue QA missed, escalate to user before writing buildStatus.
 

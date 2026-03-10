@@ -19,6 +19,8 @@
  * Async GPT-enhanced variants (optional — fall back to heuristics):
  *   semanticSimilarityAsync(actual, expected)
  *   qualityScoreAsync(actual, expected)
+ *   textSimilarityAsync(actual, expected)
+ *   capabilityUseAsync(actual, expected)
  *   evaluateResultAsync(actual, expected, method, passingScore, mode)
  *   evaluateAllMethodsAsync(actual, expected, methods, toolInvocations?)
  */
@@ -602,8 +604,63 @@ async function qualityScoreAsync(actual, expected) {
 }
 
 /**
- * Async version of evaluateResult — uses GPT for CompareMeaning and GeneralQuality.
- * All other methods use the sync implementation (deterministic, no LLM needed).
+ * GPT-enhanced text similarity. Runs heuristic + GPT in parallel, merges with stricter-wins.
+ * @param {string} actual
+ * @param {string} expected
+ * @returns {Promise<{score: number, reasoning?: string, source: string, heuristicScore?: number, gptScore?: number, flagged?: boolean}>}
+ */
+async function textSimilarityAsync(actual, expected) {
+    const hScore = textSimilarity(actual, expected);
+    const openai = _getOpenAI();
+    if (!openai) {
+        return { score: hScore, source: 'heuristic' };
+    }
+    try {
+        const result = await openai.chatCompletion([
+            { role: 'system', content: 'Compare the two texts for word-level and structural similarity (not just meaning). Score how closely the actual text matches the expected text in wording, phrasing, and structure. Output JSON: {"score": 0-100, "reasoning": "brief explanation"}' },
+            { role: 'user', content: `Actual: ${actual}\n\nExpected: ${expected}` }
+        ], { maxTokens: 256 });
+        const parsed = _parseGptJson(result.content);
+        return _mergeScores(hScore, parsed.score, parsed.reasoning);
+    } catch {
+        return { score: hScore, source: 'heuristic-fallback' };
+    }
+}
+
+/**
+ * GPT-enhanced capability use check. Runs heuristic + GPT in parallel, merges with stricter-wins.
+ * @param {string} actual - The agent's actual response
+ * @param {string} expected - Comma-separated indicators/tools that should be present
+ * @returns {Promise<{score: number, reasoning?: string, source: string, heuristicScore?: number, gptScore?: number, flagged?: boolean}>}
+ */
+async function capabilityUseAsync(actual, expected) {
+    // Heuristic: same as sync CapabilityUse
+    const indicators = expected.toLowerCase().split(/[,;]+/).map(s => s.trim()).filter(Boolean);
+    const actualLower = actual.toLowerCase();
+    const hits = indicators.filter(ind => actualLower.includes(ind)).length;
+    const hScore = indicators.length > 0
+        ? Math.round((hits / indicators.length) * 100)
+        : (actual.length > 20 ? 80 : 0);
+
+    const openai = _getOpenAI();
+    if (!openai) {
+        return { score: hScore, source: 'heuristic' };
+    }
+    try {
+        const result = await openai.chatCompletion([
+            { role: 'system', content: 'Evaluate whether the agent response demonstrates use of the expected capabilities/tools. The expected field lists indicators (tool names, action descriptions, or output markers) that should be evident in the response. Score 0-100 based on how many expected capabilities are demonstrated. Output JSON: {"score": 0-100, "reasoning": "brief explanation"}' },
+            { role: 'user', content: `Agent response: ${actual}\n\nExpected capabilities/indicators: ${expected}` }
+        ], { maxTokens: 256 });
+        const parsed = _parseGptJson(result.content);
+        return _mergeScores(hScore, parsed.score, parsed.reasoning);
+    } catch {
+        return { score: hScore, source: 'heuristic-fallback' };
+    }
+}
+
+/**
+ * Async version of evaluateResult — uses GPT for CompareMeaning, GeneralQuality,
+ * TextSimilarity, and CapabilityUse. All other methods use sync (deterministic).
  *
  * @param {string} actual
  * @param {string} expected
@@ -617,7 +674,7 @@ async function evaluateResultAsync(actual, expected, method, passingScore, mode)
     const canonicalMethod = normalized.method;
     const threshold = passingScore || 70;
 
-    // Only CompareMeaning and GeneralQuality benefit from GPT scoring
+    // CompareMeaning — GPT-enhanced semantic similarity
     if (canonicalMethod === 'CompareMeaning') {
         const result = await semanticSimilarityAsync(actual || '', expected || '');
         return {
@@ -629,8 +686,33 @@ async function evaluateResultAsync(actual, expected, method, passingScore, mode)
         };
     }
 
+    // GeneralQuality — GPT-enhanced quality scoring
     if (canonicalMethod === 'GeneralQuality') {
         const result = await qualityScoreAsync(actual || '', expected || '');
+        return {
+            pass: result.score >= threshold,
+            score: result.score,
+            method: canonicalMethod,
+            reasoning: result.reasoning,
+            source: result.source
+        };
+    }
+
+    // TextSimilarity — GPT-enhanced text closeness
+    if (canonicalMethod === 'TextSimilarity') {
+        const result = await textSimilarityAsync(actual || '', expected || '');
+        return {
+            pass: result.score >= threshold,
+            score: result.score,
+            method: canonicalMethod,
+            reasoning: result.reasoning,
+            source: result.source
+        };
+    }
+
+    // CapabilityUse — GPT-enhanced capability detection
+    if (canonicalMethod === 'CapabilityUse') {
+        const result = await capabilityUseAsync(actual || '', expected || '');
         return {
             pass: result.score >= threshold,
             score: result.score,
@@ -685,6 +767,8 @@ module.exports = {
     // Async GPT-enhanced variants
     semanticSimilarityAsync,
     qualityScoreAsync,
+    textSimilarityAsync,
+    capabilityUseAsync,
     evaluateResultAsync,
     evaluateAllMethodsAsync
 };

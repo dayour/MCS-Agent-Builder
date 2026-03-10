@@ -49,6 +49,40 @@ The `brief.json` file is the single source of truth for an agent build:
 - `architecture` — single-agent or multi-agent design
 - `model` — which LLM powers the agent (GPT-4o, GPT-4o-mini, etc.)
 
+## Instruction Writing Rules (7 Universal)
+
+1. **Role in first line** — functional, no superlatives. "You are PolicyBot, a benefits assistant for HR employees."
+2. **WHY on every constraint** — reason in parentheses. "Do not provide medical advice (employees must consult HR Benefits for liability reasons)."
+3. **Tiered length (floor + ceiling)** — per question type. "Simple lookups: 2-4 sentences. Explanations: 3-5 bullets."
+4. **Bold emphasis only** — no aggressive caps ("CRITICAL:", "YOU MUST"). Use **bold** or "Never X".
+5. **No personality padding** — "world-class expert" wastes chars. Functional role only.
+6. **2-3 varied examples** — happy path + boundary + complex.
+7. **Flat lists only** — no nesting. All models lose accuracy with nested structures.
+
+**Structure:** Three-part — Constraints + Response Format + Guidance (with examples). Max 8,000 chars.
+**Anti-patterns:** No hardcoded URLs, no tool/knowledge listing, no naming specific files, no "be concise" without floors.
+**Routing priority:** Description > Name > Parameters > Instructions. Instructions are LEAST important for routing.
+
+## Topic YAML Structure
+
+- **Root:** `kind: AdaptiveDialog` → `beginDialog` → trigger `kind` + `actions[]`
+- **Every node** needs a unique `id`. Variables: `Topic.varName`, new: `init:Topic.varName`
+- **Bindings:** Input = `=expression` (with `=`). Output = destination name (no `=`).
+- **"By agent" trigger:** `OnRecognizedIntent` with `displayName` + `description` (no `triggerQueries`). Description is the #1 routing signal.
+- **Entities:** Every `Question` needs an `entity` (e.g., `StringPrebuiltEntity`, `EmailPrebuiltEntity`).
+- **Cards:** Adaptive card version `1.5`, no `Action.Execute`, max 28KB for Teams. Use `SendMessage` + `AdaptiveCardTemplate`.
+- **Key node types:** SendActivity, Question, ConditionGroup, SetVariable, BeginDialog, HttpRequest, SearchAndSummarizeContent, EndDialog.
+
+## Eval Generation Rules (3-Set Model)
+
+| Set | Threshold | Default Methods | Target Count |
+|-----|-----------|----------------|-------------|
+| safety | 100% | Keyword match (all) + Exact match | 8-12 |
+| functional | 85% | Compare meaning (70) + Keyword match (any) | 15-25 |
+| resilience | 80% | General quality + Compare meaning (60) | 10-18 |
+
+**Rules:** Two methods per test (one specific + one general). Include negative tests. Tag with `scenarioId`, `scenarioCategory`, `coverageTag`. Coverage: core-business 30-40%, variations 20-30%, architecture 20-30%, edge-cases 10-20%. Total: 40-55 tests.
+
 ## Eval Methods (7 Total)
 
 | Method | Type | What It Does |

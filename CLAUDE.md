@@ -8,30 +8,57 @@ Automate Microsoft Copilot Studio (MCS) agent creation using a **hybrid build st
 
 ---
 
-## MANDATORY: Parallel GPT Review — Every Non-Trivial Task
+## MANDATORY: Dual Model Co-Generation & Review — Every Non-Trivial Task
 
-**For every task that isn't a simple one-liner, fire GPT-5.4 in parallel with your own work.** This applies to ALL work — MCS builds, code writing, reviews, cleanup, app updates, architecture decisions, documentation. Not just MCS skills.
+**For every task that isn't a simple one-liner, fire GPT-5.4 in parallel with your own work.** GPT is both a **co-generator** (produces content independently for merging) and a **reviewer** (validates content after generation). This applies to ALL work — MCS builds, code writing, reviews, cleanup, app updates, architecture decisions, documentation.
 
 ### When to Fire GPT (default: yes)
 
 | Task Type | GPT Action | How |
 |-----------|-----------|-----|
-| **Writing code** (3+ lines) | GPT reviews the code after you write it | Bash: `node tools/multi-model-review.js` or inline `chatCompletion` |
-| **Reviewing/auditing** | GPT reviews the same artifact in parallel | Fire GPT review alongside your own analysis |
-| **Architecture/design decisions** | GPT gives a second opinion | Send the decision context, get alternative perspective |
-| **Editing existing code** | GPT reviews the diff | Send before/after, check for regressions |
-| **Updating docs/config** | GPT checks completeness | Send the updated content for gap analysis |
-| **Cleanup/refactoring** | GPT spots things you miss | Send the files being cleaned up |
-| **Debugging/fixing** | GPT proposes alternative root causes | Send the error + context |
+| **Writing MCS instructions** | **Co-generate** independently, PE merges | `generate-instructions --brief <path>` |
+| **Generating eval tests** | **Co-generate** independently, QA merges | `generate-evals --brief <path>` |
+| **Generating topic YAML** (3+ nodes) | **Co-generate** independently, TE merges | `generate-topics --topic-spec <path> --brief <path>` |
+| **Component selection** | GPT **reviews** RA's choices | `review-components --brief <path>` |
+| **Flow spec design** | GPT **reviews** FD's output | `review-flow --file <path> --brief <path>` |
+| **Writing code** (3+ lines) | GPT **reviews** after writing | `review-*` or inline `chatCompletion` |
+| **Reviewing/auditing** | GPT **reviews** same artifact in parallel | Fire GPT review alongside your own analysis |
+| **Architecture/design decisions** | GPT gives a second opinion | Send decision context, get alternative perspective |
+| **All other non-trivial tasks** | GPT **reviews** after completion | Appropriate `review-*` command |
 
 ### When to Skip GPT
 
 - Single-line fixes, typos, trivial renames
 - Pure git operations (commit, push, branch)
 - File reads, searches, status checks
+- Trivial topics (< 3 nodes) — co-generation skipped, review still runs
+- Incremental instruction deltas (not full rewrites)
 - When GPT is unavailable (exit code 3) — proceed without it
 
-### Merge Protocol (Same as MCS)
+### Merge Protocol for Co-Generation
+
+Co-generation produces two independent outputs that must be merged. Each content type has its own merge rules:
+
+**Instructions (PE merges):**
+- Constraints: union, stricter wins on conflicts
+- Boundaries: union, "refuse" > "redirect" > "ignore"
+- Response format: take version with tiered length floors
+- Examples: pick best from each (aim for 2-3 varied)
+- Trim to 8,000 chars after merge
+
+**Topics (TE merges):**
+- Validate both with om-cli — only merge if at least one passes
+- Both pass: merge node-by-node (better error handling, richer cards, union of trigger phrases). Prefer Claude's structure on divergence.
+- Only one passes: use the valid one
+- Neither passes: fix Claude's first (has om-cli tooling)
+
+**Evals (QA merges):**
+- Deduplicate by intent (>70% keyword overlap = same test)
+- Union of unique tests
+- Stricter expected answers for similar tests
+- Recalculate coverage distribution after merge
+
+### Merge Protocol for Reviews
 
 - **Union of findings** — if either model flags something, it's worth looking at
 - **Stricter wins on conflicts** — the more conservative assessment prevails
@@ -40,7 +67,7 @@ Automate Microsoft Copilot Studio (MCS) agent creation using a **hybrid build st
 
 ### How It Works
 
-GPT-5.4 runs via the GitHub Copilot Responses API (`tools/lib/openai.js`). Auth is automatic via `gh auth token` with `copilot` scope. For structured reviews, use `tools/multi-model-review.js`. For ad-hoc reviews, call `chatCompletion()` directly from a temp script via Bash.
+GPT-5.4 runs via the GitHub Copilot Responses API (`tools/lib/openai.js`). Auth is automatic via `gh auth token` with `copilot` scope. For structured reviews and co-generation, use `tools/multi-model-review.js` (11 commands: 3 co-generation + 5 review + 1 scoring + 1 utility + 1 info). For ad-hoc reviews, call `chatCompletion()` directly from a temp script via Bash.
 
 ---
 
@@ -127,15 +154,17 @@ Agent Teams enables bidirectional communication between specialist teammates who
 
 ### Teammates
 
-| Teammate | Role | Key Strength |
-|----------|------|-------------|
-| **Research Analyst** | Discover MCS capabilities across multiple sources | Prevents false limitation claims |
-| **Prompt Engineer** | Write MCS agent instructions + review/sharpen our own skill files and agent definitions when quality drops | Sharp instructions, correct `/` references |
-| **Topic Engineer** | Generate validated YAML topics + adaptive cards | Syntax-correct YAML, channel-safe cards |
-| **QA Challenger** | Review ALL outputs, find gaps, challenge claims | Catches errors before they hit MCS |
-| **Repo Checker** | Validate repo integrity after changes | Catches broken paths, stale docs, drift |
-| **Repo Optimizer** | Audit repo for dead code, duplication, bloat | Catches waste before it accumulates |
-| **Flow Designer** | Design Power Automate flow specs from brief.json capabilities | Actionable flow specs with triggers, actions, connectors |
+| Teammate | Role | Key Strength | GPT Usage |
+|----------|------|-------------|-----------|
+| **Research Analyst** | Discover MCS capabilities across multiple sources | Prevents false limitation claims | `review-components` after research |
+| **Prompt Engineer** | Write MCS agent instructions + review/sharpen our own skill files | Sharp instructions, correct `/` references | `generate-instructions` co-gen + merge |
+| **Topic Engineer** | Generate validated YAML topics + adaptive cards | Syntax-correct YAML, channel-safe cards | `generate-topics` co-gen for 3+ node topics |
+| **QA Challenger** | Review ALL outputs, find gaps, challenge claims | Catches errors before they hit MCS | `generate-evals` co-gen + all `review-*` commands |
+| **Repo Checker** | Validate repo integrity after changes | Catches broken paths, stale docs, drift | `review-code` on changed files + semantic consistency |
+| **Repo Optimizer** | Audit repo for dead code, duplication, bloat | Catches waste before it accumulates | `review-code` for dead code + complexity analysis |
+| **Flow Designer** | Design Power Automate flow specs from brief.json capabilities | Actionable flow specs with triggers, actions, connectors | `review-flow` before returning specs |
+
+**Every teammate has GPT-5.4 access** via `tools/multi-model-review.js`. GPT is a universal "extra tool" — each teammate uses the commands relevant to their domain. MCS agents use co-generation + domain reviews. Utility agents (Repo Checker, Repo Optimizer) use `review-code` for deep analysis. All follow the same merge protocol: union of findings, stricter wins, never block on GPT.
 
 Definitions: `.claude/agents/` (research-analyst.md, prompt-engineer.md, topic-engineer.md, qa-challenger.md, repo-checker.md, repo-optimizer.md, flow-designer.md)
 
@@ -147,15 +176,17 @@ Definitions: `.claude/agents/` (research-analyst.md, prompt-engineer.md, topic-e
 - **Eval phase** (`/mcs-eval`): Runs eval sets (all or specific), writes per-test results to evalSets. QA Challenger analyzes failures when sets miss thresholds.
 - **Fix phase** (`/mcs-fix`): QA Challenger classifies failures, Prompt Engineer fixes instructions, Topic Engineer fixes topics
 
-**GPT-5.4 parallel review (all phases):**
-GPT runs in parallel with every Claude review — zero added latency. QA Challenger fires `multi-model-review.js` alongside its own analysis and merges results. Protocol: **union of findings, stricter wins on conflicts.** If either model flags a problem, it gets investigated. GPT is never blocking — if unavailable, Claude proceeds alone.
+**GPT-5.4 co-generation + review (all phases):**
+GPT runs in parallel with every Claude generation and review — zero added latency. Teammates fire `multi-model-review.js` internally: PE/QA/TE use co-generation commands, QA/RA/FD use review commands. Protocol: **union of findings/content, stricter wins on conflicts.** GPT is never blocking — if unavailable, Claude proceeds alone.
 
-| Phase | GPT Reviews (parallel with Claude) |
-|-------|-----------------------------------|
-| Research Phase C | `review-instructions` after PE, `review-brief` after QA, `review-topics` after TE |
-| Build Step 5.5 | `review-brief` + `review-instructions` alongside QA validation |
-| Eval | Dual scoring (heuristic + GPT, lower score wins, >20pt divergence flagged) |
-| Fix | `review-instructions` on proposed fixes alongside QA classification |
+| Phase | GPT Action (parallel with Claude) |
+|-------|----------------------------------|
+| Research Phase C | PE: `generate-instructions` (co-gen), QA: `generate-evals` (co-gen), TE: `generate-topics` for feasibility |
+| Research Step 3.5 | `review-brief` + `review-instructions` + `review-components` + `review-flow` (if hybrid) |
+| Build Step 4 | TE: `generate-topics` for complex topics (3+ nodes, co-gen) |
+| Build Step 5.6 | `review-brief` + `review-instructions` + per-topic `review-topics` |
+| Eval | Dual scoring on 4 semantic methods (CompareMeaning, GeneralQuality, TextSimilarity, CapabilityUse) |
+| Fix | PE: `generate-instructions` (co-gen for fix proposals), TE: `generate-topics` (co-gen for topic fixes) |
 
 **During general development (Tier 2-3 checks):**
 - **Tier 2**: Repo Checker in background after 3+ file changes or code changes
@@ -231,7 +262,7 @@ Before committing to designs that are hard to undo — schema changes, workflow 
 | **Flow Manager** | Power Automate cloud flow CRUD + composition — compose flows from specs, create from definitions, validate, connector schema lookup, discover operations, trigger creation, schedule/message updates, activate/deactivate (`tools/flow-manager.js` + `tools/lib/flow-composer.js` + `tools/lib/connector-schema.js` + `knowledge/patterns/flow-patterns/`) |
 | **Replicate Agent** | Cross-environment agent replication: Dataverse create + LSP clone + push (`tools/replicate-agent.js`) |
 | **Direct Line API** | Agent testing: send messages, compare responses. `--gpt` flag for GPT-enhanced scoring (`tools/direct-line-test.js`) |
-| **Multi-Model Review** | GPT-5.4 "fresh eyes" — cross-model review of instructions, topics, briefs, and eval scoring. Auto-detects via `gh auth token` + copilot scope → GitHub Copilot Responses API. Fully optional, graceful fallback (`tools/multi-model-review.js` + `tools/lib/openai.js`) |
+| **Multi-Model Review** | GPT-5.4 dual model co-generation + review — 12 commands: 3 co-generation (`generate-instructions`, `generate-evals`, `generate-topics`), 6 review (`review-instructions`, `review-topics`, `review-brief`, `review-flow`, `review-components`, `review-code`), 1 scoring (`score`), 1 utility (`usage`), 1 info (`models`). Auto-detects via `gh auth token` + copilot scope → GitHub Copilot Responses API. Fully optional, graceful fallback (`tools/multi-model-review.js` + `tools/lib/openai.js`) |
 | **Solution Library** | Team SharePoint solution library: list, download, analyze, upload, index, search (`tools/solution-library.js`) |
 | **WorkIQ MCP** | M365 context: emails, meetings, documents, Teams, people (`workiq mcp`) |
 | **Microsoft Learn MCP** | Official docs, reference, code samples |
@@ -885,7 +916,7 @@ tools/
 ├── flow-manager.js         # Power Automate cloud flow CRUD + composition — compose, create-flow, validate, schema, discover-operations, triggers
 ├── direct-line-test.js     # Direct Line API test runner
 ├── eval-scoring.js         # Shared scoring module (7 methods: 6 MCS native + PlanValidation, multi-turn support, async GPT-enhanced variants)
-├── multi-model-review.js   # GPT cross-model review CLI (review-instructions, review-topics, review-brief, score, usage)
+├── multi-model-review.js   # GPT dual model co-generation + review CLI (3 co-gen + 6 review + 1 scoring + 2 utility/info)
 ├── solution-library.js     # Team SharePoint solution library CLI (list, download, analyze, upload, index, search)
 ├── replicate-agent.js      # Cross-environment agent replication via Dataverse + LSP clone + push
 ├── dataverse-helper.ps1    # PowerShell Dataverse Web API helper
