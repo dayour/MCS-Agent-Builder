@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to the FDE MCS Agent Builder are documented here.
+All notable changes to the MCS Agent Builder are documented here.
 
 ## [Unreleased]
 

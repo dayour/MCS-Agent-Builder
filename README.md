@@ -9,8 +9,8 @@ Two AI models work in parallel: **Claude** orchestrates, writes code, and execut
 ## Quick Start
 
 ```powershell
-git clone https://dev.azure.com/powercatteam/_git/FDE
-cd FDE
+git clone https://github.com/microsoft/MCS-Agent-Builder.git
+cd MCS-Agent-Builder
 .\start.cmd
 ```
 
@@ -247,7 +247,7 @@ Ports auto-discovered in pairs. If 8000/8001 are busy, the next pair is used.
 
 ## Feedback
 
-Click **Bug** or **Suggest** in the dashboard header. Claude creates an ADO work item for you with auto-gathered context. Or file directly in the [ADO repo](https://dev.azure.com/powercatteam/_git/FDE).
+Click **Bug** or **Suggest** in the dashboard header. Claude creates a GitHub issue for you with auto-gathered context. Or file directly on [GitHub](https://github.com/microsoft/MCS-Agent-Builder/issues).
 
 ---
 

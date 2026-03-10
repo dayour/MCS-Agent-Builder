@@ -6,7 +6,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://dev.azure.com/powercatteam/_git/FDE"
+    "url": "https://github.com/microsoft/MCS-Agent-Builder"
   },
   "bin": {
     "mcs-agent-builder": "bin/cli.js"

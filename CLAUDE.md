@@ -273,13 +273,13 @@ Before committing to designs that are hard to undo — schema changes, workflow 
 
 ## Bug Reports & Suggestions
 
-Users file bugs and suggestions via the header buttons, which open a feedback dialog. The dialog collects a description + auto-gathered context (project, agent, page, build/eval status), then dispatches `/bug` or `/suggest` to the embedded Claude terminal for ADO work item creation.
+Users file bugs and suggestions via the header buttons, which open a feedback dialog. The dialog collects a description + auto-gathered context (project, agent, page, build/eval status), then dispatches `/bug` or `/suggest` to the embedded Claude terminal for GitHub issue creation.
 
-**Work item creation rules:**
-- Target: ADO `powercatteam/FDE` (`az boards work-item create --org https://dev.azure.com/powercatteam --project FDE`)
-- Work item types: `Bug` for bugs, `Feature` for suggestions
+**Issue creation rules:**
+- Target: GitHub `microsoft/MCS-Agent-Builder` (`gh issue create --repo microsoft/MCS-Agent-Builder`)
+- Labels: `bug` for bugs, `enhancement` for suggestions
 - Always preview title + body before submitting — never auto-submit
-- Use HEREDOC for the `--description` argument to preserve formatting
+- Use HEREDOC for the `--body` argument to preserve formatting
 - Auto-enrich with session context (project, agent, page, build status, eval score) when available
 - Keep titles under 70 characters (`Bug: ...` or `Suggestion: ...`)
 - When invoked with pre-filled args from the dashboard dialog, skip the "ask" step and go straight to drafting

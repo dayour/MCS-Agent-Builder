@@ -2,7 +2,7 @@
 <#
 .SYNOPSIS
     Auto-update om-cli binary from the ObjectModel source repo.
-    Pulls latest, rebuilds, and stages changes in FDE repo.
+    Pulls latest, rebuilds, and stages changes in MCS-Agent-Builder repo.
 
 .DESCRIPTION
     Called automatically by the pre-push git hook, or run manually:
