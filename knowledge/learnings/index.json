@@ -849,6 +849,50 @@
       ],
       "status": "active",
       "projects": []
+    },
+    {
+      "id": "bm-026",
+      "file": "build-methods.md",
+      "title": "LSP push creates topics that don't render in MCS visual editor — use Gateway API",
+      "date": "2026-03-10",
+      "confirmed": 1,
+      "lastConfirmed": "2026-03-10",
+      "tags": ["lsp", "topic", "gateway-api", "visual-editor", "canvas", "BotComponentInsert", "ObjectModel"],
+      "status": "active",
+      "projects": ["Fidelity"]
+    },
+    {
+      "id": "bm-027",
+      "file": "build-methods.md",
+      "title": "MCS native eval runs are sequential — one at a time per agent",
+      "date": "2026-03-10",
+      "confirmed": 1,
+      "lastConfirmed": "2026-03-10",
+      "tags": ["eval", "sequential", "quota", "gateway-api", "makerevaluations"],
+      "status": "active",
+      "projects": ["Fidelity"]
+    },
+    {
+      "id": "bm-028",
+      "file": "build-methods.md",
+      "title": "Empty question in eval set crashes island-client.js",
+      "date": "2026-03-10",
+      "confirmed": 1,
+      "lastConfirmed": "2026-03-10",
+      "tags": ["eval", "crash", "null-guard", "empty-question", "island-client"],
+      "status": "active",
+      "projects": ["Fidelity"]
+    },
+    {
+      "id": "bm-029",
+      "file": "build-methods.md",
+      "title": "Adaptive cards require two-step topic creation: Gateway API text + LSP YAML push",
+      "date": "2026-03-10",
+      "confirmed": 1,
+      "lastConfirmed": "2026-03-10",
+      "tags": ["adaptive-card", "topic", "two-step", "gateway-api", "lsp", "outputFormat", "cardDesign", "welcome-card"],
+      "status": "active",
+      "projects": ["Fidelity"]
     }
   ]
 }

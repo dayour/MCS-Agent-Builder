@@ -286,6 +286,20 @@ Also cache the token endpoint URL if we discovered it:
 
 **VERIFY:** Read brief.json back. Confirm each test in the run sets has a `lastResult` with `pass`, `actual`, and `timestamp`.
 
+### Step 4.5: GPT Dual Scoring (Borderline Tests)
+
+For tests with borderline scores (within 15 points of the pass/fail threshold), fire GPT-5.4 for a second opinion:
+
+```bash
+node tools/multi-model-review.js score --brief <path-to-brief.json>
+```
+
+**When to fire:** Any test where the heuristic score is within 15 points of the threshold (e.g., score 55-85 when threshold is 70). Skip for clearly passing (>threshold+15) or clearly failing (<threshold-15) tests.
+
+**Merge protocol:** Lower score wins. If GPT and Claude scores diverge by >20 points, flag the test as "borderline — manual review recommended" in `lastResult.notes`.
+
+**Never block on GPT** — if unavailable, use Claude's score alone.
+
 ## Step 5: Report Results
 
 ```

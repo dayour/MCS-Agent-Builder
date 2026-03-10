@@ -213,7 +213,7 @@ Line 1 (`# Name:`) = GptComponent display name. Line 2 (`# ...`) = agent descrip
 **Related cache:** dataverse-patterns.md, agent-lifecycle.md
 **Tags:** #synchronizationstatus #publish #dataverse #select-quirk #verification
 
-### OData $filter on _parentbotid_value is unreliable — use FetchXML {#bm-012} — 2026-03-06
+### OData $filter on _parentbotid_value is unreliable — use FetchXML {#bm-019b} — 2026-03-06
 **Context:** TestNorthwind build — querying botcomponents by parent bot ID after agent creation
 **Tried:** OData `GET /botcomponents?$filter=_parentbotid_value eq <guid>` and `$filter=_parentbotid_value eq <guid> and componenttype eq 15`
 **Result:** Both queries return 0 results despite 15 components existing. FetchXML with `parentbotid` (logical name) returns all 15 correctly.
@@ -222,7 +222,7 @@ Line 1 (`# Name:`) = GptComponent display name. Line 2 (`# ...`) = agent descrip
 **Related cache:** dataverse-patterns.md (pitfall #1)
 **Tags:** #dataverse #fetchxml #odata #parentbotid #botcomponent
 
-### $select=data on botcomponents returns empty — query full entity {#bm-013} — 2026-03-06
+### $select=data on botcomponents returns empty — query full entity {#bm-020b} — 2026-03-06
 **Context:** TestNorthwind build — verifying GptComponent data field after Dataverse PATCH
 **Tried:** `GET /botcomponents(<id>)?$select=data` to read the YAML content
 **Result:** Returns empty string. `GET /botcomponents(<id>)` (full entity, no $select) returns the correct YAML content (4703 chars). Same Dataverse quirk as `synchronizationstatus` on bots.
@@ -231,7 +231,7 @@ Line 1 (`# Name:`) = GptComponent display name. Line 2 (`# ...`) = agent descrip
 **Related cache:** dataverse-patterns.md (pitfall #4)
 **Tags:** #dataverse #select-quirk #botcomponent #data-field
 
-### LSP push "0 changes" on newly created agents — Dataverse PATCH fallback added {#bm-014} — 2026-03-06
+### LSP push "0 changes" on newly created agents — Dataverse PATCH fallback added {#bm-021b} — 2026-03-06
 **Context:** TestNorthwind build — first push after creating agent via Dataverse API + PvaProvision + LSP clone
 **Tried:** Clone agent → write full agent.mcs.yml (instructions, model, starters) → LSP push
 **Result:** Push completes with "0 local changes synced". The metadata patch (name + description) succeeds, but the YAML body (instructions, model, conversation starters) is NOT synced to the GptComponent data field. A manual Dataverse PATCH of the full `data` field works.
@@ -240,7 +240,7 @@ Line 1 (`# Name:`) = GptComponent display name. Line 2 (`# ...`) = agent descrip
 **Related cache:** api-capabilities.md
 **Tags:** #lsp #push #zero-changes #dataverse #fallback #gpt-component
 
-### Auth gate must explicitly ask for environment — never assume {#bm-015} — 2026-03-06
+### Auth gate must explicitly ask for environment — never assume {#bm-022b} — 2026-03-06
 **Context:** TestNorthwind build — user selected account admin@M365CPI15209943 which has 2 environments (dktest, Contoso)
 **Tried:** Selected account → assumed "dktest" from sessionDefaults without asking user
 **Result:** Built on dktest without confirming. If user wanted Contoso, the entire build would target the wrong environment. Also, PAC CLI had a device auth error (AADSTS700003) that was only caught after the build started.
@@ -249,7 +249,7 @@ Line 1 (`# Name:`) = GptComponent display name. Line 2 (`# ...`) = agent descrip
 **Related cache:** N/A (process change, not API pattern)
 **Tags:** #auth #environment #build-gate #pac-cli #verification
 
-### Knowledge file upload: POST works but file attach endpoints don't exist {#bm-016} — 2026-03-06
+### Knowledge file upload: POST works but file attach endpoints don't exist {#bm-023b} — 2026-03-06
 **Context:** TestNorthwind build — uploading CommonFixes.csv as agent knowledge file
 **Tried:** (1) `POST /botcomponents` with componenttype=16 + `parentbotid@odata.bind` + schemaname → record created successfully. (2) `PATCH /botcomponents(<id>)/fileattachment` → HTTP 404. (3) `PATCH /botcomponents(<id>)/botcomponentfiledata` → HTTP 404. (4) Original helper used `_parentbotid_value` → "CRM does not support direct update of Entity Reference properties" error.
 **Result:** Knowledge component record is created in Dataverse, but no file upload endpoint exists on botcomponents. The `content` and `fileattachment` and `botcomponentfiledata` paths all return 404. This extends the bm-002 learning: even with correct navigation properties, raw POST creates records MCS doesn't fully recognize.
@@ -258,7 +258,7 @@ Line 1 (`# Name:`) = GptComponent display name. Line 2 (`# ...`) = agent descrip
 **Related cache:** dataverse-patterns.md, knowledge-sources.md
 **Tags:** #knowledge #file-upload #dataverse #botcomponent #manual-step
 
-### Connectivity API doesn't resolve — blocks add-tool.js for tool configuration {#bm-017} — 2026-03-06
+### Connectivity API doesn't resolve — blocks add-tool.js for tool configuration {#bm-024b} — 2026-03-06
 **Context:** TestNorthwind build — attempting to list connections and add tools
 **Tried:** `node tools/add-tool.js list-connections --env <envId> --connector shared_sharepointonline`
 **Result:** `getaddrinfo ENOTFOUND {envId}.environment.api.powerplatform.com` — the Power Platform Connectivity API hostname doesn't resolve for this tenant (M365CPI15209943). This is a known issue for certain tenants (also noted in MEMORY.md).
@@ -333,6 +333,66 @@ Link to agent via YAML `InvokeFlowTaskAction` (NOT `InvokeFlowAction` — differ
 **Confirmed:** 1 build(s) | Last confirmed: 2026-03-06
 **Related cache:** adaptive-cards.md, conversation-design.md
 **Tags:** #adaptive-card #conversation-start #welcome #standard-pattern #topic
+
+### LSP push creates topics that don't render in MCS visual editor — use Gateway API {#bm-026} — 2026-03-10
+**Context:** Fidelity FSC Incident Management Agent — 3 custom topics pushed via LSP showed empty canvas in MCS visual editor
+**Tried:** (1) Topic Engineer generated valid YAML (om-cli validated). (2) LSP push synced files. (3) Dataverse data field had content. (4) Stripped # Name: comment headers from data → still empty. (5) Added triggerQueries alongside modelDescription → still empty. (6) Created topic via Gateway API BotComponentInsert → WORKS.
+**Result:** Two separate issues:
+  1. LSP push writes `# Name:` / `# Description:` comment headers into the data field. Fixed via `mcs-lsp.js stripTopicCommentHeaders()` (defense-in-depth).
+  2. Even without comments, topics created via LSP push don't render in the MCS canvas. The LSP creates botcomponent records but may skip internal MCS registration (NLU trigger phrase indexing, dependency tracking, topic compilation). The Gateway API BotComponentInsert handles all of these — it's the same code path the MCS UI uses.
+**Better approach:** Create topics via Island Gateway API `PUT content/botcomponents` with `BotComponentInsert`. Use `island-client.js createTopic` command. Key ObjectModel JSON rules:
+  - `TextSegment` uses `value` field, NOT `text` (text produces empty messages)
+  - `Question` node `variable` must be a plain string (`"init:Topic.var"`), NOT a VariableDeclaration object (500 error)
+  - `Intent` needs `$kind: "Intent"` wrapper + `displayName` wrapped in `StringExpression`
+  - Use `id: "00000000-0000-0000-0000-000000000000"` — server assigns real ID
+  - For adaptive cards: create topic with text placeholder via Gateway API, then PATCH data field with YAML containing `SendMessage` + `AdaptiveCardTemplate` + PowerFx `cardContent`
+**Confirmed:** 1 build(s) | Last confirmed: 2026-03-10
+**Related cache:** api-capabilities.md, island-gateway-api.md
+**Tags:** #lsp #topic #gateway-api #visual-editor #canvas #BotComponentInsert #ObjectModel
+
+### MCS native eval runs are sequential — one at a time per agent {#bm-027} — 2026-03-10
+**Context:** Fidelity FSC Incident Management Agent — tried to start 3 eval runs simultaneously
+**Tried:** Started safety eval run, then immediately started functional eval run
+**Result:** Second run failed: HTTP 422 `fairusagepolicy.botactiverunquotaviolated` — "A test is already running for this agent. After it finishes, you can start another test."
+**Better approach:** Run eval sets sequentially. After starting a run, poll for completion (or wait ~60s for small sets) before starting the next set. `island-client.js run-eval` should handle this with a `--wait` flag or the eval runner should queue sets internally.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-03-10
+**Related cache:** eval-methods.md
+**Tags:** #eval #sequential #quota #gateway-api #makerevaluations
+
+### Empty question in eval set crashes island-client.js {#bm-028} — 2026-03-10
+**Context:** Fidelity FSC Incident Management Agent — resilience test #2 had empty question (testing empty input handling)
+**Tried:** `island-client.js upload-evals` with a test where `question: ""`
+**Result:** Crash: `Cannot read properties of undefined (reading 'substring')` at line 775. Both `t.input` and `t.question` were falsy, so `(t.input || t.question)` returned undefined.
+**Better approach:** Fixed: null guard on all eval data fields — `(t.input || t.question || '(empty input test)')`. Also guard the `input` field sent to Gateway API: `t.input || t.question || ' '`. Empty strings are not valid eval inputs — use a space as minimum.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-03-10
+**Related cache:** eval-methods.md
+**Tags:** #eval #crash #null-guard #empty-question #island-client
+
+### Adaptive cards require two-step topic creation: Gateway API text + LSP YAML push {#bm-029} — 2026-03-10
+**Context:** Fidelity FSC Incident Management — brief specified `outputFormat: "adaptive-card"` with `cardDesign` for Scope Boundary and Write Action Decline, plus bm-024 mandates welcome card for Conversation Start. Build created all topics with plain text, skipping cards entirely.
+**Tried:** `island-client.js createTopic` with `kind: "SendActivity"` — only supports plain text. The `SendMessage` handler has a stub comment ("caller should update data field with YAML after creation") but no implementation exists.
+**Result:** Three independent failures converged: (1) Build skill Step 4 never reads `outputFormat`/`cardDesign` from brief — treats them as documentation. (2) `createTopic` cannot create adaptive cards — silently downgrades to text. (3) Conversation Start welcome card not triggered by any build step.
+**Better approach:** Two-step process for adaptive card topics:
+  1. Create topic via Gateway API with TEXT PLACEHOLDER (`SendActivity` with fallback text)
+  2. Pull workspace → edit topic `.mcs.yml` → replace `SendActivity` with `SendMessage` + `AdaptiveCardTemplate` → LSP push
+  LSP push CAN update existing topics (bm-026 only blocks NEW creation). YAML pattern:
+  ```yaml
+  - kind: SendMessage
+    id: sendCard
+    message:
+      text: "Fallback text"
+      attachments:
+        - kind: AdaptiveCardTemplate
+          cardContent: |-
+            ={ type: "AdaptiveCard", version: "1.5", body: [...], actions: [...] }
+  ```
+  For Conversation Start: use `SendActivity` (not `SendMessage`) with `activity.attachments` per welcome-card.yaml pattern.
+  For Action.Submit in Teams: `data: { msteams: { type: "imBack", value: "text" } }`.
+  Card schema: 1.5 for Teams. See `knowledge/patterns/topic-patterns/adaptive-card.yaml` and `welcome-card.yaml`.
+**Systemic fixes applied:** Build skill Step 4 now has mandatory `outputFormat` check. Topic Engineer agent updated. QA cross-ref checks added.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-03-10
+**Related cache:** adaptive-cards.md, conversation-design.md
+**Tags:** #adaptive-card #topic #two-step #gateway-api #lsp #outputFormat #cardDesign #welcome-card #bm-024
 
 ### Eval upload is fully headless via Gateway API makerevaluations endpoint {#bm-025} — 2026-03-06
 **Context:** Eval upload to MCS — replacing Dataverse POST componenttype=19 approach

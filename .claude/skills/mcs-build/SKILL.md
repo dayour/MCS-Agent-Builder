@@ -728,19 +728,94 @@ Custom topics to build: {list of names}
 
 **If no custom/system MVP topics remain after filtering:** Add `"topics"` to `completedSteps` and skip. This prevents the step from being silently skipped without being marked complete.
 
-For each MVP custom/system topic in the spec:
-1. Topic Engineer queries constraints: `python tools/gen-constraints.py <NodeTypes>` → gets required fields
-2. Topic Engineer generates YAML using constraints + `knowledge/patterns/topic-patterns/`
-3. Structural validation: `tools/om-cli/om-cli.exe validate -f <file.yaml>` → must pass
-4. Semantic validation: `python tools/semantic-gates.py <file.yaml> --brief <brief.json>` → must pass (or warnings acknowledged)
-5. QA Challenger reviews validated YAML
-6. Write the validated `.mcs.yml` file to the cloned workspace's `topics/` directory (for system topics like Conversation Start, overwrite the existing default file)
-7. After all topic files are written, push to MCS in a single operation:
-   ```bash
-   node tools/mcs-lsp.js push --workspace "<buildStatus.workspacePath>"
-   ```
+**Adaptive card check (MANDATORY — before generating topic definitions):**
 
-**Fallback (if LSP push fails):** Island Gateway API `PUT content/botcomponents` with DialogComponent payload.
+For each MVP custom topic, check `outputFormat` and `cardDesign` from brief.json:
+
+1. If `outputFormat == "adaptive-card"` AND `cardDesign` exists:
+   - Topic Engineer MUST generate the topic with adaptive card content
+   - Use `knowledge/patterns/topic-patterns/adaptive-card.yaml` as the base pattern
+   - Populate card JSON from `cardDesign.elements`, `cardDesign.dynamicData`, `cardDesign.schema`
+   - Create via Gateway API with **text placeholder** first, then update with card YAML via LSP push (two-step — see step 4 below)
+
+2. If `outputFormat == "adaptive-card"` but no `cardDesign`:
+   - WARN: "Topic '{name}' has outputFormat: adaptive-card but no cardDesign. Using plain text."
+   - Fall back to `SendActivity` with text
+
+3. If `outputFormat == "text"` or not specified:
+   - Use `SendActivity` with text (standard behavior)
+
+For each MVP custom/system topic in the spec:
+1. Topic Engineer generates topic definition (trigger phrases, actions, description). **For adaptive card topics, TE generates the full card JSON using the `cardDesign` spec.**
+2. QA Challenger reviews topic definitions — **including card content if applicable**
+3. **Create topic via Gateway API** (required — LSP push does NOT produce renderable topics, bm-026):
+   ```bash
+   # Write a JSON topic definition file, then:
+   node tools/island-client.js create-topic \
+     --env <buildStatus.environmentId> \
+     --bot <buildStatus.mcsAgentId> \
+     --topic-file <path-to-topic-def.json>
+   ```
+   Topic definition JSON format (text placeholder — Gateway API doesn't support cards natively):
+   ```json
+   {
+     "schemaName": "<botSchema>.topic.TopicName",
+     "displayName": "Topic Name",
+     "description": "When to use / when not to use (routing signal)",
+     "triggerQueries": ["phrase 1", "phrase 2"],
+     "actions": [
+       { "kind": "SendActivity", "id": "sendMsg1", "text": "message text (placeholder for card)" },
+       { "kind": "Question", "id": "q1", "variable": "init:Topic.var", "prompt": "Ask?", "entity": "StringPrebuiltEntity" }
+     ]
+   }
+   ```
+   **ObjectModel JSON rules (bm-026):**
+   - `TextSegment` uses `value` field, NOT `text`
+   - `Question.variable` must be a string (`"init:Topic.var"`), NOT an object
+   - `Intent` needs `$kind: "Intent"` wrapper + `displayName` in `StringExpression`
+   - Server assigns real IDs — use `"00000000-0000-0000-0000-000000000000"` as placeholder
+
+4. **For adaptive card topics (two-step process — MANDATORY when outputFormat is "adaptive-card"):**
+   a. Create topic with text placeholder via Gateway API (step 3 above)
+   b. Pull workspace to get the new topic YAML: `node tools/mcs-lsp.js pull --workspace "<workspacePath>"`
+   c. Edit the topic `.mcs.yml` file — replace `SendActivity` with `SendMessage` + `AdaptiveCardTemplate`:
+      ```yaml
+      - kind: SendMessage
+        id: sendCardMessage
+        message:
+          text: "Fallback text for channels that don't support cards"
+          attachments:
+            - kind: AdaptiveCardTemplate
+              cardContent: |-
+                ={
+                  type: "AdaptiveCard",
+                  '$schema': "http://adaptivecards.io/schemas/adaptive-card.json",
+                  version: "1.5",
+                  body: [...],
+                  actions: [...]
+                }
+      ```
+   d. Push via LSP: `node tools/mcs-lsp.js push --workspace "<workspacePath>"`
+   e. **LSP push CAN update existing topics** — bm-026 only affects NEW topic creation. Since the topic was already created via Gateway API, LSP push updates the YAML content safely.
+   f. See `knowledge/patterns/topic-patterns/adaptive-card.yaml` for the full pattern reference
+   g. Card schema version: use `1.5` for Teams (supports Action.ToggleVisibility, ActionSet). M365 Copilot supports 1.5 with some limitations.
+   h. For Action.Submit buttons in Teams: `data: { msteams: { type: "imBack", value: "user message text" } }`
+
+5. **For system topic customization** (Conversation Start, Fallback, etc.): Edit in the cloned workspace, push via LSP. Existing topics can be updated via LSP — only NEW creation fails.
+
+6. **Conversation Start welcome card (standard for every agent — bm-024):**
+   After custom topics are created, generate an adaptive card welcome for Conversation Start:
+   a. If the agent has 2+ distinct capabilities AND primary channel supports adaptive cards (Teams, Web Chat):
+      - Use `knowledge/patterns/topic-patterns/welcome-card.yaml` as template
+      - Populate: agent name, description, Action.Submit buttons for each key capability (max 6 for Teams)
+      - Edit `workspace/.../topics/ConversationStart.mcs.yml`
+      - Push via LSP
+   b. If agent is purely generative with no distinct action buttons: keep text greeting (customize text only)
+   c. **Do NOT skip this step.** A welcome card is the first thing users see — it sets expectations and reduces confusion.
+
+**IMPORTANT: Do NOT use `mcs-lsp.js push` to CREATE new custom topics.** The LSP creates botcomponent records but skips internal MCS registration (NLU trigger indexing, dependency tracking, compilation), producing topics that render as empty in the visual editor. The Gateway API `BotComponentInsert` is the same code path MCS UI uses and handles all registration automatically.
+
+**Fallback (if Gateway API fails):** Ask user to create the topic manually in MCS UI.
 
 **Checkpoint:** After all topics verified, add `"topics"` to `completedSteps`, set `lastCompletedStep` to `"topics"`.
 
@@ -875,6 +950,8 @@ These catch issues that simple reconciliation misses:
 | Topics → Integrations | Topic calls a connector action that wasn't added |
 | Capabilities → Instructions | Instructions include dedicated sections for future-tagged capabilities, or MVP capabilities missing from instructions |
 | Adaptive Cards → Channels | Card uses features unsupported on target channel |
+| Topics → outputFormat | Brief says `outputFormat: "adaptive-card"` but built topic uses plain text `SendActivity` — card was skipped |
+| Conversation Start → Welcome Card | Agent has 2+ capabilities but Conversation Start uses default text greeting instead of adaptive card (bm-024) |
 | (Multi-agent) Routing rules → Children | Instructions route to a child agent that isn't connected |
 
 #### Check 3: Deviation Impact Assessment
@@ -930,6 +1007,21 @@ or:
 ```
 QA Validation: PASS WITH CAVEATS (N/N items match, 2 cross-ref issues — see qa-validation.md)
 ```
+
+### Step 5.6: GPT Build Review (MANDATORY)
+
+After QA validation verdict (Step 5.5) and before finalizing buildStatus, fire GPT-5.4:
+
+```bash
+node tools/multi-model-review.js review-brief --brief <path-to-brief.json>
+node tools/multi-model-review.js review-instructions --brief <path-to-brief.json>
+```
+
+**What GPT checks:** Drift between brief spec and actual built agent, instruction issues that QA's structural check missed, integration gaps.
+
+**Merge with QA verdict:** GPT findings merge into the QA validation — union of findings, stricter wins. If GPT finds a critical issue QA missed, escalate to user before writing buildStatus.
+
+**Never block on GPT** — if unavailable, proceed with QA verdict alone.
 
 ### Step 6: Finalize brief.json buildStatus
 

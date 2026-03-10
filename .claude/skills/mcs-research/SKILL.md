@@ -1044,6 +1044,29 @@ Write all build-ready data:
 - `knowledge[].status` — readiness status
 - `notes` — any additional context discovered during research
 
+### Step 3.5: GPT Parallel Review (MANDATORY)
+
+After teammate reconciliation and before final output, fire GPT-5.4 reviews in parallel:
+
+```bash
+node tools/multi-model-review.js review-brief --brief <path-to-brief.json>
+node tools/multi-model-review.js review-instructions --brief <path-to-brief.json>
+```
+
+**What GPT reviews:**
+- `review-brief` — completeness, MVP phase alignment, blocking open questions, integration gaps
+- `review-instructions` — anti-patterns, boundary coverage, capability-instruction alignment, ambiguity
+
+**Merge protocol:**
+- Union of findings — if either model flags something, investigate
+- Stricter wins on conflicts
+- Flag divergence when opinions differ significantly
+- **Never block on GPT** — if GPT fails (exit code 3), proceed without it
+
+**Truncation artifacts:** GPT receives a condensed brief payload. Dismiss findings about "missing" instructions, eval tests, or boundaries shown as `[object Object]` — these are serialization artifacts, not real gaps.
+
+**Apply fixes** for actionable items (instruction ambiguity, phase misalignment, missing boundary paths) before writing final output. Note fixes in the terminal summary.
+
 ## Final Output
 
 After all phases complete for each agent:

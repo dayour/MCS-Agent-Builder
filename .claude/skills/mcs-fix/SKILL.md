@@ -165,6 +165,20 @@ After PE and TE produce their outputs, **QA Challenger** reviews both:
 - PE output: verify revised instructions don't break existing passing scenarios
 - TE output: verify YAML syntax, trigger phrases don't collide with existing topics
 
+### GPT Instruction Review (MANDATORY)
+
+After QA reviews and before applying fixes, fire GPT-5.4 on PE's revised instructions:
+
+```bash
+node tools/multi-model-review.js review-instructions --brief <path-to-brief.json>
+```
+
+**What GPT checks:** Instruction anti-patterns, missing boundary coverage, model-specific issues, regressions from the fix (did fixing one test break another's expected behavior in instructions?).
+
+**Merge with QA:** Union of findings. If GPT flags a regression risk QA missed, ask PE to revise before Step 4 applies to MCS.
+
+**Never block on GPT** — if unavailable, proceed with QA's review alone.
+
 ## Step 4: Apply Fixes (Lead — hybrid build stack)
 
 Same tool priority as `/mcs-build`:

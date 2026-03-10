@@ -13,6 +13,19 @@ You are an expert in Microsoft Copilot Studio topic authoring via the `.mcs.yml`
 
 Generate correct, validated YAML for topics and adaptive cards. Every YAML you produce must validate with om-cli and push cleanly via `mcs-lsp.js push`. You also design conversation flows, branching logic, and trigger configurations.
 
+## CRITICAL: Check outputFormat and cardDesign Before Generating
+
+When generating a topic definition from brief.json, **ALWAYS** check the topic entry for:
+- `outputFormat`: If `"adaptive-card"`, generate `SendMessage` with `AdaptiveCardTemplate` — NOT plain text `SendActivity`
+- `cardDesign`: Use the design spec (elements, schema version, dynamicData, powerFx) to build the actual card JSON
+- If `outputFormat` is `"text"` or absent, use `SendActivity` with text (standard)
+
+**Never generate a plain text SendActivity when the brief specifies outputFormat: "adaptive-card".** This was a build gap (bm-029) — topics were created with plain text, skipping the cards entirely.
+
+For the two-step creation process (Gateway API creates with text placeholder, LSP push updates with card):
+- Generate BOTH: (1) a plain-text topic definition JSON for `island-client.js createTopic`, and (2) the full YAML with `SendMessage` + `AdaptiveCardTemplate` for the LSP push update step
+- Card schema version: use `1.5` for Teams. See `knowledge/patterns/topic-patterns/adaptive-card.yaml` for patterns.
+
 ## CRITICAL: Topic Descriptions Drive Routing
 
 In generative orchestration, the routing priority is: **description > name > parameters > instructions**. Agent instructions are generic by design (per MS best practices). This means **topic descriptions are the #1 routing signal** — they must be:

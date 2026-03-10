@@ -365,6 +365,7 @@ function parseArgs() {
             case '--gateway': config.gatewayUrl = args[++i]; break;
             case '--json': config.json = true; break;
             case '--brief': config.briefPath = args[++i]; break;
+            case '--topic-file': config.topicFile = args[++i]; break;
             case '--set-id': config.setId = args[++i]; break;
             case '--name': config.runName = args[++i]; break;
             case '--help': printUsage(); process.exit(0);
@@ -390,6 +391,7 @@ Commands:
   get-publish-status Get publish operation status (running/completed/failed)
   check-dlp          Check DLP violations — blocked connectors and policy issues
   list-topics        List topics with trigger info (filtered from components)
+  create-topic       Create a new topic via Gateway API BotComponentInsert (renders in MCS canvas)
 
 Required options:
   --env <envId>      Environment ID (e.g. Default-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
@@ -400,6 +402,7 @@ Optional:
   --gateway <url>    Gateway URL (loaded from session-config.json if omitted)
   --model <hint>     Model hint for set-model (GPT41, GPT5Chat, sonnet4-5, etc.)
   --text <text>      Instructions text for set-instructions
+  --topic-file <path> JSON file with topic definition (for create-topic)
   --json             Output raw JSON (default: formatted summary)
 
 Examples:
@@ -410,6 +413,9 @@ Examples:
   node island-client.js get-publish-status --env Default-xxx --bot fec3b192-xxx
   node island-client.js check-dlp --env Default-xxx --bot fec3b192-xxx
   node island-client.js list-topics --env Default-xxx --bot fec3b192-xxx
+
+Topics:
+  node island-client.js create-topic --env Default-xxx --bot fec3b192-xxx --topic-file topic-def.json
 
 Evaluation:
   node island-client.js upload-evals --env Default-xxx --bot fec3b192-xxx --brief path/to/brief.json
@@ -619,6 +625,22 @@ async function main() {
                 break;
             }
 
+            case 'create-topic': {
+                if (!config.envId || !config.botId || !config.topicFile) {
+                    console.error('Error: --env, --bot, and --topic-file are required for create-topic');
+                    console.error('  --topic-file: JSON file with { schemaName, displayName, description, triggerQueries, actions }');
+                    process.exit(2);
+                }
+                const topicDef = JSON.parse(fs.readFileSync(config.topicFile, 'utf8'));
+                console.log(`Creating topic "${topicDef.displayName}"...`);
+                const created = await createTopic(gatewayUrl, config.envId, config.botId, headers, topicDef);
+                console.log(`Created: ${created.displayName} (id: ${created.id})`);
+                if (config.json) {
+                    console.log(JSON.stringify(created, null, 2));
+                }
+                break;
+            }
+
             case 'set-instructions': {
                 if (!config.envId || !config.botId || !config.text) {
                     console.error('Error: --env, --bot, and --text are required for set-instructions');
@@ -762,8 +784,8 @@ async function createEvalSet(gatewayUrl, envId, botId, headers, setName, graders
                 definition: {
                     rows: [{
                         diagnostics: [],
-                        input: t.input || t.question,
-                        expectedOutput: t.expectedOutput || t.expected,
+                        input: t.input || t.question || ' ',
+                        expectedOutput: t.expectedOutput || t.expected || '',
                         source: "Imported",
                         $kind: "SimpleEvaluationCase"
                     }],
@@ -772,8 +794,8 @@ async function createEvalSet(gatewayUrl, envId, botId, headers, setName, graders
                     $kind: "EvaluationData"
                 },
                 parentBotComponentId: setId,
-                displayName: (t.input || t.question).substring(0, 100),
-                description: (t.input || t.question).substring(0, 200),
+                displayName: (t.input || t.question || '(empty input test)').substring(0, 100),
+                description: (t.input || t.question || '(empty input test)').substring(0, 200),
                 category: "Testing",
                 state: "Active"
             },
@@ -837,6 +859,131 @@ async function runEval(gatewayUrl, envId, botId, headers, testSetId, runName) {
 // Need crypto for UUID generation
 const crypto = require('crypto');
 
+// --- Topic Creation via Gateway API (BotComponentInsert) ---
+
+/**
+ * Helper: Build an ObjectModel TextSegment message from plain text.
+ * Maps to YAML: activity.text[0] = "message"
+ */
+function buildTextMessage(text) {
+    return {
+        $kind: "Message",
+        text: [{
+            $kind: "TemplateLine",
+            segments: [{ $kind: "TextSegment", value: text }]
+        }]
+    };
+}
+
+/**
+ * Create a topic via Gateway API BotComponentInsert.
+ *
+ * This is the ONLY reliable method for creating topics that render in the MCS
+ * visual editor. LSP push creates botcomponent records but skips internal MCS
+ * registration (NLU trigger phrases, dependency tracking, compilation).
+ *
+ * The Gateway API PUT content/botcomponents with BotComponentInsert is the same
+ * method MCS UI uses when saving a new topic in the code editor.
+ *
+ * @param {string} gatewayUrl - Gateway base URL
+ * @param {string} envId - Environment ID
+ * @param {string} botId - Bot/agent CDS ID
+ * @param {object} headers - Auth headers from buildHeaders()
+ * @param {object} topicDef - Topic definition:
+ *   {
+ *     schemaName: "botschema.topic.TopicName",
+ *     displayName: "Topic Name",
+ *     description: "When to use / when not to use",
+ *     triggerQueries: ["phrase 1", "phrase 2"],
+ *     actions: [
+ *       { kind: "SendActivity", id: "sendMsg1", text: "message" },
+ *       { kind: "Question", id: "q1", variable: "init:Topic.var", prompt: "Ask?", entity: "StringPrebuiltEntity" },
+ *       { kind: "SendMessage", id: "sendCard1", text: "Fallback text", cardContent: "={...PowerFx...}" }
+ *     ]
+ *   }
+ * @returns {object} Created component info { id, displayName, schemaName }
+ */
+async function createTopic(gatewayUrl, envId, botId, headers, topicDef) {
+    // Step 1: Read components to get changeToken
+    const components = await readComponents(gatewayUrl, envId, botId, headers);
+    const changeToken = components.changeToken;
+
+    // Step 2: Build ObjectModel actions from simplified definitions
+    const omActions = topicDef.actions.map(a => {
+        if (a.kind === 'SendActivity') {
+            return {
+                $kind: "SendActivity",
+                id: a.id,
+                activity: buildTextMessage(a.text)
+            };
+        }
+        if (a.kind === 'Question') {
+            return {
+                $kind: "Question",
+                id: a.id,
+                variable: a.variable,
+                prompt: buildTextMessage(a.prompt),
+                entity: { $kind: a.entity || "StringPrebuiltEntity" }
+            };
+        }
+        if (a.kind === 'SendMessage') {
+            // SendMessage with adaptive card attachment
+            const msg = { $kind: "SendActivity", id: a.id, activity: buildTextMessage(a.text || '') };
+            // Note: for adaptive cards, the caller should update the data field
+            // with YAML after creation (Gateway API JSON doesn't easily express PowerFx cards)
+            return msg;
+        }
+        // Fallback — pass through as-is (caller provides full ObjectModel JSON)
+        return a;
+    });
+
+    // Step 3: Build the DialogComponent
+    const component = {
+        $kind: "DialogComponent",
+        id: "00000000-0000-0000-0000-000000000000",
+        schemaName: topicDef.schemaName,
+        displayName: topicDef.displayName,
+        description: topicDef.description || '',
+        dialog: {
+            $kind: "AdaptiveDialog",
+            beginDialog: {
+                $kind: "OnRecognizedIntent",
+                id: "main",
+                intent: {
+                    $kind: "Intent",
+                    displayName: { $kind: "StringExpression", literalValue: topicDef.displayName },
+                    triggerQueries: topicDef.triggerQueries || []
+                },
+                actions: omActions
+            }
+        }
+    };
+
+    // Step 4: PUT with BotComponentInsert
+    const changeSet = {
+        botComponentChanges: [{ $kind: "BotComponentInsert", component }],
+        cloudFlowDefinitionChanges: [],
+        connectorDefinitionChanges: [],
+        environmentVariableChanges: [],
+        connectionReferenceChanges: [],
+        aIPluginOperationChanges: [],
+        componentCollectionChanges: [],
+        dataverseTableSearchChanges: [],
+        connectedAgentDefinitionChanges: [],
+        changeToken
+    };
+
+    const result = await writeComponents(gatewayUrl, envId, botId, headers, changeSet);
+    const inserts = (result.botComponentChanges || []).filter(c => c.$kind === 'BotComponentInsert');
+
+    if (inserts.length > 0) {
+        const created = inserts[0].component;
+        return { id: created.id, displayName: created.displayName, schemaName: created.schemaName };
+    }
+
+    throw new Error('BotComponentInsert returned no created component');
+}
+
 // --- Module Exports (for programmatic use) ---
 module.exports = {
     getToken,
@@ -856,7 +1003,9 @@ module.exports = {
     getInstructions,
     setInstructions,
     createEvalSet,
-    runEval
+    runEval,
+    createTopic,
+    buildTextMessage
 };
 
 // Run CLI if invoked directly

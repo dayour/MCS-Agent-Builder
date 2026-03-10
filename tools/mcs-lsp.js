@@ -451,6 +451,62 @@ function findMcsYmlFiles(dir) {
     return results;
 }
 
+// --- Topic Comment Header Cleanup (bm-026) ---
+
+/**
+ * Strip # Name: and # Description: comment headers from DialogComponent (topic)
+ * data fields in Dataverse. LSP push writes the full file content (including comments)
+ * to the data field, but MCS visual editor expects data to start with "kind: AdaptiveDialog".
+ *
+ * Only patches topics that actually have comment headers (starts with #).
+ * GptComponents (type 15) are NOT affected — they can have comment headers.
+ *
+ * @param {string} workspacePath - Path to agent workspace (with .mcs/conn.json)
+ * @returns {number} Count of topics patched
+ */
+async function stripTopicCommentHeaders(workspacePath) {
+    const connJson = readConnJson(workspacePath);
+    const dvUrl = connJson.DataverseEndpoint.replace(/\/$/, '');
+    const agentId = connJson.AgentId;
+    const token = getAzToken(dvUrl);
+
+    // Find all DialogComponents (type 9) for this agent that have # comment headers
+    const fetchXml = `<fetch top="50"><entity name="botcomponent"><attribute name="botcomponentid"/><attribute name="name"/><attribute name="data"/><filter><condition attribute="parentbotid" operator="eq" value="${agentId}"/><condition attribute="componenttype" operator="eq" value="9"/></filter></entity></fetch>`;
+
+    const searchRes = await httpRequest('GET',
+        `${dvUrl}/api/data/v9.2/botcomponents?fetchXml=${encodeURIComponent(fetchXml)}`,
+        { 'Authorization': `Bearer ${token}` }, null
+    );
+
+    if (searchRes.status !== 200 || !searchRes.data.value) return 0;
+
+    let patchCount = 0;
+    for (const comp of searchRes.data.value) {
+        const data = comp.data || '';
+        if (!data.startsWith('#')) continue; // No comment headers — skip
+
+        // Strip leading # lines
+        const lines = data.split('\n');
+        let startIdx = 0;
+        while (startIdx < lines.length && lines[startIdx].startsWith('#')) {
+            startIdx++;
+        }
+        const cleanData = lines.slice(startIdx).join('\n');
+
+        const patchRes = await httpRequest('PATCH',
+            `${dvUrl}/api/data/v9.2/botcomponents(${comp.botcomponentid})`,
+            { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', 'If-Match': '*' },
+            JSON.stringify({ data: cleanData })
+        );
+
+        if (patchRes.status === 204 || patchRes.status === 200) {
+            patchCount++;
+        }
+    }
+
+    return patchCount;
+}
+
 // --- Metadata Patch (comment headers not synced by LSP) ---
 
 /**
@@ -705,6 +761,22 @@ async function push(workspacePath, options = {}) {
     } catch (err) {
         console.error(`[mcs-lsp] Body verification error (non-fatal): ${err.message}`);
         result.bodyPatch = { patched: false, error: err.message };
+    }
+
+    // Strip comment headers from DialogComponent (topic) data fields.
+    // LSP push writes the full file content (including # Name: / # Description: comments)
+    // to the data field. MCS visual editor can't render topics with comment headers —
+    // it expects data to start with "kind: AdaptiveDialog". (bm-026)
+    // NOTE: This is defense-in-depth. Primary topic creation should use Gateway API
+    // BotComponentInsert (island-client.js createTopic) which avoids this issue entirely.
+    try {
+        const stripped = await stripTopicCommentHeaders(workspacePath);
+        if (stripped > 0) {
+            console.error(`[mcs-lsp] Stripped comment headers from ${stripped} topic(s)`);
+            result.topicHeaderStrip = { count: stripped };
+        }
+    } catch (err) {
+        console.error(`[mcs-lsp] Topic header strip error (non-fatal): ${err.message}`);
     }
 
     return result;
