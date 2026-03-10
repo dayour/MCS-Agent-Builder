@@ -263,7 +263,7 @@ Before committing to designs that are hard to undo — schema changes, workflow 
 | **Replicate Agent** | Cross-environment agent replication: Dataverse create + LSP clone + push (`tools/replicate-agent.js`) |
 | **Direct Line API** | Agent testing: send messages, compare responses. `--gpt` flag for GPT-enhanced scoring (`tools/direct-line-test.js`) |
 | **Multi-Model Review** | GPT-5.4 dual model co-generation + review — 12 commands: 3 co-generation (`generate-instructions`, `generate-evals`, `generate-topics`), 6 review (`review-instructions`, `review-topics`, `review-brief`, `review-flow`, `review-components`, `review-code`), 1 scoring (`score`), 1 utility (`usage`), 1 info (`models`). Auto-detects via `gh auth token` + copilot scope → GitHub Copilot Responses API. Fully optional, graceful fallback (`tools/multi-model-review.js` + `tools/lib/openai.js`) |
-| **Solution Library** | Team SharePoint solution library: list, download, analyze, upload, index, search (`tools/solution-library.js`) |
+| **Solution Library** | Team SharePoint solution library: list, download, analyze, upload (with auto-generated design-spec.md + auto-index), index, search (`tools/solution-library.js`) |
 | **WorkIQ MCP** | M365 context: emails, meetings, documents, Teams, people (`workiq mcp`) |
 | **Microsoft Learn MCP** | Official docs, reference, code samples |
 | **WebSearch** | Latest announcements, preview features, community discoveries |
@@ -388,6 +388,7 @@ Learnings are consulted at these specific points across all workflow skills:
 
 | Skill | Phase/Step | Learnings Files Read |
 |-------|-----------|---------------------|
+| `/mcs-research` | Phase B Step 0.5 (library check) | `solutions/index.json`, `solutions/cache/*.json` |
 | `/mcs-research` | Phase B (component research) | `connectors.md`, `integrations.md`, `customer-patterns.md`, `patterns/solution-patterns.md` |
 | `/mcs-research` | Phase C (architecture + instructions + evals + topics) | `architecture.md`, `instructions.md`, `topics-triggers.md`, `eval-testing.md` |
 | `/mcs-build` | Before Step 1 (agent creation) | `build-methods.md` |
@@ -395,6 +396,7 @@ Learnings are consulted at these specific points across all workflow skills:
 | `/mcs-build` | Before Step 4 (topics) | `topics-triggers.md` |
 | `/mcs-eval` | Before Step 2 (run evaluation) | `eval-testing.md` |
 | `/mcs-fix` | Step 2 (classify failures) | `eval-testing.md`, `instructions.md`, `topics-triggers.md` |
+| `/mcs-retro` | Step 1.5 (library consultation) | `solutions/index.json`, `solutions/cache/*.json` |
 | `/mcs-retro` | All steps (collect + compare) | All learnings files + `index.json` + all cache files |
 
 ---
@@ -481,6 +483,7 @@ CREATE → UPLOAD → RESEARCH → [SOLUTION TYPE GATE] → BUILD → EVALUATE �
 | **Context** | `/mcs-context` | Customer name | customer-context.md | None |
 | **Research** | `/mcs-research {projectId}` or `/mcs-research {projectId} {agentId}` | docs/ | brief.json (enriched with evalSets + decisions[]) | RA (if needed) + PE + QA + TE |
 | **Build** | `/mcs-build {projectId} {agentId}` | brief.json | MCS agent (published) + build-report.md | TE + QA (+ RA/PE on-demand) |
+| **Library** (optional) | `/mcs-library upload` | brief.json + build artifacts | SharePoint folder + design-spec.md + index update | None |
 | **Evaluate** | `/mcs-eval {projectId} {agentId}` | brief.json evalSets | evalSets[].tests[].lastResult | QA |
 | **Fix** | `/mcs-fix {projectId} {agentId}` | brief.json evalSets (failing tests) | brief.json (fixed) + re-eval results | PE + TE + QA |
 | **Deploy** | `/mcs-deploy {projectId} {agentId}` | brief.json (buildStatus, evalSets) | brief.json (deployStatus) + deployment-report.md | None |

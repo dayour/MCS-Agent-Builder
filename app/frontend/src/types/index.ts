@@ -72,7 +72,7 @@ export interface BriefSection {
 
 // ─── Terminal ───────────────────────────────────────────────────────
 
-export type TerminalSessionType = "system" | "research" | "build" | "evaluate";
+export type TerminalSessionType = "system" | "research" | "build" | "evaluate" | "library";
 export type TerminalSessionStatus = "connecting" | "running" | "stopped" | "error";
 
 export interface TerminalSession {

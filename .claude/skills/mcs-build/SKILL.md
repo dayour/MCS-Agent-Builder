@@ -1025,6 +1025,30 @@ node tools/multi-model-review.js review-topics --file <path-to-topic.yaml> --bri
 
 **Never block on GPT** — if unavailable, proceed with QA verdict alone.
 
+### Step 7: Offer Library Upload (Optional)
+
+After buildStatus is finalized, offer to share the solution with the team library.
+
+**Conditions (ALL must be true):**
+1. `buildStatus.status == "published"`
+2. QA verdict is not `"FAIL"`
+
+**Flow:**
+1. Ask: "Upload this agent to the team solution library? This shares the solution + spec with the team."
+2. If yes:
+   ```bash
+   node tools/solution-library.js upload --project {projectId} --agent {agentId}
+   ```
+   This exports the solution, generates a design-spec.md from brief.json, uploads everything to SharePoint, and auto-indexes the upload in `knowledge/solutions/index.json`.
+3. Report: folder name, files uploaded (solution .zip, brief.json, build-report.md, design-spec.md), indexed confirmation
+4. If no: log "Library upload skipped" and proceed
+
+**Skip entirely if:**
+- Build failed or QA verdict is FAIL
+- No SharePoint auth available (not on Microsoft tenant)
+
+---
+
 ### Step 6: Finalize brief.json buildStatus
 
 Write the complete buildStatus. Most fields were already written incrementally during checkpoints — this step ensures the final state is clean:

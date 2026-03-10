@@ -39,6 +39,20 @@ For each item, extract:
 - **Proposed tags** (2-4 tags for index.json matching, e.g. `["lsp", "push", "settings"]`)
 - **Proposed target file** (which `learnings/*.md` file it belongs in)
 
+### Step 1.5: Consult Solution Library
+
+Cross-reference collected items against the team solution library for pattern confirmation.
+
+1. Read `knowledge/solutions/index.json`
+2. For each collected item with `solution_pattern` or `decision_outcome` category:
+   - Search index for solutions with 2+ matching tags (industry, capabilities, tools, architecture type)
+   - If match: note "Similar pattern in library: {folderName}" — enriches Step 2 comparison
+3. For all items: check if the current agent's capabilities/integrations match a library solution
+   - If match: cross-reference approach differences (different tools for same capability = interesting)
+4. Read relevant `knowledge/solutions/cache/*.json` files for matched solutions to get deeper context
+
+This step is fast (local file reads only) and enriches the comparison engine in Step 2 with library evidence.
+
 ### Step 2: Compare
 
 For each collected item:
@@ -83,7 +97,7 @@ For approved items:
 3. **CORRECTION**: Update contradicted entry in `.md` + `index.json`, add correction note
 4. **ENHANCEMENT**: Append context to existing `.md` entry, update `index.json` `lastConfirmed`
 5. **TOOLING_GAP**: Invoke `/suggest` with pre-filled description
-6. **SOLUTION_PATTERN**: Write new pattern entry to `knowledge/patterns/solution-patterns.md` following the existing format (ID `sp-NNN`, sections: naive approach, why it fails, proven pattern, when to match, implementation, tags, confirmed builds). If the pattern updates an existing entry (same problem type), bump `Confirmed builds` count and add implementation notes. Update `knowledge/learnings/index.json` with `file: "patterns/solution-patterns.md"` (cross-directory reference).
+6. **SOLUTION_PATTERN**: Write new pattern entry to `knowledge/patterns/solution-patterns.md` following the existing format (ID `sp-NNN`, sections: naive approach, why it fails, proven pattern, when to match, implementation, tags, confirmed builds). If the pattern updates an existing entry (same problem type), bump `Confirmed builds` count and add implementation notes. Update `knowledge/learnings/index.json` with `file: "patterns/solution-patterns.md"` (cross-directory reference). When library matches from Step 1.5 confirm the pattern, note the library solution name and bump `confirmed` count by match count.
 7. **DECISION_OUTCOME**: Record which `decisions[]` option was selected, whether it worked in production, and any surprises. If the option came from a solution pattern → bump that pattern's `Confirmed builds` count. If the recommended option failed and a different option worked better → write a learnings entry to the relevant file (e.g., `connectors.md`, `integrations.md`) noting the context where the non-default option was better. If the user overrode a recommendation and it worked → record why, so future recommendations can factor this in.
 
 After all writes, report:
@@ -101,6 +115,8 @@ All files in `knowledge/learnings/`:
 All files in `knowledge/cache/` (for cross-reference and correction detection).
 
 `knowledge/patterns/solution-patterns.md` (for SOLUTION_PATTERN matching and deduplication).
+
+`knowledge/solutions/index.json` and `knowledge/solutions/cache/*.json` (for library cross-reference in Step 1.5).
 
 ## Rules
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import { Bot, Plus, Microscope, Hammer, FlaskConical, Wrench, Trash2, Loader2, Sparkles, Network } from "lucide-react";
+import { Bot, Plus, Microscope, Hammer, FlaskConical, Wrench, Trash2, Loader2, Sparkles, Network, Upload } from "lucide-react";
 import Layout from "@/components/Layout";
 import StatusBadge from "@/components/StatusBadge";
 import ReadinessRing from "@/components/ReadinessRing";
@@ -42,10 +42,11 @@ const ProjectPage = () => {
     build: (pid, aid) => `/mcs-build ${pid} ${aid}`,
     evaluate: (pid, aid) => `/mcs-eval ${pid} ${aid}`,
     fix: (pid, aid) => `/mcs-fix ${pid} ${aid}`,
+    library: (pid, aid) => `/mcs-library upload ${pid} ${aid}`,
   };
 
   /** Launch a command in a per-agent terminal tab. */
-  const launchTerminal = async (type: "research" | "build" | "evaluate" | "fix", agent: { id: string; name: string }) => {
+  const launchTerminal = async (type: "research" | "build" | "evaluate" | "fix" | "library", agent: { id: string; name: string }) => {
     if (!id) return;
     const store = useTerminalStore.getState();
     const command = skillCommands[type](id, agent.id);
@@ -234,6 +235,11 @@ const ProjectPage = () => {
                                 {hasFailures && (
                                   <Button variant="outline" size="sm" className="h-6 gap-1 text-[11px] bg-destructive/15 border-destructive/40 text-destructive animate-in fade-in" onClick={() => launchTerminal("fix", agent)}>
                                     <Wrench className="h-3 w-3" /> Fix Failures
+                                  </Button>
+                                )}
+                                {built && (
+                                  <Button variant="outline" size="sm" className="h-6 gap-1 text-[11px] border-border text-muted-foreground hover:bg-primary/10 hover:text-primary hover:border-primary/40" onClick={() => launchTerminal("library", agent)}>
+                                    <Upload className="h-3 w-3" /> Library
                                   </Button>
                                 )}
                               </>

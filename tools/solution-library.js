@@ -757,7 +757,167 @@ async function uploadSolution(token, projectId, agentId, displayName) {
     const briefResult = await uploadFile(token, folderName, 'brief.json', briefPath);
     uploaded.push({ name: 'brief.json', type: 'brief', result: briefResult });
 
-    return { folder: folderName, uploaded };
+    // Generate and upload design-spec.md (human-readable spec card)
+    const specContent = generateDesignSpec(brief);
+    const specPath = path.join(agentDir, 'design-spec.md');
+    fs.writeFileSync(specPath, specContent, 'utf8');
+    console.error(`Uploading design-spec.md...`);
+    const specResult = await uploadFile(token, folderName, 'design-spec.md', specPath);
+    uploaded.push({ name: 'design-spec.md', type: 'spec', result: specResult });
+
+    // Auto-index: scan SharePoint for the new folder, update local index
+    let indexed = false;
+    try {
+        const folders = await listSolutions(token);
+        const match = folders.find(f => f.name === folderName);
+        if (match) {
+            const index = loadIndex();
+            const existing = index.solutions.find(s => s.folderId === match.id);
+            if (existing) {
+                existing.lastModified = match.lastModified;
+                existing.lastAnalyzed = new Date().toISOString();
+                existing.analysisDepth = 'uploaded';
+                existing.files = uploaded.map(u => ({ name: u.name, type: u.type }));
+            } else {
+                index.solutions.push({
+                    id: generateId(),
+                    folderName,
+                    folderId: match.id,
+                    folderUrl: match.webUrl || null,
+                    lastModified: match.lastModified,
+                    lastAnalyzed: new Date().toISOString(),
+                    analysisDepth: 'uploaded',
+                    solution: { displayName: agentName },
+                    agents: [{ name: agentName, schemaName: null }],
+                    files: uploaded.map(u => ({ name: u.name, type: u.type })),
+                    tags: {},
+                    instructionPatterns: []
+                });
+            }
+            index.lastScanned = new Date().toISOString();
+            saveIndex(index);
+            indexed = true;
+            console.error(`Indexed in knowledge/solutions/index.json`);
+        }
+    } catch (err) {
+        console.error(`  Warning: auto-index failed — ${err.message}`);
+    }
+
+    return { folder: folderName, uploaded, indexed };
+}
+
+// --- Design Spec Generation ---
+
+/**
+ * Generate a human-readable design spec markdown from a brief.json object.
+ * This is the "spec card" other team members see when browsing the SharePoint library.
+ *
+ * @param {object} brief - Parsed brief.json object
+ * @returns {string} Markdown string
+ */
+function generateDesignSpec(brief) {
+    const lines = [];
+    const agentName = brief.agent ? brief.agent.displayName || brief.agent.name : 'Unknown Agent';
+    const desc = brief.agent ? brief.agent.description : '';
+
+    lines.push(`# Design Spec: ${agentName}`);
+    lines.push('');
+    if (desc) lines.push(`> ${desc}`);
+    lines.push('');
+    lines.push(`**Generated:** ${new Date().toISOString().substring(0, 10)}`);
+    lines.push('');
+
+    // Capabilities (MVP table)
+    const caps = (brief.capabilities || []).filter(c => c.phase === 'mvp');
+    if (caps.length > 0) {
+        lines.push('## Capabilities (MVP)');
+        lines.push('');
+        lines.push('| Capability | Type | Description |');
+        lines.push('|------------|------|-------------|');
+        for (const c of caps) {
+            const implType = c.implementationType || '—';
+            const cdesc = (c.description || '').substring(0, 80).replace(/\|/g, '/');
+            lines.push(`| ${c.name} | ${implType} | ${cdesc} |`);
+        }
+        lines.push('');
+    }
+
+    // Integrations
+    const integrations = (brief.integrations || []).filter(i => i.phase === 'mvp');
+    if (integrations.length > 0) {
+        lines.push('## Integrations');
+        lines.push('');
+        lines.push('| Tool | Type | Purpose |');
+        lines.push('|------|------|---------|');
+        for (const i of integrations) {
+            const purpose = (i.purpose || '').substring(0, 60).replace(/\|/g, '/');
+            lines.push(`| ${i.name} | ${i.type || '—'} | ${purpose} |`);
+        }
+        lines.push('');
+    }
+
+    // Architecture
+    if (brief.architecture) {
+        lines.push('## Architecture');
+        lines.push('');
+        lines.push(`- **Type:** ${brief.architecture.type || 'single-agent'}`);
+        if (brief.architecture.solutionType) lines.push(`- **Solution Type:** ${brief.architecture.solutionType}`);
+        if (brief.agent && brief.agent.recommendedModel) lines.push(`- **Model:** ${brief.agent.recommendedModel}`);
+        if (brief.architecture.reason) lines.push(`- **Rationale:** ${brief.architecture.reason}`);
+        lines.push('');
+    }
+
+    // Boundaries
+    if (brief.boundaries) {
+        const refuse = brief.boundaries.refuse || [];
+        const decline = brief.boundaries.decline || [];
+        if (refuse.length > 0 || decline.length > 0) {
+            lines.push('## Boundaries');
+            lines.push('');
+            if (refuse.length > 0) {
+                lines.push('**Hard boundaries (refuse):**');
+                for (const b of refuse) lines.push(`- ${typeof b === 'string' ? b : b.topic || b}`);
+            }
+            if (decline.length > 0) {
+                lines.push('**Soft boundaries (decline):**');
+                for (const b of decline) lines.push(`- ${typeof b === 'string' ? b : b.topic || b}`);
+            }
+            lines.push('');
+        }
+    }
+
+    // Knowledge sources
+    const knowledge = (brief.knowledge || []).filter(k => k.phase === 'mvp');
+    if (knowledge.length > 0) {
+        lines.push('## Knowledge Sources');
+        lines.push('');
+        for (const k of knowledge) {
+            lines.push(`- **${k.name}** (${k.type || 'unknown'}) — ${k.purpose || ''}`);
+        }
+        lines.push('');
+    }
+
+    // Eval summary
+    const evalSets = brief.evalSets || [];
+    if (evalSets.length > 0) {
+        lines.push('## Eval Summary');
+        lines.push('');
+        lines.push('| Set | Tests | Threshold | Pass Rate |');
+        lines.push('|-----|-------|-----------|-----------|');
+        for (const es of evalSets) {
+            const tests = es.tests || [];
+            const total = tests.length;
+            const passed = tests.filter(t => t.lastResult && t.lastResult.passed).length;
+            const tested = tests.filter(t => t.lastResult).length;
+            const rate = tested > 0 ? `${Math.round(passed / tested * 100)}%` : 'not run';
+            lines.push(`| ${es.name} | ${total} | ${es.passThreshold || '—'}% | ${rate} |`);
+        }
+        lines.push('');
+    }
+
+    lines.push('---');
+    lines.push('*Generated by MCS Agent Builder*');
+    return lines.join('\n');
 }
 
 // --- Utility Functions ---
@@ -1093,6 +1253,7 @@ async function main() {
                     for (const u of result.uploaded) {
                         console.log(`  ${u.name} [${u.type}]`);
                     }
+                    console.log(`Indexed: ${result.indexed ? 'yes' : 'no'}`);
                 }
                 break;
             }
@@ -1124,6 +1285,7 @@ module.exports = {
     searchIndex,
     uploadSolution,
     updateIndexEntry,
+    generateDesignSpec,
     getFreshness,
     INDEX_PATH,
     CACHE_DIR

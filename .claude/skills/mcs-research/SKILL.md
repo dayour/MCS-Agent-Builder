@@ -418,6 +418,25 @@ This manifest enables incremental research to detect new/changed documents witho
 
 **Key principle:** Don't research all 6 categories live for every agent. Stable categories use cache directly. Only dispatch live research for the agent's specific integration systems.
 
+### Step 0.5: Check Solution Library for Similar Builds
+
+Before starting component research, check the team solution library for prior builds that match this agent's profile. Similar solutions provide real-world implementation evidence.
+
+1. Read `knowledge/solutions/index.json`
+2. For each agent being researched, search by tag overlap:
+   - Industry tags (from `tags.industry`) vs agent's business domain
+   - Capability tags (from `tags.capabilities`) vs agent's `capabilities[].name`
+   - Tool tags (from `tags.tools`) vs agent's `integrations[].name`
+   - Architecture type (from `tags.architectureType`) vs agent's expected pattern
+3. **If similar solutions found (2+ tag overlap):**
+   - Read cache files from `knowledge/solutions/cache/{solutionId}.json` for deeper context
+   - Present: "Found {N} similar solutions in team library: {names}. Their approaches: {summary of tools, architecture, patterns used}"
+   - Use as additional data points in subsequent research steps — not as defaults, but as evidence ("Solution X used Dataverse connector for this, Solution Y used Power Automate flow")
+   - Note connection references and environment variables from similar solutions — they hint at proven integration paths
+4. **If no matches:** proceed normally — "No similar solutions in team library."
+
+This step is fast (local file reads only, no API calls) and runs for all processing paths (full, full-agent, incremental, re-enrich).
+
 ### Step 0: MCP Server Discovery (CONDITIONAL)
 
 **Goal:** Discover available MCP servers and recommend relevant ones — but only when needed.

@@ -149,18 +149,19 @@ If the build hasn't been QA validated, spawn QA Challenger:
 
 1. Export solution: `pac solution export --name "<name>" --managed --overwrite`
 2. Create SharePoint folder: `{AgentName} - {ProjectName}`
-3. Upload: solution .zip, build-report.md, brief.json
-4. Confirm upload success
+3. Generate `design-spec.md` from brief.json (human-readable spec card for team browsing)
+4. Upload: solution .zip, brief.json, build-report.md, design-spec.md
+5. Auto-index: the uploaded solution is automatically added to `knowledge/solutions/index.json`
+6. Confirm upload success + indexed status
 
-## Integration Points (Future — Phase 2)
+## Integration Points
 
-After MVP is working, these integration points will be added:
+The solution library is integrated into the build workflow:
 
-1. **`/mcs-research` Phase B** — "Check solutions/index.json for similar builds" added to learnings consultation
-2. **`/mcs-build` post-publish** — "Offer upload to team library" prompt after successful build
-3. **`/mcs-retro`** — Cross-reference learnings against solution index for pattern confirmation
-
-These are skill SKILL.md edits only — the tool already exports functions for programmatic use.
+1. **`/mcs-research` Phase B (Step 0.5)** — Checks `solutions/index.json` for similar prior builds by tag overlap (industry, capabilities, integrations). Presents matches as additional data points.
+2. **`/mcs-build` Step 7** — After successful build + QA pass, offers to upload the solution to the team library. Auto-generates design-spec.md and indexes the upload.
+3. **`/mcs-retro` Step 1.5** — Cross-references collected learnings against the solution index. Library matches enrich pattern confirmation and bump `confirmed` counts.
+4. **`/mcs-library index`** — Delta-only by default: only processes solutions that are new, changed, or not yet analyzed. Use `--all` flag to force full re-analysis.
 
 ## Prerequisites
 
