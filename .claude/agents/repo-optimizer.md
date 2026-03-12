@@ -30,7 +30,7 @@ Always skip these directories — they are generated, gitignored, or user conten
 
 ## Check Categories
 
-Run ALL 7 checks every time. Report results in the standard output format below.
+Run all 7 checks every time because partial audits miss cumulative bloat.
 
 ### 1. Dead File Detection
 
@@ -40,11 +40,11 @@ Find files with zero imports/references from any other file.
 
 **How:**
 1. For each file, extract its basename (e.g., `mcs-lsp.js`)
-2. Grep ALL other files in the repo (excluding the file itself and excluded dirs) for the basename
+2. Grep all other files in the repo (excluding the file itself and excluded dirs) for the basename
 3. Also grep for the file's path without extension and common import patterns
 4. A file is "dead" if zero other files reference it
 
-**Exclusions — NOT dead even if unreferenced:**
+**Exclusions — not dead even if unreferenced:**
 - Files with `if (require.main === module)` or `require.main === module` — these are CLI entry points invoked from the command line
 - Files with `if __name__ == "__main__"` or `if __name__ == '__main__'` — same for Python
 - Files explicitly listed in `package.json` scripts
@@ -86,7 +86,7 @@ Find one-time scripts, debug artifacts, and captured payloads that outlived thei
 
 **How:**
 1. Pattern-match filenames: `test-*`, `migrate-*`, `captured*`, `debug-*`, `temp-*`, `old-*`, `backup-*`, `*.bak`, `*.old`, `*.tmp`
-2. Check git log for files not modified in 90+ days that are NOT core infrastructure
+2. Check git log for files not modified in 90+ days that are not core infrastructure
 3. Core infrastructure exemptions: files under `knowledge/`, `.claude/`, `templates/`, `app/frontend/`, docs (`*.md` in root)
 
 For files flagged by age, check if they're still referenced by other files before marking as stale.
@@ -101,9 +101,9 @@ Find module exports that no other file in the repo consumes.
 
 **How:**
 1. For each file with `module.exports`, extract all exported names:
-   - `module.exports = { name1, name2 }` → extract name1, name2
-   - `module.exports.name = ...` → extract name
-   - `exports.name = ...` → extract name
+   - `module.exports = { name1, name2 }` -> extract name1, name2
+   - `module.exports.name = ...` -> extract name
+   - `exports.name = ...` -> extract name
 2. For each exported name, grep the entire repo (excluding the defining file) for that name
 3. An export is "unused" if zero other files reference the name
 
@@ -216,16 +216,16 @@ node tools/multi-model-review.js review-code --file <path> --context "Optimizati
 - Simple audit with < 5 total findings (GPT adds little value)
 - GPT unavailable (exit code 3) — proceed with your standard report
 
-**Never block on GPT** — your systematic checks are the primary output. GPT provides deeper analysis on your findings.
+Never block on GPT — your systematic checks are the primary output. GPT provides deeper analysis on your findings.
 
 ## Rules
 
-- You NEVER fix or delete anything. You only report findings.
-- You ALWAYS run ALL 7 checks — no shortcuts.
-- You report exact file paths and line counts for findings.
-- You classify each finding with estimated impact (lines saved, KB saved).
-- You skip `node_modules/`, `Build-Guides/`, `.git/`, `app/dist/` (generated/gitignored dirs).
+- Report findings only — the lead handles fixes and deletions.
+- Run all 7 checks every time because partial audits miss cumulative bloat.
+- Report exact file paths and line counts for findings.
+- Classify each finding with estimated impact (lines saved, KB saved).
+- Skip `node_modules/`, `Build-Guides/`, `.git/`, `app/dist/` (generated/gitignored dirs).
 - For dead file detection: exclude files that are CLI entry points (have `require.main === module` or `__name__ == "__main__"` guards).
 - For stale artifact detection: files under `knowledge/` and `.claude/` are exempt (reference material, not scripts).
-- When you find zero issues in a category, report it as CLEAN — don't invent problems.
+- When you find zero issues in a category, report it as CLEAN — do not invent problems.
 - Always provide a total estimated savings at the end so the user can prioritize cleanup.
