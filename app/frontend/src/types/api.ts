@@ -37,6 +37,7 @@ export interface ApiAgentSummary {
   folder: string;
   architecture_type?: string;
   architecture_children?: string[];
+  workflow_phase?: string | null;
 }
 
 export interface ApiAgentDetail {
@@ -55,15 +56,6 @@ export interface ApiDoc {
   size: number;
   isNew?: boolean;
   isModified?: boolean;
-}
-
-export interface ApiDocStatus {
-  hasManifest: boolean;
-  lastResearchAt: string | null;
-  newDocs: string[];
-  changedDocs: string[];
-  deletedDocs: string[];
-  needsUpdate: boolean;
 }
 
 export interface ApiUploadResult {
@@ -86,6 +78,13 @@ export interface ApiPasteResult {
 
 export interface ApiBrief {
   _schema?: string;
+  workflow?: {
+    phase?: string;
+    previewConfirmed?: boolean;
+    decisionsConfirmed?: boolean;
+    previewGeneratedAt?: string | null;
+    researchCompletedAt?: string | null;
+  };
   business?: {
     useCase?: string;
     problemStatement?: string;
@@ -101,6 +100,7 @@ export interface ApiBrief {
     responseFormat?: string;
     primaryUsers?: string;
     secondaryUsers?: string;
+    targetUsers?: string[];
   };
   capabilities?: Array<{
     name: string;
@@ -110,6 +110,7 @@ export interface ApiBrief {
     dataSources?: string[];
     status?: string;
     implementationType?: string;
+    source?: string;
   }>;
   integrations?: Array<{
     name: string;
@@ -143,14 +144,15 @@ export interface ApiBrief {
       variables?: Array<{ name: string; type: string; prompt: string; required: boolean }>;
       connectedIntegrations?: string[];
       outputFormat?: string;
+      flowDescription?: string;
       yaml?: string | null;
     }>;
   };
   conversationStarters?: Array<{ title: string; text: string }>;
   boundaries?: {
-    handle?: string[];
-    decline?: Array<{ topic: string; redirect?: string }>;
-    refuse?: Array<{ topic: string; reason?: string }>;
+    handle?: Array<string | { text: string; source?: string }>;
+    decline?: Array<{ topic: string; redirect?: string; source?: string }>;
+    refuse?: Array<{ topic: string; reason?: string; source?: string }>;
   };
   architecture?: {
     solutionType?: string;
@@ -242,10 +244,13 @@ export interface ApiBrief {
   }>;
   openQuestions?: Array<{
     question: string;
+    notes?: string;
+    status?: string;
     impact?: string;
     section?: string;
     suggestedDefault?: string;
     answer?: string;
+    source?: string;
   }>;
   decisions?: Array<{
     id: string;

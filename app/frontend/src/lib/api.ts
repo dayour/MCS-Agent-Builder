@@ -10,7 +10,6 @@ import type {
   ApiAgentDetail,
   ApiUploadResult,
   ApiPasteResult,
-  ApiDocStatus,
 } from "@/types/api";
 
 const BASE = "/api";
@@ -156,8 +155,4 @@ export async function fetchDocContent(
   filename: string
 ): Promise<{ filename: string; content: string }> {
   return request(`/projects/${projectId}/docs/${encodeURIComponent(filename)}/content`);
-}
-
-export async function fetchDocStatus(projectId: string): Promise<ApiDocStatus> {
-  return request<ApiDocStatus>(`/projects/${projectId}/doc-status`);
 }

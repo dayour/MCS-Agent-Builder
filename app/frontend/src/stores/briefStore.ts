@@ -59,6 +59,10 @@ interface BriefStore {
   save: () => Promise<void>;
   /** Poll for server changes (returns true if refreshed). */
   poll: () => Promise<boolean>;
+  /** Confirm the fast preview — sets workflow.previewConfirmed + phase to research. */
+  confirmPreview: () => void;
+  /** Confirm all decisions — sets workflow.decisionsConfirmed + phase to ready_to_build. */
+  confirmDecisions: () => void;
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -165,5 +169,47 @@ export const useBriefStore = create<BriefStore>((set, get) => ({
       // Silent poll failure
     }
     return false;
+  },
+
+  confirmPreview: () => {
+    const { data } = get();
+    if (!data) return;
+    const updated = {
+      ...data,
+      workflow: {
+        ...data.workflow,
+        previewConfirmed: true,
+        phase: "research" as const,
+      },
+    };
+    set({
+      data: updated,
+      completion: sectionCompletion(updated),
+      dirty: true,
+    });
+    // Trigger auto-save
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => { get().save(); }, 500);
+  },
+
+  confirmDecisions: () => {
+    const { data } = get();
+    if (!data) return;
+    const updated = {
+      ...data,
+      workflow: {
+        ...data.workflow,
+        decisionsConfirmed: true,
+        phase: "ready_to_build" as const,
+      },
+    };
+    set({
+      data: updated,
+      completion: sectionCompletion(updated),
+      dirty: true,
+    });
+    // Trigger auto-save
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => { get().save(); }, 500);
   },
 }));

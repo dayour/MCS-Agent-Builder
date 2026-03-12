@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Briefcase, Bot, FileText, Zap, Plug, Database,
   MessageSquare, Shield, Network, TestTube, HelpCircle,
@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import OverviewSection from "@/components/brief/OverviewSection";
+import WorkflowPhaseBanner from "@/components/brief/WorkflowPhaseBanner";
 import InstructionsSection from "@/components/brief/InstructionsSection";
 import CapabilitiesSection from "@/components/brief/CapabilitiesSection";
 import IntegrationsSection from "@/components/brief/IntegrationsSection";
@@ -64,11 +65,12 @@ const BriefEditor = () => {
   const loadProject = useProjectStore((s) => s.loadProject);
   const {
     data, rawBrief, agentName, completion, loading, saving, dirty, error,
-    load: loadBrief, updateSection, save, poll,
+    load: loadBrief, updateSection, save, poll, confirmPreview, confirmDecisions,
   } = useBriefStore();
 
   const [activeSection, setActiveSection] = useState(BRIEF_SECTIONS[0].id);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
 
   // Load project + brief on mount
   useEffect(() => {
@@ -91,35 +93,61 @@ const BriefEditor = () => {
     updateSection(sectionId, newData);
   };
 
-  /** Pre-fill the terminal with /mcs-build without sending — user presses Enter. */
-  const prefillBuild = async () => {
+  /** Send a command to the agent's terminal — auto-executes (presses Enter). */
+  const runCommand = async (command: string, type: "build" | "research" = "build") => {
     if (!projectId || !agentId) return;
     const store = useTerminalStore.getState();
-    const command = `/mcs-build ${projectId} ${agentId}`;
 
     const existingId = store.findSession(projectId, agentId);
     if (existingId) {
       store.setActiveSession(existingId);
       store.setPanelOpen(true);
-      store.writeCommand(existingId, command);
+      store.sendCommand(existingId, command);
       return;
     }
 
-    // Create new session with the command as a pending write (not auto-send)
     const wsUrl = await getTerminalWsUrl();
     const session: TerminalSession = {
       id: `${projectId}-${agentId}-${Date.now()}`,
       label: agentName || agentId,
-      type: "build",
+      type,
       projectId,
       agentName: agentName || agentId,
       status: "connecting",
       wsUrl,
-      // Don't set session.command — that would auto-send
+      command, // Auto-executed after Claude Code is ready
     };
     store.addSession(session);
-    // Queue the write so it's flushed after WS connects
-    store.writeCommand(session.id, command);
+  };
+
+  const handleGeneratePreview = () => {
+    if (!projectId || !agentId) return;
+    runCommand(`/mcs-research ${projectId} ${agentId} --fast`, "research");
+  };
+
+  const handleNavigateToDecisions = () => {
+    setActiveSection("decisions");
+  };
+
+  const handleApproveAndBuild = () => {
+    confirmDecisions();
+  };
+
+  /** Confirm preview + open terminal with /mcs-research in one click. */
+  const handleRunResearch = () => {
+    if (!projectId || !agentId) return;
+    confirmPreview();
+    runCommand(`/mcs-research ${projectId} ${agentId}`, "research");
+  };
+
+  const handleNavigateToSection = (sectionId: string) => {
+    setActiveSection(sectionId);
+  };
+
+  /** Launch /mcs-build in the terminal. */
+  const handleBuild = () => {
+    if (!projectId || !agentId) return;
+    runCommand(`/mcs-build ${projectId} ${agentId}`, "build");
   };
 
   const completedCount = Object.values(completion).filter(Boolean).length;
@@ -196,8 +224,8 @@ const BriefEditor = () => {
               variant="outline"
               size="sm"
               className="w-full gap-2 text-xs mt-3"
-              onClick={prefillBuild}
-              title="Opens terminal with build command — press Enter to run"
+              onClick={handleBuild}
+              title="Launch /mcs-build in the terminal"
             >
               <Hammer className="h-3.5 w-3.5" />
               Build
@@ -257,7 +285,7 @@ const BriefEditor = () => {
                   await generateBriefPDF(agentForReport, data as unknown as Record<string, any>);
                 } catch (err) {
                   console.error("PDF generation failed:", err);
-                  setError(`PDF export failed: ${err instanceof Error ? err.message : "Unknown error"}. Check the browser console for details.`);
+                  setPdfError(`PDF export failed: ${err instanceof Error ? err.message : "Unknown error"}.`);
                 } finally {
                   setPdfLoading(false);
                 }
@@ -272,10 +300,24 @@ const BriefEditor = () => {
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
           <div className="mx-auto max-w-3xl animate-fade-in">
-            {error && (
+            {(error || pdfError) && (
               <div className="mb-4 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                {error}
+                {error || pdfError}
               </div>
+            )}
+            {/* Workflow Phase Banner */}
+            {data?.workflow && (
+              <WorkflowPhaseBanner
+                phase={data.workflow.phase}
+                previewGeneratedAt={data.workflow.previewGeneratedAt}
+                researchCompletedAt={data.workflow.researchCompletedAt}
+                pendingDecisionCount={(data.decisions?.items ?? []).filter((d) => d.status === "pending").length}
+                onGeneratePreview={handleGeneratePreview}
+                onRunResearch={handleRunResearch}
+                onReviewDecisions={handleNavigateToDecisions}
+                onApproveAndBuild={handleApproveAndBuild}
+                onBuild={handleBuild}
+              />
             )}
             {decisionImpact.needsReResearch && (
               <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-700 px-4 py-3 flex items-start gap-3">
@@ -296,7 +338,14 @@ const BriefEditor = () => {
               <ActiveComponent
                 data={sectionData}
                 onChange={(d: any) => handleSectionChange(activeSection, d)}
-                {...(activeSection === "architecture" ? {
+                {...(activeSection === "overview" ? {
+                  context: {
+                    briefData: data,
+                    onGeneratePreview: handleGeneratePreview,
+                    onUpdateSection: updateSection,
+                    onNavigateToSection: handleNavigateToSection,
+                  },
+                } : activeSection === "architecture" ? {
                   context: {
                     projectId,
                     agents: agents.map((a) => ({ id: a.id, name: a.name })),

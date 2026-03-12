@@ -40,6 +40,8 @@ export interface Agent {
   architectureType?: string;
   /** Agent folder IDs of children (for multi-agent orchestrators). */
   childAgentIds?: string[];
+  /** Workflow phase from brief (preview | research | decisions | ready_to_build). */
+  workflowPhase?: WorkflowPhase | null;
 }
 
 // ─── Document ───────────────────────────────────────────────────────
@@ -68,6 +70,8 @@ export interface BriefSection {
   /** Lucide icon name (e.g. "Briefcase", "Bot"). */
   icon: string;
   complete: boolean;
+  /** Optional subtitle for section page headers. */
+  subtitle?: string;
 }
 
 // ─── Terminal ───────────────────────────────────────────────────────
@@ -87,6 +91,19 @@ export interface TerminalSession {
   command?: string;
 }
 
+// ─── Workflow ───────────────────────────────────────────────────────
+
+export type WorkflowPhase = "preview" | "research" | "decisions" | "ready_to_build";
+export type ItemSource = "from-docs" | "inferred" | "user-added";
+
+export interface Workflow {
+  phase: WorkflowPhase;
+  previewConfirmed: boolean;
+  decisionsConfirmed: boolean;
+  previewGeneratedAt: string | null;
+  researchCompletedAt: string | null;
+}
+
 // ─── Brief Data Shapes (section payloads) ───────────────────────────
 
 export interface Overview {
@@ -96,6 +113,10 @@ export interface Overview {
   targetUsers: string[];
   challenges: string[];
   benefits: string[];
+  /** Agent persona/tone (e.g. "professional, concise, uses bullet points"). */
+  persona: string;
+  /** How the agent formats responses (e.g. "bullet points, max 3 items"). */
+  responseFormat: string;
 }
 
 export interface Capability {
@@ -103,6 +124,7 @@ export interface Capability {
   description: string;
   phase: string;
   implementationType: string;
+  source?: ItemSource;
 }
 
 export interface Integration {
@@ -146,11 +168,13 @@ export interface ConversationTopic {
 export interface BoundaryDecline {
   topic: string;
   redirect: string;
+  source?: ItemSource;
 }
 
 export interface BoundaryRefuse {
   topic: string;
   reason: string;
+  source?: ItemSource;
 }
 
 export interface OpenQuestion {
@@ -161,6 +185,7 @@ export interface OpenQuestion {
   impact: string;
   section: string;
   suggestedDefault: string;
+  source?: ItemSource;
 }
 
 export type EvalMethodType =
@@ -224,24 +249,6 @@ export interface EvalTest {
   lastResult: EvalTestResult | null;
 }
 
-export interface EvalCoverageGap {
-  categoryId: string;
-  reason: string;
-}
-
-export interface EvalCoverage {
-  lastAnalyzed: string;
-  scenariosCovered: string[];
-  scenariosRecommended: string[];
-  coverageDistribution: {
-    "core-business": number;
-    variations: number;
-    architecture: number;
-    "edge-cases": number;
-  };
-  gaps: EvalCoverageGap[];
-}
-
 export type EvalSetRunWhen =
   | "every-iteration"
   | "after-knowledge"
@@ -264,14 +271,6 @@ export interface EvalConfig {
   targetPassRate: number;
   maxIterationsPerCapability: number;
   maxRegressionRounds: number;
-}
-
-export interface OpenQuestion {
-  question: string;
-  assignee: string;
-  priority: string;
-  status: string;
-  resolution?: string;
 }
 
 // ─── Decisions ─────────────────────────────────────────────────────
@@ -361,6 +360,7 @@ export interface Architecture {
  */
 export interface BriefData {
   overview: Overview;
+  workflow: Workflow;
   instructions: { systemPrompt: string };
   capabilities: { items: Capability[] };
   tools: { items: Integration[] };
