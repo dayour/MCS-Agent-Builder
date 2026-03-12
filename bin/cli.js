@@ -73,7 +73,7 @@ async function checkForUpdate() {
   try {
     if (fs.existsSync(UPDATE_CHECK_FILE)) {
       const data = JSON.parse(fs.readFileSync(UPDATE_CHECK_FILE, "utf8"));
-      if (Date.now() - data.lastCheck < 24 * 60 * 60 * 1000) {
+      if (Date.now() - data.lastCheck < 4 * 60 * 60 * 1000) {
         if (data.latestVersion && data.latestVersion !== VERSION) {
           console.log(`\n  \x1b[33mUpdate available: ${VERSION} \u2192 ${data.latestVersion}\x1b[0m`);
           console.log(`  Run: \x1b[1mmcs update\x1b[0m\n`);
@@ -119,11 +119,28 @@ function updatePackage() {
   log(`Updating mcs-agent-builder...`);
   try {
     execSync("npm install -g mcs-agent-builder@latest", { stdio: "inherit", timeout: 120000 });
-    log("Update complete. Restart with: mcs start");
   } catch (e) {
     err(`Update failed: ${e.message}`);
     err("Try manually: npm install -g mcs-agent-builder@latest");
     process.exit(1);
+  }
+
+  // Auto-restart if a running instance is detected
+  const lock = readLock();
+  if (lock && isProcessAlive(lock.pid)) {
+    log("Restarting dashboard with new version...");
+    try { process.kill(lock.pid, "SIGTERM"); } catch {}
+    // Wait for old process to die, then start fresh
+    const start = Date.now();
+    const wait = setInterval(() => {
+      if (!isProcessAlive(lock.pid) || Date.now() - start > 5000) {
+        clearInterval(wait);
+        try { fs.unlinkSync(LOCKFILE); } catch {}
+        startServer();
+      }
+    }, 200);
+  } else {
+    log("Update complete. Run: mcs start");
   }
 }
 
