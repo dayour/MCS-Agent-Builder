@@ -17436,10 +17436,6 @@
           "const": "Microsoft365Copilot"
         },
         {
-          "title": "Agent365",
-          "const": "Agent365"
-        },
-        {
           "title": "Agents",
           "const": "Agents"
         },
