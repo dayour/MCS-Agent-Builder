@@ -63,27 +63,27 @@ function httpGet(url, timeout = 3000) {
 }
 
 // ---------------------------------------------------------------------------
-// Version check — notify only, cached per 24h
+// Auto-update — check every 4h, install before starting
 // ---------------------------------------------------------------------------
 
 const UPDATE_CHECK_FILE = path.join(os.homedir(), ".mcs-agent-builder", "update-check.json");
 
-async function checkForUpdate() {
-  // Only check once per 24h
+/**
+ * Check npm registry for a newer version. Returns the version string or null.
+ * Cached for 4 hours to avoid slowing down every start.
+ */
+async function getLatestVersion() {
+  // Check cache first
   try {
     if (fs.existsSync(UPDATE_CHECK_FILE)) {
       const data = JSON.parse(fs.readFileSync(UPDATE_CHECK_FILE, "utf8"));
       if (Date.now() - data.lastCheck < 4 * 60 * 60 * 1000) {
-        if (data.latestVersion && data.latestVersion !== VERSION) {
-          console.log(`\n  \x1b[33mUpdate available: ${VERSION} \u2192 ${data.latestVersion}\x1b[0m`);
-          console.log(`  Run: \x1b[1mmcs update\x1b[0m\n`);
-        }
-        return;
+        return data.latestVersion || null;
       }
     }
   } catch {}
 
-  // Check npm registry (non-blocking, fast timeout)
+  // Fetch from npm registry (fast timeout — don't block startup if offline)
   try {
     const latest = await new Promise((resolve, reject) => {
       const req = require("https").get(
@@ -101,17 +101,32 @@ async function checkForUpdate() {
       req.on("timeout", () => { req.destroy(); reject(); });
     });
 
-    // Save check result
+    // Cache the result
     const dir = path.dirname(UPDATE_CHECK_FILE);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(UPDATE_CHECK_FILE, JSON.stringify({ lastCheck: Date.now(), latestVersion: latest }));
 
-    if (latest && latest !== VERSION) {
-      console.log(`\n  \x1b[33mUpdate available: ${VERSION} \u2192 ${latest}\x1b[0m`);
-      console.log(`  Run: \x1b[1mmcs update\x1b[0m\n`);
-    }
+    return latest;
   } catch {
-    // Network error — silently continue
+    return null; // Offline or error — continue with current version
+  }
+}
+
+/**
+ * Auto-update before starting. If update fails, continue with current version.
+ */
+async function autoUpdate() {
+  const latest = await getLatestVersion();
+  if (!latest || latest === VERSION) return;
+
+  log(`Updating ${VERSION} \u2192 ${latest}...`);
+  try {
+    execSync("npm install -g mcs-agent-builder@latest", { stdio: "inherit", timeout: 120000 });
+    log(`Updated to ${latest}`);
+    // Clear cache so next check is fresh
+    try { fs.unlinkSync(UPDATE_CHECK_FILE); } catch {}
+  } catch {
+    log(`Update failed — starting with current version ${VERSION}`);
   }
 }
 
@@ -119,6 +134,8 @@ function updatePackage() {
   log(`Updating mcs-agent-builder...`);
   try {
     execSync("npm install -g mcs-agent-builder@latest", { stdio: "inherit", timeout: 120000 });
+    // Clear cache so next start sees fresh version
+    try { fs.unlinkSync(UPDATE_CHECK_FILE); } catch {}
   } catch (e) {
     err(`Update failed: ${e.message}`);
     err("Try manually: npm install -g mcs-agent-builder@latest");
@@ -130,7 +147,6 @@ function updatePackage() {
   if (lock && isProcessAlive(lock.pid)) {
     log("Restarting dashboard with new version...");
     try { process.kill(lock.pid, "SIGTERM"); } catch {}
-    // Wait for old process to die, then start fresh
     const start = Date.now();
     const wait = setInterval(() => {
       if (!isProcessAlive(lock.pid) || Date.now() - start > 5000) {
@@ -161,8 +177,8 @@ async function startServer() {
     try { fs.unlinkSync(LOCKFILE); } catch {}
   }
 
-  // Check for updates (non-blocking notification)
-  await checkForUpdate();
+  // Auto-update before starting (skips if offline or up-to-date)
+  await autoUpdate();
 
   log(`Starting MCS Agent Builder v${VERSION}...`);
 
