@@ -1,6 +1,6 @@
 {
   "name": "mcs-agent-builder",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Microsoft Copilot Studio agent build automation with Claude Code",
   "author": "Microsoft CAPE Team",
   "license": "MIT",
