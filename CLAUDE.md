@@ -32,6 +32,31 @@ Each skill has detailed instructions in its own `.claude/skills/*/SKILL.md`.
 
 ---
 
+## Dual Model Co-Generation — Every Non-Trivial Task
+
+Fire GPT-5.4 in parallel with your own work on every task that is not a single-line fix, git operation, or file read. Quality is the priority — cost and tokens do not matter. GPT serves as both a **co-generator** (produces content independently for merging) and a **reviewer** (validates your output). This applies to all work: MCS builds, code, reviews, cleanup, app changes, architecture, docs, debugging, planning, answering questions.
+
+| Task Type | GPT Action | Command |
+|-----------|-----------|---------|
+| MCS instructions | Co-generate, PE merges | `generate-instructions --brief <path>` |
+| Eval tests | Co-generate, QA merges | `generate-evals --brief <path>` |
+| Topic YAML (3+ nodes) | Co-generate, TE merges | `generate-topics --topic-spec <path> --brief <path>` |
+| Writing code (3+ lines) | GPT reviews as you write each file | `review-code --file <path>` |
+| Component selection | GPT reviews RA's choices | `review-components --brief <path>` |
+| Flow spec design | GPT reviews FD's output | `review-flow --file <path> --brief <path>` |
+| Architecture/design decisions | GPT gives a second opinion | Send context, get alternative perspective |
+| All other non-trivial tasks | GPT reviews after completion | Appropriate `review-*` command |
+
+**Skip only:** single-line fixes, typos, git ops, file reads, status checks, GPT unavailable (exit code 3).
+
+**For code changes:** fire `review-code --file <path>` on each file as you write it — not batched at the end. For multi-file changes, review the first 2-3 files, fix issues, then continue.
+
+**Merge protocol:** union of findings from both models, stricter assessment wins on conflicts, flag divergence for the user. Full merge rules for co-generation (instructions/topics/evals) in `.claude/rules/gpt-co-generation.md`.
+
+**How it works:** GPT-5.4 via GitHub Copilot Responses API (`tools/lib/openai.js`). Auth: `gh auth token` with `copilot` scope. CLI: `tools/multi-model-review.js` (12 commands). If GPT fails, proceed with Claude alone — never block on GPT.
+
+---
+
 ## Core Philosophy
 
 1. **Brief-driven build** — brief.json drives every build because a single source of truth prevents drift between design and execution. Fill gaps before building.

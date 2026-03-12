@@ -4,6 +4,16 @@ paths:
   - ".claude/agents/**"
   - "tools/**"
   - "app/**"
+  - "knowledge/**"
+  - "templates/**"
+  - "CLAUDE.md"
+  - "*.md"
+  - "*.js"
+  - "*.py"
+  - "*.ps1"
+  - "*.json"
+  - "*.ts"
+  - "*.tsx"
 ---
 
 # Dual Model Co-Generation and Review
