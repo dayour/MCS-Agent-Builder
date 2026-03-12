@@ -63,6 +63,71 @@ function httpGet(url, timeout = 3000) {
 }
 
 // ---------------------------------------------------------------------------
+// Version check — notify only, cached per 24h
+// ---------------------------------------------------------------------------
+
+const UPDATE_CHECK_FILE = path.join(os.homedir(), ".mcs-agent-builder", "update-check.json");
+
+async function checkForUpdate() {
+  // Only check once per 24h
+  try {
+    if (fs.existsSync(UPDATE_CHECK_FILE)) {
+      const data = JSON.parse(fs.readFileSync(UPDATE_CHECK_FILE, "utf8"));
+      if (Date.now() - data.lastCheck < 24 * 60 * 60 * 1000) {
+        if (data.latestVersion && data.latestVersion !== VERSION) {
+          console.log(`\n  \x1b[33mUpdate available: ${VERSION} \u2192 ${data.latestVersion}\x1b[0m`);
+          console.log(`  Run: \x1b[1mmcs update\x1b[0m\n`);
+        }
+        return;
+      }
+    }
+  } catch {}
+
+  // Check npm registry (non-blocking, fast timeout)
+  try {
+    const latest = await new Promise((resolve, reject) => {
+      const req = require("https").get(
+        "https://registry.npmjs.org/mcs-agent-builder/latest",
+        { timeout: 3000 },
+        (res) => {
+          let data = "";
+          res.on("data", (c) => (data += c));
+          res.on("end", () => {
+            try { resolve(JSON.parse(data).version); } catch { reject(); }
+          });
+        }
+      );
+      req.on("error", reject);
+      req.on("timeout", () => { req.destroy(); reject(); });
+    });
+
+    // Save check result
+    const dir = path.dirname(UPDATE_CHECK_FILE);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(UPDATE_CHECK_FILE, JSON.stringify({ lastCheck: Date.now(), latestVersion: latest }));
+
+    if (latest && latest !== VERSION) {
+      console.log(`\n  \x1b[33mUpdate available: ${VERSION} \u2192 ${latest}\x1b[0m`);
+      console.log(`  Run: \x1b[1mmcs update\x1b[0m\n`);
+    }
+  } catch {
+    // Network error — silently continue
+  }
+}
+
+function updatePackage() {
+  log(`Updating mcs-agent-builder...`);
+  try {
+    execSync("npm install -g mcs-agent-builder@latest", { stdio: "inherit", timeout: 120000 });
+    log("Update complete. Restart with: mcs start");
+  } catch (e) {
+    err(`Update failed: ${e.message}`);
+    err("Try manually: npm install -g mcs-agent-builder@latest");
+    process.exit(1);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Commands
 // ---------------------------------------------------------------------------
 
@@ -78,6 +143,9 @@ async function startServer() {
   if (lock) {
     try { fs.unlinkSync(LOCKFILE); } catch {}
   }
+
+  // Check for updates (non-blocking notification)
+  await checkForUpdate();
 
   log(`Starting MCS Agent Builder v${VERSION}...`);
 
@@ -271,17 +339,16 @@ function doctor() {
     return { ok: false, detail: "not found", fix: "npm install -g @anthropic-ai/claude-code" };
   });
 
-  // 5. Python packages (FastAPI, uvicorn, markitdown)
-  check("Python packages", () => {
-    const pkgs = ["fastapi", "uvicorn", "markitdown"];
-    const missing = [];
-    for (const pkg of pkgs) {
-      try {
-        run(`python -c "import ${pkg}"`);
-      } catch { missing.push(pkg); }
+  // 5. Document conversion (mammoth, xlsx, turndown)
+  check("Document conversion", () => {
+    try {
+      require("mammoth");
+      require("turndown");
+      require("xlsx");
+      return { ok: true, detail: "mammoth, turndown, xlsx" };
+    } catch (e) {
+      return { ok: false, detail: `missing: ${e.message.split("'")[1] || "module"}`, fix: "npm install" };
     }
-    if (missing.length === 0) return { ok: true, detail: "fastapi, uvicorn, markitdown" };
-    return { ok: false, detail: `missing: ${missing.join(", ")}`, fix: 'pip install fastapi uvicorn python-multipart "markitdown[all]"' };
   });
 
   // 6. Azure CLI (optional)
@@ -395,19 +462,19 @@ function showHelp() {
   Microsoft Copilot Studio agent build automation with Claude Code.
 
   \x1b[1mUsage:\x1b[0m
-    mcs-agent-builder <command>
+    mcs <command>
 
   \x1b[1mCommands:\x1b[0m
-    start, --start       Start the dashboard server
-    stop, --stop         Stop a running instance
-    restart, --restart   Stop then start
-    health, --health     Check if the dashboard is running
-    doctor, --doctor     Check all prerequisites
-    --version, -v        Show version
-    --help, -h           Show this help
+    start       Start the dashboard server
+    stop        Stop a running instance
+    restart     Stop then start
+    health      Check if the dashboard is running
+    doctor      Check all prerequisites
+    update      Update to the latest version
+    -v          Show version
+    -h          Show this help
 
-  \x1b[1mAlternative:\x1b[0m
-    Double-click start.cmd (Windows) for full setup + launch.
+  \x1b[1mAliases:\x1b[0m  mcs, mcsab, mcs-agent-builder
 `);
 }
 
@@ -427,7 +494,6 @@ switch (command) {
     break;
   case "restart":
     stopServer();
-    // Wait a beat for ports to free, then start
     setTimeout(() => startServer(), 1500);
     break;
   case "health":
@@ -436,6 +502,10 @@ switch (command) {
   case "doctor":
   case "doc":
     doctor();
+    break;
+  case "update":
+  case "upgrade":
+    updatePackage();
     break;
   case "version":
   case "v":

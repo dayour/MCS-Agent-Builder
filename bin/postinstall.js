@@ -2,8 +2,8 @@
 /**
  * mcs-agent-builder postinstall
  *
- * Runs after `npm install` to set up dependencies and environment.
- * Failures are non-blocking — the dashboard still works without Python.
+ * Runs after `npm install` to build the frontend and set up hooks.
+ * No Python dependency — all conversion is pure JavaScript.
  */
 
 const { execSync } = require("child_process");
@@ -25,69 +25,8 @@ function ok(msg) {
   console.log(`\x1b[32m[mcs-agent-builder]\x1b[0m ${msg}`);
 }
 
-function run(cmd, opts = {}) {
-  return execSync(cmd, { encoding: "utf8", timeout: 180000, stdio: "pipe", ...opts });
-}
-
-function commandExists(cmd) {
-  try {
-    const which = os.platform() === "win32" ? "where" : "which";
-    run(`${which} ${cmd}`);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 // ---------------------------------------------------------------------------
-// 1. Check Python
-// ---------------------------------------------------------------------------
-
-let hasPython = false;
-let pythonCmd = "python";
-
-for (const cmd of ["python3", "python"]) {
-  if (commandExists(cmd)) {
-    try {
-      const ver = run(`${cmd} -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"`).trim();
-      const [major, minor] = ver.split(".").map(Number);
-      if (major >= 3 && minor >= 10) {
-        hasPython = true;
-        pythonCmd = cmd;
-        log(`Python ${ver} found (${cmd})`);
-        break;
-      } else {
-        warn(`${cmd} is version ${ver} — need 3.10+`);
-      }
-    } catch {}
-  }
-}
-
-if (!hasPython) {
-  warn("Python 3.10+ not found — the dashboard backend requires it.");
-  warn("Install Python: https://python.org or run start.cmd on Windows for auto-install.");
-}
-
-// ---------------------------------------------------------------------------
-// 2. Install Python dependencies
-// ---------------------------------------------------------------------------
-
-if (hasPython) {
-  const reqFile = path.join(PKG_DIR, "requirements.txt");
-  if (fs.existsSync(reqFile)) {
-    log("Installing Python dependencies...");
-    try {
-      // Use pip associated with the detected python
-      run(`${pythonCmd} -m pip install --quiet -r "${reqFile}"`, { stdio: "inherit" });
-      ok("Python dependencies installed");
-    } catch {
-      warn("pip install failed — run manually: pip install -r requirements.txt");
-    }
-  }
-}
-
-// ---------------------------------------------------------------------------
-// 3. Build frontend if not already built
+// 1. Build frontend if not already built
 // ---------------------------------------------------------------------------
 
 const frontendDir = path.join(PKG_DIR, "app", "frontend");
@@ -96,8 +35,8 @@ const distIndex = path.join(PKG_DIR, "app", "dist", "index.html");
 if (fs.existsSync(path.join(frontendDir, "package.json")) && !fs.existsSync(distIndex)) {
   log("Building frontend...");
   try {
-    run("npm install --no-audit --no-fund", { cwd: frontendDir, stdio: "inherit", timeout: 120000 });
-    run("npm run build", { cwd: frontendDir, stdio: "inherit", timeout: 120000 });
+    execSync("npm install --no-audit --no-fund", { cwd: frontendDir, stdio: "inherit", timeout: 120000 });
+    execSync("npm run build", { cwd: frontendDir, stdio: "inherit", timeout: 120000 });
     ok("Frontend built");
   } catch {
     warn("Frontend build failed — dashboard may show a placeholder page.");
@@ -108,15 +47,21 @@ if (fs.existsSync(path.join(frontendDir, "package.json")) && !fs.existsSync(dist
 }
 
 // ---------------------------------------------------------------------------
-// 4. Set environment variables (Windows only — persists for user)
+// 2. Set environment variables (Windows only)
 // ---------------------------------------------------------------------------
 
 if (os.platform() === "win32") {
   const envVar = "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS";
   try {
-    const current = run(`powershell -Command "[Environment]::GetEnvironmentVariable('${envVar}', 'User')"`).trim();
+    const current = execSync(
+      `powershell -Command "[Environment]::GetEnvironmentVariable('${envVar}', 'User')"`,
+      { encoding: "utf8", timeout: 10000 }
+    ).trim();
     if (current !== "1") {
-      run(`powershell -Command "[Environment]::SetEnvironmentVariable('${envVar}', '1', 'User')"`);
+      execSync(
+        `powershell -Command "[Environment]::SetEnvironmentVariable('${envVar}', '1', 'User')"`,
+        { timeout: 10000 }
+      );
       log("Agent Teams environment variable set");
     }
   } catch {
@@ -125,7 +70,7 @@ if (os.platform() === "win32") {
 }
 
 // ---------------------------------------------------------------------------
-// 5. Install git hooks (if in a git repo)
+// 3. Install git hooks (if in a git repo)
 // ---------------------------------------------------------------------------
 
 const gitDir = path.join(PKG_DIR, ".git");
@@ -150,23 +95,19 @@ if (fs.existsSync(gitDir)) {
 }
 
 // ---------------------------------------------------------------------------
-// 6. Success banner
+// 4. Success banner
 // ---------------------------------------------------------------------------
 
 console.log(`
-\x1b[32m  ✓ mcs-agent-builder installed successfully\x1b[0m
+\x1b[32m  \u2713 mcs-agent-builder installed successfully\x1b[0m
 
   \x1b[1mCommands:\x1b[0m
-    mcs-agent-builder start       Start the dashboard
-    mcs-agent-builder stop        Stop a running instance
-    mcs-agent-builder restart     Restart the dashboard
-    mcs-agent-builder health      Check status
+    mcs start          Start the dashboard
+    mcs stop           Stop a running instance
+    mcs restart        Restart the dashboard
+    mcs health         Check status
+    mcs doctor         Check prerequisites
+    mcs update         Update to latest version
 
-  \x1b[1mAlso accepts flag syntax:\x1b[0m
-    mcs-agent-builder --start
-    mcs-agent-builder --stop
-    mcs-agent-builder --restart
-    mcs-agent-builder --health
-
-  \x1b[90mOr use start.cmd (Windows) for full setup including winget tools.\x1b[0m
+  \x1b[90mAliases: mcs, mcsab, mcs-agent-builder\x1b[0m
 `);

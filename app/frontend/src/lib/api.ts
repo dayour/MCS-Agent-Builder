@@ -49,9 +49,9 @@ export async function getTerminalWsUrl(): Promise<string> {
       return _terminalWsUrl!;
     }
   } catch { /* fallback */ }
-  // Derive from current page: terminal = same host, port + 1
-  const port = parseInt(window.location.port || "8000", 10);
-  _terminalWsUrl = `ws://localhost:${port + 1}/ws`;
+  // Derive from current page: same host + port, /ws path
+  const port = window.location.port || "8000";
+  _terminalWsUrl = `ws://localhost:${port}/ws`;
   return _terminalWsUrl;
 }
 
