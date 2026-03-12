@@ -8,21 +8,33 @@ Two AI models work in parallel: **Claude** orchestrates, writes code, and execut
 
 ## Quick Start
 
-```powershell
-git clone https://github.com/microsoft/MCS-Agent-Builder.git
-cd MCS-Agent-Builder
-.\start.cmd
+```bash
+npm install -g mcs-agent-builder
+mcs start
 ```
 
-That's it. First run installs everything (Node.js, Python, Git, Claude Code, GitHub CLI) via winget. Subsequent runs launch in ~1 second. Opens your browser to the dashboard automatically.
+That's it. One install, one command. Opens your browser to the dashboard automatically. No Python, no git clone, no setup scripts.
 
-**Other ways to run:**
+**Commands:**
 
 ```bash
-npm install -g mcs-agent-builder    # cross-platform (requires Node 18+ and Python 3.10+)
-mcs-agent-builder start             # launch the dashboard
-mcs-agent-builder doctor            # check all 11 prerequisites
+mcs start       # launch the dashboard
+mcs stop        # stop the dashboard
+mcs restart     # stop + start
+mcs update      # update to latest version (auto-restarts if running)
+mcs health      # check if running
+mcs doctor      # check all prerequisites
 ```
+
+**For developers (working from the repo):**
+
+```bash
+git clone https://github.com/microsoft/MCS-Agent-Builder.git
+cd MCS-Agent-Builder
+npm start
+```
+
+Running from the repo enables auto-update via git pull, frontend hot-reload, and git hooks.
 
 ---
 
@@ -62,6 +74,19 @@ The dashboard shows everything in real-time with an embedded Claude Code termina
 
 ---
 
+## Updates
+
+The tool checks for updates every 4 hours when you run `mcs start`. If a new version is available:
+
+```
+  Update available: 1.0.2 → 1.1.0
+  Run: mcs update
+```
+
+Run `mcs update` to install the latest version. If the dashboard is running, it auto-restarts with the new version.
+
+---
+
 ## Dual-Model Review (Claude + GPT-5.4)
 
 Every non-trivial task gets two AI perspectives automatically:
@@ -83,7 +108,7 @@ gh auth login                       # sign in with your GitHub account
 gh auth refresh --scopes copilot    # add Copilot API access
 ```
 
-GPT is fully optional — if not configured, everything works with Claude alone. Run `mcs-agent-builder doctor` to check.
+GPT is fully optional — if not configured, everything works with Claude alone. Run `mcs doctor` to check.
 
 ---
 
@@ -148,14 +173,13 @@ The tool continuously learns and improves:
 
 ## Prerequisites
 
-**Fully automatic** — `start.cmd` installs everything via winget. Run `mcs-agent-builder doctor` to verify anytime.
+Run `mcs doctor` to check everything.
 
 | Requirement | Required | Why |
 |-------------|----------|-----|
-| Node.js 18+ | Yes | Dashboard and terminal server |
-| Python 3.10+ | Yes | Backend API |
+| Node.js 18+ | Yes | Server and terminal |
 | Claude Code | Yes | AI agent that runs the builds |
-| Git | Yes | Source control, auto-updates |
+| Git | Optional | Auto-updates (repo mode only) |
 | GitHub CLI + copilot scope | Optional | GPT-5.4 cross-model reviews |
 | Azure CLI | Optional | ADO work items (bug/suggest) |
 | PAC CLI | Optional | Power Platform operations |
@@ -164,16 +188,39 @@ The tool continuously learns and improves:
 
 ---
 
+## Architecture
+
+Single Node.js process serves the dashboard (Express HTTP), REST API, and Claude Code terminal (WebSocket) on one port.
+
+```
+app/
+  server.js                   Express server (HTTP + WebSocket on one port)
+  lib/                        Readiness calc, document conversion, project CRUD, terminal
+  frontend/                   React + TypeScript SPA (Vite + shadcn/ui)
+  dist/                       Pre-built frontend (ships with npm package)
+```
+
+| Port | Service | Binding |
+|------|---------|---------|
+| 8000-8020 | Dashboard + Terminal | localhost only |
+
+Single port, auto-discovered. If 8000 is busy, the next available port is used.
+
+### Project Data
+
+| Install method | Projects stored at |
+|---------------|-------------------|
+| npm global (`mcs start`) | `~/MCS-Agent-Builder/` |
+| Git repo (`npm start`) | `./Build-Guides/` |
+
+---
+
 ## Project Structure
 
 ```
-start.cmd                     Double-click entry point
-setup.ps1                     Bootstrap (winget/npm/pip)
-start.js                      Launcher (npm start)
-
 bin/
-  cli.js                      CLI (start, stop, health, doctor)
-  postinstall.js               Post-install setup
+  cli.js                      CLI (start, stop, health, doctor, update)
+  postinstall.js              Post-install setup
 
 .claude/
   settings.json               MCP servers, permissions
@@ -181,8 +228,8 @@ bin/
   agents/                     7 AI teammate definitions
 
 app/
-  server.py                   FastAPI backend
-  terminal-server.js          Claude Code terminal (multi-tab, WebSocket)
+  server.js                   Express backend + WebSocket terminal
+  lib/                        Readiness, documents, projects, terminal, brief migration
   frontend/                   React + TypeScript SPA (Vite + shadcn/ui)
 
 knowledge/
@@ -195,11 +242,9 @@ tools/
   lib/openai.js               GPT-5.4 client (GitHub Copilot Responses API)
   lib/http.js                 Shared HTTP + Azure CLI token helpers
   lib/flow-composer.js        Flow composition (builders, wiring, validation)
-  lib/connector-schema.js     Connector Swagger fetch, parse & cache
-  lib/graph-sharepoint.js     SharePoint Graph API helper
-  multi-model-review.js       GPT review CLI (instructions, topics, briefs, scoring, models)
+  multi-model-review.js       GPT review CLI (instructions, topics, briefs, scoring)
   eval-scoring.js             Scoring module (7 methods, dual heuristic+GPT)
-  direct-line-test.js         Direct Line eval runner (--gpt for GPT scoring)
+  direct-line-test.js         Direct Line eval runner
   mcs-lsp.js                  MCS Language Server wrapper (push/pull)
   island-client.js            Island Gateway API client
   flow-manager.js             Power Automate flow CRUD + composition
@@ -207,10 +252,6 @@ tools/
   solution-library.js         Team SharePoint solution library
   replicate-agent.js          Cross-environment agent replication
   om-cli/                     ObjectModel CLI — YAML validation (357 types)
-  gen-constraints.py          Pre-generation constraint extraction
-  drift-detect.py             Brief-vs-YAML drift detection
-  semantic-gates.py           5 semantic validation gates
-  dataverse-helper.ps1        PowerShell Dataverse Web API helper
 
 templates/                    brief.json schema (single source of truth)
 Build-Guides/                 Per-project work (gitignored)
@@ -218,26 +259,12 @@ Build-Guides/                 Per-project work (gitignored)
 
 ---
 
-## Networking & Security
-
-Both servers bind to `127.0.0.1` (localhost only). No ports exposed to the network. Safe on corporate PCs — won't affect Teams, Outlook, VPN, or anything else.
-
-| Port | Service | Binding |
-|------|---------|---------|
-| 8000-8020 | Dashboard (FastAPI) | localhost only |
-| 8001-8021 | Terminal (WebSocket) | localhost only |
-
-Ports auto-discovered in pairs. If 8000/8001 are busy, the next pair is used.
-
----
-
 ## Troubleshooting
 
 | Problem | Fix |
 |---------|-----|
-| Something not working | `mcs-agent-builder doctor` — checks all 11 prerequisites with fix instructions |
-| `start.cmd` fails | Ensure winget is available (built into Windows 11). Try `.\start.cmd --full` |
-| Port conflict | Auto-discovered. Run `mcs-agent-builder health` to see actual port |
+| Something not working | `mcs doctor` — checks all prerequisites with fix instructions |
+| Port conflict | Auto-discovered. Run `mcs health` to see actual port |
 | GPT reviews not working | `gh auth login && gh auth refresh --scopes copilot` |
 | PAC CLI not working | Ask Claude: "set up PAC CLI auth for me" |
 | Wrong MCS environment | Claude detects mismatches and asks you to switch |
