@@ -9,7 +9,7 @@
  * doesn't display are never lost.
  */
 import type { ApiBrief } from "@/types/api";
-import type { BriefData, EvalSet, EvalConfig, Overview, Decision, DecisionCategory, DecisionStatus, ConfidenceLevel, SolutionType } from "@/types";
+import type { BriefData, EvalSet, EvalConfig, Overview, Decision, DecisionCategory, DecisionStatus, ConfidenceLevel, SolutionType, Workflow, WorkflowPhase, ItemSource } from "@/types";
 
 /**
  * Convert raw brief.json → UI BriefData shape.
@@ -19,22 +19,31 @@ export function briefFromApi(raw: ApiBrief): BriefData {
   const agent = raw.agent ?? {};
   const arch = raw.architecture ?? {};
   const bounds = raw.boundaries ?? {};
+  const wf = raw.workflow ?? {};
 
   return {
+    workflow: {
+      phase: (wf.phase ?? "preview") as WorkflowPhase,
+      previewConfirmed: wf.previewConfirmed ?? false,
+      decisionsConfirmed: wf.decisionsConfirmed ?? false,
+      previewGeneratedAt: wf.previewGeneratedAt ?? null,
+      researchCompletedAt: wf.researchCompletedAt ?? null,
+    } satisfies Workflow,
     overview: {
       name: agent.name ?? "",
       description: agent.description ?? "",
       problemStatement: biz.problemStatement ?? biz.useCase ?? "",
-      targetUsers: [
-        agent.primaryUsers ?? "",
-        agent.secondaryUsers ?? "",
-      ].filter(Boolean),
+      targetUsers: agent.targetUsers?.length
+        ? agent.targetUsers.filter(Boolean)
+        : [agent.primaryUsers ?? "", agent.secondaryUsers ?? ""].filter(Boolean),
       challenges: (biz.challenges ?? []).map((c) =>
         typeof c === "string" ? c : c.challenge ?? ""
       ),
       benefits: (biz.benefits ?? []).map((b) =>
         typeof b === "string" ? b : b.benefit ?? ""
       ),
+      persona: agent.persona ?? "",
+      responseFormat: agent.responseFormat ?? "",
     } satisfies Overview,
     instructions: {
       systemPrompt: raw.instructions ?? "",
@@ -45,6 +54,7 @@ export function briefFromApi(raw: ApiBrief): BriefData {
         description: c.description ?? "",
         phase: (c.phase ?? "mvp").toUpperCase() === "MVP" ? "MVP" : "Future",
         implementationType: c.implementationType ?? "prompt",
+        source: (c.source as ItemSource) ?? undefined,
       })),
     },
     tools: {
@@ -75,7 +85,7 @@ export function briefFromApi(raw: ApiBrief): BriefData {
         type: (t.topicType ?? "generative") as "generative" | "custom",
         phase: (t.phase ?? "mvp").toUpperCase() === "MVP" ? "MVP" : "Future",
         description: t.description ?? "",
-        flowDescription: "",
+        flowDescription: t.flowDescription ?? "",
         outputFormat: t.outputFormat ?? "text",
         triggerType: t.triggerType ?? "agent-chooses",
         triggerPhrases: t.triggerPhrases ?? [],
@@ -88,12 +98,14 @@ export function briefFromApi(raw: ApiBrief): BriefData {
       })),
     },
     "scope-boundaries": {
-      handles: bounds.handle ?? [],
+      handles: (bounds.handle ?? []).map((h: any) =>
+        typeof h === "string" ? h : h.text ?? ""
+      ),
       politelyDeclines: (bounds.decline ?? []).map((d) =>
-        typeof d === "string" ? { topic: d, redirect: "" } : { topic: d.topic ?? "", redirect: d.redirect ?? "" }
+        typeof d === "string" ? { topic: d, redirect: "" } : { topic: d.topic ?? "", redirect: d.redirect ?? "", source: (d.source as ItemSource) ?? undefined }
       ),
       hardRefuses: (bounds.refuse ?? []).map((r) =>
-        typeof r === "string" ? { topic: r, reason: "" } : { topic: r.topic ?? "", reason: r.reason ?? "" }
+        typeof r === "string" ? { topic: r, reason: "" } : { topic: r.topic ?? "", reason: r.reason ?? "", source: (r.source as ItemSource) ?? undefined }
       ),
     },
     architecture: {
@@ -153,12 +165,13 @@ export function briefFromApi(raw: ApiBrief): BriefData {
     "open-questions": {
       items: (raw.openQuestions ?? []).map((q) => ({
         question: q.question ?? "",
-        notes: "",
-        status: q.answer ? "resolved" : "open",
+        notes: q.notes ?? "",
+        status: q.status ?? (q.answer ? "resolved" : "open"),
         resolution: q.answer ?? "",
         impact: q.impact ?? "",
         section: q.section ?? "",
         suggestedDefault: q.suggestedDefault ?? "",
+        source: (q.source as ItemSource) ?? undefined,
       })),
     },
   };
@@ -172,6 +185,15 @@ export function briefToApi(ui: BriefData, raw: ApiBrief): ApiBrief {
   const result = structuredClone(raw);
   const ov = ui["overview"];
   const arch = ui["architecture"];
+
+  // Workflow
+  result.workflow = {
+    phase: ui.workflow.phase,
+    previewConfirmed: ui.workflow.previewConfirmed,
+    decisionsConfirmed: ui.workflow.decisionsConfirmed,
+    previewGeneratedAt: ui.workflow.previewGeneratedAt,
+    researchCompletedAt: ui.workflow.researchCompletedAt,
+  };
 
   // Business — merge overview fields back, preserve raw fields the UI doesn't show
   result.business = {
@@ -189,6 +211,9 @@ export function briefToApi(ui: BriefData, raw: ApiBrief): ApiBrief {
     description: ov.description,
     primaryUsers: ov.targetUsers[0] ?? "",
     secondaryUsers: ov.targetUsers[1] ?? "",
+    targetUsers: ov.targetUsers,
+    persona: ov.persona,
+    responseFormat: ov.responseFormat,
   };
 
   // Instructions
@@ -203,6 +228,7 @@ export function briefToApi(ui: BriefData, raw: ApiBrief): ApiBrief {
       description: c.description,
       phase: (c.phase ?? "MVP").toLowerCase() === "mvp" ? "mvp" : "future",
       implementationType: c.implementationType,
+      ...(c.source ? { source: c.source } : {}),
     };
   });
 
@@ -247,6 +273,7 @@ export function briefToApi(ui: BriefData, raw: ApiBrief): ApiBrief {
         topicType: t.type,
         phase: (t.phase ?? "MVP").toLowerCase() === "mvp" ? "mvp" : "future",
         description: t.description,
+        flowDescription: t.flowDescription || undefined,
         outputFormat: t.outputFormat,
         triggerType: t.triggerType,
         triggerPhrases: t.triggerPhrases,
@@ -269,10 +296,12 @@ export function briefToApi(ui: BriefData, raw: ApiBrief): ApiBrief {
     decline: ui["scope-boundaries"].politelyDeclines.map((d) => ({
       topic: d.topic,
       redirect: d.redirect,
+      ...(d.source ? { source: d.source } : {}),
     })),
     refuse: ui["scope-boundaries"].hardRefuses.map((r) => ({
       topic: r.topic,
       reason: r.reason,
+      ...(r.source ? { source: r.source } : {}),
     })),
   };
 
@@ -354,10 +383,13 @@ export function briefToApi(ui: BriefData, raw: ApiBrief): ApiBrief {
     return {
       ...existing,
       question: q.question,
+      notes: q.notes,
+      status: q.status,
       impact: q.impact,
       section: q.section,
       suggestedDefault: q.suggestedDefault,
       answer: q.resolution || existing?.answer || "",
+      ...(q.source ? { source: q.source } : {}),
     };
   });
 

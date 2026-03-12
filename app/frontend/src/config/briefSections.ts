@@ -5,7 +5,7 @@
 import type { BriefSection } from "@/types";
 
 export const BRIEF_SECTIONS: BriefSection[] = [
-  { id: "overview", title: "Overview", icon: "Briefcase", complete: false },
+  { id: "overview", title: "Overview", icon: "Briefcase", complete: false, subtitle: "What this agent does" },
   { id: "architecture", title: "Architecture", icon: "Network", complete: false },
   { id: "decisions", title: "Decisions", icon: "GitPullRequestDraft", complete: false },
   { id: "instructions", title: "Instructions", icon: "FileText", complete: false },

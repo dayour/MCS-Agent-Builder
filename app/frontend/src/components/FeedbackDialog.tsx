@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { editKeyHandler } from "@/lib/editKeys";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { useTerminalStore } from "@/stores/terminalStore";
@@ -117,11 +118,7 @@ export default function FeedbackDialog({ type, open, onOpenChange }: FeedbackDia
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={4}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                handleSubmit();
-              }
-            }}
+            onKeyDown={editKeyHandler({ onSave: handleSubmit, onCancel: () => onOpenChange(false), multiline: true })}
           />
         </div>
 

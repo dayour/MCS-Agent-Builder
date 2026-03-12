@@ -5,7 +5,7 @@
  * the UI updates immediately, then syncs with the server in the background.
  */
 import { create } from "zustand";
-import type { Agent, Document } from "@/types";
+import type { Agent, Document, WorkflowPhase } from "@/types";
 import type { ApiProjectDetail, ApiAgentSummary, ApiDoc } from "@/types/api";
 import {
   fetchProject,
@@ -50,6 +50,7 @@ function apiAgentToAgent(a: ApiAgentSummary): Agent {
     evalPassRate: a.eval_pass_rate ?? null,
     architectureType: a.architecture_type || undefined,
     childAgentIds: a.architecture_children?.length ? a.architecture_children : undefined,
+    workflowPhase: (a.workflow_phase as WorkflowPhase) ?? null,
   };
 }
 

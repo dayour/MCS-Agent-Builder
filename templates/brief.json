@@ -2,6 +2,14 @@
   "_schema": "2.0",
   "_description": "Single source of truth for agent design, build, and customer reporting. Sections follow the customer meeting flow. Every dropdown has a mapped purpose.",
 
+  "workflow": {
+    "phase": "preview",
+    "previewConfirmed": false,
+    "decisionsConfirmed": false,
+    "previewGeneratedAt": null,
+    "researchCompletedAt": null
+  },
+
   "business": {
     "_meeting": "Section 1 — 'Why are we building this?'",
     "useCase": "One-line use case for headers, report titles, and exec summaries",
@@ -50,6 +58,7 @@
       "implementationType": "prompt | topic | tool | knowledge | flow — what's required to implement this capability. 'prompt' = behavior encoded in instructions only (zero-cost, no separate tooling needed). 'topic' = requires custom YAML topic. 'tool' = requires a tool/connector/MCP. 'knowledge' = requires a knowledge source. 'flow' = requires a Power Automate flow.",
       "reason": "Why MVP or why deferred — shown next to Future items (e.g., pending security approval)",
       "description": "Optional detail for the build — PE uses this for instruction writing",
+      "source": "from-docs | inferred | user-added — how this capability was identified",
       "dataSources": ["Systems this capability reads from or writes to"],
       "status": "not_started | building | passing | failing"
     }
@@ -110,17 +119,24 @@
 
   "boundaries": {
     "_meeting": "Section 7 — 'What should it NOT do?'",
-    "handle": ["Topics the agent should answer confidently"],
+    "handle": [
+      {
+        "text": "Topics the agent should answer confidently",
+        "source": "from-docs | inferred | user-added"
+      }
+    ],
     "decline": [
       {
         "topic": "Request type to politely redirect",
-        "redirect": "Where to redirect (e.g., Transfer to billing team via ServiceNow)"
+        "redirect": "Where to redirect (e.g., Transfer to billing team via ServiceNow)",
+        "source": "from-docs | inferred | user-added"
       }
     ],
     "refuse": [
       {
         "topic": "Hard stop — agent must never do this",
-        "reason": "Why this is refused (e.g., GDPR compliance)"
+        "reason": "Why this is refused (e.g., GDPR compliance)",
+        "source": "from-docs | inferred | user-added"
       }
     ]
   },
@@ -258,7 +274,8 @@
       "impact": "What this blocks or affects if unanswered",
       "section": "Which brief section this affects (e.g., integrations, capabilities)",
       "suggestedDefault": "Our best guess if the customer doesn't answer",
-      "answer": ""
+      "answer": "",
+      "source": "from-docs | inferred | user-added"
     }
   ],
 

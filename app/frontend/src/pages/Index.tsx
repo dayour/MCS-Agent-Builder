@@ -6,6 +6,7 @@ import ProjectCard from "@/components/ProjectCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { editKeyHandler } from "@/lib/editKeys";
 import { useProjectsStore } from "@/stores/projectsStore";
 import {
   Dialog,
@@ -88,7 +89,7 @@ const Index = () => {
                 placeholder="e.g. Customer Support Agent"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+                onKeyDown={editKeyHandler({ onSave: handleCreate, onCancel: () => setOpen(false) })}
                 autoFocus
               />
             </div>
@@ -98,6 +99,7 @@ const Index = () => {
                 placeholder="What will this agent do?"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
+                onKeyDown={editKeyHandler({ onSave: handleCreate, onCancel: () => setOpen(false), multiline: true })}
                 rows={3}
               />
             </div>

@@ -14,7 +14,7 @@
  *   node tools/multi-model-review.js review-brief --brief <path>
  *   node tools/multi-model-review.js review-flow --file <path> [--brief <path>]
  *   node tools/multi-model-review.js review-components --brief <path>
- *   node tools/multi-model-review.js review-code --file <path> [--context "<description>"]
+ *   node tools/multi-model-review.js review-code --file <path> [--context "<desc>"] [--with <path>]...
  *
  *   Co-generation (GPT generates independently, Claude merges):
  *   node tools/multi-model-review.js generate-instructions --brief <path>
@@ -23,6 +23,11 @@
  *
  *   Scoring:
  *   node tools/multi-model-review.js score --actual "<text>" --expected "<text>" [--method compare-meaning|general-quality]
+ *
+ *   Review memory:
+ *   node tools/multi-model-review.js learn --pattern "<description>" --severity <high|medium|low>
+ *
+ *   Utility:
  *   node tools/multi-model-review.js usage
  *
  * Exit codes: 0 = success, 1 = API error, 3 = not configured
@@ -82,9 +87,115 @@ const KNOWLEDGE_MAP = {
         'cache/connectors.md',
         'cache/mcp-servers.md'
     ],
-    // General-purpose review (for any agent/teammate)
-    'review-code': []  // No domain-specific knowledge needed — GPT uses its training
+    // General-purpose review (for any agent/teammate) — enhanced with project context
+    'review-code': [
+        'cache/project-context-gpt.md'
+    ]
 };
+
+// --- Review Memory (persistent bug patterns) ---
+const REVIEW_MEMORY_PATH = path.resolve(KNOWLEDGE_DIR, 'cache/review-memory.json');
+
+function loadReviewMemory() {
+    try {
+        const raw = fs.readFileSync(REVIEW_MEMORY_PATH, 'utf8');
+        return JSON.parse(raw);
+    } catch {
+        return { patterns: [] };
+    }
+}
+
+function saveReviewMemory(memory) {
+    fs.writeFileSync(REVIEW_MEMORY_PATH, JSON.stringify(memory, null, 2) + '\n');
+}
+
+// --- File-Type Review Checklists ---
+// Keyed by path pattern regex — extra checks appended to review-code prompt when matched
+
+const FILE_TYPE_CHECKS = [
+    {
+        pattern: /components\/brief\//,
+        label: 'Brief Component',
+        checks: [
+            'Null data guard: component MUST check `if (!data) return null` before accessing store data',
+            'editPath correctness: when editing array items, verify the index references the ORIGINAL array position (not filtered/displayed index)',
+            'Color tokens: use semantic colors (violet=primary, emerald=success, amber=warning, red=danger, slate/zinc=muted). No raw hex codes.',
+            'Source badge: items with `source` field (from-docs/inferred/user-added) should display source indicators consistently',
+            'Dark mode: every bg/text/border class must have a `dark:` variant',
+            'Phase display: MVP/Future in UI (uppercase), mvp/future in API (lowercase). Transform at boundary only.'
+        ]
+    },
+    {
+        pattern: /stores\//,
+        label: 'Zustand Store',
+        checks: [
+            'Async try/catch: all async operations (load, save, poll) must have try/catch with error state',
+            'Dirty state: set dirty=true BEFORE starting auto-save timer, not after',
+            'Timer cleanup: clearTimeout(saveTimer) before setting new timer AND before manual save',
+            'Poll skip: poll() must return early if dirty=true (prevent overwriting unsaved edits)',
+            'structuredClone: briefToApi must work on a clone of raw, never mutate rawBrief in store directly'
+        ]
+    },
+    {
+        pattern: /briefTransforms/,
+        label: 'Brief Transforms',
+        checks: [
+            'Safe fallbacks in briefFromApi: every field access must use ?? with appropriate default ("", [], null, false)',
+            'Field preservation in briefToApi: structuredClone(raw) first, then merge — never lose raw fields',
+            'Source field propagation: if source exists on UI item, include it in API output. Use conditional spread.',
+            'Array matching: items matched by name (capabilities, integrations, topics) or id (decisions) — not by index',
+            'Phase transform: API lowercase "mvp"/"future" ↔ UI uppercase "MVP"/"Future". Transform at boundary.'
+        ]
+    },
+    {
+        pattern: /types\/(index|api)\.ts/,
+        label: 'Type Definitions',
+        checks: [
+            'Optional field consistency: fields that can be absent use `?:` (not `| undefined`)',
+            'Union type completeness: check that union types cover all valid values from brief.json schema',
+            'Dual file sync: types/index.ts (UI shapes) and types/api.ts (raw API shapes) must stay in sync for shared concepts',
+            'BriefData keys must match section IDs in briefSections.ts'
+        ]
+    },
+    {
+        pattern: /pages\//,
+        label: 'Page Component',
+        checks: [
+            'Unused destructured store actions: if destructuring from useBriefStore/useProjectStore, ensure all destructured values are used',
+            'Terminal command correctness: /mcs-* commands must include projectId and agentId arguments',
+            'Workflow phase logic: phase transitions (preview→research→decisions→ready_to_build) must check previewConfirmed/decisionsConfirmed',
+            'Pipeline status colors: match the semantic color system (emerald=pass, red=fail, amber=pending, zinc=not-started)'
+        ]
+    },
+    {
+        pattern: /\.py$/,
+        label: 'Python Backend',
+        checks: [
+            'New brief fields: if brief.json schema changed, check readiness_calc.py section weights and field access',
+            'Workflow phases: determine_stage() must handle all WorkflowPhase values',
+            '_brief stripping: server must strip internal fields (like _brief) before returning responses',
+            'File mtime: agent detail endpoint must include _file_mtime for poll-based change detection'
+        ]
+    },
+    {
+        pattern: /lib\/(api|readiness)\.ts/,
+        label: 'Frontend Library',
+        checks: [
+            'API error handling: all fetch calls must handle non-ok responses with meaningful error messages',
+            'Type safety: return types must match the interfaces in types/index.ts or types/api.ts',
+            'Readiness calculation: section completion must check all required fields for each section'
+        ]
+    },
+    {
+        pattern: /hooks\//,
+        label: 'React Hook',
+        checks: [
+            'Dependency arrays: useMemo/useCallback/useEffect deps must include all referenced values',
+            'Null safety: hooks that read from store must handle null data gracefully',
+            'Return value stability: computed values should be memoized to prevent unnecessary re-renders'
+        ]
+    }
+];
 
 /**
  * Build the system context (MCS primer + command-specific knowledge files).
@@ -363,7 +474,7 @@ function parseArgs() {
   node multi-model-review.js review-brief --brief <path>
   node multi-model-review.js review-flow --file <path> [--brief <path>]
   node multi-model-review.js review-components --brief <path>
-  node multi-model-review.js review-code --file <path> [--context "<description>"]
+  node multi-model-review.js review-code --file <path> [--context "<desc>"] [--with <path>]...
 
   Co-generation commands:
   node multi-model-review.js generate-instructions --brief <path>
@@ -372,6 +483,9 @@ function parseArgs() {
 
   Scoring:
   node multi-model-review.js score --actual "<text>" --expected "<text>" [--method compare-meaning|general-quality]
+
+  Review memory:
+  node multi-model-review.js learn --pattern "<description>" --severity <high|medium|low>
 
   Utility:
   node multi-model-review.js models                    List available GPT models
@@ -383,6 +497,7 @@ Setup:    gh auth login && gh auth refresh --scopes copilot`);
     }
 
     config.command = args[0];
+    config.withFiles = [];
 
     for (let i = 1; i < args.length; i++) {
         switch (args[i]) {
@@ -393,6 +508,9 @@ Setup:    gh auth login && gh auth refresh --scopes copilot`);
             case '--actual': config.actual = args[++i]; break;
             case '--expected': config.expected = args[++i]; break;
             case '--method': config.method = args[++i]; break;
+            case '--with': config.withFiles.push(args[++i]); break;
+            case '--pattern': config.pattern = args[++i]; break;
+            case '--severity': config.severity = args[++i]; break;
             case '--verbose': config.verbose = true; break;
         }
     }
@@ -760,39 +878,195 @@ ${briefContext}`;
     console.log(JSON.stringify(parsed, null, 2));
 }
 
+// --- Import Resolution for TypeScript/TSX ---
+
+/**
+ * Parse import statements from TypeScript/TSX content.
+ * Returns deduplicated array of @/ import path strings.
+ */
+function parseImports(content) {
+    const imports = [];
+    // Match: import { X, Y } from "@/..."  or  import X from "@/..."  or  import type { X } from "@/..."
+    const re = /import\s+(?:type\s+)?(?:\{[^}]+\}|[a-zA-Z_$][\w$]*)\s+from\s+["'](@\/[^"']+)["']/g;
+    let match;
+    while ((match = re.exec(content)) !== null) {
+        imports.push(match[1]); // the @/... path
+    }
+    return [...new Set(imports)]; // deduplicate
+}
+
+/**
+ * Resolve @/ alias path to absolute filesystem path.
+ * @/types/index → app/frontend/src/types/index.ts (or .tsx)
+ */
+function resolveAliasPath(importPath) {
+    const FRONTEND_SRC = path.resolve(__dirname, '../app/frontend/src');
+    // Strip @/ prefix
+    const relative = importPath.replace(/^@\//, '');
+    // Try exact match, then .ts, .tsx, /index.ts, /index.tsx
+    const candidates = [
+        path.join(FRONTEND_SRC, relative),
+        path.join(FRONTEND_SRC, relative + '.ts'),
+        path.join(FRONTEND_SRC, relative + '.tsx'),
+        path.join(FRONTEND_SRC, relative, 'index.ts'),
+        path.join(FRONTEND_SRC, relative, 'index.tsx'),
+    ];
+    for (const c of candidates) {
+        if (fs.existsSync(c) && fs.statSync(c).isFile()) return c;
+    }
+    return null;
+}
+
+/**
+ * Resolve imports recursively (1 level deep).
+ * Returns Map<absolutePath, fileContent>.
+ */
+function resolveImportContext(filePath) {
+    const resolved = new Map();
+    const seen = new Set();
+
+    function resolve(fp, depth) {
+        if (depth > 1) return; // max 1 level of recursion
+        if (seen.has(fp)) return;
+        seen.add(fp);
+
+        let content;
+        try { content = fs.readFileSync(fp, 'utf8'); } catch { return; }
+
+        const importPaths = parseImports(content);
+        for (const imp of importPaths) {
+            const absPath = resolveAliasPath(imp);
+            if (!absPath || seen.has(absPath)) continue;
+            // Skip CSS and node_modules
+            if (absPath.endsWith('.css') || absPath.includes('node_modules')) continue;
+            try {
+                const importContent = fs.readFileSync(absPath, 'utf8');
+                resolved.set(absPath, importContent);
+                // Recurse one level for types/stores/libs (not components — too noisy)
+                if (!absPath.match(/components\//)) {
+                    resolve(absPath, depth + 1);
+                }
+            } catch { /* skip unreadable */ }
+        }
+    }
+
+    resolve(filePath, 0);
+    return resolved;
+}
+
+/**
+ * Get file-type-specific checklist items for a given file path.
+ */
+function getFileTypeChecks(filePath) {
+    const normalizedPath = filePath.replace(/\\/g, '/');
+    const matched = [];
+    for (const ftc of FILE_TYPE_CHECKS) {
+        if (ftc.pattern.test(normalizedPath)) {
+            matched.push(ftc);
+        }
+    }
+    return matched;
+}
+
 async function reviewCode(config) {
     if (!config.filePath) {
         console.error('Error: --file <path> is required for review-code');
         process.exit(1);
     }
 
-    const codeContent = fs.readFileSync(config.filePath, 'utf8');
-    const ext = path.extname(config.filePath).toLowerCase();
+    const absFilePath = path.resolve(config.filePath);
+    const codeContent = fs.readFileSync(absFilePath, 'utf8');
+    const ext = path.extname(absFilePath).toLowerCase();
     const context = buildContext('review-code');
 
+    // --- Layer 2: File-type checklist ---
+    const fileTypeMatches = getFileTypeChecks(absFilePath);
+    let checklistSection = '';
+    if (fileTypeMatches.length > 0) {
+        const allChecks = fileTypeMatches.flatMap(m =>
+            m.checks.map(c => `- [${m.label}] ${c}`)
+        );
+        checklistSection = `\n\n## File-Type Specific Checks\nThis file matches: ${fileTypeMatches.map(m => m.label).join(', ')}. Check these specifically:\n${allChecks.join('\n')}`;
+    }
+
+    // --- Layer 3a: Auto-resolved imports (TS/TSX only) ---
+    let importContextSection = '';
+    const isTypeScript = ext === '.ts' || ext === '.tsx';
+    const resolvedImports = isTypeScript ? resolveImportContext(absFilePath) : new Map();
+    if (resolvedImports.size > 0) {
+        const sections = [];
+        for (const [fp, content] of resolvedImports) {
+            const relPath = path.relative(path.resolve(__dirname, '..'), fp).replace(/\\/g, '/');
+            const fileExt = path.extname(fp).replace('.', '');
+            sections.push(`### ${relPath}\n\`\`\`${fileExt}\n${content}\n\`\`\``);
+        }
+        importContextSection = `\n\n## Auto-Resolved Dependencies (${resolvedImports.size} files)\nThese are the FULL contents of files imported by the reviewed file. Use them to verify type correctness, function signatures, store patterns, and cross-file consistency.\n\n${sections.join('\n\n')}`;
+    }
+
+    // --- Layer 3b: Manual --with files ---
+    let withFilesSection = '';
+    if (config.withFiles && config.withFiles.length > 0) {
+        const sections = [];
+        for (const wf of config.withFiles) {
+            try {
+                const absWf = path.resolve(wf);
+                const content = fs.readFileSync(absWf, 'utf8');
+                const relPath = path.relative(path.resolve(__dirname, '..'), absWf).replace(/\\/g, '/');
+                const fileExt = path.extname(absWf).replace('.', '');
+                sections.push(`### ${relPath}\n\`\`\`${fileExt}\n${content}\n\`\`\``);
+            } catch {
+                sections.push(`### ${wf}\n(file not found)`);
+            }
+        }
+        withFilesSection = `\n\n## Related Files (manually specified)\n${sections.join('\n\n')}`;
+    }
+
+    // --- Layer 5: Review memory (known bug patterns) ---
+    const memory = loadReviewMemory();
+    let memorySection = '';
+    if (memory.patterns && memory.patterns.length > 0) {
+        const items = memory.patterns.map(p =>
+            `- **[${p.severity}]** ${p.pattern} — ${p.checklist}`
+        );
+        memorySection = `\n\n## Known Bug Patterns (from review memory — check specifically)\n${items.join('\n')}`;
+    }
+
+    // --- Context note ---
     let contextNote = '';
     if (config.contextDesc) {
         contextNote = `\n\n## Context\n${config.contextDesc}`;
     }
 
+    // --- Assemble user content ---
     const userContent = `## Code to Review
 
-**File:** ${path.basename(config.filePath)} (${ext})
+**File:** ${path.basename(absFilePath)} (${ext})
+**Path:** ${path.relative(path.resolve(__dirname, '..'), absFilePath).replace(/\\/g, '/')}
 **Lines:** ${codeContent.split('\n').length}
 
 \`\`\`${ext.replace('.', '')}
 ${codeContent}
 \`\`\`
-${contextNote}`;
+${contextNote}${checklistSection}${memorySection}${importContextSection}${withFilesSection}`;
+
+    const tokenEstimate = estimateTokens(context + PROMPTS['review-code'] + userContent);
+    if (config.verbose) console.error(`Estimated tokens: ~${tokenEstimate} (context: ~${estimateTokens(context)}, user: ~${estimateTokens(userContent)})`);
 
     const result = await chatCompletion([
         { role: 'system', content: PROMPTS['review-code'] + '\n\n' + context },
         { role: 'user', content: userContent }
-    ]);
+    ], { maxTokens: 16384 });
 
     const parsed = parseGptJson(result.content);
     parsed._usage = result.usage;
     parsed._cost = `$${result.cost.toFixed(4)}`;
+    parsed._contextStats = {
+        fileTypeChecks: fileTypeMatches.map(m => m.label),
+        autoResolvedImports: resolvedImports.size,
+        manualWithFiles: (config.withFiles || []).length,
+        reviewMemoryPatterns: (memory.patterns || []).length,
+        estimatedTokens: tokenEstimate,
+    };
     console.log(JSON.stringify(parsed, null, 2));
 }
 
@@ -872,6 +1146,68 @@ async function showModels() {
     }
 }
 
+// --- Learn Command (add patterns to review memory) ---
+
+function learnPattern(config) {
+    if (!config.pattern) {
+        console.error('Error: --pattern "<description>" is required for learn');
+        process.exit(1);
+    }
+    const severity = config.severity || 'medium';
+    if (!['high', 'medium', 'low'].includes(severity)) {
+        console.error('Error: --severity must be high, medium, or low');
+        process.exit(1);
+    }
+
+    const memory = loadReviewMemory();
+    const nextId = `rm-${String(memory.patterns.length + 1).padStart(3, '0')}`;
+    const today = new Date().toISOString().split('T')[0];
+
+    // Check for duplicate (>60% word overlap)
+    const newWords = new Set(config.pattern.toLowerCase().split(/\s+/));
+    for (const existing of memory.patterns) {
+        const existingWords = new Set(existing.pattern.toLowerCase().split(/\s+/));
+        const overlap = [...newWords].filter(w => existingWords.has(w)).length;
+        const overlapRatio = overlap / Math.max(newWords.size, existingWords.size);
+        if (overlapRatio > 0.6) {
+            // Bump existing instead of adding duplicate
+            existing.foundCount = (existing.foundCount || 1) + 1;
+            existing.lastFound = today;
+            if (severity === 'high' && existing.severity !== 'high') {
+                existing.severity = 'high';
+            }
+            saveReviewMemory(memory);
+            console.log(JSON.stringify({
+                action: 'bumped',
+                existingId: existing.id,
+                foundCount: existing.foundCount,
+                message: `Similar pattern already exists (${Math.round(overlapRatio * 100)}% overlap). Bumped count.`
+            }, null, 2));
+            return;
+        }
+    }
+
+    const newPattern = {
+        id: nextId,
+        pattern: config.pattern,
+        severity,
+        foundCount: 1,
+        firstFound: today,
+        lastFound: today,
+        checklist: config.pattern, // Default checklist = pattern description
+    };
+    memory.patterns.push(newPattern);
+    saveReviewMemory(memory);
+
+    console.log(JSON.stringify({
+        action: 'added',
+        id: nextId,
+        pattern: config.pattern,
+        severity,
+        totalPatterns: memory.patterns.length,
+    }, null, 2));
+}
+
 function showUsage() {
     const summary = getUsageSummary();
     const method = getActiveMethod();
@@ -903,6 +1239,10 @@ async function main() {
     }
     if (config.command === 'models') {
         await showModels();
+        return;
+    }
+    if (config.command === 'learn') {
+        learnPattern(config);
         return;
     }
 

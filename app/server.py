@@ -391,6 +391,13 @@ def _scan_agents(folder: Path) -> list[dict]:
                         if fid:
                             arch_children.append(fid)
 
+            # Extract workflow phase for 3-phase workflow progression
+            workflow_phase = None
+            if brief:
+                wf = brief.get("workflow", {})
+                if isinstance(wf, dict) and wf.get("phase"):
+                    workflow_phase = wf.get("phase")
+
             agents.append({
                 "id": agent_dir.name,
                 "name": agent_name,
@@ -405,6 +412,7 @@ def _scan_agents(folder: Path) -> list[dict]:
                 "folder": str(agent_dir.relative_to(folder)),
                 "architecture_type": arch_type,
                 "architecture_children": arch_children,
+                "workflow_phase": workflow_phase,
                 "_brief": brief,  # internal — used for stage detection, stripped before response
             })
     return agents

@@ -1,16 +1,72 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import { Bot, Plus, Microscope, Hammer, FlaskConical, Wrench, Trash2, Loader2, Sparkles, Network, Upload } from "lucide-react";
+import {
+  Bot, Plus, Eye, Microscope, Hammer, FlaskConical,
+  Wrench, Trash2, Loader2, Network, BookOpen, Check,
+} from "lucide-react";
 import Layout from "@/components/Layout";
 import StatusBadge from "@/components/StatusBadge";
 import ReadinessRing from "@/components/ReadinessRing";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { TerminalSession } from "@/types";
+import type { Agent, TerminalSession } from "@/types";
 import { useProjectStore } from "@/stores/projectStore";
 import { useTerminalStore } from "@/stores/terminalStore";
 import { getTerminalWsUrl } from "@/lib/api";
 import DocumentDropZone from "@/components/DocumentDropZone";
+
+// ─── Pipeline color system ────────────────────────────────────────
+// Each step has a consistent color used everywhere (buttons, badges, banners).
+
+const PIPELINE_COLORS = {
+  preview:  { active: "bg-violet-500/15 border-violet-500/40 text-violet-600 dark:text-violet-400", done: "text-violet-500 dark:text-violet-400" },
+  research: { active: "bg-blue-500/15 border-blue-500/40 text-blue-600 dark:text-blue-400", done: "text-blue-500 dark:text-blue-400" },
+  build:    { active: "bg-amber-500/15 border-amber-500/40 text-amber-600 dark:text-amber-400", done: "text-amber-500 dark:text-amber-400" },
+  evaluate: { active: "bg-emerald-500/15 border-emerald-500/40 text-emerald-600 dark:text-emerald-400", done: "text-emerald-500 dark:text-emerald-400" },
+  learning: { active: "bg-cyan-500/15 border-cyan-500/40 text-cyan-600 dark:text-cyan-400", done: "text-cyan-500 dark:text-cyan-400" },
+} as const;
+
+type PipelineStep = keyof typeof PIPELINE_COLORS;
+
+// ─── Next action logic ────────────────────────────────────────────
+
+function getNextAction(agent: Agent): PipelineStep {
+  const wf = agent.workflowPhase;
+  if (agent.evalPassRate !== null) return "learning";
+  if (agent.status === "built") return "evaluate";
+  if (wf === "ready_to_build" || wf === "decisions" || agent.status === "ready") return "build";
+  if (agent.status === "researched") return "build";
+  if (wf === "research") return "research";
+  return "preview";
+}
+
+function isStepDone(step: PipelineStep, nextAction: PipelineStep): boolean {
+  const order: PipelineStep[] = ["preview", "research", "build", "evaluate", "learning"];
+  return order.indexOf(step) < order.indexOf(nextAction);
+}
+
+/** Check if a step can be run. Returns error message or null if OK. */
+function validateStep(step: PipelineStep, agent: Agent): string | null {
+  switch (step) {
+    case "research":
+      if (!agent.workflowPhase && agent.status === "draft") return "Run Preview first to scan documents.";
+      return null;
+    case "build":
+      if (!agent.workflowPhase && agent.status === "draft") return "Run Preview and Research first.";
+      if (agent.status === "draft" && agent.workflowPhase === "preview") return "Run Research first — preview needs to be confirmed and deep research completed.";
+      return null;
+    case "evaluate":
+      if (agent.status !== "built" && agent.status !== "ready") return "Build the agent first before running evaluation.";
+      return null;
+    case "learning":
+      if (agent.status !== "built" && agent.status !== "ready") return "Build the agent before capturing learnings.";
+      return null;
+    default:
+      return null;
+  }
+}
+
+// ─── Component ────────────────────────────────────────────────────
 
 const ProjectPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -21,12 +77,19 @@ const ProjectPage = () => {
   const [showAgentForm, setShowAgentForm] = useState(false);
   const [agentName, setAgentName] = useState("");
   const [agentDesc, setAgentDesc] = useState("");
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  // Auto-clear action errors after 4s
+  useEffect(() => {
+    if (!actionError) return;
+    const t = setTimeout(() => setActionError(null), 4000);
+    return () => clearTimeout(t);
+  }, [actionError]);
 
   useEffect(() => {
     if (id) loadProject(id);
   }, [id, loadProject]);
 
-  // Poll for changes every 10s (paused when tab is hidden)
   useEffect(() => {
     if (!id) return;
     const interval = setInterval(() => {
@@ -38,18 +101,19 @@ const ProjectPage = () => {
   }, [id]);
 
   const skillCommands: Record<string, (projectId: string, agentId: string) => string> = {
+    preview: (pid, aid) => `/mcs-research ${pid} ${aid} --fast`,
     research: (pid, aid) => `/mcs-research ${pid} ${aid}`,
     build: (pid, aid) => `/mcs-build ${pid} ${aid}`,
     evaluate: (pid, aid) => `/mcs-eval ${pid} ${aid}`,
     fix: (pid, aid) => `/mcs-fix ${pid} ${aid}`,
-    library: (pid, aid) => `/mcs-library upload ${pid} ${aid}`,
+    learning: (pid, aid) => `/mcs-retro`,
   };
 
-  /** Launch a command in a per-agent terminal tab. */
-  const launchTerminal = async (type: "research" | "build" | "evaluate" | "fix" | "library", agent: { id: string; name: string }) => {
+  const launchTerminal = async (type: PipelineStep | "fix", agent: { id: string; name: string }) => {
     if (!id) return;
     const store = useTerminalStore.getState();
     const command = skillCommands[type](id, agent.id);
+    const sessionType = (type === "preview" || type === "fix" || type === "learning") ? "research" : type === "evaluate" ? "evaluate" : type;
 
     const existingId = store.findSession(id, agent.id);
     if (existingId) {
@@ -63,7 +127,7 @@ const ProjectPage = () => {
     const session: TerminalSession = {
       id: `${id}-${agent.id}-${Date.now()}`,
       label: agent.name,
-      type,
+      type: sessionType as TerminalSession["type"],
       projectId: id,
       agentName: agent.name,
       status: "connecting",
@@ -73,14 +137,22 @@ const ProjectPage = () => {
     addTerminalSession(session);
   };
 
-  /** Launch project-level research (analyzes docs, discovers agents). */
-  const launchProjectResearch = async () => {
+  /** Try to launch a pipeline step. Validates prerequisites first. */
+  const handlePipelineClick = (step: PipelineStep, agent: Agent) => {
+    const err = validateStep(step, agent);
+    if (err) {
+      setActionError(err);
+      return;
+    }
+    launchTerminal(step, agent);
+  };
+
+  const launchProjectPreview = async () => {
     if (!id) return;
     const store = useTerminalStore.getState();
-    const command = `/mcs-research ${id}`;
-    const sessionKey = `${id}-research`;
+    const command = `/mcs-research ${id} --fast`;
+    const sessionKey = `${id}-preview`;
 
-    // Reuse existing project research session
     const existing = store.sessions.find((s) => s.id.startsWith(sessionKey));
     if (existing) {
       store.setActiveSession(existing.id);
@@ -92,7 +164,7 @@ const ProjectPage = () => {
     const wsUrl = await getTerminalWsUrl();
     const session: TerminalSession = {
       id: `${sessionKey}-${Date.now()}`,
-      label: `${projectName || id} — research`,
+      label: `${projectName || id} — preview`,
       type: "research",
       projectId: id,
       agentName: projectName || id,
@@ -121,10 +193,15 @@ const ProjectPage = () => {
             {error}
           </div>
         )}
+        {actionError && (
+          <div className="mb-4 rounded-md border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 px-4 py-3 text-sm text-amber-800 dark:text-amber-300 animate-in fade-in">
+            {actionError}
+          </div>
+        )}
         <div className="mb-8 flex items-center justify-between">
           <h1 className="text-2xl font-bold tracking-tight text-foreground">{projectName}</h1>
-          <Button size="sm" className="gap-1.5" onClick={launchProjectResearch}>
-            <Sparkles className="h-3.5 w-3.5" /> Research
+          <Button size="sm" className="gap-1.5 bg-violet-600 hover:bg-violet-700 text-white" onClick={launchProjectPreview}>
+            <Eye className="h-3.5 w-3.5" /> Preview
           </Button>
         </div>
 
@@ -151,12 +228,11 @@ const ProjectPage = () => {
 
             {agents.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground text-xs">
-                No agents yet. Upload documents and click Research above.
+                No agents yet. Upload documents and click Preview above.
               </div>
             ) : (
               <div className="space-y-2">
                 {(() => {
-                  // Build hierarchy: orchestrators → children → standalone
                   const childSet = new Set<string>();
                   const orchestrators = agents.filter((a) =>
                     a.architectureType?.includes("multi") && a.childAgentIds && a.childAgentIds.length > 0
@@ -166,6 +242,17 @@ const ProjectPage = () => {
                   const renderAgentCard = (agent: typeof agents[0], indent: boolean, badge?: string) => {
                     const isOrch = badge === "Orchestrator";
                     const AgentIcon = isOrch ? Network : Bot;
+                    const nextAction = getNextAction(agent);
+                    const hasFailures = agent.evalPassRate !== null && agent.evalPassRate < 70;
+
+                    const STEPS: { key: PipelineStep; icon: React.ReactNode; label: string }[] = [
+                      { key: "preview", icon: <Eye className="h-3 w-3" />, label: "Preview" },
+                      { key: "research", icon: <Microscope className="h-3 w-3" />, label: "Research" },
+                      { key: "build", icon: <Hammer className="h-3 w-3" />, label: "Build" },
+                      { key: "evaluate", icon: <FlaskConical className="h-3 w-3" />, label: "Evaluate" },
+                      { key: "learning", icon: <BookOpen className="h-3 w-3" />, label: "Learning" },
+                    ];
+
                     return (
                       <div
                         key={agent.id}
@@ -179,7 +266,7 @@ const ProjectPage = () => {
                             className="flex items-center gap-4 flex-1 min-w-0"
                           >
                             <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${isOrch ? "bg-primary/10" : "bg-surface-3"}`}>
-                              <AgentIcon className={`h-5 w-5 ${isOrch ? "text-primary" : "text-primary"}`} />
+                              <AgentIcon className="h-5 w-5 text-primary" />
                             </div>
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2">
@@ -210,62 +297,61 @@ const ProjectPage = () => {
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </div>
-                        <div className={`mt-3 flex items-center gap-2 ${indent ? "pl-14" : "pl-14"}`}>
-                          {(() => {
-                            const researched = agent.status === "researched" || agent.status === "built" || agent.status === "ready";
-                            const built = agent.status === "built" || agent.status === "ready";
-                            const evaluated = agent.status === "ready";
-                            const hasFailures = agent.evalPassRate !== null && agent.evalPassRate < 70;
+                        {/* Pipeline buttons — ALL always visible */}
+                        <div className="mt-3 flex items-center gap-1.5 pl-14">
+                          {STEPS.map((step) => {
+                            const isActive = nextAction === step.key;
+                            const isDone = isStepDone(step.key, nextAction);
+                            const colors = PIPELINE_COLORS[step.key];
                             return (
-                              <>
-                                <Button variant="outline" size="sm" className={`h-6 gap-1 text-[11px] ${researched ? "bg-info/15 border-info/40 text-info" : "border-border text-muted-foreground opacity-60"}`} onClick={() => launchTerminal("research", agent)}>
-                                  <Microscope className="h-3 w-3" /> Research
-                                </Button>
-                                <Button variant="outline" size="sm" className={`h-6 gap-1 text-[11px] ${built ? "bg-warning/15 border-warning/40 text-warning" : "border-border text-muted-foreground opacity-60"}`} onClick={() => launchTerminal("build", agent)}>
-                                  <Hammer className="h-3 w-3" /> Build
-                                </Button>
-                                <Button variant="outline" size="sm" className={`h-6 gap-1 text-[11px] ${evaluated ? "bg-success/15 border-success/40 text-success" : "border-border text-muted-foreground opacity-60"}`} onClick={() => launchTerminal("evaluate", agent)}>
-                                  <FlaskConical className="h-3 w-3" /> Evaluate
-                                </Button>
-                                {agent.evalPassRate !== null && (
-                                  <span className={`text-[10px] font-medium ${agent.evalPassRate >= 70 ? "text-success" : "text-destructive"}`}>
-                                    {agent.evalPassRate}%
-                                  </span>
-                                )}
-                                {hasFailures && (
-                                  <Button variant="outline" size="sm" className="h-6 gap-1 text-[11px] bg-destructive/15 border-destructive/40 text-destructive animate-in fade-in" onClick={() => launchTerminal("fix", agent)}>
-                                    <Wrench className="h-3 w-3" /> Fix Failures
-                                  </Button>
-                                )}
-                                {built && (
-                                  <Button variant="outline" size="sm" className="h-6 gap-1 text-[11px] border-border text-muted-foreground hover:bg-primary/10 hover:text-primary hover:border-primary/40" onClick={() => launchTerminal("library", agent)}>
-                                    <Upload className="h-3 w-3" /> Library
-                                  </Button>
-                                )}
-                              </>
+                              <Button
+                                key={step.key}
+                                variant="outline"
+                                size="sm"
+                                className={`h-6 gap-1 text-[11px] transition-all ${
+                                  isActive
+                                    ? `${colors.active} font-medium`
+                                    : isDone
+                                    ? `border-transparent bg-transparent ${colors.done}`
+                                    : "border-border text-muted-foreground/40"
+                                }`}
+                                onClick={() => handlePipelineClick(step.key, agent)}
+                              >
+                                {isDone ? <Check className="h-3 w-3" /> : step.icon}
+                                {step.label}
+                              </Button>
                             );
-                          })()}
+                          })}
+                          {agent.evalPassRate !== null && (
+                            <span className={`text-[10px] font-medium ml-1 ${agent.evalPassRate >= 70 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                              {agent.evalPassRate}%
+                            </span>
+                          )}
+                          {hasFailures && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-6 gap-1 text-[11px] bg-red-500/15 border-red-500/40 text-red-600 dark:text-red-400"
+                              onClick={() => launchTerminal("fix", agent)}
+                            >
+                              <Wrench className="h-3 w-3" /> Fix
+                            </Button>
+                          )}
                         </div>
                       </div>
                     );
                   };
 
-                  // Render orchestrators with children grouped under them
                   const rendered: React.ReactNode[] = [];
                   for (const orch of orchestrators) {
                     rendered.push(renderAgentCard(orch, false, "Orchestrator"));
-                    const childIds = orch.childAgentIds ?? [];
-                    for (const cid of childIds) {
+                    for (const cid of orch.childAgentIds ?? []) {
                       const child = agents.find((a) => a.id === cid);
-                      if (child) {
-                        rendered.push(renderAgentCard(child, true, "Specialist"));
-                      }
+                      if (child) rendered.push(renderAgentCard(child, true, "Specialist"));
                     }
                   }
-                  // Standalone agents (not orchestrators, not children)
                   for (const agent of agents) {
-                    if (orchestrators.includes(agent)) continue;
-                    if (childSet.has(agent.id)) continue;
+                    if (orchestrators.includes(agent) || childSet.has(agent.id)) continue;
                     rendered.push(renderAgentCard(agent, false));
                   }
                   return rendered;

@@ -204,14 +204,15 @@ def is_build_ready(brief: dict | None) -> bool:
 def determine_stage(agents: list[dict]) -> str:
     """Determine the furthest pipeline stage from agent data.
 
-    Stage progression: discovery -> context -> research -> build -> eval -> deployed
+    Stage progression: discovery -> context -> preview -> research -> build -> eval -> deployed
     Supports both v1 (step1-4) and v2 (named sections) brief schemas.
+    Incorporates workflow phase for 3-phase workflow support.
     """
     if not agents:
         return "discovery"
 
     best_stage = "discovery"
-    stage_order = ["discovery", "context", "research", "build", "eval", "deployed"]
+    stage_order = ["discovery", "context", "preview", "research", "build", "eval", "deployed"]
 
     for agent in agents:
         brief = agent.get("_brief")
@@ -225,13 +226,23 @@ def determine_stage(agents: list[dict]) -> str:
         elif brief.get("buildStatus", {}).get("status") in ("published", "in_progress"):
             agent_stage = "build"
         elif _is_v2(brief):
-            arch = brief.get("architecture", {})
-            if brief.get("instructions") and arch.get("type"):
+            # Check workflow phase for 3-phase routing
+            wf = brief.get("workflow", {})
+            wf_phase = wf.get("phase", "")
+            if wf_phase == "ready_to_build" or wf.get("decisionsConfirmed"):
                 agent_stage = "research"
-            elif brief.get("business", {}).get("problemStatement") or brief.get("agent", {}).get("name"):
-                agent_stage = "context"
+            elif wf_phase in ("decisions", "research") and wf.get("previewConfirmed"):
+                agent_stage = "research"
+            elif wf_phase == "preview" and wf.get("previewGeneratedAt"):
+                agent_stage = "preview"
             else:
-                agent_stage = "discovery"
+                arch = brief.get("architecture", {})
+                if brief.get("instructions") and arch.get("type"):
+                    agent_stage = "research"
+                elif brief.get("business", {}).get("problemStatement") or brief.get("agent", {}).get("name"):
+                    agent_stage = "context"
+                else:
+                    agent_stage = "discovery"
         else:
             # v1 fallback
             if brief.get("instructions") and brief.get("step4", {}).get("architectureRecommendation"):

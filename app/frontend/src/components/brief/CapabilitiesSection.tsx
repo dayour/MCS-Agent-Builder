@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Plus, Trash2, Pencil, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { editKeyHandler } from "@/lib/editKeys";
 import StatusBadge from "@/components/StatusBadge";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -56,9 +57,9 @@ const CapabilitiesSection = ({ data, onChange }: Props) => {
         {data.items.map((item: any, i: number) => (
           <div key={i} className="rounded-lg border border-border bg-card p-4">
             {editIdx === i && draft ? (
-              <div className="space-y-3">
+              <div className="space-y-3" onKeyDown={editKeyHandler({ onSave: saveEdit, onCancel: cancelEdit })}>
                 <div>
-                  <Input placeholder="Capability name (e.g., Check order status)" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
+                  <Input placeholder="Capability name (e.g., Check order status)" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} autoFocus />
                   <p className="text-[10px] text-muted-foreground mt-1">Write as a user-facing action — how would a customer describe what this does?</p>
                 </div>
                 <Input placeholder="Description — what this does and what data it needs" value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} />

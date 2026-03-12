@@ -6,6 +6,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { editKeyHandler } from "@/lib/editKeys";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import SectionGuidelines from "./SectionGuidelines";
@@ -257,18 +258,22 @@ const EvalSetsSection = ({ data, onChange }: Props) => {
                                 placeholder="Question (what to ask the agent)"
                                 value={draft.question}
                                 onChange={(e) => setDraft({ ...draft, question: e.target.value })}
+                                onKeyDown={editKeyHandler({ onSave: saveEdit, onCancel: cancelEdit, multiline: true })}
+                                autoFocus
                                 className="min-h-[50px] text-xs"
                               />
                               <Textarea
                                 placeholder="Expected response (what the answer should contain)"
                                 value={draft.expected ?? ""}
                                 onChange={(e) => setDraft({ ...draft, expected: e.target.value })}
+                                onKeyDown={editKeyHandler({ onSave: saveEdit, onCancel: cancelEdit, multiline: true })}
                                 className="min-h-[50px] text-xs"
                               />
                               <Input
                                 placeholder="Capability (optional — links to capability name)"
                                 value={draft.capability ?? ""}
                                 onChange={(e) => setDraft({ ...draft, capability: e.target.value || undefined })}
+                                onKeyDown={editKeyHandler({ onSave: saveEdit, onCancel: cancelEdit })}
                                 className="text-xs"
                               />
                               <div className="flex gap-2 justify-end">

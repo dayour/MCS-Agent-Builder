@@ -3,6 +3,7 @@ import { Plus, Trash2, Pencil, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { editKeyHandler } from "@/lib/editKeys";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -44,8 +45,8 @@ const OpenQuestionsSection = ({ data, onChange }: Props) => {
           <div key={i} className="rounded-lg border border-border bg-card p-4">
             {editIdx === i && draft ? (
               <div className="space-y-3">
-                <Textarea placeholder="Question" value={draft.question} onChange={(e) => setDraft({ ...draft, question: e.target.value })} className="min-h-[60px]" />
-                <Input placeholder="Impact — what this blocks if unanswered" value={draft.impact || ""} onChange={(e) => setDraft({ ...draft, impact: e.target.value })} />
+                <Textarea placeholder="Question" value={draft.question} onChange={(e) => setDraft({ ...draft, question: e.target.value })} onKeyDown={editKeyHandler({ onSave: saveEdit, onCancel: cancelEdit, multiline: true })} autoFocus className="min-h-[60px]" />
+                <Input placeholder="Impact — what this blocks if unanswered" value={draft.impact || ""} onChange={(e) => setDraft({ ...draft, impact: e.target.value })} onKeyDown={editKeyHandler({ onSave: saveEdit, onCancel: cancelEdit })} />
                 <div className="grid grid-cols-2 gap-3">
                   <Select value={draft.section || ""} onValueChange={(v) => setDraft({ ...draft, section: v })}>
                     <SelectTrigger><SelectValue placeholder="Affected section" /></SelectTrigger>
@@ -63,9 +64,9 @@ const OpenQuestionsSection = ({ data, onChange }: Props) => {
                     </SelectContent>
                   </Select>
                 </div>
-                <Input placeholder="Suggested default — our best guess if unanswered" value={draft.suggestedDefault || ""} onChange={(e) => setDraft({ ...draft, suggestedDefault: e.target.value })} />
+                <Input placeholder="Suggested default — our best guess if unanswered" value={draft.suggestedDefault || ""} onChange={(e) => setDraft({ ...draft, suggestedDefault: e.target.value })} onKeyDown={editKeyHandler({ onSave: saveEdit, onCancel: cancelEdit })} />
                 {draft.status === "resolved" && (
-                  <Input placeholder="Resolution" value={draft.resolution || ""} onChange={(e) => setDraft({ ...draft, resolution: e.target.value })} />
+                  <Input placeholder="Resolution" value={draft.resolution || ""} onChange={(e) => setDraft({ ...draft, resolution: e.target.value })} onKeyDown={editKeyHandler({ onSave: saveEdit, onCancel: cancelEdit })} />
                 )}
                 <div className="flex gap-2 justify-end">
                   <Button variant="ghost" size="sm" onClick={cancelEdit}><X className="h-3.5 w-3.5" /></Button>

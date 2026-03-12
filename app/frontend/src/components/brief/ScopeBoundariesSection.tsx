@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Shield, AlertTriangle, XCircle, Plus, Trash2, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { editKeyHandler } from "@/lib/editKeys";
 import SectionGuidelines from "./SectionGuidelines";
 
 interface Props { data: any; onChange?: (data: any) => void; }
@@ -64,7 +65,7 @@ const ScopeBoundariesSection = ({ data, onChange }: Props) => {
             <li key={i} className="text-sm text-foreground flex items-center gap-2 group">
               {editHandle?.idx === i ? (
                 <div className="flex-1 flex gap-2">
-                  <Input value={editHandle.value} onChange={(e) => setEditHandle({ ...editHandle, value: e.target.value })} onKeyDown={(e) => e.key === "Enter" && saveHandle()} autoFocus className="h-8 text-sm" />
+                  <Input value={editHandle.value} onChange={(e) => setEditHandle({ ...editHandle, value: e.target.value })} onKeyDown={editKeyHandler({ onSave: saveHandle, onCancel: () => setEditHandle(null) })} autoFocus className="h-8 text-sm" />
                   <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditHandle(null)}><X className="h-3.5 w-3.5" /></Button>
                   <Button size="icon" className="h-8 w-8" onClick={saveHandle}><Check className="h-3.5 w-3.5" /></Button>
                 </div>
@@ -95,8 +96,8 @@ const ScopeBoundariesSection = ({ data, onChange }: Props) => {
             <li key={i} className="text-sm text-foreground group">
               {editDecline?.idx === i ? (
                 <div className="space-y-2">
-                  <Input placeholder="Topic to decline" value={editDecline.topic} onChange={(e) => setEditDecline({ ...editDecline, topic: e.target.value })} onKeyDown={(e) => e.key === "Enter" && saveDecline()} autoFocus className="h-8 text-sm" />
-                  <Input placeholder="Redirect to (e.g., Transfer to billing team)" value={editDecline.redirect} onChange={(e) => setEditDecline({ ...editDecline, redirect: e.target.value })} className="h-8 text-sm" />
+                  <Input placeholder="Topic to decline" value={editDecline.topic} onChange={(e) => setEditDecline({ ...editDecline, topic: e.target.value })} onKeyDown={editKeyHandler({ onSave: saveDecline, onCancel: () => setEditDecline(null) })} autoFocus className="h-8 text-sm" />
+                  <Input placeholder="Redirect to (e.g., Transfer to billing team)" value={editDecline.redirect} onChange={(e) => setEditDecline({ ...editDecline, redirect: e.target.value })} onKeyDown={editKeyHandler({ onSave: saveDecline, onCancel: () => setEditDecline(null) })} className="h-8 text-sm" />
                   <div className="flex gap-2 justify-end">
                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditDecline(null)}><X className="h-3.5 w-3.5" /></Button>
                     <Button size="icon" className="h-7 w-7" onClick={saveDecline}><Check className="h-3.5 w-3.5" /></Button>
@@ -132,8 +133,8 @@ const ScopeBoundariesSection = ({ data, onChange }: Props) => {
             <li key={i} className="text-sm text-foreground group">
               {editRefuse?.idx === i ? (
                 <div className="space-y-2">
-                  <Input placeholder="Hard stop — agent must never do this" value={editRefuse.topic} onChange={(e) => setEditRefuse({ ...editRefuse, topic: e.target.value })} onKeyDown={(e) => e.key === "Enter" && saveRefuse()} autoFocus className="h-8 text-sm" />
-                  <Input placeholder="Reason (e.g., GDPR compliance)" value={editRefuse.reason} onChange={(e) => setEditRefuse({ ...editRefuse, reason: e.target.value })} className="h-8 text-sm" />
+                  <Input placeholder="Hard stop — agent must never do this" value={editRefuse.topic} onChange={(e) => setEditRefuse({ ...editRefuse, topic: e.target.value })} onKeyDown={editKeyHandler({ onSave: saveRefuse, onCancel: () => setEditRefuse(null) })} autoFocus className="h-8 text-sm" />
+                  <Input placeholder="Reason (e.g., GDPR compliance)" value={editRefuse.reason} onChange={(e) => setEditRefuse({ ...editRefuse, reason: e.target.value })} onKeyDown={editKeyHandler({ onSave: saveRefuse, onCancel: () => setEditRefuse(null) })} className="h-8 text-sm" />
                   <div className="flex gap-2 justify-end">
                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditRefuse(null)}><X className="h-3.5 w-3.5" /></Button>
                     <Button size="icon" className="h-7 w-7" onClick={saveRefuse}><Check className="h-3.5 w-3.5" /></Button>

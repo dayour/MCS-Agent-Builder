@@ -7,6 +7,7 @@ import SectionGuidelines from "./SectionGuidelines";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { editKeyHandler } from "@/lib/editKeys";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -337,12 +338,12 @@ const ArchitectureSection = ({ data, onChange, context }: Props) => {
           </div>
           <div>
             <label className="text-xs text-muted-foreground mb-1 block">Why this solution type?</label>
-            <Textarea rows={2} placeholder="Reasoning for solution type choice" value={solTypeDraft.solutionTypeReason} onChange={(e) => setSolTypeDraft({ ...solTypeDraft, solutionTypeReason: e.target.value })} />
+            <Textarea rows={2} placeholder="Reasoning for solution type choice" value={solTypeDraft.solutionTypeReason} onChange={(e) => setSolTypeDraft({ ...solTypeDraft, solutionTypeReason: e.target.value })} onKeyDown={editKeyHandler({ onSave: saveSolType, onCancel: () => { setEditingSolutionType(false); setSolTypeDraft(null); }, multiline: true })} />
           </div>
           {(solTypeDraft.solutionType === "flow" || solTypeDraft.solutionType === "not-recommended") && (
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Alternative recommendation</label>
-              <Textarea rows={2} placeholder="What to build instead (Power Automate flow, SharePoint views, etc.)" value={solTypeDraft.alternativeRecommendation} onChange={(e) => setSolTypeDraft({ ...solTypeDraft, alternativeRecommendation: e.target.value })} />
+              <Textarea rows={2} placeholder="What to build instead (Power Automate flow, SharePoint views, etc.)" value={solTypeDraft.alternativeRecommendation} onChange={(e) => setSolTypeDraft({ ...solTypeDraft, alternativeRecommendation: e.target.value })} onKeyDown={editKeyHandler({ onSave: saveSolType, onCancel: () => { setEditingSolutionType(false); setSolTypeDraft(null); }, multiline: true })} />
             </div>
           )}
           <div className="flex gap-2 justify-end">
@@ -438,7 +439,7 @@ const ArchitectureSection = ({ data, onChange, context }: Props) => {
           </div>
           <div>
             <label className="text-xs text-muted-foreground mb-1 block">Why this type?</label>
-            <Textarea rows={2} placeholder="Reasoning for architecture choice" value={metaDraft.patternReasoning} onChange={(e) => setMetaDraft({ ...metaDraft, patternReasoning: e.target.value })} />
+            <Textarea rows={2} placeholder="Reasoning for architecture choice" value={metaDraft.patternReasoning} onChange={(e) => setMetaDraft({ ...metaDraft, patternReasoning: e.target.value })} onKeyDown={editKeyHandler({ onSave: saveMeta, onCancel: () => { setEditingMeta(false); setMetaDraft(null); }, multiline: true })} />
           </div>
           <div className="flex gap-2 justify-end">
             <Button variant="ghost" size="sm" onClick={() => { setEditingMeta(false); setMetaDraft(null); }}><X className="h-3.5 w-3.5" /></Button>
@@ -506,7 +507,7 @@ const ArchitectureSection = ({ data, onChange, context }: Props) => {
                       ))}
                     </SelectContent>
                   </Select>
-                  <Input placeholder="Description (e.g. which events, schedule details)" value={triggerDraft.description} onChange={(e) => setTriggerDraft({ ...triggerDraft, description: e.target.value })} />
+                  <Input placeholder="Description (e.g. which events, schedule details)" value={triggerDraft.description} onChange={(e) => setTriggerDraft({ ...triggerDraft, description: e.target.value })} onKeyDown={editKeyHandler({ onSave: saveTrigger, onCancel: () => { setEditTriggerIdx(null); setTriggerDraft(null); } })} autoFocus />
                   <div className="flex gap-2 justify-end">
                     <Button variant="ghost" size="sm" onClick={() => { setEditTriggerIdx(null); setTriggerDraft(null); }}><X className="h-3.5 w-3.5" /></Button>
                     <Button size="sm" onClick={saveTrigger}><Check className="h-3.5 w-3.5" /></Button>
@@ -553,7 +554,7 @@ const ArchitectureSection = ({ data, onChange, context }: Props) => {
                       ))}
                     </SelectContent>
                   </Select>
-                  <Input placeholder="Why this channel? (e.g. primary workspace for users)" value={channelDraft.reason} onChange={(e) => setChannelDraft({ ...channelDraft, reason: e.target.value })} />
+                  <Input placeholder="Why this channel? (e.g. primary workspace for users)" value={channelDraft.reason} onChange={(e) => setChannelDraft({ ...channelDraft, reason: e.target.value })} onKeyDown={editKeyHandler({ onSave: saveChannel, onCancel: () => { setEditChannelIdx(null); setChannelDraft(null); } })} autoFocus />
                   <div className="flex gap-2 justify-end">
                     <Button variant="ghost" size="sm" onClick={() => { setEditChannelIdx(null); setChannelDraft(null); }}><X className="h-3.5 w-3.5" /></Button>
                     <Button size="sm" onClick={saveChannel}><Check className="h-3.5 w-3.5" /></Button>
@@ -601,9 +602,9 @@ const ArchitectureSection = ({ data, onChange, context }: Props) => {
               <div key={i} className="rounded-lg border border-border bg-card p-4">
                 {editAgentIdx === i && agentDraft ? (
                   <div className="space-y-3">
-                    <Input placeholder="Agent name" value={agentDraft.name} onChange={(e) => setAgentDraft({ ...agentDraft, name: e.target.value })} />
-                    <Input placeholder="Role / responsibility" value={agentDraft.role} onChange={(e) => setAgentDraft({ ...agentDraft, role: e.target.value })} />
-                    <Textarea rows={2} placeholder="Routing rule — when should the orchestrator route to this agent?" value={agentDraft.routingRule} onChange={(e) => setAgentDraft({ ...agentDraft, routingRule: e.target.value })} />
+                    <Input placeholder="Agent name" value={agentDraft.name} onChange={(e) => setAgentDraft({ ...agentDraft, name: e.target.value })} onKeyDown={editKeyHandler({ onSave: saveChildAgent, onCancel: () => { setEditAgentIdx(null); setAgentDraft(null); } })} autoFocus />
+                    <Input placeholder="Role / responsibility" value={agentDraft.role} onChange={(e) => setAgentDraft({ ...agentDraft, role: e.target.value })} onKeyDown={editKeyHandler({ onSave: saveChildAgent, onCancel: () => { setEditAgentIdx(null); setAgentDraft(null); } })} />
+                    <Textarea rows={2} placeholder="Routing rule — when should the orchestrator route to this agent?" value={agentDraft.routingRule} onChange={(e) => setAgentDraft({ ...agentDraft, routingRule: e.target.value })} onKeyDown={editKeyHandler({ onSave: saveChildAgent, onCancel: () => { setEditAgentIdx(null); setAgentDraft(null); }, multiline: true })} />
                     <Select value={agentDraft.model || ""} onValueChange={(v) => setAgentDraft({ ...agentDraft, model: v })}>
                       <SelectTrigger><SelectValue placeholder="Model preference" /></SelectTrigger>
                       <SelectContent>

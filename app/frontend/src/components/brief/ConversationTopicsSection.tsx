@@ -3,6 +3,7 @@ import { Plus, Trash2, Pencil, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { editKeyHandler } from "@/lib/editKeys";
 import StatusBadge from "@/components/StatusBadge";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -75,11 +76,12 @@ const ConversationTopicsSection = ({ data, onChange }: Props) => {
           <div key={i} className="rounded-lg border border-border bg-card p-4">
             {editIdx === i && draft ? (
               <div className="space-y-3">
-                <Input placeholder="Topic name" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
+                <Input placeholder="Topic name" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} onKeyDown={editKeyHandler({ onSave: saveEdit, onCancel: cancelEdit })} autoFocus />
                 <Textarea
                   placeholder="Description — what this topic does (also used for AI routing: say when to use AND when NOT to use)"
                   value={draft.description}
                   onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+                  onKeyDown={editKeyHandler({ onSave: saveEdit, onCancel: cancelEdit, multiline: true })}
                   className="min-h-[50px] text-sm"
                 />
                 <div className="grid grid-cols-3 gap-3">
@@ -126,6 +128,7 @@ const ConversationTopicsSection = ({ data, onChange }: Props) => {
                     placeholder="Implements (capability names, comma-separated)"
                     value={(draft.implements ?? []).join(", ")}
                     onChange={(e) => setDraft({ ...draft, implements: csvToArray(e.target.value || "") })}
+                    onKeyDown={editKeyHandler({ onSave: saveEdit, onCancel: cancelEdit })}
                   />
                 </div>
                 {draft.triggerType === "phrases" && (
@@ -133,18 +136,21 @@ const ConversationTopicsSection = ({ data, onChange }: Props) => {
                     placeholder="Trigger phrases (comma-separated)"
                     value={(draft.triggerPhrases ?? []).join(", ")}
                     onChange={(e) => setDraft({ ...draft, triggerPhrases: csvToArray(e.target.value || "") })}
+                    onKeyDown={editKeyHandler({ onSave: saveEdit, onCancel: cancelEdit })}
                   />
                 )}
                 <Input
                   placeholder="Connected integrations (tool names, comma-separated)"
                   value={(draft.connectedIntegrations ?? []).join(", ")}
                   onChange={(e) => setDraft({ ...draft, connectedIntegrations: csvToArray(e.target.value || "") })}
+                  onKeyDown={editKeyHandler({ onSave: saveEdit, onCancel: cancelEdit })}
                 />
                 {draft.type === "custom" && (
                   <Textarea
                     placeholder="Flow description — describe the full conversation design: inputs, logic, outputs, error handling. The Topic Engineer AI uses this to generate the implementation."
                     value={draft.flowDescription || ""}
                     onChange={(e) => setDraft({ ...draft, flowDescription: e.target.value })}
+                    onKeyDown={editKeyHandler({ onSave: saveEdit, onCancel: cancelEdit, multiline: true })}
                     rows={5}
                   />
                 )}

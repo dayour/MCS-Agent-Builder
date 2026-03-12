@@ -5,14 +5,61 @@ description: Full research pass — reads project documents, identifies agents, 
 
 # MCS Research
 
-Single-pass pipeline: read documents, identify agents, research components, design architecture, write instructions, generate eval sets. This skill absorbs the former mcs-analyze step — there is no separate extraction step.
+Three-phase pipeline: **Fast Preview** (30-90s scan) → **Deep Research** (3-10min enrichment) → **Decisions & Build**. The fast preview gives the customer a plain-language behavior contract to confirm before investing in deep research. This skill absorbs the former mcs-analyze step — there is no separate extraction step.
 
 ## Input
 
 ```
-/mcs-research {projectId}              # Project-level: all agents
-/mcs-research {projectId} {agentId}    # Agent-level: scoped to one agent
+/mcs-research {projectId} {agentId} --fast   # Fast Preview: scan docs, extract behavior contract (30-90s)
+/mcs-research {projectId}                     # Project-level: full deep research for all agents
+/mcs-research {projectId} {agentId}           # Agent-level: deep research scoped to one agent
 ```
+
+### `--fast` Flag (Fast Preview Mode)
+
+When `--fast` is specified, the skill runs in **preview-only mode**:
+
+**Runs:**
+- Phase 0: Smart routing (full — same as standard)
+- Phase A: Document comprehension (full — same as standard)
+- Phase A Step 4: Extract per-agent data → write to brief.json
+- Phase A Step 5: Generate open questions
+
+**Writes to brief.json:**
+- `overview.*` (name, description, problemStatement, targetUsers, challenges, benefits)
+- `capabilities[]` (names + descriptions only, all marked `phase: "mvp"`, `implementationType: "prompt"` as default, each with `source: "from-docs"` or `source: "inferred"`)
+- `boundaries.*` (handles, politelyDeclines, hardRefuses — extracted from docs, each with `source` field)
+- `openQuestions[]` (ambiguities found in docs, each with `source: "from-docs"` or `source: "inferred"`)
+- `knowledge[]` (high-level source references — doc names, not config)
+- `workflow.phase = "preview"`, `workflow.previewGeneratedAt = <ISO timestamp>`
+
+**Does NOT write:**
+- `architecture` (no scoring, no pattern selection)
+- `instructions` (no agent prompt yet)
+- `evalSets` (no test generation yet)
+- `integrations/tools` (no connector research)
+- `conversations.topics` (no topic design)
+- `decisions[]` (no choice points yet)
+
+**Does NOT spawn teammates:** No PE, QA, TE, FD, RA. Lead-only, single LLM pass.
+
+**Target time:** 30-90 seconds for typical SDR package.
+
+After preview generation, the customer reviews the Overview page in the dashboard and clicks "This looks right" (which sets `workflow.previewConfirmed = true`). The customer can edit items directly before confirming.
+
+### Standard Mode (Deep Research — no `--fast` flag)
+
+When `workflow.previewConfirmed = true`, deep research **skips re-reading docs** (already done in preview) and focuses on:
+
+- Phase B: Component research (full — connectors, MCP discovery, solution library check)
+- Phase C: Architecture + instructions + evals + topics (full parallel teammate dispatch)
+
+**Reads confirmed preview data** (capabilities, boundaries, open questions) as input constraints — doesn't overwrite customer edits.
+
+After deep research completes, it sets:
+- `workflow.phase = "decisions"`, `workflow.researchCompletedAt = <ISO timestamp>`
+
+The customer then reviews `decisions[]` in the dashboard, confirms choices, and the workflow advances to `ready_to_build`.
 
 **Project-level** (no agentId):
 - First run: reads all docs, identifies agents, deep research, creates brief.json with evalSets + evals.csv
@@ -1092,11 +1139,22 @@ node tools/multi-model-review.js review-components --brief <path-to-brief.json>
 
 **Apply fixes** for actionable items (instruction ambiguity, phase misalignment, missing boundary paths) before writing final output. Note fixes in the terminal summary.
 
+## Workflow Phase Updates
+
+At the end of each research mode, update `workflow` in brief.json:
+
+| Mode | Workflow Fields Written |
+|------|----------------------|
+| `--fast` (preview) | `workflow.phase = "preview"`, `workflow.previewGeneratedAt = now()` |
+| Standard (deep research) | `workflow.phase = "decisions"`, `workflow.researchCompletedAt = now()` |
+
+The `workflow.previewConfirmed` and `workflow.decisionsConfirmed` fields are set by the dashboard UI when the customer clicks the confirmation buttons — NOT by this skill.
+
 ## Final Output
 
 After all phases complete for each agent:
 
-1. **brief.json** — All fields populated (business, agent, capabilities, integrations, knowledge, conversations, boundaries, architecture, evalSets, evalConfig, mvpSummary, openQuestions, instructions)
+1. **brief.json** — All fields populated (business, agent, capabilities, integrations, knowledge, conversations, boundaries, architecture, evalSets, evalConfig, mvpSummary, openQuestions, instructions, workflow)
 2. **evals.csv** — Evaluation test cases in MCS-compatible flat CSV format (generated from evalSets)
 
 ### Report to User
@@ -1225,6 +1283,9 @@ This timestamp lets incremental research know when the last full research was pe
 - **brief.json IS the context** — the existing brief contains all prior research. During incremental processing, read the brief for context instead of re-reading unchanged docs.
 - **Merge rules are sacred** — during incremental processing, follow incremental merge rules exactly. Never overwrite `instructions` or answered `openQuestions`. Append-only for arrays and evalSets tests. Flag conflicts in `_updateFlags`.
 - **Manifest consistency** — after ANY path (full, full-agent, incremental, or re-enrich), the manifest must reflect the current `docs/` state with accurate hashes and timestamps.
+- **`--fast` generates preview only** — fast mode runs Phase 0 + Phase A, writes overview/capabilities/boundaries/openQuestions with `source` tags, and sets `workflow.phase = "preview"`. It does NOT run Phases B or C (no architecture, instructions, evals, or connector research). Teammates are NOT spawned. Target: 30-90 seconds.
+- **Deep research respects preview edits** — when `workflow.previewConfirmed = true`, deep research reads the confirmed capabilities/boundaries as input constraints. It does NOT overwrite customer edits made during preview review.
+- **`source` fields on extracted items** — every capability, boundary, and open question extracted during `--fast` mode MUST include a `source` field: `"from-docs"` (explicitly stated in documents), `"inferred"` (derived from context but not explicitly stated), or `"user-added"` (added by customer in dashboard). The UI shows confidence badges based on this field.
 - **Decisions are structured choices, not open questions** — `decisions[]` stores ranked options when 2+ approaches are viable. `openQuestions[]` stores freeform unknowns. Don't put a decision in openQuestions or vice versa.
 - **Only create decisions when genuinely needed** — one clear winner = auto-apply, no decision entry. Creating too many decisions overwhelms the customer and slows the workflow.
 - **Pre-apply the recommended option** — the brief must always be buildable, even if the user never reviews decisions. The recommended option's `briefPatch` is written to brief fields as the default.

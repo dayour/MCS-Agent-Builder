@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Plus, Trash2, Pencil, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { editKeyHandler } from "@/lib/editKeys";
 import StatusBadge from "@/components/StatusBadge";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -85,8 +86,8 @@ const IntegrationsSection = ({ data, onChange }: Props) => {
         {data.items.map((item: any, i: number) => (
           <div key={i} className="rounded-lg border border-border bg-card p-4">
             {editIdx === i && draft ? (
-              <div className="space-y-3">
-                <Input placeholder="Name (e.g., SharePoint HR Site, SAP Order API)" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
+              <div className="space-y-3" onKeyDown={editKeyHandler({ onSave: saveEdit, onCancel: cancelEdit })}>
+                <Input placeholder="Name (e.g., SharePoint HR Site, SAP Order API)" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} autoFocus />
                 <div>
                   <Input placeholder="Purpose — what data or actions does this give the agent?" value={draft.purpose || ""} onChange={(e) => setDraft({ ...draft, purpose: e.target.value })} />
                   <p className="text-[10px] text-muted-foreground mt-1">The agent uses this description to decide when to call this tool</p>
