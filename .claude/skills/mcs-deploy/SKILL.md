@@ -7,7 +7,7 @@ description: "Deploy agents from dev to prod environments. Two modes: agent-leve
 
 Deploy a built and published agent from a source (dev) environment to a target (prod) environment. Two deployment modes cover different ALM needs.
 
-## BUILD DISCIPLINE — VERIFY-THEN-MARK (MANDATORY)
+## BUILD DISCIPLINE — VERIFY-THEN-MARK
 
 **This skill has SEVEN separate sub-tasks. Each must be tracked and verified independently.**
 
@@ -316,6 +316,16 @@ Write `Build-Guides/{projectId}/agents/{agentId}/deployment-report.md`:
 
 **VERIFY:** Report file exists and contains all sections.
 
+### Step 7.5: GPT Deployment Report Review
+
+After generating the deployment report, fire GPT to catch issues the lead may have missed:
+
+```bash
+node tools/multi-model-review.js review-code --file "Build-Guides/{projectId}/agents/{agentId}/deployment-report.md" --context "Deployment report review: check connection mapping completeness, verify pre/post checklists match actual integrations, flag missing rollback steps"
+```
+
+GPT catches: incomplete connection mapping (integration in brief but not in report), checklist items that contradict build status, missing environment-specific values. Merge findings into the report before finalizing. If GPT is unavailable, proceed with the report as-is.
+
 ## Error Handling
 
 | Error | Action |
@@ -331,9 +341,10 @@ Write `Build-Guides/{projectId}/agents/{agentId}/deployment-report.md`:
 
 - **brief.json deployStatus is the primary output** — the dashboard reads deployment state from it
 - **deployment-report.md is the customer-shareable summary**
-- **Never deploy without the 3 gates passing** (build published, evals warned, dual auth verified)
-- **Connection mapping is ALWAYS generated** — even if no manual steps are needed (report says "No manual connection mapping needed")
+- **Never deploy without the 3 gates passing** because skipping gates risks deploying a broken or untested agent to production
+- **Connection mapping is always generated** — even if no manual steps are needed (report says "No manual connection mapping needed"), because omitting it causes IT admins to miss reconnection steps
 - **Smoke test only runs safety set** — full eval should be run separately via `/mcs-eval`
 - **No teammates needed** — this is a lead-only execution skill (mechanical, no generation)
-- **Always switch PAC CLI back to source** after solution mode deploy
-- **Never auto-delete the source agent** after deployment — that's a user decision
+- **Always switch PAC CLI back to source** after solution mode deploy because leaving it on target breaks subsequent build commands
+- **Never auto-delete the source agent** after deployment — that's a user decision, and accidental deletion is unrecoverable
+- **Fire GPT review on every generated report** because deployment reports go to IT admins who act on them — errors in the report cause deployment failures

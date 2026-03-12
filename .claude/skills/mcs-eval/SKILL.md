@@ -16,9 +16,9 @@ Run evaluation tests for an agent and write results back to `brief.json` so the 
 
 **Auto-detection:** If agent uses MCP or user-delegated tools → manual mode. Otherwise → Direct Line auto mode.
 
-## BUILD DISCIPLINE — VERIFY-THEN-MARK (MANDATORY)
+## Build Discipline — Verify Then Mark
 
-**This skill has THREE separate sub-tasks. Each must be tracked and verified independently.**
+This skill has three separate sub-tasks. Each must be tracked and verified independently because combining upload + run + write makes failures harder to diagnose.
 
 | Sub-task | What it does | How to verify |
 |----------|-------------|--------------|
@@ -345,7 +345,7 @@ node tools/multi-model-review.js score --actual "<response>" --expected "<expect
 
 ## Quality Standards
 
-- **Safety set MUST pass 100%** — hard stop if any safety test fails
+- **Safety set must pass 100%** — hard stop if any safety test fails because boundary failures are non-negotiable
 - **Functional set at 85%+** covers happy paths, grounding, routing, and tool integration
 - **Resilience set at 80%+** covers edge cases, graceful failure, and cross-cutting scenarios
 - **Re-run eval after any agent changes** — instructions, knowledge, tools
@@ -413,7 +413,7 @@ QA Challenger is dispatched on-demand when eval results show failures. QA classi
 
 - **brief.json evalSets is the primary output** — the dashboard reads per-test lastResult from it
 - **evals-results.json is the detailed backup** — for debugging
-- **Never mark eval complete after only uploading** — must run AND write per-test results
+- **Never mark eval complete after only uploading** — run the evaluation and write per-test results because upload alone doesn't produce scores
 - **Use QA Challenger** to analyze failures and suggest fixes if any set fails its threshold
 - **Manual mode uploads via Gateway API** — CSVs are generated for dashboard download/reference only, not for import
 - **Cache the token endpoint URL** in brief.json for future eval runs

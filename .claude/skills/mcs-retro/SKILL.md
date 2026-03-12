@@ -74,6 +74,16 @@ Each item gets exactly one classification:
 | **SOLUTION_PATTERN** | Naive approach failed, proven alternative found | Tier 2 (user) | Add/update entry in `knowledge/patterns/solution-patterns.md` |
 | **DECISION_OUTCOME** | A `decisions[]` option was selected and built — record whether it worked | Tier 2 (user) | Update solution pattern `Confirmed builds` count + add learnings entry |
 
+### Step 3.5: GPT Classification Review
+
+Fire GPT to validate your classification decisions:
+
+```bash
+node tools/multi-model-review.js review-code --file <temp-classification-summary> --context "Retro classification review: verify REPEAT vs NEW distinction, check for missed contradictions with existing learnings, validate proposed tags"
+```
+
+GPT catches: items classified as NEW that actually match existing entries (should be REPEAT or ENHANCEMENT), items classified as REPEAT where the scenario subtly differs (should be NEW), missed cache corrections. Merge findings before presenting to user. If GPT is unavailable, proceed with your classification.
+
 ### Step 4: Present
 
 Display a table of ALL collected items:

@@ -143,7 +143,7 @@ Two teammates are available on-demand when issues arise (not spawned at build st
 
 **Research Analyst** — spawned when tool configuration fails (connector not found, auth mode mismatch, unexpected parameters). RA searches official docs and community, reports correct name/auth/alternatives. Lead applies the fix, updates brief + cache, dismisses RA.
 
-**Prompt Engineer** — spawned when instructions need adjustment after tools are configured (tool names differ, planned tool unavailable, action parameters changed, instructions exceed 8000 chars). PE revises instructions with corrected references. QA reviews, lead applies via LSP push, dismisses PE.
+**Prompt Engineer** — spawned when instructions need adjustment after tools are configured (tool names differ, planned tool unavailable, action parameters changed, instructions exceed 8000 chars). PE uses GPT co-generation (`generate-instructions`) to produce and merge revised instructions. QA reviews, lead applies via LSP push, dismisses PE.
 
 ---
 

@@ -39,6 +39,20 @@ Check completeness based on report type:
 
 If minimum fields are missing → **WARN** (don't stop): "Some sections will be incomplete — {field} is empty."
 
+## GPT Review — Every Generated Report
+
+After generating any report, fire GPT to review it before writing the final file:
+
+```bash
+# For brief and build reports:
+node tools/multi-model-review.js review-brief --brief "Build-Guides/{projectId}/agents/{agentId}/brief.json"
+
+# For all report types — general quality check:
+node tools/multi-model-review.js review-code --file "Build-Guides/{projectId}/agents/{agentId}/{type}-report.md" --context "Report review: verify data accuracy against brief.json, check cross-references, ensure customer report has zero jargon"
+```
+
+GPT checks: data accuracy (does the report match brief.json?), cross-reference consistency (capabilities mentioned in report exist in brief), customer report jargon violations (technical terms that slipped through), missing sections. Apply fixes before writing the final file. If GPT is unavailable, proceed without it.
+
 ## Report Type: `brief` — Design State Report
 
 **Audience:** Internal team, customer technical leads
@@ -356,10 +370,10 @@ Replace ALL technical terms:
 
 ## Important Rules
 
-- **NEVER modify brief.json** — this skill is strictly read-only
+- **Never modify brief.json** because this skill is strictly read-only — reports are derived artifacts, not sources of truth
 - **No teammates needed** — lightweight lead-only generation
 - **Always write the report file** — even if some sections are incomplete (mark them as "N/A" or "Not yet available")
-- **Customer report MUST follow jargon rules** — zero technical terms
+- **Customer report must follow jargon rules** because these reports go to non-technical stakeholders who will be confused or alarmed by technical terms
 - **Cross-reference summary (brief type) is unique** — no other report includes this analysis
 - **Report file naming:** `{type}-report.md` (brief-report.md, build-report.md, customer-report.md, deployment-report.md)
 - **If brief.json is minimal** (just business + agent), only `brief` and `customer` types will produce useful output — warn the user for `build` and `deployment` types

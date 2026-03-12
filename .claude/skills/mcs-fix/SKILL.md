@@ -171,7 +171,7 @@ After PE and TE produce their outputs, **QA Challenger** reviews both:
 - PE output: verify revised instructions don't break existing passing scenarios
 - TE output: verify YAML syntax, trigger phrases don't collide with existing topics
 
-### GPT Instruction Review (MANDATORY)
+### GPT Instruction Review
 
 After QA reviews and before applying fixes, fire GPT-5.4 on PE's revised instructions:
 
@@ -279,7 +279,7 @@ Re-run eval via Direct Line API (same method as `/mcs-eval` Step 2):
 
 - **User confirms classification before fixes** — Step 2 outputs the plan and waits for approval
 - **Knowledge gaps can't be auto-fixed** — flag and skip, don't attempt to add knowledge sources programmatically
-- **Never remove existing tests** — scoring fixes adjust set methods/thresholds, never delete test cases. Can add new tests to sets.
+- **Never remove existing tests** — scoring fixes adjust set methods/thresholds, not delete test cases, because removing tests hides regressions. New tests can be added to sets.
 - **Publish after fixes** — agent must be re-published before re-eval (Direct Line tests the published version)
 - **Fix history is append-only** — track improvement over iterations in `notes.fixHistory[]`
 - **Max 2 fix iterations per invocation** — if still failing after 2 rounds of fix→re-eval, exit with "Manual review needed. Remaining failures may require knowledge updates or architectural changes."

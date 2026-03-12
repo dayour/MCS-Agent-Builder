@@ -212,7 +212,7 @@ Every capability, boundary, and open question extracted during `--fast` mode inc
 | **Topic Engineer** | brief.json topics, capabilities, integrations, adaptive-cards + conversation-design cache | Per-topic feasibility (OK / SPLIT / caveats) | No custom topics |
 | **Flow Designer** | brief.json (flow capabilities), integrations, architecture | flow-spec.md | solutionType is not flow/hybrid |
 
-All run simultaneously -- they do not depend on each other's output.
+All run simultaneously — they do not depend on each other's output. Every teammate uses GPT-5.4 co-generation internally (PE fires `generate-instructions`, QA fires `generate-evals`, TE fires `generate-topics` for 3+ node topics, FD fires `review-flow`). Teammates handle their own merging; the lead sees the merged output.
 
 ### Lead Reconciliation (Step 3)
 
@@ -220,7 +220,17 @@ After teammates return: apply PE instructions with inline review (9-point checkl
 
 ### GPT Parallel Review (Step 3.5)
 
-Fire `review-brief`, `review-instructions`, `review-components` (and `review-flow` for hybrid/flow) via `multi-model-review.js`. Merge protocol: union of findings, stricter wins, flag divergence. If GPT fails, proceed without it. Dismiss truncation artifacts (`[object Object]` in condensed payloads).
+After reconciliation, fire GPT-5.4 in parallel on all research outputs:
+
+```bash
+node tools/multi-model-review.js review-brief --brief <path-to-brief.json>
+node tools/multi-model-review.js review-instructions --brief <path-to-brief.json>
+node tools/multi-model-review.js review-components --brief <path-to-brief.json>
+# If hybrid/flow:
+node tools/multi-model-review.js review-flow --file <flow-spec.md> --brief <path-to-brief.json>
+```
+
+GPT checks: brief completeness, instruction anti-patterns, capability-instruction alignment, Microsoft-first priority violations, MCP opportunities, preview risks. Merge protocol: union of findings, stricter wins, flag divergence. Apply fixes for actionable items before writing final output. If GPT is unavailable, proceed without it.
 
 ---
 
