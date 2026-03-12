@@ -93,7 +93,7 @@ When something fails, stop and research broadly before retrying:
 ├── settings.json, skills/ (13 skills), agents/ (7 teammates), rules/ (path-scoped)
 
 app/
-├── server.py, terminal-server.js, lib/, frontend/ (React + Vite + shadcn/ui)
+├── server.js, terminal-server.js, lib/, frontend/ (React + Vite + shadcn/ui)
 
 knowledge/
 ├── cache/ (20 cheat sheets), patterns/ (YAML, Dataverse, topic, flow templates)
