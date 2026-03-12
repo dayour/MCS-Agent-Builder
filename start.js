@@ -355,6 +355,10 @@ function openBrowser(url) {
 
 console.log("\n\x1b[36m  MCS Agent Builder\x1b[0m\n");
 
+const isGitRepo = fs.existsSync(path.join(__dirname, ".git"));
+const distIndex = path.join(__dirname, "app", "dist", "index.html");
+const frontendDir = path.join(__dirname, "app", "frontend");
+
 // 1. Check Node.js version
 const nodeMajor = parseInt(process.versions.node.split(".")[0], 10);
 if (nodeMajor < MIN_NODE) {
@@ -368,42 +372,41 @@ if (!checkClaudeCode()) {
   warn("Install: npm install -g @anthropic-ai/claude-code");
 }
 
-// 3. Auto-update from remote (if in git repo)
-autoUpdate();
+// 3-5: Git repo only — auto-update, deps, hooks
+if (isGitRepo) {
+  autoUpdate();
+  ensureNodeModules();
+  ensureGitHooks();
 
-// 4. Auto-install npm dependencies
-ensureNodeModules();
-
-// 5. Install git hooks (if in git repo)
-ensureGitHooks();
-
-// 6. Auto-install frontend deps if stale
-const frontendDir = path.join(__dirname, "app", "frontend");
-if (fs.existsSync(path.join(frontendDir, "package.json")) && depsStale(frontendDir)) {
-  log("Frontend deps out of date — reinstalling...");
-  try {
-    execSync("npm install", { stdio: "inherit", cwd: frontendDir, timeout: 120000 });
-    writeDepsHash(frontendDir);
-  } catch {
-    warn("npm install failed in app/frontend — frontend may not work");
+  // Frontend deps + rebuild only needed in dev (git repo)
+  if (fs.existsSync(path.join(frontendDir, "package.json")) && depsStale(frontendDir)) {
+    log("Frontend deps out of date — reinstalling...");
+    try {
+      execSync("npm install", { stdio: "inherit", cwd: frontendDir, timeout: 120000 });
+      writeDepsHash(frontendDir);
+    } catch {
+      warn("npm install failed in app/frontend — frontend may not work");
+    }
+    if (fs.existsSync(distIndex)) fs.unlinkSync(distIndex);
   }
-  const staleDist = path.join(__dirname, "app", "dist", "index.html");
-  if (fs.existsSync(staleDist)) fs.unlinkSync(staleDist);
+
+  if (fs.existsSync(path.join(frontendDir, "package.json")) && !fs.existsSync(distIndex)) {
+    log("Frontend not built — building...");
+    try {
+      execSync("npm run build", { stdio: "inherit", cwd: frontendDir, timeout: 120000 });
+      log("Frontend build complete");
+    } catch {
+      warn("Frontend build failed — dashboard may show placeholder page");
+    }
+  }
+} else {
+  // Global npm install — frontend is pre-built, deps already installed
+  if (!fs.existsSync(distIndex)) {
+    warn("Frontend not found — try reinstalling: npm install -g mcs-agent-builder");
+  }
 }
 
-// 7. Build frontend if dist is missing
-const distIndex = path.join(__dirname, "app", "dist", "index.html");
-if (fs.existsSync(path.join(frontendDir, "package.json")) && !fs.existsSync(distIndex)) {
-  log("Frontend not built — building...");
-  try {
-    execSync("npm run build", { stdio: "inherit", cwd: frontendDir, timeout: 120000 });
-    log("Frontend build complete");
-  } catch {
-    warn("Frontend build failed — dashboard may show placeholder page");
-  }
-}
-
-// 8. Single-instance check + find port + launch
+// 6. Single-instance check + find port + launch
 checkSingleInstance();
 
 (async () => {
