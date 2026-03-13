@@ -142,6 +142,41 @@ Source: https://learn.microsoft.com/en-us/microsoft-copilot-studio/data-privacy-
 | Live external system data | Real-time connectors (Preview) | No data movement, user-authenticated |
 | Structured data analysis | Code interpreter + files | Deterministic computation, not LLM guessing |
 
+## Knowledge Source Behavior Controls
+
+### triggerCondition Property
+
+Controls WHEN a knowledge source is auto-searched by the orchestrator:
+
+| Setting | Behavior | Use Case |
+|---------|----------|----------|
+| *(default — no property)* | Auto-searched on every user message | Standard knowledge sources |
+| `triggerCondition: false` | **Never auto-searched** — only queried explicitly via `SearchAndSummarizeContent` | Glossary CSVs, reference data that should only load on-demand |
+| `triggerCondition: =Global.Variable = "value"` | Conditionally included based on variable state | Country-specific docs, role-based knowledge |
+
+```yaml
+# Example: Knowledge source that is never auto-searched
+kind: KnowledgeSourceConfiguration
+source:
+  kind: SharePointSearchSource
+  site: https://tenant.sharepoint.com/sites/Glossary
+triggerCondition: false
+```
+
+### 25-Source UniversalSearchTool Limit
+
+When an agent has **more than 25 knowledge sources** (uploaded files are exempt from this count), the orchestrator's UniversalSearchTool auto-selects the **top 25 by description match**. Sources with poor or missing descriptions may be skipped entirely.
+
+**Solutions for agents exceeding 25 sources:**
+1. **Explicit routing** — Use `OnKnowledgeRequested` trigger to route by category (see `knowledge/patterns/topic-patterns/knowledge-routing.yaml`)
+2. **File groups** — Consolidate related files into groups (up to 500 files per group, 25 groups per agent)
+3. **Better descriptions** — Ensure every knowledge source has a specific, descriptive name/description
+4. **Conditional inclusion** — Use `triggerCondition` to limit active sources by user context
+
+### Graph Connector Sources
+
+Enterprise data from non-Microsoft systems can be indexed into Microsoft Graph via Copilot connectors (formerly Graph connectors). These appear as "Enterprise data (Copilot connectors)" in the Knowledge > Advanced section. Data is indexed and searchable without replication — the connector provides a semantic index over the external system. Requires M365 admin center configuration.
+
 ## How to Add Knowledge
 
 ### Via LSP Wrapper (preferred — headless, no browser)

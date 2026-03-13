@@ -137,6 +137,23 @@ When writing MCS agent instructions during `/mcs-research` Phase C or `/mcs-fix`
 
 **Skip when:** Instructions under 500 chars, incremental delta only, or lead requests single-model.
 
+## Orchestrator Chaining Awareness
+
+Topics that prepare data for actions should **output data, not status messages**. When writing instructions for agents that use generative orchestration with topic-action chaining:
+
+- Guide instructions to describe **what data** each topic produces, not what message it shows
+- Use `/TopicName` references for explicit routing only when disambiguation is needed
+- If a topic feeds into an action, the instruction should describe the data flow, not the user-facing message
+
+### OnActivity for JIT Initialization
+
+When instructions reference `{Global.Variable}` values (e.g., `{Global.UserCountry}`, `{Global.Glossary}`), ensure the initialization topic uses `OnActivity(type:Message)` — NOT `OnConversationStart` — because `OnConversationStart` does not fire on M365 Copilot or embedded surfaces.
+
+### Variable Reference Pattern
+
+- **Large payloads** (e.g., `{Global.Glossary}`): Reference ONCE in instructions. Each reference expands the full content into the prompt, multiplying token cost.
+- **Short values** (e.g., `{Global.UserCountry}`): Can appear multiple times safely — minimal token impact.
+
 ## Summary Rules
 
 - Always use the three-part structure because it matches MS recommendations and produces consistent results.

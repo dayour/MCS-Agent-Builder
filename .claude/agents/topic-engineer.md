@@ -109,6 +109,40 @@ Common triggers: `OnRecognizedIntent` (AI match), `OnConversationStart`, `OnUnkn
 
 Use `modelDescription` on AdaptiveDialog for agent-chooses routing. Standard pattern: `OnRecognizedIntent` with `displayName` (no `triggerQueries`) because `triggerQueries` may block publish on gen orchestration agents. `OnUnknownIntent` is for Fallback/Conversational boosting only.
 
+### AutomaticTaskInput vs Question Nodes
+
+Use `AutomaticTaskInput` (topic inputs) when the orchestrator should auto-collect required data from the user conversationally. Use `Question` nodes when you need custom validation logic, retry prompts, or channel-specific input handling.
+
+| Factor | AutomaticTaskInput | Question |
+|--------|-------------------|----------|
+| Collection method | Orchestrator asks naturally | Explicit prompt in topic |
+| Validation | Basic entity validation | Custom PowerFx validation |
+| Orchestrator chaining | Inputs visible to orchestrator | Variables are topic-internal |
+| `shouldPromptUser: false` | Silent extraction from context | N/A |
+| When to use | Gen orchestration, data gathering | Classic orchestration, custom UX |
+
+Always include `inputType`/`outputType` schemas when using AutomaticTaskInput — missing schemas cause silent orchestration failures.
+
+### Topic-Action Chaining
+
+Topics that prepare data for an action must output **data**, not status messages. The orchestrator chains outputs to the next action's inputs. If the topic sends a `SendActivity` with a status message, the chain breaks.
+
+- **Data-gathering topic** → Set output variables, no SendActivity
+- **Terminal topic** → SendActivity with formatted results
+- **Mixed** → Set outputs AND SendActivity (orchestrator uses outputs, user sees message)
+
+### SetTextVariable (Type Coercion)
+
+Use template interpolation to coerce Number/DateTime to String: `value: "Guests: {Topic.NumberOfGuests}"`. Also use `Text()` function: `value: =Text(Topic.date, "MMM dd, yyyy")`. See `knowledge/patterns/yaml-reference.md` § SetTextVariable.
+
+### OnKnowledgeRequested Routing
+
+When agents have >25 knowledge sources or need category-based routing, use `OnKnowledgeRequested` trigger with `AutomaticTaskInput(shouldPromptUser:false)` for orchestrator-generated classification. See `knowledge/patterns/topic-patterns/knowledge-routing.yaml`.
+
+### CreateSearchQuery Node
+
+Pre-processes user input with conversational context before knowledge search. Produces better retrieval than raw user text. Use before `SearchAndSummarizeContent` for complex knowledge queries.
+
 ## Limitation Awareness
 
 Microsoft warns that designing complex topics entirely in the code editor isn't fully supported. For deep nesting: build skeleton in visual canvas first, refine in code editor, or break into multiple topics via BeginDialog.

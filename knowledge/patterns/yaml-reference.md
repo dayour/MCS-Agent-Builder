@@ -56,7 +56,7 @@ Reusable YAML templates in `knowledge/patterns/topic-patterns/`:
 
 Microsoft warns: "Designing a topic entirely in the code editor and pasting complex topics isn't fully supported." For very complex topics (deep nesting, many nodes), consider building the skeleton in the visual canvas first, then switching to code editor for refinement.
 
-## Action Type Reference (9 Types)
+## Action Type Reference
 
 ### 1. SendActivity / SendMessage — Send text to user
 ```yaml
@@ -155,7 +155,39 @@ Input.Text styles: `"Email"`, `"Tel"`, `"Url"`, or omit for plain text.
   dialog: TopicSchemaName
 ```
 
-### 9. EndDialog — End current topic
+### 9. SetVariable Pattern — Type Coercion (Number/DateTime to Text)
+```yaml
+# Use template interpolation to coerce non-text types to String.
+# PowerFx Text() also works but interpolation is more readable.
+- kind: SetVariable
+  id: coerceToText
+  variable: init:Topic.guestCountText
+  value: "Guests: {Topic.NumberOfGuests}"
+# Result: "Guests: 5" (Number → String via interpolation)
+
+# Alternative using Text() function:
+- kind: SetVariable
+  id: coerceWithText
+  variable: init:Topic.dateText
+  value: =Text(Topic.selectedDate, "MMM dd, yyyy")
+```
+
+### 10. CreateSearchQuery — Pre-process Search Input
+```yaml
+# Pre-processes user input with conversational context before knowledge search.
+# Produces better retrieval than raw user text because it reformulates the query
+# using conversation history.
+- kind: CreateSearchQuery
+  id: createQuery
+  variable: init:Topic.refinedQuery
+  # The refined query is then used in SearchAndSummarizeContent
+- kind: SearchAndSummarizeContent
+  id: searchWithRefinedQuery
+  instructions: "Search using: {Topic.refinedQuery}"
+  variable: Topic.searchResult
+```
+
+### 11. EndDialog — End current topic
 ```yaml
 - kind: EndDialog
   id: endDialog
@@ -218,6 +250,58 @@ Every `Question` and `AutomaticTaskInput` MUST have an `entity` property. **Enti
 | `ColorPrebuiltEntity` | Color names |
 
 **Prefer specific entities** for automatic validation: `EmailPrebuiltEntity` over `StringPrebuiltEntity` when collecting email.
+
+## Topic-Action Chaining Rules (Generative Orchestration)
+
+When a topic prepares data for an action (connector call, another topic, etc.), **output the data — not a status message** — so the orchestrator can chain correctly:
+
+| Scenario | Correct Output | Wrong Output |
+|----------|---------------|--------------|
+| Topic collects form data for API call | `Topic.formData` (the data object) | `SendActivity "Form submitted!"` |
+| Topic computes a value for another topic | `Topic.result` via outputType | `SendActivity "Result: {Topic.result}"` |
+| Topic IS the final step | `SendActivity` with formatted result | *(this is correct for terminal topics)* |
+
+**Rule:** If the topic is NOT the final step, set output variables and let the orchestrator decide presentation. If the topic IS the final step, use `SendActivity`/`SendMessage`.
+
+## Connector Action Properties for Orchestrator Routing
+
+Connector actions support `NameForModel` and `DescriptionForModel` properties — LLM-friendly names that help the orchestrator route correctly. These are set on the connector action definition (not in topic YAML) and override the default operation name/description.
+
+## AdaptiveCardPrompt Requirements
+
+`AdaptiveCardPrompt` has strict requirements:
+- `card:` **must use literal block scalar** (`card: |`) — not inline JSON
+- `output.binding` is **always required** — even for display-only cards
+- `outputType.properties` is **always required** — defines the schema of submitted data
+- `Action.Submit` is **always required** in the card body — even for display-only cards (use a dummy "OK" button)
+- For display-only cards (FactSet, info display), use a minimal output binding with a dummy field
+
+```yaml
+# Display-only card with mandatory output binding
+- kind: AdaptiveCardPrompt
+  id: displayInfo
+  card: |
+    {
+      "type": "AdaptiveCard",
+      "version": "1.5",
+      "body": [
+        { "type": "FactSet", "facts": [
+          { "title": "Status", "value": "Active" },
+          { "title": "Plan", "value": "Premium" }
+        ]}
+      ],
+      "actions": [
+        { "type": "Action.Submit", "title": "OK" }
+      ]
+    }
+  output:
+    binding:
+      submitAction: Topic.cardAck
+  outputType:
+    properties:
+      submitAction:
+        type: String
+```
 
 ## Common Compile Errors
 

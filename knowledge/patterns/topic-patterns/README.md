@@ -23,6 +23,12 @@ Reusable YAML patterns for Copilot Studio topic authoring via the built-in code 
 | `form-collect.yaml` | Collect multiple inputs then take action |
 | `auto-start.yaml` | Auto-execute topic at conversation start |
 | `ai-builder-model.yaml` | Invoke AI Builder model with input/output bindings |
+| `jit-glossary.yaml` | Load customer acronyms from SharePoint CSV into Global.Glossary via OnActivity |
+| `jit-user-context.yaml` | Load M365 user profile (country, department) into Global variables via OnActivity |
+| `conversation-init.yaml` | Combined OnActivity topic merging glossary + user context (use instead of separate topics) |
+| `automatic-task-input.yaml` | Generative orchestration: AutomaticTaskInput with inputType/outputType schemas |
+| `knowledge-routing.yaml` | OnKnowledgeRequested: category-based knowledge routing with orchestrator classification |
+| `citation-removal.yaml` | OnGeneratedResponse: strip [1][2] citation markers from AI-generated responses |
 
 ## Related References
 
@@ -38,4 +44,4 @@ Reusable YAML patterns for Copilot Studio topic authoring via the built-in code 
 - PowerFx expressions start with `=` prefix
 - Variables: `Topic.varName` (topic-scoped), `System.User.DisplayName` (system)
 - Use `init:Topic.varName` to declare a new variable in SetVariable
-- Trigger types: `OnRecognizedIntent`, `OnConversationStart`, `OnUnknownIntent`
+- Trigger types: `OnRecognizedIntent`, `OnConversationStart`, `OnUnknownIntent`, `OnActivity`, `OnKnowledgeRequested`, `OnGeneratedResponse`

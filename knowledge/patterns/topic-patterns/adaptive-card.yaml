@@ -72,6 +72,85 @@ beginDialog:
 #       ]
 #     }
 
+# --- AdaptiveCardPrompt (form input) — MANDATORY REQUIREMENTS ---
+# When using AdaptiveCardPrompt (not SendMessage), these are ALL required:
+# 1. card: | (literal block scalar — NOT inline JSON)
+# 2. output.binding (always required, even for display-only)
+# 3. outputType.properties (always required — defines submitted data schema)
+# 4. Action.Submit (always required in card body)
+#
+# - kind: AdaptiveCardPrompt
+#   id: collectEmail
+#   card: |
+#     {
+#       "type": "AdaptiveCard",
+#       "version": "1.5",
+#       "body": [
+#         {
+#           "type": "Input.Text",
+#           "id": "userEmail",
+#           "label": "Email address",
+#           "placeholder": "user@example.com",
+#           "style": "Email",
+#           "regex": "^[\\w.-]+@[\\w.-]+\\.\\w{2,}$",
+#           "errorMessage": "Please enter a valid email address"
+#         },
+#         {
+#           "type": "Input.Text",
+#           "id": "userPhone",
+#           "label": "Phone (optional)",
+#           "style": "Tel",
+#           "regex": "^\\+?[0-9\\s-]{7,15}$",
+#           "errorMessage": "Please enter a valid phone number"
+#         }
+#       ],
+#       "actions": [
+#         { "type": "Action.Submit", "title": "Submit" }
+#       ]
+#     }
+#   output:
+#     binding:
+#       userEmail: Topic.email
+#       userPhone: Topic.phone
+#   outputType:
+#     properties:
+#       userEmail:
+#         type: String
+#       userPhone:
+#         type: String
+
+# --- Display-only FactSet card with mandatory output binding ---
+# Even display-only cards need Action.Submit + output binding.
+# Use a dummy "OK" button and minimal binding.
+#
+# - kind: AdaptiveCardPrompt
+#   id: showStatus
+#   card: |
+#     {
+#       "type": "AdaptiveCard",
+#       "version": "1.5",
+#       "body": [
+#         {
+#           "type": "FactSet",
+#           "facts": [
+#             { "title": "Status", "value": "Active" },
+#             { "title": "Plan", "value": "Premium" },
+#             { "title": "Renewal", "value": "2026-12-01" }
+#           ]
+#         }
+#       ],
+#       "actions": [
+#         { "type": "Action.Submit", "title": "OK" }
+#       ]
+#     }
+#   output:
+#     binding:
+#       submitAction: Topic.ack
+#   outputType:
+#     properties:
+#       submitAction:
+#         type: String
+
 # --- Example with Action.Submit for user input ---
 # Note: Action.Execute is NOT supported in Web Chat
 #

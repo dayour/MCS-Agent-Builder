@@ -33,7 +33,25 @@ refresh_trigger: before_architecture
 
 | Trigger | How to Enable | Purpose |
 |---------|--------------|---------|
-| `OnKnowledgeRequested` | Name topic exactly `OnKnowledgeRequested` | Intercept knowledge search, inject custom results |
+| `OnKnowledgeRequested` | Name topic exactly `OnKnowledgeRequested` | Intercept knowledge search, inject custom results. System variables: `System.SearchQuery`, `System.KeywordSearchQuery`, `System.SearchResults`. Use with `AutomaticTaskInput(shouldPromptUser:false)` for orchestrator-generated classification. See `knowledge/patterns/topic-patterns/knowledge-routing.yaml`. |
+| `ConnectorTriggerOperation` | YAML `kind: ConnectorTriggerOperation` | Event trigger from a Power Automate connector (e.g., SharePoint item created, email received). Distinct from `ConnectorOperation` (which is an action). Used for autonomous agent triggers. |
+
+### Channel-Universal Initialization (OnActivity vs OnConversationStart)
+
+**IMPORTANT:** `OnConversationStart` does **NOT** fire on M365 Copilot channel or embedded surfaces. For JIT initialization patterns (loading user context, glossary, etc.), always use `OnActivity` with `type: Message` instead:
+
+```yaml
+kind: AdaptiveDialog
+beginDialog:
+  kind: OnActivity
+  id: main
+  type: Message
+  condition: =IsBlank(Global.UserCountry)
+  actions:
+    # ... initialization logic
+```
+
+The `=IsBlank()` guard ensures the initialization runs only once per conversation (not on every message). See patterns: `jit-glossary.yaml`, `jit-user-context.yaml`, `conversation-init.yaml`.
 
 ## Event Triggers (Autonomous Agents)
 

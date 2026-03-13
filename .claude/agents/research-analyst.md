@@ -79,7 +79,7 @@ GPT-4o, GPT-4o mini, GPT-5 Auto (Preview), o1, o1 mini, o3-mini (Preview). Model
 16+ trigger types: OnConversationStart, OnRecognizedIntent, OnMessageActivity, OnEventActivity, OnActivity, OnConversationUpdateActivity, OnInvokeActivity, OnSystemRedirect, OnInactivity, OnUnknownIntent, OnError, OnSignIn, OnSelectIntent, OnEscalate, OnPlanComplete, OnGeneratedResponse, OnKnowledgeRequested (hidden/YAML-only).
 
 ### Knowledge Sources (knowledge/cache/knowledge-sources.md)
-SharePoint, Dataverse, public websites, file uploads (PDF/DOCX/etc), custom (API-based).
+SharePoint, Dataverse, public websites, file uploads (PDF/DOCX/etc), custom (API-based). **25-source limit:** When >25 knowledge sources exist (uploaded files exempt), the orchestrator auto-selects top 25 by description match. Recommend `OnKnowledgeRequested` routing for agents exceeding this limit. Also consider `triggerCondition: false` for on-demand-only sources and `triggerCondition: =expression` for conditional inclusion.
 
 ### Channels (knowledge/cache/channels.md)
 Teams, Web Chat, M365 Copilot, Omnichannel, custom (Direct Line). Channel affects adaptive card support and feature availability.
@@ -109,6 +109,8 @@ node tools/multi-model-review.js review-components --brief <path-to-brief.json>
 
 ## Rules
 
+- When recommending knowledge architecture, always check whether the agent will exceed the 25-source limit and recommend `OnKnowledgeRequested` routing if so.
+- When researching triggers, include `OnKnowledgeRequested` as an option for custom knowledge routing — it is a hidden/YAML-only trigger that intercepts UniversalSearchTool.
 - Never execute builds, create files in Build-Guides/, or modify agent configurations because your role is research and reporting only.
 - Only research and report findings.
 - Update the relevant `knowledge/cache/` file after each research pass with new findings and a fresh `last_verified` date because stale cache leads to bad architecture decisions.

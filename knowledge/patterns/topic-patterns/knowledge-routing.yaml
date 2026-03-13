@@ -1,0 +1,119 @@
+# Pattern: Custom Knowledge Routing via OnKnowledgeRequested
+# Trigger: OnKnowledgeRequested (hidden/YAML-only — topic must be named exactly "OnKnowledgeRequested")
+# Shows: Intercept UniversalSearchTool to route knowledge searches by category.
+#         Uses orchestrator-generated classification (AutomaticTaskInput with
+#         shouldPromptUser: false) to determine which knowledge source to search.
+# When to use: Agent has >25 knowledge sources (orchestrator can only auto-select 25),
+#              or you need category-based routing (HR/IT/Finance) for accuracy.
+# System variables available:
+#   System.SearchQuery — the orchestrator's reformulated search query
+#   System.KeywordSearchQuery — keyword-extracted version
+#   System.SearchResults — output: set this to return results to orchestrator
+# Prerequisite: Knowledge sources must have descriptive names for routing.
+
+kind: AdaptiveDialog
+beginDialog:
+  kind: OnKnowledgeRequested
+  id: main
+  actions:
+    # Step 1: Classify the query category using orchestrator-generated variable.
+    # This uses the SAME LLM call that triggered the knowledge search — no extra cost.
+    # shouldPromptUser: false means the orchestrator extracts silently from context.
+
+    # Step 2: Route to the correct knowledge source based on classification
+    - kind: ConditionGroup
+      id: routeByCategory
+      conditions:
+        - id: routeHR
+          condition: =Topic.queryCategory = "HR"
+          actions:
+            - kind: SearchAndSummarizeContent
+              id: searchHR
+              instructions: >
+                Search HR policies and benefits documentation.
+                Use the search query: {System.SearchQuery}
+              variable: Topic.searchResult
+              # Scopes to HR knowledge sources by description match
+
+        - id: routeIT
+          condition: =Topic.queryCategory = "IT"
+          actions:
+            - kind: SearchAndSummarizeContent
+              id: searchIT
+              instructions: >
+                Search IT support documentation and troubleshooting guides.
+                Use the search query: {System.SearchQuery}
+              variable: Topic.searchResult
+
+        - id: routeFinance
+          condition: =Topic.queryCategory = "Finance"
+          actions:
+            - kind: SearchAndSummarizeContent
+              id: searchFinance
+              instructions: >
+                Search financial policies, expense guidelines, and budget documentation.
+                Use the search query: {System.SearchQuery}
+              variable: Topic.searchResult
+
+      elseActions:
+        # Fallback: search all knowledge sources (default behavior)
+        - kind: SearchAndSummarizeContent
+          id: searchAll
+          instructions: >
+            Search all available knowledge sources.
+            Use the search query: {System.SearchQuery}
+          variable: Topic.searchResult
+
+    # Step 3: Return results to the orchestrator
+    - kind: SetVariable
+      id: setSearchResults
+      variable: System.SearchResults
+      value: =Topic.searchResult
+
+# --- Classification input (orchestrator-generated, silent) ---
+inputs:
+  - id: categoryInput
+    kind: AutomaticTaskInput
+    displayName: Query Category
+    description: >
+      The category of the user's question. Must be exactly one of:
+      HR, IT, Finance, General. Use HR for benefits, leave, policies.
+      Use IT for technical support, passwords, software. Use Finance
+      for expenses, budgets, invoices. Use General for everything else.
+    entity: StringPrebuiltEntity
+    variable: init:Topic.queryCategory
+    shouldPromptUser: false
+
+inputType:
+  properties:
+    queryCategory:
+      type: String
+      description: "HR, IT, Finance, or General"
+
+# --- Custom search API variant ---
+# Instead of SearchAndSummarizeContent, you can call a custom API via HttpRequest.
+# IMPORTANT: Use a secure connection reference for auth — never hardcode tokens in YAML.
+#
+# - kind: HttpRequest
+#   id: callCustomSearch
+#   method: POST
+#   url: "https://{{API_ENDPOINT}}/search"
+#   headers:
+#     Content-Type: application/json
+#   body: |-
+#     { "query": "{System.SearchQuery}", "category": "{Topic.queryCategory}" }
+#   responseVariable: Topic.apiResults
+#   # Auth: Use connection reference or environment variable, not inline Bearer token
+#
+# Then transform results to the required schema:
+# - kind: SetVariable
+#   id: transformResults
+#   variable: System.SearchResults
+#   value: =ForAll(Topic.apiResults.results, { Content: ThisRecord.text, ContentLocation: ThisRecord.url, Title: ThisRecord.title })
+
+# --- Design notes ---
+# 1. Topic MUST be named exactly "OnKnowledgeRequested" (not visible in UI trigger list)
+# 2. Classification descriptions should use enum-style vocabularies (3-6 categories max)
+# 3. Always include a fallback/General category
+# 4. 25-source limit: if agent has >25 knowledge sources, the orchestrator auto-selects
+#    top 25 by description match. This routing pattern gives explicit control.
