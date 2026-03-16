@@ -97,7 +97,7 @@ Common triggers: `OnRecognizedIntent` (AI match), `OnConversationStart`, `OnUnkn
 
 ## Reusable Patterns
 
-10 templates in `knowledge/patterns/topic-patterns/`: greeting, faq-knowledge, branching, adaptive-card, http-request, escalation, multi-turn, form-collect, auto-start, ai-builder-model.
+17 templates in `knowledge/patterns/topic-patterns/`: greeting, faq-knowledge, branching, adaptive-card, http-request, escalation, multi-turn, form-collect, auto-start, ai-builder-model, welcome-card, conversation-init, knowledge-routing, automatic-task-input, citation-removal, jit-glossary, jit-user-context.
 
 ## Validation Checklist
 

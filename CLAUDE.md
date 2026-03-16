@@ -96,7 +96,7 @@ app/
 ├── server.js, terminal-server.js, lib/, frontend/ (React + Vite + shadcn/ui)
 
 knowledge/
-├── cache/ (20 cheat sheets), patterns/ (YAML, Dataverse, topic, flow templates)
+├── cache/ (21 cheat sheets), patterns/ (YAML, Dataverse, topic, flow templates)
 ├── frameworks/ (component selection, architecture scoring, eval scenarios)
 ├── learnings/ (8 topic files + index.json), solutions/ (library index + cache)
 
@@ -104,7 +104,7 @@ tools/
 ├── mcs-lsp.js, island-client.js, add-tool.js, flow-manager.js
 ├── direct-line-test.js, eval-scoring.js, multi-model-review.js
 ├── solution-library.js, replicate-agent.js, dataverse-helper.ps1
-├── om-cli/ (YAML validation, 357 types), lib/ (http, openai, graph, flow-composer)
+├── om-cli/ (YAML validation, 357 types), lib/ (http, openai, graph, flow-composer, connector-schema)
 ├── gen-constraints.py, drift-detect.py, semantic-gates.py
 
 templates/

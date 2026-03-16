@@ -763,10 +763,10 @@
     {
       "id": "bm-020",
       "file": "build-methods.md",
-      "title": "Agent flow creation: 3 required fields for MCS visibility",
+      "title": "Agent flow creation: 4 required fields for MCS visibility",
       "date": "2026-03-06",
-      "confirmed": 1,
-      "lastConfirmed": "2026-03-06",
+      "confirmed": 2,
+      "lastConfirmed": "2026-03-16",
       "tags": [
         "agent-flow",
         "power-automate",
@@ -777,7 +777,8 @@
       ],
       "status": "active",
       "projects": [
-        "TestBriefing"
+        "TestBriefing",
+        "CDW"
       ]
     },
     {
@@ -973,6 +974,66 @@
         "fallback",
         "adaptive-cards",
         "scope"
+      ],
+      "status": "active",
+      "projects": [
+        "CDW"
+      ]
+    },
+    {
+      "id": "bm-030",
+      "file": "build-methods.md",
+      "title": "Bots entity rejects $select and $top — query without OData params",
+      "date": "2026-03-16",
+      "confirmed": 1,
+      "lastConfirmed": "2026-03-16",
+      "tags": [
+        "dataverse",
+        "bots",
+        "select-quirk",
+        "top-parameter",
+        "odata",
+        "query-limitations"
+      ],
+      "status": "active",
+      "projects": [
+        "CDW"
+      ]
+    },
+    {
+      "id": "bm-031",
+      "file": "build-methods.md",
+      "title": "Update brief.json before GPT review — not after",
+      "date": "2026-03-16",
+      "confirmed": 1,
+      "lastConfirmed": "2026-03-16",
+      "tags": [
+        "gpt-review",
+        "brief",
+        "instructions",
+        "process",
+        "topic-names",
+        "sequence"
+      ],
+      "status": "active",
+      "projects": [
+        "CDW"
+      ]
+    },
+    {
+      "id": "bm-032",
+      "file": "build-methods.md",
+      "title": "Python JSON parsing unreliable on Windows — use Node.js",
+      "date": "2026-03-16",
+      "confirmed": 1,
+      "lastConfirmed": "2026-03-16",
+      "tags": [
+        "python",
+        "node-js",
+        "json-parsing",
+        "windows",
+        "git-bash",
+        "tooling"
       ],
       "status": "active",
       "projects": [

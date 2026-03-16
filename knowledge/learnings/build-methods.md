@@ -287,16 +287,18 @@ Line 1 (`# Name:`) = GptComponent display name. Line 2 (`# ...`) = agent descrip
 **Related cache:** connectors.md, mcp-servers.md, island-gateway-api.md
 **Tags:** #mcp #tool-addition #connection-reference #discover #headless #dataverse
 
-### Agent flow creation: 3 required fields for MCS visibility {#bm-020} — 2026-03-06
+### Agent flow creation: 4 required fields for MCS visibility {#bm-020} — 2026-03-06
 **Context:** TestBriefing build — creating Power Automate agent flow via Dataverse POST and linking to agent
 **Tried:** Dataverse `POST /workflows` with `category=5`, custom trigger name `When_an_agent_calls_the_flow`, default `modernflowtype=0`
 **Result:** Flow created in Dataverse but: (1) `modernflowtype=0` → MCS shows "Flow was deleted or access rights were lost". (2) Custom trigger name → flow doesn't appear in MCS "Add a tool" picker. (3) Missing `metadata.operationMetadataId` on trigger → may affect tool picker visibility.
-**Better approach:** Three required fields for MCS to fully recognize a programmatic agent flow:
+**Better approach:** Four required fields for MCS to fully recognize a programmatic agent flow:
   1. `modernflowtype: 1` (not 0) — set in workflow record, controls modern vs classic runtime
   2. Trigger name must be `manual` (not custom) — MCS looks for this exact name
   3. Trigger must have `metadata.operationMetadataId` (any GUID) — standard for MCS-created flows
+  4. `type: 1` — Workflow Definition type (required for MCS to treat as an agent flow)
+Additionally required: `scope: 4` (Organization scope) and `primaryentity: "none"` for proper MCS visibility.
 Link to agent via YAML `InvokeFlowTaskAction` (NOT `InvokeFlowAction` — different type hierarchy: TaskAction vs DialogAction).
-**Confirmed:** 1 build(s) | Last confirmed: 2026-03-06
+**Confirmed:** 2 build(s) | Last confirmed: 2026-03-16
 **Related cache:** power-automate-integration.md
 **Tags:** #agent-flow #power-automate #modernflowtype #trigger-name #dataverse #headless
 
@@ -404,3 +406,30 @@ Link to agent via YAML `InvokeFlowTaskAction` (NOT `InvokeFlowAction` — differ
 **Confirmed:** 1 build(s) | Last confirmed: 2026-03-06
 **Related cache:** island-gateway-api.md, eval-methods.md
 **Tags:** #eval #gateway-api #makerevaluations #headless #upload #test-cases #supersedes-bm-013
+
+### Bots entity rejects $select and $top — query without OData params {#bm-030} — 2026-03-16
+**Context:** CDW Legal HR Policy Advisor update build — listing agents in dktest environment
+**Tried:** (1) `GET /bots?$select=name,botid,schemaname,statuscode` — returned `{"value":[]}` (0 results despite 8 agents). (2) `GET /bots?$top=50` — HTTP 400 error "query parameter not supported". (3) `GET /bots` (no OData params) — returned all 8 agents correctly.
+**Result:** The bots entity does not reliably support `$select` or `$top` OData query parameters. `$select` silently returns empty results. `$top` returns an explicit error. This extends the known `$select` quirk (bm-018 for synchronizationstatus, bm-020b for botcomponent data field) to the entity level.
+**Better approach:** Always query the bots entity WITHOUT `$select` or `$top`. Parse the full response client-side. Use FetchXML if filtering is needed. For bots with many fields, the full entity response is ~14KB per bot — acceptable for environments with <100 agents.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-03-16
+**Related cache:** dataverse-patterns.md
+**Tags:** #dataverse #bots #select-quirk #top-parameter #odata #query-limitations
+
+### Update brief.json before GPT review — not after {#bm-031} — 2026-03-16
+**Context:** CDW Legal HR Policy Advisor build — GPT review flagged stale topic name references
+**Tried:** Pushed updated instructions to MCS (with corrected topic names), then ran GPT review via `multi-model-review.js review-instructions`
+**Result:** GPT reviewed brief.json instructions field (which still had old `/HighRiskScenarioEscalation` references) instead of the pushed version (`/High-Risk Scenario Guidance`). GPT flagged this as "critical" — a false alarm that wasted review credibility.
+**Better approach:** Always update the brief.json instructions field to match the pushed version BEFORE running GPT review. The sequence should be: (1) write instructions to agent.mcs.yml, (2) update brief.json instructions field to match, (3) push via LSP, (4) run GPT review. This ensures GPT reviews the canonical version.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-03-16
+**Related cache:** N/A (process)
+**Tags:** #gpt-review #brief #instructions #process #topic-names #sequence
+
+### Python JSON parsing unreliable on Windows — use Node.js {#bm-032} — 2026-03-16
+**Context:** CDW Legal HR Policy Advisor build — inline Python parsing failed repeatedly
+**Tried:** (1) `python3` — "not found" (Windows App Execution Alias intercept). (2) `python` with stdin piping — returned 0 results/empty arrays despite valid JSON input. (3) `python -c` with inline scripts — inconsistent behavior.
+**Result:** 6 failed Python parsing attempts before switching to Node.js. Python stdin piping appears to silently fail on Git Bash / Windows. All subsequent parsing used temp .js files + `node "$TEMP/script.js"` pattern.
+**Better approach:** Never use Python for JSON parsing in build scripts. Use `tools/lib/dv-query.js` helper (Node.js) which handles token acquisition, Dataverse queries, and JSON parsing natively. For inline JSON parsing, use temp .js files (required anyway due to Node v24 `!` quirk with -e flag).
+**Confirmed:** 1 build(s) | Last confirmed: 2026-03-16
+**Related cache:** N/A (tooling)
+**Tags:** #python #node-js #json-parsing #windows #git-bash #tooling

@@ -164,9 +164,9 @@ The tool continuously learns and improves:
 
 | Layer | What | Stays Current |
 |-------|------|--------------|
-| **Cache** (20 files) | MCS capabilities — models, connectors, MCP servers, triggers | Auto-refreshed at session start |
+| **Cache** (21 files) | MCS capabilities — models, connectors, MCP servers, triggers | Auto-refreshed at session start |
 | **Learnings** (8 files) | Experience from past builds — what worked, what didn't | Captured after each build |
-| **Patterns** | YAML syntax, Dataverse API, 11 topic templates, 9 flow templates | Stable reference |
+| **Patterns** | YAML syntax, Dataverse API, 17 topic templates, 9 flow templates | Stable reference |
 | **Frameworks** | Component selection, architecture scoring, eval scenarios | Stable reference |
 
 ---
@@ -233,7 +233,7 @@ app/
   frontend/                   React + TypeScript SPA (Vite + shadcn/ui)
 
 knowledge/
-  cache/                      20 MCS capability cheat sheets (auto-refreshed)
+  cache/                      21 MCS capability cheat sheets (auto-refreshed)
   learnings/                  Experience from past builds
   patterns/                   YAML, Dataverse, solution patterns + topic/flow templates
   frameworks/                 Decision frameworks + eval scenarios

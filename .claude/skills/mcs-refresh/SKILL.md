@@ -15,7 +15,7 @@ Refresh knowledge cache files in `knowledge/cache/` and the team solution librar
 - `/mcs-refresh solutions` — refresh solution library only (delta: new/changed solutions)
 - `/mcs-refresh all` — force refresh everything regardless of age (cache + solutions)
 
-## All 19 Cache Files
+## All 21 Cache Files
 
 ### Tier 1: Build-Critical (refresh before every `/mcs-research`)
 
@@ -56,6 +56,8 @@ These are stable reference material that changes less frequently.
 | `limits-licensing.md` | Message limits, licensing, throttling | "Copilot Studio limits licensing", "rate limits quotas" |
 | `powerfx-variables.md` | PowerFx in topics, variable types | "Copilot Studio PowerFx variables", "topic variables" |
 | `conversation-design.md` | UX patterns, conversation flows | "Copilot Studio conversation design", "best practices" |
+| `known-issues.md` | Known bugs, workarounds, ObjectModel gaps | "Copilot Studio known issues", "Copilot Studio bugs workarounds" |
+| `mcs-primer-gpt.md` | GPT-optimized MCS primer for co-generation | "Copilot Studio overview capabilities", "MCS architecture summary" |
 
 ## Freshness Rules
 
@@ -140,7 +142,7 @@ For each file:
 | mcp-servers.md | Jan 15 | Feb 12 | 2 new MCP servers found |
 | ... | ... | ... | ... |
 
-**Refreshed:** N / 19 files
+**Refreshed:** N / 21 files
 **Skipped (fresh):** M files
 **Notable changes:**
 - {change 1}
@@ -151,7 +153,7 @@ For each file:
 
 When called during session startup (auto-refresh), use a **lightweight pass**:
 
-1. Read all 19 files, check dates
+1. Read all 21 files, check dates
 2. Only refresh files > 7 days old
 3. For Tier 1 files: always refresh if stale (these affect research quality)
 4. For Tier 2-3 files: flag as stale but skip unless user is about to build

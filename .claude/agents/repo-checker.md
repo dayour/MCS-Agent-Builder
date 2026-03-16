@@ -56,8 +56,8 @@ For each MCP server in `.claude/settings.json`:
 
 ### 7. App -> Repo Sync
 
-Check `app/server.py`:
-- Every `import_module()` target exists as a file
+Check `app/server.js`:
+- Every `require()` target exists as a file
 - `DASHBOARD_HTML` path resolves
 - `BUILD_GUIDES` path is correct
 
@@ -65,8 +65,8 @@ Check `app/terminal-server.js`:
 - `BASE_DIR` resolves correctly
 - `CLAUDE_CLI` path pattern is documented
 
-Check `app/lib/readiness_calc.py`:
-- All exports used by `server.py` are defined
+Check `app/lib/readiness.js`:
+- All exports used by `server.js` are defined
 - `PROJECT_FILE_MAP` / `AGENT_FILE_MAP` entries reference filenames that match actual conventions
 
 ### 8. Package.json Scripts

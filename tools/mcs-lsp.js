@@ -533,11 +533,26 @@ async function patchMetadata(workspacePath) {
     const localLine1 = localLines[0] || '';
     const localLine2 = localLines[1] || '';
 
-    // Extract name from "# Name: X" and description from "# X"
+    // Extract name and description from two possible formats:
+    // Format A (comment): "# Name: X" / "# description text"
+    // Format B (mcs.metadata block): "mcs.metadata:" / "  componentName: X" / "  description: Y"
+    let localName = '';
+    let localDesc = '';
+
     const nameMatch = localLine1.match(/^#\s*Name:\s*(.+)/);
     const descMatch = localLine2.match(/^#\s*(.+)/);
-    const localName = nameMatch ? nameMatch[1].trim() : '';
-    const localDesc = descMatch ? descMatch[1].trim() : '';
+    if (nameMatch) {
+        localName = nameMatch[1].trim();
+        localDesc = descMatch ? descMatch[1].trim() : '';
+    }
+
+    // Fallback: parse mcs.metadata block (Format B — after LSP pull on newer agents)
+    if (!localName || localName === 'default') {
+        const compNameMatch = localContent.match(/mcs\.metadata:\s*\n\s+componentName:\s*(.+)/);
+        const compDescMatch = localContent.match(/mcs\.metadata:\s*\n\s+componentName:[^\n]*\n\s+description:\s*(.+)/);
+        if (compNameMatch) localName = compNameMatch[1].trim();
+        if (compDescMatch) localDesc = compDescMatch[1].trim();
+    }
 
     // Skip if still defaults (nothing useful to patch)
     if (!localName || localName === 'default') {
