@@ -98,7 +98,7 @@ const BriefEditor = () => {
     if (!projectId || !agentId) return;
     const store = useTerminalStore.getState();
 
-    const existingId = store.findSession(projectId, agentId);
+    const existingId = store.findSession(projectId);
     if (existingId) {
       store.setActiveSession(existingId);
       store.setPanelOpen(true);
@@ -108,8 +108,8 @@ const BriefEditor = () => {
 
     const wsUrl = await getTerminalWsUrl();
     const session: TerminalSession = {
-      id: `${projectId}-${agentId}-${Date.now()}`,
-      label: agentName || agentId,
+      id: `${projectId}-${Date.now()}`,
+      label: projectName || projectId,
       type,
       projectId,
       agentName: agentName || agentId,
@@ -350,6 +350,8 @@ const BriefEditor = () => {
                     projectId,
                     agents: agents.map((a) => ({ id: a.id, name: a.name })),
                   },
+                } : activeSection === "eval-sets" ? {
+                  context: { agentName: agentName || agentId || "" },
                 } : {})}
               />
             )}

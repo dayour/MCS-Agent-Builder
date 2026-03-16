@@ -183,6 +183,7 @@ export interface ApiBrief {
     tests?: Array<{
       question: string;
       expected?: string;
+      keywords?: string | null;
       capability?: string;
       methods?: Array<{ type: string; score?: number; mode?: string }> | null;
       scenarioId?: string | null;

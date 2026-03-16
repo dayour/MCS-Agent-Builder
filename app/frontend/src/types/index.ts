@@ -230,6 +230,8 @@ export interface EvalTestTurn {
 export interface EvalTest {
   question: string;
   expected?: string;
+  /** Comma-separated keywords for Keyword match method. When set, KeywordMatch uses this instead of expected. */
+  keywords?: string | null;
   /** Links to capabilities[].name. Optional — cross-cutting tests omit this. */
   capability?: string;
   /** Per-test method override. When set, these methods are used instead of the set's methods. */

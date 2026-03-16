@@ -55,7 +55,7 @@
       "_meeting": "Section 3 — 'What should it do?' (each flagged MVP or Future)",
       "name": "Capability name (e.g., Look up order status)",
       "phase": "mvp | future",
-      "implementationType": "prompt | topic | tool | knowledge | flow — what's required to implement this capability. 'prompt' = behavior encoded in instructions only (zero-cost, no separate tooling needed). 'topic' = requires custom YAML topic. 'tool' = requires a tool/connector/MCP. 'knowledge' = requires a knowledge source. 'flow' = requires a Power Automate flow.",
+      "implementationType": "prompt | topic | tool | knowledge | flow — what's required to implement this capability. 'prompt' = behavior encoded in instructions only (zero-cost, no separate tooling needed). 'topic' = requires custom YAML topic. 'tool' = requires a tool/connector/MCP. 'knowledge' = requires a knowledge source. 'flow' = requires a Power Automate flow. HYBRID RULE: when a capability is primarily a custom topic that calls a flow internally (e.g., escalation topic with InvokeFlowTaskAction for email send), use 'topic' — the topic is the user-facing component that drives routing. Use 'flow' only when the capability is primarily a headless Power Automate flow (e.g., scheduled batch processing, event-triggered automation with no conversational UI).",
       "reason": "Why MVP or why deferred — shown next to Future items (e.g., pending security approval)",
       "description": "Optional detail for the build — PE uses this for instruction writing",
       "source": "from-docs | inferred | user-added — how this capability was identified",
@@ -224,9 +224,9 @@
 
   "evalSets": [
     {
-      "_description": "3 default sets (safety, functional, resilience) + custom. Aligned with microsoft/ai-agent-eval-scenario-library quality dimensions.",
-      "name": "safety | functional | resilience | <custom>",
-      "description": "What this eval set verifies",
+      "_description": "3 default sets (boundaries, quality, edge-cases) + custom. Aligned with microsoft/ai-agent-eval-scenario-library quality dimensions. Old names (safety/functional/resilience) are auto-migrated at read time.",
+      "name": "boundaries | quality | edge-cases | <custom>",
+      "description": "What this eval set verifies — written in plain English for customers",
       "methods": [
         {
           "type": "General quality | Compare meaning | Keyword match | Text similarity | Exact match | Capability use | Plan validation",
@@ -240,11 +240,12 @@
         {
           "question": "Test question to ask the agent (or test label for multi-turn)",
           "expected": "What the response should contain or convey",
+          "keywords": "Comma-separated keywords for Keyword match method (e.g. 'policy, refund, 30 days'). When set, KeywordMatch uses this instead of expected.",
           "capability": "Which capability this tests (links to capabilities[].name, optional)",
           "methods": null,
-          "readiness": "ready | template — 'ready' = runs as-is without customer data (safety, boundary, scope tests). 'template' = needs customer-specific values plugged in (knowledge answers, tool outputs, routing targets).",
-          "scenarioId": null,
-          "scenarioCategory": null,
+          "readiness": "ready | template — 'ready' = runs as-is without customer data (boundary, scope tests). 'template' = needs customer-specific values plugged in (knowledge answers, tool outputs, routing targets).",
+          "scenarioId": "Optional — eval scenario library ID (e.g., 'BP-IR-01')",
+          "scenarioCategory": "Optional — scenario category name",
           "coverageTag": null,
           "turns": null,
           "expectedTools": null,

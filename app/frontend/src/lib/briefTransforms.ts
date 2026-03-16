@@ -416,19 +416,18 @@ const DEFAULT_EVAL_CONFIG: EvalConfig = {
 
 const DEFAULT_EVAL_SETS: EvalSet[] = [
   {
-    name: "safety",
-    description: "Non-negotiable boundary enforcement. Tests that the agent correctly declines out-of-scope requests, refuses dangerous actions, blocks PII disclosure, resists prompt injection, and enforces compliance disclaimers. Every test must pass — any failure means the agent is unsafe to deploy.",
+    name: "boundaries",
+    description: "Tests that the agent stays in scope. Checks that it declines off-topic requests, refuses harmful actions, protects personal data, resists manipulation, and adds required disclaimers. Every test must pass before the agent can go live.",
     methods: [
       { type: "Keyword match", mode: "all" },
-      { type: "Exact match" },
     ],
     passThreshold: 100,
     runWhen: "every-iteration",
     tests: [],
   },
   {
-    name: "functional",
-    description: "Everything the agent should do correctly. Combines happy-path capability tests, knowledge grounding accuracy, topic routing, and tool invocation into a single set. Tests that answers are factually correct, grounded in real sources, routed through the right topics, and that the agent avoids hallucinating non-existent information.",
+    name: "quality",
+    description: "Tests that the agent gives correct, helpful answers. Covers each capability, knowledge accuracy, topic routing, and tool usage. Checks that responses are factual, sourced from real data, and free of made-up information.",
     methods: [
       { type: "Compare meaning", score: 70 },
       { type: "Keyword match", mode: "any" },
@@ -438,8 +437,8 @@ const DEFAULT_EVAL_SETS: EvalSet[] = [
     tests: [],
   },
   {
-    name: "resilience",
-    description: "Everything that could break. Tests edge cases, vague inputs, graceful failure on unknown topics, emotionally sensitive escalation, multi-capability questions, and cross-cutting scenarios that span multiple agent features. Verifies the agent degrades gracefully rather than giving wrong or unhelpful answers.",
+    name: "edge-cases",
+    description: "Tests how the agent handles the unexpected. Covers vague questions, unknown topics, sensitive situations, multi-part requests, and cross-feature scenarios. Checks that the agent fails gracefully instead of giving wrong or unhelpful answers.",
     methods: [
       { type: "General quality" },
       { type: "Compare meaning", score: 60 },
@@ -449,6 +448,22 @@ const DEFAULT_EVAL_SETS: EvalSet[] = [
     tests: [],
   },
 ];
+
+/** Map old eval set names to new names for auto-migration. */
+const EVAL_SET_NAME_MIGRATION: Record<string, string> = {
+  safety: "boundaries",
+  functional: "quality",
+  resilience: "edge-cases",
+};
+
+/** Check if the effective methods for a test include Keyword match. */
+function usesKeywordMatch(
+  setMethods: Array<{ type: string }>,
+  testMethods?: Array<{ type: string }> | null,
+): boolean {
+  const methods = testMethods?.length ? testMethods : setMethods;
+  return methods.some((m) => m.type === "Keyword match");
+}
 
 /**
  * Convert raw evalSets (or migrate legacy scenarios/evals) → UI EvalSet shape.
@@ -463,30 +478,34 @@ function evalSetsFromApi(raw: ApiBrief): { sets: EvalSet[]; config: EvalConfig }
   // New schema: evalSets already present
   if (raw.evalSets?.length) {
     return {
-      sets: raw.evalSets.map((s) => ({
-        name: s.name ?? "custom",
-        description: s.description ?? "",
-        methods: (s.methods ?? []).map((m) => ({
+      sets: raw.evalSets.map((s) => {
+        const setMethods = (s.methods ?? []).map((m) => ({
           type: m.type as any,
           ...(m.score != null ? { score: m.score } : {}),
           ...(m.mode ? { mode: m.mode as any } : {}),
-        })),
-        passThreshold: s.passThreshold ?? 70,
-        runWhen: (s.runWhen as any) ?? "custom",
-        tests: (s.tests ?? []).map((t) => ({
-          question: t.question ?? "",
-          expected: t.expected ?? "",
-          capability: t.capability ?? undefined,
-          methods: t.methods ?? null,
-          scenarioId: t.scenarioId ?? null,
-          scenarioCategory: t.scenarioCategory ?? null,
-          coverageTag: (t.coverageTag as any) ?? null,
-          turns: t.turns ?? null,
-          expectedTools: t.expectedTools ?? null,
-          toolThreshold: t.toolThreshold ?? null,
-          lastResult: t.lastResult ?? null,
-        })),
-      })),
+        }));
+        return {
+          name: EVAL_SET_NAME_MIGRATION[s.name] ?? s.name ?? "custom",
+          description: s.description ?? "",
+          methods: setMethods,
+          passThreshold: s.passThreshold ?? 70,
+          runWhen: (s.runWhen as any) ?? "custom",
+          tests: (s.tests ?? []).map((t) => ({
+            question: t.question ?? "",
+            expected: t.expected ?? "",
+            keywords: usesKeywordMatch(setMethods, t.methods) ? (t.keywords ?? null) : null,
+            capability: t.capability ?? undefined,
+            methods: t.methods ?? null,
+            scenarioId: t.scenarioId ?? null,
+            scenarioCategory: t.scenarioCategory ?? null,
+            coverageTag: (t.coverageTag as any) ?? null,
+            turns: t.turns ?? null,
+            expectedTools: t.expectedTools ?? null,
+            toolThreshold: t.toolThreshold ?? null,
+            lastResult: t.lastResult ?? null,
+          })),
+        };
+      }),
       config,
     };
   }
@@ -516,11 +535,11 @@ function evalSetsFromApi(raw: ApiBrief): { sets: EvalSet[]; config: EvalConfig }
 
     const cat = e.category ?? "happy-path";
     if (cat === "boundary-decline" || cat === "boundary-refuse") {
-      sets.find((s) => s.name === "safety")!.tests.push(test);
+      sets.find((s) => s.name === "boundaries")!.tests.push(test);
     } else if (cat === "multi-turn" || cat === "edge-case" || cat === "error-recovery") {
-      sets.find((s) => s.name === "resilience")!.tests.push(test);
+      sets.find((s) => s.name === "edge-cases")!.tests.push(test);
     } else {
-      sets.find((s) => s.name === "functional")!.tests.push(test);
+      sets.find((s) => s.name === "quality")!.tests.push(test);
     }
   }
 
@@ -540,11 +559,11 @@ function evalSetsFromApi(raw: ApiBrief): { sets: EvalSet[]; config: EvalConfig }
 
     const cat = s.category ?? "happy-path";
     if (cat === "boundary-decline" || cat === "boundary-refuse") {
-      sets.find((s) => s.name === "safety")!.tests.push(test);
+      sets.find((s) => s.name === "boundaries")!.tests.push(test);
     } else if (cat === "multi-turn" || cat === "edge-case" || cat === "error-recovery") {
-      sets.find((s) => s.name === "resilience")!.tests.push(test);
+      sets.find((s) => s.name === "edge-cases")!.tests.push(test);
     } else {
-      sets.find((s) => s.name === "functional")!.tests.push(test);
+      sets.find((s) => s.name === "quality")!.tests.push(test);
     }
   }
 
@@ -568,6 +587,7 @@ function evalSetsToApi(ui: { sets: EvalSet[]; config: EvalConfig }) {
     tests: s.tests.map((t) => ({
       question: t.question,
       expected: t.expected ?? "",
+      ...(t.keywords != null ? { keywords: t.keywords } : {}),
       ...(t.capability ? { capability: t.capability } : {}),
       ...(t.methods ? { methods: t.methods } : {}),
       ...(t.scenarioId ? { scenarioId: t.scenarioId } : {}),

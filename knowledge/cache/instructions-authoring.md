@@ -1,5 +1,5 @@
 <!-- CACHE METADATA
-last_verified: 2026-02-26
+last_verified: 2026-03-13
 sources: [MS Learn authoring-instructions, MS Learn generative-mode-guidance, MS Learn create-edit-topics, MS Learn advanced-generative-actions, MCS UI, community blogs]
 confidence: high
 refresh_trigger: before_architecture
@@ -346,18 +346,64 @@ Example: After answering about time-off policy, ask "Would you also like to know
 
 ## Three-Layer Architecture (Deterministic → Hybrid → AI)
 
-Microsoft recommends a three-layer design for agent behavior:
+Microsoft officially documents a three-layer control model in the "Apply generative orchestration capabilities" guidance (2026). This is first-party architecture guidance, not a community pattern.
+
+> "In a production-grade agent, don't leave every decision to the AI. Typically, three layers of control exist."
 
 | Layer | What | Guarantee | Use When |
 |-------|------|-----------|----------|
-| **Deterministic** (Topics) | Fixed messages, structured flows, hardcoded data | 100% | Safety-critical, must-pass-every-time behaviors |
+| **Deterministic** (Topics) | Fixed messages, structured flows, hardcoded data, Adaptive Cards | 100% | Safety-critical, must-pass-every-time behaviors |
 | **Hybrid** (Instructions + Topics) | Instructions route to topics via `/TopicName` | ~95% | Important behaviors that need a fallback guarantee |
-| **AI Orchestrator** (Instructions + Knowledge) | Generative responses grounded in knowledge | ~90% | Standard Q&A, low-risk interactions |
+| **AI Orchestrator** (Instructions + Knowledge) | Generative responses grounded in knowledge + tools | ~85-90% | Standard Q&A, tool calling, low-risk interactions |
 
 ### Decision Rule: Eval Threshold → Architecture Layer
 - **100% pass required** (safety evals) → Deterministic: dedicated topic with fixed content
 - **85-90% pass** (functional/integration) → Hybrid: instructions + `/TopicName` reference
 - **70-85% pass** (quality/regression) → AI Orchestrator: instructions + knowledge
+
+### Instructions vs Topics Decision Matrix
+
+| Behavior | Instructions | Topic | Why |
+|----------|:-----------:|:-----:|-----|
+| Response tone, format, guardrails | YES | no | Instructions shape AI generation |
+| Tool/knowledge disambiguation | YES (via `/` refs) | no | Instructions guide orchestrator |
+| Workflow sequencing (autonomous) | YES (numbered steps) | no | Instructions define tool order |
+| Safety-critical decline/refuse | Support | **YES** | Topic with fixed SendMessage = 100% guarantee |
+| Structured data collection (forms) | no | **YES** | AdaptiveCardPrompt requires topic node |
+| UI elements (buttons, cards, images) | no | **YES** | Instructions cannot trigger Adaptive Cards |
+| Escalation contacts | Route via `/Topic` | **YES** | Contacts in knowledge + dedicated topic, never instructions |
+| MCP server invocation | **YES** (orchestrator only) | no | Topics CANNOT call MCP servers (ar-001) |
+| Greeting / welcome | no | **YES** (system) | Conversation Start topic or Suggested Prompts |
+| Fallback customization | no | **YES** (system) | Edit Fallback system topic |
+| JIT initialization (user context) | no | **YES** (OnActivity) | Load variables at first message |
+
+### Minimum Recommended Topics for Every Generative Agent
+
+Even with generative orchestration, these topics should be present:
+
+| Topic | Type | Trigger | Purpose |
+|-------|------|---------|---------|
+| **Greeting** | System (customize) | OnConversationStart | Welcome + capabilities intro. Turn OFF for Teams if Suggested Prompts are preferred. |
+| **Fallback** | System (customize) | OnUnknownIntent | Agent-specific "I can't help with that" — NOT the generic default |
+| **Escalation** | System (customize) | OnEscalate | Real escalation path, not default "I can't help" |
+| **Decline topics** (1 per hard boundary) | Custom | agent-chooses / phrases | Fixed decline for safety-eval boundaries. 1 topic per distinct decline path. |
+
+**Optional but recommended:**
+- **Conversation Init** (OnActivity + guard) — JIT user context, glossary, variables
+- **Citation Removal** (OnGeneratedResponse) — strip `[1][2]` markers if unwanted
+- **Knowledge Routing** (OnKnowledgeRequested) — for agents with 25+ knowledge sources
+
+### Scope/Phase Scoping in Instructions
+
+When an agent has capabilities marked `future`, add an explicit **Scope** section near the top of instructions:
+
+```
+## Scope
+This is the MVP version. You can [list what's available].
+[Feature X] and [Feature Y] are planned for a future release.
+```
+
+This prevents the model from improvising unavailable features. GPT-5.x especially will attempt to fulfill requests that sound like capabilities unless explicitly told they don't exist yet.
 
 ### Escalation Contact Pattern
 Escalation contacts (emails, phones, URLs) should NEVER be hardcoded in agent instructions.
@@ -367,6 +413,29 @@ Escalation contacts (emails, phones, URLs) should NEVER be hardcoded in agent in
 | Specific contacts (email, phone, URL) | Knowledge source (document/page) | Retrieved with citations, independently updatable |
 | Safety-critical contacts | Topic SendActivity nodes | Guaranteed delivery regardless of knowledge retrieval |
 | Routing hint | Instructions via `/TopicName` | Points AI to the right topic for escalation scenarios |
+
+### Source Tagging in Responses
+
+When an agent has multiple data sources (CRM, web, knowledge), instructions should specify citation style:
+
+```
+Tag each finding's source: [Salesforce], [Web], [Knowledge], or [General].
+Use [General] only when CRM and web evidence is unavailable.
+When sources conflict, note the discrepancy and recommend verification.
+```
+
+This helps sellers (and eval graders) verify information origin.
+
+### Discoverability by Channel
+
+| Channel | Primary Mechanism | Secondary |
+|---------|------------------|-----------|
+| **M365 Copilot** | Suggested Prompts (welcome page) | Follow-up questions in instructions |
+| **Teams** | Suggested Prompts (turn OFF Conversation Start) | Greeting topic if both are needed |
+| **Web Chat** | Conversation Start topic with greeting | Adaptive Card with capability buttons |
+| **Multi-channel** | Conversation Start topic (universal) + Suggested Prompts (Teams/M365) | Follow-up questions |
+
+Source: [MS Learn - Apply generative orchestration capabilities](https://learn.microsoft.com/en-us/microsoft-copilot-studio/guidance/generative-orchestration), [MS Learn - Configure suggested prompts](https://learn.microsoft.com/en-us/microsoft-copilot-studio/configure-starter-prompts)
 
 ## Updating via API
 

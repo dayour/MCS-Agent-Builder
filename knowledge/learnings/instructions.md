@@ -40,7 +40,7 @@ ID format: in-NNN (instructions)
 1. **Knowledge source** — document/page with all contacts (retrieved with citations)
 2. **Dedicated topic** — SendActivity nodes with contacts hardcoded in topic messages (100% guaranteed delivery)
 3. **Instructions** — generic routing hint: "For high-risk concerns, use /TopicName" (points AI to the topic)
-Decision rule: if the behavior maps to a safety eval test (100% pass required), it needs topic backing. Instructions + knowledge suffices for 70-85% threshold tests.
+Decision rule: if the behavior maps to a boundaries eval test (100% pass required), it needs topic backing. Instructions + knowledge suffices for 70-85% threshold tests.
 **Confirmed:** 1 build(s) | Last confirmed: 2026-02-26
 **Related cache:** instructions-authoring.md
 **Tags:** #instructions #escalation #contacts #topics #safety #three-layer #anti-pattern
@@ -62,3 +62,17 @@ Decision rule: if the behavior maps to a safety eval test (100% pass required), 
 **Confirmed:** 1 build(s) | Last confirmed: 2026-02-27
 **Related cache:** instructions-authoring.md
 **Tags:** #instructions #multi-model #claude #gpt-5 #universal-style #cross-model
+
+### Instructions-only agents fail boundaries evals — three-layer architecture required {#in-005} — 2026-03-13
+**Context:** CDW Account Prospecting Agent — initial research produced instructions only (no topics), relying entirely on generative orchestration for all behavior including boundary enforcement.
+**Tried:** All capabilities AND boundaries encoded in instructions alone. Zero custom topics. No greeting, no fallback customization, no deterministic decline paths.
+**Result:** GPT review flagged 7/10 — instructions can't guarantee 100% boundary enforcement (~90% at best). Boundaries eval tests for decline-pricing and decline-support would likely fail intermittently. No welcome/greeting experience. No adaptive card capability (instructions can't trigger cards). MCP-dependent capabilities correctly stayed in orchestrator, but decline paths incorrectly stayed there too.
+**Better approach:** Apply Microsoft's three-layer architecture:
+1. **Deterministic (topics):** Greeting, fallback, escalation, and one topic per hard-decline boundary. These guarantee 100% pass on boundaries evals via fixed SendMessage nodes.
+2. **AI orchestrator (instructions):** Core capabilities that need tools/MCP + flexible AI reasoning. Instruction quality still matters — use WHY clauses, tiered response format, scope section, source tagging.
+3. **Minimum topic set:** Greeting (system), Fallback (system), Escalation (system), plus 1 custom topic per boundary that must pass 100%.
+Key rule: if the behavior maps to a boundaries eval test (100% pass required), it MUST have a dedicated topic. Instructions provide ~90% but that's not enough for boundaries.
+Also: add explicit Scope section to instructions when future capabilities exist ("This is the MVP version. X is planned for a future release.") to prevent model from improvising.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-03-13
+**Related cache:** instructions-authoring.md (three-layer section updated)
+**Tags:** #instructions #topics #three-layer #safety #boundaries #greeting #fallback #adaptive-cards #scope

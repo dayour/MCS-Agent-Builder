@@ -208,7 +208,7 @@ Every capability, boundary, and open question extracted during `--fast` mode inc
 | Teammate | Input | Output | Skip When |
 |----------|-------|--------|-----------|
 | **Prompt Engineer** | brief.json, instructions-authoring cache, model selection | Instructions (up to 8K chars, self-verified) | Incremental + instructions exist |
-| **QA Challenger** | brief.json, eval-scenarios library, learnings | 3 eval sets (safety/functional/resilience), 40-55 tests, coverage report | -- |
+| **QA Challenger** | brief.json, eval-scenarios library, learnings | 3 eval sets (boundaries/quality/edge-cases), 40-55 tests, coverage report | -- |
 | **Topic Engineer** | brief.json topics, capabilities, integrations, adaptive-cards + conversation-design cache | Per-topic feasibility (OK / SPLIT / caveats) | No custom topics |
 | **Flow Designer** | brief.json (flow capabilities), integrations, architecture | flow-spec.md | solutionType is not flow/hybrid |
 
@@ -216,7 +216,9 @@ All run simultaneously — they do not depend on each other's output. Every team
 
 ### Lead Reconciliation (Step 3)
 
-After teammates return: apply PE instructions with inline review (9-point checklist), apply QA eval sets + coverage review, apply TE split/caveat recommendations, generate per-set CSVs (evals-safety.csv, evals-functional.csv, evals-resilience.csv), write all build-ready data to brief.json.
+After teammates return: apply PE instructions with inline review (9-point checklist), apply QA eval sets + coverage review, apply TE split/caveat recommendations, generate per-set CSVs (evals-boundaries.csv, evals-quality.csv, evals-edge-cases.csv), write all build-ready data to brief.json.
+
+**EvalTest field names are strict** — use `question` (NOT `input`), `expected` (NOT `expectedOutput`), `methods` (array, NOT `method` object), `scenarioId` (NOT `scenario`), `lastResult: null` (REQUIRED). See `templates/brief.json` lines 239-253. Wrong names cause the dashboard to show empty strings.
 
 ### GPT Parallel Review (Step 3.5)
 

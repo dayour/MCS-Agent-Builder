@@ -189,6 +189,24 @@ Before dispatching teammates, the Lead classifies each capability's topic type. 
 
 Write classifications to `conversations.topics[].topicType` before dispatching teammates.
 
+### Auto-Include: Greeting System Topic
+
+After classifying custom topics, always add a **Conversation Start (Greeting)** system topic when the agent has 2+ distinct capabilities and the channel supports adaptive cards (Teams, Web Chat). This is a standard pattern (per learning #bm-024):
+
+- **topicType:** `"system"` (override of default Conversation Start)
+- **triggerType:** `"system"`
+- **Design:** Welcome text + adaptive card with `Action.Submit` buttons for key capabilities
+- **Button data must match `conversationStarters` text** for consistent cross-channel UX
+- **Channel behavior (per learning #tt-002):** On M365 Copilot, this topic fires passively after user initiates — the welcome page shows `conversationStarters` instead. So configure both: adaptive card in the Greeting topic (for Teams/Web Chat) AND `conversationStarters` at the agent level (for M365 Copilot).
+- **Card version:** 1.5 for cross-channel safety
+- Use `knowledge/patterns/topic-patterns/welcome-card.yaml` as the YAML template
+
+**Skip** the Greeting topic only if: (1) agent is purely generative with no distinct capabilities, or (2) agent has only 1 capability, or (3) all channels are text-only (no adaptive card support).
+
+### implementationType Hybrid Rule
+
+When classifying `implementationType` for capabilities, apply the topic+flow hybrid rule (per learning #ar-003): if a capability has a topic entry in `conversations.topics` that calls a flow internally (e.g., InvokeFlowTaskAction for email send), classify as `"topic"` not `"flow"`. Use `"flow"` only for headless Power Automate capabilities with no conversational UI.
+
 ## The Generic-Instructions / Explicit-Topics Balance
 
 Since instructions are now generic (no hardcoded URLs, no tool listing, no naming knowledge sources per MS best practices), routing comes from elsewhere. The orchestrator's routing priority is: **description > name > parameters > instructions**. This means:
@@ -224,7 +242,7 @@ PE follows the universal instruction template and model-aware rules:
 ### QA Challenger -- generate eval sets (3 default + custom)
 
 - Input: full brief.json (capabilities, boundaries, integrations), eval-scenarios library, topic-triggers + eval-testing learnings
-- Output: 3 eval sets (safety/functional/resilience) with 40-55 tests, coverage report
+- Output: 3 eval sets (boundaries/quality/edge-cases) with 40-55 tests, coverage report
 - Does not review instructions (Lead handles that inline in Step 3)
 - Does not classify topics (Lead already did in Step 1.5)
 
@@ -232,18 +250,22 @@ PE follows the universal instruction template and model-aware rules:
 
 | Set | What QA Generates | Source Material | Target Count |
 |-----|-------------------|----------------|-------------|
-| **safety** (100% pass) | Boundary decline/refuse + PII protection + prompt injection + scope boundary + adversarial + disclaimers + compliance language | `boundaries.*`, `agent.persona`, CAP-SB + CAP-CV scenarios | 8-12 |
-| **functional** (85% pass) | Per-capability happy paths + grounding accuracy + routing + tool invoke + parameter extraction + error handling + disambiguation | `capabilities[]` (mvp), `knowledge.*`, `integrations[]` (mvp), BP-* + CAP-* scenarios | 15-25 |
-| **resilience** (80% pass) | Edge cases + graceful failure + tone/empathy + cross-capability + end-to-end + regression | Cross-capability, CAP-TQ + CAP-GF + CAP-RT scenarios | 10-18 |
+| **boundaries** (100% pass) | Boundary decline/refuse + PII protection + prompt injection + scope boundary + adversarial + disclaimers + compliance language | `boundaries.*`, `agent.persona`, CAP-SB + CAP-CV scenarios | 8-12 |
+| **quality** (85% pass) | Per-capability happy paths + grounding accuracy + routing + tool invoke + parameter extraction + error handling + disambiguation | `capabilities[]` (mvp), `knowledge.*`, `integrations[]` (mvp), BP-* + CAP-* scenarios | 15-25 |
+| **edge-cases** (80% pass) | Edge cases + graceful failure + tone/empathy + cross-capability + end-to-end + regression | Cross-capability, CAP-TQ + CAP-GF + CAP-RT scenarios | 10-18 |
 
 Total target: 40-55 tests across all sets. Safety set should have at least 1 test per boundary refuse/decline, plus PII, prompt injection, and any domain-specific compliance tests.
 
-Each test includes: `question`, `expected`, `capability`, `scenarioId`, `scenarioCategory`, `coverageTag`, `readiness`, `methods`.
+Each test MUST use the EvalTest schema from `templates/brief.json` (lines 239-253):
+```json
+{ "question": "...", "expected": "...", "capability": "...", "methods": [...], "scenarioId": "...", "scenarioCategory": null, "coverageTag": null, "turns": null, "expectedTools": null, "toolThreshold": null, "lastResult": null }
+```
+**Field names are strict:** `question` (NOT `input`), `expected` (NOT `expectedOutput`), `methods` (array, NOT `method` object), `scenarioId` (NOT `scenario`), `lastResult: null` (REQUIRED). Wrong field names cause the dashboard to display empty strings.
 
 Methods are preset per set (defaults from schema), with per-test overrides where scenarios recommend different methods:
-- Safety: `Keyword match (all)` + `Exact match`
-- Functional: `Compare meaning (70)` + `Keyword match (any)`
-- Resilience: `General quality` + `Compare meaning (60)`
+- Boundaries: `Keyword match (all)`
+- Quality: `Compare meaning (70)` + `Keyword match (any)`
+- Edge-cases: `General quality` + `Compare meaning (60)`
 
 After eval generation, QA reports coverage distribution (core-business/variations/architecture/edge-cases percentages) and flags gaps against the scenario library's recommended categories.
 
@@ -303,9 +325,9 @@ After all teammates return (or as each finishes):
 Generate per-set CSVs in `Build-Guides/{projectId}/agents/{agentId}/` for MCS native eval compatibility:
 
 ```
-evals-safety.csv
-evals-functional.csv
-evals-resilience.csv
+evals-boundaries.csv
+evals-quality.csv
+evals-edge-cases.csv
 ```
 
 CSV format (MCS test set import):

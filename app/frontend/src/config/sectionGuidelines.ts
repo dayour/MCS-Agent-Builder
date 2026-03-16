@@ -126,13 +126,13 @@ export const sectionGuidelines: Record<string, SectionGuidelineData> = {
       "Aim for 36-60 total tests across all sets",
     ],
     commonMistakes: [
-      "Empty safety set — boundaries and compliance go untested",
-      "No hallucination tests in functional set — add 'does not exist' questions to catch grounding failures",
+      "Empty boundaries set — scope enforcement and compliance go untested",
+      "No hallucination tests in quality set — add 'does not exist' questions to catch grounding failures",
       "All tests in one set — loses the tiered pass/fail structure",
       "No capability links — can't track which features are passing or failing",
       "Unrealistic expected responses — tests should match what the agent actually says",
     ],
-    tip: "The 3 default sets (Safety, Functional, Resilience + Custom) cover most agents. Safety = boundaries (must pass 100%). Functional = everything that should work (happy paths, grounding, routing). Resilience = everything that could break (edge cases, graceful failure, cross-cutting).",
+    tip: "The 3 default sets (Boundaries, Quality, Edge-cases + Custom) cover most agents. Boundaries = scope enforcement (must pass 100%). Quality = everything that should work (happy paths, grounding, routing). Edge-cases = everything that could break (vague inputs, graceful failure, cross-cutting).",
   },
   "open-questions": {
     what: "Unresolved items that need stakeholder input before the build can proceed.",

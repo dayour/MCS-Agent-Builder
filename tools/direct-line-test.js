@@ -18,7 +18,7 @@
  *   3. Dataverse API: PvaGetDirectLineEndpoint bound action on the bot entity
  *
  * Input formats:
- *   --csv <path>   CSV format: "question","expectedResponse","testMethodType","passingScore"
+ *   --csv <path>   CSV format: "Question","Expected response","Testing method","Keywords"
  *   --brief <path> brief.json evalSets (supports multi-turn tests + plan validation)
  *
  * Exit codes:
@@ -575,8 +575,8 @@ async function runTests() {
                 // Evaluate with tool invocations
                 const methods = tc.methods || [];
                 const evaluation = config.gpt
-                    ? await evaluateAllMethodsAsync(text, tc.expectedResponse, methods, toolInvocations)
-                    : evaluateAllMethods(text, tc.expectedResponse, methods, toolInvocations);
+                    ? await evaluateAllMethodsAsync(text, tc.expectedResponse, methods, toolInvocations, tc.keywords)
+                    : evaluateAllMethods(text, tc.expectedResponse, methods, toolInvocations, tc.keywords);
 
                 results.push({
                     ...tc,
@@ -598,8 +598,8 @@ async function runTests() {
 
                 const response = await client.getResponse(config.timeout);
                 const result = config.gpt
-                    ? await evaluateResultAsync(response, tc.expectedResponse, tc.testMethodType, tc.passingScore)
-                    : evaluateResult(response, tc.expectedResponse, tc.testMethodType, tc.passingScore);
+                    ? await evaluateResultAsync(response, tc.expectedResponse, tc.testMethodType, tc.passingScore, undefined, tc.keywords)
+                    : evaluateResult(response, tc.expectedResponse, tc.testMethodType, tc.passingScore, undefined, tc.keywords);
 
                 results.push({
                     ...tc,

@@ -16,9 +16,15 @@ import { downloadEvalCsv, downloadAllEvalCsvs } from "@/lib/evalCsvExport";
 interface Props {
   data: { sets: EvalSet[]; config: { targetPassRate: number; maxIterationsPerCapability: number; maxRegressionRounds: number } };
   onChange?: (data: any) => void;
+  context?: { agentName?: string };
 }
 
-const emptyTest: EvalTest = { question: "", expected: "", lastResult: null, methods: null, scenarioId: null, scenarioCategory: null, coverageTag: null };
+/** Check if an eval set's methods include Keyword match. */
+function setUsesKeywordMatch(set: EvalSet): boolean {
+  return set.methods.some((m) => m.type === "Keyword match");
+}
+
+const emptyTest: EvalTest = { question: "", expected: "", keywords: null, lastResult: null, methods: null, scenarioId: null, scenarioCategory: null, coverageTag: null };
 
 /** Coverage tag colors. */
 const coverageTagColors: Record<string, string> = {
@@ -51,7 +57,8 @@ function rateColor(rate: number | null, threshold: number): string {
   return "text-destructive";
 }
 
-const EvalSetsSection = ({ data, onChange }: Props) => {
+const EvalSetsSection = ({ data, onChange, context }: Props) => {
+  const agentName = context?.agentName;
   const [expandedSet, setExpandedSet] = useState<string | null>(data.sets[0]?.name ?? null);
   const [editingTest, setEditingTest] = useState<{ setName: string; idx: number } | null>(null);
   const [draft, setDraft] = useState<EvalTest | null>(null);
@@ -91,7 +98,10 @@ const EvalSetsSection = ({ data, onChange }: Props) => {
       return { ...s, tests: s.tests.filter((_, i) => i !== idx) };
     });
     updateSets(sets);
-    if (editingTest?.setName === setName && editingTest.idx === idx) cancelEdit();
+    if (editingTest?.setName === setName) {
+      if (editingTest.idx === idx) cancelEdit();
+      else if (editingTest.idx > idx) setEditingTest({ ...editingTest, idx: editingTest.idx - 1 });
+    }
   };
 
   const addTest = (setName: string) => {
@@ -138,7 +148,7 @@ const EvalSetsSection = ({ data, onChange }: Props) => {
             variant="outline"
             size="sm"
             className="gap-1.5 text-xs shrink-0"
-            onClick={() => downloadAllEvalCsvs(data.sets)}
+            onClick={() => downloadAllEvalCsvs(data.sets, agentName)}
           >
             <Download className="h-3.5 w-3.5" /> Download CSVs
           </Button>
@@ -195,7 +205,7 @@ const EvalSetsSection = ({ data, onChange }: Props) => {
                     variant="ghost"
                     size="icon"
                     className="h-7 w-7 shrink-0"
-                    onClick={() => downloadEvalCsv(set)}
+                    onClick={() => downloadEvalCsv(set, agentName)}
                     title={`Download ${set.name} CSV`}
                   >
                     <Download className="h-3.5 w-3.5" />
@@ -269,6 +279,15 @@ const EvalSetsSection = ({ data, onChange }: Props) => {
                                 onKeyDown={editKeyHandler({ onSave: saveEdit, onCancel: cancelEdit, multiline: true })}
                                 className="min-h-[50px] text-xs"
                               />
+                              {setUsesKeywordMatch(set) && (
+                              <Input
+                                placeholder="Keywords (comma-separated, e.g. policy, refund, 30 days)"
+                                value={draft.keywords ?? ""}
+                                onChange={(e) => setDraft({ ...draft, keywords: e.target.value || null })}
+                                onKeyDown={editKeyHandler({ onSave: saveEdit, onCancel: cancelEdit })}
+                                className="text-xs"
+                              />
+                              )}
                               <Input
                                 placeholder="Capability (optional — links to capability name)"
                                 value={draft.capability ?? ""}
@@ -309,6 +328,11 @@ const EvalSetsSection = ({ data, onChange }: Props) => {
                                 {test.expected && (
                                   <p className="text-[11px] text-muted-foreground mt-0.5 italic">
                                     Expected: "{test.expected}"
+                                  </p>
+                                )}
+                                {test.keywords && (
+                                  <p className="text-[11px] text-blue-600 dark:text-blue-400 mt-0.5 italic">
+                                    Keywords: {test.keywords}
                                   </p>
                                 )}
                                 <div className="flex items-center gap-1.5 mt-1 flex-wrap">

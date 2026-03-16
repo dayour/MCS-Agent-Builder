@@ -18,7 +18,7 @@ Deploy a built and published agent from a source (dev) environment to a target (
 | **Deploy** | Replicate agent or export/import solution | Target bot ID returned |
 | **Connection mapping** | Identify tools needing manual reconnection | Report generated |
 | **Publish in target** | PvaPublish bound action on target bot | Publish timestamp returned |
-| **Smoke test** | Run safety eval set on target agent | Pass/fail result |
+| **Smoke test** | Run boundaries eval set on target agent | Pass/fail result |
 | **Write deployStatus** | Update brief.json with deployment results | Read brief.json back |
 
 ## Input
@@ -47,8 +47,8 @@ All three must pass before deployment proceeds:
 
 ### Gate 2: Eval Scores (Soft Gate)
 - Read `brief.json.evalSets[]` — check per-set pass rates
-- If safety < 100% → **WARN** (not a hard stop): "Safety eval is below 100%. Deploying anyway — review carefully."
-- If functional < evalConfig.targetPassRate → **WARN:** "Functional pass rate ({X}%) is below target ({Y}%). Consider running `/mcs-fix` first."
+- If boundaries < 100% → **WARN** (not a hard stop): "Boundaries eval is below 100%. Deploying anyway — review carefully."
+- If quality < evalConfig.targetPassRate → **WARN:** "Quality pass rate ({X}%) is below target ({Y}%). Consider running `/mcs-fix` first."
 - If no eval results exist → **WARN:** "No eval results found. Consider running `/mcs-eval` first."
 
 ### Gate 3: Dual Auth
@@ -110,7 +110,7 @@ Print a summary:
 ```
 Pre-Deploy Validation:
   Build status: published (2026-03-01)
-  Eval scores: safety 100%, functional 90%, resilience 85%
+  Eval scores: boundaries 100%, quality 90%, edge-cases 85%
   Components: 4 topics, 2 tools, 1 knowledge source
   Env-specific values: 1 found (Dataverse URL in tool config)
   Mode: agent (auto-detected — single agent, default solution)
@@ -225,12 +225,12 @@ pac copilot list
 
 ## Step 5: Post-Deploy Smoke Test
 
-Unless `--skip-smoke` was specified, run the safety eval set against the target agent to verify basic functionality:
+Unless `--skip-smoke` was specified, run the boundaries eval set against the target agent to verify basic functionality:
 
 1. Acquire Direct Line token for the TARGET agent
-2. Run safety eval set only:
+2. Run boundaries eval set only:
 ```bash
-node tools/direct-line-test.js --token-endpoint "{targetTokenEndpoint}" --brief "Build-Guides/{projectId}/agents/{agentId}/brief.json" --set safety --verbose
+node tools/direct-line-test.js --token-endpoint "{targetTokenEndpoint}" --brief "Build-Guides/{projectId}/agents/{agentId}/brief.json" --set boundaries --verbose
 ```
 
 3. If Direct Line token not available for target:
@@ -239,7 +239,7 @@ node tools/direct-line-test.js --token-endpoint "{targetTokenEndpoint}" --brief 
 
 4. Results:
    - **All pass** → `smokeTestResult: "pass"`
-   - **Any fail** → `smokeTestResult: "fail"` + warn user: "Smoke test failed — {N} safety tests failed in target. Review connection mapping and agent state."
+   - **Any fail** → `smokeTestResult: "fail"` + warn user: "Smoke test failed — {N} boundaries tests failed in target. Review connection mapping and agent state."
 
 **VERIFY:** Smoke test result recorded.
 
@@ -291,7 +291,7 @@ Write `Build-Guides/{projectId}/agents/{agentId}/deployment-report.md`:
 
 ## Pre-Deploy Validation
 - Build: published ({publishDate})
-- Eval scores: safety {X}%, functional {Y}%, resilience {Z}%
+- Eval scores: boundaries {X}%, quality {Y}%, edge-cases {Z}%
 - Components: {N} topics, {N} tools, {N} knowledge sources
 
 ## Deployment Summary
@@ -304,7 +304,7 @@ Write `Build-Guides/{projectId}/agents/{agentId}/deployment-report.md`:
 
 ## Smoke Test
 - Result: {pass | fail | skipped}
-- Tests run: {N} (safety set)
+- Tests run: {N} (boundaries set)
 - {Details if failures}
 
 ## Next Steps
@@ -343,7 +343,7 @@ GPT catches: incomplete connection mapping (integration in brief but not in repo
 - **deployment-report.md is the customer-shareable summary**
 - **Never deploy without the 3 gates passing** because skipping gates risks deploying a broken or untested agent to production
 - **Connection mapping is always generated** — even if no manual steps are needed (report says "No manual connection mapping needed"), because omitting it causes IT admins to miss reconnection steps
-- **Smoke test only runs safety set** — full eval should be run separately via `/mcs-eval`
+- **Smoke test only runs boundaries set** — full eval should be run separately via `/mcs-eval`
 - **No teammates needed** — this is a lead-only execution skill (mechanical, no generation)
 - **Always switch PAC CLI back to source** after solution mode deploy because leaving it on target breaks subsequent build commands
 - **Never auto-delete the source agent** after deployment — that's a user decision, and accidental deletion is unrecoverable

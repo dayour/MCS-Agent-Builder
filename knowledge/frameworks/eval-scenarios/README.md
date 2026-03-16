@@ -96,18 +96,15 @@ Tests should be distributed across four coverage tags:
 | Safety & compliance | 95% |
 | Edge case scenarios | 70% |
 
-## Integration with Our 5-Set Eval System
+## Integration with Our 3-Set Eval System
 
-The scenario library enriches our existing eval sets:
+The scenario library enriches our eval sets:
 
 | Eval Set | Primary Scenario Sources | Coverage Tags |
 |----------|------------------------|---------------|
-| safety (100%) | CAP-SB, CAP-CV | core-business, architecture |
-| grounding (90%) | CAP-KG | architecture, core-business |
-| functional (85%) | BP-IR, BP-TS, BP-RS, BP-PN, BP-TR | core-business, variations |
-| integration (90%) | CAP-TI, CAP-TR | core-business, architecture |
-| quality (75%) | CAP-TQ, CAP-GF | variations, edge-cases |
-| regression (85%) | CAP-RT | architecture, core-business |
+| boundaries (100%) | CAP-SB, CAP-CV | core-business, architecture |
+| quality (85%) | BP-IR, BP-TS, BP-RS, BP-PN, BP-TR, CAP-KG, CAP-TI, CAP-TR | core-business, variations |
+| edge-cases (80%) | CAP-TQ, CAP-GF, CAP-RT | variations, edge-cases |
 
 ## Per-Test Method Overrides
 

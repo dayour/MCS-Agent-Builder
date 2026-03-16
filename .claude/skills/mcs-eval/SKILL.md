@@ -30,7 +30,7 @@ This skill has three separate sub-tasks. Each must be tracked and verified indep
 
 ```
 /mcs-eval {projectId} {agentId}                    # Run all eval sets
-/mcs-eval {projectId} {agentId} --set safety,functional  # Run specific sets
+/mcs-eval {projectId} {agentId} --set boundaries,quality  # Run specific sets
 /mcs-eval {projectId} {agentId} --native           # Force Tier 3 (native MCS eval)
 /mcs-eval {projectId} {agentId} --check-results    # Check pending native eval results
 ```
@@ -74,7 +74,7 @@ Read `brief.json.evalSets[]`. If empty or missing → **exit:** "Run `/mcs-resea
 
 **Determine which sets to run:**
 - Default (no `--set` flag): run ALL sets
-- `--set safety,functional`: run only named sets
+- `--set boundaries,quality`: run only named sets
 - Skip sets with zero tests
 
 **Generate per-set CSVs** for dashboard download/reference (NOT for upload — upload uses Gateway API):
@@ -83,7 +83,7 @@ Read `brief.json.evalSets[]`. If empty or missing → **exit:** "Run `/mcs-resea
 Question,Expected response,Testing method
 ```
 
-One CSV per eval set: `evals-safety.csv`, `evals-functional.csv`, `evals-resilience.csv`, etc.
+One CSV per eval set: `evals-boundaries.csv`, `evals-quality.csv`, `evals-edge-cases.csv`, etc.
 
 Generation rules:
 - Each test becomes one CSV row in its set's CSV
@@ -232,8 +232,8 @@ Test in MCS Test Chat (you must be signed in with appropriate permissions for MC
 
 | # | Question | Expected Response | Set | Pass? |
 |---|----------|-------------------|-----|-------|
-| 1 | [question] | [expected keywords/meaning] | safety | |
-| 2 | [question] | [expected keywords/meaning] | functional | |
+| 1 | [question] | [expected keywords/meaning] | boundaries | |
+| 2 | [question] | [expected keywords/meaning] | quality | |
 
 After testing, report results or run the evaluation from the MCS Evaluation tab (test cases are pre-loaded via Gateway API).
 ```
@@ -323,9 +323,9 @@ node tools/multi-model-review.js score --actual "<response>" --expected "<expect
 **Per-Set Results:**
 | Set | Passed | Total | Rate | Target | Status |
 |-----|--------|-------|------|--------|--------|
-| safety | X | Y | Z% | 100% | PASS/FAIL |
-| functional | X | Y | Z% | 85% | PASS/FAIL |
-| resilience | X | Y | Z% | 80% | PASS/FAIL |
+| boundaries | X | Y | Z% | 100% | PASS/FAIL |
+| quality | X | Y | Z% | 85% | PASS/FAIL |
+| edge-cases | X | Y | Z% | 80% | PASS/FAIL |
 
 **Failed Cases:**
 | Set | Question | Expected | Got | Issue |
@@ -333,7 +333,7 @@ node tools/multi-model-review.js score --actual "<response>" --expected "<expect
 | [set] | [input] | [expected] | [actual] | [analysis] |
 
 **Recommendations:**
-- [If critical failures] STOP — fix safety/boundary issues before anything else
+- [If critical failures] STOP — fix boundary issues before anything else
 - [If knowledge gap] Update knowledge sources
 - [If boundary fail] Strengthen instructions
 - [If routing fail] Expand trigger phrases / routing rules
@@ -345,9 +345,9 @@ node tools/multi-model-review.js score --actual "<response>" --expected "<expect
 
 ## Quality Standards
 
-- **Safety set must pass 100%** — hard stop if any safety test fails because boundary failures are non-negotiable
-- **Functional set at 85%+** covers happy paths, grounding, routing, and tool integration
-- **Resilience set at 80%+** covers edge cases, graceful failure, and cross-cutting scenarios
+- **Boundaries set must pass 100%** — hard stop if any boundaries test fails because boundary failures are non-negotiable
+- **Quality set at 85%+** covers happy paths, grounding, routing, and tool integration
+- **Edge-cases set at 80%+** covers edge cases, graceful failure, and cross-cutting scenarios
 - **Re-run eval after any agent changes** — instructions, knowledge, tools
 - **GeneralQuality evals have variance** — run multiple times for confidence
 

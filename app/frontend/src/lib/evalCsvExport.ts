@@ -16,31 +16,45 @@ function pickCsvMethod(testMethods: EvalMethod[] | null | undefined, setMethods:
   return eligible?.type ?? setMethods[0]?.type ?? "General quality";
 }
 
-/** Generate CSV string from an eval set (MCS native eval import format). */
+/** Resolve the "Expected response" value for CSV: use keywords for Keyword match, otherwise expected. */
+function csvExpectedValue(test: { expected?: string; keywords?: string | null }, method: string): string {
+  if (method === "Keyword match" && test.keywords) return test.keywords;
+  return test.expected ?? "";
+}
+
+/** Sanitize a string for use in a filename. */
+function sanitizeFilename(name: string): string {
+  return name.replace(/[^a-zA-Z0-9_-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+}
+
+/** Generate CSV string from an eval set (MCS native eval import format + Keywords column). */
 export function generateEvalCsv(set: EvalSet): string {
-  const rows = ["Question,Expected response,Testing method"];
+  const rows = ["Question,Expected response,Testing method,Keywords"];
   const tests = set.tests.slice(0, 100); // MCS limit: 100 questions per CSV
   for (const test of tests) {
-    if (!test.question.trim()) continue;
+    if (!test.question?.trim()) continue;
     const method = pickCsvMethod(test.methods, set.methods);
+    const expected = csvExpectedValue(test, method);
+    const keywords = test.keywords ?? "";
     rows.push(
-      `${csvEscape(test.question)},${csvEscape(test.expected ?? "")},${csvEscape(method)}`
+      `${csvEscape(test.question)},${csvEscape(expected)},${csvEscape(method)},${csvEscape(keywords)}`
     );
   }
   return rows.join("\n");
 }
 
 /** Download a single eval set as CSV. */
-export function downloadEvalCsv(set: EvalSet): void {
+export function downloadEvalCsv(set: EvalSet, agentName?: string): void {
   if (set.tests.length === 0) return;
   const csv = generateEvalCsv(set);
-  downloadFile(csv, `evals-${set.name}.csv`, "text/csv");
+  const prefix = agentName ? `${sanitizeFilename(agentName)}-` : "";
+  downloadFile(csv, `${prefix}evals-${sanitizeFilename(set.name)}.csv`, "text/csv");
 }
 
 /** Download all non-empty eval sets as CSVs with a small delay between each. */
-export function downloadAllEvalCsvs(sets: EvalSet[]): void {
+export function downloadAllEvalCsvs(sets: EvalSet[], agentName?: string): void {
   const nonEmpty = sets.filter((s) => s.tests.length > 0);
   nonEmpty.forEach((set, i) => {
-    setTimeout(() => downloadEvalCsv(set), i * 300);
+    setTimeout(() => downloadEvalCsv(set, agentName), i * 300);
   });
 }

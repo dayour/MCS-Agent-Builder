@@ -33,3 +33,12 @@ ID format: ar-NNN (architecture)
 **Confirmed:** 1 build(s) | Last confirmed: 2026-02-27
 **Related cache:** templates/brief.json
 **Tags:** #schema #capabilities #implementationType #phase #architecture #brief
+
+### implementationType "topic" for topic+flow hybrids {#ar-003} — 2026-03-16
+**Context:** CDW Legal & HR Policy Advisor — "High-risk scenario escalation" capability was marked `implementationType: "flow"` because it sends an email via an agent flow (SendEmailV2)
+**Tried:** Classified the capability as `"flow"` because the end action is a Power Automate flow that sends an email
+**Result:** Misleading classification. The primary implementation is a custom topic (OnRecognizedIntent trigger, deterministic SendActivity nodes for user notification, SetVariable for data capture, reporting channels message). The agent flow is one sub-action inside the topic (InvokeFlowTaskAction). Classifying as "flow" made it look like a headless automation rather than a conversational topic.
+**Better approach:** When a capability is primarily a custom topic that calls a flow internally, use `implementationType: "topic"`. The topic is the user-facing component that drives routing and conversation. Use `"flow"` only when the capability is primarily a headless Power Automate flow (scheduled batch processing, event-triggered automation with no conversational UI). Rule of thumb: if the capability has a topic entry in `conversations.topics`, its `implementationType` should be `"topic"` — the flow is an integration detail, not the implementation type.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-03-16
+**Related cache:** templates/brief.json
+**Tags:** #schema #capabilities #implementationType #topic #flow #hybrid #architecture

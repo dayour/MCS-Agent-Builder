@@ -105,10 +105,9 @@ POST /api/botmanagement/v2/environments/{envId}/bots/{botId}/makerevaluations/te
 // Step 1: Create the EvaluationSet
 {
   "componentType": "EvaluationSet",
-  "displayName": "safety",
+  "displayName": "boundaries",
   "graders": [
-    { "graderType": "ContainsAllGrader" },
-    { "graderType": "ExactMatchGrader" }
+    { "graderType": "ContainsAllGrader" }
   ]
 }
 // Response includes "id" (the setId)

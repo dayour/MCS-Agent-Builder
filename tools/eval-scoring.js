@@ -5,8 +5,8 @@
  * Supports all 7 methods (6 MCS native + PlanValidation) with display-name aliases.
  *
  * Exports:
- *   evaluateResult(actual, expected, method, passingScore, mode)
- *   evaluateAllMethods(actual, expected, methods, toolInvocations?)
+ *   evaluateResult(actual, expected, method, passingScore, mode, keywords)
+ *   evaluateAllMethods(actual, expected, methods, toolInvocations?, keywords?)
  *   evaluateMultiTurn(turnResults, methods, expectedTools?)
  *   normalizeMethod(rawMethod)
  *   textSimilarity(a, b)
@@ -151,9 +151,10 @@ function qualityScore(actual, expected) {
  * @param {string} method - Method name (display name or PascalCase)
  * @param {number} [passingScore=70] - Threshold for scored methods
  * @param {string} [mode='all'] - For KeywordMatch: 'all' or 'any'
+ * @param {string} [keywords] - Dedicated keywords for KeywordMatch (preferred over expected)
  * @returns {{ pass: boolean, score: number, method: string, error?: string }}
  */
-function evaluateResult(actual, expected, method, passingScore, mode) {
+function evaluateResult(actual, expected, method, passingScore, mode, keywords) {
     const normalized = normalizeMethod(method);
     const canonicalMethod = normalized.method;
     // Use explicit mode > inferred mode from name > default 'all'
@@ -170,14 +171,16 @@ function evaluateResult(actual, expected, method, passingScore, mode) {
         }
 
         case 'KeywordMatch': {
-            // Split expected into keywords (comma, semicolon, or whitespace separated)
+            // Use dedicated keywords field if available, fall back to expected
+            const keywordSource = keywords || expected;
+            // Split into keywords (comma, semicolon, or whitespace separated)
             // Filter words shorter than 3 chars to remove noise
-            const keywords = expected.toLowerCase().split(/[,;\s]+/).filter(w => w.length > 2);
-            if (keywords.length === 0) {
-                return { pass: actual.length > 0, score: actual.length > 0 ? 100 : 0, method: canonicalMethod };
+            const kwList = keywordSource.toLowerCase().split(/[,;\s]+/).filter(w => w.length > 2);
+            if (kwList.length === 0) {
+                return { pass: false, score: 0, method: canonicalMethod, error: 'KeywordMatch requires keywords — populate the keywords field or expected field with comma-separated keywords' };
             }
             const actualLower = actual.toLowerCase();
-            const hits = keywords.filter(kw => actualLower.includes(kw)).length;
+            const hits = kwList.filter(kw => actualLower.includes(kw)).length;
 
             if (effectiveMode === 'any') {
                 // Any keyword suffices → binary pass/fail
@@ -185,7 +188,7 @@ function evaluateResult(actual, expected, method, passingScore, mode) {
                 return { pass: found, score: found ? 100 : 0, method: canonicalMethod };
             } else {
                 // All keywords must match → scored by coverage
-                const score = Math.round((hits / keywords.length) * 100);
+                const score = Math.round((hits / kwList.length) * 100);
                 return { pass: score >= threshold, score, method: canonicalMethod };
             }
         }
@@ -267,9 +270,10 @@ function evaluateResult(actual, expected, method, passingScore, mode) {
  * @param {string} expected - The expected response / keywords
  * @param {Array<{type: string, mode?: string, score?: number}>} methods - Methods from the eval set
  * @param {string[]} [toolInvocations] - Optional array of tool names captured from Direct Line activities
+ * @param {string} [keywords] - Dedicated keywords for KeywordMatch (preferred over expected)
  * @returns {{ pass: boolean, score: number, methodResults: Array<{method: string, pass: boolean, score: number}> }}
  */
-function evaluateAllMethods(actual, expected, methods, toolInvocations) {
+function evaluateAllMethods(actual, expected, methods, toolInvocations, keywords) {
     if (!methods || methods.length === 0) {
         // Default to GeneralQuality if no methods specified
         const result = evaluateResult(actual, expected, 'GeneralQuality', 70);
@@ -290,7 +294,7 @@ function evaluateAllMethods(actual, expected, methods, toolInvocations) {
             return evaluateResult(JSON.stringify(toolInvocations), expected, m.type, passingScore, mode);
         }
 
-        return evaluateResult(actual, expected, m.type, passingScore, mode);
+        return evaluateResult(actual, expected, m.type, passingScore, mode, canonical === 'KeywordMatch' ? keywords : undefined);
     });
 
     const allPass = methodResults.every(r => r.pass);
@@ -410,12 +414,13 @@ function parseCSV(content) {
         rows.push(fields);
     }
 
-    // Skip header row
+    // Skip header row — supports 3-col (legacy) and 4-col (with Keywords) CSVs
     return rows.slice(1).map(row => ({
         question: row[0] || '',
         expectedResponse: row[1] || '',
         testMethodType: row[2] || 'GeneralQuality',
-        passingScore: parseInt(row[3]) || 70
+        passingScore: 70,
+        keywords: row[3] || null
     }));
 }
 
@@ -451,6 +456,7 @@ function parseEvalSets(briefPath, filterSets) {
                 testIndex: i,
                 question: test.question,
                 expected: test.expected,
+                keywords: test.keywords || null,
                 capability: test.capability || null,
                 methods: test.methods || set.methods || [],
                 passThreshold: set.passThreshold || 70,
@@ -667,9 +673,10 @@ async function capabilityUseAsync(actual, expected) {
  * @param {string} method
  * @param {number} [passingScore=70]
  * @param {string} [mode='all']
+ * @param {string} [keywords] - Dedicated keywords for KeywordMatch
  * @returns {Promise<{pass: boolean, score: number, method: string, reasoning?: string, source?: string}>}
  */
-async function evaluateResultAsync(actual, expected, method, passingScore, mode) {
+async function evaluateResultAsync(actual, expected, method, passingScore, mode, keywords) {
     const normalized = normalizeMethod(method);
     const canonicalMethod = normalized.method;
     const threshold = passingScore || 70;
@@ -723,13 +730,14 @@ async function evaluateResultAsync(actual, expected, method, passingScore, mode)
     }
 
     // All other methods — use sync (deterministic, no LLM needed)
-    return evaluateResult(actual, expected, method, passingScore, mode);
+    return evaluateResult(actual, expected, method, passingScore, mode, keywords);
 }
 
 /**
  * Async version of evaluateAllMethods — uses GPT-enhanced scoring where applicable.
+ * @param {string} [keywords] - Dedicated keywords for KeywordMatch
  */
-async function evaluateAllMethodsAsync(actual, expected, methods, toolInvocations) {
+async function evaluateAllMethodsAsync(actual, expected, methods, toolInvocations, keywords) {
     if (!methods || methods.length === 0) {
         const result = await evaluateResultAsync(actual, expected, 'GeneralQuality', 70);
         return { pass: result.pass, score: result.score, methodResults: [result] };
@@ -744,7 +752,7 @@ async function evaluateAllMethodsAsync(actual, expected, methods, toolInvocation
             return evaluateResult(JSON.stringify(toolInvocations), expected, m.type, passingScore, modeVal);
         }
 
-        return evaluateResultAsync(actual, expected, m.type, passingScore, modeVal);
+        return evaluateResultAsync(actual, expected, m.type, passingScore, modeVal, canonical === 'KeywordMatch' ? keywords : undefined);
     }));
 
     const allPass = methodResults.every(r => r.pass);

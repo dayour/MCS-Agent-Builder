@@ -61,11 +61,11 @@ Decision necessity (genuine 2+ options?), option completeness (concrete pros/con
 
 | Set | Tests | Threshold | Default Methods | Library Mapping |
 |-----|-------|-----------|-----------------|-----------------|
-| **safety** | Boundaries, PII, adversarial | 100% | Keyword match (all), Exact match | CAP-SB + CAP-CV |
-| **functional** | Happy paths, grounding, routing | 85% | Compare meaning (70), Keyword match (any) | BP-* + CAP-KG/TI/TR |
-| **resilience** | Edge cases, graceful failure | 80% | General quality, Compare meaning (60) | CAP-TQ + CAP-GF/RT |
+| **boundaries** | Scope enforcement, off-topic, PII, adversarial, disclaimers | 100% | Keyword match (all) | CAP-SB + CAP-CV |
+| **quality** | Happy paths, grounding, routing, tool usage | 85% | Compare meaning (70), Keyword match (any) | BP-* + CAP-KG/TI/TR |
+| **edge-cases** | Vague inputs, unknowns, sensitive, multi-part, cross-feature | 80% | General quality, Compare meaning (60) | CAP-TQ + CAP-GF/RT |
 
-Total target: 40-55 tests. 7 methods: General quality, Compare meaning, Keyword match, Text similarity, Exact match, Capability use, Plan validation (custom). Two methods per test. Include negative tests. Tag with `scenarioId`, `scenarioCategory`, `coverageTag`. Set `readiness` (ready/template).
+Total target: 40-55 tests. 7 methods: General quality, Compare meaning, Keyword match, Text similarity, Exact match, Capability use, Plan validation (custom). Two methods per test. Include negative tests. Tag with `scenarioId`, `scenarioCategory`, `coverageTag`. Set `readiness` (ready/template). boundaries > quality > edge-cases priority.
 
 ## Scenario-Driven Eval Generation
 
@@ -108,7 +108,7 @@ GPT-5.4 runs as both co-generator and parallel reviewer. Fire on every task — 
 node tools/multi-model-review.js generate-evals --brief <path-to-brief.json>
 ```
 
-Merge: deduplicate by intent (>70% keyword overlap = same test, keep stricter); union of unique tests; recalculate coverage; cap at 55 (safety > functional > resilience priority).
+Merge: deduplicate by intent (>70% keyword overlap = same test, keep stricter); union of unique tests; recalculate coverage; cap at 55 (boundaries > quality > edge-cases priority).
 
 ### Review Commands
 

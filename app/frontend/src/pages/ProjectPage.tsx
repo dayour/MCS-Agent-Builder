@@ -115,7 +115,7 @@ const ProjectPage = () => {
     const command = skillCommands[type](id, agent.id);
     const sessionType = (type === "preview" || type === "fix" || type === "learning") ? "research" : type === "evaluate" ? "evaluate" : type;
 
-    const existingId = store.findSession(id, agent.id);
+    const existingId = store.findSession(id);
     if (existingId) {
       store.setActiveSession(existingId);
       store.setPanelOpen(true);
@@ -125,8 +125,8 @@ const ProjectPage = () => {
 
     const wsUrl = await getTerminalWsUrl();
     const session: TerminalSession = {
-      id: `${id}-${agent.id}-${Date.now()}`,
-      label: agent.name,
+      id: `${id}-${Date.now()}`,
+      label: projectName || id,
       type: sessionType as TerminalSession["type"],
       projectId: id,
       agentName: agent.name,
@@ -151,20 +151,19 @@ const ProjectPage = () => {
     if (!id) return;
     const store = useTerminalStore.getState();
     const command = `/mcs-research ${id} --fast`;
-    const sessionKey = `${id}-preview`;
 
-    const existing = store.sessions.find((s) => s.id.startsWith(sessionKey));
-    if (existing) {
-      store.setActiveSession(existing.id);
+    const existingId = store.findSession(id);
+    if (existingId) {
+      store.setActiveSession(existingId);
       store.setPanelOpen(true);
-      store.sendCommand(existing.id, command);
+      store.sendCommand(existingId, command);
       return;
     }
 
     const wsUrl = await getTerminalWsUrl();
     const session: TerminalSession = {
-      id: `${sessionKey}-${Date.now()}`,
-      label: `${projectName || id} — preview`,
+      id: `${id}-${Date.now()}`,
+      label: projectName || id,
       type: "research",
       projectId: id,
       agentName: projectName || id,

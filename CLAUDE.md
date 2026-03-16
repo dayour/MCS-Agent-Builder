@@ -61,7 +61,7 @@ Fire GPT-5.4 in parallel with your own work on every task that is not a single-l
 
 1. **Brief-driven build** — brief.json drives every build because a single source of truth prevents drift between design and execution. Fill gaps before building.
 
-2. **Eval-verified quality** — three eval sets (safety 100%, functional 85%, resilience 80%) aligned with the MS Eval Scenario Library because testing during build catches issues early.
+2. **Eval-verified quality** — three eval sets (boundaries 100%, quality 85%, edge-cases 80%) aligned with the MS Eval Scenario Library because testing during build catches issues early.
 
 3. **Multi-agent when justified** — score objectively using 6 factors (3+ = multi-agent) because premature decomposition adds complexity without quality gain.
 
@@ -120,7 +120,7 @@ Build-Guides/[Project]/ (per-project work, gitignored)
 ## Key Principles
 
 1. **Brief is the blueprint** — brief.json drives the build
-2. **Evals drive quality** — safety gate then functional then resilience before publish
+2. **Evals drive quality** — boundaries gate then quality then edge-cases before publish
 3. **MVP first** — build what is possible now, plan what is blocked
 4. **Build specialists first** — children before orchestrator in multi-agent
 5. **Verify environment** — confirm account + environment target before operations

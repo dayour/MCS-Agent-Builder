@@ -29,8 +29,8 @@
       "file": "topics-triggers.md",
       "title": "Question entity must use flat string format",
       "date": "2026-02-19",
-      "confirmed": 1,
-      "lastConfirmed": "2026-02-19",
+      "confirmed": 2,
+      "lastConfirmed": "2026-03-12",
       "tags": [
         "yaml",
         "question",
@@ -38,7 +38,9 @@
         "validation"
       ],
       "status": "active",
-      "projects": []
+      "projects": [
+        "cdw"
+      ]
     },
     {
       "id": "bm-002",
@@ -81,7 +83,7 @@
     {
       "id": "bm-004",
       "file": "build-methods.md",
-      "title": "PAC CLI publish (MSI) crashes \u00e2\u20ac\u201d PvaPublish bound action is reliable",
+      "title": "PAC CLI publish (MSI) crashes â€” PvaPublish bound action is reliable",
       "date": "2026-02-20",
       "confirmed": 5,
       "lastConfirmed": "2026-03-06",
@@ -122,7 +124,7 @@
     {
       "id": "bm-006",
       "file": "build-methods.md",
-      "title": "Az.Accounts not needed \u00e2\u20ac\u201d az CLI provides reliable Dataverse tokens",
+      "title": "Az.Accounts not needed â€” az CLI provides reliable Dataverse tokens",
       "date": "2026-02-20",
       "confirmed": 1,
       "lastConfirmed": "2026-02-20",
@@ -143,8 +145,8 @@
       "file": "instructions.md",
       "title": "Hardcoded URLs and tool listing in instructions produce weak agents",
       "date": "2026-02-20",
-      "confirmed": 3,
-      "lastConfirmed": "2026-02-26",
+      "confirmed": 4,
+      "lastConfirmed": "2026-03-12",
       "tags": [
         "instructions",
         "urls",
@@ -162,10 +164,10 @@
     {
       "id": "et-001",
       "file": "eval-testing.md",
-      "title": "Direct Line does NOT support Integrated auth \u00e2\u20ac\u201d use Playwright Test Chat",
+      "title": "Direct Line does NOT support Integrated auth â€” use Playwright Test Chat",
       "date": "2026-02-21",
-      "confirmed": 2,
-      "lastConfirmed": "2026-02-26",
+      "confirmed": 3,
+      "lastConfirmed": "2026-03-12",
       "tags": [
         "direct-line",
         "sso",
@@ -204,7 +206,7 @@
     {
       "id": "bm-007",
       "file": "build-methods.md",
-      "title": "LSP push is the primary build method \u00e2\u20ac\u201d replaces Dataverse PATCH + Playwright Code Editor",
+      "title": "LSP push is the primary build method â€” replaces Dataverse PATCH + Playwright Code Editor",
       "date": "2026-02-26",
       "confirmed": 5,
       "lastConfirmed": "2026-03-05",
@@ -228,7 +230,7 @@
     {
       "id": "bm-008",
       "file": "build-methods.md",
-      "title": "LSP push doesn't update bot entity name \u00e2\u20ac\u201d use Dataverse PATCH",
+      "title": "LSP push doesn't update bot entity name â€” use Dataverse PATCH",
       "date": "2026-02-26",
       "confirmed": 1,
       "lastConfirmed": "2026-02-26",
@@ -266,7 +268,7 @@
     {
       "id": "bm-010",
       "file": "build-methods.md",
-      "title": "LSP push does NOT handle settings.mcs.yml \u00e2\u20ac\u201d use Dataverse API (fastest) or Playwright",
+      "title": "LSP push does NOT handle settings.mcs.yml â€” use Dataverse API (fastest) or Playwright",
       "date": "2026-02-27",
       "confirmed": 1,
       "lastConfirmed": "2026-02-27",
@@ -288,8 +290,8 @@
       "file": "build-methods.md",
       "title": "General knowledge must be OFF for policy/compliance agents",
       "date": "2026-02-27",
-      "confirmed": 2,
-      "lastConfirmed": "2026-03-05",
+      "confirmed": 3,
+      "lastConfirmed": "2026-03-12",
       "tags": [
         "general-knowledge",
         "grounding",
@@ -306,7 +308,7 @@
     {
       "id": "bm-012",
       "file": "build-methods.md",
-      "title": "Connected agents via Island Gateway API \u00e2\u20ac\u201d no Playwright needed",
+      "title": "Connected agents via Island Gateway API â€” no Playwright needed",
       "date": "2026-02-27",
       "confirmed": 1,
       "lastConfirmed": "2026-02-27",
@@ -325,7 +327,7 @@
     {
       "id": "bm-013",
       "file": "build-methods.md",
-      "title": "Eval test case upload via Dataverse API \u00e2\u20ac\u201d componenttype 19",
+      "title": "Eval test case upload via Dataverse API â€” componenttype 19",
       "date": "2026-02-27",
       "confirmed": 1,
       "lastConfirmed": "2026-02-27",
@@ -367,7 +369,7 @@
     {
       "id": "bm-015",
       "file": "build-methods.md",
-      "title": "Build Step 4 must filter by topicType \u00e2\u20ac\u201d generative topics need no YAML",
+      "title": "Build Step 4 must filter by topicType â€” generative topics need no YAML",
       "date": "2026-02-27",
       "confirmed": 1,
       "lastConfirmed": "2026-02-27",
@@ -390,8 +392,8 @@
       "file": "topics-triggers.md",
       "title": "M365 Copilot: use conversationStarters, not suggestedActions for welcome buttons",
       "date": "2026-02-27",
-      "confirmed": 2,
-      "lastConfirmed": "2026-02-27",
+      "confirmed": 3,
+      "lastConfirmed": "2026-03-12",
       "tags": [
         "m365-copilot",
         "conversation-start",
@@ -430,8 +432,8 @@
       "file": "instructions.md",
       "title": "Escalation contacts belong in topics + knowledge, not instructions",
       "date": "2026-02-26",
-      "confirmed": 1,
-      "lastConfirmed": "2026-02-26",
+      "confirmed": 2,
+      "lastConfirmed": "2026-03-12",
       "tags": [
         "instructions",
         "escalation",
@@ -449,7 +451,7 @@
     {
       "id": "in-003",
       "file": "instructions.md",
-      "title": "Capability-instruction phase mismatch \u00e2\u20ac\u201d PE must respect phase tags",
+      "title": "Capability-instruction phase mismatch â€” PE must respect phase tags",
       "date": "2026-02-27",
       "confirmed": 1,
       "lastConfirmed": "2026-02-27",
@@ -469,10 +471,10 @@
     {
       "id": "ar-001",
       "file": "architecture.md",
-      "title": "MCP servers only callable from orchestrator \u00e2\u20ac\u201d topics can't invoke MCP",
+      "title": "MCP servers only callable from orchestrator â€” topics can't invoke MCP",
       "date": "2026-02-27",
-      "confirmed": 1,
-      "lastConfirmed": "2026-02-27",
+      "confirmed": 2,
+      "lastConfirmed": "2026-03-12",
       "tags": [
         "mcp",
         "topics",
@@ -491,8 +493,8 @@
       "file": "architecture.md",
       "title": "implementationType field prevents capability-phase ambiguity",
       "date": "2026-02-27",
-      "confirmed": 1,
-      "lastConfirmed": "2026-02-27",
+      "confirmed": 2,
+      "lastConfirmed": "2026-03-12",
       "tags": [
         "schema",
         "capabilities",
@@ -507,12 +509,33 @@
       ]
     },
     {
+      "id": "ar-003",
+      "file": "architecture.md",
+      "title": "implementationType 'topic' for topic+flow hybrids",
+      "date": "2026-03-16",
+      "confirmed": 1,
+      "lastConfirmed": "2026-03-16",
+      "tags": [
+        "schema",
+        "capabilities",
+        "implementationType",
+        "topic",
+        "flow",
+        "hybrid",
+        "architecture"
+      ],
+      "status": "active",
+      "projects": [
+        "cdw"
+      ]
+    },
+    {
       "id": "in-004",
       "file": "instructions.md",
-      "title": "Multi-model instruction patterns \u00e2\u20ac\u201d universal style over model-specific branching",
+      "title": "Multi-model instruction patterns â€” universal style over model-specific branching",
       "date": "2026-02-27",
-      "confirmed": 1,
-      "lastConfirmed": "2026-02-27",
+      "confirmed": 2,
+      "lastConfirmed": "2026-03-12",
       "tags": [
         "instructions",
         "multi-model",
@@ -522,12 +545,14 @@
         "cross-model"
       ],
       "status": "active",
-      "projects": []
+      "projects": [
+        "cdw"
+      ]
     },
     {
       "id": "bm-016",
       "file": "build-methods.md",
-      "title": "Conversation starters require 'title' field \u00e2\u20ac\u201d text-only format blocks publish",
+      "title": "Conversation starters require 'title' field â€” text-only format blocks publish",
       "date": "2026-03-05",
       "confirmed": 1,
       "lastConfirmed": "2026-03-05",
@@ -546,7 +571,7 @@
     {
       "id": "bm-017",
       "file": "build-methods.md",
-      "title": "Agent description lives in botcomponent.description column \u00e2\u20ac\u201d NOT YAML comment headers or data field",
+      "title": "Agent description lives in botcomponent.description column â€” NOT YAML comment headers or data field",
       "date": "2026-03-05",
       "confirmed": 3,
       "lastConfirmed": "2026-03-05",
@@ -567,7 +592,7 @@
     {
       "id": "bm-018",
       "file": "build-methods.md",
-      "title": "synchronizationstatus requires full entity query \u00e2\u20ac\u201d $select returns null",
+      "title": "synchronizationstatus requires full entity query â€” $select returns null",
       "date": "2026-03-05",
       "confirmed": 1,
       "lastConfirmed": "2026-03-05",
@@ -586,7 +611,7 @@
     {
       "id": "bm-012",
       "file": "build-methods.md",
-      "title": "OData $filter on _parentbotid_value unreliable \u00e2\u20ac\u201d use FetchXML",
+      "title": "OData $filter on _parentbotid_value unreliable â€” use FetchXML",
       "date": "2026-03-06",
       "confirmed": 1,
       "lastConfirmed": "2026-03-06",
@@ -605,7 +630,7 @@
     {
       "id": "bm-013",
       "file": "build-methods.md",
-      "title": "$select=data on botcomponents returns empty \u00e2\u20ac\u201d query full entity",
+      "title": "$select=data on botcomponents returns empty â€” query full entity",
       "date": "2026-03-06",
       "confirmed": 1,
       "lastConfirmed": "2026-03-06",
@@ -623,7 +648,7 @@
     {
       "id": "bm-014",
       "file": "build-methods.md",
-      "title": "LSP push 0 changes on new agents \u00e2\u20ac\u201d verifyAndPatchBody fallback",
+      "title": "LSP push 0 changes on new agents â€” verifyAndPatchBody fallback",
       "date": "2026-03-06",
       "confirmed": 1,
       "lastConfirmed": "2026-03-06",
@@ -643,7 +668,7 @@
     {
       "id": "bm-015",
       "file": "build-methods.md",
-      "title": "Auth gate must explicitly ask for environment \u00e2\u20ac\u201d never assume",
+      "title": "Auth gate must explicitly ask for environment â€” never assume",
       "date": "2026-03-06",
       "confirmed": 1,
       "lastConfirmed": "2026-03-06",
@@ -681,7 +706,7 @@
     {
       "id": "bm-017",
       "file": "build-methods.md",
-      "title": "Connectivity API doesn't resolve \u00e2\u20ac\u201d blocks add-tool.js",
+      "title": "Connectivity API doesn't resolve â€” blocks add-tool.js",
       "date": "2026-03-06",
       "confirmed": 1,
       "lastConfirmed": "2026-03-06",
@@ -700,7 +725,7 @@
     {
       "id": "bm-018b",
       "file": "build-methods.md",
-      "title": "Build discipline: never skip MVP items \u00e2\u20ac\u201d attempt and document failures",
+      "title": "Build discipline: never skip MVP items â€” attempt and document failures",
       "date": "2026-03-06",
       "confirmed": 1,
       "lastConfirmed": "2026-03-06",
@@ -857,9 +882,19 @@
       "date": "2026-03-10",
       "confirmed": 1,
       "lastConfirmed": "2026-03-10",
-      "tags": ["lsp", "topic", "gateway-api", "visual-editor", "canvas", "BotComponentInsert", "ObjectModel"],
+      "tags": [
+        "lsp",
+        "topic",
+        "gateway-api",
+        "visual-editor",
+        "canvas",
+        "BotComponentInsert",
+        "ObjectModel"
+      ],
       "status": "active",
-      "projects": ["Fidelity"]
+      "projects": [
+        "Fidelity"
+      ]
     },
     {
       "id": "bm-027",
@@ -868,9 +903,17 @@
       "date": "2026-03-10",
       "confirmed": 1,
       "lastConfirmed": "2026-03-10",
-      "tags": ["eval", "sequential", "quota", "gateway-api", "makerevaluations"],
+      "tags": [
+        "eval",
+        "sequential",
+        "quota",
+        "gateway-api",
+        "makerevaluations"
+      ],
       "status": "active",
-      "projects": ["Fidelity"]
+      "projects": [
+        "Fidelity"
+      ]
     },
     {
       "id": "bm-028",
@@ -879,9 +922,17 @@
       "date": "2026-03-10",
       "confirmed": 1,
       "lastConfirmed": "2026-03-10",
-      "tags": ["eval", "crash", "null-guard", "empty-question", "island-client"],
+      "tags": [
+        "eval",
+        "crash",
+        "null-guard",
+        "empty-question",
+        "island-client"
+      ],
       "status": "active",
-      "projects": ["Fidelity"]
+      "projects": [
+        "Fidelity"
+      ]
     },
     {
       "id": "bm-029",
@@ -890,9 +941,43 @@
       "date": "2026-03-10",
       "confirmed": 1,
       "lastConfirmed": "2026-03-10",
-      "tags": ["adaptive-card", "topic", "two-step", "gateway-api", "lsp", "outputFormat", "cardDesign", "welcome-card"],
+      "tags": [
+        "adaptive-card",
+        "topic",
+        "two-step",
+        "gateway-api",
+        "lsp",
+        "outputFormat",
+        "cardDesign",
+        "welcome-card"
+      ],
       "status": "active",
-      "projects": ["Fidelity"]
+      "projects": [
+        "Fidelity"
+      ]
+    },
+    {
+      "id": "in-005",
+      "file": "instructions.md",
+      "title": "Instructions-only agents fail safety evals — three-layer architecture required",
+      "date": "2026-03-13",
+      "confirmed": 1,
+      "lastConfirmed": "2026-03-13",
+      "tags": [
+        "instructions",
+        "topics",
+        "three-layer",
+        "safety",
+        "boundaries",
+        "greeting",
+        "fallback",
+        "adaptive-cards",
+        "scope"
+      ],
+      "status": "active",
+      "projects": [
+        "CDW"
+      ]
     }
   ]
 }

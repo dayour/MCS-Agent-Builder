@@ -1,8 +1,8 @@
 /**
  * Terminal session store — manages the right-side terminal panel.
  *
- * Sessions are per-agent (one tab per project+agent combo).
- * Research/Build/Evaluate buttons send commands to the agent's existing session.
+ * Sessions are per-project (one tab per project).
+ * Research/Build/Evaluate buttons send commands to the project's existing session.
  */
 import { create } from "zustand";
 import type { TerminalSession } from "@/types";
@@ -65,8 +65,8 @@ interface TerminalStore {
   addSession: (session: TerminalSession) => void;
   removeSession: (id: string) => void;
   setActiveSession: (id: string) => void;
-  /** Find existing session for a project+agent. Returns session ID or null. */
-  findSession: (projectId: string, agentId: string) => string | null;
+  /** Find existing session for a project. Returns session ID or null. */
+  findSession: (projectId: string) => string | null;
   updateSessionStatus: (id: string, status: TerminalSession["status"]) => void;
   setPanelOpen: (open: boolean) => void;
   setPanelWidth: (width: number) => void;
@@ -99,9 +99,10 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
     }));
   },
 
-  findSession: (projectId, agentId) => {
-    const key = `${projectId}-${agentId}`;
-    const existing = get().sessions.find((s) => s.id.startsWith(key));
+  findSession: (projectId) => {
+    const existing = get().sessions.find(
+      (s) => s.projectId === projectId && s.type !== "system"
+    );
     return existing?.id ?? null;
   },
 

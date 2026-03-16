@@ -289,11 +289,11 @@ Checkpoint: add `"topics"` to `completedSteps`.
 
 **Check:** If agent uses MCP servers with user-delegated auth, skip automated eval (Direct Line can't authenticate). Generate test cases for manual testing instead.
 
-**Auto mode (Direct Line):** Acquire token, run safety set (target 100%), run functional set (target 85%), write results to `brief.json.evalSets[].tests[].lastResult`.
+**Auto mode (Direct Line):** Acquire token, run boundaries set (target 100%), run quality set (target 85%), write results to `brief.json.evalSets[].tests[].lastResult`.
 
 **Manual mode (Gateway API):** Upload eval sets via `island-client.js upload-evals`, run via `run-eval`, present summary. User checks results in MCS or runs `/mcs-eval` later.
 
-No iterative safety/functional/resilience loop during build. Build is single-pass. User runs `/mcs-fix` for post-deployment issues.
+No iterative boundaries/quality/edge-cases loop during build. Build is single-pass. User runs `/mcs-fix` for post-deployment issues.
 
 ### Step 5: Publish (Dataverse PvaPublish)
 
@@ -338,7 +338,7 @@ Write the complete buildStatus. Most fields were written incrementally during ch
     "account": "<account-label>",
     "accountId": "<session-config-account-id>",
     "publishedAt": "2026-02-18T...",
-    "completedSteps": ["created", "instructions", "knowledge", "tools", "model", "topics", "critical-gate", "capability-iteration", "resilience", "published"],
+    "completedSteps": ["created", "instructions", "knowledge", "tools", "model", "topics", "critical-gate", "capability-iteration", "edge-cases", "published"],
     "lastCompletedStep": "published",
     "lastError": null
   }
@@ -370,7 +370,7 @@ After reconciliation, generate two outputs:
 
 **Status:** Published | **Environment:** [env] | **Account:** [account]
 **QA Validation:** PASS ({N}/{N} items match, {M} cross-ref issues — see qa-validation.md)
-**Eval Sets:** safety {X}% | functional {X}% | resilience {X}%
+**Eval Sets:** boundaries {X}% | quality {X}% | edge-cases {X}%
 **Capabilities:** {N} passing, {M} failing, {K} not tested
 **Deferred:** {J} future items (see build report Section 9)
 

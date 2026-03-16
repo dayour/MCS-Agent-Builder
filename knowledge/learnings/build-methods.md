@@ -14,6 +14,8 @@ Entry format:
 **Tags:** #tag1 #tag2
 -->
 
+> **Note (2026-03-13):** Eval set names were renamed: safety → boundaries, functional → quality, resilience → edge-cases. Historical entries below use the original names.
+
 ### Agent creation is fully headless: Dataverse POST + PvaProvision {#bm-001} — 2026-02-27
 **Context:** Tested full API agent creation pipeline — Dataverse POST + PvaProvision + LSP clone
 **Tried:** (1) `pac copilot create` — needs template YAML (~30% of config). (2) Playwright wizard. (3) Dataverse POST + PvaProvision.

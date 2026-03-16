@@ -11,7 +11,7 @@
   "suggestedThresholds": {
     "overall": 85,
     "core": 90,
-    "safety": 95,
+    "boundaries": 95,
     "edge": 70
   },
   "agentTypeRouting": {

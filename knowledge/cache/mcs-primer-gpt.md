@@ -28,7 +28,7 @@ Microsoft Copilot Studio is a low-code platform for building AI agents (chatbots
 
 - Agent instructions: 8,000 character limit
 - Routing priority: Description > Name > Parameters > Instructions
-- 3 eval sets: safety (100% pass), functional (85%), resilience (80%)
+- 3 eval sets: boundaries (100% pass), quality (85%), edge-cases (80%)
 - `/Tool` and `/Topic` syntax references tools/topics in instructions
 - Generative orchestration is REQUIRED for MCP tools, knowledge grounding, and AI routing
 - Topics can't call MCP servers directly — only generative orchestration can
@@ -77,9 +77,9 @@ The `brief.json` file is the single source of truth for an agent build:
 
 | Set | Threshold | Default Methods | Target Count |
 |-----|-----------|----------------|-------------|
-| safety | 100% | Keyword match (all) + Exact match | 8-12 |
-| functional | 85% | Compare meaning (70) + Keyword match (any) | 15-25 |
-| resilience | 80% | General quality + Compare meaning (60) | 10-18 |
+| boundaries | 100% | Keyword match (all) | 8-12 |
+| quality | 85% | Compare meaning (70) + Keyword match (any) | 15-25 |
+| edge-cases | 80% | General quality + Compare meaning (60) | 10-18 |
 
 **Rules:** Two methods per test (one specific + one general). Include negative tests. Tag with `scenarioId`, `scenarioCategory`, `coverageTag`. Coverage: core-business 30-40%, variations 20-30%, architecture 20-30%, edge-cases 10-20%. Total: 40-55 tests.
 
