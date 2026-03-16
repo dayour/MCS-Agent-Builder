@@ -30,9 +30,6 @@ const LOCKFILE = process.env.MCS_LOCKFILE || path.join(os.homedir(), ".mcs-agent
 
 const MIN_NODE = 18;
 
-// Flags set by autoUpdate when pulled commits change dependency files
-let depsChanged = { npm: false, frontend: false };
-
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -59,13 +56,18 @@ function checkSingleInstance() {
       const data = JSON.parse(fs.readFileSync(LOCKFILE, "utf8"));
       try {
         process.kill(data.pid, 0);
-        err(`MCS Agent Builder is already running (pid ${data.pid}, port ${data.port}).`);
-        err(`Open http://localhost:${data.port} or stop it first.`);
-        process.exit(1);
+        // Process is alive — kill it so we can restart cleanly
+        log(`Stopping previous instance (pid ${data.pid}, port ${data.port})...`);
+        killPort(data.port);
+        try { process.kill(data.pid, "SIGTERM"); } catch {}
+        // Give it a moment to die
+        try { execSync(os.platform() === "win32"
+          ? `taskkill /F /PID ${data.pid}`
+          : `kill -9 ${data.pid}`, { stdio: "ignore", timeout: 5000 }); } catch {}
       } catch {
-        log("Cleaning up stale lockfile...");
-        fs.unlinkSync(LOCKFILE);
+        // Process already dead
       }
+      fs.unlinkSync(LOCKFILE);
     } catch {
       try { fs.unlinkSync(LOCKFILE); } catch {}
     }
@@ -94,7 +96,22 @@ function isPortAvailable(port) {
 }
 
 async function findPort() {
-  for (let p = PORT_START; p <= PORT_MAX; p++) {
+  // Always try to reclaim the default port first
+  if (!(await isPortAvailable(PORT_START))) {
+    log(`Port ${PORT_START} is busy — killing existing process...`);
+    killPort(PORT_START);
+    // Wait briefly for port to free up
+    await new Promise((r) => setTimeout(r, 1000));
+    if (await isPortAvailable(PORT_START)) return PORT_START;
+    // Still busy — try once more with a longer wait
+    await new Promise((r) => setTimeout(r, 2000));
+    if (await isPortAvailable(PORT_START)) return PORT_START;
+    warn(`Port ${PORT_START} still busy after kill — trying next available...`);
+  } else {
+    return PORT_START;
+  }
+  // Fallback: scan for any available port
+  for (let p = PORT_START + 1; p <= PORT_MAX; p++) {
     if (await isPortAvailable(p)) return p;
   }
   return null;
@@ -126,10 +143,14 @@ function killPort(port) {
       }
     } else {
       try {
-        const pid = execSync(`lsof -ti:${port}`, { encoding: "utf8", timeout: 5000 }).trim();
-        if (pid) {
-          execSync(`kill -9 ${pid}`, { stdio: "ignore", timeout: 5000 });
-          log(`Killed stale process on port ${port} (pid ${pid})`);
+        const pids = execSync(`lsof -ti:${port}`, { encoding: "utf8", timeout: 5000 }).trim();
+        if (pids) {
+          for (const pid of pids.split(/\s+/).filter(p => /^\d+$/.test(p))) {
+            try {
+              execSync(`kill -9 ${pid}`, { stdio: "ignore", timeout: 5000 });
+              log(`Killed stale process on port ${port} (pid ${pid})`);
+            } catch {}
+          }
         }
       } catch {}
     }
@@ -199,11 +220,7 @@ function autoUpdate() {
         encoding: "utf8", cwd: __dirname, timeout: 5000,
       });
       if (/^package\.json$/m.test(changed) || /^package-lock\.json$/m.test(changed)) {
-        depsChanged.npm = true;
         log("Dependencies changed — will reinstall.");
-      }
-      if (changed.includes("app/frontend/package.json") || changed.includes("app/frontend/package-lock.json")) {
-        depsChanged.frontend = true;
       }
       if (changed.includes("app/frontend/")) {
         log("Frontend changes detected — will rebuild.");
