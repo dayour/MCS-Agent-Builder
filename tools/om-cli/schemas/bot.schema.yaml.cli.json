@@ -12886,6 +12886,11 @@
           "description": "When enabled, can add people in the user's organization as knowledge sources.",
           "default": false,
           "type": "boolean"
+        },
+        "customExperience": {
+          "title": "Custom Experience",
+          "description": "The custom experience name for telemetry attribution when the agent was created from a tuning template.",
+          "type": "string"
         }
       },
       "required": [
