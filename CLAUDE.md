@@ -51,9 +51,11 @@ Fire GPT-5.4 in parallel with your own work on every task that is not a single-l
 
 **For code changes:** fire `review-code --file <path>` on each file as you write it — not batched at the end. For multi-file changes, review the first 2-3 files, fix issues, then continue.
 
+**Final quality gate:** after merging all agent team outputs, fire `review-merged --brief <path>` for cross-artifact validation before publish. Catches orphaned capabilities, instruction-topic duplication, eval gaps, and build feasibility blockers.
+
 **Merge protocol:** union of findings from both models, stricter assessment wins on conflicts, flag divergence for the user. Full merge rules for co-generation (instructions/topics/evals) in `.claude/rules/gpt-co-generation.md`.
 
-**How it works:** GPT-5.4 via GitHub Copilot Responses API (`tools/lib/openai.js`). Auth: `gh auth token` with `copilot` scope. CLI: `tools/multi-model-review.js` (12 commands). If GPT fails, proceed with Claude alone — never block on GPT.
+**How it works:** GPT-5.4 via GitHub Copilot Responses API (`tools/lib/openai.js`). Auth: `gh auth token` with `copilot` scope. CLI: `tools/multi-model-review.js` (14 commands). If GPT fails, proceed with Claude alone — never block on GPT.
 
 ---
 

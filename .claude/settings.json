@@ -1,7 +1,11 @@
 {
   "env": {
-    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
+    "ENABLE_CLAUDE_CODE_SM_COMPACT": "1"
   },
+  "model": "claude-opus-4-6",
+  "fastMode": true,
+  "effortLevel": "high",
   "permissions": {
     "allow": [
       "Bash(*)",

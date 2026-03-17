@@ -75,6 +75,16 @@ Co-generation produces two independent outputs that must be merged. Each content
 - **Flag divergence** -- when opinions differ significantly, tell the user both positions
 - **Proceed without GPT if it is slow or fails** because GPT should add value, not block progress
 
+## Final Quality Gate — review-merged
+
+After the lead merges all agent team outputs (instructions, topics, evals, components, flows), fire the final GPT pass:
+
+```bash
+node tools/multi-model-review.js review-merged --brief <path-to-brief.json>
+```
+
+This catches cross-artifact issues that individual reviews miss: orphaned capabilities, instruction-topic duplication, eval gaps, build feasibility blockers. Run this before any publish step. If `readyToPublish: false`, fix critical blockers first.
+
 ## How It Works
 
-GPT-5.4 runs via the GitHub Copilot Responses API (`tools/lib/openai.js`). Auth is automatic via `gh auth token` with `copilot` scope. For structured reviews and co-generation, use `tools/multi-model-review.js` (11 commands: 3 co-generation + 5 review + 1 scoring + 1 utility + 1 info). For ad-hoc reviews, call `chatCompletion()` directly from a temp script via Bash.
+GPT-5.4 runs via the GitHub Copilot Responses API (`tools/lib/openai.js`). Auth is automatic via `gh auth token` with `copilot` scope. For structured reviews and co-generation, use `tools/multi-model-review.js` (14 commands: 3 co-generation + 7 review + 1 scoring + 1 utility + 1 learn + 1 info). For ad-hoc reviews, call `chatCompletion()` directly from a temp script via Bash.

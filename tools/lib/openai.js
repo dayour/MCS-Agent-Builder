@@ -193,7 +193,7 @@ async function chatCompletion(messages, options = {}) {
         throw new Error('chatCompletion: messages must be a non-empty array');
     }
 
-    const maxTokens = options.maxTokens ?? 4096;
+    const maxTokens = options.maxTokens ?? 16384;
     const timeout = options.timeout ?? 60000;
 
     const body = {

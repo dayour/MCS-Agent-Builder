@@ -15,6 +15,7 @@
  *   node tools/multi-model-review.js review-flow --file <path> [--brief <path>]
  *   node tools/multi-model-review.js review-components --brief <path>
  *   node tools/multi-model-review.js review-code --file <path> [--context "<desc>"] [--with <path>]...
+ *   node tools/multi-model-review.js review-merged --brief <path>  (final quality gate)
  *
  *   Co-generation (GPT generates independently, Claude merges):
  *   node tools/multi-model-review.js generate-instructions --brief <path>
@@ -91,6 +92,14 @@ const KNOWLEDGE_MAP = {
     // General-purpose review (for any agent/teammate) — enhanced with project context
     'review-code': [
         'cache/project-context-gpt.md'
+    ],
+    // Final quality gate — reviews merged output from all agents + GPT co-gen
+    'review-merged': [
+        'cache/instructions-authoring.md',
+        'cache/generative-orchestration.md',
+        'patterns/yaml-reference.md',
+        'cache/eval-methods.md',
+        'frameworks/component-selection.md'
     ]
 };
 
@@ -449,6 +458,28 @@ Output valid JSON:
   "flowQuality": <1-10 score>
 }`,
 
+    'review-merged': `You are a senior quality gate reviewer for Microsoft Copilot Studio agent builds. You are reviewing the FINAL merged output from a multi-model build process where Claude Opus and GPT-5.4 both contributed independently, and their outputs were merged.
+
+Your job is to catch anything BOTH models missed — the gaps that survive dual-model review. Be adversarial.
+
+Review ALL artifacts together as a coherent whole:
+1. **Cross-artifact consistency** — Do instructions reference topics that exist? Do evals test capabilities in the brief? Do topic triggers match instruction routing guidance?
+2. **Brief-to-build alignment** — Every MVP capability in brief.json must map to either instructions, a topic, a tool, or a flow. Flag orphans.
+3. **Eval completeness** — Are boundaries at 100% coverage? Are there negative tests? Multi-turn tests? Tool-use tests for every integration?
+4. **Instruction-topic overlap** — Content that appears in both instructions AND topics wastes tokens and risks contradiction. Flag duplicates.
+5. **Build feasibility** — Are there components referenced that don't exist in MCS? Preview features without fallbacks? Connectors that need OAuth setup?
+6. **Missing pieces** — Fallback topic? Escalation path? Conversation starters? Agent description?
+7. **Quality floor** — Instructions under-specified? Topics with dead-end branches? Evals that are too easy (would pass with a generic LLM)?
+
+Output valid JSON:
+{
+  "findings": [{"severity": "critical|high|medium|low", "category": "consistency|alignment|eval|overlap|feasibility|missing|quality", "location": "artifact and section", "description": "what's wrong", "suggestion": "how to fix"}],
+  "summary": "3-5 sentence overall quality assessment",
+  "overallQuality": <1-10 score>,
+  "readyToPublish": true/false,
+  "criticalBlockers": ["list of must-fix items before publish"]
+}`,
+
     'review-code': `You are an expert code reviewer. Review the code below for quality, correctness, and maintainability.
 
 Check for:
@@ -719,7 +750,7 @@ async function scoreResponse(config) {
     const result = await chatCompletion([
         { role: 'system', content: PROMPTS[promptKey] + '\n\n' + context },
         { role: 'user', content: userContent }
-    ], { maxTokens: 512 });
+    ], { maxTokens: 16384 });
 
     const parsed = parseGptJson(result.content);
     parsed._usage = result.usage;
@@ -774,7 +805,7 @@ ${topics.map(t => `- **${t.name}** [trigger: ${t.triggerType || 'unknown'}, type
     const result = await chatCompletion([
         { role: 'system', content: PROMPTS['generate-instructions'] + '\n\n' + context },
         { role: 'user', content: userContent }
-    ], { maxTokens: 4096 });
+    ], { maxTokens: 16384 });
 
     const parsed = parseGptJson(result.content);
     parsed._usage = result.usage;
@@ -837,7 +868,7 @@ ${topics.map(t => `- **${t.name}** [trigger: ${t.triggerType || 'unknown'}]`).jo
     const result = await chatCompletion([
         { role: 'system', content: PROMPTS['generate-evals'] + '\n\n' + context },
         { role: 'user', content: userContent }
-    ], { maxTokens: 8192 });
+    ], { maxTokens: 16384 });
 
     const parsed = parseGptJson(result.content);
     parsed._usage = result.usage;
@@ -875,7 +906,7 @@ ${briefContext}`;
     const result = await chatCompletion([
         { role: 'system', content: PROMPTS['generate-topics'] + '\n\n' + context },
         { role: 'user', content: userContent }
-    ], { maxTokens: 4096 });
+    ], { maxTokens: 16384 });
 
     const parsed = parseGptJson(result.content);
     parsed._usage = result.usage;
@@ -1006,6 +1037,80 @@ function getFileTypeChecks(filePath) {
         }
     }
     return matched;
+}
+
+async function reviewMerged(config) {
+    if (!config.briefPath) {
+        console.error('Error: --brief <path> is required for review-merged');
+        process.exit(1);
+    }
+
+    const brief = JSON.parse(fs.readFileSync(config.briefPath, 'utf8'));
+    const context = buildContext('review-merged');
+
+    // Collect all artifacts from the agent's build directory
+    const briefDir = path.dirname(config.briefPath);
+    const artifacts = [];
+
+    // Instructions
+    if (brief.instructions) {
+        artifacts.push(`## Instructions (${brief.instructions.length} chars)\n${brief.instructions}`);
+    }
+
+    // Capabilities summary
+    const capabilities = brief.capabilities || [];
+    artifacts.push(`## Capabilities (${capabilities.length})\n${capabilities.map(c => `- ${c.name} [${c.phase || 'mvp'}, ${c.implementationType || 'prompt'}]: ${c.description || ''}`).join('\n')}`);
+
+    // Boundaries
+    const boundaries = brief.boundaries || {};
+    artifacts.push(`## Boundaries\n- Handle: ${(boundaries.handle || []).join(', ')}\n- Decline: ${(boundaries.decline || []).join(', ')}\n- Refuse: ${(boundaries.refuse || []).join(', ')}`);
+
+    // Integrations
+    const integrations = brief.integrations || [];
+    artifacts.push(`## Integrations (${integrations.length})\n${integrations.map(i => `- ${i.name} (${i.type || 'unknown'}): ${i.description || ''}`).join('\n')}`);
+
+    // Knowledge
+    const knowledge = brief.knowledge || [];
+    artifacts.push(`## Knowledge Sources (${knowledge.length})\n${knowledge.map(k => `- ${k.name} (${k.type || 'unknown'}): ${k.description || k.scope || ''}`).join('\n')}`);
+
+    // Topics
+    const topics = (brief.conversations && brief.conversations.topics) || [];
+    artifacts.push(`## Topics (${topics.length})\n${topics.map(t => `- ${t.name} [trigger: ${t.triggerType || 'unknown'}, type: ${t.topicType || 'custom'}]: ${t.description || ''}`).join('\n')}`);
+
+    // Eval sets summary
+    const evalSets = brief.evalSets || [];
+    for (const es of evalSets) {
+        const tests = es.tests || [];
+        artifacts.push(`## Eval Set: ${es.name} (${tests.length} tests, threshold: ${es.threshold}%)\n${tests.map(t => `- Q: ${t.question} | E: ${t.expected}`).join('\n')}`);
+    }
+
+    // Topic YAML files if they exist
+    const topicsDir = path.join(briefDir, 'topics');
+    try {
+        const topicFiles = fs.readdirSync(topicsDir).filter(f => f.endsWith('.yaml') || f.endsWith('.yml'));
+        for (const tf of topicFiles) {
+            const content = fs.readFileSync(path.join(topicsDir, tf), 'utf8');
+            artifacts.push(`## Topic YAML: ${tf}\n\`\`\`yaml\n${content}\n\`\`\``);
+        }
+    } catch { /* no topics dir */ }
+
+    // Flow specs if they exist
+    try {
+        const flowSpec = fs.readFileSync(path.join(briefDir, 'flow-spec.md'), 'utf8');
+        artifacts.push(`## Flow Specification\n${flowSpec}`);
+    } catch { /* no flow spec */ }
+
+    const userContent = `## Complete Agent Build — Final Quality Gate\n\n**Agent:** ${brief.agentName || brief.name || 'Unnamed'}\n**Purpose:** ${brief.purpose || 'Not specified'}\n**Model:** ${(brief.model && (brief.model.name || brief.model.recommended)) || 'GPT-4o'}\n\n${artifacts.join('\n\n---\n\n')}`;
+
+    const result = await chatCompletion([
+        { role: 'system', content: PROMPTS['review-merged'] + '\n\n' + context },
+        { role: 'user', content: userContent }
+    ], { maxTokens: 16384 });
+
+    const parsed = parseGptJson(result.content);
+    parsed._usage = result.usage;
+    parsed._cost = `$${result.cost.toFixed(4)}`;
+    console.log(JSON.stringify(parsed, null, 2));
 }
 
 async function reviewCode(config) {
@@ -1314,6 +1419,9 @@ async function main() {
                 break;
             case 'review-components':
                 await reviewComponents(config);
+                break;
+            case 'review-merged':
+                await reviewMerged(config);
                 break;
             case 'generate-instructions':
                 await generateInstructions(config);

@@ -93,11 +93,15 @@ Every non-trivial task gets two AI perspectives automatically:
 
 | What Happens | Claude | GPT-5.4 (parallel) |
 |-------------|--------|-------------------|
-| Instructions written | Writes them | Reviews for gaps, contradictions, anti-patterns |
-| Topic YAML generated | Generates it | Reviews for dead ends, variable issues, UX problems |
-| Brief completed | Designs it | Reviews for completeness, blocking issues |
-| Eval tests run | Scores with heuristics | Scores with LLM understanding |
-| Failures analyzed | Classifies root causes | Cross-checks the analysis |
+| Instructions written | Writes them | Co-generates independently, PE merges |
+| Topic YAML generated | Generates it | Co-generates independently, TE merges |
+| Eval tests generated | Generates them | Co-generates independently, QA merges |
+| Components selected | Researches options | Reviews RA's choices |
+| Flow specs designed | Designs them | Reviews FD's output |
+| Code written | Writes it | Reviews each file during implementation |
+| **All merged** | **Lead merges outputs** | **Final quality gate (`review-merged`)** |
+
+**Three quality layers:** (1) Each agent fires GPT in parallel during generation. (2) Lead merges all outputs using union-of-findings protocol. (3) GPT runs a final cross-artifact review before publish — catching orphaned capabilities, instruction-topic duplication, eval gaps, and build feasibility blockers.
 
 **When they disagree:** both positions are shown, the stricter finding wins. If eval scores diverge >20 points, the test is flagged for human review.
 
@@ -124,7 +128,7 @@ Each build step uses the best tool — fully API-native, zero browser automation
 | **Flow Manager** | Power Automate flow CRUD + composition |
 | **Dataverse API** | File uploads, bot name, publish, security |
 | **Direct Line API** | Eval testing (+ GPT-5.4 scoring with `--gpt` flag) |
-| **GPT-5.4 Review** | Cross-model review of instructions, topics, briefs, scores |
+| **GPT-5.4 Review** | 14-command review CLI: co-gen, review, scoring, final quality gate |
 
 ### YAML Validation Pipeline
 
@@ -223,7 +227,7 @@ bin/
   postinstall.js              Post-install setup
 
 .claude/
-  settings.json               MCP servers, permissions
+  settings.json               MCP servers, permissions, Opus + high effort defaults
   skills/                     13 skills (11 workflow + 2 utility)
   agents/                     7 AI teammate definitions
 
@@ -242,7 +246,7 @@ tools/
   lib/openai.js               GPT-5.4 client (GitHub Copilot Responses API)
   lib/http.js                 Shared HTTP + Azure CLI token helpers
   lib/flow-composer.js        Flow composition (builders, wiring, validation)
-  multi-model-review.js       GPT review CLI (instructions, topics, briefs, scoring)
+  multi-model-review.js       GPT review CLI (14 commands: co-gen, review, scoring, final gate)
   eval-scoring.js             Scoring module (7 methods, dual heuristic+GPT)
   direct-line-test.js         Direct Line eval runner
   mcs-lsp.js                  MCS Language Server wrapper (push/pull)
