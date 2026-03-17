@@ -20,15 +20,15 @@ Your agent has multiple topics configured and you need to confirm that clear, st
 
 | Method | Purpose |
 |--------|---------|
-| Capability Use (All) | Confirms the expected topic was triggered — the primary check for routing accuracy |
+| Tool Use (All) | Confirms the expected topic was triggered — the primary check for routing accuracy |
 | Keyword Match (Any) | Catches topic-specific language in the response as a secondary signal (e.g., response mentions "benefits" for the Benefits Enrollment topic) |
 
-> **Tip:** Capability Use is the authoritative routing check. Response text can appear correct even if the wrong topic fired — for example, the Fallback topic might generate a plausible-sounding answer using generative AI instead of routing to the intended topic with its curated response.
+> **Tip:** Tool Use is the authoritative routing check. Response text can appear correct even if the wrong topic fired — for example, the Fallback topic might generate a plausible-sounding answer using generative AI instead of routing to the intended topic with its curated response.
 
 ### Setup Steps
 
 1. List every topic in your agent. For each, write 2–3 clear, unambiguous user inputs that should trigger it.
-2. Create test cases for each input. Set the **Method** to **Capability Use (All)** with the expected topic name.
+2. Create test cases for each input. Set the **Method** to **Tool Use (All)** with the expected topic name.
 3. Use varied phrasing — do not just copy the exact trigger phrases configured in the topic. Real users will paraphrase.
 4. Optionally add **Keyword Match (Any)** with topic-specific response language as a secondary check.
 5. Run the eval set. Any test case where the expected topic was NOT triggered indicates a routing gap.
@@ -53,12 +53,12 @@ If your agent serves users who phrase things differently based on region or lang
 
 | # | Scenario | Sample Input | Expected Value / Capability | Method |
 |---|----------|-------------|---------------------------|--------|
-| 1 | Direct match to Password Reset topic | "I forgot my password and need to reset it" | Capability: `Password Reset` topic | Capability Use (All) + Keyword Match (Any) |
-| 2 | Direct match to Order Status topic | "Where's my package? I ordered it three days ago" | Capability: `Order Status` topic | Capability Use (All) + Keyword Match (Any) |
-| 3 | Direct match to Benefits Enrollment topic | "How do I sign up for dental insurance?" | Capability: `Benefits Enrollment` topic | Capability Use (All) + Keyword Match (Any) |
-| 4 | Paraphrased input routes correctly | "My login credentials aren't working" | Capability: `Password Reset` topic | Capability Use (All) + Keyword Match (Any) |
-| 5 | Topic-specific language in response | "I need to change my direct deposit information" | Keywords (any): "payroll", "direct deposit", "bank account" | Keyword Match (Any) + Capability Use (All) |
-| 6 | Cross-domain clarity: HR vs. IT | "How do I set up my new laptop?" | Capability: `IT Equipment Setup` topic — NOT `Onboarding` topic | Capability Use (All) + Compare Meaning |
+| 1 | Direct match to Password Reset topic | "I forgot my password and need to reset it" | Capability: `Password Reset` topic | Tool Use (All) + Keyword Match (Any) |
+| 2 | Direct match to Order Status topic | "Where's my package? I ordered it three days ago" | Capability: `Order Status` topic | Tool Use (All) + Keyword Match (Any) |
+| 3 | Direct match to Benefits Enrollment topic | "How do I sign up for dental insurance?" | Capability: `Benefits Enrollment` topic | Tool Use (All) + Keyword Match (Any) |
+| 4 | Paraphrased input routes correctly | "My login credentials aren't working" | Capability: `Password Reset` topic | Tool Use (All) + Keyword Match (Any) |
+| 5 | Topic-specific language in response | "I need to change my direct deposit information" | Keywords (any): "payroll", "direct deposit", "bank account" | Keyword Match (Any) + Tool Use (All) |
+| 6 | Cross-domain clarity: HR vs. IT | "How do I set up my new laptop?" | Capability: `IT Equipment Setup` topic — NOT `Onboarding` topic | Tool Use (All) + Compare Meaning |
 
 ### Tips
 
@@ -84,7 +84,7 @@ Your agent has topics with overlapping domains, similar trigger phrases, or rela
 
 | Method | Purpose |
 |--------|---------|
-| Capability Use (All) | Confirms the correct topic was selected when the agent can determine intent from context |
+| Tool Use (All) | Confirms the correct topic was selected when the agent can determine intent from context |
 | Compare Meaning | Verifies the disambiguation prompt is clear and presents the right options when the agent asks for clarification |
 | General Quality | Assesses whether the disambiguation experience is smooth and doesn't feel like an interrogation |
 
@@ -99,7 +99,7 @@ Your agent has topics with overlapping domains, similar trigger phrases, or rela
    - "New Hire Onboarding" vs. "IT Equipment Setup"
 2. For each overlap, write inputs that sit in the ambiguous zone between the topics.
 3. Decide the expected behavior for each: should the agent pick the right topic based on subtle cues, or should it ask the user to clarify?
-4. Create test cases using **Capability Use (All)** for cases where the agent should resolve the ambiguity, and **Compare Meaning** for cases where the agent should present a disambiguation prompt.
+4. Create test cases using **Tool Use (All)** for cases where the agent should resolve the ambiguity, and **Compare Meaning** for cases where the agent should present a disambiguation prompt.
 5. Run the eval set. Failures indicate the agent is picking the wrong topic or failing to ask for clarification when it should.
 
 ### Anti-Pattern
@@ -125,11 +125,11 @@ Write inputs that contain keywords from multiple topics simultaneously. Example:
 
 | # | Scenario | Sample Input | Expected Value / Capability | Method |
 |---|----------|-------------|---------------------------|--------|
-| 1 | Subtle cue distinguishes Account Lockout from Password Reset | "I've been locked out after entering my password wrong too many times" | Capability: `Account Lockout` topic | Capability Use (All) + Compare Meaning |
-| 2 | Subtle cue distinguishes Return from Exchange | "I want to send back the shoes I bought — they don't fit" | Capability: `Return an Item` topic | Capability Use (All) + Compare Meaning |
+| 1 | Subtle cue distinguishes Account Lockout from Password Reset | "I've been locked out after entering my password wrong too many times" | Capability: `Account Lockout` topic | Tool Use (All) + Compare Meaning |
+| 2 | Subtle cue distinguishes Return from Exchange | "I want to send back the shoes I bought — they don't fit" | Capability: `Return an Item` topic | Tool Use (All) + Compare Meaning |
 | 3 | Genuinely ambiguous input triggers disambiguation | "I have a problem with my account" | Response asks the user to clarify, presenting options like password issues, billing, or account settings | Compare Meaning + General Quality |
-| 4 | Multi-keyword input resolves to primary intent | "I want to reset my password for my billing account" | Capability: `Password Reset` topic | Capability Use (All) + Compare Meaning |
-| 5 | High-confidence match avoids unnecessary disambiguation | "I need to return the headphones I ordered" | Capability: `Return an Item` topic (no disambiguation prompt) | Capability Use (All) + Keyword Match (Any) |
+| 4 | Multi-keyword input resolves to primary intent | "I want to reset my password for my billing account" | Capability: `Password Reset` topic | Tool Use (All) + Compare Meaning |
+| 5 | High-confidence match avoids unnecessary disambiguation | "I need to return the headphones I ordered" | Capability: `Return an Item` topic (no disambiguation prompt) | Tool Use (All) + Keyword Match (Any) |
 | 6 | Disambiguation prompt is well-structured | "I need help with my order" | Response is clear, concise, and offers 2–3 specific options rather than an open-ended question | General Quality + Compare Meaning |
 
 ### Tips
@@ -156,7 +156,7 @@ Your agent has a configured fallback or default topic (sometimes called the "Fal
 
 | Method | Purpose |
 |--------|---------|
-| Capability Use (All) | Confirms the Fallback topic was triggered (not a low-confidence match to a real topic) |
+| Tool Use (All) | Confirms the Fallback topic was triggered (not a low-confidence match to a real topic) |
 | Compare Meaning | Verifies the fallback response is helpful and acknowledges the agent's limitations |
 | Keyword Match (Any) | Checks for expected recovery language: suggestions, escalation offers, or scope clarification |
 | General Quality | Assesses whether the fallback response feels polished and constructive, not like a dead end |
@@ -170,7 +170,7 @@ Your agent has a configured fallback or default topic (sometimes called the "Fal
    - Gibberish or nonsensical input
    - Inputs in a different language (if your agent is single-language)
    - Vague inputs with no clear intent ("hello" or "I have a question")
-2. Create test cases with **Capability Use (All)** set to the Fallback topic name.
+2. Create test cases with **Tool Use (All)** set to the Fallback topic name.
 3. Add **Compare Meaning** or **Keyword Match (Any)** checks for helpful fallback language (e.g., "I can help with...", "you can reach our support team at...").
 4. Add a **General Quality** check to confirm the fallback response is not a dead-end.
 5. Run the eval set. Failures indicate the agent is either force-matching out-of-scope inputs to a real topic or providing an unhelpful fallback response.
@@ -198,9 +198,9 @@ The user asks about something adjacent to but outside the agent's scope. Example
 
 | # | Scenario | Sample Input | Expected Value / Capability | Method |
 |---|----------|-------------|---------------------------|--------|
-| 1 | Completely off-topic input hits fallback | "Can you recommend a good restaurant nearby?" | Capability: `Fallback` topic | Capability Use (All) + Compare Meaning |
-| 2 | Gibberish input hits fallback | "asdfghjkl 12345" | Capability: `Fallback` topic | Capability Use (All) + Compare Meaning |
-| 3 | Vague input hits fallback with guidance | "Help" | Capability: `Fallback` topic | Capability Use (All) + Compare Meaning |
+| 1 | Completely off-topic input hits fallback | "Can you recommend a good restaurant nearby?" | Capability: `Fallback` topic | Tool Use (All) + Compare Meaning |
+| 2 | Gibberish input hits fallback | "asdfghjkl 12345" | Capability: `Fallback` topic | Tool Use (All) + Compare Meaning |
+| 3 | Vague input hits fallback with guidance | "Help" | Capability: `Fallback` topic | Tool Use (All) + Compare Meaning |
 | 4 | Fallback response clarifies scope | "Can you recommend a good restaurant nearby?" | Response mentions what the agent CAN help with (e.g., "I can help with IT support, password resets, and equipment requests") | Compare Meaning + Keyword Match (Any) |
 | 5 | Fallback offers escalation or next step | "I have a legal question about my contract" | Keywords (any): "support team", "contact", "help with", "I can assist you with" | Keyword Match (Any) + General Quality |
 | 6 | Fallback response is polished and constructive | "What's the meaning of life?" | Response is polite, acknowledges the limitation, and offers a constructive redirect — not a dead-end "I don't understand" | General Quality + Compare Meaning |
@@ -229,7 +229,7 @@ Your agent supports multi-turn conversations and users may change their mind or 
 
 | Method | Purpose |
 |--------|---------|
-| Capability Use (All) | Confirms the new topic was triggered after the intent switch |
+| Tool Use (All) | Confirms the new topic was triggered after the intent switch |
 | Compare Meaning | Verifies the response addresses the new intent, not the previous topic |
 | General Quality | Assesses whether the transition is smooth and the agent doesn't carry over irrelevant context from the previous topic |
 
@@ -242,7 +242,7 @@ Your agent supports multi-turn conversations and users may change their mind or 
    - User is in a password reset flow, then asks "Wait, what are the office hours?"
    - User asks about order status, then says "I also need to return another item"
 2. Create multi-turn test cases. Turn 1 establishes Topic A. Turn 2 introduces Topic B.
-3. Set the **Expected Capability** on Turn 2 to Topic B (using Capability Use (All)).
+3. Set the **Expected Capability** on Turn 2 to Topic B (using Tool Use (All)).
 4. Add **Compare Meaning** to verify the Turn 2 response addresses Topic B, not Topic A.
 5. Run the eval set. Failures indicate the agent is stuck in Topic A, ignoring the switch, or producing a confused response.
 
@@ -269,11 +269,11 @@ The user switches topics multiple times in a short conversation. Verify the agen
 
 | # | Scenario | Sample Input | Expected Value / Capability | Method |
 |---|----------|-------------|---------------------------|--------|
-| 1 | Explicit switch from PTO to Password Reset | Turn 1: "What is the PTO policy?" / Turn 2: "Actually, can you help me reset my password?" | Capability: `Password Reset` topic | Capability Use (All) + Compare Meaning |
-| 2 | Implicit switch during password reset flow | Turn 1: "I need to reset my password" / Turn 2: "When is open enrollment for benefits?" | Capability: `Benefits Enrollment` topic | Capability Use (All) + Compare Meaning |
+| 1 | Explicit switch from PTO to Password Reset | Turn 1: "What is the PTO policy?" / Turn 2: "Actually, can you help me reset my password?" | Capability: `Password Reset` topic | Tool Use (All) + Compare Meaning |
+| 2 | Implicit switch during password reset flow | Turn 1: "I need to reset my password" / Turn 2: "When is open enrollment for benefits?" | Capability: `Benefits Enrollment` topic | Tool Use (All) + Compare Meaning |
 | 3 | Response addresses the new topic, not the old one | Turn 1: "Check my order status for #88234" / Turn 2: "I also need to return the shoes I bought last week" | Response discusses return process, not order status | Compare Meaning + Keyword Match (Any) |
 | 4 | No context bleed from previous topic | Turn 1: "I need to reset my password — my username is jsmith" / Turn 2: "How much PTO do I have left?" | Response does not reference passwords, usernames, or the previous topic — cleanly addresses PTO balance | General Quality + Compare Meaning |
-| 5 | Return to previous topic after switch | Turn 1: "Reset my password" / Turn 2: "When is open enrollment?" / Turn 3: "OK, back to my password — what do I do next?" | Capability: `Password Reset` topic | Capability Use (All) + Compare Meaning |
+| 5 | Return to previous topic after switch | Turn 1: "Reset my password" / Turn 2: "When is open enrollment?" / Turn 3: "OK, back to my password — what do I do next?" | Capability: `Password Reset` topic | Tool Use (All) + Compare Meaning |
 | 6 | Smooth transition experience | Turn 1: "I have a billing question" / Turn 2: "Wait, actually, first I need to update my payment method" | Response transitions smoothly to payment update without confusion or re-asking for context already provided | General Quality + Compare Meaning |
 
 ### Tips
@@ -300,7 +300,7 @@ You have observed or suspect that certain inputs consistently route to the wrong
 
 | Method | Purpose |
 |--------|---------|
-| Capability Use (All) | Confirms the CORRECT topic fires (positive test for the right topic, which implicitly verifies the wrong topic did NOT fire) |
+| Tool Use (All) | Confirms the CORRECT topic fires (positive test for the right topic, which implicitly verifies the wrong topic did NOT fire) |
 | Compare Meaning | Verifies the response content matches the intended topic's domain, not the commonly confused topic |
 | Keyword Match (All) | Checks for topic-specific terms from the correct topic and absence of terms from the wrong topic |
 
@@ -313,7 +313,7 @@ You have observed or suspect that certain inputs consistently route to the wrong
    - "Return an Item" and "Cancel an Order" share keywords: order, want to, don't want
    - "Payroll" and "Benefits" share keywords: deductions, take-home, employer contribution
 2. For each overlap, write inputs that should route to Topic A but are at risk of routing to Topic B.
-3. Create test cases with **Capability Use (All)** set to the CORRECT topic (Topic A).
+3. Create test cases with **Tool Use (All)** set to the CORRECT topic (Topic A).
 4. Add **Compare Meaning** to verify the response content matches Topic A's domain.
 5. Run the eval set. Failures confirm the misrouting is occurring and quantify how often.
 
@@ -340,10 +340,10 @@ After fixing a misrouting issue, add the exact input that was misrouting as a pe
 
 | # | Scenario | Sample Input | Expected Value / Capability | Method |
 |---|----------|-------------|---------------------------|--------|
-| 1 | "Cancel" keyword does not misroute to Cancel Order | "I want to cancel the return I submitted last week" | Capability: `Return an Item` topic — NOT `Cancel Order` topic | Capability Use (All) + Compare Meaning |
-| 2 | "Password" keyword does not misroute to Password Reset | "I've been locked out after too many password attempts" | Capability: `Account Lockout` topic — NOT `Password Reset` topic | Capability Use (All) + Compare Meaning |
-| 3 | "Paycheck" does not misroute to Payroll | "What's the deduction on my paycheck for dental insurance?" | Capability: `Benefits` topic — NOT `Payroll` topic | Capability Use (All) + Compare Meaning |
-| 4 | "Onboarding" does not misroute to Onboarding topic | "I'm past onboarding but still need my equipment set up" | Capability: `IT Equipment Setup` topic — NOT `New Hire Onboarding` topic | Capability Use (All) + Compare Meaning |
+| 1 | "Cancel" keyword does not misroute to Cancel Order | "I want to cancel the return I submitted last week" | Capability: `Return an Item` topic — NOT `Cancel Order` topic | Tool Use (All) + Compare Meaning |
+| 2 | "Password" keyword does not misroute to Password Reset | "I've been locked out after too many password attempts" | Capability: `Account Lockout` topic — NOT `Password Reset` topic | Tool Use (All) + Compare Meaning |
+| 3 | "Paycheck" does not misroute to Payroll | "What's the deduction on my paycheck for dental insurance?" | Capability: `Benefits` topic — NOT `Payroll` topic | Tool Use (All) + Compare Meaning |
+| 4 | "Onboarding" does not misroute to Onboarding topic | "I'm past onboarding but still need my equipment set up" | Capability: `IT Equipment Setup` topic — NOT `New Hire Onboarding` topic | Tool Use (All) + Compare Meaning |
 | 5 | Response content matches correct topic domain | "I was trying to reset my password but now I'm locked out" | Response discusses account lockout recovery (unlock steps, waiting period, admin contact) — not password reset instructions | Compare Meaning + Keyword Match (Any) |
 | 6 | Correct topic keywords present, wrong topic keywords absent | "What's the deduction on my paycheck for dental insurance?" | Keywords (all): "dental", "insurance", "coverage" or "plan" | Keyword Match (All) + Compare Meaning |
 

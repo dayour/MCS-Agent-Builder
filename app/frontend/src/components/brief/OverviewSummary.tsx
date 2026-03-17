@@ -299,6 +299,38 @@ const OverviewSummary = ({ viewModel, data, phase, onChange, onUpdateSection, on
         onRemove={notDoHandlers.onRemove}
       />
 
+      {/* 5b. Test golden sets — shown when eval stubs exist */}
+      {totalTests > 0 && !researchDone && (
+        <div className="rounded-lg border border-border bg-card p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <TestTube className="h-4 w-4 text-muted-foreground" />
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Test golden sets</h3>
+                <p className="text-[11px] text-muted-foreground">Auto-generated from capabilities and boundaries</p>
+              </div>
+            </div>
+            {onNavigateToSection && (
+              <button
+                onClick={() => onNavigateToSection("eval-sets")}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+              >
+                Review & edit <ArrowRight className="h-3 w-3" />
+              </button>
+            )}
+          </div>
+          <div className="grid gap-2 grid-cols-3">
+            {evalSets.map((set) => (
+              <div key={set.name} className="rounded-md border border-border bg-surface-1 p-2.5 text-center">
+                <p className="text-xs font-medium text-foreground capitalize">{set.name}</p>
+                <p className="text-lg font-bold text-foreground">{set.tests?.length ?? 0}</p>
+                <p className="text-[10px] text-muted-foreground">target: {set.passThreshold}%</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* 6. How it should respond */}
       <div className="rounded-lg border border-border bg-card p-4">
         <div className="flex items-center gap-2 mb-4">

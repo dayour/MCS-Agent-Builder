@@ -75,7 +75,7 @@ Use this when you have modified topics, conversation flows, trigger phrases, or 
 
 | Method | Purpose |
 |--------|---------|
-| Capability Use (All) | Re-verify that the correct topics, flows, and actions still fire for previously tested inputs |
+| Tool Use (All) | Re-verify that the correct topics, flows, and actions still fire for previously tested inputs |
 | Keyword Match (All) | Re-verify that expected content from specific topics still appears in the responses |
 | Compare Meaning | Re-verify that the overall response meaning is preserved even if the flow structure changed |
 | General Quality | Re-evaluate response quality for conversations that traverse the modified topics |
@@ -85,7 +85,7 @@ Use this when you have modified topics, conversation flows, trigger phrases, or 
 1. Before making topic or flow changes, document the current routing behavior: which inputs trigger which topics, what actions each topic takes, and what the expected outputs are. Run your existing test suite to establish the baseline.
 2. Make your topic or flow changes.
 3. Re-run all test cases that could be affected by the change. At minimum, re-run: (a) all test cases that directly test the modified topic, (b) all test cases for topics with similar trigger phrases that might be affected by routing changes, and (c) a sample of general test cases to catch unexpected side effects.
-4. For Capability Use (All) checks, verify that the same topics and actions fire as before. A change in which topic fires is a routing regression.
+4. For Tool Use (All) checks, verify that the same topics and actions fire as before. A change in which topic fires is a routing regression.
 5. For conversation flow changes, re-run multi-turn conversation scripts to verify that the conversation still follows the expected path and does not skip steps or enter unexpected branches.
 
 ### Anti-Pattern
@@ -107,10 +107,10 @@ If your agent has topics that reference or redirect to each other (e.g., a PTO t
 
 | # | Scenario | Sample Input | Expected Value / Capability | Method |
 |---|----------|-------------|----------------------------|--------|
-| 1 | Modified topic still fires for its primary input | "I need to submit a PTO request." (PTO topic was restructured) | PTO topic still fires and the response addresses PTO submission | Capability Use (All) + Keyword Match (Any) |
-| 2 | Adjacent topic routing is not disrupted | "What is the leave of absence policy?" (PTO topic trigger phrases were expanded) | Leave of Absence topic fires — not the PTO topic — since this is a different intent | Capability Use (All) + Compare Meaning |
+| 1 | Modified topic still fires for its primary input | "I need to submit a PTO request." (PTO topic was restructured) | PTO topic still fires and the response addresses PTO submission | Tool Use (All) + Keyword Match (Any) |
+| 2 | Adjacent topic routing is not disrupted | "What is the leave of absence policy?" (PTO topic trigger phrases were expanded) | Leave of Absence topic fires — not the PTO topic — since this is a different intent | Tool Use (All) + Compare Meaning |
 | 3 | Multi-turn flow still completes all steps | Multi-turn PTO submission conversation (flow was modified to add a new confirmation step) | All original steps still occur, plus the new confirmation step, in the correct order | General Quality + Compare Meaning |
-| 4 | Cross-topic redirect still works | "Can I extend my PTO into a leave of absence?" (PTO topic redirects to Leave of Absence topic) | Conversation correctly transitions from PTO topic to Leave of Absence topic | Capability Use (All) + Compare Meaning |
+| 4 | Cross-topic redirect still works | "Can I extend my PTO into a leave of absence?" (PTO topic redirects to Leave of Absence topic) | Conversation correctly transitions from PTO topic to Leave of Absence topic | Tool Use (All) + Compare Meaning |
 | 5 | Deleted topic content does not create a gap | "How do I submit a facilities request?" (old Facilities topic was merged into a General Requests topic) | The General Requests topic fires and handles the facilities request with the same quality as the old topic | Compare Meaning + General Quality |
 | 6 | General routing sample passes | Random sample of 10 previously passing test cases from unrelated topics | All 10 test cases still pass with the same routing and response quality | Keyword Match (All) + Compare Meaning |
 
@@ -134,7 +134,7 @@ Use this when you have modified tool, connector, or Power Automate flow configur
 
 | Method | Purpose |
 |--------|---------|
-| Capability Use (All) | Re-verify that the correct tools and connectors still fire with the correct parameters for previously tested inputs |
+| Tool Use (All) | Re-verify that the correct tools and connectors still fire with the correct parameters for previously tested inputs |
 | Exact Match | Re-verify that tool responses are parsed and presented correctly — especially for structured data like dates, amounts, and statuses |
 | Keyword Match (All) | Re-verify that key data points from tool responses still appear in the agent's answer |
 | General Quality | Re-evaluate the overall quality of responses that depend on tool invocations |
@@ -144,7 +144,7 @@ Use this when you have modified tool, connector, or Power Automate flow configur
 1. Before making tool configuration changes, run all test cases that involve tool invocations and record the baseline results: which tools fired, what parameters were passed, and what the agent's final response was.
 2. Make your tool configuration changes.
 3. Re-run all tool-related test cases. Focus on: (a) test cases for the specific tool you changed, (b) test cases for tools that share authentication or parameters with the changed tool, and (c) test cases for workflows that chain multiple tools where the changed tool is one link in the chain.
-4. For Capability Use (All) checks, verify that the tool is still invoked with the correct parameters. A parameter change is a regression if it causes incorrect behavior.
+4. For Tool Use (All) checks, verify that the tool is still invoked with the correct parameters. A parameter change is a regression if it causes incorrect behavior.
 5. For response parsing, use Exact Match or Keyword Match (All) to verify that the agent still correctly extracts and presents data from the tool's response.
 
 ### Anti-Pattern
@@ -166,10 +166,10 @@ If the tool configuration change affects error cases (new error codes, changed e
 
 | # | Scenario | Sample Input | Expected Value / Capability | Method |
 |---|----------|-------------|----------------------------|--------|
-| 1 | Tool still fires after configuration change | "Submit a PTO request for next Monday." (PTO submission flow was reconfigured) | PTO submission tool/flow is still invoked with the correct date parameter | Capability Use (All) + Keyword Match (Any) |
-| 2 | Tool parameters are correct post-change | "Check the status of my order #12345." (order lookup connector authentication was updated) | Order lookup tool is invoked with parameter "12345" and returns the correct status | Capability Use (All) + Keyword Match (Any) |
+| 1 | Tool still fires after configuration change | "Submit a PTO request for next Monday." (PTO submission flow was reconfigured) | PTO submission tool/flow is still invoked with the correct date parameter | Tool Use (All) + Keyword Match (Any) |
+| 2 | Tool parameters are correct post-change | "Check the status of my order #12345." (order lookup connector authentication was updated) | Order lookup tool is invoked with parameter "12345" and returns the correct status | Tool Use (All) + Keyword Match (Any) |
 | 3 | Response data is parsed correctly | "What is my current PTO balance?" (HR system connector response format was updated) | Response still contains the correct numeric PTO balance from the tool's response | Exact Match + Compare Meaning |
-| 4 | Chained tool workflow still completes | "Book a conference room for tomorrow at 2 PM." (calendar connector was updated, room booking flow depends on it) | Both the calendar lookup and room booking tools fire in sequence with correct parameters | Capability Use (All) + Compare Meaning |
+| 4 | Chained tool workflow still completes | "Book a conference room for tomorrow at 2 PM." (calendar connector was updated, room booking flow depends on it) | Both the calendar lookup and room booking tools fire in sequence with correct parameters | Tool Use (All) + Compare Meaning |
 | 5 | Error handling still works | "Submit a PTO request for a date in the past." (flow was reconfigured) | Agent still handles the error gracefully — explains the date is invalid rather than crashing or returning a raw error | General Quality + Compare Meaning |
 | 6 | Tool response data is current and complete | "How many open tickets are in my queue?" (ticketing system connector was updated) | Response contains the correct count and matches the data from the tool's response, not stale data | Keyword Match (All) + Compare Meaning |
 
@@ -196,7 +196,7 @@ Use this as a comprehensive pre-publish checkpoint before promoting any agent ch
 | Exact Match | Re-verify all test cases with exact expected values — factual answers, specific numbers, verbatim text |
 | Compare Meaning | Re-verify all test cases where meaning equivalence is the standard — policy explanations, guidance, advice |
 | Keyword Match (All) | Re-verify all compliance and content-completeness checks — required terms, disclaimers, data points |
-| Capability Use (All) | Re-verify all tool invocation and topic routing checks — correct capabilities fire for correct inputs |
+| Tool Use (All) | Re-verify all tool invocation and topic routing checks — correct capabilities fire for correct inputs |
 | General Quality | Re-evaluate a representative sample of response quality, tone, and helpfulness test cases |
 
 ### Setup Steps
@@ -228,11 +228,11 @@ Not all regression failures are equal. Establish a triage workflow: critical reg
 | # | Scenario | Sample Input | Expected Value / Capability | Method |
 |---|----------|-------------|----------------------------|--------|
 | 1 | Factual accuracy baseline holds | "What is the company's 401k match percentage?" | Response still contains "4%" (or whatever the verified correct value is) | Exact Match + Compare Meaning |
-| 2 | Topic routing baseline holds | "I need to file a complaint." | Complaint topic still fires, not the general FAQ topic | Capability Use (All) + Keyword Match (Any) |
-| 3 | Tool invocation baseline holds | "Submit my timesheet for this week." | Timesheet submission flow is still invoked with correct parameters | Capability Use (All) + Keyword Match (Any) |
+| 2 | Topic routing baseline holds | "I need to file a complaint." | Complaint topic still fires, not the general FAQ topic | Tool Use (All) + Keyword Match (Any) |
+| 3 | Tool invocation baseline holds | "Submit my timesheet for this week." | Timesheet submission flow is still invoked with correct parameters | Tool Use (All) + Keyword Match (Any) |
 | 4 | Compliance content baseline holds | "What is the procedure for reporting harassment?" | Response still contains required legal disclaimer language | Keyword Match (All) + Compare Meaning |
 | 5 | Tone and quality baseline holds | "I'm having a really difficult time with my manager." | Response maintains empathetic tone and provides helpful guidance comparable to the baseline response | General Quality + Compare Meaning |
-| 6 | Escalation behavior baseline holds | "I want to speak with a human agent." | Handoff capability is still invoked, with appropriate handoff communication | Capability Use (All) + Keyword Match (Any) |
+| 6 | Escalation behavior baseline holds | "I want to speak with a human agent." | Handoff capability is still invoked, with appropriate handoff communication | Tool Use (All) + Keyword Match (Any) |
 
 ### Tips
 
@@ -256,7 +256,7 @@ Use this when you have made a narrow, well-scoped change to the agent — a sing
 |--------|---------|
 | Exact Match | Re-run the specific test cases for the changed capability with their existing expected values |
 | Compare Meaning | Check that the changed capability's responses are still semantically correct after the update |
-| Capability Use (All) | For tool or routing changes, verify the specific capability still fires correctly |
+| Tool Use (All) | For tool or routing changes, verify the specific capability still fires correctly |
 | Keyword Match (All) | For knowledge changes, verify that key information from the affected domain still appears |
 
 ### Setup Steps
@@ -289,8 +289,8 @@ After running the targeted and adjacent test cases, run 5–10 randomly selected
 |---|----------|-------------|----------------------------|--------|
 | 1 | Direct test case for changed capability passes | "How many sick days do I get per year?" (sick leave document was updated) | Response reflects the updated sick leave policy with correct numbers | Exact Match + Compare Meaning |
 | 2 | Related test case for adjacent capability passes | "What is the difference between sick leave and PTO?" (only sick leave doc was changed) | Response accurately distinguishes both policies — the PTO information is unchanged | Compare Meaning + Keyword Match (Any) |
-| 3 | Routing for changed topic still works | "I need information about sick leave." (sick leave topic triggers were modified) | Sick leave topic fires correctly, not a different topic | Capability Use (All) + Keyword Match (Any) |
-| 4 | Adjacent topic routing is unaffected | "I want to request PTO." (sick leave topic was modified, not PTO) | PTO topic still fires correctly — no routing interference from the sick leave change | Capability Use (All) + Compare Meaning |
+| 3 | Routing for changed topic still works | "I need information about sick leave." (sick leave topic triggers were modified) | Sick leave topic fires correctly, not a different topic | Tool Use (All) + Keyword Match (Any) |
+| 4 | Adjacent topic routing is unaffected | "I want to request PTO." (sick leave topic was modified, not PTO) | PTO topic still fires correctly — no routing interference from the sick leave change | Tool Use (All) + Compare Meaning |
 | 5 | Random spot check from unrelated capability | "How do I connect to the VPN?" (unrelated to the sick leave change) | Response is correct and consistent with the baseline — no unexpected impact | Compare Meaning + General Quality |
 | 6 | Changed capability still handles edge cases | "Can I use sick leave for a mental health day?" (sick leave policy was updated) | Response accurately reflects the updated policy's position on mental health days | Keyword Match (All) + Compare Meaning |
 

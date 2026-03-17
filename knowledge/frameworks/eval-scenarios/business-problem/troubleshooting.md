@@ -166,7 +166,7 @@ This scenario applies to any support agent that has both self-service troublesho
 |--------|---------|
 | Compare Meaning | Validates that the agent's escalation or non-escalation decision is appropriate for the situation described |
 | Keyword Match (All) | Confirms that escalation responses include required elements — ticket number, expected response time, handoff language |
-| Capability Use (Any) | Verifies that the agent triggers the correct escalation action (e.g., transfer to live agent, create support ticket, route to specialized team) |
+| Tool Use (Any) | Verifies that the agent triggers the correct escalation action (e.g., transfer to live agent, create support ticket, route to specialized team) |
 | General Quality | Assesses the overall quality of the escalation decision — timing, empathy, context preservation, and appropriateness |
 
 > **Tip:** Escalation testing requires both "should escalate" and "should NOT escalate" test cases. An agent that escalates everything is just as broken as one that never escalates.
@@ -176,7 +176,7 @@ This scenario applies to any support agent that has both self-service troublesho
 1. Define your agent's escalation criteria. Document when the agent should escalate, including: issue severity thresholds, issue types beyond the agent's scope, number of failed troubleshooting attempts, and user sentiment indicators.
 2. Create 3-4 test cases where escalation IS the correct action: issues the agent cannot resolve, sensitive situations, repeated failure after troubleshooting steps.
 3. Create 3-4 test cases where escalation is NOT the correct action: common issues the agent should be able to resolve with standard troubleshooting.
-4. For escalation cases, use **Capability Use (Any)** to verify the correct escalation mechanism fires (live agent transfer, ticket creation, etc.).
+4. For escalation cases, use **Tool Use (Any)** to verify the correct escalation mechanism fires (live agent transfer, ticket creation, etc.).
 5. For escalation cases, use **Keyword Match (All)** to verify the response includes required escalation elements (e.g., ticket reference, estimated wait time, what happens next).
 6. For non-escalation cases, use **Compare Meaning** to verify the agent provides troubleshooting steps instead of escalating.
 7. Add **General Quality** tests for nuanced situations with a grading prompt like: "Is the agent's decision to escalate (or not) appropriate given the situation? Did the agent try reasonable troubleshooting before escalating?"
@@ -209,7 +209,7 @@ Test that the agent recognizes when a user is frustrated, upset, or explicitly r
 | # | Scenario | Sample Input | Expected Value / Capability | Method |
 |---|----------|-------------|---------------------------|--------|
 | 1 | IT helpdesk agent — account compromise | "I think someone hacked my account — there are login attempts I don't recognize" | The agent should immediately escalate to the security team without attempting standard troubleshooting | Compare Meaning + Keyword Match (Any) |
-| 2 | IT helpdesk agent — account compromise action | "I think someone hacked my account — there are login attempts I don't recognize" | Escalation action: Transfer to Security Incident team | Capability Use (Any) + Compare Meaning |
+| 2 | IT helpdesk agent — account compromise action | "I think someone hacked my account — there are login attempts I don't recognize" | Escalation action: Transfer to Security Incident team | Tool Use (Any) + Compare Meaning |
 | 3 | IT helpdesk agent — routine password reset | "I forgot my password and can't log in" | The agent should walk through the self-service password reset process, NOT escalate to a human agent | Compare Meaning + Keyword Match (Any) |
 | 4 | Product support agent — defective product | "I've tried all the troubleshooting steps on your website and the device still doesn't work. I've had it for 2 weeks." | "support ticket", "case number", "replacement", "1-2 business days" | Keyword Match (All) + Compare Meaning |
 | 5 | Billing support agent — disputed charge | "There's a $500 charge on my account that I didn't authorize" | The agent should escalate to the billing disputes team given the unauthorized charge, and include the charge amount and date in the escalation context | Compare Meaning + Keyword Match (Any) |
@@ -389,7 +389,7 @@ This scenario is critical when your agent covers multiple products, platforms, o
 | General Quality | Assesses whether the troubleshooting steps are relevant to the reported issue and do not include steps from an unrelated problem or product |
 | Compare Meaning | Validates that the diagnostic approach addresses the correct issue category, not an adjacent or similar-sounding one |
 | Keyword Match (All) | Used as a negative check — verifies that terms, commands, or steps from an incorrect diagnosis path do NOT appear in the response |
-| Capability Use (All) | Confirms the agent retrieved from the correct troubleshooting knowledge source and not from documentation for a different product or issue type |
+| Tool Use (All) | Confirms the agent retrieved from the correct troubleshooting knowledge source and not from documentation for a different product or issue type |
 
 > **Tip:** Negative diagnosis tests require you to anticipate which wrong path the agent is likely to take. Focus on issue types that share symptoms or keywords, because these are the most common misdiagnosis triggers.
 
@@ -399,7 +399,7 @@ This scenario is critical when your agent covers multiple products, platforms, o
 2. For each confusion pair, write test cases where the user clearly describes Issue A, and verify the agent does not provide steps for Issue B.
 3. Use **General Quality** with a grading prompt like: "Are these troubleshooting steps relevant to the specific issue the user reported? Do they address the right problem, or do they include steps that belong to a different issue type?"
 4. Use **Keyword Match (All)** as a negative check: include keywords unique to the wrong diagnosis path and verify they do NOT appear. (If your platform does not support negative matching, use General Quality with a prompt that checks for irrelevant steps.)
-5. Use **Capability Use (All)** to verify the agent consulted the correct troubleshooting documentation, not documentation for a different product or issue.
+5. Use **Tool Use (All)** to verify the agent consulted the correct troubleshooting documentation, not documentation for a different product or issue.
 6. Run the evaluation. For failures, determine: what caused the misdiagnosis? Keyword confusion in the query? Retrieval from the wrong source? Incorrect topic routing?
 
 ### Anti-Pattern
@@ -429,7 +429,7 @@ Test that the agent does not ask for diagnostic information that is irrelevant t
 | # | Scenario | Sample Input | Expected Value / Capability | Method |
 |---|----------|-------------|---------------------------|--------|
 | 1 | IT helpdesk agent — software vs. hardware | "I can't log in to the HR portal" (software/access issue) | The response should not contain hardware troubleshooting terms like "restart device", "check cables", or "run hardware diagnostics" — this is a login/access issue | General Quality + Compare Meaning |
-| 2 | IT helpdesk agent — correct knowledge source | "I can't log in to the HR portal" | Should retrieve from Identity-and-Access-Troubleshooting-KB, NOT from Network-Connectivity-KB or Hardware-Support-KB | Capability Use (All) + Compare Meaning |
+| 2 | IT helpdesk agent — correct knowledge source | "I can't log in to the HR portal" | Should retrieve from Identity-and-Access-Troubleshooting-KB, NOT from Network-Connectivity-KB or Hardware-Support-KB | Tool Use (All) + Compare Meaning |
 | 3 | Product support agent — wrong product | "The camera on my Model X laptop isn't working" | The response should not include steps for the Model Z desktop or external webcam — these have different drivers and settings | General Quality + Compare Meaning |
 | 4 | Product support agent — wrong product keywords | "The camera on my Model X laptop isn't working" | The response should not contain "Model Z", "external webcam driver", or "USB camera" — terms from the wrong product's troubleshooting guide | Keyword Match (All) + General Quality |
 | 5 | Billing support agent — billing vs. technical | "I was double-charged for my subscription renewal" | The response should address billing investigation (verify charges, check payment method, initiate refund), NOT technical troubleshooting (clear cache, reinstall app, check internet connection) | Compare Meaning + Keyword Match (Any) |

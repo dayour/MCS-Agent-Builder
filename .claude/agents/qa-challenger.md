@@ -61,11 +61,22 @@ Decision necessity (genuine 2+ options?), option completeness (concrete pros/con
 
 | Set | Tests | Threshold | Default Methods | Library Mapping |
 |-----|-------|-----------|-----------------|-----------------|
-| **boundaries** | Scope enforcement, off-topic, PII, adversarial, disclaimers | 100% | Keyword match (all) | CAP-SB + CAP-CV |
-| **quality** | Happy paths, grounding, routing, tool usage | 85% | Compare meaning (70), Keyword match (any) | BP-* + CAP-KG/TI/TR |
+| **boundaries** | Scope enforcement, off-topic, PII, adversarial, disclaimers | 100% | General quality, Keyword match (all) | CAP-SB + CAP-CV |
+| **quality** | Happy paths, grounding, routing, tool usage | 85% | General quality, Compare meaning (70), Keyword match (any) | BP-* + CAP-KG/TI/TR |
 | **edge-cases** | Vague inputs, unknowns, sensitive, multi-part, cross-feature | 80% | General quality, Compare meaning (60) | CAP-TQ + CAP-GF/RT |
 
-Total target: 40-55 tests. 7 methods: General quality, Compare meaning, Keyword match, Text similarity, Exact match, Capability use, Plan validation (custom). Two methods per test. Include negative tests. Tag with `scenarioId`, `scenarioCategory`, `coverageTag`. Set `readiness` (ready/template). boundaries > quality > edge-cases priority.
+Total target: 40-55 tests. 7 methods: General quality, Compare meaning, Keyword match, Text similarity, Exact match, Tool use, Plan validation (custom). Two methods per test. Include negative tests. Tag with `scenarioId`, `scenarioCategory`, `coverageTag`. Set `readiness` (ready/template). boundaries > quality > edge-cases priority.
+
+## Respecting Pre-Existing Eval Stubs
+
+When `evalSets` already contain tests (from fast preview or prior research), respect the customer's confirmed golden sets:
+
+- **Never delete** `user-edited` or `user-added` tests — these are customer-confirmed acceptance criteria
+- **May enrich** `preview-stub` tests: upgrade `expected` with research-specific detail, update `source` to `"research-enriched"`
+- **Append** new research-generated tests for tool/integration/multi-turn/edge-cases not covered by stubs, with `source: "research-generated"`
+- **Coverage report** accounts for stub tests in distribution — don't double-count enriched stubs
+- **Dedup by intent:** >70% keyword overlap between a new test and an existing test = same test. Keep existing, discard new.
+- **When no stubs exist** (legacy briefs or first run without `--fast`), generate all tests from scratch (backward compatible)
 
 ## Scenario-Driven Eval Generation
 

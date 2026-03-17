@@ -20,23 +20,23 @@ Your agent has one or more tools configured (Power Automate flows, custom connec
 
 | Method | Purpose |
 |--------|---------|
-| Capability Use (All) | Confirms the expected tool/flow/connector was invoked — the primary check for this scenario |
+| Tool Use (All) | Confirms the expected tool/flow/connector was invoked — the primary check for this scenario |
 | Keyword Match (Any) | Catches surface-level confirmation language in the response (e.g., "your request has been submitted") as a secondary signal |
 
-> **Tip:** A response can sound correct ("Your PTO request has been submitted!") without actually calling the Submit PTO Request flow. Capability Use is the only method that verifies the tool was actually invoked — never rely on response text alone.
+> **Tip:** A response can sound correct ("Your PTO request has been submitted!") without actually calling the Submit PTO Request flow. Tool Use is the only method that verifies the tool was actually invoked — never rely on response text alone.
 
 ### Setup Steps
 
 1. List every tool, flow, connector, and API your agent can invoke. For each, write a clear user request that should trigger it.
 2. Create one test case per tool. Set the **Sample Input** to a natural-language request that should invoke that tool.
-3. For each test case, set the **Method** to **Capability Use (All)** and the **Expected Capability** to the exact tool/flow name as configured in your agent.
+3. For each test case, set the **Method** to **Tool Use (All)** and the **Expected Capability** to the exact tool/flow name as configured in your agent.
 4. Optionally add a **Keyword Match (Any)** check with confirmation language you expect in the response.
 5. Run the eval set and review results. Any test case where the expected capability was NOT used indicates a routing or tool-selection failure.
 
 ### Anti-Pattern
 
 > **Anti-Pattern: Testing Only by Response Text**
-> If you only check whether the response *says* "your PTO request has been submitted" (Keyword Match), you will miss cases where the agent generates a plausible-sounding response without actually calling the flow. Always pair response-text checks with Capability Use to confirm the tool was truly invoked.
+> If you only check whether the response *says* "your PTO request has been submitted" (Keyword Match), you will miss cases where the agent generates a plausible-sounding response without actually calling the flow. Always pair response-text checks with Tool Use to confirm the tool was truly invoked.
 
 ### Evaluation Patterns
 
@@ -53,12 +53,12 @@ Test whether the agent uses conversational context to select the right tool. For
 
 | # | Scenario | Sample Input | Expected Value / Capability | Method |
 |---|----------|-------------|---------------------------|--------|
-| 1 | PTO request triggers the correct flow | "I'd like to submit a PTO request for next Friday" | Capability: `Submit PTO Request flow` | Capability Use (All) + Keyword Match (Any) |
-| 2 | Order status triggers the correct API | "Where is my order #88234?" | Capability: `Get Order Status API` | Capability Use (All) + Keyword Match (Any) |
-| 3 | Ticket creation triggers the correct connector | "I need to open a support ticket for a billing issue" | Capability: `Create Support Ticket connector` | Capability Use (All) + Keyword Match (Any) |
-| 4 | Expense report triggers the correct flow | "Submit my expense report for the NYC trip" | Capability: `Submit Expense Report flow` | Capability Use (All) + Keyword Match (Any) |
-| 5 | Ambiguous request resolves correctly | "I need to update my address" | Capability: `Update Employee Profile flow` | Capability Use (All) + Compare Meaning |
-| 6 | Confirmation language appears in response | "I'd like to submit a PTO request for next Friday" | Keywords (any): "submitted", "confirmed", "PTO request" | Keyword Match (Any) + Capability Use (All) |
+| 1 | PTO request triggers the correct flow | "I'd like to submit a PTO request for next Friday" | Capability: `Submit PTO Request flow` | Tool Use (All) + Keyword Match (Any) |
+| 2 | Order status triggers the correct API | "Where is my order #88234?" | Capability: `Get Order Status API` | Tool Use (All) + Keyword Match (Any) |
+| 3 | Ticket creation triggers the correct connector | "I need to open a support ticket for a billing issue" | Capability: `Create Support Ticket connector` | Tool Use (All) + Keyword Match (Any) |
+| 4 | Expense report triggers the correct flow | "Submit my expense report for the NYC trip" | Capability: `Submit Expense Report flow` | Tool Use (All) + Keyword Match (Any) |
+| 5 | Ambiguous request resolves correctly | "I need to update my address" | Capability: `Update Employee Profile flow` | Tool Use (All) + Compare Meaning |
+| 6 | Confirmation language appears in response | "I'd like to submit a PTO request for next Friday" | Keywords (any): "submitted", "confirmed", "PTO request" | Keyword Match (Any) + Tool Use (All) |
 
 ### Tips
 
@@ -83,16 +83,16 @@ Your agent has tools configured but also handles informational queries that shou
 
 | Method | Purpose |
 |--------|---------|
-| Capability Use (Any) | Set as a **negative check** — the test passes if NONE of the listed capabilities are used |
+| Tool Use (Any) | Set as a **negative check** — the test passes if NONE of the listed capabilities are used |
 | Compare Meaning | Verifies the agent still provides a semantically correct informational response (without needing a tool) |
 
-> **Tip:** A negative Capability Use check is the inverse of Scenario 1. You are confirming the agent did NOT call any tool, not that it called the right one.
+> **Tip:** A negative Tool Use check is the inverse of Scenario 1. You are confirming the agent did NOT call any tool, not that it called the right one.
 
 ### Setup Steps
 
 1. Identify informational queries your users commonly ask that do NOT require tool invocation (e.g., "What is the PTO policy?" vs. "Submit a PTO request").
 2. Create test cases with these informational inputs.
-3. For each test case, set the **Method** to **Capability Use (Any)** configured as a negative check, listing the tools that should NOT fire.
+3. For each test case, set the **Method** to **Tool Use (Any)** configured as a negative check, listing the tools that should NOT fire.
 4. Add a **Compare Meaning** check with the expected informational answer to confirm the agent still provides a useful response.
 5. Run the eval set. Any test case where a tool WAS invoked indicates over-eager tool calling.
 
@@ -116,11 +116,11 @@ The user expresses interest but does not commit to an action. Example: "I'm thin
 
 | # | Scenario | Sample Input | Expected Value / Capability | Method |
 |---|----------|-------------|---------------------------|--------|
-| 1 | Policy question should not call PTO flow | "What is the company's PTO policy?" | Should NOT use: `Submit PTO Request flow` | Capability Use (Any) — negative + Compare Meaning |
-| 2 | Informational query about expenses | "What are the expense report submission deadlines?" | Should NOT use: `Submit Expense Report flow` | Capability Use (Any) — negative + Compare Meaning |
-| 3 | Exploratory statement should not trigger action | "I'm thinking about taking Friday off" | Should NOT use: `Submit PTO Request flow` | Capability Use (Any) — negative + Compare Meaning |
-| 4 | Conversational reply should not trigger any tool | "Thanks, that makes sense" | Should NOT use: any configured tool | Capability Use (Any) — negative + Compare Meaning |
-| 5 | Clarification question should not trigger tool | "What information do I need to submit a ticket?" | Should NOT use: `Create Support Ticket connector` | Capability Use (Any) — negative + Compare Meaning |
+| 1 | Policy question should not call PTO flow | "What is the company's PTO policy?" | Should NOT use: `Submit PTO Request flow` | Tool Use (Any) — negative + Compare Meaning |
+| 2 | Informational query about expenses | "What are the expense report submission deadlines?" | Should NOT use: `Submit Expense Report flow` | Tool Use (Any) — negative + Compare Meaning |
+| 3 | Exploratory statement should not trigger action | "I'm thinking about taking Friday off" | Should NOT use: `Submit PTO Request flow` | Tool Use (Any) — negative + Compare Meaning |
+| 4 | Conversational reply should not trigger any tool | "Thanks, that makes sense" | Should NOT use: any configured tool | Tool Use (Any) — negative + Compare Meaning |
+| 5 | Clarification question should not trigger tool | "What information do I need to submit a ticket?" | Should NOT use: `Create Support Ticket connector` | Tool Use (Any) — negative + Compare Meaning |
 | 6 | Informational answer is still correct | "What is the company's PTO policy?" | "Employees receive 15 days of paid time off per year..." | Compare Meaning + Keyword Match (Any) |
 
 ### Tips
@@ -148,7 +148,7 @@ Your tools require specific input parameters (e.g., dates, employee IDs, order n
 |--------|---------|
 | Keyword Match (All) | Confirms the agent's response asks for ALL required parameters before proceeding |
 | General Quality | Assesses whether the agent's parameter-collection conversation is natural and complete |
-| Capability Use (All) | Confirms the tool is NOT invoked prematurely (use as negative check on the first turn), then IS invoked after parameters are collected |
+| Tool Use (All) | Confirms the tool is NOT invoked prematurely (use as negative check on the first turn), then IS invoked after parameters are collected |
 
 > **Tip:** Input collection often spans multiple conversational turns. Design multi-turn test cases where the first turn provides an incomplete request and subsequent turns supply the missing parameters.
 
@@ -157,7 +157,7 @@ Your tools require specific input parameters (e.g., dates, employee IDs, order n
 1. For each tool, list the required input parameters (e.g., Submit PTO Request flow requires: start date, end date, PTO type).
 2. Create test cases where the user's initial request is **missing one or more required parameters**.
 3. Set the **Expected Value** to confirm the agent asks for the missing parameters (using Keyword Match (All) with the parameter names).
-4. Create follow-up test cases where the user provides the missing parameters, and verify the tool is then invoked with Capability Use (All).
+4. Create follow-up test cases where the user provides the missing parameters, and verify the tool is then invoked with Tool Use (All).
 5. Run the eval set. Failures indicate the agent either skipped parameter collection or asked for parameters it didn't need.
 
 ### Anti-Pattern
@@ -186,8 +186,8 @@ The user provides required parameters but omits optional ones. Verify the agent 
 | 1 | Agent asks for missing dates | "I want to submit a PTO request" | Keywords (all): "start date", "end date" | Keyword Match (All) + Compare Meaning |
 | 2 | Agent asks for missing order number | "Can you check on my order?" | Keywords (all): "order number" | Keyword Match (All) + Compare Meaning |
 | 3 | Agent asks for missing ticket details | "I need to create a support ticket" | Keywords (all): "description", "category" or "issue type" | Keyword Match (All) + Compare Meaning |
-| 4 | Agent does not invoke tool prematurely | "I want to submit a PTO request" (first turn, no dates given) | Should NOT use: `Submit PTO Request flow` | Capability Use (All) — negative + Compare Meaning |
-| 5 | Agent invokes tool after parameters collected | "Start date March 23, end date March 27, vacation type" (follow-up turn after initial request) | Capability: `Submit PTO Request flow` | Capability Use (All) + Keyword Match (Any) |
+| 4 | Agent does not invoke tool prematurely | "I want to submit a PTO request" (first turn, no dates given) | Should NOT use: `Submit PTO Request flow` | Tool Use (All) — negative + Compare Meaning |
+| 5 | Agent invokes tool after parameters collected | "Start date March 23, end date March 27, vacation type" (follow-up turn after initial request) | Capability: `Submit PTO Request flow` | Tool Use (All) + Keyword Match (Any) |
 | 6 | Agent handles ambiguous date format | "I want PTO starting next Friday through the following Wednesday" | Response is clear, natural, and either confirms interpreted dates or asks for clarification | General Quality + Compare Meaning |
 
 ### Tips
@@ -231,7 +231,7 @@ Your tools return structured data (JSON, tables, status codes, record details) a
 ### Anti-Pattern
 
 > **Anti-Pattern: Checking Only That a Response Exists**
-> Some teams verify the tool was called (Capability Use) and that the agent responded (non-empty response) but never check whether the response contains the actual data the tool returned. An agent can call Get Order Status API and respond "I checked your order — let me know if you need anything else" without including the status, date, or tracking number. Always verify the specific data fields appear in the response.
+> Some teams verify the tool was called (Tool Use) and that the agent responded (non-empty response) but never check whether the response contains the actual data the tool returned. An agent can call Get Order Status API and respond "I checked your order — let me know if you need anything else" without including the status, date, or tracking number. Always verify the specific data fields appear in the response.
 
 ### Evaluation Patterns
 
@@ -350,17 +350,17 @@ Your agent handles requests that require calling two or more tools in sequence o
 
 | Method | Purpose |
 |--------|---------|
-| Capability Use (All) | Confirms ALL required tools in the sequence were invoked — not just the first or last one |
+| Tool Use (All) | Confirms ALL required tools in the sequence were invoked — not just the first or last one |
 | Compare Meaning | Verifies the final response synthesizes results from all tool calls into a coherent answer |
 | Keyword Match (All) | Checks for specific data values from each tool's output in the final response |
 | General Quality | Assesses whether the combined response is well-structured and doesn't feel fragmented or incomplete |
 
-> **Tip:** Capability Use (All) is critical here because it verifies that *every* tool in the sequence was called. A common failure mode is the agent calling the first tool, getting a result, and responding without proceeding to the second tool.
+> **Tip:** Tool Use (All) is critical here because it verifies that *every* tool in the sequence was called. A common failure mode is the agent calling the first tool, getting a result, and responding without proceeding to the second tool.
 
 ### Setup Steps
 
 1. Identify user requests that require multiple tool calls. Map the expected tool sequence (e.g., "Cancel my order" requires: Get Order Status API to check eligibility, then Cancel Order flow to execute cancellation).
-2. Create test cases for each multi-tool request. Set the **Expected Capability** using **Capability Use (All)** with every tool in the sequence listed.
+2. Create test cases for each multi-tool request. Set the **Expected Capability** using **Tool Use (All)** with every tool in the sequence listed.
 3. Add **Keyword Match (All)** checks for data from each tool (e.g., order status from tool 1, cancellation confirmation from tool 2).
 4. Add a **Compare Meaning** check to verify the final response combines the information coherently.
 5. Run the eval set. Failures indicate the agent dropped a step, called tools in the wrong order, or failed to synthesize results.
@@ -388,8 +388,8 @@ One tool in the sequence fails. Verify the agent handles the partial failure rat
 
 | # | Scenario | Sample Input | Expected Value / Capability | Method |
 |---|----------|-------------|---------------------------|--------|
-| 1 | Cancel order requires status check then cancellation | "Cancel my order #88234" | Capability (all): `Get Order Status API`, `Cancel Order flow` | Capability Use (All) + Compare Meaning |
-| 2 | Account summary requires multiple data sources | "Give me a summary of my account" | Capability (all): `Get PTO Balance flow`, `Get Open Tickets API`, `Get Pending Expenses API` | Capability Use (All) + Compare Meaning |
+| 1 | Cancel order requires status check then cancellation | "Cancel my order #88234" | Capability (all): `Get Order Status API`, `Cancel Order flow` | Tool Use (All) + Compare Meaning |
+| 2 | Account summary requires multiple data sources | "Give me a summary of my account" | Capability (all): `Get PTO Balance flow`, `Get Open Tickets API`, `Get Pending Expenses API` | Tool Use (All) + Compare Meaning |
 | 3 | Combined results appear in final response | "Cancel my order #88234" | Keywords (all): "order #88234", "cancelled", "refund" | Keyword Match (All) + Compare Meaning |
 | 4 | Final response synthesizes multi-tool data | "Give me a summary of my account" | Response includes PTO balance, open ticket count, and pending expense status in a coherent summary | Compare Meaning + Keyword Match (Any) |
 | 5 | Conditional branch: shipped order cannot be cancelled | "Cancel my order #88234" (order status = shipped) | Response explains order has already shipped and cannot be cancelled, offers alternatives | Compare Meaning + General Quality |
@@ -399,7 +399,7 @@ One tool in the sequence fails. Verify the agent handles the partial failure rat
 
 - Map out every **multi-tool user journey** in your agent before writing test cases. Draw the flow: Tool A -> Tool B -> response. This prevents gaps.
 - Test at least **1 sequential dependency**, **1 parallel aggregation**, and **1 conditional branch** if your agent supports them.
-- Always use **Capability Use (All)** to verify the full tool chain — not just the first or last tool.
+- Always use **Tool Use (All)** to verify the full tool chain — not just the first or last tool.
 - Target: **95% or higher of multi-tool test cases should invoke ALL expected capabilities.** Dropped tool calls in a sequence are functional failures.
 - Watch for **timeout issues** in multi-tool flows — if the total execution time exceeds limits, the agent may abandon later tool calls. Test realistic data volumes.
 - Rerun after any changes to tool descriptions, flow logic, or orchestration configuration.

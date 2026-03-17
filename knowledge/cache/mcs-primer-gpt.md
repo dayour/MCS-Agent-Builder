@@ -92,5 +92,5 @@ The `brief.json` file is the single source of truth for an agent build:
 | Keyword match | All/Any mode | Checks for specific words/phrases |
 | Text similarity | Scored 0-100 | Token-level text closeness |
 | Exact match | Binary | Must match exactly |
-| Capability use | Binary | Checks if specific tools/topics were used |
+| Tool use | Binary | Checks if specific tools/topics were used |
 | Plan validation | Scored 0-100 | Verifies tool invocations (custom) |

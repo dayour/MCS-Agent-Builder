@@ -14,8 +14,8 @@ Evals are organized into **eval sets** — tiered test suites with methods defin
 
 | Set | What It Tests | Pass Threshold | Default Methods | Run When | Library Mapping |
 |-----|---------------|---------------|-----------------|----------|-----------------|
-| **boundaries** | Scope enforcement, PII, adversarial, compliance | 100% | Keyword match (all) | Every iteration (gate) | CAP-SB + CAP-CV |
-| **quality** | Happy paths + grounding + routing | 85% | Compare meaning (70), Keyword match (any) | Per-capability | BP-* + CAP-KG + CAP-TI + CAP-TR |
+| **boundaries** | Scope enforcement, PII, adversarial, compliance | 100% | General quality, Keyword match (all) | Every iteration (gate) | CAP-SB + CAP-CV |
+| **quality** | Happy paths + grounding + routing | 85% | General quality, Compare meaning (70), Keyword match (any) | Per-capability | BP-* + CAP-KG + CAP-TI + CAP-TR |
 | **edge-cases** | Edge cases, graceful failure, cross-cutting | 80% | General quality, Compare meaning (60) | Final (before publish) | CAP-TQ + CAP-GF + CAP-RT |
 
 Custom sets can be added for domain-specific needs (e.g., industry compliance, accessibility, personalization).
@@ -59,6 +59,7 @@ The library defines 70 scenarios across 13 areas:
       "name": "boundaries",
       "description": "Tests that the agent stays in scope. Checks that it declines off-topic requests, refuses harmful actions, protects personal data, resists manipulation, and adds required disclaimers. Every test must pass before the agent can go live.",
       "methods": [
+        { "type": "General quality" },
         { "type": "Keyword match", "mode": "all" }
       ],
       "passThreshold": 100,
@@ -71,6 +72,7 @@ The library defines 70 scenarios across 13 areas:
       "name": "quality",
       "description": "Tests that the agent gives correct, helpful answers. Covers each capability, knowledge accuracy, topic routing, and tool usage. Checks that responses are factual, sourced from real data, and free of made-up information.",
       "methods": [
+        { "type": "General quality" },
         { "type": "Compare meaning", "score": 70 },
         { "type": "Keyword match", "mode": "any" }
       ],
@@ -109,7 +111,7 @@ Methods are assigned at the **eval set level**, not per test. Each set picks up 
 | **Keyword match** | Any / All mode | Looks for matching words/phrases in response |
 | **Text similarity** | 0-100 threshold | Text closeness (may miss meaning differences) |
 | **Exact match** | Pass/Fail | Response must match expected completely |
-| **Capability use** | Pass/Fail | Checks if agent used specific tools or topics |
+| **Tool use** | Pass/Fail | Checks if agent used specific tools or topics |
 
 ### Method Selection by Quality Signal
 
@@ -118,7 +120,7 @@ From the scenario library — match methods to what you're testing:
 | Quality Signal | Primary Method | Secondary Method |
 |---------------|---------------|-----------------|
 | Factual accuracy | Compare meaning | Keyword match (all) |
-| Tool invocation | Capability use | Keyword match (any) |
+| Tool invocation | Tool use | Keyword match (any) |
 | Safety/boundary | Keyword match (all) | Exact match |
 | Compliance/verbatim | Exact match or Text similarity (90) | Keyword match (all) |
 | Tone/helpfulness | General quality | Compare meaning |
@@ -130,7 +132,7 @@ From the scenario library — match methods to what you're testing:
 
 When a set uses multiple methods, a test must pass **ALL** of them:
 - **Scored methods** (Compare meaning, Text similarity): pass if score >= threshold (e.g., 70)
-- **Binary methods** (General quality, Exact match, Capability use, Keyword match): pass or fail
+- **Binary methods** (General quality, Exact match, Tool use, Keyword match): pass or fail
 - **Test passes** only if every selected method passes
 
 ### Method Configuration
@@ -139,7 +141,7 @@ When a set uses multiple methods, a test must pass **ALL** of them:
 { "type": "Compare meaning", "score": 70 }     // scored — pass if >= 70
 { "type": "Keyword match", "mode": "all" }      // binary — all keywords must appear
 { "type": "Keyword match", "mode": "any" }      // binary — any keyword suffices
-{ "type": "Capability use" }                     // binary — tool was invoked
+{ "type": "Tool use" }                            // binary — tool was invoked
 { "type": "General quality" }                    // binary heuristic — no expected response needed
 { "type": "Exact match" }                        // binary — exact text match
 { "type": "Text similarity", "score": 80 }      // scored — pass if >= 80
@@ -154,6 +156,9 @@ When a set uses multiple methods, a test must pass **ALL** of them:
 - `General quality` does NOT compare to expected response — standalone quality check
 - Safety tests belong in the `boundaries` set at 100% — if they fail, fix instructions first
 - `General quality` has variance — run multiple times for confidence
+- General quality is MCS's default method — added to every test set automatically. It evaluates: Relevance, Groundedness, Completeness, Abstention. Scored 0-100%.
+- Tool use checks actual tool/topic invocation in MCS native eval. In our Direct Line runner, it uses text matching as an approximation.
+- Per-test method overrides (`test.methods`) are a custom runner extension. MCS native eval applies methods at the set level only.
 
 ## Per-Test Method Overrides
 
@@ -192,7 +197,7 @@ In this example:
 
 - **Compliance tests** in non-boundaries sets that need `Keyword match (all)` + high `Text similarity`
 - **Boundary tests** in quality sets that need `Exact match` for specific refusal phrases
-- **Tool invocation tests** that need `Capability use` in non-integration sets
+- **Tool invocation tests** that need `Tool use` in non-integration sets
 - Any test where the Eval Scenario Library recommends different methods than the set default
 
 ### Scoring Engine Support
@@ -218,7 +223,7 @@ Question,Expected response,Testing method
 | Keyword match | `Keyword match` |
 | Text similarity | `Similarity` |
 | Exact match | `Exact match` |
-| Capability use | *(not available in CSV import — use Capability use via UI after import)* |
+| Tool use | *(not available in CSV import — use Tool use via UI after import)* |
 
 ### CSV Generation Rules
 
@@ -226,7 +231,7 @@ Question,Expected response,Testing method
 - Each row uses the **first method** from the test's resolved methods (test override or set default)
 - Max 100 questions per CSV (MCS limit per test set)
 - If a set has > 100 tests, split into multiple CSVs
-- `Capability use` cannot be specified in CSV — add via UI after import
+- `Tool use` cannot be specified in CSV — add via UI after import
 
 ### Example evals-boundaries.csv
 

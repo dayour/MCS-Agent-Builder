@@ -102,6 +102,7 @@ export interface Workflow {
   decisionsConfirmed: boolean;
   previewGeneratedAt: string | null;
   researchCompletedAt: string | null;
+  evalStubsGeneratedAt: string | null;
 }
 
 // ─── Brief Data Shapes (section payloads) ───────────────────────────
@@ -194,7 +195,7 @@ export type EvalMethodType =
   | "Keyword match"
   | "Text similarity"
   | "Exact match"
-  | "Capability use"
+  | "Tool use"
   | "Plan validation";
 
 export interface EvalMethod {
@@ -248,6 +249,10 @@ export interface EvalTest {
   expectedTools?: string | null;
   /** Plan validation: score threshold for tool matching (default 70). */
   toolThreshold?: number | null;
+  /** Tracks test origin for merge protection during deep research. */
+  source?: "preview-stub" | "user-edited" | "user-added" | "research-generated" | "research-enriched" | null;
+  /** Whether test is ready to run or needs customization. */
+  readiness?: "ready" | "template" | null;
   lastResult: EvalTestResult | null;
 }
 

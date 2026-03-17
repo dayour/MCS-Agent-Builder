@@ -24,7 +24,7 @@ function setUsesKeywordMatch(set: EvalSet): boolean {
   return set.methods.some((m) => m.type === "Keyword match");
 }
 
-const emptyTest: EvalTest = { question: "", expected: "", keywords: null, lastResult: null, methods: null, scenarioId: null, scenarioCategory: null, coverageTag: null };
+const emptyTest: EvalTest = { question: "", expected: "", keywords: null, lastResult: null, methods: null, scenarioId: null, scenarioCategory: null, coverageTag: null, source: "user-added", readiness: "ready" };
 
 /** Coverage tag colors. */
 const coverageTagColors: Record<string, string> = {
@@ -80,7 +80,13 @@ const EvalSetsSection = ({ data, onChange, context }: Props) => {
     const sets = data.sets.map((s) => {
       if (s.name !== editingTest.setName) return s;
       const tests = [...s.tests];
-      tests[editingTest.idx] = draft;
+      const original = tests[editingTest.idx];
+      // Mark preview-stub tests as user-edited when the customer modifies them
+      const updated = { ...draft };
+      if (original?.source === "preview-stub" || original?.source === "research-enriched") {
+        updated.source = "user-edited";
+      }
+      tests[editingTest.idx] = updated;
       return { ...s, tests };
     });
     updateSets(sets);
@@ -344,6 +350,22 @@ const EvalSetsSection = ({ data, onChange, context }: Props) => {
                                   {test.coverageTag && (
                                     <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${coverageTagColors[test.coverageTag] || "bg-muted text-muted-foreground"}`}>
                                       {test.coverageTag}
+                                    </span>
+                                  )}
+                                  {test.source && (
+                                    <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${
+                                      test.source === "user-edited" || test.source === "user-added"
+                                        ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
+                                        : test.source === "preview-stub"
+                                        ? "bg-violet-100 text-violet-700 dark:bg-violet-900 dark:text-violet-300"
+                                        : "bg-muted text-muted-foreground"
+                                    }`}>
+                                      {test.source === "preview-stub" ? "preview" : test.source === "user-edited" ? "edited" : test.source === "user-added" ? "user" : test.source === "research-generated" ? "research" : test.source === "research-enriched" ? "enriched" : test.source}
+                                    </span>
+                                  )}
+                                  {test.readiness === "template" && (
+                                    <span className="text-[9px] px-1.5 py-0.5 rounded-full font-medium bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300">
+                                      needs review
                                     </span>
                                   )}
                                   {test.methods && test.methods.length > 0 && (

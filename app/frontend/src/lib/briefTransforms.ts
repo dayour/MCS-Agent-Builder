@@ -28,6 +28,7 @@ export function briefFromApi(raw: ApiBrief): BriefData {
       decisionsConfirmed: wf.decisionsConfirmed ?? false,
       previewGeneratedAt: wf.previewGeneratedAt ?? null,
       researchCompletedAt: wf.researchCompletedAt ?? null,
+      evalStubsGeneratedAt: wf.evalStubsGeneratedAt ?? null,
     } satisfies Workflow,
     overview: {
       name: agent.name ?? "",
@@ -193,6 +194,7 @@ export function briefToApi(ui: BriefData, raw: ApiBrief): ApiBrief {
     decisionsConfirmed: ui.workflow.decisionsConfirmed,
     previewGeneratedAt: ui.workflow.previewGeneratedAt,
     researchCompletedAt: ui.workflow.researchCompletedAt,
+    evalStubsGeneratedAt: ui.workflow.evalStubsGeneratedAt,
   };
 
   // Business — merge overview fields back, preserve raw fields the UI doesn't show
@@ -419,6 +421,7 @@ const DEFAULT_EVAL_SETS: EvalSet[] = [
     name: "boundaries",
     description: "Tests that the agent stays in scope. Checks that it declines off-topic requests, refuses harmful actions, protects personal data, resists manipulation, and adds required disclaimers. Every test must pass before the agent can go live.",
     methods: [
+      { type: "General quality" },
       { type: "Keyword match", mode: "all" },
     ],
     passThreshold: 100,
@@ -429,6 +432,7 @@ const DEFAULT_EVAL_SETS: EvalSet[] = [
     name: "quality",
     description: "Tests that the agent gives correct, helpful answers. Covers each capability, knowledge accuracy, topic routing, and tool usage. Checks that responses are factual, sourced from real data, and free of made-up information.",
     methods: [
+      { type: "General quality" },
       { type: "Compare meaning", score: 70 },
       { type: "Keyword match", mode: "any" },
     ],
@@ -502,6 +506,8 @@ function evalSetsFromApi(raw: ApiBrief): { sets: EvalSet[]; config: EvalConfig }
             turns: t.turns ?? null,
             expectedTools: t.expectedTools ?? null,
             toolThreshold: t.toolThreshold ?? null,
+            source: (t.source as any) ?? null,
+            readiness: (t.readiness as any) ?? null,
             lastResult: t.lastResult ?? null,
           })),
         };
@@ -596,6 +602,8 @@ function evalSetsToApi(ui: { sets: EvalSet[]; config: EvalConfig }) {
       ...(t.turns ? { turns: t.turns } : {}),
       ...(t.expectedTools ? { expectedTools: t.expectedTools } : {}),
       ...(t.toolThreshold != null ? { toolThreshold: t.toolThreshold } : {}),
+      ...(t.source ? { source: t.source } : {}),
+      ...(t.readiness ? { readiness: t.readiness } : {}),
       lastResult: t.lastResult,
     })),
   }));

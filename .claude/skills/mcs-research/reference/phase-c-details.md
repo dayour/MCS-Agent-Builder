@@ -241,10 +241,27 @@ PE follows the universal instruction template and model-aware rules:
 
 ### QA Challenger -- generate eval sets (3 default + custom)
 
-- Input: full brief.json (capabilities, boundaries, integrations), eval-scenarios library, topic-triggers + eval-testing learnings
+- Input: full brief.json (capabilities, boundaries, integrations, **pre-existing evalSets from preview stubs**), eval-scenarios library, topic-triggers + eval-testing learnings
 - Output: 3 eval sets (boundaries/quality/edge-cases) with 40-55 tests, coverage report
 - Does not review instructions (Lead handles that inline in Step 3)
 - Does not classify topics (Lead already did in Step 1.5)
+
+#### Pre-Existing Eval Stubs (from Fast Preview)
+
+When `evalSets` already contain tests from the fast preview, QA must respect the customer's confirmed golden sets:
+
+| Test Source | Action During Deep Research |
+|---|---|
+| `"user-edited"` | **Immutable.** Never modify. Customer explicitly edited this test. |
+| `"user-added"` | **Immutable.** Customer added this test manually. |
+| `"preview-stub"` (unmodified) | **Enrichable.** May upgrade `expected` with research-specific detail. Set `source: "research-enriched"`. |
+| (new test) | **Append.** Set `source: "research-generated"`. |
+
+**Merge rules:**
+- Dedup by intent: >70% keyword overlap between a new test and an existing test = same test. Keep existing, discard new.
+- Cap at 40-55 total tests (including stubs).
+- Never delete customer tests (`user-edited`, `user-added`).
+- When no stubs exist (legacy briefs or first run without `--fast`), generate all tests from scratch (backward compatible — current behavior).
 
 **Eval set generation -- scenario-driven:** QA reads `knowledge/frameworks/eval-scenarios/index.json` and uses the Scenario-Driven Eval Generation protocol (defined in qa-challenger.md).
 
@@ -263,8 +280,8 @@ Each test MUST use the EvalTest schema from `templates/brief.json` (lines 239-25
 **Field names are strict:** `question` (NOT `input`), `expected` (NOT `expectedOutput`), `methods` (array, NOT `method` object), `scenarioId` (NOT `scenario`), `lastResult: null` (REQUIRED). Wrong field names cause the dashboard to display empty strings.
 
 Methods are preset per set (defaults from schema), with per-test overrides where scenarios recommend different methods:
-- Boundaries: `Keyword match (all)`
-- Quality: `Compare meaning (70)` + `Keyword match (any)`
+- Boundaries: `General quality` + `Keyword match (all)`
+- Quality: `General quality` + `Compare meaning (70)` + `Keyword match (any)`
 - Edge-cases: `General quality` + `Compare meaning (60)`
 
 After eval generation, QA reports coverage distribution (core-business/variations/architecture/edge-cases percentages) and flags gaps against the scenario library's recommended categories.
@@ -339,7 +356,7 @@ Generation rules:
 - One CSV per eval set (each uploads as a separate MCS test set)
 - `Testing method` = first method from the test's resolved methods (display name: "Compare meaning", "Keyword match", etc.)
 - Max 100 questions per CSV (MCS limit). If a set has > 100 tests, split into multiple CSVs.
-- `Capability use` cannot be specified in CSV -- add via MCS UI after import
+- `Tool use` cannot be specified in CSV -- add via MCS UI after import
 
 **3e. Write to brief.json:**
 

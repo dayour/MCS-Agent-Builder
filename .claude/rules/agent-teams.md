@@ -46,7 +46,7 @@ GPT runs in parallel with every Claude generation and review at zero added laten
 | Research Step 3.5 | `review-brief` + `review-instructions` + `review-components` + `review-flow` (if hybrid) |
 | Build Step 4 | TE: `generate-topics` for complex topics (3+ nodes, co-gen) |
 | Build Step 5.6 | `review-brief` + `review-instructions` + per-topic `review-topics` |
-| Eval | Dual scoring on 4 semantic methods (CompareMeaning, GeneralQuality, TextSimilarity, CapabilityUse) |
+| Eval | Dual scoring on 4 semantic methods (CompareMeaning, GeneralQuality, TextSimilarity, ToolUse) |
 | Fix | PE: `generate-instructions` (co-gen for fix proposals), TE: `generate-topics` (co-gen for topic fixes) |
 
 **During general development (Tier 2-3 checks):**

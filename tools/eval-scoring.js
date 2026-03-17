@@ -20,7 +20,7 @@
  *   semanticSimilarityAsync(actual, expected)
  *   qualityScoreAsync(actual, expected)
  *   textSimilarityAsync(actual, expected)
- *   capabilityUseAsync(actual, expected)
+ *   toolUseAsync(actual, expected)
  *   evaluateResultAsync(actual, expected, method, passingScore, mode)
  *   evaluateAllMethodsAsync(actual, expected, methods, toolInvocations?)
  */
@@ -39,14 +39,17 @@ const METHOD_ALIASES = {
     'keyword match (any)': 'KeywordMatch',  // mode inferred as "any"
     'text similarity': 'TextSimilarity',
     'exact match': 'ExactMatch',
-    'capability use': 'CapabilityUse',
+    'tool use': 'ToolUse',
     // PascalCase passthrough
     'generalquality': 'GeneralQuality',
     'comparemeaning': 'CompareMeaning',
     'keywordmatch': 'KeywordMatch',
     'textsimilarity': 'TextSimilarity',
     'exactmatch': 'ExactMatch',
-    'capabilityuse': 'CapabilityUse',
+    'tooluse': 'ToolUse',
+    // Backward compat aliases (old name → new canonical)
+    'capability use': 'ToolUse',
+    'capabilityuse': 'ToolUse',
     // Legacy / incorrect names → mapped
     'partialmatch': 'KeywordMatch',  // PartialMatch doesn't exist in MCS
     // Plan validation (7th method — tool invocation verification)
@@ -208,7 +211,7 @@ function evaluateResult(actual, expected, method, passingScore, mode, keywords) 
             return { pass: score >= 50, score, method: canonicalMethod };
         }
 
-        case 'CapabilityUse': {
+        case 'ToolUse': {
             // Expected format: comma-separated indicators that should be present
             const indicators = expected.toLowerCase().split(/[,;]+/).map(s => s.trim()).filter(Boolean);
             const actualLower = actual.toLowerCase();
@@ -634,13 +637,13 @@ async function textSimilarityAsync(actual, expected) {
 }
 
 /**
- * GPT-enhanced capability use check. Runs heuristic + GPT in parallel, merges with stricter-wins.
+ * GPT-enhanced tool use check. Runs heuristic + GPT in parallel, merges with stricter-wins.
  * @param {string} actual - The agent's actual response
  * @param {string} expected - Comma-separated indicators/tools that should be present
  * @returns {Promise<{score: number, reasoning?: string, source: string, heuristicScore?: number, gptScore?: number, flagged?: boolean}>}
  */
-async function capabilityUseAsync(actual, expected) {
-    // Heuristic: same as sync CapabilityUse
+async function toolUseAsync(actual, expected) {
+    // Heuristic: same as sync ToolUse
     const indicators = expected.toLowerCase().split(/[,;]+/).map(s => s.trim()).filter(Boolean);
     const actualLower = actual.toLowerCase();
     const hits = indicators.filter(ind => actualLower.includes(ind)).length;
@@ -654,8 +657,8 @@ async function capabilityUseAsync(actual, expected) {
     }
     try {
         const result = await openai.chatCompletion([
-            { role: 'system', content: 'Evaluate whether the agent response demonstrates use of the expected capabilities/tools. The expected field lists indicators (tool names, action descriptions, or output markers) that should be evident in the response. Score 0-100 based on how many expected capabilities are demonstrated. Output JSON: {"score": 0-100, "reasoning": "brief explanation"}' },
-            { role: 'user', content: `Agent response: ${actual}\n\nExpected capabilities/indicators: ${expected}` }
+            { role: 'system', content: 'Evaluate whether the agent response demonstrates use of the expected tools/topics. The expected field lists indicators (tool names, action descriptions, or output markers) that should be evident in the response. Score 0-100 based on how many expected tools are demonstrated. Output JSON: {"score": 0-100, "reasoning": "brief explanation"}' },
+            { role: 'user', content: `Agent response: ${actual}\n\nExpected tools/indicators: ${expected}` }
         ], { maxTokens: 256 });
         const parsed = _parseGptJson(result.content);
         return _mergeScores(hScore, parsed.score, parsed.reasoning);
@@ -666,7 +669,7 @@ async function capabilityUseAsync(actual, expected) {
 
 /**
  * Async version of evaluateResult — uses GPT for CompareMeaning, GeneralQuality,
- * TextSimilarity, and CapabilityUse. All other methods use sync (deterministic).
+ * TextSimilarity, and ToolUse. All other methods use sync (deterministic).
  *
  * @param {string} actual
  * @param {string} expected
@@ -717,9 +720,9 @@ async function evaluateResultAsync(actual, expected, method, passingScore, mode,
         };
     }
 
-    // CapabilityUse — GPT-enhanced capability detection
-    if (canonicalMethod === 'CapabilityUse') {
-        const result = await capabilityUseAsync(actual || '', expected || '');
+    // ToolUse — GPT-enhanced tool use detection
+    if (canonicalMethod === 'ToolUse') {
+        const result = await toolUseAsync(actual || '', expected || '');
         return {
             pass: result.score >= threshold,
             score: result.score,
@@ -776,7 +779,7 @@ module.exports = {
     semanticSimilarityAsync,
     qualityScoreAsync,
     textSimilarityAsync,
-    capabilityUseAsync,
+    toolUseAsync,
     evaluateResultAsync,
     evaluateAllMethodsAsync
 };

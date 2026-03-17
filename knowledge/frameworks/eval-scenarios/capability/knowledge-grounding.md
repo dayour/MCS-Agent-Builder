@@ -25,7 +25,7 @@ Use this scenario when:
 |--------|---------|
 | Keyword Match (All) | Verify the response includes specific terms, phrases, or data points that only exist in the correct source |
 | Compare Meaning | Confirm the answer's meaning aligns with the content of the correct source document |
-| Capability Use (All) | Verify the agent invokes the correct knowledge source or data connector |
+| Tool Use (All) | Verify the agent invokes the correct knowledge source or data connector |
 
 > **Tip:** The strongest test for correct source retrieval uses **source-unique markers** — facts, terms, or values that appear in only one source. If the answer includes a data point only found in Document A, you know it retrieved from Document A.
 
@@ -64,7 +64,7 @@ If your agent has rules about which source takes precedence (e.g., "always prefe
 | 1 | Source-unique marker: policy document | "What is the approval threshold for travel expenses?" | Response includes "$2,500" (a value that only appears in the Travel Policy document, not in the general FAQ) | Keyword Match (All) + Compare Meaning |
 | 2 | Source-unique marker: product docs | "What file formats does the export feature support?" | Response includes "CSV, JSON, XML, and Parquet" (the full list only appears in the technical documentation) | Keyword Match (All) + Compare Meaning |
 | 3 | Source attribution check | "Where can I find the company holiday schedule?" | Response meaning aligns with content from the HR SharePoint site and attributes the information to that source | Compare Meaning + Keyword Match (Any) |
-| 4 | Cross-source interference | "How do I reset my password?" | Agent retrieves from the IT Self-Service knowledge base — not the developer documentation that also mentions password resets in a different context | Capability Use (All) + Compare Meaning |
+| 4 | Cross-source interference | "How do I reset my password?" | Agent retrieves from the IT Self-Service knowledge base — not the developer documentation that also mentions password resets in a different context | Tool Use (All) + Compare Meaning |
 | 5 | Source priority: newer vs. older | "What are the current office hours?" | Response includes "8:00 AM to 6:00 PM" (from the updated 2025 policy, not "9:00 AM to 5:00 PM" from the older version) | Keyword Match (All) + Compare Meaning |
 | 6 | Multiple sources needed, primary verified | "What is our return policy for international orders?" | Response meaning aligns with the international shipping policy document — not the domestic return policy | Compare Meaning + Keyword Match (Any) |
 

@@ -9,10 +9,10 @@ function csvEscape(value: string): string {
   return value;
 }
 
-/** Pick the first CSV-eligible method (skips "Capability use"). */
+/** Pick the first CSV-eligible method (skips "Tool use"). */
 function pickCsvMethod(testMethods: EvalMethod[] | null | undefined, setMethods: EvalMethod[]): string {
   const methods = testMethods?.length ? testMethods : setMethods;
-  const eligible = methods.find((m) => m.type !== "Capability use");
+  const eligible = methods.find((m) => m.type !== "Tool use");
   return eligible?.type ?? setMethods[0]?.type ?? "General quality";
 }
 

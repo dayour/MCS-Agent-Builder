@@ -25,6 +25,15 @@ ID format: et-NNN (eval-testing)
 **Related cache:** security-auth.md, eval-methods.md, channels.md
 **Tags:** #direct-line #sso #mcp #authentication #playwright #eval
 
+### Preview eval stubs give customers early acceptance criteria {#et-003} — 2026-03-17
+**Context:** Eval-driven build — generating eval stubs during fast preview so customers see acceptance criteria before deep research
+**Tried:** Previously generated evals only after deep research (Phase C) — customer never saw or reviewed them before build
+**Result:** Testing was manual chat back-and-forth. No customer-confirmed acceptance criteria until after build.
+**Better approach:** Generate ~15-25 eval stubs deterministically during fast preview from capabilities + boundaries data. Show in dashboard for customer review/editing. Customer-edited stubs are immutable during deep research (`source: "user-edited"`). Preview stubs can be enriched with research detail (`source: "research-enriched"`). This gives ~60-70% of final test suite before deep research even starts.
+**Confirmed:** 0 build(s) | Last confirmed: 2026-03-17
+**Related cache:** eval-methods.md
+**Tags:** #eval-stubs #preview #golden-sets #customer-review #eval-driven-build
+
 ### Direct Line httpRequest needs Content-Length header {#et-002} — 2026-02-21
 **Context:** Daily Briefing agent — direct-line-test.js runner sending messages
 **Tried:** Node.js http.request with req.write(body) — uses chunked transfer encoding by default

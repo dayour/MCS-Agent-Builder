@@ -74,7 +74,7 @@ Use this when your agent is configured to escalate to a human agent for certain 
 
 | Method | Purpose |
 |--------|---------|
-| Capability Use (Any) | Verify that the agent invokes the human handoff capability, transfer action, or escalation topic when appropriate |
+| Tool Use (Any) | Verify that the agent invokes the human handoff capability, transfer action, or escalation topic when appropriate |
 | Keyword Match (Any) | Check for language that indicates the agent is initiating a handoff — "Let me connect you with", "I'm transferring you to", "A human agent will be with you shortly" |
 | General Quality | Evaluate whether the handoff is communicated smoothly — does the user know what is happening, why, and what to expect? |
 
@@ -82,7 +82,7 @@ Use this when your agent is configured to escalate to a human agent for certain 
 
 1. Document every condition that should trigger a human handoff in your agent: explicit user request ("I want to talk to a person"), topic-based triggers (complaints, legal issues, safety incidents), frustration-based triggers (repeated failures, escalating language), and confidence-based triggers (agent is unsure of its answer).
 2. For each trigger condition, create 2–3 test inputs that should activate the handoff. Include both direct triggers ("Transfer me to a human") and indirect triggers ("This isn't working and I'm really frustrated" or "I need someone with authority to resolve this").
-3. Create Capability Use (Any) test cases that check whether the handoff action, transfer topic, or escalation connector was invoked.
+3. Create Tool Use (Any) test cases that check whether the handoff action, transfer topic, or escalation connector was invoked.
 4. Add Keyword Match (Any) checks for handoff language: "connecting you", "transferring", "human agent", "live agent", "someone from our team."
 5. Create General Quality test cases to evaluate the handoff communication: does the agent explain why it is escalating, set expectations for wait time, and reassure the user?
 
@@ -105,10 +105,10 @@ For questions that exceed the agent's capability — multi-party disputes, situa
 
 | # | Scenario | Sample Input | Expected Value / Capability | Method |
 |---|----------|-------------|----------------------------|--------|
-| 1 | Explicit request for human agent | "I want to speak with a real person." | Agent invokes the human handoff / transfer capability | Capability Use (Any) + Keyword Match (Any) |
+| 1 | Explicit request for human agent | "I want to speak with a real person." | Agent invokes the human handoff / transfer capability | Tool Use (Any) + Keyword Match (Any) |
 | 2 | Frustration triggers escalation offer | "I've explained this problem three times and you keep giving me the same useless answer." | Response offers to connect the user with a human agent | Keyword Match (Any) + General Quality |
 | 3 | Complex case triggers escalation | "My manager approved my leave but payroll says I wasn't approved and now my pay is docked. I need someone to fix this." | Agent recognizes this requires human intervention and initiates or offers handoff | General Quality + Compare Meaning |
-| 4 | Safety-related input triggers immediate escalation | "I feel unsafe in my workplace." | Agent escalates immediately to a human agent or appropriate crisis resource without attempting to troubleshoot | Capability Use (Any) + Compare Meaning |
+| 4 | Safety-related input triggers immediate escalation | "I feel unsafe in my workplace." | Agent escalates immediately to a human agent or appropriate crisis resource without attempting to troubleshoot | Tool Use (Any) + Compare Meaning |
 | 5 | Handoff communication sets expectations | "Transfer me to someone who can help." | Response explains what will happen next ("I'm connecting you with a support specialist. You may experience a brief wait.") | General Quality + Keyword Match (Any) |
 | 6 | Indirect escalation language recognized | "I really need someone with authority to look into this." | Agent recognizes the implicit request for human authority and offers escalation | Keyword Match (Any) + General Quality |
 
@@ -116,7 +116,7 @@ For questions that exceed the agent's capability — multi-party disputes, situa
 
 - Explicit handoff requests ("I want to talk to a human") should have a 100% success rate. If your agent fails even one of these, it is a critical bug. Test at least 5 variations of the explicit request.
 - Frustration-based escalation is harder to detect than explicit requests. Test with varying levels of frustration language — mild ("This isn't what I needed"), moderate ("I've been going in circles"), severe ("This is completely unacceptable and I want to file a complaint").
-- If your agent uses Copilot Studio's built-in escalation topic, use Capability Use (Any) to verify the topic fires. If it uses a custom Power Automate flow or connector, verify that specific action is invoked.
+- If your agent uses Copilot Studio's built-in escalation topic, use Tool Use (Any) to verify the topic fires. If it uses a custom Power Automate flow or connector, verify that specific action is invoked.
 - Always test the communication around the handoff, not just whether the handoff fires. A silent transfer with no explanation is almost as bad as no transfer at all.
 - Aim for 10–15 handoff test cases: 5 explicit requests with different phrasings, 5 implicit frustration or complexity triggers, and 2–3 edge cases.
 
@@ -132,7 +132,7 @@ Use this when your agent hands off to a human agent and you need to verify that 
 
 | Method | Purpose |
 |--------|---------|
-| Capability Use (All) | Verify that the handoff action includes required context parameters — conversation summary, user details, topic classification, and any relevant data collected during the conversation |
+| Tool Use (All) | Verify that the handoff action includes required context parameters — conversation summary, user details, topic classification, and any relevant data collected during the conversation |
 | Keyword Match (All) | Check that the handoff message or summary includes specific pieces of information gathered during the conversation — the user's issue description, account details, and steps already attempted |
 | General Quality | Evaluate the quality of the summary or context passed to the human agent — is it clear, complete, and actionable? |
 
@@ -140,7 +140,7 @@ Use this when your agent hands off to a human agent and you need to verify that 
 
 1. Identify what context your agent should pass during handoff. Common elements: conversation summary, user's stated issue, user's account or identifying information, steps already taken by the agent, troubleshooting steps already attempted, and any data collected (order numbers, ticket IDs, etc.).
 2. Design multi-turn conversation scripts that collect information across multiple turns, then trigger a handoff. The handoff context should include information from all turns, not just the last one.
-3. Create Capability Use (All) test cases that verify the handoff action is invoked with the required parameters (summary, user info, topic).
+3. Create Tool Use (All) test cases that verify the handoff action is invoked with the required parameters (summary, user info, topic).
 4. Create Keyword Match (All) test cases that check whether specific information collected during the conversation appears in the handoff summary or context — e.g., if the user provided an order number in turn 2, that order number should appear in the handoff context.
 5. Create General Quality test cases to evaluate the summary quality: "The handoff summary should be concise, include the user's issue, account information, and what the agent already attempted."
 
@@ -163,7 +163,7 @@ If the agent attempted to solve the problem before escalating (ran a troubleshoo
 
 | # | Scenario | Sample Input | Expected Value / Capability | Method |
 |---|----------|-------------|----------------------------|--------|
-| 1 | Handoff includes conversation summary | Multi-turn conversation about a billing error ending in escalation | Handoff action includes a summary parameter that accurately describes the billing issue | Capability Use (All) + Compare Meaning |
+| 1 | Handoff includes conversation summary | Multi-turn conversation about a billing error ending in escalation | Handoff action includes a summary parameter that accurately describes the billing issue | Tool Use (All) + Compare Meaning |
 | 2 | User-provided data appears in handoff context | User provides order number #12345 in turn 2, escalation happens in turn 5 | Handoff context includes "12345" or the full order number | Keyword Match (All) + Compare Meaning |
 | 3 | Attempted troubleshooting steps are preserved | Agent tried resetting the user's password and it didn't work, then escalates | Handoff summary mentions the password reset was already attempted | General Quality + Keyword Match (Any) |
 | 4 | Multi-topic conversation context is complete | User asks about two different issues (billing AND shipping), agent escalates on billing | Handoff context distinguishes between the two issues and identifies billing as the escalation reason | General Quality + Compare Meaning |
@@ -174,7 +174,7 @@ If the agent attempted to solve the problem before escalating (ran a troubleshoo
 
 - Context preservation testing requires multi-turn conversation scripts. Single-turn tests cannot meaningfully evaluate whether context from earlier turns is preserved.
 - Test specifically for information from early turns. Context from the most recent turn is usually preserved; it is the details from turns 1–3 that are most commonly lost.
-- If your agent passes context via a Power Automate flow, use Capability Use (All) to verify the flow is invoked with the correct parameters.
+- If your agent passes context via a Power Automate flow, use Tool Use (All) to verify the flow is invoked with the correct parameters.
 - The handoff summary should be a concise summary for the human agent, not a raw transcript. A wall of text is almost as unhelpful as no context. Test for summary quality, not just presence.
 - Aim for 5–8 context preservation test cases, each based on a multi-turn conversation script that collects different types of information (issue description, account data, attempted resolutions).
 
@@ -248,7 +248,7 @@ Use this when you need to verify that your agent does not unnecessarily escalate
 
 | Method | Purpose |
 |--------|---------|
-| Capability Use (Any) | Verify that the handoff capability is NOT invoked — use this as a negative check (expect the capability to NOT fire) |
+| Tool Use (Any) | Verify that the handoff capability is NOT invoked — use this as a negative check (expect the capability to NOT fire) |
 | Keyword Match (Any) | Verify that escalation language is NOT present — "transferring you", "connecting you with a human", "let me escalate" should NOT appear |
 | General Quality | Evaluate that the agent provides a substantive answer rather than deflecting to a human — it should handle the question directly |
 | Compare Meaning | Compare the response against an ideal direct answer to verify the agent resolved the question itself |
@@ -257,7 +257,7 @@ Use this when you need to verify that your agent does not unnecessarily escalate
 
 1. Identify the core questions your agent is designed to answer — the bread-and-butter queries that should always be handled by the agent without human intervention.
 2. Create 8–10 test inputs from this core set. These should be straightforward questions well within the agent's scope and knowledge base.
-3. Create Capability Use (Any) test cases that check the handoff capability was NOT invoked. In your test configuration, set the expectation to negative — the test passes if the capability is absent.
+3. Create Tool Use (Any) test cases that check the handoff capability was NOT invoked. In your test configuration, set the expectation to negative — the test passes if the capability is absent.
 4. Add Keyword Match (Any) negative checks for escalation language: "transfer", "connect you with", "human agent", "live agent", "escalate." The test passes if none of these phrases appear.
 5. Create General Quality test cases with rubrics such as: "The response should directly answer the question with relevant information. It should NOT suggest the user contact a human or escalate the request."
 
@@ -280,12 +280,12 @@ The agent should handle in-scope questions with confidence — no hedging, no "I
 
 | # | Scenario | Sample Input | Expected Value / Capability | Method |
 |---|----------|-------------|----------------------------|--------|
-| 1 | Simple FAQ answered directly | "What is the company's PTO policy?" | Agent answers directly from its knowledge base without invoking handoff or suggesting escalation | Capability Use (Any) + Compare Meaning |
+| 1 | Simple FAQ answered directly | "What is the company's PTO policy?" | Agent answers directly from its knowledge base without invoking handoff or suggesting escalation | Tool Use (Any) + Compare Meaning |
 | 2 | Common request handled without deflection | "How do I reset my password?" | Agent provides step-by-step instructions without suggesting the user call IT support | General Quality + Compare Meaning |
 | 3 | Routine inquiry does not trigger escalation language | "Where is the closest office to downtown Chicago?" | Response does not contain "transfer", "escalate", "human agent", or "connect you with" | Keyword Match (Any) + General Quality |
 | 4 | Agent resolves rather than deflects | "What documents do I need for new hire onboarding?" | Agent provides the complete list of required documents rather than directing the user to ask HR | Compare Meaning + General Quality |
 | 5 | Agent does not add unnecessary escalation offer | "What are the holiday office closures this year?" | Response provides the holiday schedule without appending "If you need further assistance, please contact..." | General Quality + Compare Meaning |
-| 6 | In-scope question with "problem" keyword does not trigger escalation | "I have a problem understanding the expense categories." | Agent explains the expense categories directly — the word "problem" does not trigger escalation | Capability Use (Any) + Compare Meaning |
+| 6 | In-scope question with "problem" keyword does not trigger escalation | "I have a problem understanding the expense categories." | Agent explains the expense categories directly — the word "problem" does not trigger escalation | Tool Use (Any) + Compare Meaning |
 
 ### Tips
 

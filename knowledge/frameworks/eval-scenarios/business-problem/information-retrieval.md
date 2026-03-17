@@ -160,17 +160,17 @@ This scenario also applies when your agent uses multiple knowledge sources and y
 
 | Method | Purpose |
 |--------|---------|
-| Capability Use (All) | Confirms that the agent consulted the expected knowledge source(s) to generate its answer |
+| Tool Use (All) | Confirms that the agent consulted the expected knowledge source(s) to generate its answer |
 | Keyword Match (All) | Verifies that the response includes the expected source name, document title, or citation |
 | Compare Meaning | Validates that the answer content actually aligns with what the cited source says |
 
-> **Tip:** A response can be factually correct but attributed to the wrong source. Use Capability Use to check which source was actually retrieved, and Keyword Match to verify the citation text in the response. These catch different failure modes.
+> **Tip:** A response can be factually correct but attributed to the wrong source. Use Tool Use to check which source was actually retrieved, and Keyword Match to verify the citation text in the response. These catch different failure modes.
 
 ### Setup Steps
 
 1. Map your agent's knowledge sources: list each source (SharePoint site, PDF, FAQ database) and the topics it covers.
 2. For each knowledge source, write 2-3 test cases with questions that should be answered from that specific source.
-3. Configure **Capability Use (All)** tests that check whether the expected knowledge source was consulted. Use the knowledge source name or identifier as it appears in your agent's configuration.
+3. Configure **Tool Use (All)** tests that check whether the expected knowledge source was consulted. Use the knowledge source name or identifier as it appears in your agent's configuration.
 4. If your agent surfaces citations in its response, add **Keyword Match (All)** tests that check for the correct source name or document title.
 5. Add 1-2 **Compare Meaning** tests to verify that the cited source actually supports the claim in the response — catching cases where the agent cites a source but the content comes from elsewhere.
 6. Run the evaluation. For failures, investigate: did the agent use the wrong source, use the right source but cite incorrectly, or fabricate a citation?
@@ -183,7 +183,7 @@ This scenario also applies when your agent uses multiple knowledge sources and y
 ### Evaluation Patterns
 
 **Pattern: Correct Source Retrieval**
-Verify that the agent retrieves from the expected knowledge source for a given topic. Use Capability Use (All) to check that the right source was consulted. This catches cases where the answer happens to be correct but came from the wrong document.
+Verify that the agent retrieves from the expected knowledge source for a given topic. Use Tool Use (All) to check that the right source was consulted. This catches cases where the answer happens to be correct but came from the wrong document.
 
 **Pattern: Citation Accuracy in Response**
 Verify that any source reference in the agent's response text (document name, link, page title) is correct and matches the source that was actually retrieved. Use Keyword Match (All) to check for the expected citation text.
@@ -198,20 +198,20 @@ For questions that require information from multiple sources, verify that all re
 
 | # | Scenario | Sample Input | Expected Value / Capability | Method |
 |---|----------|-------------|---------------------------|--------|
-| 1 | HR policy bot — source retrieval | "What is the bereavement leave policy?" | Knowledge source: HR-Policies-2025.pdf | Capability Use (All) + Keyword Match (All) |
+| 1 | HR policy bot — source retrieval | "What is the bereavement leave policy?" | Knowledge source: HR-Policies-2025.pdf | Tool Use (All) + Keyword Match (All) |
 | 2 | HR policy bot — citation text | "What is the bereavement leave policy?" | "HR-Policies-2025", "Bereavement Leave", "Section 4.3" | Keyword Match (All) + Compare Meaning |
-| 3 | Product FAQ bot — correct source | "How do I reset my device to factory settings?" | Knowledge source: Product-Support-KB (not Marketing-Brochures) | Capability Use (All) + Keyword Match (All) |
+| 3 | Product FAQ bot — correct source | "How do I reset my device to factory settings?" | Knowledge source: Product-Support-KB (not Marketing-Brochures) | Tool Use (All) + Keyword Match (All) |
 | 4 | Product FAQ bot — citation in response | "How do I reset my device to factory settings?" | "Support Article KB-4521" or "Factory Reset Guide" | Keyword Match (All) + Compare Meaning |
-| 5 | Legal/compliance bot — regulatory source | "What are our GDPR data subject rights obligations?" | Knowledge source: GDPR-Compliance-Handbook-2025.pdf | Capability Use (All) + Keyword Match (All) |
+| 5 | Legal/compliance bot — regulatory source | "What are our GDPR data subject rights obligations?" | Knowledge source: GDPR-Compliance-Handbook-2025.pdf | Tool Use (All) + Keyword Match (All) |
 | 6 | Legal/compliance bot — content alignment | "What are our GDPR data subject rights obligations?" | The response content should align with the cited GDPR handbook, describing the right to access, rectification, erasure, and portability as specified in that document | Compare Meaning + Keyword Match (Any) |
-| 7 | HR policy bot — multi-source question | "How does parental leave interact with short-term disability?" | Knowledge sources: HR-Policies-2025.pdf AND Benefits-Guide-2025.pdf | Capability Use (All) + Compare Meaning |
-| 8 | Product FAQ bot — wrong source negative test | "What are the technical specifications of Model X?" | Knowledge source should be Product-Specs-Sheet, NOT customer-reviews or marketing-copy | Capability Use (All) + Compare Meaning |
+| 7 | HR policy bot — multi-source question | "How does parental leave interact with short-term disability?" | Knowledge sources: HR-Policies-2025.pdf AND Benefits-Guide-2025.pdf | Tool Use (All) + Compare Meaning |
+| 8 | Product FAQ bot — wrong source negative test | "What are the technical specifications of Model X?" | Knowledge source should be Product-Specs-Sheet, NOT customer-reviews or marketing-copy | Tool Use (All) + Compare Meaning |
 
 ### Tips
 
 - Map every knowledge source to its covered topics **before** writing test cases. This mapping is your ground truth for source attribution tests.
 - Aim for **2-3 attribution tests per knowledge source** to ensure each source is correctly retrieved for its intended topics.
-- Set a threshold of **>= 95% pass rate** for Capability Use tests. Source attribution failures are high-severity — they undermine trust even when the answer happens to be correct.
+- Set a threshold of **>= 95% pass rate** for Tool Use tests. Source attribution failures are high-severity — they undermine trust even when the answer happens to be correct.
 - Test **cross-source questions** (questions that touch two knowledge sources) separately from single-source questions. These are more likely to have attribution errors.
 - Re-run attribution tests whenever you add, remove, or rename knowledge sources, or when you change the agent's knowledge source descriptions.
 
@@ -233,7 +233,7 @@ This scenario applies when you have recently updated a knowledge source and want
 |--------|---------|
 | Keyword Match (All) | Confirms that the response contains terms, figures, or dates from the current version of the policy or document — not the previous version |
 | Compare Meaning | Validates that the answer reflects the current policy intent, especially when the update changed the meaning rather than just specific figures |
-| Capability Use (All) | Verifies that the agent retrieved from the current version of the knowledge source rather than a cached or outdated copy |
+| Tool Use (All) | Verifies that the agent retrieved from the current version of the knowledge source rather than a cached or outdated copy |
 
 > **Tip:** Currency tests are most valuable right after a knowledge source update. Create a "currency smoke test" — a small set of 3-5 test cases targeting recently changed content — and run it every time you update a source.
 
@@ -244,7 +244,7 @@ This scenario applies when you have recently updated a knowledge source and want
 3. Write test cases where the **question is unchanged** but the **expected answer reflects the new content**. This is key: the question the user asks does not change when a policy updates.
 4. Use **Keyword Match (All)** with terms or figures from the new version. If the old version had "10 days" and the new version has "15 days," the expected value should include "15 days."
 5. Add a **Compare Meaning** test for changes that altered the overall guidance (e.g., a policy that shifted from "manager discretion" to "automatic approval").
-6. If your agent has multiple knowledge source versions, use **Capability Use (All)** to confirm retrieval from the current version.
+6. If your agent has multiple knowledge source versions, use **Tool Use (All)** to confirm retrieval from the current version.
 7. Run the evaluation. For failures, investigate: is the agent retrieving a cached version, an old document, or generating from stale training data?
 
 ### Anti-Pattern
@@ -284,7 +284,7 @@ Test scenarios where old and new policies overlap during a transition period. Th
 - Maintain a **currency test set** of 5-10 test cases targeting your most recently changed content. Update this set every time a knowledge source changes.
 - Run currency tests **within 24 hours** of updating a knowledge source to catch stale retrieval issues early.
 - Set a threshold of **100% pass rate** for currency tests. There is no acceptable tolerance for returning outdated policy information — especially for compliance and legal content.
-- Track **which knowledge source version** the agent retrieves from. If your platform supports version identifiers, use Capability Use to verify the current version is being consulted.
+- Track **which knowledge source version** the agent retrieves from. If your platform supports version identifiers, use Tool Use to verify the current version is being consulted.
 - Document a process for updating test cases when sources change. If test case maintenance is not part of the content update workflow, test cases will become stale and give false confidence.
 
 ---
@@ -374,7 +374,7 @@ This scenario is critical when your agent has knowledge sources that cover simil
 
 | Method | Purpose |
 |--------|---------|
-| Capability Use (All) | Confirms that the agent retrieved from the expected source AND did not retrieve from a specifically wrong source (use as a negative check) |
+| Tool Use (All) | Confirms that the agent retrieved from the expected source AND did not retrieve from a specifically wrong source (use as a negative check) |
 | Keyword Match (All) | Verifies that the response does not contain terms, figures, or references that belong to the wrong source — use keywords from the wrong source as a negative expected value |
 | General Quality | Assesses whether the response stays scoped to the correct domain and does not include information that clearly comes from an incorrect source |
 
@@ -384,7 +384,7 @@ This scenario is critical when your agent has knowledge sources that cover simil
 
 1. Identify **high-risk knowledge source pairs** — sources that cover similar topics but serve different audiences or contexts. Examples: US benefits vs. UK benefits, employee handbook vs. contractor guide, current product line vs. discontinued products.
 2. For each high-risk pair, write test cases where the question should be answered from Source A, and verify the agent does not pull from Source B.
-3. Use **Capability Use (All)** to check that the correct source was consulted. If your evaluation platform supports it, also verify that the incorrect source was NOT consulted.
+3. Use **Tool Use (All)** to check that the correct source was consulted. If your evaluation platform supports it, also verify that the incorrect source was NOT consulted.
 4. Use **Keyword Match (All)** as a negative check: include keywords or terms that are unique to the wrong source. If those terms appear in the response, the test should flag it. (Note: configure this as a negative match if your platform supports it, or use General Quality with a prompt like "Does this response contain any UK-specific policy information?")
 5. Use **General Quality** with a grading prompt focused on scope: "Is this response correctly scoped to [correct context]? Does it include any information from [incorrect context]?"
 6. Run the evaluation. For failures, investigate: what caused the cross-contamination? Is it a retrieval ranking issue, a document overlap issue, or a generation issue?
@@ -412,14 +412,14 @@ Test that the agent does not pull from a source on a related but different topic
 
 | # | Scenario | Sample Input | Expected Value / Capability | Method |
 |---|----------|-------------|---------------------------|--------|
-| 1 | HR policy bot — employee vs. contractor | "What is my health insurance coverage?" (context: full-time employee) | Should NOT retrieve from Contractor-Benefits-Guide.pdf; should retrieve from Employee-Benefits-2025.pdf | Capability Use (All) + Compare Meaning |
+| 1 | HR policy bot — employee vs. contractor | "What is my health insurance coverage?" (context: full-time employee) | Should NOT retrieve from Contractor-Benefits-Guide.pdf; should retrieve from Employee-Benefits-2025.pdf | Tool Use (All) + Compare Meaning |
 | 2 | HR policy bot — US vs. UK policy | "How much parental leave do I get?" (context: US employee) | Response should not contain "statutory", "28 days", or "UK" — terms from the UK policy document | Keyword Match (All) + Compare Meaning |
-| 3 | Product FAQ bot — current vs. discontinued | "What are the specifications for Model X?" | Should NOT retrieve from Discontinued-Products-Archive; should retrieve from Current-Product-Catalog | Capability Use (All) + Compare Meaning |
+| 3 | Product FAQ bot — current vs. discontinued | "What are the specifications for Model X?" | Should NOT retrieve from Discontinued-Products-Archive; should retrieve from Current-Product-Catalog | Tool Use (All) + Compare Meaning |
 | 4 | Product FAQ bot — product line confusion | "How do I update the firmware on my router?" | Response should not contain instructions for the mesh extender product, which has a different update process | General Quality + Compare Meaning |
 | 5 | Legal/compliance bot — jurisdiction scoping | "What are our data breach notification requirements?" (context: California operations) | Response should not include GDPR (EU) notification requirements; should focus on CCPA and California Civil Code | General Quality + Compare Meaning |
-| 6 | Legal/compliance bot — old regulation reference | "What is the current fine for non-compliance?" | Should NOT retrieve from the pre-2025 penalty schedule; should retrieve from the 2025-updated regulatory summary | Capability Use (All) + Compare Meaning |
+| 6 | Legal/compliance bot — old regulation reference | "What is the current fine for non-compliance?" | Should NOT retrieve from the pre-2025 penalty schedule; should retrieve from the 2025-updated regulatory summary | Tool Use (All) + Compare Meaning |
 | 7 | HR policy bot — adjacent topic bleed | "How do I file a health insurance claim?" | Response should not include dental insurance claim procedures, even though both are in the benefits knowledge base | General Quality + Compare Meaning |
-| 8 | Product FAQ bot — marketing vs. support content | "Why does my device keep disconnecting from WiFi?" | Should NOT retrieve from Marketing-Materials or Sales-Brochures; should retrieve from Technical-Support-KB | Capability Use (All) + Compare Meaning |
+| 8 | Product FAQ bot — marketing vs. support content | "Why does my device keep disconnecting from WiFi?" | Should NOT retrieve from Marketing-Materials or Sales-Brochures; should retrieve from Technical-Support-KB | Tool Use (All) + Compare Meaning |
 
 ### Tips
 

@@ -7,7 +7,8 @@
     "previewConfirmed": false,
     "decisionsConfirmed": false,
     "previewGeneratedAt": null,
-    "researchCompletedAt": null
+    "researchCompletedAt": null,
+    "evalStubsGeneratedAt": null
   },
 
   "business": {
@@ -229,7 +230,7 @@
       "description": "What this eval set verifies — written in plain English for customers",
       "methods": [
         {
-          "type": "General quality | Compare meaning | Keyword match | Text similarity | Exact match | Capability use | Plan validation",
+          "type": "General quality | Compare meaning | Keyword match | Text similarity | Exact match | Tool use | Plan validation",
           "score": "0-100 threshold (for Compare meaning, Text similarity)",
           "mode": "any | all (for Keyword match only)"
         }
@@ -243,6 +244,7 @@
           "keywords": "Comma-separated keywords for Keyword match method (e.g. 'policy, refund, 30 days'). When set, KeywordMatch uses this instead of expected.",
           "capability": "Which capability this tests (links to capabilities[].name, optional)",
           "methods": null,
+          "source": "preview-stub | user-edited | user-added | research-generated | research-enriched — tracks test origin for merge protection during deep research. preview-stub = auto-generated from capabilities/boundaries during fast preview. user-edited = customer modified a preview-stub. user-added = customer added manually. research-generated = created by QA Challenger during deep research. research-enriched = preview-stub upgraded with research detail.",
           "readiness": "ready | template — 'ready' = runs as-is without customer data (boundary, scope tests). 'template' = needs customer-specific values plugged in (knowledge answers, tool outputs, routing targets).",
           "scenarioId": "Optional — eval scenario library ID (e.g., 'BP-IR-01')",
           "scenarioCategory": "Optional — scenario category name",

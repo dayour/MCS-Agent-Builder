@@ -98,7 +98,7 @@ Use this scenario when:
 |--------|---------|
 | Keyword Match (All) | Verify that key details from the user's request appear in the handoff summary or transfer message |
 | Compare Meaning | Confirm the handoff summary accurately represents the user's issue |
-| Capability Use (All) | Verify the agent invokes the correct handoff action or transfer topic |
+| Tool Use (All) | Verify the agent invokes the correct handoff action or transfer topic |
 
 > **Tip:** Context preservation has two dimensions: **completeness** (all relevant details are passed) and **accuracy** (the details are correct). Use Keyword Match (All) to check completeness and Compare Meaning to check accuracy. A handoff can include all the right keywords but misrepresent the situation.
 
@@ -109,7 +109,7 @@ Use this scenario when:
 3. Set expected values to include the **key details** that must be preserved: user name, issue category, specific problem details, and any information gathered during the conversation.
 4. Select **Keyword Match (All)** to verify essential details appear in the handoff summary.
 5. Add **Compare Meaning** test cases to verify the overall summary accurately reflects the conversation.
-6. If your agent triggers a specific action or topic for handoff, add **Capability Use (All)** test cases to verify the correct handoff mechanism fires.
+6. If your agent triggers a specific action or topic for handoff, add **Tool Use (All)** test cases to verify the correct handoff mechanism fires.
 7. Run the evaluation and review any cases where details were lost, distorted, or misattributed.
 
 ### Anti-Pattern
@@ -139,7 +139,7 @@ Verify that the correct handoff mechanism fires — the right transfer topic, th
 | 2 | Customer complaint: order details preserved | "Order #98421 arrived damaged — the box was crushed and two items inside were broken." | Handoff summary meaning aligns with: "Customer reports order #98421 arrived with physical damage to packaging and two broken items." | Compare Meaning + Keyword Match (All) |
 | 3 | HR request: employee details preserved | "I'm in the Seattle office, Engineering department, and I need to update my emergency contact." | Handoff summary includes "Seattle," "Engineering," and "emergency contact" | Keyword Match (All) + Compare Meaning |
 | 4 | Multi-turn: early details survive | Turn 1: "I need help with my benefits." Turn 2 (agent asks which benefit): "My dental coverage — I had a claim denied last week." Turn 3 (agent routes): handoff fires. | Handoff summary includes "dental" and "claim denied" | Keyword Match (All) + Compare Meaning |
-| 5 | Correct handoff action fires | "I need to speak with someone about a workplace safety concern." | Agent invokes the HR escalation transfer topic | Capability Use (All) + Keyword Match (Any) |
+| 5 | Correct handoff action fires | "I need to speak with someone about a workplace safety concern." | Agent invokes the HR escalation transfer topic | Tool Use (All) + Keyword Match (Any) |
 | 6 | Summary accuracy check | "I was told my refund would arrive in 5 business days but it's been two weeks and nothing has posted to my account." | Handoff meaning aligns with: "Customer is following up on a delayed refund that was promised within 5 business days but has not arrived after two weeks." | Compare Meaning + Keyword Match (All) |
 
 ### Tips
@@ -319,7 +319,7 @@ Use this scenario when:
 |--------|---------|
 | Keyword Match (All) | Verify the response includes the CORRECT routing destination (and does not include the wrong one) |
 | Compare Meaning | Confirm the routing rationale matches the expected destination logic |
-| Capability Use (All) | Verify the correct transfer topic or routing action fires — not the wrong one |
+| Tool Use (All) | Verify the correct transfer topic or routing action fires — not the wrong one |
 | General Quality | Assess whether the routing decision is defensible and well-reasoned |
 
 > **Tip:** Negative testing requires thinking about what SHOULD NOT happen, not just what should. For each test case, document both the expected destination and the likely incorrect destination. Then verify the agent avoids the wrong one.
@@ -330,7 +330,7 @@ Use this scenario when:
 2. Identify the **most commonly confused pairs** of destinations. Which teams' responsibilities overlap? Which routing rules have the most exceptions?
 3. For each confused pair, write test cases with inputs that might trick the agent into routing to the wrong one. Focus on inputs with misleading keywords (e.g., "billing" mentioned in a shipping issue).
 4. Set expected values to the CORRECT destination. Also note the INCORRECT destination the agent might choose.
-5. Select **Keyword Match (All)** to verify the correct destination appears, and use **Capability Use (All)** if routing involves triggering a specific action.
+5. Select **Keyword Match (All)** to verify the correct destination appears, and use **Tool Use (All)** if routing involves triggering a specific action.
 6. Run the evaluation and pay special attention to test cases where the agent chose the wrong destination — these reveal systematic routing logic problems.
 
 ### Anti-Pattern
@@ -362,10 +362,10 @@ After the agent routes, verify it does not trigger a secondary, unintended routi
 | 1 | Misleading keyword: billing mentioned in shipping issue | "I have a billing question — why does my receipt show a shipping charge when I selected free shipping?" | Response routes to "Shipping" or "Order Fulfillment" — NOT "Billing" | Keyword Match (All) + Compare Meaning |
 | 2 | Misleading keyword: software mentioned in hardware issue | "The software update fried my laptop and now it won't turn on at all." | Response routes to "Hardware" — NOT "Software" | Keyword Match (All) + Compare Meaning |
 | 3 | Adjacent-team boundary: IT Security vs. IT Infrastructure | "I got an email asking me to click a link and verify my password — is this legit?" | Response routes to "IT Security" or "Phishing" — NOT general "IT Support" | Keyword Match (Any) + Compare Meaning |
-| 4 | Sensitive data routing: health information | "I need to submit my doctor's note for my medical leave of absence." | Agent routes to "HR" or "Benefits/Leave" — NOT general support queue | Capability Use (All) + Keyword Match (Any) |
+| 4 | Sensitive data routing: health information | "I need to submit my doctor's note for my medical leave of absence." | Agent routes to "HR" or "Benefits/Leave" — NOT general support queue | Tool Use (All) + Keyword Match (Any) |
 | 5 | Previously misrouted: complaint about process, not product | "Your return process is the worst I've ever experienced — I've been waiting a month for my refund." | Response routes to "Returns/Refunds" — NOT "Product Quality" or "Complaints" | Compare Meaning + Keyword Match (Any) |
 | 6 | Multi-keyword confusion | "I need help accessing the billing portal — my login isn't working." | Response routes to "Access/IT Support" for the login issue — NOT "Billing" for the portal content | Compare Meaning + Keyword Match (Any) |
-| 7 | Cascade prevention: single route only | "I want to cancel my subscription effective immediately." | Agent invokes only the "Cancellations" routing action — does not also trigger "Billing" or "Retention" unless designed to | Capability Use (All) + Compare Meaning |
+| 7 | Cascade prevention: single route only | "I want to cancel my subscription effective immediately." | Agent invokes only the "Cancellations" routing action — does not also trigger "Billing" or "Retention" unless designed to | Tool Use (All) + Compare Meaning |
 
 ### Tips
 

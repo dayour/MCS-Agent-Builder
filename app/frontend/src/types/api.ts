@@ -84,6 +84,7 @@ export interface ApiBrief {
     decisionsConfirmed?: boolean;
     previewGeneratedAt?: string | null;
     researchCompletedAt?: string | null;
+    evalStubsGeneratedAt?: string | null;
   };
   business?: {
     useCase?: string;
@@ -192,6 +193,8 @@ export interface ApiBrief {
       turns?: Array<{ question: string; expected?: string | null; critical?: boolean }> | null;
       expectedTools?: string | null;
       toolThreshold?: number | null;
+      source?: string | null;
+      readiness?: string | null;
       lastResult?: {
         pass: boolean;
         actual?: string;

@@ -20,7 +20,7 @@ Your agent walks users through processes where the order of steps matters — on
 |--------|---------|
 | Keyword Match (All) | Verifies that all required step names, actions, or milestones appear in the response |
 | Compare Meaning | Validates that the overall guidance matches the authoritative process — right steps in the right order with accurate descriptions |
-| Capability Use (All) | Confirms the agent retrieves from the correct process documentation or knowledge source |
+| Tool Use (All) | Confirms the agent retrieves from the correct process documentation or knowledge source |
 
 > **Tip:** Step sequence errors are subtle — the guidance can contain all the right steps but in the wrong order. Compare Meaning catches this better than Keyword Match alone because it evaluates the logical flow, not just the presence of terms.
 
@@ -56,7 +56,7 @@ The agent should not combine distinct steps into one (e.g., merging "install the
 
 | # | Scenario | Sample Input | Expected Value / Capability | Method |
 |---|----------|-------------|---------------------------|--------|
-| 1 | New hire onboarding — full sequence | "What are the steps for new employee onboarding?" | Response must include all onboarding steps in order: accept offer, complete background check, submit I-9 documentation, set up payroll, attend orientation, complete required training; must retrieve from the onboarding knowledge source | Keyword Match (All) + Capability Use (All) + Compare Meaning |
+| 1 | New hire onboarding — full sequence | "What are the steps for new employee onboarding?" | Response must include all onboarding steps in order: accept offer, complete background check, submit I-9 documentation, set up payroll, attend orientation, complete required training; must retrieve from the onboarding knowledge source | Keyword Match (All) + Tool Use (All) + Compare Meaning |
 | 2 | Software installation — sequential setup | "Walk me through setting up the development environment" | Response must present steps in order: install prerequisites, clone repository, configure environment variables, install dependencies, run initial build, verify setup with test suite | Compare Meaning + Keyword Match (All) |
 | 3 | Compliance certification — ordered workflow | "What do I need to do to complete my annual compliance certification?" | Response must list steps in order: review updated policy documents, complete training module, pass assessment quiz, sign acknowledgment form, submit to compliance team; must not skip the training before the assessment | Compare Meaning + Keyword Match (All) |
 | 4 | Step dependency verification | "Can I skip the prerequisites and go straight to configuring the VPN?" | Response should explain that VPN configuration requires the prerequisite steps (account provisioning and certificate installation) and cannot be skipped | Compare Meaning + Keyword Match (Any) |
@@ -86,7 +86,7 @@ Your agent guides users through processes that vary by role, department, or empl
 |--------|---------|
 | Compare Meaning | Validates that the guidance is tailored to the user's role — the right steps, the right tools, the right approvers for their context |
 | Keyword Match (All) | Verifies role-specific details appear — specific form names, approval chains, tools, or portals that differ by role |
-| Capability Use (Any) | Confirms the agent retrieves from the correct role-specific knowledge source or documentation |
+| Tool Use (Any) | Confirms the agent retrieves from the correct role-specific knowledge source or documentation |
 
 > **Tip:** Role-aware guidance errors are often invisible at first glance. An agent might give a perfectly valid onboarding sequence — just the wrong one for the user's role. Test the same process question from different personas to catch this.
 
@@ -123,7 +123,7 @@ When the user's role is not already known or inferred, the agent should ask befo
 |---|----------|-------------|---------------------------|--------|
 | 1 | Manager onboarding vs. IC onboarding | "What do I need to do for onboarding?" (user is a new people manager) | Response must include manager-specific steps: set up direct-report access, complete leadership training, schedule 1:1s with each report; must NOT include IC-specific steps like "set up development environment" | Compare Meaning + Keyword Match (All) |
 | 2 | IC onboarding — same question, different role | "What do I need to do for onboarding?" (user is a new engineering IC) | Response must include IC-specific steps: set up development environment, complete technical bootcamp, request repo access; must NOT include manager-specific steps like "set up direct-report access" | Compare Meaning + Keyword Match (All) |
-| 3 | Admin software setup vs. end-user setup | "How do I set up the CRM system?" (user is an admin) | Response must include admin steps: configure tenant settings, set up user roles and permissions, configure integrations; must NOT give the end-user instructions (install the app, log in, customize your dashboard) | Compare Meaning + Capability Use (Any) |
+| 3 | Admin software setup vs. end-user setup | "How do I set up the CRM system?" (user is an admin) | Response must include admin steps: configure tenant settings, set up user roles and permissions, configure integrations; must NOT give the end-user instructions (install the app, log in, customize your dashboard) | Compare Meaning + Tool Use (Any) |
 | 4 | Compliance workflow — US vs. international | "What are the steps for the annual benefits enrollment?" (user is based in Germany) | Response must present the benefits enrollment process applicable to the user's region, including any region-specific forms, deadlines, or regulatory steps; must NOT present US-specific options like 401(k) enrollment | Compare Meaning + Keyword Match (All) |
 | 5 | Role unknown — agent should ask | "Walk me through the onboarding process" (role is not determinable from context) | Agent should ask a clarifying question about the user's role or position before providing guidance — e.g., "Are you joining as a people manager or an individual contributor?" | Compare Meaning + Keyword Match (Any) |
 
@@ -220,7 +220,7 @@ Your agent guides users through processes that have conditional branches — "if
 |--------|---------|
 | Compare Meaning | Validates the agent follows the correct branch for the user's situation — presenting only the relevant path, not all possible paths |
 | Keyword Match (All) | Verifies branch-specific details appear — the forms, approvers, tools, or steps unique to the correct branch |
-| Capability Use (Any) | Confirms the agent retrieves from the correct branch-specific knowledge source if branches are documented separately |
+| Tool Use (Any) | Confirms the agent retrieves from the correct branch-specific knowledge source if branches are documented separately |
 
 > **Tip:** The most common branching failure is not choosing the wrong branch — it is presenting ALL branches and letting the user figure out which one applies. Test that the agent selects and presents only the relevant path.
 
