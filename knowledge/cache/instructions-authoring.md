@@ -12,6 +12,31 @@ refresh_trigger: before_architecture
 2. **Input filling** — what values to pass to tools
 3. **Response generation** — how to format output for the user
 
+## Conciseness Principle
+
+Instructions execute on **every turn** — every character costs tokens per conversation round. Over-specifying reduces quality (internal CAT Webinar, Feb 2026; MS Learn: "Less is more. Simpler instructions often perform better than complex ones").
+
+**Philosophy:** Start minimal, nudge as needed. Don't write comprehensive instructions upfront — add specificity only when eval tests fail or agent behavior drifts.
+
+### Character Budget Targets
+
+| Agent Type | Target Range | Notes |
+|-----------|-------------|-------|
+| Simple Q&A | 800–1,500 chars | Knowledge + guardrails only |
+| Standard agent | 1,200–2,500 chars | **Sweet spot** for most agents |
+| Complex orchestrator | 2,000–4,000 chars | Multi-tool, multi-step workflows |
+| Multi-agent parent | 1,500–3,000 chars | Routing + delegation + guardrails |
+
+**Flag >4,000 chars for review** — likely contains content that should be a topic or is duplicating description/knowledge content. The 8,000-char limit is a ceiling, not a target.
+
+### Conciseness Rules
+
+1. **No section longer than 500 chars** — if it exceeds this, extract to a topic
+2. **Don't duplicate descriptions** — if a tool/topic description already says it, don't restate in instructions
+3. **Don't list what the orchestrator knows** — it already has tools, topics, and knowledge sources
+4. **Prefer examples over rules** — one good example replaces 3 lines of instruction text
+5. **Trim after every edit pass** — re-read and cut anything the model would do by default
+
 ## Routing Priority (Most to Least Important)
 
 | Priority | What | Implication |
@@ -22,6 +47,46 @@ refresh_trigger: before_architecture
 | 4 | **Agent instructions** | Instructions are LEAST important for routing |
 
 **Key insight:** Instructions influence *response generation* and *disambiguation* more than routing. If routing is wrong, fix topic descriptions first, not instructions.
+
+## Description Engineering
+
+Descriptions are routing priority #1 — invest in them **before** writing instructions. Well-written descriptions reduce the need for long instructions because the orchestrator routes on descriptions first.
+
+### Why Descriptions Matter More Than Instructions
+
+- Orchestrator reads descriptions to decide **which** tool/topic/knowledge to call
+- Instructions only influence **how** the agent responds after routing is decided
+- A weak description + strong instructions = wrong tool called with great formatting
+- A strong description + minimal instructions = right tool called, good-enough formatting
+
+### Description Templates
+
+**Tool description:**
+```
+Use this tool to [action] for [audience]. Input: [what it needs]. Output: [what it returns]. Do NOT use for [common misroute].
+```
+
+**Topic description:**
+```
+Handles [specific scenario]. Triggers when the user [condition]. Do NOT trigger for [similar but different scenario].
+```
+
+**Knowledge source description:**
+```
+Contains [content type] about [domain]. Covers [scope]. Does NOT cover [exclusion].
+```
+
+**Agent description (multi-agent child):**
+```
+Specialist for [domain]. Handles [capability list]. Escalates to parent when [condition].
+```
+
+### Description Checklist
+
+- [ ] Every tool has a description with action + audience + input/output + negative routing
+- [ ] Every topic has a description with trigger condition + negative routing
+- [ ] Every knowledge source has a description with scope + exclusions
+- [ ] Descriptions written BEFORE instructions (not after)
 
 ## Character Limits
 
@@ -195,6 +260,58 @@ User: "[edge case or boundary trigger]"
 Response: "[appropriate guardrail response with explanation]"
 ```
 
+### Advanced Patterns
+
+Optional patterns — use when the scenario benefits. Not needed for simple Q&A agents.
+
+#### Pattern: Literal-Execution Header
+Pin model behavior at the top of instructions to prevent drift on long conversations.
+```
+Follow these instructions exactly. Do not add steps, skip steps, or improvise beyond what is described.
+```
+**Use when:** Autonomous workflows, multi-step processes, compliance-sensitive agents.
+
+#### Pattern: Output Contract
+Define the exact shape of every response. Reduces ambiguity and improves eval scoring.
+```
+## Response Format
+- **Goal:** Answer the user's benefits question
+- **Format:** Bullet points with source citations
+- **Detail:** 3-5 points per answer
+- **Tone:** Professional, empathetic
+- **Include:** Enrollment deadlines, provider names
+- **Exclude:** Personal medical advice, cost comparisons across employees
+```
+**Use when:** Agents with strict output requirements or multiple output formats.
+
+#### Pattern: Self-Evaluation Gate
+Force the model to verify its own output before responding. Catches hallucination and scope violations.
+```
+Before finalizing your response, confirm:
+1. Every claim is grounded in a retrieved document (not general knowledge)
+2. No out-of-scope content is included
+3. The response matches the requested format
+If any check fails, revise before responding.
+```
+**Use when:** Autonomous workflows, agents that take actions, compliance-critical responses.
+
+#### Pattern: Reasoning Steering
+Cue the model toward deep analysis or fast response depending on query type.
+```
+For complex policy questions: analyze all relevant documents before responding, compare provisions, note conflicts.
+For simple lookups: respond directly from the first matching source.
+```
+**Use when:** Agents handling both simple lookups and complex analysis.
+
+#### Pattern: Explicit Decision Rules
+Replace ambiguous routing with concrete if/then logic.
+```
+If the user asks about benefits enrollment: search HR Policy documents, respond with steps and deadlines.
+If the user asks about a specific claim: use /ClaimsLookup tool with the claim number.
+If the user asks about something not related to HR: say "I can only help with HR and benefits questions."
+```
+**Use when:** Agents with 3+ distinct routing paths or when orchestrator misroutes frequently.
+
 ### Anti-Patterns Updated for Modern Models
 
 These 3 patterns join the existing anti-patterns table above:
@@ -251,6 +368,9 @@ To update existing instructions to the universal style:
 | **Aggressive caps emphasis** ("CRITICAL:", "YOU MUST NEVER") | Claude 4.6 over-complies; GPT-5.2 ignores caps entirely | **Bold** or "Never X" + WHY in parentheses |
 | **Personality padding** ("world-class expert") | GPT-5.2 discards; Claude ignores superlatives; wastes chars | Functional role: "a benefits assistant for HR employees" |
 | **Length ceiling without floor** ("be concise") | GPT-5.2 and Claude 4.6 produce bare-minimum responses | Tiered: "Simple: 2-4 sentences. Detailed: 3-5 bullets." |
+| **Pages of declarative instructions** | Large instruction sets execute on EVERY TURN — performance and reliability degrade | Start minimal, nudge as needed; let orchestrator reason when possible |
+| **Duplicating logic already in descriptions** | Descriptions drive routing (#1 priority); repeating in instructions wastes chars and can conflict | Write descriptions first, then only add instruction text for disambiguation |
+| **Comprehensive upfront** ("cover every scenario") | Over-specifying reduces quality (CAT Webinar 2026); creates maintenance burden | Start with 1,200-2,500 chars; add specificity only when evals fail |
 
 ## Best Practices Checklist
 
@@ -258,8 +378,15 @@ To update existing instructions to the universal style:
 - [ ] Uses three-part structure: Constraints + Response Format + Guidance
 - [ ] Markdown formatting: `#` headers, `1.` ordered steps, `-` bullets, `**bold**`
 - [ ] No nested lists
-- [ ] Under 8,000 chars (under 2,000 if hitting the save bug)
+- [ ] Under 2,500 chars for standard agents (flag >4,000 for review)
+- [ ] No section longer than 500 chars (split to topic if needed)
 - [ ] Audience explicitly stated ("for CDW coworkers", "for IT support engineers")
+
+### Pre-Instruction Work
+- [ ] Descriptions written for all tools/topics/knowledge BEFORE instructions
+- [ ] Topics created for all 100%-required behaviors BEFORE instructions
+- [ ] Topics extraction checklist completed — deterministic flows moved to topics
+- [ ] Self-evaluation gate included for autonomous workflows
 
 ### Content
 - [ ] Positive framing ("do X" not "don't do Y") — except for explicit guardrails
@@ -376,6 +503,28 @@ Microsoft officially documents a three-layer control model in the "Apply generat
 | Greeting / welcome | no | **YES** (system) | Conversation Start topic or Suggested Prompts |
 | Fallback customization | no | **YES** (system) | Edit Fallback system topic |
 | JIT initialization (user context) | no | **YES** (OnActivity) | Load variables at first message |
+
+### Topics Extraction Checklist
+
+Before finalizing instructions, ask: **"What here should be a topic instead?"** This is the single most effective way to keep instructions concise and reliable.
+
+| Content in Instructions | Should Be a Topic? | Why |
+|------------------------|-------------------|-----|
+| Any behavior needing 100% reliability | **Yes** | Instructions provide ~90%; topics provide 100% via fixed messages |
+| Structured data collection (forms, multi-field input) | **Yes** | Requires AdaptiveCardPrompt nodes — instructions can't do this |
+| Any UI elements (buttons, cards, images) | **Yes** | Instructions cannot trigger Adaptive Cards |
+| If/then branching with exact wording requirements | **Yes** | Topic nodes guarantee exact text; instructions approximate |
+| Any single workflow description over 500 chars | **Consider** | Extract to topic, reference via `/TopicName` in instructions |
+| Repetitive response templates | **Consider** | Fixed templates are more reliable as topic SendMessage nodes |
+| Escalation paths with specific contacts | **Yes** | Safety data must be in topics + knowledge, not instructions |
+
+**Goal:** Instructions handle **persona + guardrails + format**. Topics handle **deterministic flows**. Knowledge handles **data**. Each layer does what it does best.
+
+**Process:**
+1. Write initial instructions covering all MVP capabilities
+2. Walk through the checklist above — move qualifying content to topic recommendations
+3. Replace extracted content with `/TopicName` references
+4. Verify remaining instructions are under the char budget target
 
 ### Minimum Recommended Topics for Every Generative Agent
 

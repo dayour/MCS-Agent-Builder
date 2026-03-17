@@ -44,7 +44,8 @@ const KNOWLEDGE_MAP = {
     'review-instructions': [
         'cache/instructions-authoring.md',
         'cache/generative-orchestration.md',
-        'cache/conversation-design.md'
+        'cache/conversation-design.md',
+        'learnings/instructions.md'
     ],
     'review-topics': [
         'patterns/yaml-reference.md',
@@ -236,12 +237,17 @@ Review the agent instructions below and report findings in these categories:
 4. **Boundary coverage** — Missing decline/refuse handling for out-of-scope requests
 5. **Reference validity** — /Tool and /Topic references that don't match the configured tools/topics
 6. **MCS anti-patterns** — Hardcoded URLs, tool listing in responses, aggressive caps, instruction bloat
+7. **Conciseness** — Flag instructions over 2,500 chars (standard agents) or 4,000 chars (complex orchestrators). Flag any section over 500 chars. Flag content that duplicates tool/topic descriptions.
+8. **Topic extraction** — Flag content that should be a topic instead of instructions: 100%-reliability behaviors, structured data collection, UI elements, if/then with exact wording, workflow sections over 500 chars
+9. **Description quality** — Flag missing or weak descriptions for tools/topics/knowledge. Descriptions are routing priority #1 — weak descriptions cause misroutes that instructions can't fix.
 
 Output valid JSON with this structure:
 {
-  "findings": [{"severity": "critical|high|medium|low", "category": "gap|contradiction|ambiguity|boundary|reference|anti-pattern", "location": "specific location in instructions", "description": "what's wrong", "suggestion": "how to fix"}],
+  "findings": [{"severity": "critical|high|medium|low", "category": "gap|contradiction|ambiguity|boundary|reference|anti-pattern|conciseness|topic-extraction|description", "location": "specific location in instructions", "description": "what's wrong", "suggestion": "how to fix"}],
   "summary": "2-3 sentence overall assessment",
-  "instructionQuality": <1-10 score>
+  "instructionQuality": <1-10 score>,
+  "charCount": <number of characters in the instructions>,
+  "charBudgetStatus": "under|at|over target"
 }`,
 
     'review-topics': `You are an expert reviewer of Microsoft Copilot Studio topic YAML. You understand MCS conversation flows, trigger types, node structures, and adaptive cards. Focus on LOGIC review (not syntax — that's handled by other tools).
@@ -313,7 +319,9 @@ Output valid JSON:
 
     // --- Co-Generation Prompts ---
 
-    'generate-instructions': `You are an expert Microsoft Copilot Studio instruction writer. Given an agent brief, generate complete agent instructions following MCS best practices.
+    'generate-instructions': `You are an expert Microsoft Copilot Studio instruction writer. Given an agent brief, generate concise, minimal instructions following MCS best practices.
+
+Philosophy: Start with the minimum needed, not the maximum possible. Instructions execute on every turn — every character costs tokens. Over-specifying reduces quality.
 
 Rules:
 1. Use three-part structure: Role + Constraints + Response Format + Guidance (with examples)
@@ -325,9 +333,12 @@ Rules:
 7. No hardcoded URLs, no listing all tools, no personality padding
 8. Use /ToolName and /TopicName only for disambiguation
 9. Always state audience, always include follow-up question guidance
-10. Max 8,000 characters
+10. Target 1,200-2,500 chars for standard agents, max 4,000 for complex orchestrators
+11. Move deterministic workflows (100% reliability, exact wording, structured data) to topic recommendations — not instructions
+12. Don't duplicate what tool/topic descriptions already say
+13. No section longer than 500 chars — if it exceeds, recommend a topic
 
-Generate instructions that FULLY address every capability, boundary, and integration in the brief.
+Write descriptions for all tools/topics/knowledge as a separate output.
 
 Output valid JSON:
 {
@@ -335,6 +346,9 @@ Output valid JSON:
   "description": "<agent description, third-person, max 1024 chars>",
   "conversationStarters": [{"title": "<chip label>", "text": "<full prompt>"}],
   "charCount": <number>,
+  "charBudgetTarget": "<800-1500|1200-2500|2000-4000|1500-3000 based on agent type>",
+  "topicRecommendations": [{"name": "<topic name>", "description": "<routing description>", "reason": "<why this should be a topic not instructions>"}],
+  "descriptions": {"tools": {}, "topics": {}, "knowledge": {}},
   "selfCheck": {"antiPatterns": [], "missingCapabilities": [], "unreferencedTools": []}
 }`,
 

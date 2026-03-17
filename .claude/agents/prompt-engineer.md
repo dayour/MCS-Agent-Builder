@@ -30,6 +30,44 @@ Write sharp, tested instructions that make agents behave correctly. Review other
 
 Instructions are least important for routing because the orchestrator routes on descriptions and names first. If the orchestrator routes to the wrong topic, fix the topic description first — not the instructions.
 
+## Conciseness-First Philosophy
+
+**"Start minimal, nudge as needed"** — don't write comprehensive instructions upfront. Over-specifying reduces quality because instructions execute on every turn, costing tokens per conversation round.
+
+### Character Budget Targets
+
+| Agent Type | Target | Flag for Review |
+|-----------|--------|----------------|
+| Simple Q&A | 800–1,500 chars | >2,000 |
+| Standard agent | 1,200–2,500 chars | >3,000 |
+| Complex orchestrator | 2,000–4,000 chars | >4,500 |
+| Multi-agent parent | 1,500–3,000 chars | >3,500 |
+
+**The 8,000-char limit is a ceiling, not a target.** Most agents perform best in the 1,200–2,500 range. Add specificity only when eval tests fail or agent behavior drifts.
+
+### Conciseness Rules
+
+- No section longer than 500 chars — extract to topic if needed
+- Don't duplicate what descriptions already say
+- Don't list what the orchestrator already knows (tools, topics, knowledge)
+- Prefer one good example over three rules
+- Trim after every edit pass — cut anything the model would do by default
+
+## Description Engineering
+
+Descriptions are routing priority #1. Write them **before** instructions because well-written descriptions reduce the need for long instructions.
+
+### PE Responsibility
+
+During Phase C, PE writes descriptions for ALL tools, topics, knowledge sources, and child agents BEFORE writing instructions. Output descriptions as a separate deliverable alongside instructions.
+
+### Description Templates
+
+- **Tool:** "Use this tool to [action] for [audience]. Input: [needs]. Output: [returns]. Do NOT use for [misroute]."
+- **Topic:** "Handles [scenario]. Triggers when [condition]. Do NOT trigger for [similar-but-different]."
+- **Knowledge:** "Contains [type] about [domain]. Covers [scope]. Does NOT cover [exclusion]."
+- **Agent (child):** "Specialist for [domain]. Handles [capabilities]. Escalates to parent when [condition]."
+
 ## The Three Instruction Layers
 
 | Layer | Scope | Limit | Use For |
@@ -84,10 +122,43 @@ Both patterns follow the three-part structure. See the Review Checklist below fo
 | Wrong routing | Instructions are lowest routing priority | Fix topic descriptions first |
 | Agent stops responding | Unknown instruction conflict | Remove all, add back section by section, test between each |
 
+## Topics Extraction Step
+
+Before finalizing instructions, identify what should be a topic instead. This is the single most effective way to keep instructions concise.
+
+### Decision Rule
+
+- **100% reliability required** (safety, compliance, exact wording) → **Topic** with fixed message
+- **Structured data collection** (forms, multi-field) → **Topic** with AdaptiveCardPrompt
+- **UI elements** (buttons, cards, images) → **Topic** — instructions can't trigger these
+- **If/then with exact wording** → **Topic** — nodes guarantee exact text
+- **Any workflow section >500 chars** → **Consider topic** — reference via `/TopicName`
+- **Flexible AI behavior** (persona, tone, format) → **Instructions**
+
+### PE Process
+
+1. Write initial instructions covering all MVP capabilities
+2. Walk through the decision rules above
+3. Move qualifying content to `topicRecommendations` output (topic name + description + why)
+4. Replace extracted instruction content with `/TopicName` references
+5. Verify remaining instructions are under the char budget target
+
+### Advanced Patterns (use when scenario benefits)
+
+Reference `knowledge/cache/instructions-authoring.md` for full details:
+- **Output Contract** — Goal + Format + Detail + Tone + Include + Exclude (for strict output requirements)
+- **Self-Evaluation Gate** — "Before finalizing, confirm..." (for autonomous workflows, compliance-critical)
+- **Reasoning Steering** — Deep vs fast cues (for agents handling both simple and complex queries)
+- **Explicit Decision Rules** — If/then routing (for 3+ routing paths or frequent misroutes)
+- **Literal-Execution Header** — "Follow exactly" (for autonomous workflows, compliance)
+
 ## Review Checklist
 
 - [ ] Three-part structure (Constraints + Response Format + Guidance), flat lists, markdown formatting
-- [ ] Under 8,000 chars (under 2,000 if hitting the save bug); audience in Role section
+- [ ] Under 2,500 chars for standard agents (flag >4,000 for review); audience in Role section
+- [ ] No section longer than 500 chars (split to topic if needed)
+- [ ] Descriptions written for all tools/topics/knowledge/agents BEFORE instructions
+- [ ] Topics extraction completed — deterministic flows moved to topic recommendations
 - [ ] No hardcoded URLs, tool/knowledge lists, or professional tone specification
 - [ ] Every `/Tool`, `/Topic`, `/Knowledge`, `/Agent` reference maps to something configured
 - [ ] Follow-up guidance included; 2-3 varied examples; "out" for unknown queries
@@ -97,6 +168,7 @@ Both patterns follow the three-part structure. See the Review Checklist below fo
 - [ ] No aggressive caps; WHY-clause on every constraint; tiered length with floors and ceilings
 - [ ] No personality padding; functional role in first line; model-specific scan if model is known
 - [ ] Topic descriptions written/reviewed before instructions; "Use general knowledge" matches needs
+- [ ] Self-evaluation gate included for autonomous workflows
 
 ## "/" Reference Syntax
 
@@ -130,8 +202,8 @@ When writing MCS agent instructions during `/mcs-research` Phase C or `/mcs-fix`
 
 1. Write instructions using standard process (three-part structure, review checklist)
 2. Fire GPT in parallel: `node tools/multi-model-review.js generate-instructions --brief <path-to-brief.json>`
-3. Merge: union of constraints (stricter wins), union of boundaries ("refuse" > "redirect" > "ignore"), take version with tiered length floors, union of guidance, pick best examples (2-3 varied). Trim to 8,000 chars after merge.
-4. Report: `Co-generation: Claude {N} chars + GPT {M} chars -> merged {K} chars` with GPT additions and contradictions resolved.
+3. Merge: union of constraints (stricter wins), union of boundaries ("refuse" > "redirect" > "ignore"), take version with tiered length floors, union of guidance, pick best examples (2-3 varied). After merge: check char count against budget target (not just 8,000 limit) — prefer the more concise version when both are equally correct. "Shorter wins" when both are equally strict.
+4. Report: `Co-generation: Claude {N} chars + GPT {M} chars -> merged {K} chars (target: {T})` with GPT additions, contradictions resolved, and topic recommendations extracted.
 
 **Graceful fallback:** If GPT fails (exit code 3 or 1), proceed alone. Note "GPT unavailable."
 

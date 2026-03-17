@@ -63,6 +63,15 @@ Decision rule: if the behavior maps to a boundaries eval test (100% pass require
 **Related cache:** instructions-authoring.md
 **Tags:** #instructions #multi-model #claude #gpt-5 #universal-style #cross-model
 
+### Conciseness principle — start minimal, nudge as needed {#in-006} — 2026-03-17
+**Context:** Framework research across MS Learn (7 pages), GPT-5.4 review, internal Microsoft sources (CAT AI Webinar Feb 2026, Dragon Copilot, One-Page Template, Office Hours), and community blogs.
+**Tried:** Our instruction framework was structurally correct (three-part structure, routing priority, three-layer architecture, anti-patterns, model-aware rules) but encouraged over-specification by targeting "FULLY address every capability."
+**Result:** Deep research converged on a clear finding: over-specifying reduces quality. Key evidence: CAT Webinar ("start with minimal instructions, then nudge"), GPT-5.4 analysis (sweet spot 1,200-2,000 chars, max 4,000 for complex), MS Learn ("Less is more. Simpler instructions often perform better"), Office Hours ("let orchestrators reason when possible"), and the principle that large instruction sets execute on EVERY TURN affecting performance.
+**Better approach:** Five targeted refinements: (1) Character budget targets (800-1,500 simple → 1,200-2,500 standard → 2,000-4,000 complex), flag >4,000 for review. (2) Description engineering — write descriptions (routing priority #1) BEFORE instructions, reducing need for long instruction text. (3) Topics extraction checklist — move deterministic flows to topics, keep instructions for persona+guardrails+format. (4) Advanced patterns (Output Contract, Self-Eval Gate, Reasoning Steering, Decision Rules, Literal-Execution Header) — optional, use when scenario benefits. (5) Updated GPT prompts to generate concise instructions and flag over-specified content. Applied to 3 files: instructions-authoring.md (authoritative cache), prompt-engineer.md (PE agent), multi-model-review.js (GPT prompts).
+**Confirmed:** 0 build(s) | Last confirmed: 2026-03-17
+**Related cache:** instructions-authoring.md (updated with 6 new sections)
+**Tags:** #instructions #conciseness #description-engineering #topics-extraction #advanced-patterns #framework-update
+
 ### Instructions-only agents fail boundaries evals — three-layer architecture required {#in-005} — 2026-03-13
 **Context:** CDW Account Prospecting Agent — initial research produced instructions only (no topics), relying entirely on generative orchestration for all behavior including boundary enforcement.
 **Tried:** All capabilities AND boundaries encoded in instructions alone. Zero custom topics. No greeting, no fallback customization, no deterministic decline paths.
