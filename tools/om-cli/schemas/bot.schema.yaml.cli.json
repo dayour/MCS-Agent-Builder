@@ -1070,6 +1070,9 @@
           "$ref": "#/definitions/VoiceTypeBase"
         },
         {
+          "$ref": "#/definitions/DigitalVoiceSettings"
+        },
+        {
           "$ref": "#/definitions/RealTimeVoiceBotSettings"
         },
         {
@@ -2862,6 +2865,9 @@
         },
         {
           "$ref": "#/definitions/IvrBotSettings"
+        },
+        {
+          "$ref": "#/definitions/DigitalVoiceSettings"
         },
         {
           "$ref": "#/definitions/RealTimeVoiceBotSettings"
@@ -15055,6 +15061,99 @@
         "kind"
       ]
     },
+    "DigitalVoiceSettings": {
+      "title": "Digital voice settings",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/BotSettingsBase",
+      "properties": {
+        "kind": {
+          "const": "DigitalVoiceSettings"
+        },
+        "voiceFont": {
+          "title": "VoiceFont",
+          "$ref": "#/definitions/VoiceTypeBase"
+        },
+        "turnDetection": {
+          "title": "Decide user has stopped speaking",
+          "description": "Voice Activity Detection. None: no speech start/end detection, best for push-to-talk scenarios. Server VAD: audio volume based speech start/end detection. Semantic VAD: sentence context based speech start/end detection.",
+          "default": "SemanticVoiceActivityDetection",
+          "$role": "expression",
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "=.*"
+            },
+            {
+              "$ref": "#/definitions/DigitalTurnDetectionType"
+            }
+          ]
+        },
+        "prefixPaddingInMilliseconds": {
+          "title": "Digital prefix padding",
+          "description": "The amount of audio before speech is detected to avoid cutting off the beginning speech. Default: 800ms for Semantic VAD, 300ms for Server VAD.",
+          "default": 800,
+          "type": "number"
+        },
+        "silenceDurationInMilliseconds": {
+          "title": "Digital silence duration",
+          "description": "The amount of time the agent waits before it decides the user has finished speaking.",
+          "default": 500,
+          "type": "number"
+        },
+        "threshold": {
+          "title": "Digital threshold",
+          "description": "Activation threshold for voice activity detection. Noisy environments may require higher thresholds. Value between 0.0 and 1.0.",
+          "default": 0.5,
+          "type": "number"
+        },
+        "removeFillerWords": {
+          "title": "Digital remove filler words",
+          "description": "Whether to remove the filler words (e.g. 'um', 'uh') when doing voice activity detection.",
+          "default": true,
+          "type": "boolean"
+        },
+        "noiseReduction": {
+          "title": "Noise reduction",
+          "description": "Noise reduction filters out background noise so the input voice is clearer and more accurate.",
+          "default": "DeepNoiseSuppression",
+          "$role": "expression",
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "=.*"
+            },
+            {
+              "$ref": "#/definitions/DigitalNoiseReductionMode"
+            }
+          ]
+        },
+        "echoCancellation": {
+          "title": "Digital echo cancellation",
+          "description": "Echo cancellation reduces the impact of echo and reverberation to improve the quality of voice input.",
+          "default": true,
+          "type": "boolean"
+        },
+        "listeningMode": {
+          "title": "Listening mode",
+          "description": "Controls when the agent listens for user input.",
+          "default": "AlwaysListening",
+          "$role": "expression",
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "=.*"
+            },
+            {
+              "$ref": "#/definitions/DigitalListeningMode"
+            }
+          ]
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
     "RealTimeVoiceBotSettings": {
       "title": "Real time voice bot settings",
       "type": "object",
@@ -17956,6 +18055,55 @@
         }
       ]
     },
+    "DigitalTurnDetectionType": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "None (push-to-talk)",
+          "description": "No speech start/end detection, best for push-to-talk scenarios.",
+          "const": "None"
+        },
+        {
+          "title": "Based on sound (silence)",
+          "description": "Detect user has stopped speaking based on sound.",
+          "const": "SilenceBasedVoiceActivityDetection"
+        },
+        {
+          "title": "Based on sentence context",
+          "description": "Detect user has stopped speaking based on meaning.",
+          "const": "SemanticVoiceActivityDetection"
+        }
+      ]
+    },
+    "DigitalNoiseReductionMode": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "None",
+          "const": "None"
+        },
+        {
+          "title": "Deep noise suppression",
+          "description": "Noise reduction filters out background noise so the input voice is clearer and more accurate.",
+          "const": "DeepNoiseSuppression"
+        }
+      ]
+    },
+    "DigitalListeningMode": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Always listening",
+          "description": "The agent is always listening for user input.",
+          "const": "AlwaysListening"
+        },
+        {
+          "title": "Push-to-talk",
+          "description": "The agent listens only when the user activates input.",
+          "const": "PushToTalk"
+        }
+      ]
+    },
     "TableSearchType": {
       "type": "string",
       "oneOf": [
@@ -19347,6 +19495,21 @@
         {
           "title": "TurnDetectionType",
           "const": "TurnDetectionType"
+        },
+        {
+          "title": "DigitalTurnDetectionType",
+          "description": "Turn detection options for digital voice agents. Separate from TurnDetectionType to keep IVR (telephony) and digital voice configurations independent.",
+          "const": "DigitalTurnDetectionType"
+        },
+        {
+          "title": "DigitalNoiseReductionMode",
+          "description": "Noise reduction mode for digital voice settings",
+          "const": "DigitalNoiseReductionMode"
+        },
+        {
+          "title": "DigitalListeningMode",
+          "description": "Listening mode for digital voice settings",
+          "const": "DigitalListeningMode"
         },
         {
           "title": "DefaultValueMissingAction",
