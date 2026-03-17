@@ -116,28 +116,34 @@ const TOKEN_REFRESH_BUFFER_MS = 120000; // refresh 2 min before expiry
  * Fetches fresh via `az account get-access-token` otherwise.
  *
  * @param {string} resource - Token audience (URL or app ID)
+ * @param {string} [tenant] - Optional tenant ID or domain. Use when the target resource
+ *   is on a different tenant than the current az login (e.g., Microsoft SharePoint library
+ *   while building in a customer tenant).
  * @returns {string} Access token
  */
-function getToken(resource) {
-    const cached = _tokenCache[resource];
+function getToken(resource, tenant) {
+    const cacheKey = tenant ? `${resource}@${tenant}` : resource;
+    const cached = _tokenCache[cacheKey];
     if (cached && cached.expiresAt > Date.now() + TOKEN_REFRESH_BUFFER_MS) {
         return cached.token;
     }
+    const tenantArg = tenant ? ` --tenant ${tenant}` : '';
     try {
         const result = execSync(
-            `az account get-access-token --resource ${resource} -o json`,
+            `az account get-access-token --resource ${resource}${tenantArg} -o json`,
             { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
         );
         const parsed = JSON.parse(result);
-        _tokenCache[resource] = {
+        _tokenCache[cacheKey] = {
             token: parsed.accessToken,
             expiresAt: new Date(parsed.expiresOn).getTime()
         };
         return parsed.accessToken;
     } catch (err) {
+        const tenantHint = tenant ? ` for tenant ${tenant}` : '';
         throw new Error(
-            `Failed to get token for ${resource}. Ensure az CLI is logged in.\n` +
-            `Run: az login\n` +
+            `Failed to get token for ${resource}${tenantHint}. Ensure az CLI is logged in.\n` +
+            `Run: az login${tenant ? ` --tenant ${tenant}` : ''}\n` +
             `Error: ${err.stderr || err.message}`
         );
     }

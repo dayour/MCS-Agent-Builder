@@ -17,21 +17,42 @@ const path = require('path');
 const { URL } = require('url');
 const { httpRequest, httpRequestWithRetry, getToken } = require('./http');  // getToken shared across all tools
 
-// --- Defaults (Builder PMs team site) ---
+// --- Defaults (Builder PMs team site on Microsoft tenant) ---
 
 const GRAPH_BASE = 'https://graph.microsoft.com/v1.0';
 const DEFAULT_DRIVE_ID = 'b!dcvv6tllDU2Q4go3CRonRq0yOTA2PUxPgLthL4NUdZOzSuzIKU0gT4l3NeEVcFRf';
 const SITE_WEB_URL = 'https://microsoft.sharepoint-df.com/teams/BuilderPMs/SolutionLibrary';
 
+// Microsoft corporate tenant — the Solution Library lives here, NOT in customer tenants.
+// When building agents in a customer tenant, az CLI may be logged into that tenant.
+// We explicitly pass the Microsoft tenant to getToken() so library access always works
+// regardless of which tenant the user is currently authenticated to for builds.
+const MICROSOFT_TENANT_ID = '72f988bf-86f1-41af-91ab-2d7cd011db47';
+
 // --- Auth ---
 
 /**
- * Get a Microsoft Graph access token via Azure CLI.
- * Delegates to shared getToken() from lib/http.js.
+ * Get a Microsoft Graph access token via Azure CLI, explicitly targeting
+ * the Microsoft tenant. This ensures library access works even when the
+ * user is az-logged-in to a customer tenant for builds.
+ *
  * @returns {string} Access token
+ * @throws {Error} If not authenticated to Microsoft tenant — includes fix instructions
  */
 function getGraphToken() {
-    return getToken('https://graph.microsoft.com');
+    try {
+        return getToken('https://graph.microsoft.com', MICROSOFT_TENANT_ID);
+    } catch (err) {
+        throw new Error(
+            `Cannot access the Solution Library — not authenticated to Microsoft tenant.\n\n` +
+            `The Solution Library is on Microsoft SharePoint (${SITE_WEB_URL}).\n` +
+            `Your current az login may be targeting a different tenant (e.g., customer build tenant).\n\n` +
+            `Fix: Run  az login --tenant ${MICROSOFT_TENANT_ID}\n` +
+            `  or: az login  (with your @microsoft.com account)\n\n` +
+            `This is separate from your build authentication (PAC CLI / Dataverse).\n` +
+            `Original error: ${err.message}`
+        );
+    }
 }
 
 /**
@@ -243,9 +264,15 @@ async function createFolder(token, parentPath, name, driveId) {
 
     const res = await httpRequest('POST', url, headers, body);
     if (res.status === 409) {
-        // Folder already exists — return existing
-        const items = await listDriveItems(token, parentPath ? `${parentPath}/${name}` : name, drive, { top: 1 });
-        return { id: 'existing', name, alreadyExists: true };
+        // Folder already exists — fetch and return the real folder metadata
+        const folderPath = parentPath ? `${parentPath}/${name}` : name;
+        const encodedPath = folderPath.split('/').map(encodeURIComponent).join('/');
+        const folderUrl = `${GRAPH_BASE}/drives/${drive}/root:/${encodedPath}`;
+        const folderRes = await httpRequest('GET', folderUrl, headers);
+        if (folderRes.status === 200) {
+            return { ...folderRes.data, alreadyExists: true };
+        }
+        return { id: null, name, alreadyExists: true };
     }
     if (res.status < 200 || res.status >= 300) {
         throw new Error(`createFolder failed: HTTP ${res.status} — ${JSON.stringify(res.data)}`);

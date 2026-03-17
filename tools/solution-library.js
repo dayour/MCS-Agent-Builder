@@ -37,12 +37,45 @@ const {
     SITE_WEB_URL
 } = require('./lib/graph-sharepoint');
 
+const { httpRequest } = require('./lib/http');
+
 // --- Paths ---
 
 const REPO_ROOT = path.resolve(__dirname, '..');
 const SOLUTIONS_DIR = path.join(REPO_ROOT, 'knowledge', 'solutions');
 const INDEX_PATH = path.join(SOLUTIONS_DIR, 'index.json');
 const CACHE_DIR = path.join(SOLUTIONS_DIR, 'cache');
+
+// --- Auth Validation ---
+
+/**
+ * Validate that the Graph token has access to the Solution Library.
+ * Fails fast with a clear error instead of cryptic 403s mid-operation.
+ * @param {string} token - Graph token
+ * @returns {Promise<void>}
+ */
+async function validateLibraryAccess(token) {
+    try {
+        const url = `https://graph.microsoft.com/v1.0/drives/${DEFAULT_DRIVE_ID}/root?$select=name,id`;
+        const res = await httpRequest('GET', url, {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        });
+        if (res.status === 401 || res.status === 403) {
+            throw new Error(
+                `Access denied to Solution Library (HTTP ${res.status}).\n` +
+                `Your token does not have access to the Builder PMs SharePoint.\n` +
+                `Fix: az login --tenant 72f988bf-86f1-41af-91ab-2d7cd011db47`
+            );
+        }
+        if (res.status !== 200) {
+            throw new Error(`Unexpected status ${res.status} checking library access: ${JSON.stringify(res.data)}`);
+        }
+    } catch (err) {
+        if (err.message.includes('Access denied') || err.message.includes('Unexpected status')) throw err;
+        throw new Error(`Cannot validate library access: ${err.message}`);
+    }
+}
 
 // --- Index Management ---
 
@@ -1049,9 +1082,16 @@ async function main() {
     const config = parseArgs();
 
     try {
+        // Commands that need SharePoint access — get token + validate once
+        const spCommands = ['list', 'download', 'analyze', 'scan', 'refresh', 'upload'];
+        let token;
+        if (spCommands.includes(config.command)) {
+            token = getGraphToken();
+            await validateLibraryAccess(token);
+        }
+
         switch (config.command) {
             case 'list': {
-                const token = getGraphToken();
                 const folders = await listSolutions(token);
 
                 if (config.json) {
@@ -1075,7 +1115,7 @@ async function main() {
                     console.error('Error: --name is required for download');
                     process.exit(2);
                 }
-                const token = getGraphToken();
+
                 console.error(`Downloading solution: ${config.name}`);
                 const result = await downloadSolution(token, config.name, config.output);
 
@@ -1126,7 +1166,7 @@ async function main() {
                     console.error('Error: --name is required for analyze');
                     process.exit(2);
                 }
-                const token = getGraphToken();
+
                 console.error(`Analyzing solution: ${config.name}`);
                 const result = await analyzeSolution(token, config.name);
 
@@ -1165,7 +1205,7 @@ async function main() {
             }
 
             case 'scan': {
-                const token = getGraphToken();
+
                 console.error('Scanning SharePoint for changes...');
                 const result = await scanSolutions(token);
 
@@ -1197,7 +1237,7 @@ async function main() {
             }
 
             case 'refresh': {
-                const token = getGraphToken();
+
                 console.error(`Refreshing solution index${config.all ? ' (full re-analyze)' : ' (delta)'}...`);
                 const result = await refreshSolutions(token, config.all);
 
@@ -1241,7 +1281,7 @@ async function main() {
                     console.error('Error: --project and --agent are required for upload');
                     process.exit(2);
                 }
-                const token = getGraphToken();
+
                 console.error(`Uploading solution for ${config.project}/${config.agent}...`);
                 const result = await uploadSolution(token, config.project, config.agent, config.name);
 
