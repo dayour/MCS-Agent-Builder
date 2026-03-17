@@ -12821,6 +12821,11 @@
             "$ref": "#/definitions/ConversationStarter"
           }
         },
+        "defaultResponseMode": {
+          "title": "Default response mode",
+          "description": "The default response mode for the agent. Controls how the model processes and responds to user messages.",
+          "$ref": "#/definitions/DefaultResponseMode"
+        },
         "aISettings": {
           "title": "AISettings",
           "$ref": "#/definitions/AISettings"
@@ -17600,6 +17605,26 @@
           "title": "Motivational",
           "description": "Enthusiastic, cheerful, and positive",
           "const": "Motivational"
+        }
+      ]
+    },
+    "DefaultResponseMode": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Auto",
+          "description": "Let the model decide the best approach for responding.",
+          "const": "Auto"
+        },
+        {
+          "title": "Think deeper",
+          "description": "Use extended thinking for complex queries.",
+          "const": "ThinkDeeper"
+        },
+        {
+          "title": "Immediate",
+          "description": "Provide quick, direct responses.",
+          "const": "Immediate"
         }
       ]
     },
