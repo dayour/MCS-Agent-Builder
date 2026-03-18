@@ -71,12 +71,21 @@ function findLspBinary() {
     return lspPath;
 }
 
-// --- LSP Transport (JSON-RPC over stdio with Content-Length framing) ---
+// --- LSP Transport (JSON-RPC over stdio or named pipe with Content-Length framing) ---
+
+/**
+ * Default named pipe path for the Copilot Studio LSP.
+ * The VS Code extension uses this pipe when running the LSP server.
+ * connect() will automatically use this pipe name by default.
+ */
+const DEFAULT_PIPE_NAME = '\\\\.\\pipe\\copilot-studio-lsp';
 
 class LspClient {
     constructor(lspPath) {
         this._lspPath = lspPath;
         this._process = null;
+        this._socket = null;     // Named pipe socket (alternative to process stdio)
+        this._transport = null;  // 'stdio' or 'pipe'
         this._nextId = 1;
         this._pending = new Map(); // id → { resolve, reject, timer }
         this._buffer = Buffer.alloc(0);
@@ -84,9 +93,10 @@ class LspClient {
     }
 
     /**
-     * Spawn the LSP process and begin listening for messages.
+     * Spawn the LSP process and begin listening for messages via stdio.
      */
     start() {
+        this._transport = 'stdio';
         this._process = spawn(this._lspPath, ['--stdio'], {
             stdio: ['pipe', 'pipe', 'pipe'],
             windowsHide: true,
@@ -116,6 +126,142 @@ class LspClient {
         });
 
         this._started = true;
+    }
+
+    /**
+     * Connect to an existing LSP server via Windows named pipe.
+     * Use this when VS Code Copilot Studio extension is already running.
+     *
+     * @param {string} [pipeName] - Named pipe path (default: \\.\pipe\copilot-studio-lsp)
+     * @param {number} [timeoutMs=5000] - Connection timeout in ms
+     * @returns {Promise<void>} Resolves when connected
+     */
+    connect(pipeName, timeoutMs = 5000) {
+        const net = require('net');
+        const pipe = pipeName || DEFAULT_PIPE_NAME;
+        this._transport = 'pipe';
+
+        return new Promise((resolve, reject) => {
+            const timer = setTimeout(() => {
+                reject(new Error(`Named pipe connection timeout (${timeoutMs}ms): ${pipe}`));
+            }, timeoutMs);
+
+            this._socket = net.connect(pipe, () => {
+                clearTimeout(timer);
+                if (VERBOSE) console.error(`[mcs-lsp] Connected to named pipe: ${pipe}`);
+                this._started = true;
+                resolve();
+            });
+
+            this._socket.on('data', (chunk) => this._onData(chunk));
+
+            this._socket.on('error', (err) => {
+                clearTimeout(timer);
+                if (!this._started) {
+                    reject(new Error(`Named pipe connection failed: ${err.message}. Is the LSP running? Pipe: ${pipe}`));
+                } else {
+                    console.error(`[mcs-lsp] Pipe error: ${err.message}`);
+                    this._rejectAll(err);
+                }
+            });
+
+            this._socket.on('close', () => {
+                if (VERBOSE) console.error('[mcs-lsp] Named pipe closed');
+                this._rejectAll(new Error('Named pipe connection closed'));
+            });
+        });
+    }
+
+    /**
+     * Spawn the LSP process with a named pipe (server pattern).
+     *
+     * This is the pattern used by the official skills-for-copilot-studio scripts:
+     * 1. Create a net.createServer() on a unique pipe path
+     * 2. Spawn the LSP binary with --pipe=<path> (NOT --stdio)
+     * 3. The LSP connects back to our pipe server
+     *
+     * Advantages over stdio:
+     * - Clean JSON-RPC channel (no .NET log noise on stdout)
+     * - Process stdout/stderr available for diagnostics without polluting protocol
+     *
+     * @param {number} [timeoutMs=15000] - Max time to wait for LSP to connect
+     * @returns {Promise<void>} Resolves when LSP connects to the pipe
+     */
+    startWithPipe(timeoutMs = LSP_STARTUP_TIMEOUT_MS) {
+        const net = require('net');
+        const crypto = require('crypto');
+        const sessionId = crypto.randomUUID();
+        const pipePath = os.platform() === 'win32'
+            ? `\\\\.\\pipe\\mcs-lsp-${sessionId}`
+            : path.join(os.tmpdir(), `mcs-lsp-${sessionId}.sock`);
+
+        this._transport = 'pipe';
+
+        return new Promise((resolve, reject) => {
+            const timer = setTimeout(() => {
+                reject(new Error(`LSP did not connect to pipe within ${timeoutMs}ms`));
+            }, timeoutMs);
+
+            // Create pipe server and wait for LSP to connect
+            this._pipeServer = net.createServer((socket) => {
+                clearTimeout(timer);
+                this._socket = socket;
+                this._started = true;
+
+                socket.on('data', (chunk) => this._onData(chunk));
+                socket.on('error', (err) => {
+                    console.error(`[mcs-lsp] Pipe socket error: ${err.message}`);
+                    this._rejectAll(err);
+                });
+                socket.on('close', () => {
+                    if (VERBOSE) console.error('[mcs-lsp] Pipe socket closed');
+                    this._rejectAll(new Error('Named pipe connection closed'));
+                });
+
+                if (VERBOSE) console.error(`[mcs-lsp] LSP connected via pipe: ${pipePath}`);
+                resolve();
+            });
+
+            this._pipeServer.listen(pipePath, () => {
+                if (VERBOSE) console.error(`[mcs-lsp] Pipe server listening: ${pipePath}`);
+
+                // Spawn LSP with --pipe= instead of --stdio
+                this._process = spawn(this._lspPath, [
+                    `--pipe=${pipePath}`,
+                    `--sessionid=${sessionId}`,
+                    '--enabletelemetry=false'
+                ], {
+                    stdio: ['ignore', 'pipe', 'pipe'],
+                    windowsHide: true,
+                    env: {
+                        ...process.env,
+                        Logging__LogLevel__Default: 'None',
+                        Logging__Console__LogLevel__Default: 'None'
+                    }
+                });
+
+                this._process.stderr.on('data', (chunk) => {
+                    if (VERBOSE) console.error(`[mcs-lsp stderr] ${chunk.toString().trimEnd()}`);
+                });
+
+                this._process.on('error', (err) => {
+                    clearTimeout(timer);
+                    reject(new Error(`LSP process error: ${err.message}`));
+                });
+
+                this._process.on('exit', (code) => {
+                    if (!this._started) {
+                        clearTimeout(timer);
+                        reject(new Error(`LSP process exited before connecting (code=${code})`));
+                    }
+                });
+            });
+
+            this._pipeServer.on('error', (err) => {
+                clearTimeout(timer);
+                reject(new Error(`Failed to create pipe server: ${err.message}`));
+            });
+        });
     }
 
     /**
@@ -159,10 +305,38 @@ class LspClient {
     }
 
     /**
-     * Gracefully shut down the LSP process.
+     * Gracefully shut down the LSP process or disconnect the named pipe.
      */
     async shutdown() {
-        if (!this._started || !this._process || this._process.exitCode !== null) return;
+        if (!this._started) return;
+
+        // Named pipe transport
+        if (this._transport === 'pipe') {
+            // If we spawned the process (startWithPipe), send shutdown and kill
+            if (this._process) {
+                try {
+                    await this.send('shutdown', null);
+                    this.notify('exit', null);
+                } catch { /* process may have already exited */ }
+            }
+
+            if (this._socket) {
+                try { this._socket.end(); } catch { /* already closed */ }
+                this._socket = null;
+            }
+            if (this._pipeServer) {
+                try { this._pipeServer.close(); } catch { /* already closed */ }
+                this._pipeServer = null;
+            }
+            if (this._process && this._process.exitCode === null) {
+                this._process.kill('SIGTERM');
+            }
+            this._started = false;
+            return;
+        }
+
+        // Stdio transport — shut down the spawned process
+        if (!this._process || this._process.exitCode !== null) return;
 
         try {
             await this.send('shutdown', null);
@@ -194,12 +368,18 @@ class LspClient {
 
     /**
      * Write a JSON-RPC message with Content-Length header.
+     * Routes to stdio or named pipe depending on transport.
      */
     _write(message) {
         const body = JSON.stringify(message);
         const header = `Content-Length: ${Buffer.byteLength(body)}\r\n\r\n`;
-        if (VERBOSE) console.error(`[mcs-lsp →] ${message.method} (id=${message.id || 'notification'})`);
-        this._process.stdin.write(header + body);
+        if (VERBOSE) console.error(`[mcs-lsp →] ${message.method} (id=${message.id || 'notification'}) [${this._transport}]`);
+
+        if (this._transport === 'pipe' && this._socket) {
+            this._socket.write(header + body);
+        } else if (this._process && this._process.stdin) {
+            this._process.stdin.write(header + body);
+        }
     }
 
     /**
@@ -740,7 +920,14 @@ async function push(workspacePath, options = {}) {
 
     let result;
     try {
-        client.start();
+        // Connect via named pipe or spawn new process
+        if (options.pipe === true) {
+            await client.startWithPipe();
+        } else if (typeof options.pipe === 'string') {
+            await client.connect(options.pipe);
+        } else {
+            client.start();
+        }
         await initializeLsp(client, workspacePath);
         await openWorkspaceFiles(client, workspacePath);
 
@@ -809,7 +996,13 @@ async function pull(workspacePath, options = {}) {
     const client = new LspClient(lspPath);
 
     try {
-        client.start();
+        if (options.pipe === true) {
+            await client.startWithPipe();
+        } else if (typeof options.pipe === 'string') {
+            await client.connect(options.pipe);
+        } else {
+            client.start();
+        }
         await initializeLsp(client, workspacePath);
         await openWorkspaceFiles(client, workspacePath);
 
@@ -843,7 +1036,13 @@ async function preview(workspacePath, options = {}) {
     const client = new LspClient(lspPath);
 
     try {
-        client.start();
+        if (options.pipe === true) {
+            await client.startWithPipe();
+        } else if (typeof options.pipe === 'string') {
+            await client.connect(options.pipe);
+        } else {
+            client.start();
+        }
         await initializeLsp(client, workspacePath);
         await openWorkspaceFiles(client, workspacePath);
 
@@ -867,7 +1066,13 @@ async function info(workspacePath, options = {}) {
     const client = new LspClient(lspPath);
 
     try {
-        client.start();
+        if (options.pipe === true) {
+            await client.startWithPipe();
+        } else if (typeof options.pipe === 'string') {
+            await client.connect(options.pipe);
+        } else {
+            client.start();
+        }
         await initializeLsp(client, workspacePath);
 
         console.error('[mcs-lsp] Getting workspace details...');
@@ -1133,6 +1338,7 @@ function parseArgs() {
         switch (args[i]) {
             case '--workspace': config.workspace = args[++i]; break;
             case '--lsp-path': config.lspPath = args[++i]; break;
+            case '--pipe': config.pipe = args[i + 1] && !args[i + 1].startsWith('--') ? args[++i] : true; break;
             case '--json': config.json = true; break;
             // Clone-specific args
             case '--agent-id': config.agentId = args[++i]; break;
@@ -1176,6 +1382,9 @@ Clone-specific (optional — auto-resolved from session-config.json):
 
 Optional:
   --lsp-path <path>    Override path to LanguageServerHost.exe
+  --pipe [path]        Use named pipe transport instead of stdio. Two modes:
+                       (no path) Spawn LSP with a new pipe (clean channel, no log noise)
+                       (path)    Connect to an existing pipe (e.g., VS Code's running LSP)
   --json               Output raw JSON results
   --help               Show this help
 
@@ -1219,6 +1428,7 @@ async function main() {
 
     const options = {};
     if (config.lspPath) options.lspPath = config.lspPath;
+    if (config.pipe) options.pipe = config.pipe;
 
     try {
         switch (config.command) {

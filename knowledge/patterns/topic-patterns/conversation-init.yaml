@@ -21,18 +21,18 @@ beginDialog:
 
     # Step 1a: Get M365 profile
     - kind: InvokeConnectorAction
-      id: getUserProfile
+      id: getProfile_REPLACE1
       connectionReference: {{CONNECTION_REF_OFFICE365USERS}}
-      actionName: UserGet_V2
-      input:
-        binding: {}
+      connectionProperties:
+        mode: Invoker
+      operationId: UserGet_V2
       output:
-        binding:
-          body: Topic.M365Profile
+        kind: SingleVariableOutputBinding
+        variable: init:Topic.M365Profile
 
     # Step 1b: Extract country
     - kind: SetVariable
-      id: setCountry
+      id: setCountry_REPLACE2
       variable: Global.UserCountry
       value: =If(IsBlank(Topic.M365Profile.country), "Unknown", Topic.M365Profile.country)
 
@@ -50,19 +50,25 @@ beginDialog:
 
     # --- Section 2: Glossary ---
 
-    # Step 2a: Search glossary knowledge source
+    # Step 2a: Search glossary knowledge source (triggerCondition: =false means
+    # it is never auto-searched — only queried explicitly here)
     - kind: SearchAndSummarizeContent
-      id: loadGlossary
-      instructions: >
-        Return the full glossary CSV content exactly as stored.
-        Do not summarize or reformat. Return every ACRONYM,Definition row.
-      variable: init:Topic.GlossaryRaw
+      id: loadGlossary_REPLACE3
+      autoSend: false
+      variable: Topic.GlossaryResult
+      userInput: ='*'
+      responseCaptureType: FullResponse
+      applyModelKnowledgeSetting: false
+      knowledgeSources:
+        kind: SearchSpecificKnowledgeSources
+        knowledgeSources:
+          - {{AGENT_SCHEMA_NAME}}.knowledge.glossary
 
     # Step 2b: Store in Global variable
     - kind: SetVariable
-      id: setGlobalGlossary
+      id: setGlobalGlossary_REPLACE4
       variable: Global.Glossary
-      value: =Topic.GlossaryRaw
+      value: =Topic.GlossaryResult
 
 # --- Design decisions ---
 # 1. Single IsBlank(Global.UserCountry) guard covers both sections.

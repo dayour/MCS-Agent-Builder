@@ -5,6 +5,15 @@
 #        Replace {{WELCOME_MESSAGE}} with your greeting text
 # Note: The target topic must already exist. Find its schemaName in the topic's
 #       code editor or via pac copilot extract-template.
+#
+# WARNING — M365 Copilot Channel Limitation:
+#   OnConversationStart does NOT fire on M365 Copilot or other channel-embedded surfaces.
+#   If the agent deploys to M365 Copilot, use OnActivity (type: Message) instead:
+#     kind: OnActivity
+#     type: Message
+#     condition: =IsBlank(Global.HasRunInit)
+#   This fires on the first user message on ALL channels.
+#   See conversation-init.yaml for the recommended OnActivity pattern.
 
 kind: AdaptiveDialog
 beginDialog:

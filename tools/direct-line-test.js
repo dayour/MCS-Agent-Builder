@@ -166,6 +166,64 @@ class TokenManager {
     }
 }
 
+// --- Sign-in Card Detection ---
+
+/**
+ * Detect sign-in / OAuth cards in bot activities.
+ * MCS agents requiring authentication send OAuthCard or SigninCard attachments.
+ * Without detection, these cause silent timeouts — the bot never sends a text reply.
+ *
+ * @param {Array} activities - All activities from Direct Line
+ * @returns {{detected: boolean, cardType: string, signInUrl: string|null}}
+ */
+function detectSignInCard(activities) {
+    for (const a of activities) {
+        // Check attachments on message activities
+        if (a.attachments && Array.isArray(a.attachments)) {
+            for (const att of a.attachments) {
+                const contentType = (att.contentType || '').toLowerCase();
+
+                // OAuthCard — MCS standard auth flow
+                if (contentType.includes('oauthcard') || contentType === 'application/vnd.microsoft.card.oauth') {
+                    const content = att.content || {};
+                    return {
+                        detected: true,
+                        cardType: 'OAuthCard',
+                        connectionName: content.connectionName || null,
+                        signInUrl: content.buttons?.[0]?.value || content.tokenExchangeResource?.uri || null,
+                        text: content.text || 'Sign in required'
+                    };
+                }
+
+                // SigninCard — legacy auth flow
+                if (contentType.includes('signincard') || contentType === 'application/vnd.microsoft.card.signin') {
+                    const content = att.content || {};
+                    return {
+                        detected: true,
+                        cardType: 'SigninCard',
+                        connectionName: null,
+                        signInUrl: content.buttons?.[0]?.value || null,
+                        text: content.text || 'Sign in required'
+                    };
+                }
+            }
+        }
+
+        // Check for invoke activities with signin type
+        if (a.type === 'invoke' && a.name === 'signin/tokenExchange') {
+            return {
+                detected: true,
+                cardType: 'TokenExchange',
+                connectionName: a.value?.connectionName || null,
+                signInUrl: null,
+                text: 'Token exchange requested'
+            };
+        }
+    }
+
+    return { detected: false, cardType: null, signInUrl: null, text: null };
+}
+
 // --- Tool Invocation Extraction ---
 
 /**
@@ -339,6 +397,25 @@ class DirectLineClient {
                     for (const a of res.data.activities) {
                         if (a.id) allActivities.set(a.id, a);
                     }
+                }
+
+                // Detect sign-in cards — agent requires authentication
+                const signIn = detectSignInCard(res.data.activities);
+                if (signIn.detected) {
+                    this.watermark = res.data.watermark;
+                    const signInText = `[SIGN_IN_REQUIRED] ${signIn.cardType}: ${signIn.text}` +
+                        (signIn.connectionName ? ` (connection: ${signIn.connectionName})` : '');
+
+                    if (enhancedCapture) {
+                        const activitiesArr = allActivities ? [...allActivities.values()] : res.data.activities;
+                        return {
+                            text: signInText,
+                            allActivities: activitiesArr,
+                            toolInvocations: extractToolInvocations(activitiesArr, false),
+                            signIn
+                        };
+                    }
+                    return signInText;
                 }
 
                 // Filter to bot responses only (not our own messages)
@@ -597,6 +674,25 @@ async function runTests() {
                 await client.sendMessage(tc.question);
 
                 const response = await client.getResponse(config.timeout);
+
+                // Detect sign-in card in standard path — abort early
+                if (typeof response === 'string' && response.startsWith('[SIGN_IN_REQUIRED]')) {
+                    results.push({
+                        ...tc,
+                        actualResponse: response,
+                        actual: response,
+                        pass: false,
+                        score: 0,
+                        error: response
+                    });
+                    console.log(`  SIGN_IN: ${response}`);
+                    console.log('\n  Agent requires authentication. Configure user auth or use a token with auth context.');
+                    console.log('  Stopping test run — all subsequent tests will fail for the same reason.');
+                    const resultsPath = writeResults(config, results, testCases, 'partial', i);
+                    console.log(`  Partial results saved to: ${resultsPath}`);
+                    process.exit(2);
+                }
+
                 const result = config.gpt
                     ? await evaluateResultAsync(response, tc.expectedResponse, tc.testMethodType, tc.passingScore, undefined, tc.keywords)
                     : evaluateResult(response, tc.expectedResponse, tc.testMethodType, tc.passingScore, undefined, tc.keywords);
@@ -637,7 +733,8 @@ async function runTests() {
             const isFatal = err.message.includes('Auth failed') ||
                             err.message.includes('token') ||
                             err.message.includes('ECONNREFUSED') ||
-                            err.message.includes('ENOTFOUND');
+                            err.message.includes('ENOTFOUND') ||
+                            err.message.includes('SIGN_IN_REQUIRED');
 
             if (isFatal && i < testCases.length - 1) {
                 console.log(`\n  Fatal error detected — writing partial results and stopping.`);

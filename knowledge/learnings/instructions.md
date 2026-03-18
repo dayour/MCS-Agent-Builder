@@ -72,6 +72,24 @@ Decision rule: if the behavior maps to a boundaries eval test (100% pass require
 **Related cache:** instructions-authoring.md (updated with 6 new sections)
 **Tags:** #instructions #conciseness #description-engineering #topics-extraction #advanced-patterns #framework-update
 
+### Date context injection via Today() in instructions {#in-007} — 2026-03-18
+**Context:** Research from microsoft/skills-for-copilot-studio repo — official Microsoft best practice for date-aware agents.
+**Tried:** No date context in agent instructions, relying on the model's training cutoff for date awareness.
+**Result:** Without date context, the orchestrator misinterprets relative dates ("next week", "upcoming events", "recent announcements"), returns outdated information, and struggles with localization ambiguity.
+**Better approach:** Inject `{Text(Today(),DateTimeFormat.LongDate)}` directly in agent instructions. `Today()` is a Power Fx function evaluated at runtime — no topic or global variable needed. Use `DateTimeFormat.LongDate` (e.g., "Thursday, March 13, 2026") to avoid locale ambiguity (short dates like "3/13" are ambiguous across locales). For time precision use `Now()`. Minimal token cost (5-10 tokens). Place in a `## Current Context` section at top of instructions. Combine with JIT user context: `Date: {Text(Today(),DateTimeFormat.LongDate)}, User: {Global.UserDisplayName} from {Global.UserCountry}`.
+**Confirmed:** 0 build(s) | Last confirmed: 2026-03-18
+**Related cache:** instructions-authoring.md
+**Tags:** #instructions #date-context #today #powerfx #best-practice #time-sensitive
+
+### Topic-action chaining — output DATA not status messages {#in-008} — 2026-03-18
+**Context:** Research from microsoft/skills-for-copilot-studio repo — critical anti-pattern for generative orchestration agents with mixed topics and actions.
+**Tried:** Topics that gather data for downstream actions output status messages like "Your complaint has been submitted!" or "Report is ready!".
+**Result:** The orchestrator interprets status messages as task completion — it does NOT invoke the downstream action (e.g., Teams connector to actually send the complaint). The user sees a success message but the action never fires.
+**Better approach:** Two rules: (1) If the topic IS the final action (self-contained), output a confirmation via SendActivity. (2) If the topic PREPARES DATA for an action to consume, output the DATA ITSELF as a topic output variable, NOT a status message. The orchestrator reads the output and chains it to the next action's input. Alternative approaches: remove the topic entirely and let the action gather data via its own AutomaticTaskInput descriptions, or use a global variable that the action reads via Power Fx. Key question to ask: "Does this topic complete the task on its own, or does it prepare data for another action/topic?"
+**Confirmed:** 0 build(s) | Last confirmed: 2026-03-18
+**Related cache:** instructions-authoring.md
+**Tags:** #instructions #topic-action-chaining #generative-orchestration #anti-pattern #output-variables
+
 ### Instructions-only agents fail boundaries evals — three-layer architecture required {#in-005} — 2026-03-13
 **Context:** CDW Account Prospecting Agent — initial research produced instructions only (no topics), relying entirely on generative orchestration for all behavior including boundary enforcement.
 **Tried:** All capabilities AND boundaries encoded in instructions alone. Zero custom topics. No greeting, no fallback customization, no deterministic decline paths.

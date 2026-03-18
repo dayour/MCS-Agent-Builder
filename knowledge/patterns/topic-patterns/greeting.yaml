@@ -5,6 +5,12 @@
 #   B) Greeting with suggested actions (one-click buttons)
 #   C) Auto-redirect to another topic (no user input needed)
 # Customize: Replace {{PLACEHOLDERS}} with your values
+#
+# WARNING — M365 Copilot Channel Limitation:
+#   OnConversationStart does NOT fire on M365 Copilot or other channel-embedded surfaces.
+#   For M365 Copilot agents, use conversationStarters in agent.mcs.yml instead of
+#   OnConversationStart. If both channels need greetings, keep OnConversationStart
+#   for web/Teams + conversationStarters for M365 Copilot.
 
 # --- Variant A: Simple greeting ---
 # kind: AdaptiveDialog

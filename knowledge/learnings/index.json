@@ -1021,6 +1021,40 @@
       ]
     },
     {
+      "id": "in-007",
+      "file": "instructions.md",
+      "title": "Date context injection via Today() in instructions",
+      "date": "2026-03-18",
+      "confirmed": 0,
+      "lastConfirmed": "2026-03-18",
+      "tags": [
+        "instructions",
+        "date-context",
+        "today",
+        "powerfx",
+        "best-practice"
+      ],
+      "status": "active",
+      "projects": []
+    },
+    {
+      "id": "in-008",
+      "file": "instructions.md",
+      "title": "Topic-action chaining — output DATA not status messages",
+      "date": "2026-03-18",
+      "confirmed": 0,
+      "lastConfirmed": "2026-03-18",
+      "tags": [
+        "instructions",
+        "topic-action-chaining",
+        "generative-orchestration",
+        "anti-pattern",
+        "output-variables"
+      ],
+      "status": "active",
+      "projects": []
+    },
+    {
       "id": "bm-032",
       "file": "build-methods.md",
       "title": "Python JSON parsing unreliable on Windows — use Node.js",

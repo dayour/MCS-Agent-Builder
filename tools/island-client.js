@@ -75,6 +75,68 @@ function loadGatewayFromConfig(envId) {
     return null;
 }
 
+// --- BAP (Business Application Platform) APIs ---
+
+const BAP_BASE_URL = 'https://api.bap.microsoft.com';
+
+/**
+ * List Power Platform environments available to the current user via BAP API.
+ * This is the same API the Power Platform Admin Center uses.
+ *
+ * @param {string} token - BAP API access token (resource: https://api.bap.microsoft.com/)
+ * @returns {Array<{id: string, name: string, displayName: string, type: string, location: string, dataverseUrl: string, state: string}>}
+ */
+async function listEnvironments(token) {
+    const url = `${BAP_BASE_URL}/providers/Microsoft.BusinessAppPlatform/scopes/admin/environments?api-version=2023-06-01&$expand=properties/linkedEnvironmentMetadata`;
+    const res = await httpRequestWithRetry('GET', url, {
+        'Authorization': `Bearer ${token}`
+    });
+
+    if (res.status !== 200) {
+        throw new Error(`listEnvironments failed: HTTP ${res.status} — ${JSON.stringify(res.data)}`);
+    }
+
+    const envs = res.data.value || [];
+    return envs.map(env => {
+        const props = env.properties || {};
+        const linked = props.linkedEnvironmentMetadata || {};
+        return {
+            id: env.name, // environment ID (GUID)
+            displayName: props.displayName || env.name,
+            type: linked.type || props.environmentType || 'unknown',
+            location: props.azureRegion || props.location || '',
+            state: props.states?.management?.id || 'unknown',
+            dataverseUrl: linked.instanceUrl || '',
+            dataverseApiUrl: linked.instanceApiUrl || '',
+            domainName: linked.domainName || '',
+            uniqueName: linked.uniqueName || '',
+            securityGroupId: linked.securityGroupId || '',
+            createdTime: props.createdTime || '',
+            isDefault: !!props.isDefault
+        };
+    });
+}
+
+/**
+ * Get details for a specific environment via BAP API.
+ *
+ * @param {string} token - BAP API access token
+ * @param {string} envId - Environment ID (GUID)
+ * @returns {object} Environment details
+ */
+async function getEnvironment(token, envId) {
+    const url = `${BAP_BASE_URL}/providers/Microsoft.BusinessAppPlatform/scopes/admin/environments/${envId}?api-version=2023-06-01&$expand=properties/linkedEnvironmentMetadata`;
+    const res = await httpRequestWithRetry('GET', url, {
+        'Authorization': `Bearer ${token}`
+    });
+
+    if (res.status !== 200) {
+        throw new Error(`getEnvironment failed: HTTP ${res.status} — ${JSON.stringify(res.data)}`);
+    }
+
+    return res.data;
+}
+
 // --- Discovery APIs ---
 
 /**
@@ -392,8 +454,10 @@ Commands:
   check-dlp          Check DLP violations — blocked connectors and policy issues
   list-topics        List topics with trigger info (filtered from components)
   create-topic       Create a new topic via Gateway API BotComponentInsert (renders in MCS canvas)
+  list-environments  List Power Platform environments via BAP API (no --env/--bot needed)
+  get-environment    Get detailed info for a specific environment via BAP API
 
-Required options:
+Required options (most commands):
   --env <envId>      Environment ID (e.g. Default-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
   --bot <botId>      Bot/agent CDS ID (GUID)
 
@@ -419,7 +483,12 @@ Topics:
 
 Evaluation:
   node island-client.js upload-evals --env Default-xxx --bot fec3b192-xxx --brief path/to/brief.json
-  node island-client.js run-eval --env Default-xxx --bot fec3b192-xxx --set-id <evalSetId> --name "Run 1"`);
+  node island-client.js run-eval --env Default-xxx --bot fec3b192-xxx --set-id <evalSetId> --name "Run 1"
+
+Environment Discovery (BAP API — no --env/--bot needed):
+  node island-client.js list-environments
+  node island-client.js list-environments --json
+  node island-client.js get-environment --env Default-xxx`);
 }
 
 async function main() {
@@ -715,6 +784,50 @@ async function main() {
                 break;
             }
 
+            case 'list-environments': {
+                // BAP API uses a different token audience
+                const bapToken = getToken('https://api.bap.microsoft.com/');
+                const envs = await listEnvironments(bapToken);
+                if (config.json) {
+                    console.log(JSON.stringify(envs, null, 2));
+                } else {
+                    console.log(`Environments (${envs.length}):\n`);
+                    for (const env of envs) {
+                        const def = env.isDefault ? ' (DEFAULT)' : '';
+                        console.log(`  ${env.displayName}${def}`);
+                        console.log(`    ID: ${env.id}  |  Type: ${env.type}  |  State: ${env.state}`);
+                        if (env.dataverseUrl) console.log(`    Dataverse: ${env.dataverseUrl}`);
+                        if (env.location) console.log(`    Region: ${env.location}`);
+                    }
+                }
+                break;
+            }
+
+            case 'get-environment': {
+                if (!config.envId) {
+                    console.error('Error: --env is required for get-environment');
+                    process.exit(2);
+                }
+                const bapToken = getToken('https://api.bap.microsoft.com/');
+                const envDetail = await getEnvironment(bapToken, config.envId);
+                if (config.json) {
+                    console.log(JSON.stringify(envDetail, null, 2));
+                } else {
+                    const props = envDetail.properties || {};
+                    const linked = props.linkedEnvironmentMetadata || {};
+                    console.log('Environment Details:');
+                    console.log(`  Name:        ${props.displayName}`);
+                    console.log(`  ID:          ${envDetail.name}`);
+                    console.log(`  Type:        ${linked.type || props.environmentType || 'unknown'}`);
+                    console.log(`  State:       ${props.states?.management?.id || 'unknown'}`);
+                    console.log(`  Dataverse:   ${linked.instanceUrl || 'N/A'}`);
+                    console.log(`  Domain:      ${linked.domainName || 'N/A'}`);
+                    console.log(`  Region:      ${props.azureRegion || props.location || 'N/A'}`);
+                    console.log(`  Created:     ${props.createdTime || 'N/A'}`);
+                }
+                break;
+            }
+
             default:
                 console.error(`Unknown command: ${config.command}`);
                 printUsage();
@@ -990,20 +1103,27 @@ module.exports = {
     getTenantId,
     buildHeaders,
     loadGatewayFromConfig,
+    // BAP API
+    listEnvironments,
+    getEnvironment,
+    // Discovery
     getRoutingInfo,
     getModelSettings,
     getBotSettings,
     getPublishStatus,
     checkDlp,
     listTopics,
+    // Component CRUD
     readComponents,
     writeComponents,
     findGptComponent,
     setModel,
     getInstructions,
     setInstructions,
+    // Eval
     createEvalSet,
     runEval,
+    // Topics
     createTopic,
     buildTextMessage
 };

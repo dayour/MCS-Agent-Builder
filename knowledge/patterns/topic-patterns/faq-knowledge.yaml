@@ -1,18 +1,39 @@
-# Pattern: Knowledge-Grounded Q&A (Generative Answers)
-# Trigger: OnUnknownIntent (catches queries not matched by other topics)
-# This is the primary pattern for knowledge-based agents
-# The SearchAndSummarizeContent node searches configured knowledge sources
+# Pattern: Knowledge-Grounded Q&A (Fallback Search)
+# Trigger: OnUnknownIntent with priority: -1 (runs before standard fallback)
+# This is the primary pattern for knowledge-based agents.
+# CRITICAL: Always use CreateSearchQuery before SearchAndSummarizeContent to preserve
+#           conversational context. Without it, follow-ups like "tell me more about that"
+#           search literally instead of resolving the reference from conversation history.
+# See also: search-direct-response.yaml, search-orchestrator.yaml, search-precision.yaml
+#           for alternative SearchAndSummarize patterns.
 
 kind: AdaptiveDialog
 beginDialog:
   kind: OnUnknownIntent
   id: main
+  priority: -1
   actions:
-    - kind: SearchAndSummarizeContent
-      id: searchKnowledge
+    # Step 1: Generate an optimized search query that preserves conversational context.
+    # CreateSearchQuery rewrites the user's raw message using conversation history —
+    # e.g., "tell me more about that" becomes a query about the actual subject.
+    - kind: CreateSearchQuery
+      id: createSearchQuery_REPLACE1
       userInput: =System.Activity.Text
-      moderationLevel: Medium
-      additionalInstructions: |-
-        {{ADDITIONAL_INSTRUCTIONS}}
-        Always cite your sources when providing information.
-        If you cannot find relevant information, say so clearly.
+      result: Topic.SearchQuery
+
+    # Step 2: Search all agent knowledge sources with the optimized query
+    - kind: SearchAndSummarizeContent
+      id: searchKnowledge_REPLACE2
+      variable: Topic.Answer
+      userInput: =Topic.SearchQuery.SearchQuery
+
+    # Step 3: End dialog if answer found (prevents fallback "I don't understand")
+    - kind: ConditionGroup
+      id: conditionGroup_REPLACE3
+      conditions:
+        - id: conditionItem_REPLACE4
+          condition: =!IsBlank(Topic.Answer)
+          actions:
+            - kind: EndDialog
+              id: endDialog_REPLACE5
+              clearTopicQueue: true

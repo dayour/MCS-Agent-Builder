@@ -17,14 +17,14 @@ beginDialog:
   actions:
     # Step 1: Call M365 Users connector to get signed-in user's profile
     - kind: InvokeConnectorAction
-      id: getUserProfile
+      id: getProfile_REPLACE1
       connectionReference: {{CONNECTION_REF_OFFICE365USERS}}
-      actionName: UserGet_V2
-      input:
-        binding: {}
+      connectionProperties:
+        mode: Invoker
+      operationId: UserGet_V2
       output:
-        binding:
-          body: Topic.M365Profile
+        kind: SingleVariableOutputBinding
+        variable: init:Topic.M365Profile
 
     # Step 2: Extract country (with fallback for blank Azure AD field)
     - kind: SetVariable

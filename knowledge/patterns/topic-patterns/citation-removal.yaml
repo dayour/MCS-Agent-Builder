@@ -23,7 +23,7 @@ beginDialog:
     - kind: SetVariable
       id: stripCitations
       variable: init:Topic.CleanedResponse
-      value: =Substitute(Substitute(Substitute(Substitute(Substitute(Substitute(Substitute(Substitute(Substitute(Substitute(System.GeneratedResponse, "[10]", ""), "[9]", ""), "[8]", ""), "[7]", ""), "[6]", ""), "[5]", ""), "[4]", ""), "[3]", ""), "[2]", ""), "[1]", "")
+      value: =Substitute(Substitute(Substitute(Substitute(Substitute(Substitute(Substitute(Substitute(Substitute(Substitute(System.Response.FormattedText, "[10]", ""), "[9]", ""), "[8]", ""), "[7]", ""), "[6]", ""), "[5]", ""), "[4]", ""), "[3]", ""), "[2]", ""), "[1]", "")
 
     # Step 3: Send the cleaned response
     - kind: SendActivity
@@ -41,12 +41,12 @@ beginDialog:
 
 # --- Variant: Strip only specific citation formats ---
 # If citations use a different format (e.g., (1), (2)), adjust the Substitute calls:
-# value: =Substitute(Substitute(System.GeneratedResponse, "(1)", ""), "(2)", "")
+# value: =Substitute(Substitute(System.Response.FormattedText, "(1)", ""), "(2)", "")
 
 # --- Design notes ---
 # 1. OnGeneratedResponse fires AFTER the AI generates a response but BEFORE it's sent
 # 2. System.ContinueResponse = false prevents the original (with citations) from sending
-# 3. System.GeneratedResponse contains the full AI-generated text including citations
+# 3. System.Response.FormattedText contains the full AI-generated text including citations
 # 4. Nested Substitute() is verbose but reliable — PowerFx has no regex support
 # 5. Strip from [10] down to [1] to avoid partial replacement issues
 #    (e.g., stripping [1] first would turn [10] into [0])

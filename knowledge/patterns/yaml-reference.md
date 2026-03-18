@@ -31,18 +31,7 @@ Common triggers:
 
 Reusable YAML templates in `knowledge/patterns/topic-patterns/`:
 
-| Pattern | File | Use For |
-|---------|------|---------|
-| Greeting | `greeting.yaml` | Conversation start message |
-| FAQ/Knowledge | `faq-knowledge.yaml` | Knowledge-grounded generative answers |
-| Branching | `branching.yaml` | Conditional logic with multiple paths |
-| Adaptive Card | `adaptive-card.yaml` | Display structured data in cards |
-| HTTP Request | `http-request.yaml` | Call external REST APIs |
-| Escalation | `escalation.yaml` | Hand off / decline / refuse |
-| Multi-Turn | `multi-turn.yaml` | Multi-step variable collection |
-| Form Collection | `form-collect.yaml` | Adaptive card form input |
-| Auto-Start | `auto-start.yaml` | Auto-execute topic at conversation start |
-| AI Builder Model | `ai-builder-model.yaml` | Invoke AI Builder model with input/output bindings |
+See `knowledge/patterns/topic-patterns/README.md` for the full pattern catalog (21 patterns across 7 categories).
 
 ## How to Use (Code Editor Workflow)
 
@@ -155,36 +144,87 @@ Input.Text styles: `"Email"`, `"Tel"`, `"Url"`, or omit for plain text.
   dialog: TopicSchemaName
 ```
 
-### 9. SetVariable Pattern — Type Coercion (Number/DateTime to Text)
+### 9. SetVariable vs SetTextVariable — Type Coercion
 ```yaml
-# Use template interpolation to coerce non-text types to String.
-# PowerFx Text() also works but interpolation is more readable.
+# SetVariable: preserves the original type (use for most assignments)
 - kind: SetVariable
-  id: coerceToText
-  variable: init:Topic.guestCountText
-  value: "Guests: {Topic.NumberOfGuests}"
-# Result: "Guests: 5" (Number → String via interpolation)
+  id: setVar
+  variable: init:Topic.result
+  value: =Topic.number1 + Topic.number2
 
-# Alternative using Text() function:
+# SetTextVariable: converts to text via template interpolation (use for display)
+- kind: SetTextVariable
+  id: coerceToText
+  variable: Topic.GuestCountText
+  value: "Guests: {Topic.NumberOfGuests}"
+# Result: "Guests: 5" (Number → String)
+
+# Alternative: Text() function for date formatting
 - kind: SetVariable
-  id: coerceWithText
+  id: formatDate
   variable: init:Topic.dateText
   value: =Text(Topic.selectedDate, "MMM dd, yyyy")
 ```
 
-### 10. CreateSearchQuery — Pre-process Search Input
+### 10. CreateSearchQuery — Optimize Search Input (MANDATORY before knowledge search)
 ```yaml
-# Pre-processes user input with conversational context before knowledge search.
-# Produces better retrieval than raw user text because it reformulates the query
-# using conversation history.
+# ALWAYS use before SearchAndSummarizeContent or SearchKnowledgeSources.
+# Rewrites user's raw message using conversation history — resolves references
+# like "tell me more about that" into the actual subject.
 - kind: CreateSearchQuery
   id: createQuery
-  variable: init:Topic.refinedQuery
-  # The refined query is then used in SearchAndSummarizeContent
+  userInput: =System.Activity.Text
+  result: Topic.SearchQuery
+# Access optimized query via Topic.SearchQuery.SearchQuery
 - kind: SearchAndSummarizeContent
-  id: searchWithRefinedQuery
-  instructions: "Search using: {Topic.refinedQuery}"
-  variable: Topic.searchResult
+  id: searchKnowledge
+  userInput: =Topic.SearchQuery.SearchQuery
+  variable: Topic.Answer
+```
+
+### 10b. SearchAndSummarizeContent — AI-Summarized Knowledge Search
+```yaml
+# Full pattern with all properties:
+- kind: SearchAndSummarizeContent
+  id: searchContent
+  autoSend: false                    # false = save to variable; true = auto-send
+  variable: Topic.Answer             # where response is stored
+  userInput: =Topic.SearchQuery.SearchQuery  # from CreateSearchQuery
+  responseCaptureType: FullResponse  # captures content, markdown, citations
+  applyModelKnowledgeSetting: false  # false = only configured sources
+  knowledgeSources:                  # restrict to specific sources
+    kind: SearchSpecificKnowledgeSources
+    knowledgeSources:
+      - schemaName.knowledge.sourceName  # filename without .knowledge.mcs.yml
+  fileSearchDataSource:
+    searchFilesMode:
+      kind: DoNotSearchFiles
+# Access: Topic.Answer.Text.Content, Topic.Answer.Text.MarkdownContent,
+#         Topic.Answer.Text.CitationSources
+```
+
+### 10c. SearchKnowledgeSources — Raw/Verbatim Results (No AI Summary)
+```yaml
+# Returns raw search results WITHOUT AI summarization.
+# Use for verbatim/legal/policy content where summarization loses details.
+- kind: SearchKnowledgeSources
+  id: searchRaw
+  userInput: =Topic.SearchQuery.SearchQuery
+  result: Topic.RawResults
+  knowledgeSources:
+    kind: SearchSpecificKnowledgeSources
+    knowledgeSources:
+      - schemaName.knowledge.sourceName
+```
+
+### 10d. SetTextVariable — Type Coercion (distinct from SetVariable)
+```yaml
+# Use SetTextVariable (not SetVariable) to convert non-text types to text
+# via template interpolation. SetVariable preserves the original type.
+- kind: SetTextVariable
+  id: coerceToText
+  variable: Topic.GuestCountText
+  value: "Guests: {Topic.NumberOfGuests}"
 ```
 
 ### 11. EndDialog — End current topic

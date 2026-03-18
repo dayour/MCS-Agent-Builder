@@ -1,5 +1,5 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-12
+last_verified: 2026-03-18
 sources: [skills-for-copilot-studio repo, ObjectModel repo, Elevate repo, build experience, MS Learn, community reports]
 confidence: high
 refresh_trigger: before_build
@@ -67,6 +67,42 @@ card: |
 **Issue:** `botcomponent.description` column has a max length; exceeding it silently truncates.
 **Mitigation:** Keep agent descriptions under 1,024 characters. `cr3f1_stagedescription` has MaxLength = 100.
 
+### Missing CreateSearchQuery degrades multi-turn search
+**Issue:** Passing raw `System.Activity.Text` to `SearchAndSummarizeContent.userInput` loses conversational context. Follow-ups like "tell me more about that" search literally instead of resolving the reference.
+**Mitigation:** Always use `CreateSearchQuery` before `SearchAndSummarizeContent` or `SearchKnowledgeSources`. Access the optimized query via `Topic.SearchQuery.SearchQuery`.
+
+### OnOutgoingMessage trigger does not fire
+**Issue:** `OnOutgoingMessage` exists in the schema but does NOT fire at runtime (as of 2026-03-15).
+**Mitigation:** Do not use this trigger. Use `OnGeneratedResponse` to intercept AI responses before sending.
+
+### Child agent completion setting does NOT prevent direct messaging
+**Issue:** The "completion setting" on a child agent only determines what the parent does AFTER the child finishes. It does NOT prevent the child from sending messages directly to the user via `SendMessageTool`.
+**Mitigation:** Add explicit instructions to child agent: "DO NOT call SendMessageTool. ONLY populate output variables."
+
+### Topic output status messages kill orchestrator chaining
+**Issue:** Topics that output status messages like "Your complaint has been submitted!" instead of data cause the orchestrator to assume the task is complete — downstream actions never fire.
+**Mitigation:** If a topic prepares data for an action, output the DATA itself as a topic output variable. Only use SendActivity status messages for self-contained topics.
+
+---
+
+## Knowledge Architecture
+
+### UniversalSearchTool 25 knowledge source limit
+**Issue:** `UniversalSearchTool` supports up to 25 sources. If agent has >25, orchestrator selects best 25 based on source `# Name:` and description comments.
+**Mitigation:** Keep sources ≤25. Write clear descriptions for every source. For precise control, use `triggerCondition: =false` on sources + `OnKnowledgeRequested` routing.
+
+### SharePoint knowledge sources cannot return full file content
+**Issue:** `SharePointSearchSource` uses semantic search returning text chunks, not complete files. Breaks JIT glossary, config loading, template processing.
+**Mitigation:** Store files in Dataverse for full content retrieval. Or use Agent Flow with SharePoint connector's "Get file content" action.
+
+### PublicSiteSearchSource max URL depth: 2 levels
+**Issue:** URLs deeper than 2 path levels beyond the domain are silently ignored.
+**Mitigation:** Keep URLs to 2 levels max: `https://docs.example.com/en-us/azure` (OK), `https://microsoft.com/en-us/microsoft-365/business` (too deep, ignored).
+
+### triggerCondition supports full Power Fx but UI shows on/off only
+**Issue:** `triggerCondition` in YAML accepts any Power Fx expression (e.g., `=Global.UserCounty = "Armstrong"`), but the Copilot Studio UI only shows it as an on/off toggle. Setting it via UI resets complex expressions.
+**Mitigation:** Set `triggerCondition` in YAML only. Do not edit in UI if using Power Fx expressions.
+
 ---
 
 ## Connector Issues
@@ -126,6 +162,18 @@ card: |
 ### System.* variables need assignment to Topic.* first
 **Issue:** Some `System.*` variables can't be used directly in PowerFx expressions or card templates.
 **Mitigation:** Assign to a `Topic.*` variable first, then reference the topic variable.
+
+---
+
+## Testing & Tooling Issues
+
+### Direct Line tests silently timeout when agent requires auth
+**Issue:** When an agent has "Authenticate with Microsoft" enabled, the first bot response is an OAuthCard attachment with no text. `direct-line-test.js` previously timed out with no explanation.
+**Mitigation:** `direct-line-test.js` now detects OAuthCard and SigninCard attachments during polling. Returns `[SIGN_IN_REQUIRED]` with card type and connection name. Stops the test run early since all tests will fail for the same reason.
+
+### CopilotStudio Client SDK requires Entra ID app registration
+**Issue:** `copilotstudio-test.js` (SDK transport) needs an app registration with `CopilotStudio.Copilots.Invoke` delegated permission. Direct Line (`direct-line-test.js`) only needs a token endpoint URL.
+**Mitigation:** Use Direct Line for quick testing. Use CopilotStudio SDK for production-grade testing that mirrors real user auth flows. SDK setup: create app reg, add API permission, configure .env with `COPILOT_STUDIO_*` variables.
 
 ---
 
