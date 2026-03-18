@@ -119,7 +119,9 @@ Enterprise agents run on the Microsoft stack. When selecting components, follow 
 
 **Fast path rule:** If all agent integrations map to Priority 1-4, skip live MCP catalog scan (Phase B Step 0) and skip Research Analyst spawn (Phase B Step 4). Resolve everything from cache because these are well-documented, enterprise-supported, and GA.
 
-Only escalate to live research when the agent has Priority 5-6 integrations (external systems not in cache, or cache > 7 days stale for the specific system).
+Only escalate to live research when the agent has Priority 5-6 integrations (external systems not in cache, or cache > 3 days stale for the specific system).
+
+**Upstream awareness:** Before Phase B, check `knowledge/upstream-repos.json` — if `lastFullCheck` is > 3 days old, run `node tools/upstream-check.js --update` to catch upstream pattern/template changes that could affect component selection.
 
 ---
 

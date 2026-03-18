@@ -7,14 +7,17 @@ description: "Run evaluation tests using eval sets. Two-mode execution: Direct L
 
 Run evaluation tests for an agent and write results back to `brief.json` so the dashboard can display them.
 
-## Two-Mode Eval Strategy
+## Eval Strategy — Four Runners
 
-| Mode | Method | When | Speed | Reliability |
-|------|--------|------|-------|-------------|
-| **Auto** | **Direct Line API** | Agent has no user-delegated MCP tools | Fast (~2s/test) | High (auto-token, retry, refresh) |
-| **Manual** | **MCS Native Eval** (Gateway API) | Agent uses MCP/user-delegated tools, or user preference | User-driven | High (MCS scoring engine) |
+| Runner | Method | When | Speed | Reliability |
+|--------|--------|------|-------|-------------|
+| **Direct Line** | `tools/direct-line-test.js` | Default — agent has no user-delegated MCP tools | Fast (~2s/test) | High (auto-token, retry, refresh) |
+| **Direct Line + Interactive** | `tools/direct-line-test.js --interactive` | Agent requires OAuth sign-in (opens browser, prompts for validation code) | ~30s/test + user input | High (handles auth cards) |
+| **CopilotStudio SDK** | `tools/copilotstudio-test.js` | Alternative — streaming, Activity type safety, auto-discovery from workspace | ~3s/test | High (official MS SDK) |
+| **Power CAT Kit** | `tools/powercat-test.js` | Enterprise server-side validation via Dataverse bound action | Slow (server-side) | Very high (MCS scoring engine) |
+| **MCS Native Eval** | Gateway API (`island-client.js upload-evals` + `run-eval`) | Agent uses MCP/user-delegated tools, or user preference | User-driven | High (MCS scoring engine) |
 
-**Auto-detection:** If agent uses MCP or user-delegated tools → manual mode. Otherwise → Direct Line auto mode.
+**Auto-detection:** If agent uses MCP or user-delegated tools → manual mode (MCS Native Eval). Otherwise → Direct Line auto mode. User can override with `--sdk` (CopilotStudio SDK), `--powercat` (Power CAT Kit), or `--native` (MCS Native Eval).
 
 ## Build Discipline — Verify Then Mark
 
@@ -61,7 +64,7 @@ Re-verify auth established during `/mcs-build`. Quick check — confirm account,
 ## Before Evaluating — Knowledge Cache + Learnings Check
 
 1. Read `knowledge/cache/eval-methods.md` — check `last_verified` date
-2. If stale (> 7 days), refresh: WebSearch + MS Learn for "Copilot Studio evaluation"
+2. If stale (> 3 days), refresh: WebSearch + MS Learn for "Copilot Studio evaluation"
 3. Read `knowledge/learnings/eval-testing.md` (if non-empty) — check for:
    - Eval method insights (which methods work best for which scenario types)
    - Threshold calibration findings (e.g., "GeneralQuality scores vary 20+ points — not reliable for strict thresholds")
@@ -172,7 +175,43 @@ Results saved to `Build-Guides/{projectId}/agents/{agentId}/evals-results.json`:
 }
 ```
 
-## Step 3 alt: Manual Mode (MCS Native Eval via Gateway API)
+## Step 3 alt A: CopilotStudio SDK Runner
+
+Alternative to Direct Line when SDK-based testing is preferred (streaming, Activity types, workspace auto-discovery).
+
+**Prerequisites:** `npm install @microsoft/agents-copilotstudio-client @microsoft/agents-activity @azure/msal-node` (optional — lazy-loaded with install prompt).
+
+```bash
+# Auto-discover from agent workspace
+node tools/copilotstudio-test.js --agent-dir "Build-Guides/{projectId}/agents/{agentId}" --brief brief.json
+
+# Manual config
+node tools/copilotstudio-test.js --env <environmentId> --agent <schemaName> --tenant <tenantId> --brief brief.json
+```
+
+Token acquisition: MSAL interactive auth → `https://api.powerplatform.com/.default` scope, with `az CLI` fallback.
+
+## Step 3 alt B: Power CAT Kit Runner
+
+Enterprise server-side testing via Dataverse. Requires the Power CAT Copilot Studio Kit solution installed in the environment.
+
+```bash
+# List available configurations
+node tools/powercat-test.js list-configs --env <dataverseUrl>
+
+# List test sets for a config
+node tools/powercat-test.js list-sets --env <dataverseUrl> --config-id <guid>
+
+# Run tests (creates run, executes via bound action, polls, downloads results)
+node tools/powercat-test.js run --env <dataverseUrl> --config-id <guid> --set-id <guid> --threshold 0.85
+
+# Download results for a previous run
+node tools/powercat-test.js results --env <dataverseUrl> --run-id <guid> --csv results.csv
+```
+
+Results are tracked in Dataverse (`cat_copilottestruns`, `cat_copilottestresults`). Use `--brief <path>` to write run metadata to `brief.json.powerCatRuns[]`.
+
+## Step 3 alt C: Manual Mode (MCS Native Eval via Gateway API)
 
 **Use when:** Agent uses MCP/user-delegated tools, Direct Line token acquisition fails, or user requests.
 
