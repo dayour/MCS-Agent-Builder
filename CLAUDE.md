@@ -150,7 +150,7 @@ Build-Guides/[Project]/ (per-project work, gitignored)
 | Dataverse API patterns | `knowledge/patterns/dataverse-patterns.md` |
 | Solution patterns (naive-to-proven) | `knowledge/patterns/solution-patterns.md` |
 
-Cache freshness: < 7 days = use as-is. 7-30 days = Tier 1 auto-refresh, Tier 2-3 flag. > 30 days = refresh immediately. After live research, update the cache file with findings and a new `last_verified` date.
+Cache freshness: < 3 days = use as-is. 3-14 days = Tier 1 auto-refresh, Tier 2-3 flag. > 14 days = refresh immediately. After live research, update the cache file with findings and a new `last_verified` date. Upstream repos (`knowledge/upstream-repos.json`) checked on same 3-day cycle via `tools/upstream-check.js`.
 
 ---
 

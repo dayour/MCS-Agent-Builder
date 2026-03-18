@@ -9,11 +9,12 @@ Refresh knowledge cache files in `knowledge/cache/` and the team solution librar
 
 ## Usage
 
-- `/mcs-refresh` — refresh all stale cache files (> 7 days old) + scan solution library
+- `/mcs-refresh` — refresh all stale cache files (> 3 days old) + check upstream repos + scan solution library
 - `/mcs-refresh triggers` — refresh just `knowledge/cache/triggers.md`
 - `/mcs-refresh models connectors` — refresh specific files
 - `/mcs-refresh solutions` — refresh solution library only (delta: new/changed solutions)
-- `/mcs-refresh all` — force refresh everything regardless of age (cache + solutions)
+- `/mcs-refresh upstream` — check upstream repos only (no cache refresh)
+- `/mcs-refresh all` — force refresh everything regardless of age (cache + upstream + solutions)
 
 ## All 21 Cache Files
 
@@ -63,9 +64,26 @@ These are stable reference material that changes less frequently.
 
 | Age | Action |
 |-----|--------|
-| < 7 days | Skip (unless forced with `all`) |
-| 7-30 days | Refresh |
-| > 30 days | Refresh (high priority — flag to user) |
+| < 3 days | Skip (unless forced with `all`) |
+| 3-14 days | Refresh |
+| > 14 days | Refresh (high priority — flag to user) |
+
+## Step 0: Upstream Repository Check
+
+**Always run first** (before cache file refresh), unless the user specified individual cache files.
+
+```bash
+node tools/upstream-check.js --update
+```
+
+This checks all repos in `knowledge/upstream-repos.json` (3-day freshness) via `gh api`:
+- **No changes**: Report "Upstream repos: all current" and proceed to cache refresh
+- **Changes detected**: Report which repos changed, what paths were affected, and suggest reviewing. Then proceed to cache refresh.
+- **Error**: Report the error (usually `gh auth` issue), proceed to cache refresh anyway
+
+For `/mcs-refresh upstream` — run only this step and stop.
+
+---
 
 ## Process (Per Cache File)
 
@@ -153,11 +171,12 @@ For each file:
 
 When called during session startup (auto-refresh), use a **lightweight pass**:
 
-1. Read all 21 files, check dates
-2. Only refresh files > 7 days old
-3. For Tier 1 files: always refresh if stale (these affect research quality)
-4. For Tier 2-3 files: flag as stale but skip unless user is about to build
-5. Report what was refreshed and what's flagged
+1. Run `node tools/upstream-check.js --update` — check upstream repos (3-day cycle)
+2. Read all 21 files, check dates
+3. Only refresh files > 3 days old
+4. For Tier 1 files: always refresh if stale (these affect research quality)
+5. For Tier 2-3 files: flag as stale but skip unless user is about to build
+6. Report what was refreshed and what's flagged
 
 This keeps session start under 3-5 minutes while ensuring build-critical knowledge is current.
 
@@ -242,9 +261,9 @@ Solutions: 32 indexed, 28 deep-analyzed
 
 | Age Since Last Scan | Status | Action |
 |---------------------|--------|--------|
-| < 7 days | Fresh | Skip (unless forced) |
-| 7-30 days | Stale | Lightweight scan on `/mcs-refresh` |
-| > 30 days | Expired | Scan + flag for deep refresh |
+| < 3 days | Fresh | Skip (unless forced) |
+| 3-14 days | Stale | Lightweight scan on `/mcs-refresh` |
+| > 14 days | Expired | Scan + flag for deep refresh |
 
 ### Session Start Integration
 

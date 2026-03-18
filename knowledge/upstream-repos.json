@@ -1,0 +1,45 @@
+{
+  "_comment": "Tracked upstream repos — checked every 3 days by tools/upstream-check.js",
+  "schedule": "3 days",
+  "lastFullCheck": "2026-03-18T18:01:36.979Z",
+  "repos": [
+    {
+      "repo": "microsoft/skills-for-copilot-studio",
+      "description": "MCS YAML authoring skills, templates, schemas, scripts",
+      "lastChecked": "2026-03-18",
+      "lastCommitSha": null,
+      "watchPaths": [
+        "skills/",
+        "templates/",
+        "reference/",
+        "scripts/"
+      ],
+      "integratedDate": "2026-03-18",
+      "notes": "Full 5-phase integration. Watch for new skills, template changes, schema updates."
+    },
+    {
+      "repo": "microsoft/ai-agent-eval-scenario-library",
+      "description": "70 eval scenarios across business-problem + capability dimensions",
+      "lastChecked": "2026-03-18",
+      "lastCommitSha": null,
+      "watchPaths": [
+        "scenarios/",
+        "docs/"
+      ],
+      "integratedDate": "2026-03-18",
+      "notes": "Used by eval framework. Watch for new scenarios or scoring changes."
+    },
+    {
+      "repo": "microsoft/Power-CAT-Copilot-Studio-Kit",
+      "description": "Power CAT testing framework, Dataverse entities, test execution",
+      "lastChecked": "2026-03-18",
+      "lastCommitSha": null,
+      "watchPaths": [
+        "src/",
+        "docs/"
+      ],
+      "integratedDate": "2026-03-18",
+      "notes": "Used by powercat-test.js. Watch for entity schema changes, new test types."
+    }
+  ]
+}
