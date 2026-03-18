@@ -53,6 +53,7 @@ function parseArgs() {
             case '--endpoint': config.endpoint = args[++i]; break;
             case '--timeout': config.timeout = parseInt(args[++i]) || DEFAULT_TIMEOUT_MS; break;
             case '--gpt': config.gpt = true; break;
+            case '--interactive': config.interactive = true; break;
             case '--verbose': config.verbose = true; break;
             case '--help':
                 console.log(`Usage: node direct-line-test.js [options]
@@ -71,6 +72,7 @@ Options:
   --endpoint <URL>           Direct Line endpoint (default: botframework.com)
   --timeout <ms>             Response timeout in ms (default: 60000)
   --gpt                      Use GPT-enhanced scoring (CompareMeaning + GeneralQuality)
+  --interactive              Handle sign-in cards interactively (opens browser, prompts for code)
   --verbose                  Show detailed output for failed tests
 
 Examples:
@@ -222,6 +224,66 @@ function detectSignInCard(activities) {
     }
 
     return { detected: false, cardType: null, signInUrl: null, text: null };
+}
+
+/**
+ * Handle sign-in card interactively when running in a TTY.
+ *
+ * Flow (matches skills-for-copilot-studio directline-chat.js):
+ * 1. Open the sign-in URL in the user's browser
+ * 2. Prompt for the validation code displayed after auth
+ * 3. Send the validation code as a message to the bot
+ * 4. Continue polling for the actual bot response
+ *
+ * @param {DirectLineClient} client - The Direct Line client
+ * @param {object} signIn - Sign-in detection result from detectSignInCard
+ * @param {number} timeoutMs - Response timeout
+ * @returns {Promise<string>} The bot's response after sign-in
+ */
+async function handleInteractiveSignIn(client, signIn, timeoutMs) {
+    const readline = require('readline');
+
+    // Show sign-in URL
+    console.log(`\n  Sign-in required: ${signIn.text}`);
+    if (signIn.signInUrl) {
+        console.log(`  URL: ${signIn.signInUrl}`);
+
+        // Try to open in browser
+        try {
+            const { execSync } = require('child_process');
+            if (process.platform === 'win32') {
+                execSync(`start "" "${signIn.signInUrl}"`, { stdio: 'ignore' });
+            } else if (process.platform === 'darwin') {
+                execSync(`open "${signIn.signInUrl}"`, { stdio: 'ignore' });
+            } else {
+                execSync(`xdg-open "${signIn.signInUrl}"`, { stdio: 'ignore' });
+            }
+            console.log('  (Browser opened — complete sign-in there)');
+        } catch {
+            console.log('  (Open the URL above in your browser to sign in)');
+        }
+    }
+
+    // Prompt for validation code
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    const code = await new Promise((resolve) => {
+        rl.question('  Enter validation code: ', (answer) => {
+            rl.close();
+            resolve(answer.trim());
+        });
+    });
+
+    if (!code) {
+        return '[SIGN_IN_CANCELLED] No validation code entered';
+    }
+
+    // Send the validation code as a message
+    console.log('  Sending validation code...');
+    await client.sendMessage(code);
+
+    // Poll for the actual response
+    const response = await client.getResponse(timeoutMs);
+    return typeof response === 'string' ? response : response.text;
 }
 
 // --- Tool Invocation Extraction ---
@@ -669,24 +731,39 @@ async function runTests() {
                 console.log(`  ${status} (score: ${evaluation.score}, tools: [${toolInvocations.join(', ')}])`);
 
             } else {
-                // --- Standard single-turn path (unchanged behavior) ---
+                // --- Standard single-turn path ---
                 await client.startConversation();
                 await client.sendMessage(tc.question);
 
-                const response = await client.getResponse(config.timeout);
+                // Use enhanced capture when interactive mode is enabled so we
+                // preserve the real sign-in card object (URL, connectionName, etc.)
+                const useEnhanced = config.interactive && process.stdin.isTTY;
+                const response = await client.getResponse(config.timeout, useEnhanced);
+                const responseText = typeof response === 'string' ? response : response.text;
 
-                // Detect sign-in card in standard path — abort early
-                if (typeof response === 'string' && response.startsWith('[SIGN_IN_REQUIRED]')) {
+                // Detect sign-in card in standard path
+                if (responseText.startsWith('[SIGN_IN_REQUIRED]')) {
+                    if (useEnhanced && typeof response === 'object' && response.signIn) {
+                        // Interactive mode with real sign-in card data from enhanced capture
+                        console.log(`  SIGN_IN detected — switching to interactive auth flow`);
+                        const authResp = await handleInteractiveSignIn(client, response.signIn, config.timeout);
+                        const result2 = config.gpt
+                            ? await evaluateResultAsync(authResp, tc.expectedResponse, tc.testMethodType, tc.passingScore, undefined, tc.keywords)
+                            : evaluateResult(authResp, tc.expectedResponse, tc.testMethodType, tc.passingScore, undefined, tc.keywords);
+                        results.push({ ...tc, actualResponse: authResp, actual: authResp, pass: result2.pass, score: result2.score, error: result2.error });
+                        console.log(`  ${result2.pass ? 'PASS' : 'FAIL'} (score: ${result2.score}, method: ${tc.testMethodType}) [post-auth]`);
+                        continue;
+                    }
                     results.push({
                         ...tc,
-                        actualResponse: response,
-                        actual: response,
+                        actualResponse: responseText,
+                        actual: responseText,
                         pass: false,
                         score: 0,
-                        error: response
+                        error: responseText
                     });
-                    console.log(`  SIGN_IN: ${response}`);
-                    console.log('\n  Agent requires authentication. Configure user auth or use a token with auth context.');
+                    console.log(`  SIGN_IN: ${responseText}`);
+                    console.log('\n  Agent requires authentication. Use --interactive to handle sign-in, or configure pre-auth.');
                     console.log('  Stopping test run — all subsequent tests will fail for the same reason.');
                     const resultsPath = writeResults(config, results, testCases, 'partial', i);
                     console.log(`  Partial results saved to: ${resultsPath}`);
@@ -694,13 +771,13 @@ async function runTests() {
                 }
 
                 const result = config.gpt
-                    ? await evaluateResultAsync(response, tc.expectedResponse, tc.testMethodType, tc.passingScore, undefined, tc.keywords)
-                    : evaluateResult(response, tc.expectedResponse, tc.testMethodType, tc.passingScore, undefined, tc.keywords);
+                    ? await evaluateResultAsync(responseText, tc.expectedResponse, tc.testMethodType, tc.passingScore, undefined, tc.keywords)
+                    : evaluateResult(responseText, tc.expectedResponse, tc.testMethodType, tc.passingScore, undefined, tc.keywords);
 
                 results.push({
                     ...tc,
-                    actualResponse: response,
-                    actual: response,
+                    actualResponse: responseText,
+                    actual: responseText,
                     pass: result.pass,
                     score: result.score,
                     error: result.error,
@@ -714,7 +791,7 @@ async function runTests() {
 
                 if (config.verbose && !result.pass) {
                     console.log(`  Expected: ${tc.expectedResponse.substring(0, 100)}`);
-                    console.log(`  Actual:   ${response.substring(0, 100)}`);
+                    console.log(`  Actual:   ${responseText.substring(0, 100)}`);
                 }
             }
 
