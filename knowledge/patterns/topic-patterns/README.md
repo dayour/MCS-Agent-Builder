@@ -39,8 +39,17 @@ Reusable YAML patterns for Copilot Studio topic authoring via the built-in code 
 | `disambiguation.yaml` | OnSelectIntent: present matched topics as choice list |
 | `auth-flow.yaml` | OnSignIn: authentication flow with OAuthInput |
 | `error-handler.yaml` | OnError: error handling with telemetry + test mode detection |
+| **Adaptive Cards (6 patterns)** | |
+| `adaptive-card.yaml` | Display data (FactSet) + AdaptiveCardPrompt form input + display-only |
+| `welcome-card.yaml` | Welcome card with agent overview + capability action buttons |
+| `form-collect.yaml` | Form collection: present card form → collect submission → process |
+| `approval-card.yaml` | Approve/reject with reason — for leave, expense, document workflows |
+| `confirmation-card.yaml` | Review collected data before confirming action (order, booking, update) |
+| `table-list-card.yaml` | Table/list display: static Table element, dynamic ForAll, selectable list |
+| `carousel-card.yaml` | Multiple cards in one message (product catalog, recommendations) |
+| `status-card.yaml` | Status/progress display with visual indicators and step tracking |
+| `feedback-card.yaml` | Thumbs up/down + detailed feedback form (from CopilotStudioSamples) |
 | **Integration** | |
-| `adaptive-card.yaml` | Display data in adaptive card format |
 | `http-request.yaml` | Call external REST API |
 | `ai-builder-model.yaml` | Invoke AI Builder model with input/output bindings |
 | `connector-action.yaml` | TaskDialog: connector action with ManualTaskInput/AutomaticTaskInput |

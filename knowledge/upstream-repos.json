@@ -40,6 +40,20 @@
       ],
       "integratedDate": "2026-03-18",
       "notes": "Used by powercat-test.js. Watch for entity schema changes, new test types."
+    },
+    {
+      "repo": "microsoft/CopilotStudioSamples",
+      "description": "Official MCS samples: adaptive cards, topics, solutions, extensibility, SSO, testing",
+      "lastChecked": "2026-03-18",
+      "lastCommitSha": null,
+      "watchPaths": [
+        "authoring/snippets/",
+        "authoring/solutions/",
+        "extensibility/",
+        "testing/"
+      ],
+      "integratedDate": "2026-03-18",
+      "notes": "717 stars. Watch for new card snippets, topic patterns, solution samples, extensibility patterns."
     }
   ]
 }

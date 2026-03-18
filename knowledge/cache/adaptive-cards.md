@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-02-27
-sources: [MS Learn, Adaptive Cards docs, direct testing, WebSearch Feb 2026, MS Learn MCP Feb 2026]
+last_verified: 2026-03-18
+sources: [MS Learn, Adaptive Cards docs, direct testing, WebSearch Mar 2026, MS Learn MCP Mar 2026, CopilotStudioSamples repo, adaptivecards.io samples, Agent Academy]
 confidence: high
 refresh_trigger: on_error
 -->
@@ -68,9 +68,42 @@ All inputs support: `isRequired`, `errorMessage`, `label` (v1.3+)
 - Dynamic arrays: `ForAll(Topic.items, { type: "TextBlock", text: ThisRecord.Name })`
 - `'$schema'` needs single quotes (special character)
 
+## MCS Adaptive Card Pattern Library
+
+**9 topic patterns** in `knowledge/patterns/topic-patterns/`:
+
+| Pattern | Use Case |
+|---------|----------|
+| `adaptive-card.yaml` | Display data (FactSet) + AdaptiveCardPrompt form + display-only |
+| `welcome-card.yaml` | Welcome card with action buttons + stats row variant |
+| `form-collect.yaml` | Form collection: card form → submit → process |
+| `approval-card.yaml` | Approve/reject with reason (leave, expense, document) |
+| `confirmation-card.yaml` | Review data before confirming (order, booking) |
+| `table-list-card.yaml` | Table element, dynamic ForAll list, selectable Input.ChoiceSet |
+| `carousel-card.yaml` | Multiple cards in one message (catalog, recommendations) |
+| `status-card.yaml` | Progress/status with step indicators |
+| `feedback-card.yaml` | Thumbs up/down + detailed feedback form |
+
+**Sources:** microsoft/CopilotStudioSamples (snippets/adaptive-cards/) + Copilot Studio Kit Gallery.
+
 ## Copilot Studio Kit — Adaptive Cards Gallery
 
 The **Copilot Studio Kit** includes an **Adaptive Cards Gallery** with ready-to-use templates, sample data, and backend details. Install the Kit, publish the "Adaptive Card Gallery" agent, set the `cat_AgentTokenEndpoint` env variable to the agent's token endpoint. Templates include Event Registration and other common patterns.
+
+## MS Learn Official Guidance Patterns (6)
+
+| Pattern | URL Slug | Technique |
+|---------|----------|-----------|
+| Ask Questions | `guidance/adaptive-card-ask-questions` | Multi-field form, auto-creates output vars per input ID |
+| Display Carousels | `guidance/adaptive-card-display-carousels` | ForAll() + indexed table, multiple AC attachments in Message |
+| Summarize Responses | `guidance/adaptive-card-summarize-responses` | Summary card for confirmation after multi-step collection |
+| Display Data from Arrays | `guidance/adaptive-cards-display-data-from-arrays` | ForAll() Power Fx to generate body elements dynamically |
+| Feedback Collection | `guidance/adaptive-card-add-feedback-for-every-response` | Thumbs up/down after every response via Action.Submit data |
+| Dynamic Cards (Power Fx) | `authoring-ask-with-adaptive-card` | Formula mode: `=` prefix replaces static JSON with expressions |
+
+## Tool Completion AC Response (New)
+
+MCS agents can send an Adaptive Card as a **tool completion response** — when a tool/action finishes, the result can be displayed as a card instead of plain text. Configure in the tool output settings.
 
 ## Key Gotchas
 
@@ -85,3 +118,6 @@ The **Copilot Studio Kit** includes an **Adaptive Cards Gallery** with ready-to-
 - **Message size limit**: Must be <= **28 KB** across all channels when using Omnichannel/ACS (413 error above)
 - **Proactive cards via Power Automate**: Use Teams connector "Post adaptive card in a chat or channel" with "Post as: Microsoft Copilot Studio agent". PA does NOT support Adaptive Card templating feature.
 - **Variables in cards**: Global, topic, and agent flow output variables all supported via PowerFx binding (Jan 2026 community tutorial confirmed)
+- **Consecutive cards**: Include unique identifiers in Action.Submit data payloads to prevent cross-card interference
+- **Interactive UI widgets**: NOT supported in MCS. `mcp-interactiveUI-samples` uses React/HTML in sandboxed iframes — for M365 Copilot declarative agents only, completely different from Adaptive Cards
+- **adaptivecards.microsoft.com**: New docs hub with schema 1.6+ features (Responsive Layout, Icon, Badge, Charts). NOT yet supported in MCS Teams/Omnichannel (capped at 1.5)
