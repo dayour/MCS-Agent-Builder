@@ -4942,18 +4942,18 @@
       "oneOf": [
         {
           "title": "Auto",
-          "description": "Let the model decide the best approach for responding.",
+          "description": "Best model for the task",
           "const": "Auto"
         },
         {
           "title": "Think deeper",
-          "description": "Use extended thinking for complex queries.",
+          "description": "Thinks longer for better answers",
           "const": "ThinkDeeper"
         },
         {
-          "title": "Immediate",
-          "description": "Provide quick, direct responses.",
-          "const": "Immediate"
+          "title": "Quick response",
+          "description": "Answers right away",
+          "const": "QuickResponse"
         }
       ]
     },

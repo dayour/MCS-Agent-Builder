@@ -158,6 +158,12 @@
           "ar-SA/Microsoft.Agents.ObjectModel.resources.dll": {
             "locale": "ar-SA"
           },
+          "bg-BG/Microsoft.Agents.ObjectModel.resources.dll": {
+            "locale": "bg-BG"
+          },
+          "ca-ES/Microsoft.Agents.ObjectModel.resources.dll": {
+            "locale": "ca-ES"
+          },
           "cs-CZ/Microsoft.Agents.ObjectModel.resources.dll": {
             "locale": "cs-CZ"
           },
@@ -173,17 +179,32 @@
           "es-ES/Microsoft.Agents.ObjectModel.resources.dll": {
             "locale": "es-ES"
           },
+          "et-EE/Microsoft.Agents.ObjectModel.resources.dll": {
+            "locale": "et-EE"
+          },
+          "eu-ES/Microsoft.Agents.ObjectModel.resources.dll": {
+            "locale": "eu-ES"
+          },
           "fi-FI/Microsoft.Agents.ObjectModel.resources.dll": {
             "locale": "fi-FI"
           },
           "fr-FR/Microsoft.Agents.ObjectModel.resources.dll": {
             "locale": "fr-FR"
           },
+          "gl-ES/Microsoft.Agents.ObjectModel.resources.dll": {
+            "locale": "gl-ES"
+          },
           "he-IL/Microsoft.Agents.ObjectModel.resources.dll": {
             "locale": "he-IL"
           },
           "hi-IN/Microsoft.Agents.ObjectModel.resources.dll": {
             "locale": "hi-IN"
+          },
+          "hr-HR/Microsoft.Agents.ObjectModel.resources.dll": {
+            "locale": "hr-HR"
+          },
+          "hu-HU/Microsoft.Agents.ObjectModel.resources.dll": {
+            "locale": "hu-HU"
           },
           "id-ID/Microsoft.Agents.ObjectModel.resources.dll": {
             "locale": "id-ID"
@@ -194,8 +215,20 @@
           "ja-JP/Microsoft.Agents.ObjectModel.resources.dll": {
             "locale": "ja-JP"
           },
+          "kk-KZ/Microsoft.Agents.ObjectModel.resources.dll": {
+            "locale": "kk-KZ"
+          },
           "ko-KR/Microsoft.Agents.ObjectModel.resources.dll": {
             "locale": "ko-KR"
+          },
+          "lt-LT/Microsoft.Agents.ObjectModel.resources.dll": {
+            "locale": "lt-LT"
+          },
+          "lv-LV/Microsoft.Agents.ObjectModel.resources.dll": {
+            "locale": "lv-LV"
+          },
+          "ms-MY/Microsoft.Agents.ObjectModel.resources.dll": {
+            "locale": "ms-MY"
           },
           "nb-NO/Microsoft.Agents.ObjectModel.resources.dll": {
             "locale": "nb-NO"
@@ -209,8 +242,23 @@
           "pt-BR/Microsoft.Agents.ObjectModel.resources.dll": {
             "locale": "pt-BR"
           },
+          "ro-RO/Microsoft.Agents.ObjectModel.resources.dll": {
+            "locale": "ro-RO"
+          },
           "ru-RU/Microsoft.Agents.ObjectModel.resources.dll": {
             "locale": "ru-RU"
+          },
+          "sk-SK/Microsoft.Agents.ObjectModel.resources.dll": {
+            "locale": "sk-SK"
+          },
+          "sl-SI/Microsoft.Agents.ObjectModel.resources.dll": {
+            "locale": "sl-SI"
+          },
+          "sr-Cyrl-RS/Microsoft.Agents.ObjectModel.resources.dll": {
+            "locale": "sr-Cyrl-RS"
+          },
+          "sr-Latn-RS/Microsoft.Agents.ObjectModel.resources.dll": {
+            "locale": "sr-Latn-RS"
           },
           "sv-SE/Microsoft.Agents.ObjectModel.resources.dll": {
             "locale": "sv-SE"
@@ -220,6 +268,12 @@
           },
           "tr-TR/Microsoft.Agents.ObjectModel.resources.dll": {
             "locale": "tr-TR"
+          },
+          "uk-UA/Microsoft.Agents.ObjectModel.resources.dll": {
+            "locale": "uk-UA"
+          },
+          "vi-VN/Microsoft.Agents.ObjectModel.resources.dll": {
+            "locale": "vi-VN"
           },
           "zh-CN/Microsoft.Agents.ObjectModel.resources.dll": {
             "locale": "zh-CN"
@@ -279,6 +333,12 @@
           "ar-SA/Microsoft.Agents.ObjectModel.resources.dll": {
             "locale": "ar-SA"
           },
+          "bg-BG/Microsoft.Agents.ObjectModel.resources.dll": {
+            "locale": "bg-BG"
+          },
+          "ca-ES/Microsoft.Agents.ObjectModel.resources.dll": {
+            "locale": "ca-ES"
+          },
           "cs-CZ/Microsoft.Agents.ObjectModel.resources.dll": {
             "locale": "cs-CZ"
           },
@@ -294,17 +354,32 @@
           "es-ES/Microsoft.Agents.ObjectModel.resources.dll": {
             "locale": "es-ES"
           },
+          "et-EE/Microsoft.Agents.ObjectModel.resources.dll": {
+            "locale": "et-EE"
+          },
+          "eu-ES/Microsoft.Agents.ObjectModel.resources.dll": {
+            "locale": "eu-ES"
+          },
           "fi-FI/Microsoft.Agents.ObjectModel.resources.dll": {
             "locale": "fi-FI"
           },
           "fr-FR/Microsoft.Agents.ObjectModel.resources.dll": {
             "locale": "fr-FR"
           },
+          "gl-ES/Microsoft.Agents.ObjectModel.resources.dll": {
+            "locale": "gl-ES"
+          },
           "he-IL/Microsoft.Agents.ObjectModel.resources.dll": {
             "locale": "he-IL"
           },
           "hi-IN/Microsoft.Agents.ObjectModel.resources.dll": {
             "locale": "hi-IN"
+          },
+          "hr-HR/Microsoft.Agents.ObjectModel.resources.dll": {
+            "locale": "hr-HR"
+          },
+          "hu-HU/Microsoft.Agents.ObjectModel.resources.dll": {
+            "locale": "hu-HU"
           },
           "id-ID/Microsoft.Agents.ObjectModel.resources.dll": {
             "locale": "id-ID"
@@ -315,8 +390,20 @@
           "ja-JP/Microsoft.Agents.ObjectModel.resources.dll": {
             "locale": "ja-JP"
           },
+          "kk-KZ/Microsoft.Agents.ObjectModel.resources.dll": {
+            "locale": "kk-KZ"
+          },
           "ko-KR/Microsoft.Agents.ObjectModel.resources.dll": {
             "locale": "ko-KR"
+          },
+          "lt-LT/Microsoft.Agents.ObjectModel.resources.dll": {
+            "locale": "lt-LT"
+          },
+          "lv-LV/Microsoft.Agents.ObjectModel.resources.dll": {
+            "locale": "lv-LV"
+          },
+          "ms-MY/Microsoft.Agents.ObjectModel.resources.dll": {
+            "locale": "ms-MY"
           },
           "nb-NO/Microsoft.Agents.ObjectModel.resources.dll": {
             "locale": "nb-NO"
@@ -330,8 +417,23 @@
           "pt-BR/Microsoft.Agents.ObjectModel.resources.dll": {
             "locale": "pt-BR"
           },
+          "ro-RO/Microsoft.Agents.ObjectModel.resources.dll": {
+            "locale": "ro-RO"
+          },
           "ru-RU/Microsoft.Agents.ObjectModel.resources.dll": {
             "locale": "ru-RU"
+          },
+          "sk-SK/Microsoft.Agents.ObjectModel.resources.dll": {
+            "locale": "sk-SK"
+          },
+          "sl-SI/Microsoft.Agents.ObjectModel.resources.dll": {
+            "locale": "sl-SI"
+          },
+          "sr-Cyrl-RS/Microsoft.Agents.ObjectModel.resources.dll": {
+            "locale": "sr-Cyrl-RS"
+          },
+          "sr-Latn-RS/Microsoft.Agents.ObjectModel.resources.dll": {
+            "locale": "sr-Latn-RS"
           },
           "sv-SE/Microsoft.Agents.ObjectModel.resources.dll": {
             "locale": "sv-SE"
@@ -341,6 +443,12 @@
           },
           "tr-TR/Microsoft.Agents.ObjectModel.resources.dll": {
             "locale": "tr-TR"
+          },
+          "uk-UA/Microsoft.Agents.ObjectModel.resources.dll": {
+            "locale": "uk-UA"
+          },
+          "vi-VN/Microsoft.Agents.ObjectModel.resources.dll": {
+            "locale": "vi-VN"
           },
           "zh-CN/Microsoft.Agents.ObjectModel.resources.dll": {
             "locale": "zh-CN"
