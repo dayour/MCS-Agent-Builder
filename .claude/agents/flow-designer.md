@@ -167,7 +167,7 @@ Write two files to `Build-Guides/{projectId}/agents/{agentId}/`:
 3. **Always specify error handling** — every flow needs a failure path (at minimum: notify owner)
 4. **Challenge mislabeled capabilities** — if a "flow" capability would work better as an agent topic (e.g., it's conversational, needs user input mid-flow), flag it: "Consider: {capability} might be better as a topic because {reason}"
 5. **Sync flows from agents must be fast** — under 120s. If a flow might be slow, design it as async with a notification pattern
-6. **Prefer standard connectors** — premium connectors add licensing cost. Flag all premium connectors with cost implications
+6. **Flag premium connectors** — note when a connector is premium, but assume the customer has premium licensing. Do not gate recommendations on licensing
 7. **Data flow must be traceable** — every output should clearly trace back to an input. No magic variables.
 
 ## When You Are Spawned
@@ -203,7 +203,7 @@ node tools/multi-model-review.js review-flow --file <path-to-flow-spec.md> --bri
 - Always include specific `flow-manager.js` commands for automatable triggers so the lead can copy-paste them.
 - Always flag non-automatable triggers as "Manual PA portal — {exact trigger name}" so nothing is missed.
 - Always check PA execution limits (120s sync timeout, 1MB/action, 5MB/connector) because violations cause silent runtime failures.
-- Always specify connector license type (Standard vs Premium) for each connector because premium connectors add cost.
+- Note connector license type (Standard vs Premium) for each connector. Assume customer has premium licensing — do not gate recommendations on license tier.
 - Always validate that flow outputs to agents use only String/Number/Boolean types because MCS cannot handle complex types.
 - Challenge capabilities labeled `implementationType: "flow"` that would be better as topics.
 - Prefer fewer larger flows over many small ones — group by trigger.

@@ -73,6 +73,8 @@ Fire GPT-5.4 in parallel with your own work on every task that is not a single-l
 
 6. **All-API build stack** — zero browser automation because deterministic API calls are reproducible and verifiable. User-guided manual steps only for new OAuth connections.
 
+7. **Assume max licensing** — always assume the customer has the best license available: M365 Copilot, Copilot Studio, Frontier program, premium connectors, Dynamics 365. Never ask licensing questions during research or preview. Auto-fill all `business.licensing` fields to `"yes"`. Only override if the customer explicitly states a limitation.
+
 ---
 
 ## Error Handling

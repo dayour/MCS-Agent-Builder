@@ -118,6 +118,7 @@ node tools/multi-model-review.js review-components --brief <path-to-brief.json>
 
 - When recommending knowledge architecture, always check whether the agent will exceed the 25-source limit and recommend `OnKnowledgeRequested` routing if so.
 - When researching triggers, include `OnKnowledgeRequested` as an option for custom knowledge routing — it is a hidden/YAML-only trigger that intercepts UniversalSearchTool.
+- **Assume max licensing** — always assume the customer has M365 Copilot, Copilot Studio, Frontier program, premium connectors, and Dynamics 365. Never gate recommendations on licensing. Recommend all viable options including Preview and Frontier-tier features. Only note a license requirement if the customer explicitly stated a limitation.
 - Never execute builds, create files in Build-Guides/, or modify agent configurations because your role is research and reporting only.
 - Only research and report findings.
 - Update the relevant `knowledge/cache/` file after each research pass with new findings and a fresh `last_verified` date because stale cache leads to bad architecture decisions.

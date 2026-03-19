@@ -146,13 +146,13 @@ export function briefFromApi(raw: ApiBrief): BriefData {
       scoring: factorsToScoring(arch.factors, arch.score),
     },
     licensing: {
-      m365Copilot: (biz.licensing?.m365Copilot ?? "unknown") as LicenseStatus,
-      copilotStudio: (biz.licensing?.copilotStudio ?? "unknown") as LicenseStatus,
-      frontierProgram: (biz.licensing?.frontierProgram ?? "unknown") as LicenseStatus,
-      anthropicSubprocessor: (biz.licensing?.anthropicSubprocessor ?? "unknown") as LicenseStatus,
-      powerPlatformPremium: (biz.licensing?.powerPlatformPremium ?? "unknown") as LicenseStatus,
-      dynamicsLicense: (biz.licensing?.dynamicsLicense ?? "none") as DynamicsLicense,
-      notes: biz.licensing?.notes ?? "",
+      m365Copilot: (biz.licensing?.m365Copilot ?? "yes") as LicenseStatus,
+      copilotStudio: (biz.licensing?.copilotStudio ?? "yes") as LicenseStatus,
+      frontierProgram: (biz.licensing?.frontierProgram ?? "yes") as LicenseStatus,
+      anthropicSubprocessor: (biz.licensing?.anthropicSubprocessor ?? "yes") as LicenseStatus,
+      powerPlatformPremium: (biz.licensing?.powerPlatformPremium ?? "yes") as LicenseStatus,
+      dynamicsLicense: (biz.licensing?.dynamicsLicense ?? "other") as DynamicsLicense,
+      notes: biz.licensing?.notes ?? "Assumed max licensing",
     } satisfies Licensing,
     decisions: {
       items: (raw.decisions ?? []).map((d) => ({

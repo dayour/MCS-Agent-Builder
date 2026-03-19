@@ -47,7 +47,7 @@ When evaluating any component, score against these enterprise requirements:
 | **Support / SLA** | Does Microsoft or the vendor offer support? What's the uptime commitment? |
 | **Security Compliance** | SOC2, ISO 27001, GDPR? Does it meet customer's security requirements? |
 | **Managed vs Custom** | Managed service preferred. Custom code = ongoing maintenance burden |
-| **Licensing** | What licenses are required? Is it included in customer's existing plan? |
+| **Licensing** | Assume best licensing available (M365 Copilot, Copilot Studio, Premium, Frontier). Only flag if customer explicitly states a limitation. |
 | **Data Residency** | Where is data stored/processed? Relevant for regulated industries |
 
 ## Component Categories (Checklist)

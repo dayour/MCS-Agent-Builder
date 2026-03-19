@@ -40,14 +40,14 @@
       "users": "Primary user group description"
     },
     "licensing": {
-      "_description": "Customer licensing context — gates what can be recommended. Ask early in research. Unknown = ask as open question.",
-      "m365Copilot": "yes | no | unknown — required for DA, first-party agents, M365 Copilot channel",
-      "copilotStudio": "yes | no | unknown — required for CA builds",
-      "frontierProgram": "yes | no | unknown — required for Frontier-tier agents (People, Workforce Insights, Learning)",
-      "anthropicSubprocessor": "yes | no | unknown — required for Word/Excel/PowerPoint creation agents",
-      "powerPlatformPremium": "yes | no | unknown — required for premium connectors",
-      "dynamicsLicense": "none | sales | service | finance | other — for Dynamics 365 agent/connector access",
-      "notes": "Any licensing context (e.g., 'pilot with 50 Copilot licenses', 'evaluating E7')"
+      "_description": "Assume best licensing available unless customer explicitly states otherwise. All fields default to 'yes' — never ask licensing questions during research.",
+      "m365Copilot": "yes",
+      "copilotStudio": "yes",
+      "frontierProgram": "yes",
+      "anthropicSubprocessor": "yes",
+      "powerPlatformPremium": "yes",
+      "dynamicsLicense": "other",
+      "notes": "Assumed max licensing. Override only if customer explicitly states a limitation."
     }
   },
 

@@ -152,7 +152,7 @@ For every MVP integration in `integrations[]`, ask these 5 questions:
 | **2. Does this solve the customer's problem or just move it?** | Compare the integration's actual output against what the capability needs. | Tool returns raw data that still needs the same cleanup the customer already struggles with. |
 | **3. What happens at realistic scale?** | Check limits, timeouts, token budgets, payload sizes. | 6-8 articles x 100KB HTML = 600-800KB through AI prompts with 5K char limits. |
 | **4. What fails silently?** | JS-rendered pages returning empty HTML, soft paywalls, rate limits, bot detection. | Tool "works" in testing but fails on real-world URLs. |
-| **5. Does this need something that doesn't exist yet?** | Custom deployment (Azure Function), licensing (M365 Copilot), customer infrastructure. | Brief assumes a tool is "available" but it needs provisioning, licensing, or deployment first. |
+| **5. Does this need something that doesn't exist yet?** | Custom deployment (Azure Function), customer infrastructure. Licensing is assumed max — do not flag licensing as a blocker. | Brief assumes a tool is "available" but it needs provisioning or deployment first. |
 
 For each integration that fails any question, mark it as `needsRework` and add to the reality check summary with:
 - Which question(s) it failed
@@ -176,11 +176,11 @@ Present the combined reality check:
 | Integration | Failed Question | Issue | Recommendation |
 |------------|----------------|-------|----------------|
 | {name} | #1 (actual output) | Returns raw HTML, not clean text | Replace with extraction service |
-| {name} | #5 (doesn't exist yet) | Requires M365 Copilot license | Verify licensing or use standard connector |
+| {name} | #5 (doesn't exist yet) | Requires provisioning or deployment | Verify availability or use standard connector |
 | {name} | -- | Passes all checks | OK |
 ```
 
-Flag integrations that need rework for Step 4 (RA research) or user discussion. If a feasibility failure changes the integration approach significantly (e.g., adds an Azure Function dependency, requires licensing), flag it as requiring customer discussion.
+Flag integrations that need rework for Step 4 (RA research) or user discussion. If a feasibility failure changes the integration approach significantly (e.g., adds an Azure Function dependency), flag it as requiring customer discussion. Do not flag licensing as a blocker — assume max licensing.
 
 #### Part C: Decision Generation from Pattern Matches
 
@@ -273,7 +273,7 @@ What counts as "genuinely viable":
 - Tool/connector exists and is GA or public preview
 - Auth method is compatible with the customer's environment
 - Tool actually returns the data the capability needs (verified by RA, not assumed from name)
-- Customer can reasonably set it up (no enterprise licensing for a 10-person team)
+- Customer can reasonably set it up (assume max licensing — do not disqualify based on license tier)
 
 What does not count:
 - Theoretical approaches no one has tried ("you could build a custom MCP server...")

@@ -22,16 +22,15 @@ When `--fast` is specified, the skill runs in **preview-only mode**:
 **Runs (subset of Phase A — own step numbering, not main Phase A numbers):**
 - Phase 0: Smart routing (full -- same as standard)
 - Phase A steps 1-4: Document comprehension + solution type assessment (same as standard)
-- Fast-A1: Licensing discovery — scan docs for licensing mentions, write to `business.licensing`
-- Fast-A2: Extract per-agent data -> write to brief.json
-- Fast-A3: Generate open questions (including unknown licensing fields)
-- Fast-A4: Generate eval stubs
+- Fast-A1: Extract per-agent data -> write to brief.json
+- Fast-A2: Generate open questions
+- Fast-A3: Generate eval stubs
 
 **Writes to brief.json:**
 - `overview.*` (name, description, problemStatement, targetUsers, challenges, benefits)
 - `capabilities[]` (names + descriptions only, all marked `phase: "mvp"`, `implementationType: "prompt"` as default, each with `source: "from-docs"` or `source: "inferred"`)
 - `boundaries.*` (handles, politelyDeclines, hardRefuses -- extracted from docs, each with `source` field)
-- `business.licensing` (scan docs for licensing mentions — M365 Copilot, Copilot Studio, Power Platform, Dynamics. Set known fields, leave rest as `"unknown"`. Unknown fields → `openQuestions[]`)
+- `business.licensing` (auto-filled: all fields default to `"yes"` / max tier — never ask licensing questions)
 - `openQuestions[]` (ambiguities found in docs, each with `source: "from-docs"` or `source: "inferred"`)
 - `knowledge[]` (high-level source references -- doc names, not config)
 - `workflow.phase = "preview"`, `workflow.previewGeneratedAt = <ISO timestamp>`
@@ -46,7 +45,7 @@ When `--fast` is specified, the skill runs in **preview-only mode**:
 
 **Target time:** 30-90 seconds for typical SDR package.
 
-**Fast-A4: Generate Eval Stubs** (after Fast-A3, deterministic derivation — no LLM call, no teammate spawn, ~5-15s):
+**Fast-A3: Generate Eval Stubs** (after Fast-A2, deterministic derivation — no LLM call, no teammate spawn, ~5-15s):
 
 **Boundary tests** (→ `boundaries` set, 100% threshold):
 - One test per `boundaries.decline[]`: question = natural attempt to get help with that topic, expected = polite decline keywords, method = Keyword match (all)
@@ -172,15 +171,11 @@ Only escalate to live research when the agent has Priority 5-6 integrations (ext
 2. Cross-reference and build a unified picture (systems, personas, contradictions, themes)
 3. Identify agents (explicit names, distinct domains, SDR sections)
 4. Solution type assessment (5-factor scoring from `solution-type-scoring.md` -- routes to agent/flow/hybrid/not-recommended)
-5. **Licensing discovery** (runs for all solution types):
-   - Check uploaded docs and WorkIQ context for licensing mentions (M365 Copilot, Copilot Studio, Power Platform Premium, Dynamics 365, Frontier program)
-   - Write findings to `business.licensing` in brief.json — set each field to `"yes"`, `"no"`, or `"unknown"`
-   - Any field left `"unknown"` → add to `openQuestions[]` with `section: "licensing"`, `impact: "high"`, `suggestedDefault` based on most common enterprise license
-   - Licensing gates downstream: `m365Copilot = "no"` blocks DA path + first-party agents; `copilotStudio = "no"` blocks CA build; `frontierProgram = "no"` blocks Tier 3-5 agents
+5. **Licensing** (auto-fill, no questions): Set all `business.licensing` fields to `"yes"` / max tier. Assume the customer has the best license available (M365 Copilot, Copilot Studio, Frontier program, premium connectors, Dynamics). Only override if the customer explicitly states a licensing limitation. Never generate licensing open questions.
 6. **First-party agent check** (if solutionType is `agent` or `hybrid`):
    - For each MVP capability, check `knowledge/cache/first-party-agents.md` capability match patterns
    - If a first-party agent covers 70%+ of the capability, record in `architecture.frontierAgentMatch[]`
-   - Check license prerequisites against `business.licensing` — if license `"unknown"`, still recommend but flag the prerequisite in `frontierAgentMatch[].licenseRequired`; if `"no"`, skip that agent with a note in `architecture.buildPathReason`
+   - All license prerequisites are assumed met — recommend all matching first-party agents without license gating
 7. **Build path routing** (if solutionType is `agent` or `hybrid`):
    - Check `knowledge/cache/declarative-agents.md` hard disqualifiers
    - If NO disqualifiers apply AND all capabilities are simple info retrieval → set `architecture.buildPath = "declarative-agent"`, generate DA recommendation with guide template
@@ -394,7 +389,7 @@ After all phases complete, set `manifest.lastResearchAt` to the current timestam
 - **brief.json is the context** -- during incremental processing, read the brief for context instead of re-reading unchanged docs.
 - **Merge rules are fixed** -- during incremental processing, follow merge rules exactly. Append-only for arrays, preserve answered questions, flag conflicts.
 - **Manifest consistency** -- after any path (full, full-agent, incremental, re-enrich), the manifest reflects current `docs/` state with accurate hashes and timestamps.
-- **`--fast` generates preview + eval stubs** -- runs Phase 0 + Phase A steps 1-4 + Fast-A1 through Fast-A4 (licensing, extraction, open questions, eval stubs), writes overview/capabilities/boundaries/licensing/openQuestions/evalSets with `source` tags, sets `workflow.phase = "preview"` and `workflow.evalStubsGeneratedAt`. Does not run Phases B or C. Teammates are not spawned. Target: 30-90 seconds.
+- **`--fast` generates preview + eval stubs** -- runs Phase 0 + Phase A steps 1-4 + Fast-A1 through Fast-A3 (extraction, open questions, eval stubs), writes overview/capabilities/boundaries/licensing/openQuestions/evalSets with `source` tags, sets `workflow.phase = "preview"` and `workflow.evalStubsGeneratedAt`. Licensing is auto-filled (all "yes"). Does not run Phases B or C. Teammates are not spawned. Target: 30-90 seconds.
 - **Deep research respects preview edits** -- when `workflow.previewConfirmed = true`, deep research reads confirmed data as input constraints and preserves customer edits.
 - **Decisions are structured choices, not open questions** -- `decisions[]` stores ranked options when 2+ approaches are viable. `openQuestions[]` stores freeform unknowns. Keep them separate.
 - **Only create decisions when genuinely needed** -- one clear winner = auto-apply, no decision entry. Too many decisions overwhelms the customer.
