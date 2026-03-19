@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-02-26
-sources: [MS Learn, MCS UI, direct testing, Direct Line docs, microsoft/ai-agent-eval-scenario-library]
+last_verified: 2026-03-19
+sources: [MS Learn, MCS UI, direct testing, Direct Line docs, microsoft/ai-agent-eval-scenario-library, MS Learn analytics-agent-evaluation-overview, WebSearch Mar 2026]
 confidence: high
 refresh_trigger: on_error
 -->
@@ -100,18 +100,38 @@ The library defines 70 scenarios across 13 areas:
 }
 ```
 
-## 6 MCS Test Methods
+## 7 MCS Native Test Methods (GA)
 
-Methods are assigned at the **eval set level**, not per test. Each set picks up to 5 of these 6 methods. All tests in a set are scored by that set's methods.
+Methods are assigned at the **eval set level**, not per test. Each set can use multiple methods. All tests in a set are scored by that set's methods.
 
-| Method | Scoring | What It Does |
-|--------|---------|-------------|
-| **General quality** | Pass/Fail (heuristic) | Relevance + completeness. Does NOT compare to expected response. |
-| **Compare meaning** | 0-100 threshold | Semantic match — same meaning, different wording OK |
-| **Keyword match** | Any / All mode | Looks for matching words/phrases in response |
-| **Text similarity** | 0-100 threshold | Text closeness (may miss meaning differences) |
-| **Exact match** | Pass/Fail | Response must match expected completely |
-| **Tool use** | Pass/Fail | Checks if agent used specific tools or topics |
+| Method | Status | Scoring | What It Does |
+|--------|--------|---------|-------------|
+| **General quality** | **GA** | Scored 0-100% | Relevance + Groundedness + Completeness + Abstention. Does NOT compare to expected response. Default on every test set. |
+| **Compare meaning** | **GA** | 0-100 threshold (default 50) | Semantic match via intent similarity — same meaning, different wording OK |
+| **Keyword match** | **GA** | Any / All mode | Looks for matching words/phrases in response |
+| **Text similarity** | **GA** | 0-100 threshold (cosine similarity) | Text closeness (may miss meaning differences) |
+| **Exact match** | **GA** | Pass/Fail | Response must match expected completely |
+| **Tool use** | **GA** | Pass/Fail | Checks if agent used specific tools or topics |
+| **Custom** | **Preview** | Pass/Fail (label-based) | Maker-defined evaluation criteria with custom labels. See below. |
+
+### Custom Method (Preview — New Mar 2026)
+
+The **Custom** method lets you test and label agent answers using your own criteria. Useful for compliance, policy adherence, or domain-specific quality checks.
+
+**Two components to configure:**
+1. **Evaluation instructions** — Describes the goal (e.g., "Evaluate the agent's response for HR policy compliance"). Should be goal-oriented, use bullet points/headings.
+2. **Labels** — Two or more labels with name + description + pass/fail assignment. Example: "Compliant" (pass) / "Non-Compliant" (fail).
+
+**Example use cases:**
+- HR compliance: label responses as compliant/non-compliant with HR policy
+- Tone enforcement: label responses as professional/unprofessional
+- Regulatory: label responses as meets-regulation/fails-regulation
+
+**Schema integration:** Custom method is not yet supported in our CSV export (MCS native only). For our runner, use per-test method overrides with the closest equivalent (Keyword match + Compare meaning).
+
+### General Quality Grader in Test Pane (GA Mar 31, 2026)
+
+An opt-in toggle in the Test Pane automatically evaluates every interaction while testing the agent. Evaluations run in background and provide real-time quality feedback without requiring manual execution. Helps identify response quality issues earlier in the build process before publishing.
 
 ### Method Selection by Quality Signal
 
@@ -142,21 +162,22 @@ When a set uses multiple methods, a test must pass **ALL** of them:
 { "type": "Keyword match", "mode": "all" }      // binary — all keywords must appear
 { "type": "Keyword match", "mode": "any" }      // binary — any keyword suffices
 { "type": "Tool use" }                            // binary — tool was invoked
-{ "type": "General quality" }                    // binary heuristic — no expected response needed
+{ "type": "General quality" }                    // scored 0-100% — no expected response needed
 { "type": "Exact match" }                        // binary — exact text match
 { "type": "Text similarity", "score": 80 }      // scored — pass if >= 80
+{ "type": "Custom" }                             // Preview — label-based pass/fail (MCS native only)
 ```
 
 ### Important Rules
 
-- **6 MCS native method types** + **Plan validation** (custom, 7th method). No "PartialMatch", "AI", "Contains" types
+- **7 MCS native method types** (including Custom/Preview) + **Plan validation** (our custom 8th method). No "PartialMatch", "AI", "Contains" types
 - **passingScore** uses integer format: "70" not "0.7"
 - Only `Compare meaning`, `Text similarity` use score thresholds
 - `Keyword match` uses `mode` ("any" or "all") instead of a score
 - `General quality` does NOT compare to expected response — standalone quality check
 - Safety tests belong in the `boundaries` set at 100% — if they fail, fix instructions first
 - `General quality` has variance — run multiple times for confidence
-- General quality is MCS's default method — added to every test set automatically. It evaluates: Relevance, Groundedness, Completeness, Abstention. Scored 0-100%.
+- General quality is MCS's default method — added to every test set automatically. It evaluates: Relevance, Groundedness, Completeness, Abstention. Scored 0-100%. Now also available as real-time "General Quality Grader" toggle in Test Pane (GA Mar 31, 2026).
 - Tool use checks actual tool/topic invocation in MCS native eval. In our Direct Line runner, it uses text matching as an approximation.
 - Per-test method overrides (`test.methods`) are a custom runner extension. MCS native eval applies methods at the set level only.
 
@@ -318,6 +339,18 @@ Evals are not just post-build checks — they drive the build itself:
 
 Configuration in `evalConfig`: `targetPassRate` (overall, default 85%), `maxIterationsPerCapability`, `maxRegressionRounds`.
 
+## Recent Eval Enhancements (Jan-Mar 2026)
+
+| Feature | Status | Date | Details |
+|---------|--------|------|---------|
+| **Thumbs-up/down feedback on eval results** | Preview | Jan 2026 | Verify grading performance and drive ongoing improvements to evaluation reliability |
+| **Activity maps in eval results** | Preview | Jan 2026 | View agent's sequence of inputs, decisions, and outputs to diagnose issues |
+| **CSV template for test set import** | Preview | Jan 2026 | Validated CSV template reduces formatting errors, standardizes evaluation data |
+| **Compare multiple agent versions** | GA | Dec 2025 | Side-by-side comparison to validate improvements and spot regressions |
+| **Custom test method** | Preview | Oct 2025 | Maker-defined evaluation criteria with custom labels (see above) |
+| **General Quality Grader in Test Pane** | GA | Mar 31, 2026 | Auto-evaluate every query/response during testing |
+| **Evaluate agents for M365 Copilot** | Preview | Jul 2026 (planned) | Run evaluations on agents published to M365 Copilot from within Copilot Studio |
+
 ## Future: M365 Agents SDK
 
 Microsoft recommends migrating from Direct Line to the **M365 Agents SDK** for new agent integrations. Key advantages:
@@ -325,7 +358,7 @@ Microsoft recommends migrating from Direct Line to the **M365 Agents SDK** for n
 - Richer message types and streaming support
 - Better alignment with Microsoft 365 ecosystem
 
-**Current status (Feb 2026):** SDK is GA. Migration path is clear but not urgent — Direct Line remains functional. Consider for future eval runner v2.
+**Current status (Mar 2026):** SDK is GA. Migration path is clear but not urgent — Direct Line remains functional. Consider for future eval runner v2.
 
 ## Multi-Turn Test Support
 
@@ -469,10 +502,12 @@ Key difference: The Kit reads Dataverse `ConversationTranscript` (rich, complete
 
 ## Refresh Notes
 
-- Check MS Learn for new test method types
+- Check MS Learn for new test method types — **Custom method added Oct 2025 (Preview)**
 - Search "Copilot Studio evaluation" for updates to the eval framework
 - New scoring methods may appear — check MCS UI "New evaluation" dialog
 - Monitor M365 Agents SDK for eval-relevant features
 - Token Endpoint availability may change — verify in MCS Channels settings
 - Check [microsoft/ai-agent-eval-scenario-library](https://github.com/microsoft/ai-agent-eval-scenario-library) for new scenarios
 - Monitor Power CAT Kit for changes to ConversationTranscript schema (affects Phase B plan validation enrichment)
+- Watch for "Evaluate agents for M365 Copilot in Copilot Studio" (Preview Jul 2026 planned)
+- General Quality Grader in Test Pane went GA Mar 31, 2026 — verify in MCS UI

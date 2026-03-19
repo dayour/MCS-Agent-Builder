@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-02-27
-sources: [MS Learn, PAC CLI docs, VS Code Extension docs, Dataverse entity reference, WebSearch Feb 2026, MS Learn guidance/alm, MS Learn whats-new]
+last_verified: 2026-03-19
+sources: [MS Learn, PAC CLI docs, VS Code Extension docs, Dataverse entity reference, WebSearch Mar 2026, MS Learn guidance/alm, MS Learn whats-new, 2026 Wave 1 release plan, MS Learn guidance hub Jan 2026]
 confidence: high
 refresh_trigger: weekly
 -->
@@ -135,6 +135,13 @@ Reusable sets of agent components (topics, knowledge, actions, entities) shared 
 - No native "rollback to previous version" button
 - **Copy to Copilot Studio** unlocks staged deployments and rollback options
 
+## Reassign Agent Ownership (GA Mar 2026)
+
+- **Power Platform API**: `POST /api/CopilotStudio/environments/{envId}/agents/{agentId}/assignTo` — reassign orphaned agents
+- **PowerShell**: Admins (Tenant admin, PP admin, D365 Service Admin) can use PowerShell commands
+- **Requirements**: New owner needs Copilot Studio license + environment membership
+- **Manual**: Power Apps > Agent Settings > Agent details > View Solution > Advanced settings > Assign
+
 ## Multitenant Mode (Preview)
 
 Agents can be used across different Entra tenants via Teams and M365 Copilot.
@@ -153,6 +160,7 @@ These items are NOT included in solution export/import and require manual post-d
 4. Deployed channels
 5. Sharing (with other makers or end-users)
 6. **Unstructured data knowledge sources** (SharePoint, OneDrive, Salesforce, Confluence, ServiceNow, ZenDesk) -- ALM not supported, importing agents doesn't trigger knowledge source processing
+7. **Dataverse extensions** required for SharePoint unstructured data: Power AI Extensions Base v1.0.1.688+, AI Platform Extensions Components v1.0.0.157+, Relevance Search v1.0.0.90+
 
 ## ALM Golden Rules
 
@@ -168,12 +176,41 @@ These items are NOT included in solution export/import and require manual post-d
 
 Update Power Platform API calls to use the new `copilotstudio` namespace. The previous namespace continues to work temporarily, but switching ensures future compatibility.
 
+## Guidance Hub (Jan 2026)
+
+MS Learn published a comprehensive guidance hub organized into 5 pillars:
+1. **Plan** — project readiness, objectives, risk, team
+2. **Implement** — architecture, AI capabilities, generative orchestration, autonomous agents, multi-agent patterns, integrations, agent tools
+3. **Manage** — governance, security, testing strategy, ALM deployment
+4. **Improve** — analytics, KPIs, performance testing
+5. **Extend** — channels, custom knowledge sources
+
+Key new articles: `guidance/alm`, `guidance/generative-orchestration`, `guidance/autonomous-agents`, `guidance/multi-agent-patterns`, `guidance/agent-tools`, `guidance/channels`, `guidance/analytics`
+
+## ALM Automation Tools
+
+| Tool | Best For |
+|------|----------|
+| Azure DevOps | Enterprise CI/CD with advanced pipelines |
+| GitHub Actions for Power Platform | GitHub-native ALM automation |
+| Pipelines in Power Platform | Citizen-developer-friendly deployment |
+| Copilot ALM Starter (GitHub) | Lightweight toolkit — `github.com/microsoft/copilot-alm-starter` |
+
+## 2026 Wave 1 Lifecycle Features
+
+| Feature | Timeline | Status |
+|---------|----------|--------|
+| Evaluate agents for M365 Copilot in CS | Preview Jul 2026 | Planned |
+| Create agents optimized for M365/Copilot users | Preview Jun 2026 | Planned |
+| Unified error/warning/governance view | Preview Apr 2026, GA Jun 2026 | Planned |
+| Enforce safe sharing (credential oversharing) | Preview Apr 2026, GA Jun 2026 | Planned |
+
 ## PAC CLI Quick Reference
 
 ```powershell
-pac copilot list | create | publish | status | extract-template
+pac copilot list | create | publish | status | extract-template | init-skills
 pac copilot extract-translation | merge-translation
-pac copilot model list | model predict
+pac copilot model list | model predict | model prepare-fetch
 pac copilot mcp --run
 pac solution list | export | import | check
 pac pipeline list | deploy

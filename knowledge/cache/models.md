@@ -1,19 +1,19 @@
 <!-- CACHE METADATA
-last_verified: 2026-02-27
-sources: [MS Learn (authoring-select-agent-model, prompt-model-settings, planned-features), MCS UI snapshot, WebSearch Feb 2026]
+last_verified: 2026-03-19
+sources: [MS Learn (authoring-select-agent-model, prompt-model-settings, planned-features, bring-your-own-model-prompts), MCS UI snapshot, WebSearch Mar 2026]
 confidence: high
 refresh_trigger: before_architecture
 -->
 # MCS Available Models
 
-## Models Available in MCS (Feb 2026)
+## Models Available in MCS (Mar 2026)
 
 ### Model Categories
 
 | Category | Purpose | Examples |
 |----------|---------|---------|
-| **General** | Everyday chat, FAQ, routing | GPT-4.1, GPT-5 Chat, Claude Sonnet 4.5 |
-| **Deep** | Complex reasoning, multi-step analysis | GPT-5 Reasoning, GPT-5.2 Reasoning, Claude Opus 4.6 |
+| **General** | Everyday chat, FAQ, routing | GPT-4.1, GPT-5 Chat, Claude Sonnet 4.5, Claude Sonnet 4.6 |
+| **Deep** | Complex reasoning, multi-step analysis | GPT-5 Reasoning, Claude Opus 4.6, GPT-5.4 Reasoning |
 | **Auto** | Mixed workloads -- routes dynamically between general and reasoning | GPT-5 Auto |
 | **Mini** | Cost-effective, moderate complexity | GPT-4.1 mini (prompt builder only) |
 
@@ -25,15 +25,15 @@ Source: [MS Learn authoring-select-agent-model](https://learn.microsoft.com/en-u
 |-------|----------|--------|-------------|-------|
 | GPT-4o | General | **RETIRED** | All regions | Replaced by GPT-4.1 (Oct 2025). 1-month grace period expired. |
 | **GPT-4.1** | General | **GA (Default)** | All regions | Default model for all new agents |
-| **GPT-5 Chat** | General | **GA** | Europe + US natively; Preview (cross-geo) in all other regions | Standard rate |
+| **GPT-5 Chat** | General | **GA** | All regions | Standard rate. Now GA everywhere (previously EU + US only). |
 | **GPT-5 Reasoning** | Deep | **Preview** | Europe + US natively; Preview (cross-geo) in all other regions | Premium rate, 400K context |
 | **GPT-5 Auto** | Auto | **Preview** | Europe + US natively; Preview (cross-geo) in all other regions | Dynamically routes between general and reasoning |
-| GPT-5.2 Chat | General | **Experimental** | Europe natively; Experimental (cross-geo) in all other regions | Next-gen general |
-| GPT-5.2 Reasoning | Deep | **Experimental** | Europe natively; Experimental (cross-geo) in all other regions | Next-gen reasoning |
-| **Claude Sonnet 4.5** | General | **Preview** | Cross-geo (all regions) | Anthropic model, requires admin enablement |
-| Claude Sonnet 4.6 | General | **Experimental** | Cross-geo (all regions) | Anthropic next-gen |
-| Claude Opus 4.6 | Deep | **Experimental** | Cross-geo (all regions) | Anthropic deep reasoning |
-| Grok 4.1 Fast | General | **Experimental** | **US only** | xAI model. Higher harmful content risk per MS safety eval. |
+| GPT-5.3 Chat | General | **Experimental** | **US only** (early access environment) | Next-gen general. Replaced GPT-5.2 Chat in model table. |
+| GPT-5.4 Reasoning | Deep | **Experimental** | **US only** (early access environment) | Next-gen reasoning. Replaced GPT-5.2 Reasoning in model table. |
+| **Claude Sonnet 4.5** | General | **GA** | GA (cross-geo) all regions; GA natively in US | Anthropic model, requires admin enablement. Upgraded from Preview to GA. |
+| **Claude Sonnet 4.6** | General | **GA** | GA (cross-geo) all regions; GA natively in US | Anthropic model. Upgraded from Experimental to GA. |
+| **Claude Opus 4.6** | Deep | **GA** | GA (cross-geo) all regions; GA natively in US | Anthropic deep reasoning. Upgraded from Experimental to GA. |
+| Grok 4.1 Fast | General | **Experimental** | **US only** (early access environment) | xAI model. Higher harmful content risk per MS safety eval. Non-reasoning. |
 
 ### Prompt Builder Model Lineup (AI Builder prompts in MCS / Power Apps / Power Automate)
 
@@ -45,30 +45,34 @@ Source: [MS Learn prompt-model-settings](https://learn.microsoft.com/en-us/micro
 | **GPT-4.1** | General | Standard rate | 128K | |
 | **GPT-5 chat** | General | Standard rate | 128K | GA |
 | **GPT-5 reasoning** | Deep | Premium rate | 400K | GA |
-| GPT-5.2 chat | General | Standard rate | 128K | Experimental, US only |
-| GPT-5.2 reasoning | Deep | Premium rate | 400K | Experimental, US only |
-| Claude Sonnet 4.5 | General | Standard rate | 200K | Experimental |
+| GPT-5.2 chat | General | Standard rate | 128K | Experimental |
+| GPT-5.2 reasoning | Deep | Premium rate | 400K | Experimental |
+| Claude Sonnet 4.5 | General | Standard rate | 200K | Experimental (note: GA for agent orchestration, but experimental for prompt builder) |
 | Claude Opus 4.5 | Deep | Premium rate | 200K | Experimental |
 
 **Retired models (prompt builder):** Claude Opus 4.1 (retired Feb 2026, replaced by Claude Opus 4.5), o3 (retired Dec 2025, replaced by GPT-5 reasoning), GPT-4o mini/GPT-4o (retired Jul 2025).
 
-### Bring Your Own Model (BYOM) -- Preview (Mar 2026)
+**Note:** Prompt builder has a DIFFERENT model lineup and status from agent orchestration. Claude models are "experimental" in prompt builder but "GA" in agent orchestration. GPT-5.2 is still listed in prompt builder but replaced by GPT-5.3/5.4 in agent orchestration.
 
-Source: [MS Learn release plan](https://learn.microsoft.com/en-us/power-platform/release-plan/2025wave2/microsoft-copilot-studio/use-own-model-when-generating-responses)
+### Bring Your Own Model (BYOM) -- GA for prompts, Preview for response generation (Mar 2026)
 
-- Connect Azure AI Foundry models into agent prompts (no code)
-- Supports GPT-4.5, Llama, fine-tuned models, and thousands of Foundry catalog models
-- Available at the prompt level (not agent orchestration level)
-- Public preview: Mar 2026
+Source: [MS Learn bring-your-own-model-prompts](https://learn.microsoft.com/en-us/microsoft-copilot-studio/bring-your-own-model-prompts), [MS Learn release plan](https://learn.microsoft.com/en-us/power-platform/release-plan/2025wave2/microsoft-copilot-studio/use-own-model-when-generating-responses)
+
+- **GA for prompts:** Connect Azure AI Foundry models into agent prompts (no code). Available in Copilot Studio, Power Apps, Power Automate.
+- Supports GPT-4.5, Llama, DeepSeek, Phi-series, and 1,800+ Foundry catalog models
+- Image-capable models: Phi-3.5-vision-instruct, Phi-4-multimodal-instruct, Phi-3-vision-128k-instruct, o1, GPT-4o, GPT-4o-mini, GPT-4, GPT-4.5-preview
+- Governance: Azure AI Foundry connector in PPAC, DLP policy support
+- **Preview (Mar 2026):** "Use your own model when generating responses" -- replace the default response model in agent settings with a custom Azure AI Foundry deployment (not just prompts)
+- No text-to-image model support natively -- use custom action + Azure AI Foundry REST API
 
 ### Government Cloud (GCC/GCC-H/DoD)
 
 | Model | Status | Notes |
 |-------|--------|-------|
-| GPT-4o | Default (GCC + GCC-H) | Still the only option in government clouds |
+| GPT-4o | Default (GCC + GCC-H + DoD) | Still the only option for agent orchestration in government clouds |
 | GPT-4o mini | GA (GCC + GCC-H) | Available for prompt builder in gov clouds |
 
-**Note:** DoD has no models listed as available. External model providers (Anthropic, xAI) require admin settings enablement at the tenant level. Cross-geo models may process data outside your region.
+**Note:** DoD now lists GPT-4o as Default (per MS Learn table update). External model providers (Anthropic, xAI) require admin settings enablement at the tenant level. Cross-geo models may process data outside your region. Government clouds significantly lag behind commercial model availability.
 
 ## Model Selection Guidelines
 
@@ -76,12 +80,14 @@ Source: [MS Learn release plan](https://learn.microsoft.com/en-us/power-platform
 |----------|-------------------|-----------|
 | General-purpose agent | GPT-4.1 (default) | Best balance of capability, speed, and cost. GA everywhere. |
 | Simple FAQ / routing | GPT-4.1 | Fast, cost-effective, GA |
-| Complex reasoning / analysis | GPT-5 Reasoning | Better at multi-step logic, 400K context. Premium rate. |
+| Complex reasoning / analysis | GPT-5 Reasoning (Preview) | Better at multi-step logic, 400K context. Premium rate. |
+| Complex reasoning (GA alternative) | Claude Opus 4.6 (GA) | GA deep reasoning, cross-geo. Premium rate. |
 | Mixed workloads | GPT-5 Auto (Preview) | Auto-routes between general and reasoning |
-| High-quality general | GPT-5 Chat (GA in EU + US) | Stronger than 4.1, standard rate |
-| Non-OpenAI preference | Claude Sonnet 4.5 (Preview) | Strong alternative, cross-geo |
-| Cutting edge (accept experimental risk) | GPT-5.2 Chat/Reasoning | Most capable, may have rough edges |
+| High-quality general | GPT-5 Chat (GA, all regions) | Stronger than 4.1, standard rate. Now GA everywhere. |
+| Non-OpenAI preference (general) | Claude Sonnet 4.5 or 4.6 (GA) | Strong GA alternatives, cross-geo |
+| Cutting edge (accept experimental risk) | GPT-5.3 Chat / GPT-5.4 Reasoning | Most capable, US early-access only, may have rough edges |
 | Cost-sensitive prompts | GPT-4.1 mini (prompt builder) | Basic rate, 128K context |
+| Custom/fine-tuned model | BYOM via Azure AI Foundry | Prompt-level only (GA). Response generation preview Mar 2026. |
 
 ## How to Set Model
 
@@ -102,8 +108,8 @@ Edit `agent.mcs.yml` → set `aISettings.model.modelNameHint` → `node tools/mc
 | Tier | Models | Rate |
 |------|--------|------|
 | Basic | GPT-4.1 mini | Basic rate |
-| Standard | GPT-4.1, GPT-5 Chat, GPT-5.2 Chat, Claude Sonnet 4.5/4.6 | Standard rate |
-| Premium | GPT-5 Reasoning, GPT-5.2 Reasoning, Claude Opus 4.5/4.6 | Premium rate |
+| Standard | GPT-4.1, GPT-5 Chat, GPT-5.3 Chat, Claude Sonnet 4.5/4.6 | Standard rate |
+| Premium | GPT-5 Reasoning, GPT-5.4 Reasoning, Claude Opus 4.5/4.6 | Premium rate |
 
 Note: Exact credit-per-token rates vary; see [AI Builder Capability Rate table](https://go.microsoft.com/fwlink/?linkid=2338800) for current pricing.
 
@@ -127,6 +133,7 @@ Note: Exact credit-per-token rates vary; see [AI Builder Capability Rate table](
 - Search "Copilot Studio models" on MS Learn for official updates
 - External models (Anthropic, xAI) require tenant admin enablement
 - Government clouds lag behind commercial -- check separately
-- GPT-4o retired in commercial (Oct 2025) -- still default in GCC/GCC-H
-- Prompt builder has different model lineup than agent orchestration -- check both pages
-- BYOM via Azure AI Foundry: preview Mar 2026, prompt-level only
+- GPT-4o retired in commercial (Oct 2025) -- still default in GCC/GCC-H/DoD
+- Prompt builder has different model lineup AND different status from agent orchestration -- check both pages
+- BYOM via Azure AI Foundry: GA for prompts, Preview Mar 2026 for response generation
+- **Mar 2026 changes:** GPT-5.2 Chat/Reasoning replaced by GPT-5.3 Chat / GPT-5.4 Reasoning (experimental, US early-access only). Claude Sonnet 4.5, Sonnet 4.6, Opus 4.6 all upgraded to GA. GPT-5 Chat now GA in all regions (was EU + US only).

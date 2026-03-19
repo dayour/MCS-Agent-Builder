@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-02-23
-sources: [Network interception, ObjectModel VS Code extension source (IslandControlPlaneService.cs), direct testing]
+last_verified: 2026-03-19
+sources: [Network interception, ObjectModel VS Code extension source (IslandControlPlaneService.cs), direct testing, 2026 Wave 1 release plan, WebSearch Mar 2026]
 confidence: high
 refresh_trigger: on_error
 -->
@@ -72,6 +72,7 @@ Base: `/api/botmanagement/v1/`
 | `environments/{eid}/dlp/blockedConnectors` | POST | Check blocked connectors |
 | `environments/{eid}/notifications` | GET | Environment notifications |
 | `environments/{eid}/custom-templates/manifests` | GET | Agent template catalog |
+| `environments/{eid}/nl2action` | POST | **AI-powered natural language action search** |
 | `userlicenseinfo/entitlements` | GET | License entitlements |
 | `userlicenseinfo/viralsku` | GET | Trial/viral SKU status |
 | `usersettings/defaultbot` | PUT | Set default bot for user |
@@ -262,11 +263,15 @@ Model selection is a GptComponent update. The model is at `metadata.aISettings.m
 | Display Name | `modelNameHint` | Provider | Status |
 |-------------|----------------|----------|--------|
 | GPT-4.1 | `GPT41` | OpenAI | Production (Default) |
-| GPT-5 Chat | `GPT5Chat` | OpenAI | Production |
+| GPT-5 Chat | `GPT5Chat` | OpenAI | Production (GA EU/US) |
 | GPT-5 Auto | `GPT5Auto` | OpenAI | Preview |
 | GPT-5 Reasoning | `GPT5Reasoning` | OpenAI | Preview |
+| GPT-5.2 Chat | `GPT52Chat` | OpenAI | Experimental |
+| GPT-5.2 Reasoning | `GPT52Reasoning` | OpenAI | Experimental |
 | Claude Sonnet 4.5 | `sonnet4-5` | Anthropic | Preview |
-| Claude Opus 4.5 | `opus4-1` | Anthropic | Experimental |
+| Claude Sonnet 4.6 | `sonnet4-6` | Anthropic | Experimental |
+| Claude Opus 4.6 | `opus4-6` | Anthropic | Experimental |
+| Grok 4.1 Fast | `grok41fast` | xAI | Experimental (US only) |
 
 ### Set Model Procedure
 
@@ -427,6 +432,9 @@ az account get-access-token --resource https://service.powerapps.com/ --query ac
 | **OAuth connection (first-time)** | **Manual** | No API — interactive auth popup required once per connector per environment |
 | Native eval upload + run | **SOLVED** | Gateway API `makerevaluations/testcomponent` (upload) + `makerevaluations` (run) via `island-client.js upload-evals` / `run-eval` |
 | Knowledge file upload | **Partial** | Component created via Dataverse; file attachment endpoint not found — user uploads in MCS |
+| **Custom MCP server creation** | **Preview (Mar 2026)** | Create/clone MCP servers via MCS UI; assembles connector actions + tools from other MCPs + custom APIs |
+| **Work IQ MCP tools** | **Preview (Mar 2026)** | Connect agents to Work IQ for M365 work insights |
+| **Agent owner reassignment** | **GA (Mar 2026)** | Power Platform API `assignTo` endpoint for orphaned agents |
 
 ## Tool Addition API Flow — Captured 2026-02-23
 

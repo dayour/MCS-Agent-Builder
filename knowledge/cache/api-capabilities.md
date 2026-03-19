@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-02-27
-sources: [MS Learn, PAC CLI docs, Dataverse MCP docs, direct testing, E2E pipeline test (24/24 pass), ObjectModel schema, Island Gateway wire captures, Power Platform community, VS Code extension blog]
+last_verified: 2026-03-19
+sources: [MS Learn, PAC CLI docs, Dataverse MCP docs, direct testing, E2E pipeline test (24/24 pass), ObjectModel schema, Island Gateway wire captures, Power Platform community, VS Code extension blog, 2026 Wave 1 release plan, WebSearch Mar 2026]
 confidence: high
 refresh_trigger: on_error
 -->
@@ -96,8 +96,9 @@ Tools: `read_query` (20-row limit), `create_record`, `update_record`, `delete_re
 
 ## Layer 2: PAC CLI
 
-**MSI** (Bash): `pac copilot list/create/publish/status/extract-template`, `pac solution export/import`
-> **Note:** `pac copilot create` requires an undocumented template YAML (topics/instructions only, ~30% of config). Prefer MCS UI creation via Playwright for full-featured agents.
+**MSI** (Bash): `pac copilot list/create/publish/status/extract-template/init-skills`, `pac solution export/import`
+> **Note:** `pac copilot create` requires an undocumented template YAML (topics/instructions only, ~30% of config). Prefer Dataverse POST + PvaProvision for full-featured agents.
+> **New (2026):** `pac copilot init-skills` — extracts skill definition files to `.github/skills/`. `pac copilot model prepare-fetch` — takes FetchXML from AI LLM and prepares for execution.
 **MCP** (dnx, 52 tools): `copilot_publish`, `env_fetch` (FetchXML, no row limit), `solution_*`, `auth_*`
 
 **Not in PAC CLI MCP**: copilot list/create/status/extract-template — use Bash.
@@ -151,9 +152,14 @@ The `botcomponent` table has both `data` and `content` columns. Instructions (ty
 
 ## Upcoming API Capabilities
 
-| Feature | Timeline | Impact |
-|---------|----------|--------|
-| Custom MCP servers | Public preview Mar 2026, GA Apr 2026 | Programmatic MCP server creation via MCP Management Server (already in preview) |
+| Feature | Timeline | Status | Impact |
+|---------|----------|--------|--------|
+| Custom MCP servers | Preview Mar 2026, GA Apr 2026 | **Preview (live)** | Create/clone reusable MCP servers via UI; assembles connector actions, tools from other MCPs, custom APIs. Docs: `mcp-create-new-server` |
+| OpenAPI v3 connectors | Preview Feb 2026, GA May 2026 | **Preview** | Import OpenAPI v3 specs directly — no manual downgrade to v2. Auto-translation during creation. |
+| MCP-compliant tools in agent workflows | Preview Apr 2026, GA Oct 2026 | **Planned** | Use MCP tools directly in Power Automate agent workflows |
+| Reassign agent owner via API | GA Mar 2026 | **GA** | `POST /api/CopilotStudio/environments/{envId}/agents/{agentId}/assignTo` — reassign orphaned agents |
+| Work IQ MCP tools | Preview Mar 2026 | **Preview** | Connect agents to Work IQ service for real-time M365 work insights (emails, meetings, chats, files) |
+| SharePoint lists as knowledge source | Preview Apr 2026, GA May 2026 | **Planned** | Add SharePoint lists directly as knowledge sources |
 
 ## Refresh Notes
 

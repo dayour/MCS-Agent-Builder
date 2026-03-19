@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-02-27
-sources: [MS Learn, MCS UI, AI Builder docs, WebSearch Feb 2026, MS Learn MCP Feb 2026, Copilot Blog Feb 2026]
+last_verified: 2026-03-19
+sources: [MS Learn, MCS UI, AI Builder docs, WebSearch Mar 2026, MS Learn MCP Mar 2026, Copilot Blog Mar 2026, 2026 Wave 1 release plan]
 confidence: high
 refresh_trigger: before_architecture
 -->
@@ -10,7 +10,7 @@ refresh_trigger: before_architecture
 
 Three ways to use: agent-level tool (autonomous), topic-level node (controlled), AI Plugin (M365 Copilot).
 
-### Available Models (Feb 2026)
+### Available Models (Mar 2026)
 
 | Model | Rate | Context | Status |
 |-------|------|---------|--------|
@@ -21,11 +21,17 @@ Three ways to use: agent-level tool (autonomous), topic-level node (controlled),
 | GPT-5 Auto | Variable | Variable | Preview (routes dynamically) |
 | GPT-5.2 Chat | Standard | 128K | Experimental |
 | GPT-5.2 Reasoning | Premium | 400K | Experimental |
-| Claude Sonnet 4.5 | Standard | 200K | Preview (external, cross-geo) |
+| Claude Sonnet 4.5 | Standard | 200K | Preview (external, cross-geo). Also for Prompt Builder and Computer Use. |
 | Claude Sonnet 4.6 | Standard | 200K | Experimental (external) |
-| Claude Opus 4.6 | Premium | 200K | Experimental (external) |
+| Claude Opus 4.6 | Premium | 200K | Experimental (external). Also for Prompt Builder. |
 | Grok 4.1 Fast (Non-reasoning) | Standard | Large | Experimental (**US only**, external, safety caveats) |
-| Azure AI Foundry (BYOM) | Varies | Varies | Preview (Mar 2026 planned) |
+| Azure AI Foundry (BYOM) | Varies | Varies | Preview (Mar 2026) |
+
+### Prompt Builder Enhancements (Feb 2026)
+
+- **Per-prompt content moderation**: Configure sensitivity per prompt for hate/fairness, sexual, violence, self-harm — supports regulated and document-processing scenarios
+- **Claude models in Prompt Builder**: Choose Claude Opus 4.6 or Claude Sonnet 4.5 for fine-grained control over reasoning depth, quality, latency, cost
+- **Inline editing**: Edit prompt instructions and settings inline in agent tool details — model selection, inputs, knowledge, testing in single view
 
 ### Settings
 
@@ -43,8 +49,8 @@ Sentiment analysis, entity extraction (20+ types), category classification, key 
 
 | Fact | Value |
 |------|-------|
-| Status | **Public Preview** (GA target May 2026) |
-| Models | OpenAI CUA, Anthropic Claude Sonnet 4.5 |
+| Status | **Public Preview** (since May 27, 2025; **GA target May 2026** per 2026 Wave 1) |
+| Models | OpenAI CUA, Anthropic Claude Sonnet 4.5 (beta, added Feb 2026 — improves nuanced decision-making) |
 | Web success rate | **~80%** |
 | Desktop success rate | **~35%** |
 | Region | **US only** (environments with US region) |
@@ -121,11 +127,22 @@ Moderation precedence: Topic-level > Agent-level. Prompt tool is independent.
 
 | Feature | Status | Expected |
 |---------|--------|----------|
-| Code interpreter on SharePoint sources | Preview | Mar 2026 |
-| Custom MCP servers (connect any external data) | Preview | Mar 2026, GA Apr 2026 |
-| Use your own model for generating responses (BYOM) | Preview | Mar 2026 |
-| Configure triggers with end-user credentials | GA | Feb 2026 |
-| Evaluate test sets with multiple graders | Preview | Feb 8, 2026 |
+| Code interpreter on SharePoint sources | Preview Mar 2026, GA May 2026 | **Active Preview** |
+| Custom MCP servers (connect any external data) | Preview Mar 2026, GA Apr 2026 | **Active Preview** |
+| Use your own model for generating responses (BYOM) | Preview Mar 2026 | **Active Preview** |
+| Configure triggers with end-user credentials | Preview Mar 2026, GA May 2026 | **Active Preview** |
+| Evaluate test sets with multiple graders | Preview Feb 8, 2026 | **Active Preview** |
+| Computer Use GA | GA May 2026 | Planned |
+| MCP-compliant tools in agent workflows | Preview Apr 2026, GA Oct 2026 | Planned |
+| Enforce safe sharing (credential oversharing detection) | Preview Apr 2026, GA Jun 2026 | Planned |
+| Unified error/warning/governance notifications | Preview Apr 2026, GA Jun 2026 | Planned |
+
+## Features Removed from Release Plan (Feb 2026)
+
+| Feature | Reason |
+|---------|--------|
+| Use single sign-on for non-Entra ID connections | Deprioritized, will not be delivered |
+| Test and debug agent actions | Deprioritized, will not be delivered |
 
 ## Credit Rates
 

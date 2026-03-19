@@ -16,7 +16,7 @@ Refresh knowledge cache files in `knowledge/cache/` and the team solution librar
 - `/mcs-refresh upstream` — check upstream repos only (no cache refresh)
 - `/mcs-refresh all` — force refresh everything regardless of age (cache + upstream + solutions)
 
-## All 21 Cache Files
+## All 24 Cache Files
 
 ### Tier 1: Build-Critical (refresh before every `/mcs-research`)
 
@@ -30,6 +30,8 @@ These directly drive component selection and architecture decisions. Staleness h
 | `connectors.md` | Key Power Platform connectors for agents | "Power Platform connectors Copilot Studio", "new connectors" |
 | `knowledge-sources.md` | Knowledge source types + limits | "Copilot Studio knowledge sources types", "knowledge source limits" |
 | `channels.md` | Deployment channels + capabilities | "Copilot Studio deployment channels", "Copilot Studio channels" |
+| `first-party-agents.md` | Microsoft built-in agents inventory (Researcher, Analyst, Facilitator, etc.) — capability matching for DA routing | "Microsoft 365 Copilot agents", "frontier agents Researcher Analyst" |
+| `declarative-agents.md` | DA vs CA routing, manifest schema, limits, build tools, recommendation template | "declarative agent Copilot", "declarative agent vs custom agent" |
 
 ### Tier 2: Build-Phase (refresh before `/mcs-build`)
 
@@ -59,6 +61,7 @@ These are stable reference material that changes less frequently.
 | `conversation-design.md` | UX patterns, conversation flows | "Copilot Studio conversation design", "best practices" |
 | `known-issues.md` | Known bugs, workarounds, ObjectModel gaps | "Copilot Studio known issues", "Copilot Studio bugs workarounds" |
 | `mcs-primer-gpt.md` | GPT-optimized MCS primer for co-generation | "Copilot Studio overview capabilities", "MCS architecture summary" |
+| `copilot-studio-kit.md` | Power CAT Copilot Studio Kit integration patterns | "Power CAT Copilot Studio Kit", "Copilot Studio testing framework" |
 
 ## Freshness Rules
 
@@ -94,8 +97,9 @@ Read the cache file. Extract the `last_verified` date from the metadata header.
 ### Step 2: Check Freshness
 
 Calculate days since `last_verified`:
-- If < 7 days AND not forced → skip, report "Still fresh"
-- Otherwise → proceed to research
+- If < 3 days AND not forced → skip, report "Still fresh"
+- If 3-14 days → proceed to research
+- If > 14 days → proceed to research (high priority — flag to user)
 
 ### Step 3: Targeted Research
 
@@ -160,7 +164,7 @@ For each file:
 | mcp-servers.md | Jan 15 | Feb 12 | 2 new MCP servers found |
 | ... | ... | ... | ... |
 
-**Refreshed:** N / 21 files
+**Refreshed:** N / 24 files
 **Skipped (fresh):** M files
 **Notable changes:**
 - {change 1}
@@ -172,7 +176,7 @@ For each file:
 When called during session startup (auto-refresh), use a **lightweight pass**:
 
 1. Run `node tools/upstream-check.js --update` — check upstream repos (3-day cycle)
-2. Read all 21 files, check dates
+2. Read all 24 files, check dates
 3. Only refresh files > 3 days old
 4. For Tier 1 files: always refresh if stale (these affect research quality)
 5. For Tier 2-3 files: flag as stale but skip unless user is about to build
@@ -186,6 +190,7 @@ This keeps session start under 3-5 minutes while ensuring build-critical knowled
 - **Don't delete content** unless confirmed removed/deprecated — add new, mark old as deprecated
 - **Note confidence level** — if only one source mentions something, set confidence to "medium"
 - **Preserve the metadata header format** exactly — other tools parse it
+- **GA/Preview status on every entry** — every item in a cache table must have a status column: **GA**, **Preview**, or **Deprecated**. When adding new items or updating existing ones, always verify and tag the status. Status changes (Preview → GA, GA → Deprecated) are high-priority findings.
 - **Parallel where possible** — run MS Learn + WebSearch queries for multiple files in parallel to speed up refresh
 - **If MCS UI verification would help** (e.g., checking current model list), mention it to user
 

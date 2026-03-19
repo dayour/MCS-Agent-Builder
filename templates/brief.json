@@ -38,6 +38,16 @@
       "sponsor": "Executive sponsor / champion",
       "owner": "Day-to-day agent owner",
       "users": "Primary user group description"
+    },
+    "licensing": {
+      "_description": "Customer licensing context — gates what can be recommended. Ask early in research. Unknown = ask as open question.",
+      "m365Copilot": "yes | no | unknown — required for DA, first-party agents, M365 Copilot channel",
+      "copilotStudio": "yes | no | unknown — required for CA builds",
+      "frontierProgram": "yes | no | unknown — required for Frontier-tier agents (People, Workforce Insights, Learning)",
+      "anthropicSubprocessor": "yes | no | unknown — required for Word/Excel/PowerPoint creation agents",
+      "powerPlatformPremium": "yes | no | unknown — required for premium connectors",
+      "dynamicsLicense": "none | sales | service | finance | other — for Dynamics 365 agent/connector access",
+      "notes": "Any licensing context (e.g., 'pilot with 50 Copilot licenses', 'evaluating E7')"
     }
   },
 
@@ -156,6 +166,19 @@
     "solutionTypeReason": "2-4 sentence explanation of why this solution type was selected",
     "solutionTypeOverride": false,
     "alternativeRecommendation": "If not agent: what to build instead + high-level approach",
+    "buildPath": "custom-agent | declarative-agent | first-party-only — set during Phase A step 6. 'custom-agent' = build in Copilot Studio (default). 'declarative-agent' = recommend DA with guide, skip build. 'first-party-only' = recommend existing Microsoft agents, skip build.",
+    "buildPathReason": "2-4 sentence explanation of why this build path was selected, including explicit 'why not' for rejected paths",
+    "frontierAgentMatch": [
+      {
+        "_description": "Records when a first-party Microsoft agent covers a customer capability. Populated during Phase A step 5 by matching against knowledge/cache/first-party-agents.md.",
+        "agentName": "First-party agent name (e.g., Researcher, Analyst, Facilitator)",
+        "matchedCapabilities": ["Capability names from capabilities[] that this agent covers"],
+        "coverage": "full | partial | none",
+        "recommendation": "use-as-is | augment-with-ca | not-applicable",
+        "licenseRequired": "License needed (e.g., M365 Copilot, Frontier program)",
+        "notes": "Why this match was made, any caveats"
+      }
+    ],
     "type": "single-agent | multi-agent | connected-agent",
     "reason": "2-4 sentence explanation of WHY this architecture type was selected. Reference the score, key factors, and why other types were ruled out.",
     "factors": {

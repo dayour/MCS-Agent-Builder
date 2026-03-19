@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-02-27
-sources: [MS Learn formula reference, MCS docs, WebSearch Feb 2026, MS Learn advanced-power-fx, MS Learn authoring-variables-bot]
+last_verified: 2026-03-19
+sources: [MS Learn formula reference, MCS docs, WebSearch Mar 2026, MS Learn advanced-power-fx, MS Learn authoring-variables-about, MS Learn voice-configuration, MS Learn power-fx/formula-reference-copilot-studio]
 confidence: high
 refresh_trigger: on_error
 -->
@@ -81,18 +81,43 @@ This enables role-based, context-aware topic routing without separate disambigua
 
 ## Key System Variables
 
-| Variable | Description |
-|----------|-------------|
-| `Activity.Text` | Current user message |
-| `Activity.From.Id` / `.Name` | Sender ID / display name |
-| `Activity.Attachments` | User-uploaded files |
-| `Bot.Name` / `.Id` / `.TenantId` | Agent identity |
-| `Conversation.Id` / `.InTestMode` / `.LocalTimeZone` | Session context |
-| `LastMessage.Text` | Previous user message |
-| `Error.Code` / `.Message` | Error context (OnError only) |
-| `FallbackCount` | Failed matches (OnUnknownIntent only) |
+| Variable | Type | Description |
+|----------|------|-------------|
+| `Activity.Text` | String | Current user message |
+| `Activity.From.Id` | String | Channel-specific unique ID of the sender |
+| `Activity.From.Name` | String | Channel-specific user-friendly name of the sender |
+| `Activity.Attachments` | Table | User-uploaded file attachments |
+| `Activity.Channel` | Choice | Channel ID of the current conversation |
+| `Activity.ChannelId` | String | Channel ID as a string |
+| `Activity.ChannelData` | Any | Object containing channel-specific content |
+| `Activity.Name` | String | Name of the event activity |
+| `Activity.Recipient.Id` | String | Incoming activity's Type property |
+| `Activity.Recipient.Name` | String | Agent display name in channel (phone number in telephony) |
+| `Bot.Name` / `.Id` / `.TenantId` | String | Agent identity |
+| `Conversation.Id` | String | Unique conversation ID |
+| `Conversation.InTestMode` | Boolean | Whether conversation is in test pane |
+| `Conversation.LocalTimeZone` | String | User's time zone (IANA format) |
+| `Conversation.LocalTimeZoneOffset` | Number | Offset from UTC in minutes |
+| `LastMessage.Text` / `.Id` | String | Previous user message text / ID |
+| `Error.Code` / `.Message` | String | Error context (OnError only) |
+| `FallbackCount` | Number | Failed matches (OnUnknownIntent only) |
+| `Recognizer` | Any | Intent recognition and triggering message info |
+| `User.Language` | String | User language locale per conversation |
 
 **Auth variables**: `User.DisplayName`, `.Email`, `.FirstName`, `.LastName`, `.Id`, `.IsLoggedIn`, `.PrincipalName`, `.AccessToken` (manual auth only)
+
+**Voice-only variables** (telephony/IVR):
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `Activity.UserInputType` | String | Whether user used DTMF or speech |
+| `Activity.InputDTMFKey` | String | User's raw DTMF input |
+| `Activity.SpeechRecognition.Confidence` | Number | Confidence (0-1) from last speech recognition |
+| `Activity.SpeechRecognition.MinimalFormattedText` | String | Raw speech text before NLU processing |
+| `Conversation.SipUuiHeaderValue` | String | SIP header for transfer-in context |
+| `Conversation.OnlyAllowDTMF` | Boolean | When true, voice ignores speech input |
+
+**Sensitive data variables** (voice-enabled agents only): Mark global variables as "Sensitive data" in Question nodes. Sensitive designation propagates to any variable it is assigned to. When using App Insights, turn off "Log sensitive activity" to avoid logging sensitive data.
 
 ## Variable Types
 
@@ -143,9 +168,23 @@ If a global variable is referenced before initialization, the agent automaticall
 
 Simplified text validation and extraction with regex support via `IsMatch`, `Match`, and `MatchAll` functions. Insert Power Fx formulas directly in the embedded prompt builder prompt editor.
 
+## Additional Functions (Mar 2026 Formula Reference)
+
+Functions confirmed in the MCS Power Fx formula reference that may be less well known:
+- **`Summarize`** — Groups records by selected columns and summarizes the remainder
+- **`Column` / `ColumnNames`** — Retrieves column names and values from Dynamic (untyped) values
+- **`Float` / `Decimal`** — Explicit numeric type conversion from strings
+- **`EncodeHTML`** — Encodes characters for HTML context (in addition to `EncodeUrl`)
+- **`Trace`** — Provide additional information in test results (useful for debugging)
+- **`Search`** — Finds records in a table that contain a string in one of their columns
+- **`Refresh`** — Refreshes records of a data source
+- **`AsType` / `IsType`** — Treats a record reference as a specific table type
+
+**Foundry agents use `Local.` scope** instead of `Topic.` for local variables. Foundry system variables are similar but simplified compared to MCS.
+
 ## Critical Gotchas
 
-- **ParseJSON returns Dynamic** — no IntelliSense, must explicitly convert types
+- **ParseJSON returns Dynamic** — no IntelliSense, must explicitly convert types. Use `Column()` / `ColumnNames()` for dynamic exploration.
 - **ForAll in Adaptive Cards** — use for dynamic arrays in `cardContent`
 - **Formula mode in card editor is irreversible** — save JSON copy first
 - **System.* cannot be used directly in card JSON** — assign to Topic variable first
@@ -154,6 +193,7 @@ Simplified text validation and extraction with regex support via `IsMatch`, `Mat
 - **Global variable name must be unique** across all topics in the agent
 - **Once a variable is made global, it CANNOT be reverted** to topic scope
 - **Flows/skills overwrite globals** — if a flow initializes a variable, it runs even if the variable was already filled, overwriting the previous value
+- **Hidden system variables exist** — not shown in UI picker, access via Power Fx formula with `System.` prefix
 
 ## Passing Variables Between Topics
 

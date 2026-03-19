@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-02-27
-sources: [MS Learn quotas page, MS Learn billing-licensing, pricing page, licensing docs, WebSearch Feb 2026, Jan 2026 Licensing Guide]
+last_verified: 2026-03-19
+sources: [MS Learn quotas page, MS Learn billing-licensing, pricing page, licensing docs, WebSearch Mar 2026, Feb 2026 Licensing Guide, Mar 2026 Licensing Guide, 2026 Wave 1 release plan]
 confidence: high
 refresh_trigger: weekly
 -->
@@ -182,6 +182,8 @@ refresh_trigger: weekly
 - Triggers at **125%** of prepaid capacity
 - Custom agents **disabled** until next billing cycle or additional packs purchased
 - Email notification to tenant admin
+- **Credits do NOT carry over** month to month — unused capacity expires
+- Comprehensive monitoring, reporting, and alerting available in PPAC
 
 ### Standalone vs M365 Copilot
 
@@ -218,6 +220,8 @@ refresh_trigger: weekly
 
 **Note (Dec 2025 change):** Database capacity tripled from 5 GB to 15 GB. File and log remain at 20 GB and 2 GB respectively. Additional Database, File, and Log capacity can be purchased in 1 GB increments.
 
+**Clarification (Mar 2026):** The Feb 2026 official Licensing Guide confirms 15 GB database, 20 GB file, 2 GB log. Some third-party sources incorrectly report 40 GB file — the official MS number is 20 GB.
+
 ## Quick Reference
 
 | Category | Limit |
@@ -244,6 +248,9 @@ refresh_trigger: weekly
 - **Copilot Credits Pre-Purchase Plan:** One-year prepaid option (CCCUs) available in Azure portal. Pool usable across eligible Microsoft products.
 - **Rate-limit increase requests:** Only available for pay-as-you-go environments. Contact Microsoft Support; subject to review and approval. Message-based environments are NOT eligible.
 - **Quotas are configurable:** Default quotas can be adjusted on a case-by-case basis (contact support).
+- **Improved PA licensing dashboard (May 2026):** Better visibility into Power Automate license usage.
+- **Share Process license capacity across workflows (Apr 2026):** Simplifies licensing for shared flows.
+- **Mar 2026 Licensing Guide:** Minor changes documented in Appendix D change log. No major rate changes from Feb 2026 guide.
 
 ## Licensing Access Requirements
 
@@ -259,6 +266,23 @@ To use Copilot Studio, you need ONE of:
 **URL:** https://microsoft.github.io/copilot-studio-estimator/
 Create estimates by selecting agent type, traffic, orchestration, knowledge, and tools.
 
+## Knowledge Source Limits (Updated Mar 2026)
+
+### SharePoint Unstructured Data Requirements
+
+Required Dataverse extensions (verify in PPAC > Solutions):
+- Power AI Extensions Base v1.0.1.688+
+- AI Platform Extensions Components v1.0.0.157+
+- Relevance Search v1.0.0.90+
+
+### SharePoint Lists as Knowledge (Planned Apr 2026)
+
+- Preview Apr 2026, GA May 2026
+- Lists subject to 2,048-row limit
+- Max 12 lookup columns in default view
+- Document libraries NOT supported as lists
+- Attachments column does not index attached file contents
+
 ## Refresh Notes
 
 - Check pricing page for credit rate changes
@@ -267,3 +291,4 @@ Create estimates by selecting agent type, traffic, orchestration, knowledge, and
 - Check for Teams plan feature expansion
 - Monitor pay-as-you-go rate changes
 - Watch for AI Builder credits transition (Nov 2026 deadline)
+- Check Mar/Apr 2026 Licensing Guide updates via licensingschool.co.uk

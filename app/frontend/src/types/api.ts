@@ -93,6 +93,15 @@ export interface ApiBrief {
     benefits?: Array<{ benefit: string; type?: string }>;
     successCriteria?: Array<{ metric: string; target: string; measurement?: string }>;
     stakeholders?: { sponsor?: string; owner?: string; users?: string };
+    licensing?: {
+      m365Copilot?: string;
+      copilotStudio?: string;
+      frontierProgram?: string;
+      anthropicSubprocessor?: string;
+      powerPlatformPremium?: string;
+      dynamicsLicense?: string;
+      notes?: string;
+    };
   };
   agent?: {
     name?: string;
@@ -170,6 +179,16 @@ export interface ApiBrief {
     triggers?: Array<{ type: string; description: string }>;
     channels?: Array<{ name: string; reason?: string }>;
     children?: Array<{ name: string; role: string; routingRule?: string; model?: string; agentFolderId?: string }>;
+    buildPath?: string | null;
+    buildPathReason?: string;
+    frontierAgentMatch?: Array<{
+      agentName: string;
+      matchedCapabilities?: string[];
+      coverage?: string;
+      recommendation?: string;
+      licenseRequired?: string;
+      notes?: string;
+    }>;
   };
   evalSets?: Array<{
     name: string;

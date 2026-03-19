@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-06
-sources: [MS Learn Built-in MCP catalog, Agent 365 tooling overview, WebSearch, Dynamics 365 MCP docs, Agent 365 server references, Power Apps MCP docs, Work IQ docs]
+last_verified: 2026-03-19
+sources: [MS Learn Built-in MCP catalog (fetched 2026-03-19), Agent 365 tooling overview (fetched 2026-03-19), WebSearch, Dynamics 365 MCP docs, Agent 365 server references, Power Apps MCP docs, Work IQ docs, 2026 Wave 1 release plan]
 confidence: high
 refresh_trigger: before_architecture
 catalog_url: https://learn.microsoft.com/en-us/microsoft-copilot-studio/mcp-microsoft-mcp-servers
@@ -10,7 +10,7 @@ agent365_url: https://learn.microsoft.com/en-us/microsoft-agent-365/tooling-serv
 
 ## What Are MCP Servers in MCS?
 
-MCP (Model Context Protocol) servers provide rich, multi-tool access to services. **When a connector also has an MCP server, always prefer the MCP server** — it gives the agent broader capability with a single connection.
+MCP (Model Context Protocol) servers provide rich, multi-tool access to services. **When a connector also has an MCP server, always prefer the MCP server** -- it gives the agent broader capability with a single connection.
 
 MCP went GA in Copilot Studio in May 2025. MCP resources support added in public preview Nov 2025.
 
@@ -23,46 +23,52 @@ MCP went GA in Copilot Studio in May 2025. MCP resources support added in public
 | Auth | API key or OAuth 2.0 |
 | Capabilities | Tools + Resources (prompts NOT yet supported) |
 | Requirement | **Generative Orchestration must be enabled** |
-| Limitation | **Topics cannot call MCP servers directly** — only orchestrator can route to MCP tools |
+| Limitation | **Topics cannot call MCP servers directly** -- only orchestrator can route to MCP tools |
+| Clone support | Clone existing Microsoft-authored or hosted MCP servers (e.g., Dataverse MCP) and tailor them |
+| DLP | Enforce Data Loss Prevention policies at MCP server and individual tool level |
 
-## Official Built-in MCP Servers Catalog (Feb 2026)
+**2026 Wave 1 upcoming:** "Use MCP-compliant tools in agent workflows" -- preview Apr 2026, GA Oct 2026. Agent workflows (flows) will be able to discover and invoke MCP tools as workflow steps with structured I/O. Source: https://learn.microsoft.com/en-us/power-platform/release-plan/2026wave1/microsoft-copilot-studio/use-mcp-compliant-tools-agent-workflows
 
-Source: https://learn.microsoft.com/en-us/microsoft-copilot-studio/mcp-microsoft-mcp-servers (last updated Feb 4 2026)
+## Official Built-in MCP Servers Catalog (Mar 2026)
+
+Source: https://learn.microsoft.com/en-us/microsoft-copilot-studio/mcp-microsoft-mcp-servers (fetched 2026-03-19)
 
 **Note:** The catalog states "This list isn't exhaustive. New MCP connectors are added regularly."
+
+The catalog now contains **40+ MCP servers** (up from ~25 in Feb 2026). Significant ISV/third-party expansion.
 
 ### Category 1: Dataverse
 
 | MCP Server | Description | Status |
 |------------|-------------|--------|
-| **Dataverse MCP Server** | CRUD operations on Dataverse tables, list/describe tables, search, FetchXML queries. Natural language data access. | GA |
+| **Microsoft Dataverse** | CRUD operations on Dataverse tables, list/describe tables, search, FetchXML queries. Natural language data access. | GA |
 
 ### Category 2: Dynamics 365
 
-| MCP Server | Description | Status |
-|------------|-------------|--------|
-| **Dynamics 365 Sales** | List leads, retrieve lead summaries, qualify leads, get/send outreach emails. Cross-functional with Service and ERP. | Preview |
-| **Dynamics 365 Finance** | Finance and operations data and business logic via ERP MCP framework. | GA |
-| **Dynamics 365 Supply Chain** | Supply chain management data and operations via ERP MCP framework. | GA |
-| **Dynamics 365 Service (Customer Service)** | Case management, knowledge articles, omnichannel capabilities. Old D365 Service MCP is deprecated — use new version. | Preview |
-| **Dynamics 365 ERP** | Dynamic framework for F&O apps — data operations + business logic. Adaptive tools, analytics-ready. Replaces older 13-static-tool version. | GA |
-| **Dynamics 365 Contact Center** | Omnichannel and supervisor capabilities for service operations. | Preview |
+| MCP Server | Connector Name in Catalog | Description | Status |
+|------------|--------------------------|-------------|--------|
+| **Dynamics 365 Sales MCP Server** | `d365salesmcpserver` | List leads, retrieve lead summaries, qualify leads, get/send outreach emails. Cross-functional with Service and ERP. | Preview |
+| **Dynamics 365 ERP Analytics MCP** | `d365erpmcpserver` | Dynamic framework for F&O apps -- data operations + business logic. Adaptive tools, analytics-ready. Replaces older 13-static-tool version. | Preview |
+| **Dynamics 365 Service MCP** | `d365customerservicemcpserver` | Case management, knowledge articles, omnichannel capabilities. Old D365 Service MCP is deprecated -- use new version. | Preview |
+| **D365 Contact Center Admin MCP** | `d365contactcenteradminmcpserver` | Omnichannel and supervisor capabilities for service operations. Admin-focused. | Preview |
+| **Dynamics 365 Business Central** | `dynamicssmbsaas` | Business Central connector with MCP capabilities. | GA |
+| **Fin & Ops Apps (Dynamics 365)** | `dynamicsax` | Finance and operations apps connector. | GA |
 
-*Note: Dynamics 365 Commerce MCP Server expected in preview Feb 2026 — catalog, pricing, promotions, inventory, carts, orders, fulfillment.*
+*Note: Dynamics 365 Commerce MCP Server launched preview early 2026 -- catalog, pricing, promotions, inventory, carts, orders, fulfillment. Accessible via ERP MCP framework.*
 
 ### Category 3: Microsoft Fabric
 
 | MCP Server | Description | Status |
 |------------|-------------|--------|
-| **Fabric** | Connect to Fabric Data Agents for analytics and insights. Multi-agent orchestration — Copilot Studio delegates data queries to Fabric agent. | Preview |
+| **Fabric MCP** | Connect to Fabric Data Agents for analytics and insights. Multi-agent orchestration -- Copilot Studio delegates data queries to Fabric agent. | Preview |
 
-### Category 4: Office 365 Outlook
+### Category 4: Office 365 Outlook (Legacy names -- see Work IQ below for latest)
 
 | MCP Server | Description | Status |
 |------------|-------------|--------|
-| **Office 365 Outlook — Contact Management** | Manage Outlook contacts. | GA |
-| **Office 365 Outlook — Email Management** | Email composition, management, search, filter via KQL/OData. | GA |
-| **Office 365 Outlook — Meeting Management** | Create, read, update, delete events. Free/busy slots, meeting invitations. | GA |
+| **Office 365 Outlook -- Contact Management** | Manage Outlook contacts. | GA |
+| **Office 365 Outlook -- Email Management** | Email composition, management, search, filter via KQL/OData. | GA |
+| **Office 365 Outlook -- Meeting Management** | Create, read, update, delete events. Free/busy slots, meeting invitations. | GA |
 
 ### Category 5: Kusto Query
 
@@ -74,13 +80,13 @@ Source: https://learn.microsoft.com/en-us/microsoft-copilot-studio/mcp-microsoft
 
 | MCP Server | Description | Status |
 |------------|-------------|--------|
-| **Learn docs MCP** | Search Microsoft Learn documentation, fetch complete articles, search code samples. Free, no auth required. Streamable HTTP transport. Native in Copilot Studio since Aug 2025. | GA |
+| **Microsoft Learn Docs MCP** | Search Microsoft Learn documentation, fetch complete articles, search code samples. Free, no auth required. Streamable HTTP transport. Native in Copilot Studio since Aug 2025. | GA |
 
 ### Category 7: Box.com
 
 | MCP Server | Description | Status |
 |------------|-------------|--------|
-| **Box.com** | Cloud content management — file access, search, sharing via Box platform. Third-party certified MCP connector. | GA |
+| **Box MCP Server** | Cloud content management -- file access, search, sharing via Box platform. Third-party certified MCP connector. | Preview |
 
 ### Category 8: GitHub
 
@@ -88,39 +94,83 @@ Source: https://learn.microsoft.com/en-us/microsoft-copilot-studio/mcp-microsoft
 |------------|-------------|--------|
 | **GitHub** | Repository and issue management via GitHub MCP server. Available in built-in catalog. | GA |
 
-### Category 9: Gieni Actions
+### Category 9: Gieni
 
 | MCP Server | Description | Status |
 |------------|-------------|--------|
-| **Gieni Actions for fetching answers** | Third-party MCP connector for fetching answers/insights. ISV-certified connector. | GA |
+| **Gieni TS Server MCP** | Third-party MCP connector for fetching answers/insights. ISV-certified connector by Orderfox-Gieni. | Preview |
 
 ### Category 10: Power Apps MCP Server
 
 | MCP Server | Description | Status |
 |------------|-------------|--------|
-| **Power Apps MCP Server** | Human-in-the-loop agent supervision for model-driven apps. Tools: `log_for_review` (passive oversight), `request_assistance` (async human handoff), `invoke_data_entry` (extract data from unstructured content into Dataverse forms with human review). Enhanced agent feed UI. NOT an Agent 365 server — it is a Power Platform MCP server. | **Preview** |
+| **Power Apps MCP Server** | Human-in-the-loop agent supervision for model-driven apps. Tools: `log_for_review` (passive oversight), `request_assistance` (async human handoff), `invoke_data_entry` (extract data from unstructured content into Dataverse forms with human review). Enhanced agent feed UI. NOT an Agent 365 server -- it is a Power Platform MCP server. | **Preview** |
 
-### Category 11: Microsoft MCP Servers (Agent 365)
+### Category 11: Microsoft MCP Servers (Agent 365 / Work IQ)
 
-These are enterprise-grade MCP servers under the Agent 365 umbrella. Require Microsoft 365 Copilot license + Frontier program enrollment for full access.
+These are enterprise-grade MCP servers under the Agent 365 umbrella. Require Microsoft 365 Copilot license. The Agent 365 page now uses **"Work IQ"** branding for M365 productivity servers.
+
+**IMPORTANT (Mar 2026):** Agent 365 docs now state: "For all new connections, use the latest Work IQ MCP servers (e.g., Work IQ Teams). Existing connections using previous versions (e.g., Microsoft Teams MCP server) remain supported."
+
+| MCP Server (New Name) | Old Name | Description | Status |
+|------------------------|----------|-------------|--------|
+| **Work IQ Mail** | Microsoft Outlook Mail MCP | Create, update, delete messages. Reply, reply-all. Semantic search with KQL-style queries and OData. | GA |
+| **Work IQ User** | Microsoft 365 User Profile MCP | Get manager, direct reports, profile info. Search users. | GA |
+| **Work IQ Calendar** | Microsoft Outlook Calendar MCP | Create, list, update, delete events. Accept/decline. Resolve conflicts. Find free/busy slots. | GA |
+| **Work IQ Teams** | Microsoft Teams MCP | Create, update, delete chats. Add members. Post messages. Channel operations. | GA |
+| **Work IQ SharePoint** | Microsoft SharePoint and OneDrive MCP | Upload files, get metadata, search files/folders. File and folder management. | GA |
+| **Work IQ OneDrive** | *(new -- split from SharePoint)* | Manage files and folders in user's personal OneDrive. | GA |
+| **Microsoft SharePoint Lists MCP** | *(same)* | Create lists, columns, items. Query with filters and pagination. | GA |
+| **Microsoft 365 Admin Center MCP** | *(same)* | Admin-focused capabilities for Microsoft 365 administration. | GA |
+| **Work IQ Word** | Microsoft Word MCP | Create/read documents, add comments, reply to comments. | GA |
+| **Work IQ Copilot** | Microsoft 365 Copilot (Search) MCP | Chat with M365 Copilot, multi-turn conversations, ground responses with files. Cross-tenant search. Tool: `copilot_chat`. operationId: `mcp_m365copilot`. | GA |
+| **Dataverse and Dynamics 365** | *(Agent 365 variant)* | CRUD operations and domain-specific actions via Agent 365 control plane. | GA |
+
+### Category 12: Microsoft Security
 
 | MCP Server | Description | Status |
 |------------|-------------|--------|
-| **Microsoft Outlook Mail MCP** | Create, update, delete messages. Reply, reply-all. Semantic search with KQL-style queries and OData. | GA |
-| **Microsoft 365 User Profile MCP** | Get user profiles, manager/direct report relationships, search users. | GA |
-| **Microsoft Outlook Calendar MCP** | Create, list, update, delete events. Accept/decline. Resolve conflicts. Find free/busy slots. | GA |
-| **Microsoft Teams MCP** | Create, update, delete chats. Add members. Post messages. Channel operations. | GA |
-| **Microsoft SharePoint and OneDrive MCP** | Upload files, get metadata, search files/folders. File and folder management. | GA |
-| **Microsoft SharePoint Lists MCP** | Create lists, columns, items. Query with filters and pagination. | GA |
-| **Microsoft 365 Admin Center MCP** | Admin-focused capabilities for Microsoft 365 administration. | GA |
-| **Microsoft Word MCP** | Create/read documents, add comments, reply to comments. | GA |
-| **Microsoft 365 Copilot (Search) MCP** | Chat with M365 Copilot, multi-turn conversations, ground responses with files. Cross-tenant search. Tool: `copilot_chat`. operationId: `mcp_m365copilot`. | GA |
+| **Microsoft Sentinel MCP** | Security operations, threat hunting, incident management via Microsoft Sentinel. | Preview |
+| **ICM MCP** | Microsoft internal incident management (IcM). | GA (Microsoft internal) |
+
+### Category 13: Process Mining
+
+| MCP Server | Description | Status |
+|------------|-------------|--------|
+| **Process Mining** | Process mining capabilities via Power Platform. By Microsoft. | GA |
+
+### Category 14: Third-Party ISV MCP Servers (NEW -- expanded Mar 2026)
+
+These are ISV-certified MCP servers now appearing in the Copilot Studio built-in catalog.
+
+| MCP Server | Publisher | Description | Status |
+|------------|-----------|-------------|--------|
+| **Azure Databricks** | Databricks Inc. | Databricks workspace integration. Premium. | GA |
+| **Databricks** | Databricks Inc. | Alternative Databricks connector with MCP. Premium. | Preview |
+| **Bigdata-com** | Ravenpack International | Big data analytics. Premium. | Preview |
+| **CData Connect AI** | CData Software | Connect to 200+ data sources via CData. Premium. | Preview |
+| **Celonis MCP Server** | Celonis GmbH | Process mining and execution management. Premium. | Preview |
+| **Cronofy MCP** | Cronofy Ltd | Cross-platform calendar scheduling. Premium. | Preview |
+| **Draup MCP Server** | Draup | AI-powered talent and sales intelligence. Premium. | Preview |
+| **Enlyft MCP** | Enlyft | Account intelligence and technographic data. Premium. | Preview |
+| **Experlogix Smart Flows** | Experlogix US | Document generation and smart workflows. Premium. | GA |
+| **Ezekia-MCP** | Ezekia | Executive search and recruitment. Premium. | Preview |
+| **Highspot MCP** | Highspot | Sales enablement platform. Premium. | Preview |
+| **Intelix IOC Analysis MCP** | Sophos Ltd | Security threat analysis (IOC). Premium. | Preview |
+| **LSEG** | LSEG Financial Analytics | Financial data and analytics. Premium. | Preview |
+| **Mobile Text Alerts MCP Server** | Mobile Text Alerts | SMS messaging. Premium. | Preview |
+| **monday.com** | monday.com ltd | Work management platform. Premium. | Preview |
+| **Morningstar** | Morningstar | Investment research data. Premium. | Preview |
+| **Process Street MCP Server** | Process Street | Workflow and process management. Premium. | Preview |
+| **S360 Breeze MCP** | Microsoft | Sustainability/compliance tooling. | GA |
+| **SuperMCP** | Supermetrics | Marketing analytics data. Premium. | Preview |
+| **Zapier MCP** | Zapier Inc | Connect to 7,000+ apps via Zapier. Premium. | Preview |
 
 ### Also Available (Agent 365 Tooling Platform)
 
 | MCP Server | Description | Status |
 |------------|-------------|--------|
-| **Microsoft MCP Management Server** | Create, update, delete, and publish custom MCP servers programmatically. API-first — no UI needed. Uses connectors, Graph APIs, REST, Dataverse custom APIs. | Preview |
+| **Microsoft MCP Management Server** | Create, update, delete, and publish custom MCP servers programmatically. API-first -- no UI needed. Uses connectors, Graph APIs, REST, Dataverse custom APIs. Tools: CreateMCPServer, CreateToolWithConnector, UpdateTool, DeleteMCPServer, PublishMCPServer. | Preview |
 
 ## Microsoft MCP Connectors (Direct Integration)
 
@@ -128,21 +178,63 @@ These are the Microsoft-published MCP connectors available directly in Copilot S
 
 | Connector | Description |
 |-----------|-------------|
-| **Dataverse** | Full CRUD on Dataverse tables |
+| **Microsoft Dataverse** | Full CRUD on Dataverse tables |
 | **D365 Customer Service** | Case management and knowledge |
 | **D365 Sales** | Lead and opportunity management |
-| **Outlook/Mail** | Email operations |
-| **GitHub (via Azure)** | Repository and issue management |
+| **D365 ERP Analytics** | Finance & Operations analytics |
+| **D365 Contact Center Admin** | Contact center administration |
+| **Fabric MCP** | Microsoft Fabric data agents |
+| **Microsoft Learn Docs MCP** | Documentation search |
+| **Microsoft MCP Servers (a365mcpservers)** | Agent 365 unified connector |
+| **Microsoft Sentinel MCP** | Security operations |
+| **GitHub** | Repository and issue management |
 
 ## News / Bing Search MCP Server
 
-**As of Feb 2026, there is NO dedicated Bing News, MSN News, Bing Search, or news-focused MCP server in the Copilot Studio built-in catalog.**
+**As of Mar 2026, there is NO dedicated Bing News, MSN News, Bing Search, or news-focused MCP server in the Copilot Studio built-in catalog.**
 
 Alternatives for news/web search capabilities:
-- **Microsoft 365 Copilot (Search) MCP** can ground responses with web content (via M365 Copilot's Bing grounding)
+- **Work IQ Copilot (Search) MCP** can ground responses with web content (via M365 Copilot's Bing grounding)
 - **Bing Search connector** (classic Power Platform connector, not MCP) provides web/news/image search
-- **Custom MCP server** — build one wrapping Bing Search API or any news API
-- **Knowledge sources** — add web URLs as knowledge in agent settings
+- **Custom MCP server** -- build one wrapping Bing Search API or any news API
+- **Knowledge sources** -- add web URLs as knowledge in agent settings
+
+## Graph Search and Intelligence MCP Connector (Mar 2026 community discovery)
+
+A community-built MCP connector bringing Microsoft 365 search and insight capabilities to agents with 19 MCP tools spanning 5 categories. Uses Microsoft Graph Search API (POST /v1.0/search/query). Supports: emails, calendars, documents, Teams chats, SharePoint, external data sources. Requires M365 Copilot license for semantic search features. Source: https://troystaylor.com/power%20platform/custom%20connectors/mcp/2026-03-10-graph-search-intelligence-mcp-connector.html
+
+## Work IQ -- Updated Understanding (Mar 2026)
+
+**Work IQ is now the official branding for the Agent 365 M365 productivity MCP servers.** The Agent 365 tooling overview page has been rewritten with Work IQ as the primary concept.
+
+**Key changes from Feb 2026:**
+- Agent 365 servers are now called "Work IQ MCP servers" (e.g., Work IQ Mail, Work IQ Calendar, Work IQ Teams)
+- **OneDrive is now a separate Work IQ server** (previously combined with SharePoint)
+- Old server names (Microsoft Outlook Mail MCP, etc.) still work for existing connections
+- Work IQ has 3 layers: Data (unified signals), Memory (persistent understanding), Inference (models + tools)
+- Admin governance via M365 admin center under "Agents and Tools"
+- Observability via Microsoft Defender Advanced Hunting
+- Available in both Copilot Studio (low-code) and Microsoft Foundry (pro-code)
+
+**How agents access Work IQ data:**
+- **Via Work IQ MCP servers** -- Mail, Calendar, Teams, SharePoint, OneDrive, User, Word, Copilot Search all expose Work IQ-indexed data
+- **Via Work IQ CLI/MCP** -- The `@microsoft/workiq` npm package provides a CLI and MCP server for developer tools (VS Code, GitHub Copilot, Claude Code). This is NOT available inside Copilot Studio as a built-in MCP server.
+- **Via Work IQ Copilot MCP** -- The closest thing to "Work IQ in MCS settings." Searches across entire M365 ecosystem using Work IQ intelligence layer.
+
+**Work IQ for custom agents** (announced Ignite 2025): Secure agent grounding that respects permissions, sensitivity labels, and compliance. Available in Copilot Studio or via API. Requires M365 Copilot license.
+
+Source: https://learn.microsoft.com/en-us/microsoft-agent-365/tooling-servers-overview
+
+## MCP Server operationIds (Agent 365)
+
+| Service | operationId | Notes |
+|---------|-------------|-------|
+| Mail | `mcp_MailTools` | Work IQ Mail |
+| Calendar | `mcp_CalendarTools` | Work IQ Calendar |
+| Teams | `mcp_TeamsServer` | Work IQ Teams |
+| User Profile | `mcp_MeServer` | Work IQ User |
+| SharePoint/OneDrive | `mcp_ODSPRemoteServer` | Work IQ SharePoint/OneDrive |
+| M365 Copilot Search | `mcp_m365copilot` | Work IQ Copilot (tool: `copilot_chat`) |
 
 ## Timeline: MCP Servers Added Late 2025 / Early 2026
 
@@ -155,18 +247,19 @@ Alternatives for news/web search capabilities:
 | **Nov 2025 (Ignite)** | MCP resources support (preview). Dataverse MCP advances. Agent 365 servers expanded (Word, SharePoint Lists, Admin Center, User Profile, M365 Copilot Search). Dynamics 365 Service MCP (new, old deprecated). Fabric MCP. Box.com, Gieni, Kusto added to catalog. MCP Management Server preview. |
 | **Dec 2025** | Dynamics 365 Contact Center MCP. Supply Chain / Finance MCP improvements. |
 | **Jan 2026** | Agent 365 tooling servers overview published. Frontier program enrollment for full Agent 365 access. |
-| **Feb 2026** | Dynamics 365 Commerce MCP expected in preview. Catalog at 25+ servers. |
-| **Mar 2026** | Custom MCP servers public preview |
-| **Apr 2026** | Custom MCP servers GA |
+| **Feb 2026** | Dynamics 365 Commerce MCP preview. Catalog at 25+ servers. ISV expansion begins (Celonis, Draup, Highspot, Enlyft, monday.com, etc.). |
+| **Mar 2026** | Custom MCP servers public preview. Work IQ rebranding of Agent 365 servers. Catalog now 40+ servers. Sentinel MCP, Zapier MCP, CData Connect AI, LSEG, Cronofy, and many more ISV servers added. OneDrive split into separate Work IQ server. |
+| **Apr 2026** | Custom MCP servers GA (planned). "Use MCP-compliant tools in agent workflows" preview (planned). |
+| **Oct 2026** | "Use MCP-compliant tools in agent workflows" GA (planned). |
 
 ## How to Add an MCP Server
 
 ### Method 1: User-Guided Manual Step (first-time per connector per environment)
 When no connection reference exists for the MCP connector in the environment:
-1. User goes to Tools section in MCS UI → "Add tool"
+1. User goes to Tools section in MCS UI -> "Add tool"
 2. Select "Model Context Protocol" filter
 3. Search for the MCP server name
-4. Select → "Add to agent" or "Add and configure"
+4. Select -> "Add to agent" or "Add and configure"
 5. Create connection if prompted (handle auth popup / OAuth consent)
 6. Connection reference + connection instance created automatically by MCS
 
@@ -185,15 +278,22 @@ Pre-configure a "golden" template agent with common MCP servers (Outlook Mail, C
 3. Import to target: `pac solution import --path template.zip --settings-file conn-map.json`
 4. Connection references travel with the solution; map connections at import via settings file
 
-### Method 4: MCP Management Server (Preview, Frontier only)
+### Method 4: MCP Management Server (Preview)
 For creating NEW custom MCP servers (not adding existing built-in ones):
-1. Requires Frontier program enrollment + M365 Copilot license
+1. Requires M365 Copilot license (Frontier program no longer strictly required for basic access)
 2. Use CreateMCPServer + CreateToolWithConnector/Graph/CustomAPI/RemoteAPI
 3. Publish via PublishMCPServer
-4. Still requires MCS UI to connect the custom server to an agent
+4. Connect via VS Code MCP client or Copilot Studio UI
+5. Currently only tenant admins can publish custom MCP servers within a tenant
+
+### Method 5: Azure MCP Server (for Azure resource access)
+Deploy Azure MCP Server as a remote MCP server and connect to Copilot Studio:
+1. Deploy to Azure Container Apps using `azd` template
+2. MCP servers use connector infrastructure for enterprise security (VNet, DLP)
+3. Source: https://learn.microsoft.com/en-us/azure/developer/azure-mcp-server/how-to/deploy-remote-mcp-server-copilot-studio
 
 ### Programmatic Addition Blockers (Mar 2026)
-- **OAuth connection creation** cannot be done headlessly — no public API to create user-delegated OAuth connections in API Hub
+- **OAuth connection creation** cannot be done headlessly -- no public API to create user-delegated OAuth connections in API Hub
 - **PvaShareConnection** action exists on connectionreference entity but is "internal use only" with no documented parameters
 - **connectionparametersconfig** field on connectionreference may enable pre-seeded connections but format is undocumented
 - **Connectivity API** (`{envId}.environment.api.powerplatform.com`) does not resolve for Microsoft internal tenant environments
@@ -205,7 +305,7 @@ For creating NEW custom MCP servers (not adding existing built-in ones):
 | connectionreference | `connectionreferences` | connectionreferencelogicalname, connectorid, connectionid | Links connector type to agent |
 | connectioninstance | `connectioninstances` | connectioninternalid, connectionreferenceid, connectorinternalid | Stores authenticated connection |
 | botcomponent_connectionreference | M:M intersect | botcomponentid, connectionreferenceid | Associates tool action with connection |
-| bot.providerconnectionreferenceid | bot table | providerconnectionreferenceid → connectionreferenceid | Agent-level connection reference lookup |
+| bot.providerconnectionreferenceid | bot table | providerconnectionreferenceid -> connectionreferenceid | Agent-level connection reference lookup |
 
 ## MCP vs Connector Decision
 
@@ -214,8 +314,10 @@ For creating NEW custom MCP servers (not adding existing built-in ones):
 | Breadth of access | Need multiple operations | Need one specific action |
 | Setup complexity | Single connection | May need per-action setup |
 | Capability | Richer context for AI, dynamic tools | Specific, predictable action |
-| Availability | Check MCS UI catalog (~25 servers) | Larger catalog (1,400+ connectors) |
+| Availability | Check MCS UI catalog (~40+ servers) | Larger catalog (1,500+ connectors) |
 | Custom servers | Build scenario-focused MCP servers via MCP Management Server | Use Power Platform custom connectors |
+| Tool selection | Can selectively enable/disable individual MCP tools | All-or-nothing per action |
+| Versioning | MCP server updates auto-reflect without republishing agent | Connector updates may require republishing |
 
 ## Connector-Embedded MCP Servers (Feb 2026 Discovery)
 
@@ -229,41 +331,32 @@ This is a new pattern where Microsoft embeds MCP server endpoints inside existin
 
 Source: https://learn.microsoft.com/en-us/connectors/salesforce/ (Actions section)
 
-## Work IQ — Clarification (Feb 2026)
-
-**Work IQ is NOT an MCP server, NOT a knowledge source, and NOT a search provider in the Copilot Studio UI.**
-
-Work IQ is the **intelligence layer** that powers Microsoft 365 Copilot's understanding of people, work artifacts, calendars, emails, files, and organizational context. It is the reasoning engine behind the Microsoft Graph that maps relationships and context.
-
-**How agents access Work IQ data:**
-- **Via Agent 365 MCP servers** — Outlook Mail, Calendar, Teams, SharePoint, User Profile, and especially the M365 Copilot (Search) MCP server all expose Work IQ-indexed data. These MCP servers "enable interoperability with Work IQ" (official docs).
-- **Via Work IQ CLI/MCP** — The `@microsoft/workiq` npm package provides a CLI and MCP server for developer tools (VS Code, GitHub Copilot, Claude Code). This is NOT available inside Copilot Studio as a built-in MCP server.
-- **Via M365 Copilot Search MCP** — This is the closest thing to "Work IQ in MCS settings." The Copilot Search MCP server searches across the entire M365 ecosystem (emails, Teams chats, SharePoint, OneDrive) using Work IQ's intelligence layer.
-
-**The "settings/search" reference** likely refers to enabling **Tenant Graph Grounding** or the **Microsoft 365 Copilot (Search) MCP server** in agent tools, which provides Work IQ-powered cross-M365 search. It could also refer to admin-level settings in the M365 admin center under "Search & intelligence."
-
-**Work IQ for custom agents** (announced Ignite 2025): Secure agent grounding that respects permissions, sensitivity labels, and compliance. Available in Copilot Studio or via API. Requires M365 Copilot license.
-
 ## Key Facts
 
 - MCP went GA in May 2025 in Copilot Studio
 - MCP resources support added Nov 2025 (preview)
-- SSE transport deprecated — only Streamable HTTP supported after Aug 2025
+- SSE transport deprecated -- only Streamable HTTP supported after Aug 2025
 - **Custom MCP servers: public preview Mar 2026, GA Apr 2026**
 - Custom MCP auth: API key or OAuth 2.0
 - MCP supports tools + resources (prompts NOT yet supported)
 - Generative Orchestration must be enabled to use MCP
-- **Topics cannot call MCP servers directly** — only the orchestrator routes to MCP tools
-- Agent 365 servers require M365 Copilot license + Frontier program for full access
+- **Topics cannot call MCP servers directly** -- only the orchestrator routes to MCP tools
+- **MCP in agent workflows (flows): preview Apr 2026, GA Oct 2026** -- will enable deterministic MCP tool invocation in flows
+- Agent 365 servers now branded as "Work IQ" -- require M365 Copilot license
 - Custom MCP servers: use MCP onboarding wizard or create custom connector in Power Apps
-- ISVs can certify and publish MCP servers to the catalog
+- ISVs can certify and publish MCP servers to the catalog -- 20+ ISV servers now in catalog
 - MCP Management Server enables programmatic creation of custom MCP servers
-- Some connectors now embed MCP server actions (e.g., Salesforce `mcp_SalesforceManagement`) — these are accessed as connector actions, not via the MCP catalog
+- Some connectors embed MCP server actions (e.g., Salesforce `mcp_SalesforceManagement`) -- accessed as connector actions, not via MCP catalog
+- **Catalog has grown from ~25 servers (Feb 2026) to 40+ servers (Mar 2026)**
+- Selective tool enabling: turn off individual MCP tools via "Allow all" toggle in agent settings
+- Component collections now support MCP connector types for export/import
 
 ## Refresh Notes
 
 - New MCP servers appear in MCS UI before documentation
-- Check "Add tool" → "Model Context Protocol" section for current list
+- Check "Add tool" -> "Model Context Protocol" section for current list
 - The official catalog at learn.microsoft.com/microsoft-copilot-studio/mcp-microsoft-mcp-servers is the authoritative source
 - Search community sources for MCP servers for non-M365 systems
 - Agent 365 tooling servers overview: learn.microsoft.com/microsoft-agent-365/tooling-servers-overview
+- Watch for Work IQ branding changes -- old server names deprecated but still functional
+- ISV catalog expanding rapidly -- check catalog monthly

@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-02-27
-sources: [MS Learn (publication-fundamentals-publish-channels, guidance/channels, publication-add-bot-to-sharepoint), MCS UI snapshot, WebSearch Feb 2026]
+last_verified: 2026-03-19
+sources: [MS Learn (publication-fundamentals-publish-channels, guidance/channels, publication-add-bot-to-sharepoint, planned-features), MCS UI snapshot, WebSearch Mar 2026]
 confidence: high
 refresh_trigger: weekly
 -->
@@ -22,7 +22,7 @@ refresh_trigger: weekly
 | **WhatsApp** | **GA** (Sep 2025) | Medium | Uses Azure Communication Services |
 | Facebook Messenger | GA | Medium | Requires Facebook page + app |
 | Direct Line | GA | Low | REST API for custom integrations and testing. Supports HTTP GET + WebSocket. |
-| Telephony (voice) | GA | High | Azure Communication Services integration |
+| Telephony (voice) | GA | High | Azure Communication Services integration. Answering machine detection + proactive engagement GA (Jan 2026). SIP X-headers GA (Feb 2026). |
 
 ### Azure Bot Service Channels (require relay bot)
 
@@ -107,6 +107,13 @@ These channels require creating an Azure Bot Service relay bot that bridges betw
 | Authenticate manually | Manual Entra ID setup | Supports custom OAuth |
 | No authentication | Anyone can chat | Anyone can chat; **cannot use tools with user credentials** |
 
+## Voice/IVR Enhancements (2025 wave 2)
+
+| Feature | Status | Details |
+|---------|--------|---------|
+| **Answering machine detection + proactive engagement** | **GA** (Jan 31, 2026) | Detect answering machines and use proactive engagement tools for voice agents |
+| **SIP X-headers for voice-enabled agents** | **GA** (Feb 2026) | Configure SIP X-headers for voice-enabled agents. Preview since Nov 2025. |
+
 ## Refresh Notes
 
 - Check MCS Settings > Channels for new channel options
@@ -115,3 +122,5 @@ These channels require creating an Azure Bot Service relay bot that bridges betw
 - Azure Bot Service channels provide broad reach but require relay bot development
 - Power Pages is now a native channel (no relay bot needed)
 - Cortana is deprecated -- do not recommend
+- **Mar 2026 check:** No new channels added since Feb 2026. Channel list unchanged. Voice/IVR features (answering machine detection, SIP X-headers) now GA. "Simplify working with triggers and channels" GA since Nov 2025.
+- Attachments: Users cannot send/upload attachments in ANY channel. Agent replies with error. Only supported if message is sent to a Bot Framework skill.

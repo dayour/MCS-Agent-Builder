@@ -346,6 +346,30 @@ export interface SolutionTypeFactor {
   notes: string;
 }
 
+export type BuildPath = 'custom-agent' | 'declarative-agent' | 'first-party-only';
+
+export type LicenseStatus = 'yes' | 'no' | 'unknown';
+export type DynamicsLicense = 'none' | 'sales' | 'service' | 'finance' | 'other';
+
+export interface Licensing {
+  m365Copilot: LicenseStatus;
+  copilotStudio: LicenseStatus;
+  frontierProgram: LicenseStatus;
+  anthropicSubprocessor: LicenseStatus;
+  powerPlatformPremium: LicenseStatus;
+  dynamicsLicense: DynamicsLicense;
+  notes: string;
+}
+
+export interface FrontierAgentMatch {
+  agentName: string;
+  matchedCapabilities: string[];
+  coverage: 'full' | 'partial' | 'none';
+  recommendation: 'use-as-is' | 'augment-with-ca' | 'not-applicable';
+  licenseRequired: string;
+  notes: string;
+}
+
 export interface Architecture {
   solutionType: SolutionType;
   solutionTypeScore: number;
@@ -353,6 +377,9 @@ export interface Architecture {
   solutionTypeReason: string;
   solutionTypeOverride: boolean;
   alternativeRecommendation: string;
+  buildPath: BuildPath | null;
+  buildPathReason: string;
+  frontierAgentMatch: FrontierAgentMatch[];
   pattern: string;
   patternReasoning: string;
   triggers: ArchitectureTrigger[];
@@ -378,6 +405,7 @@ export interface BriefData {
   decisions: { items: Decision[] };
   "eval-sets": { sets: EvalSet[]; config: EvalConfig };
   "open-questions": { items: OpenQuestion[] };
+  licensing: Licensing;
 }
 
 // ─── Build & Eval Status ─────────────────────────────────────────

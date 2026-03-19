@@ -9,7 +9,7 @@
  * doesn't display are never lost.
  */
 import type { ApiBrief } from "@/types/api";
-import type { BriefData, EvalSet, EvalConfig, Overview, Decision, DecisionCategory, DecisionStatus, ConfidenceLevel, SolutionType, Workflow, WorkflowPhase, ItemSource } from "@/types";
+import type { BriefData, EvalSet, EvalConfig, Overview, Decision, DecisionCategory, DecisionStatus, ConfidenceLevel, SolutionType, Workflow, WorkflowPhase, ItemSource, BuildPath, LicenseStatus, DynamicsLicense, Licensing } from "@/types";
 
 /**
  * Convert raw brief.json → UI BriefData shape.
@@ -133,8 +133,27 @@ export function briefFromApi(raw: ApiBrief): BriefData {
         model: c.model ?? "",
         agentFolderId: c.agentFolderId ?? "",
       })),
+      buildPath: (arch.buildPath ?? null) as BuildPath | null,
+      buildPathReason: arch.buildPathReason ?? "",
+      frontierAgentMatch: (arch.frontierAgentMatch ?? []).map((m: any) => ({
+        agentName: m.agentName ?? "",
+        matchedCapabilities: m.matchedCapabilities ?? [],
+        coverage: m.coverage ?? "none",
+        recommendation: m.recommendation ?? "not-applicable",
+        licenseRequired: m.licenseRequired ?? "",
+        notes: m.notes ?? "",
+      })),
       scoring: factorsToScoring(arch.factors, arch.score),
     },
+    licensing: {
+      m365Copilot: (biz.licensing?.m365Copilot ?? "unknown") as LicenseStatus,
+      copilotStudio: (biz.licensing?.copilotStudio ?? "unknown") as LicenseStatus,
+      frontierProgram: (biz.licensing?.frontierProgram ?? "unknown") as LicenseStatus,
+      anthropicSubprocessor: (biz.licensing?.anthropicSubprocessor ?? "unknown") as LicenseStatus,
+      powerPlatformPremium: (biz.licensing?.powerPlatformPremium ?? "unknown") as LicenseStatus,
+      dynamicsLicense: (biz.licensing?.dynamicsLicense ?? "none") as DynamicsLicense,
+      notes: biz.licensing?.notes ?? "",
+    } satisfies Licensing,
     decisions: {
       items: (raw.decisions ?? []).map((d) => ({
         id: d.id ?? "",
@@ -204,6 +223,7 @@ export function briefToApi(ui: BriefData, raw: ApiBrief): ApiBrief {
     useCase: result.business?.useCase ?? ov.problemStatement,
     challenges: ov.challenges.map((c) => ({ challenge: c, impact: "medium" })),
     benefits: ov.benefits.map((b) => ({ benefit: b, type: "experience" })),
+    licensing: ui.licensing,
   };
 
   // Agent — merge overview fields back, preserve raw fields the UI doesn't show
@@ -332,6 +352,16 @@ export function briefToApi(ui: BriefData, raw: ApiBrief): ApiBrief {
         agentFolderId: c.agentFolderId,
       };
     }),
+    buildPath: arch.buildPath,
+    buildPathReason: arch.buildPathReason,
+    frontierAgentMatch: arch.frontierAgentMatch.map((m) => ({
+      agentName: m.agentName,
+      matchedCapabilities: m.matchedCapabilities,
+      coverage: m.coverage,
+      recommendation: m.recommendation,
+      licenseRequired: m.licenseRequired,
+      notes: m.notes,
+    })),
     factors: scoringToFactors(arch.scoring),
     score: arch.scoring.reduce((sum, s) => sum + s.score, 0),
   };

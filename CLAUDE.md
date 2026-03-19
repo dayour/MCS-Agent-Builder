@@ -98,9 +98,9 @@ app/
 ├── server.js, terminal-server.js, lib/, frontend/ (React + Vite + shadcn/ui)
 
 knowledge/
-├── cache/ (21 cheat sheets), patterns/ (YAML, Dataverse, topic, flow templates)
+├── cache/ (24 cheat sheets), patterns/ (YAML, Dataverse, topic, flow templates)
 ├── frameworks/ (component selection, architecture scoring, eval scenarios)
-├── learnings/ (8 topic files + index.json), solutions/ (library index + cache)
+├── learnings/ (9 topic files + index.json), solutions/ (library index + cache)
 
 tools/
 ├── mcs-lsp.js, island-client.js, add-tool.js, flow-manager.js
@@ -145,6 +145,8 @@ Build-Guides/[Project]/ (per-project work, gitignored)
 | Solution type scoring | `knowledge/frameworks/solution-type-scoring.md` |
 | Tool priority + auth gate | `.claude/rules/tool-priority.md` |
 | MCS inventories (models, triggers, MCPs, connectors) | `knowledge/cache/*.md` |
+| First-party agents inventory (capability matching) | `knowledge/cache/first-party-agents.md` |
+| Declarative agents cheat sheet (DA vs CA routing) | `knowledge/cache/declarative-agents.md` |
 | YAML patterns + topic templates | `knowledge/patterns/` |
 | Eval scenario library | `knowledge/frameworks/eval-scenarios/` |
 | Dataverse API patterns | `knowledge/patterns/dataverse-patterns.md` |

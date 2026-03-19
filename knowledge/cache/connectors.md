@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-02
-sources: [MS Learn, Power Platform connector catalog, MS Learn Salesforce connector reference, MS Learn Bing Search connector reference, MS Learn ServiceNow connector reference, MS Learn Zoom Meetings connector reference, WebSearch]
+last_verified: 2026-03-19
+sources: [MS Learn, Power Platform connector catalog, MS Learn Salesforce connector reference, MS Learn Bing Search connector reference, MS Learn ServiceNow connector reference, MS Learn Zoom Meetings connector reference, WebSearch, 2026 Wave 1 release plan, 2025 Wave 2 release plan]
 confidence: high
 refresh_trigger: before_architecture
 -->
@@ -14,22 +14,30 @@ refresh_trigger: before_architecture
 | Premium | Premium license required | HTTP, SQL Server, Azure services, Salesforce |
 | Custom | Built by org | Custom API connectors (OpenAPI-based) |
 
+## Key Changes (Mar 2026 Refresh)
+
+- **OpenAPI v3 support**: Preview Feb 2026, GA May 2026. Import OpenAPI v3 specs directly -- no more downgrading to v2. Source: https://learn.microsoft.com/en-us/power-platform/release-plan/2025wave2/microsoft-copilot-studio/build-power-platform-connectors-openapi-v3
+- **Enhanced connectors (Connector SDK + PowerFx)**: Preview May 2025, GA May 2026. Build structured data connectors that work as agent knowledge sources. Source: https://learn.microsoft.com/en-us/power-platform/release-plan/2026wave1/microsoft-copilot-studio/build-enhanced-connectors-power-platform-connector-sdk-powerfx
+- **SSO for connectors in agents**: GA Jul 2025. Use single sign-on for connector authentication.
+- **Connector catalog**: 1,500+ connectors (up from 1,400+).
+- **MCP servers growing rapidly**: 40+ MCP servers now in catalog -- always check if a connector has an MCP server alternative (prefer MCP).
+
 ## Commonly Used Connectors in MCS Agents
 
 ### M365 / Productivity
 | Connector | Key Actions | MCP Alternative? |
 |-----------|-------------|-----------------|
-| SharePoint | Get items, Create item, Get file content | Yes — prefer SharePoint/OneDrive MCP |
-| Outlook 365 | Send email, Get events, Search mail | Yes — prefer Outlook Calendar/Mail MCP |
-| Microsoft Teams | Post message, Get channels, Create meeting | Yes — prefer Teams MCP |
-| OneDrive for Business | Get file, Create file, List folder | Yes — prefer SharePoint/OneDrive MCP |
-| Planner | Create task, List tasks, Update task | No MCP — use connector |
-| Excel Online | Get rows, Add row, Update row | No MCP — use connector |
+| SharePoint | Get items, Create item, Get file content | Yes -- prefer Work IQ SharePoint MCP (or SharePoint/OneDrive MCP) |
+| Outlook 365 | Send email, Get events, Search mail | Yes -- prefer Work IQ Mail / Work IQ Calendar MCP |
+| Microsoft Teams | Post message, Get channels, Create meeting | Yes -- prefer Work IQ Teams MCP |
+| OneDrive for Business | Get file, Create file, List folder | Yes -- prefer Work IQ OneDrive MCP (now separate from SharePoint) |
+| Planner | Create task, List tasks, Update task | No MCP -- use connector |
+| Excel Online | Get rows, Add row, Update row | No MCP -- use connector |
 
 ### Data & Integration
 | Connector | Key Actions | Notes |
 |-----------|-------------|-------|
-| Dataverse | CRUD operations on tables | MCP available (preview) |
+| Dataverse | CRUD operations on tables | MCP available (GA) -- prefer Dataverse MCP |
 | SQL Server | Execute query, Get rows | Premium |
 | HTTP | Send HTTP request (any REST API) | Premium; flexible fallback |
 | Azure Blob Storage | Upload/download blobs | Premium |
@@ -71,9 +79,30 @@ Note: More connectors may have embedded MCP server actions. Check the connector 
 | Power Automate | Trigger flows | Standard |
 | Azure OpenAI | Custom completions | Premium |
 
+### New / Notable Connectors (Mar 2026)
+
+| Connector | Key Actions | Notes |
+|-----------|-------------|-------|
+| monday.com | Work management -- boards, items, updates | Premium. Also has MCP server in catalog (Preview). |
+| Zapier | Connect to 7,000+ apps via Zapier automation | Premium. Also has MCP server in catalog (Preview). |
+| Databricks | Query and manage Databricks workspaces | Premium. Also has MCP server in catalog. |
+| CData Connect AI | Connect to 200+ data sources via CData | Premium. MCP server in catalog (Preview). |
+| Celonis | Process mining and execution management | Premium. MCP server in catalog (Preview). |
+
+## Connector Capabilities for Knowledge (Enhanced Connectors)
+
+**New (2025 Wave 1, GA May 2026):** Enhanced connectors built with the Power Platform Connector SDK can serve as knowledge sources in Copilot Studio agents. This bridges the gap between connectors and knowledge:
+
+- Build a Web API that provides structured data
+- Register as a connector in any Power Platform environment
+- Automatically available as a knowledge source in agents
+- Uses Power Fx for app builders
+
+Source: https://learn.microsoft.com/en-us/power-platform/release-plan/2026wave1/microsoft-copilot-studio/build-enhanced-connectors-power-platform-connector-sdk-powerfx
+
 ## How to Add a Connector / MCP Server
 
-**Headless (preferred):** Discover existing connection references → write YAML → LSP push.
+**Headless (preferred):** Discover existing connection references -> write YAML -> LSP push.
 
 ```bash
 # 1. Discover existing connection references in the environment
@@ -87,15 +116,23 @@ node tools/mcs-lsp.js push --workspace <path>
 ```
 
 **If no connection reference exists** (first time for this connector type in this environment):
-1. User adds the tool to ANY agent via MCS UI (2-minute wizard — one-time OAuth consent)
+1. User adds the tool to ANY agent via MCS UI (2-minute wizard -- one-time OAuth consent)
 2. This creates the connection reference in Dataverse
 3. All subsequent agents in the environment reuse it headlessly via discover-connections
 
 **Note:** The Power Platform Connectivity API (`{envId}.environment.api.powerplatform.com`) does not resolve on some tenants. The `discover-connections` command bypasses it by querying Dataverse directly.
 
+## GCC Limits
+
+- Connector payload limit: **450 KB** (vs 5 MB in public cloud)
+
 ## Refresh Notes
 
 - Full connector catalog: https://learn.microsoft.com/en-us/connectors/connector-reference/
-- New connectors appear monthly — search "new Power Platform connectors" for updates
+- New connectors appear monthly -- search "new Power Platform connectors" for updates
 - Check if a connector now has an MCP server (prefer MCP when available)
 - On-premises connectors require an on-premises data gateway
+- OpenAPI v3 support in preview (Feb 2026) -- eliminates need to downgrade specs
+- Enhanced connectors (Connector SDK) allow structured data connectors to serve as knowledge sources
+- Watch for more connectors adding embedded MCP server actions (`mcp_` operations)
+- Component collections now support connector types including MCP

@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-02-27
-sources: [MS Learn, MCS UI, community, WebSearch Feb 2026, MS Learn MCP Feb 2026, Copilot Blog Feb 2026]
+last_verified: 2026-03-19
+sources: [MS Learn, MCS UI, community, WebSearch Mar 2026, MS Learn MCP Mar 2026, Copilot Blog Mar 2026, 2026 Wave 1 release plan]
 confidence: high
 refresh_trigger: before_architecture
 -->
@@ -105,6 +105,19 @@ Agent flows with `When an agent calls the flow` or `When an app calls a flow` tr
 | `AsyncResponsePayloadTooLarge` | Output too large | Reduce payload, filter |
 | `BindingKeyNotFoundError` | Inputs changed | Remove and re-add flow |
 
+## Execute Agent Action (Jan 2026+)
+
+**New capability:** The `Execute Agent` action in Power Automate lets you trigger a Copilot Studio agent to run during a flow. Pass context and let the agent handle reasoning steps the flow cannot. This enables agent-in-the-loop patterns where a flow orchestrates deterministic steps and delegates complex reasoning to an agent.
+
+## Convert Cloud Flow to Agent Flow
+
+Cloud flows can be converted to agent flows (one-way, irreversible):
+1. Flow must be in a solution
+2. Open flow detail page in Power Automate portal
+3. Select Edit, change plan to "Copilot Studio"
+4. Save and confirm
+5. **Billing changes:** Switches from PA licensing to Copilot Credits
+
 ## Flow vs Connector Decision
 
 | Need | Use |
@@ -115,6 +128,7 @@ Agent flows with `When an agent calls the flow` or `When an app calls a flow` tr
 | Human data collection mid-process | Agent flow (Request for Information) |
 | Error handling beyond basic | Agent flow |
 | RPA / desktop automation | Computer Use tool (NOT flow) |
+| Agent reasoning mid-flow | Execute Agent action (agent-in-the-loop) |
 
 ## Capacity / Billing
 
@@ -129,6 +143,8 @@ Agent flows with `When an agent calls the flow` or `When an app calls a flow` tr
 **Polling frequency**: Free plan = 15 min, Office 365 = 5 min.
 
 **User credentials in flows**: Cloud flows can run with **user credentials** in supported authenticated agents. Not yet supported in environments using **customer-managed keys (CMK)** — use specific connections instead of "Provided by run-only user".
+
+**End-user credential triggers (Preview Mar 2026, GA May 2026)**: Configure triggers with end-user credentials — event triggers can now run with the end user's identity rather than the maker's. Moved from 2025 Wave 2 to 2026 Wave 1.
 
 ## Programmatic Flow CRUD (`tools/flow-manager.js`)
 
@@ -183,6 +199,14 @@ Before creating a new trigger flow, discover the environment-specific values:
 
 1. **Connection reference** — query `connectionreferences` table filtered by `connectorid` containing `microsoftcopilotstudio`
 2. **Copilot parameter** — search existing trigger flows' clientdata for `ExecuteCopilot` actions, extract the `Copilot` parameter value
+
+### 2026 Wave 1 Power Automate Features
+
+| Feature | Timeline | Impact on MCS Integration |
+|---------|----------|--------------------------|
+| Restore accidentally deleted flows | Preview/GA Jun 2026 | Safety net for accidental flow deletion |
+| Share Process license capacity across workflows | GA Apr 2026 | Simplified licensing for shared flows |
+| MCP-compliant tools in agent workflows | Preview Apr 2026, GA Oct 2026 | Use MCP tools directly in PA agent workflows |
 
 ### Schedule Presets
 

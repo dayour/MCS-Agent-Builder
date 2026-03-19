@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-02-27
-sources: [MS Learn, MCS UI, community blogs, WebSearch Feb 2026, MS Learn MCP Feb 2026]
+last_verified: 2026-03-19
+sources: [MS Learn, MCS UI, community blogs, WebSearch Mar 2026, MS Learn MCP Mar 2026, 2026 Wave 1 release plan, MS Learn guidance hub]
 confidence: high
 refresh_trigger: before_architecture
 -->
@@ -87,6 +87,8 @@ LLM-driven planner: interprets intent → selects tools/topics/knowledge/agents 
 - **Multi-level chaining NOT supported** (connected agent can't have its own connected agents)
 - Connected agents enable modularity and can **bypass plan limits**
 - Types: MCS (GA), Foundry/Fabric/SDK/A2A (preview)
+- **Nov 2025 GA:** Orchestrate multiple agents to break down complex tasks across specialized agents. Link to agents within your environment or external sources like Microsoft Fabric data agents.
+- **New (2026 Wave 1):** "Create agents optimized for M365 and M365 Copilot users" — preview Jun 2026. "Evaluate agents for M365 Copilot in Copilot Studio" — preview Jul 2026.
 
 ## Best Practices (from official guidance)
 
@@ -109,9 +111,9 @@ LLM-driven planner: interprets intent → selects tools/topics/knowledge/agents 
 | Pre-knowledge hook | **On Knowledge Requested** trigger (YAML-only) |
 | Switch to classic | Settings > Generative AI > Orchestration → No |
 
-## Models (Feb 2026)
+## Models (Mar 2026)
 
-GPT-4o **retired** (all commercial regions). **GPT-4.1** is the default.
+GPT-4o **retired** (all commercial regions, Oct 2025). **GPT-4.1** is the default.
 
 | Model | Category | Status | Notes |
 |-------|----------|--------|-------|
@@ -121,20 +123,33 @@ GPT-4o **retired** (all commercial regions). **GPT-4.1** is the default.
 | GPT-5 Auto | Auto | **Preview** | Routes dynamically per query |
 | GPT-5.2 Chat | General | **Experimental** | Cross-geo |
 | GPT-5.2 Reasoning | Deep | **Experimental** | Cross-geo |
-| Claude Sonnet 4.5 | General | **Preview** | Cross-geo, external model (admin opt-in) |
+| Claude Sonnet 4.5 | General | **Preview** | Cross-geo, external model (admin opt-in). Also available for Computer Use and Prompt Builder. |
 | Claude Sonnet 4.6 | General | **Experimental** | Cross-geo, external model |
-| Claude Opus 4.6 | Deep | **Experimental** | Cross-geo, external model |
+| Claude Opus 4.6 | Deep | **Experimental** | Cross-geo, external model. Also available in Prompt Builder. |
 | Grok 4.1 Fast | General | **Experimental** | **US only**, external model (admin opt-in, xAI), safety caveats |
 
 GCC/GCCHigh/DoD: still GPT-4o only (Default).
-Generative orchestration available for all supported languages.
+Generative orchestration available for all supported languages (GA for multi-language support since Jun 2025).
 
 ## Generative AI Settings
 
 | Setting | Default |
 |---------|---------|
 | Orchestration | Generative |
-| Content moderation | High |
+| Content moderation | High (5 levels: Lowest→Highest) |
 | General knowledge | On |
 | Web search (Bing) | Off |
 | Tenant graph grounding | Off (needs M365 Copilot license) |
+| Deep reasoning | Off (opt-in) |
+
+## Recent Enhancements (Jan-Mar 2026)
+
+| Feature | Date | Status | Details |
+|---------|------|--------|---------|
+| Work IQ MCP tools | Mar 2026 | **Preview** | Connect agents to Work IQ for M365 work insights |
+| File collections as knowledge source | Aug 2025 | **GA** | Group related files with variable-based instructions |
+| Knowledge source analytics | Jun 2025+ | **GA** | See how autonomous agents used knowledge during runs |
+| SharePoint metadata filters | Nov 2025 | **GA** | Filter by filename, owner, modified date for retrieval |
+| Tenant graph grounding improvements | Nov 2025 | **GA** | Updated architecture + new retrieval methods for SharePoint |
+| Themes analytics | Oct 2025 | **Preview** | Group user questions into themes for pattern analysis |
+| Tool groups | Nov 2025 | **Preview** | Curated sets of tools from Outlook/SharePoint connectors in one step |

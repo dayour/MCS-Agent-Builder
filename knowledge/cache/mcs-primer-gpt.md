@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-09
-sources: [CLAUDE.md, knowledge/cache/*.md (synthesized)]
+last_verified: 2026-03-19
+sources: [CLAUDE.md, knowledge/cache/*.md (synthesized), MS Learn whats-new, 2026 Wave 1 Release Plan, WebSearch Mar 2026]
 confidence: high
 refresh_trigger: manual
 -->
@@ -47,7 +47,7 @@ The `brief.json` file is the single source of truth for an agent build:
 - `evalSets[]` — test suites (safety, functional, resilience) with per-test results
 - `decisions[]` — structured choice points with ranked options
 - `architecture` — single-agent or multi-agent design
-- `model` — which LLM powers the agent (GPT-4o, GPT-4o-mini, etc.)
+- `model` — which LLM powers the agent (GPT-4.1 default, GPT-5 Preview, Claude Sonnet/Opus, etc.)
 
 ## Instruction Writing Rules (7 Universal)
 
@@ -83,14 +83,43 @@ The `brief.json` file is the single source of truth for an agent build:
 
 **Rules:** Two methods per test (one specific + one general). Include negative tests. Tag with `scenarioId`, `scenarioCategory`, `coverageTag`. Coverage: core-business 30-40%, variations 20-30%, architecture 20-30%, edge-cases 10-20%. Total: 40-55 tests.
 
-## Eval Methods (7 Total)
+## Eval Methods (8 Total)
 
-| Method | Type | What It Does |
-|--------|------|-------------|
-| General quality | Heuristic | Relevance + completeness check |
-| Compare meaning | Scored 0-100 | Semantic similarity (same meaning, different words OK) |
-| Keyword match | All/Any mode | Checks for specific words/phrases |
-| Text similarity | Scored 0-100 | Token-level text closeness |
-| Exact match | Binary | Must match exactly |
-| Tool use | Binary | Checks if specific tools/topics were used |
-| Plan validation | Scored 0-100 | Verifies tool invocations (custom) |
+| Method | Type | Status | What It Does |
+|--------|------|--------|-------------|
+| General quality | Scored 0-100% | GA | Relevance + Groundedness + Completeness + Abstention |
+| Compare meaning | Scored 0-100 | GA | Semantic similarity (same meaning, different words OK) |
+| Keyword match | All/Any mode | GA | Checks for specific words/phrases |
+| Text similarity | Scored 0-100 | GA | Token-level text closeness (cosine similarity) |
+| Exact match | Binary | GA | Must match exactly |
+| Tool use | Binary | GA | Checks if specific tools/topics were used |
+| Custom | Label-based | Preview | Maker-defined criteria with custom labels |
+| Plan validation | Scored 0-100 | N/A (our custom) | Verifies tool invocations via Direct Line activity stream |
+
+## Model Availability (Mar 2026)
+
+| Model | Status | Notes |
+|-------|--------|-------|
+| GPT-4.1 | **GA (Default)** | Default for new agents since Oct 2025, replaced GPT-4o |
+| GPT-4.1 mini | Preview | Experimental response model for generative answers |
+| GPT-5 Chat | **GA** | GA for EU and US regions since Nov 2025 |
+| GPT-5 Reasoning | Preview | Advanced reasoning with chain-of-thought |
+| Claude Sonnet 4 / 4.5 | GA | Multi-model option, available in most geos since Jan 2026 |
+| Claude Opus 4.1 / 4.5 / 4.6 | GA | For orchestration and prompt builder |
+| GPT-4o | **Retired** | Retired Oct 2025 for generative orchestration (except GCC) |
+| GPT-4o mini | GA (legacy) | Still available for lightweight use cases |
+
+**Model selection**: Dropdown in agent settings for orchestration model. Prompt builder has separate model selection (Claude + OpenAI). Admin can disable Anthropic models at tenant level.
+
+## Key Platform Updates (Q1 2026)
+
+- **Work IQ MCP tools** (Preview Mar 2026): 6 tools (Mail, Calendar, Teams, Copilot, User, Word) connecting agents to M365 work context
+- **Custom MCP servers** (Preview Mar 2026, GA Apr 2026): Connect any agent to external data
+- **MCP in agent workflows** (Preview Apr 2026): Use MCP tools in agent flows
+- **Computer Use agents** (Preview, GA May 2026): Automate web and desktop apps with vision+reasoning
+- **Code interpreter** (GA Aug 2025): Python code generation from natural language, supports Excel/CSV/PDF analysis
+- **SharePoint Lists as knowledge** (Preview Apr 2026, GA May 2026): Real-time connection to list data
+- **File groups** (GA Aug 2025): Organize uploaded files as single knowledge source with variable-based instructions
+- **VS Code extension** (GA Jan 2026): Build, edit, manage agents in VS Code
+- **General Quality Grader in Test Pane** (GA Mar 2026): Auto-evaluate during testing
+- **Enforce safe sharing** (Preview Apr 2026): Detect credential oversharing

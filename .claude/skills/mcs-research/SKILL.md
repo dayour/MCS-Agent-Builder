@@ -19,16 +19,19 @@ Three-phase pipeline: **Fast Preview** (30-90s scan) -> **Deep Research** (3-10m
 
 When `--fast` is specified, the skill runs in **preview-only mode**:
 
-**Runs:**
+**Runs (subset of Phase A — own step numbering, not main Phase A numbers):**
 - Phase 0: Smart routing (full -- same as standard)
-- Phase A: Document comprehension (full -- same as standard)
-- Phase A Step 4: Extract per-agent data -> write to brief.json
-- Phase A Step 5: Generate open questions
+- Phase A steps 1-4: Document comprehension + solution type assessment (same as standard)
+- Fast-A1: Licensing discovery — scan docs for licensing mentions, write to `business.licensing`
+- Fast-A2: Extract per-agent data -> write to brief.json
+- Fast-A3: Generate open questions (including unknown licensing fields)
+- Fast-A4: Generate eval stubs
 
 **Writes to brief.json:**
 - `overview.*` (name, description, problemStatement, targetUsers, challenges, benefits)
 - `capabilities[]` (names + descriptions only, all marked `phase: "mvp"`, `implementationType: "prompt"` as default, each with `source: "from-docs"` or `source: "inferred"`)
 - `boundaries.*` (handles, politelyDeclines, hardRefuses -- extracted from docs, each with `source` field)
+- `business.licensing` (scan docs for licensing mentions — M365 Copilot, Copilot Studio, Power Platform, Dynamics. Set known fields, leave rest as `"unknown"`. Unknown fields → `openQuestions[]`)
 - `openQuestions[]` (ambiguities found in docs, each with `source: "from-docs"` or `source: "inferred"`)
 - `knowledge[]` (high-level source references -- doc names, not config)
 - `workflow.phase = "preview"`, `workflow.previewGeneratedAt = <ISO timestamp>`
@@ -43,7 +46,7 @@ When `--fast` is specified, the skill runs in **preview-only mode**:
 
 **Target time:** 30-90 seconds for typical SDR package.
 
-**Phase A Step 6: Generate Eval Stubs** (after Step 5, deterministic derivation — no LLM call, no teammate spawn, ~5-15s):
+**Fast-A4: Generate Eval Stubs** (after Fast-A3, deterministic derivation — no LLM call, no teammate spawn, ~5-15s):
 
 **Boundary tests** (→ `boundaries` set, 100% threshold):
 - One test per `boundaries.decline[]`: question = natural attempt to get help with that topic, expected = polite decline keywords, method = Keyword match (all)
@@ -96,13 +99,15 @@ Two files only. No research report (future: on-demand export from dashboard). No
 
 ## Before Research -- Load Frameworks
 
-The session startup protocol already checks cache freshness and refreshes stale Tier 1 files, so there's no need to re-check all 19 cache files here.
+The session startup protocol already checks cache freshness and refreshes stale Tier 1 files, so there's no need to re-check all 24 cache files here.
 
 1. Read `knowledge/frameworks/component-selection.md` for the research protocol
 2. Read `knowledge/frameworks/architecture-scoring.md` for scoring criteria
 3. Read `knowledge/frameworks/solution-type-scoring.md` for the solution type pre-gate
+4. Read `knowledge/cache/first-party-agents.md` for first-party agent capability matching
+5. Read `knowledge/cache/declarative-agents.md` for DA vs CA routing logic
 
-Cache files are read on-demand in Phase A (for informed questions) and Phase B (for component research). Only read the specific files needed, not all 18.
+Cache files are read on-demand in Phase A (for informed questions) and Phase B (for component research). Only read the specific files needed, not all 24.
 
 ## Microsoft-First Component Priority
 
@@ -167,8 +172,29 @@ Only escalate to live research when the agent has Priority 5-6 integrations (ext
 2. Cross-reference and build a unified picture (systems, personas, contradictions, themes)
 3. Identify agents (explicit names, distinct domains, SDR sections)
 4. Solution type assessment (5-factor scoring from `solution-type-scoring.md` -- routes to agent/flow/hybrid/not-recommended)
-5. Extract per-agent data and generate informed open questions (cross-referenced against cache)
-6. Create brief.json stubs, confirm with user, write document manifest
+5. **Licensing discovery** (runs for all solution types):
+   - Check uploaded docs and WorkIQ context for licensing mentions (M365 Copilot, Copilot Studio, Power Platform Premium, Dynamics 365, Frontier program)
+   - Write findings to `business.licensing` in brief.json — set each field to `"yes"`, `"no"`, or `"unknown"`
+   - Any field left `"unknown"` → add to `openQuestions[]` with `section: "licensing"`, `impact: "high"`, `suggestedDefault` based on most common enterprise license
+   - Licensing gates downstream: `m365Copilot = "no"` blocks DA path + first-party agents; `copilotStudio = "no"` blocks CA build; `frontierProgram = "no"` blocks Tier 3-5 agents
+6. **First-party agent check** (if solutionType is `agent` or `hybrid`):
+   - For each MVP capability, check `knowledge/cache/first-party-agents.md` capability match patterns
+   - If a first-party agent covers 70%+ of the capability, record in `architecture.frontierAgentMatch[]`
+   - Check license prerequisites against `business.licensing` — if license `"unknown"`, still recommend but flag the prerequisite in `frontierAgentMatch[].licenseRequired`; if `"no"`, skip that agent with a note in `architecture.buildPathReason`
+7. **Build path routing** (if solutionType is `agent` or `hybrid`):
+   - Check `knowledge/cache/declarative-agents.md` hard disqualifiers
+   - If NO disqualifiers apply AND all capabilities are simple info retrieval → set `architecture.buildPath = "declarative-agent"`, generate DA recommendation with guide template
+   - If ANY disqualifier applies → set `architecture.buildPath = "custom-agent"`, continue to Phase B+C as normal
+   - If first-party agents cover ALL capabilities AND solutionType is `agent` (not `hybrid`) → set `architecture.buildPath = "first-party-only"`, generate recommendation report, skip build
+   - Record `architecture.buildPathReason` with structured "why not" for ALL paths:
+     ```
+     Selected: {path}. Reason: {1-2 sentences}.
+     Why not declarative-agent: {specific disqualifier or "N/A — this is the selected path"}.
+     Why not custom-agent: {reason or "N/A"}.
+     Why not first-party-only: {reason or "N/A"}.
+     ```
+8. Extract per-agent data and generate informed open questions (cross-referenced against cache)
+9. Create brief.json stubs, confirm with user, write document manifest
 
 ### Incremental Merge Rules Summary
 
@@ -206,7 +232,7 @@ Every capability, boundary, and open question extracted during `--fast` mode inc
 
 - Prefer MCP over individual connector actions because MCP provides richer multi-tool access
 - Present options: recommend the best option but note alternatives
-- Flag preview features: note GA vs preview status for each recommendation
+- **GA/Preview status is mandatory on every component** — every MCP server, connector, model, trigger, and knowledge source written to brief.json must have its status noted. Preview components need explicit risk callout in the integration's `notes` field (e.g. "Preview — may change, requires admin opt-in"). Prefer GA components when a GA alternative exists with equivalent capability.
 
 ---
 
@@ -368,7 +394,7 @@ After all phases complete, set `manifest.lastResearchAt` to the current timestam
 - **brief.json is the context** -- during incremental processing, read the brief for context instead of re-reading unchanged docs.
 - **Merge rules are fixed** -- during incremental processing, follow merge rules exactly. Append-only for arrays, preserve answered questions, flag conflicts.
 - **Manifest consistency** -- after any path (full, full-agent, incremental, re-enrich), the manifest reflects current `docs/` state with accurate hashes and timestamps.
-- **`--fast` generates preview + eval stubs** -- runs Phase 0 + Phase A (including Step 6: eval stub generation), writes overview/capabilities/boundaries/openQuestions/evalSets with `source` tags, sets `workflow.phase = "preview"` and `workflow.evalStubsGeneratedAt`. Does not run Phases B or C. Teammates are not spawned. Target: 30-90 seconds.
+- **`--fast` generates preview + eval stubs** -- runs Phase 0 + Phase A steps 1-4 + Fast-A1 through Fast-A4 (licensing, extraction, open questions, eval stubs), writes overview/capabilities/boundaries/licensing/openQuestions/evalSets with `source` tags, sets `workflow.phase = "preview"` and `workflow.evalStubsGeneratedAt`. Does not run Phases B or C. Teammates are not spawned. Target: 30-90 seconds.
 - **Deep research respects preview edits** -- when `workflow.previewConfirmed = true`, deep research reads confirmed data as input constraints and preserves customer edits.
 - **Decisions are structured choices, not open questions** -- `decisions[]` stores ranked options when 2+ approaches are viable. `openQuestions[]` stores freeform unknowns. Keep them separate.
 - **Only create decisions when genuinely needed** -- one clear winner = auto-apply, no decision entry. Too many decisions overwhelms the customer.

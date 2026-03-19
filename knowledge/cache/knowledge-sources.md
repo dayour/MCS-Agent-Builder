@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-02-27
-sources: [MS Learn (knowledge-copilot-studio, requirements-quotas, knowledge-file-groups, knowledge-real-time-connectors, knowledge-unstructured-data, planned-features), MCS UI snapshot, WebSearch Feb 2026]
+last_verified: 2026-03-19
+sources: [MS Learn (knowledge-copilot-studio, requirements-quotas, knowledge-file-groups, knowledge-real-time-connectors, knowledge-unstructured-data, custom-knowledge-sources, planned-features), MCS UI snapshot, WebSearch Mar 2026, 2026 Wave 1 release plan]
 confidence: high
 refresh_trigger: before_architecture
 -->
@@ -19,6 +19,7 @@ refresh_trigger: before_architecture
 | Dataverse tables | Structured data from Dataverse via RAG | Select tables and views. Requires Entra ID auth. | **Unlimited** | 2 sources, 15 tables per source |
 | Enterprise data (Copilot connectors) | Index non-Microsoft data into Graph for semantic search | Setup in M365 admin center. Add via Knowledge > Advanced. | **Unlimited** | 2 per agent |
 | OneDrive | Personal/shared OneDrive files | Select files/folders from OneDrive | See SharePoint limits | See SharePoint limits |
+| **Custom knowledge (OnKnowledgeRequested)** | API-based custom knowledge via topic trigger | Create topic with OnKnowledgeRequested trigger (YAML-only). Call any search API, transform results to Content/ContentLocation/Title format. | Up to 15 snippets across all custom knowledge topics combined | N/A (generative orchestration only) |
 
 ### Unstructured Data Sources (via Knowledge > Advanced)
 
@@ -29,7 +30,7 @@ refresh_trigger: before_architecture
 | Confluence | Wiki/documentation content | Cloud only. No article count/size limit. Sync every 4-6h. |
 | Zendesk | Support ticket/article data | No article count/size limit. Sync every 4-6h. Supports synonyms + glossary. |
 
-### Search & Grounding Settings (NOT tools — these are toggles)
+### Search & Grounding Settings (NOT tools -- these are toggles)
 
 **These are agent-level settings, NOT tools/connectors.** In brief.json, use `type: "setting"` (not `"ai-tool"`). Enable via Settings > Generative AI or LSP push (`gptCapabilities` in `settings.mcs.yml`).
 
@@ -37,7 +38,7 @@ refresh_trigger: before_architecture
 |------|-------------|-------|-------|
 | Web Search (Bing grounding) | Open web search across ALL Bing-indexed sites | Toggle in Generative AI settings or Knowledge > Web Search. LSP: `gptCapabilities.webBrowsing: true` | Requires generative orchestration. Uses Grounding with Bing Search API. Runs in parallel with configured public website sources. **NOT the "Bing Search" Power Platform connector** (that's a separate connector with `GetNews` action). |
 | AI General Knowledge | LLM foundational knowledge | Toggle "Use general knowledge" in Generative AI settings. | Not real-time. Based on model training data. Can be turned off to restrict to configured sources only. |
-| **Tenant graph grounding** | Semantic search across M365 tenant data | Enable in Generative AI settings | **Requires M365 Copilot license** in same tenant. Requires "Authenticate with Microsoft" auth setting. Supports files up to 200 MB (or 512 MB for PDF/PPTX/DOCX). Enabled by default when license present. |
+| **Tenant graph grounding** | Semantic search across M365 tenant data | Enable in Generative AI settings | **Requires M365 Copilot license** in same tenant. Requires "Authenticate with Microsoft" auth setting. Supports files up to 200 MB (or 512 MB for PDF/PPTX/DOCX). Enabled by default when license present. Does NOT support manual authentication. |
 | **Real-Time Knowledge connectors (Preview)** | Live API queries to external systems with no data movement | Add via Knowledge > Advanced > Real-time connector. Select tables. | Preview. Metadata-only indexing. Runtime-authenticated per user. |
 
 ### Classic Orchestration Only
@@ -59,11 +60,13 @@ Note: Generative orchestration does NOT support custom data or Bing Custom Searc
 | Max file groups per agent | **25** |
 | Max files per file group | **500** (512 MB each) |
 | SharePoint list queries | First **2,048 rows** only |
+| SharePoint lists per "Add knowledge" session | **15** (repeat dialog to add more) |
 | Generative orchestration source filter | If >25 knowledge sources, agent uses internal GPT to filter by description (uploaded files exempt from this limit) |
+| Custom knowledge snippets | Up to **15** snippets across all OnKnowledgeRequested topics combined |
 
 ## Real-Time Knowledge Connectors (Preview) -- Supported Systems
 
-Added Feb 2026. These connectors query external systems live at runtime with no data replication.
+Added Feb 2026. These connectors query external systems live at runtime with no data replication. Metadata-only indexing (table names, column names). Runtime calls authenticated per-user.
 
 | Connector | Notes |
 |-----------|-------|
@@ -83,6 +86,27 @@ Added Feb 2026. These connectors query external systems live at runtime with no 
 | **Google Sheets** | Spreadsheet data |
 
 Source: https://learn.microsoft.com/en-us/microsoft-copilot-studio/knowledge-real-time-connectors
+
+## Custom Knowledge Sources (OnKnowledgeRequested)
+
+**GA feature.** Custom knowledge sources use the `OnKnowledgeRequested` trigger to connect any search API as a knowledge source. This is YAML-only (no visual designer support).
+
+### System Variables
+| Variable | Purpose |
+|----------|---------|
+| `System.SearchQuery` | Context-aware rewritten query optimized for semantic search |
+| `System.KeywordSearchQuery` | Rewritten query optimized for keyword-based search |
+| `System.SearchResults` | Output: formatted knowledge snippets (Content, ContentLocation, Title) |
+
+### Key Facts
+- Up to 15 snippets from `System.SearchResults` used to generate response
+- Multiple OnKnowledgeRequested topics allowed -- all invoked simultaneously
+- 15-snippet limit applies across ALL custom knowledge topics combined
+- Can use HTTP requests, custom connectors, built-in connectors (e.g., Azure AI Search), or agent flows
+- Query rewriting preserves multi-turn conversation context
+- Results must use format: `{Content: string, ContentLocation: string (optional), Title: string (optional)}`
+
+Source: https://learn.microsoft.com/en-us/microsoft-copilot-studio/guidance/custom-knowledge-sources
 
 ## Web Search Mechanisms (3 Approaches)
 
@@ -105,6 +129,8 @@ Source: https://learn.microsoft.com/en-us/microsoft-copilot-studio/data-privacy-
 | Max files per upload | 10 files at once (15 for SharePoint file/folder selection) |
 | Sensitivity labels | Confidential/Highly confidential + password-protected files cannot be indexed |
 | ALM | Not supported for unstructured data sources -- importing agents does not auto-process knowledge |
+| SharePoint file size (without M365 Copilot license) | **7 MB** max for generative answers (must turn OFF Enhanced search results) |
+| SharePoint file size (with M365 Copilot license) | **200 MB** max (must turn ON Enhanced search results / Tenant graph grounding) |
 
 ### SharePoint / OneDrive Unstructured Data Limits
 
@@ -117,6 +143,10 @@ Source: https://learn.microsoft.com/en-us/microsoft-copilot-studio/data-privacy-
 | With tenant graph grounding | Up to 200 MB (or 512 MB for PDF/PPTX/DOCX) |
 | Modern pages only | Classic ASPX pages not supported; SPFx components not supported |
 | Document libraries | Not supported |
+| Accordion nav / custom CSS | Not supported -- pages with these don't generate answers |
+| File/document name queries | Not supported -- users cannot ask "what's in file-name.pdf?" |
+| Manual authentication | Not supported for SharePoint docs or tenant graph grounding |
+| Required Dataverse extensions | Power AI Extensions Base 1.0.1.688+, AI Platform Extensions 1.0.0.157+, Relevance Search 1.0.0.90+ |
 
 ### Dataverse Limits
 
@@ -141,6 +171,8 @@ Source: https://learn.microsoft.com/en-us/microsoft-copilot-studio/data-privacy-
 | M365 tenant-wide context | Tenant graph grounding | Semantic search across all M365 data |
 | Live external system data | Real-time connectors (Preview) | No data movement, user-authenticated |
 | Structured data analysis | Code interpreter + files | Deterministic computation, not LLM guessing |
+| Custom search API / Azure AI Search | OnKnowledgeRequested trigger | Full control over query and results |
+| Multiple backend systems | Multiple OnKnowledgeRequested topics | Parallel querying with automatic result merging |
 
 ## Knowledge Source Behavior Controls
 
@@ -150,8 +182,8 @@ Controls WHEN a knowledge source is auto-searched by the orchestrator:
 
 | Setting | Behavior | Use Case |
 |---------|----------|----------|
-| *(default — no property)* | Auto-searched on every user message | Standard knowledge sources |
-| `triggerCondition: false` | **Never auto-searched** — only queried explicitly via `SearchAndSummarizeContent` | Glossary CSVs, reference data that should only load on-demand |
+| *(default -- no property)* | Auto-searched on every user message | Standard knowledge sources |
+| `triggerCondition: false` | **Never auto-searched** -- only queried explicitly via `SearchAndSummarizeContent` | Glossary CSVs, reference data that should only load on-demand |
 | `triggerCondition: =Global.Variable = "value"` | Conditionally included based on variable state | Country-specific docs, role-based knowledge |
 
 ```yaml
@@ -168,18 +200,18 @@ triggerCondition: false
 When an agent has **more than 25 knowledge sources** (uploaded files are exempt from this count), the orchestrator's UniversalSearchTool auto-selects the **top 25 by description match**. Sources with poor or missing descriptions may be skipped entirely.
 
 **Solutions for agents exceeding 25 sources:**
-1. **Explicit routing** — Use `OnKnowledgeRequested` trigger to route by category (see `knowledge/patterns/topic-patterns/knowledge-routing.yaml`)
-2. **File groups** — Consolidate related files into groups (up to 500 files per group, 25 groups per agent)
-3. **Better descriptions** — Ensure every knowledge source has a specific, descriptive name/description
-4. **Conditional inclusion** — Use `triggerCondition` to limit active sources by user context
+1. **Explicit routing** -- Use `OnKnowledgeRequested` trigger to route by category (see `knowledge/patterns/topic-patterns/knowledge-routing.yaml`)
+2. **File groups** -- Consolidate related files into groups (up to 500 files per group, 25 groups per agent)
+3. **Better descriptions** -- Ensure every knowledge source has a specific, descriptive name/description
+4. **Conditional inclusion** -- Use `triggerCondition` to limit active sources by user context
 
 ### Graph Connector Sources
 
-Enterprise data from non-Microsoft systems can be indexed into Microsoft Graph via Copilot connectors (formerly Graph connectors). These appear as "Enterprise data (Copilot connectors)" in the Knowledge > Advanced section. Data is indexed and searchable without replication — the connector provides a semantic index over the external system. Requires M365 admin center configuration.
+Enterprise data from non-Microsoft systems can be indexed into Microsoft Graph via Copilot connectors (formerly Graph connectors). These appear as "Enterprise data (Copilot connectors)" in the Knowledge > Advanced section. Data is indexed and searchable without replication -- the connector provides a semantic index over the external system. Requires M365 admin center configuration.
 
 ## How to Add Knowledge
 
-### Via LSP Wrapper (preferred — headless, no browser)
+### Via LSP Wrapper (preferred -- headless, no browser)
 
 Clone the agent workspace, add a `.mcs.yml` file to the `knowledge/` folder, then push.
 
@@ -225,7 +257,7 @@ node tools/mcs-lsp.js push --workspace "./workspace/Agent Name"
 
 ### Via Dataverse API (file uploads)
 - POST `botcomponents` (type 16) + file upload
-- See `knowledge/patterns/dataverse-patterns.md` § 4
+- See `knowledge/patterns/dataverse-patterns.md` section 4
 - Best for: uploaded document files (PDF, DOCX, etc.)
 
 ### Via Playwright (fallback)
@@ -244,10 +276,10 @@ Code interpreter is a Python execution engine integrated within Copilot Studio. 
 | Feature | Status | Details |
 |---------|--------|---------|
 | Code interpreter on customer-uploaded files | **GA** (Nov 2025) | Users can upload files in conversation for analysis |
-| Code interpreter on SharePoint sources | **Preview** (Mar 2026) | Analyze SharePoint-sourced data with code |
+| Code interpreter on SharePoint sources | **Preview** (Mar 2026) | Analyze SharePoint Document Library structured files (CSV, Excel) with code |
 | Code interpreter in prompt builder | **GA** | Enable via prompt settings |
 
-Capabilities: data analysis, process Word/Excel/PowerPoint/PDF files, generate visualizations, deterministic computation.
+Capabilities: data analysis, process Word/Excel/PowerPoint/PDF files, generate visualizations, deterministic computation. Supports statistical analysis, table joins, forecasting, chart generation.
 
 ## Generative Answers
 
@@ -271,8 +303,12 @@ Knowledge sources power the `SearchAndSummarizeContent` node:
 | Feature | Status | Expected | Notes |
 |---------|--------|----------|-------|
 | Code interpreter on SharePoint sources | Preview | Mar 2026 | Analyze SharePoint data with Python |
-| Custom MCP servers as knowledge | Preview | Mar 2026, GA Apr 2026 | Connect to any external data via MCP |
-| Evaluate test sets with multiple graders | Preview | Feb 2026 | Already available |
+| Custom MCP servers as knowledge | Preview Mar 2026, GA Apr 2026 | Mar-Apr 2026 | Connect to any external data via MCP |
+| Enhanced connectors (Connector SDK + PowerFx) | Preview (May 2025) | GA May 2026 | Build structured data connectors for agent knowledge |
+| OpenAPI v3 custom connectors | Preview Feb 2026 | GA May 2026 | Import OpenAPI v3 specs directly |
+| File groups | Preview | GA May 2026 | Group files with instructions to guide agent answers |
+| Reassign agent owner via Power Platform API | -- | GA Mar 2026 | |
+| Build advanced approvals | Preview | GA Mar 2026 | |
 
 ## Refresh Notes
 
@@ -280,7 +316,10 @@ Knowledge sources power the `SearchAndSummarizeContent` node:
 - Graph connectors expanding -- new data sources added regularly
 - Search "Copilot Studio knowledge sources" on MS Learn for updates
 - Tenant graph grounding requires M365 Copilot license -- verify before recommending
-- File groups are GA -- good for location/role-dependent document sets
-- Code interpreter is GA for uploaded files and prompts
+- File groups are in preview with GA planned May 2026
+- Code interpreter is GA for uploaded files and prompts; SharePoint preview Mar 2026
 - Real-time connectors still in Preview -- 14 connectors supported
 - ALM not supported for unstructured data sources (import does not auto-process)
+- OnKnowledgeRequested is the recommended approach for custom search APIs (Azure AI Search, etc.)
+- SharePoint without M365 Copilot license: 7 MB file limit for generative answers
+- Enhanced connectors (Connector SDK) allow building structured data connectors usable as knowledge in agents

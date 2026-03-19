@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-02-27
-sources: [MS Learn, MCS UI, community, MS Learn guidance/topic-authoring-best-practices, MS Learn guidance/implement-overview, MS Learn guidance/channels, WebSearch Feb 2026]
+last_verified: 2026-03-19
+sources: [MS Learn, MCS UI, community, MS Learn guidance/topic-authoring-best-practices, MS Learn guidance/implement-overview, MS Learn guidance/channels, MS Learn guidance/architecture-overview, MS Learn guidance/cux-principles, WebSearch Mar 2026]
 confidence: high
 refresh_trigger: weekly
 -->
@@ -107,7 +107,7 @@ Instead of duplicating similar topics (Order Pizzas, Order Burgers, Order Drinks
 - Understand NLU vs generative orchestration tradeoff (NLU: specific intents, lower latency; GenAI: broader inputs, higher latency)
 - Turn on **express mode** for flows
 
-## Multi-Agent Orchestration (Nov 2025)
+## Multi-Agent Orchestration (GA, Nov 2025)
 
 - Agents can call other agents as tools for task-specific delegation
 - Connect agents within environment or from external sources (Fabric data agents)
@@ -118,9 +118,49 @@ Instead of duplicating similar topics (Order Pizzas, Order Burgers, Order Drinks
 
 Pause an agent flow to collect details from designated reviewers via Outlook, then resume execution using their responses as dynamic parameters. Handles missing data/context without hard-coded values.
 
-## File & Image Input (Aug 2025)
+## File & Image Input (GA, Aug 2025)
 
 Users can upload files and images for agent analysis. Agent can pass files to downstream systems via Agent Flows, Power Automate, connectors, tools, and topics.
+
+## Code Interpreter in Chat (GA, Aug 2025)
+
+Agent can generate Python code-based actions from natural language. Users can upload Excel/CSV/PDF for agent to analyze using Python code.
+
+## Work IQ Tools (Preview, Mar 2026)
+
+Connect agents to the Work IQ service for real-time work insights from M365. Six tools: Mail, Calendar, Teams, Copilot, User, Word. Each scoped to the user's permissions. Adds deep organizational context to agent responses.
+
+## Chain of Thought (CoT) in Test Chat (Mar 2026)
+
+View the agent's intermediate reasoning steps during testing. Shows considerations and decisions made as the agent processes inputs and generates outputs. Available for selected models: GPT-5 Reasoning, Claude Sonnet, Claude Opus.
+
+## Guidance Hub Architecture (Jan 2026)
+
+MS Learn now organizes MCS guidance into 5 pillars: Plan, Implement, Manage, Improve, Extend. Key new articles:
+- Architecting agent solutions (architecture patterns for M365 Copilot)
+- Generative orchestration capabilities
+- Multi-agent orchestration patterns
+- Autonomous agent capabilities
+- Integration strategies
+- Evaluation frameworks and common evaluation approaches
+
+## Custom MCP Servers (Preview Mar 2026, GA Apr 2026)
+
+Connect any agent to any external data with custom MCP servers. Enables connecting to non-Microsoft MCP servers for dynamic, real-time content.
+
+## Generative Orchestration Guidance (MS Learn, Jan 2026)
+
+When using generative orchestration (default for modern agents):
+- **Description is #1 routing signal** — write clear, specific topic/tool descriptions
+- Generative orchestration selects tools, plans actions, composes responses dynamically
+- Use "by agent" trigger for topics the planner should route to
+- Classic NLU (trigger phrases) still available for deterministic intent matching
+- Tradeoff: NLU = lower latency + specific intents; GenAI = broader inputs + higher latency
+- **Express mode** for flows: accelerates flow execution, reduces timeouts (Preview Oct 2025)
+
+## Topic Organization with Periods Warning
+
+Avoid using periods (`.`) in topic names. It is not possible to export a solution that contains an agent with periods in the name of any of its topics.
 
 ## Design Checklist
 
@@ -135,3 +175,6 @@ Users can upload files and images for agent analysis. Agent can pass files to do
 - [ ] Bite-size reusable topics (avoid large monolithic topics)
 - [ ] Entity-based topic consolidation (reduce duplication)
 - [ ] Performance: cache variables, minimize API calls per turn
+- [ ] Clear topic/tool descriptions for generative orchestration routing
+- [ ] No periods in topic names (breaks solution export)
+- [ ] Consider activity maps for debugging (Jan 2026 preview)

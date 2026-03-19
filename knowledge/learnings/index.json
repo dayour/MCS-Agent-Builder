@@ -609,9 +609,9 @@
       ]
     },
     {
-      "id": "bm-012",
-      "file": "build-methods.md",
-      "title": "OData $filter on _parentbotid_value unreliable â€” use FetchXML",
+      “id”: “bm-033”,
+      “file”: “build-methods.md”,
+      “title”: “OData $filter on _parentbotid_value unreliable â€” use FetchXML”,
       "date": "2026-03-06",
       "confirmed": 1,
       "lastConfirmed": "2026-03-06",
@@ -628,9 +628,9 @@
       ]
     },
     {
-      "id": "bm-013",
-      "file": "build-methods.md",
-      "title": "$select=data on botcomponents returns empty â€” query full entity",
+      “id”: “bm-034”,
+      “file”: “build-methods.md”,
+      “title”: “$select=data on botcomponents returns empty â€” query full entity”,
       "date": "2026-03-06",
       "confirmed": 1,
       "lastConfirmed": "2026-03-06",
@@ -646,9 +646,9 @@
       ]
     },
     {
-      "id": "bm-014",
-      "file": "build-methods.md",
-      "title": "LSP push 0 changes on new agents â€” verifyAndPatchBody fallback",
+      “id”: “bm-035”,
+      “file”: “build-methods.md”,
+      “title”: “LSP push 0 changes on new agents â€” verifyAndPatchBody fallback”,
       "date": "2026-03-06",
       "confirmed": 1,
       "lastConfirmed": "2026-03-06",
@@ -666,9 +666,9 @@
       ]
     },
     {
-      "id": "bm-015",
-      "file": "build-methods.md",
-      "title": "Auth gate must explicitly ask for environment â€” never assume",
+      “id”: “bm-036”,
+      “file”: “build-methods.md”,
+      “title”: “Auth gate must explicitly ask for environment â€” never assume”,
       "date": "2026-03-06",
       "confirmed": 1,
       "lastConfirmed": "2026-03-06",
@@ -685,7 +685,7 @@
       ]
     },
     {
-      "id": "bm-016",
+      "id": "bm-037",
       "file": "build-methods.md",
       "title": "Knowledge file upload: POST works but file attach endpoints don't exist",
       "date": "2026-03-06",
@@ -704,9 +704,9 @@
       ]
     },
     {
-      "id": "bm-017",
-      "file": "build-methods.md",
-      "title": "Connectivity API doesn't resolve â€” blocks add-tool.js",
+      “id”: “bm-038”,
+      “file”: “build-methods.md”,
+      “title”: “Connectivity API doesn't resolve â€” blocks add-tool.js”,
       "date": "2026-03-06",
       "confirmed": 1,
       "lastConfirmed": "2026-03-06",
@@ -1073,6 +1073,27 @@
       "projects": [
         "CDW"
       ]
+    },
+    {
+      "id": "ar-004",
+      "file": "kit-integration-analysis.md",
+      "title": "Power-CAT Kit integration strategy: AUGMENT (keep CLI, add Kit for governance)",
+      "date": "2026-03-18",
+      "confirmed": 0,
+      "lastConfirmed": "2026-03-18",
+      "tags": [
+        "power-cat-kit",
+        "architecture",
+        "integration",
+        "augment",
+        "compliance",
+        "governance",
+        "inventory",
+        "ci-cd",
+        "strategy"
+      ],
+      "status": "active",
+      "projects": []
     }
   ]
 }

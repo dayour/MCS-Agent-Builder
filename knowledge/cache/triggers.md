@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-02-27
-sources: [MS Learn (authoring-triggers, authoring-triggers-about, planned-features), MCS UI snapshot, WebSearch Feb 2026, knowledge/patterns/topic-patterns/]
+last_verified: 2026-03-19
+sources: [MS Learn (authoring-triggers, authoring-triggers-about, planned-features), MCS UI snapshot, WebSearch Mar 2026, knowledge/patterns/topic-patterns/]
 confidence: high
 refresh_trigger: before_architecture
 -->
@@ -76,14 +76,16 @@ Event triggers enable autonomous agent behavior -- the agent acts without user i
 - Billing: each trigger payload counts as a message for billing purposes
 - Requires solution-aware cloud flow sharing to be turned on in the environment
 - Administrators can block event triggers via data loss prevention policies
+- `Activity.Text` may be empty when knowledge sources are invoked; use `LastMessage.Text` instead for reliable previous-message access
+- `OnPlanComplete` interacts with knowledge source output: when a knowledge source is used, the output is written directly into the activity, which may replace `Activity.Text` content
 
-## Trigger Enhancements (Feb 2026)
+## Trigger Enhancements (Mar 2026)
 
 | Feature | Status | Details |
 |---------|--------|---------|
 | **Trigger conditions with PowerFx** | GA | Add PowerFx conditions to any trigger -- filter when a topic fires based on variable values or expressions |
 | **Trigger priority** | GA | Explicit ordering -- set priority when multiple topics could match the same intent. Order: (1) An activity occurs, (2) A message is received / custom event / conversation changes / invoked, (3) The agent chooses / User says a phrase. Same-type: oldest first unless Priority property is set. |
-| **Configure triggers with end-user credentials** | GA (Feb 2026) | Triggers can run authenticated as the end user, enabling user-context-aware trigger logic |
+| **Configure triggers with end-user credentials** | **Preview** (Mar 2026), GA May 2026 | Triggers can run authenticated as the end user, enabling user-context-aware trigger logic. Makers can create, configure, test, update, and delete triggers directly in MCS. Enables sharing autonomous agents that run with end-user credentials. |
 | **Simplify working with triggers and channels** | GA (Nov 2025) | Streamlined trigger/channel configuration UX |
 
 ## Key Patterns

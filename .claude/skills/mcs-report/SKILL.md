@@ -105,6 +105,24 @@ GPT checks: data accuracy (does the report match brief.json?), cross-reference c
 **Channels:** {architecture.channels → comma-separated names}
 **Model:** {from instructions or buildStatus}
 
+{If architecture.buildPath is set:}
+### Build Path Decision
+**Selected:** {architecture.buildPath} (custom-agent / declarative-agent / first-party-only)
+**Reason:** {architecture.buildPathReason}
+
+{If architecture.frontierAgentMatch has entries:}
+### First-Party Agent Matches
+| Agent | Coverage | Recommendation | License Required | Matched Capabilities |
+|-------|----------|---------------|-----------------|---------------------|
+{architecture.frontierAgentMatch → table rows}
+
+{For rejected paths — extract from buildPathReason:}
+### Why Not Other Paths
+{Parse architecture.buildPathReason for "why not" statements and present as bullet list:}
+- **Declarative Agent:** {reason DA was rejected, e.g. "requires external channels (Teams + Web Chat)" or "uses adaptive cards"}
+- **First-Party Only:** {reason first-party-only was rejected, e.g. "no first-party agent covers expense reconciliation capability"}
+- **Custom Agent:** {if DA was chosen — reason CA is unnecessary, e.g. "all capabilities are M365-native info retrieval"}
+
 {If multi-agent:}
 ### Agent Topology
 | Agent | Role | Routing Rule |
@@ -248,6 +266,10 @@ Replace ALL technical terms:
 | Service Principal | automated access |
 | Connector | connection |
 | Knowledge source | data source |
+| Declarative agent | configuration-based agent |
+| Custom agent | custom-built agent |
+| First-party agent | Microsoft's built-in agent |
+| Frontier agent | Microsoft's advanced built-in agent |
 | Topic | conversation flow |
 | Trigger | activation rule |
 | Eval set | test suite |
@@ -274,6 +296,16 @@ Replace ALL technical terms:
 ## What It Connects To
 {For each MVP integration:}
 - **{integration.name}:** {integration.purpose — in plain language}
+
+## Approach
+{If architecture.buildPath == "custom-agent":} We're building a custom AI agent tailored to your needs.
+{If architecture.buildPath == "declarative-agent":} We're recommending a configuration-based agent that works inside Microsoft 365 Copilot — no custom development needed.
+{If architecture.buildPath == "first-party-only":} Microsoft already offers built-in agents that cover these needs — we recommend using those directly.
+
+{If architecture.frontierAgentMatch has entries with coverage "full" or "partial":}
+### Leveraging Microsoft's Built-In Agents
+{For each match:}
+- **{agentName}:** Already handles {matchedCapabilities in plain language}. {If coverage == "partial": "We'll build the remaining functionality as a custom addition."}
 
 ## Key Design Decisions
 {For each confirmed decision:}

@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-02-27
-sources: [MS Learn, MCS UI, PPAC docs, WebSearch Feb 2026, MS Security Blog Feb 2026, MS Learn guidance/sec-gov-phase3]
+last_verified: 2026-03-19
+sources: [MS Learn, MCS UI, PPAC docs, WebSearch Mar 2026, MS Security Blog Feb 2026, MS Learn guidance/sec-gov-phase3, MS Learn security-and-governance, MS Learn configuration-end-user-authentication, 2026 Wave 1 Release Plan]
 confidence: high
 refresh_trigger: before_architecture
 -->
@@ -102,6 +102,16 @@ Microsoft published a comprehensive guide on common agent misconfigurations. Key
 5. Sensitive data exposure through knowledge sources without sensitivity labels
 See: https://www.microsoft.com/en-us/security/blog/2026/02/12/copilot-studio-agent-security-top-10-risks-detect-prevent/
 
+## Upcoming Security Features (2026 Wave 1)
+
+| Feature | Status | Timeline | Details |
+|---------|--------|----------|---------|
+| **Enforce safe sharing by detecting credential oversharing** | Preview | Apr 2026 | Detects when agent makers share agents with overly broad credentials; GA Jun 2026 |
+| **Configure triggers with end-user credentials** | Preview/GA | Preview Mar 2026, GA May 2026 | Triggers authenticate as end user instead of maker |
+| **Unified errors, warnings, governance notifications** | Preview | Apr 2026 | Single view of all security/governance issues; GA Jun 2026 |
+| **MIP sensitivity labels across channels** | Preview | Jul 2025 | Display labels in connectors, test chat, Teams, M365 Copilot to prevent oversharing |
+| **Admin sharing controls** | GA | Current | Restrict org-wide sharing, reassign ownership, control who can share with whom (Managed Environments) |
+
 ## Key Gotchas
 
 - **"Require users to sign in"** creates read-only system topic; cannot be customized
@@ -111,7 +121,10 @@ See: https://www.microsoft.com/en-us/security/blog/2026/02/12/copilot-studio-age
 - **Conversation history** can be passed or blocked per connected agent
 - **Audit**: Purview (maker logs), Sentinel (runtime monitoring), App Insights (KQL)
 - **Never expose `User.AccessToken`** in Message nodes
-- **Configure triggers with end-user credentials** (GA Feb 2026) — triggers can authenticate as end user
+- **Configure triggers with end-user credentials** (Preview Mar 2026, GA May 2026) — triggers can authenticate as end user
 - **DLP enforcement**: As of early 2025, DLP enforcement is in effect for ALL tenants (no more exemptions per MC973179)
 - **Multitenant agents (preview)**: Agents can be used across tenants via Teams/M365 Copilot. SharePoint knowledge does NOT work cross-tenant.
 - **SSO Consent Card (preview, Jul 2025)**: Streamlines Entra ID-backed auth — users grant consent in chat without redirects
+- **Admins can reassign agent ownership** with full permissions transfer and restrict org-wide agent sharing
+- **New `copilotstudio` API namespace** (Nov 2025) — previous namespace works temporarily, switch now for future compatibility
+- **Computer use audit logging** (Preview Jan 2026) — enhanced audit logging with session replay for CUA agents
