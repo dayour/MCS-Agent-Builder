@@ -61,6 +61,7 @@ const XTerminal = ({ session, visible }: XTerminalProps) => {
 
     ws.onclose = () => {
       clearTimeout(connectTimeout);
+      unregisterSessionWs(session.id);
       updateStatus(session.id, "stopped");
       termRef.current?.writeln(`\r\n\x1b[33m● Disconnected\x1b[0m`);
       wsRef.current = null;

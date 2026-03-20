@@ -38,7 +38,7 @@
         "/c",
         "npx",
         "-y",
-        "@microsoft/workiq",
+        "@microsoft/workiq@latest",
         "mcp"
       ]
     },

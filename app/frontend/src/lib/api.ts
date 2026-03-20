@@ -156,3 +156,64 @@ export async function fetchDocContent(
 ): Promise<{ filename: string; content: string }> {
   return request(`/projects/${projectId}/docs/${encodeURIComponent(filename)}/content`);
 }
+
+// ─── Pull from M365 (WorkIQ SSE) ────────────────────────────────
+
+export interface PullM365Progress {
+  type: "started" | "progress" | "done" | "error";
+  queryId?: number;
+  label?: string;
+  status?: "running" | "done" | "error";
+  completed?: number;
+  total?: number;
+  customer?: string;
+  filename?: string;
+  size?: number;
+  successCount?: number;
+  totalQueries?: number;
+  detail?: string;
+}
+
+export async function pullFromM365(
+  projectId: string,
+  customer: string,
+  timeRange: string,
+  onProgress: (event: PullM365Progress) => void,
+): Promise<void> {
+  const res = await fetch(`${BASE}/projects/${projectId}/pull-m365`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ customer, timeRange }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => res.statusText);
+    let msg = text;
+    try { const parsed = JSON.parse(text); if (parsed.detail) msg = parsed.detail; } catch {}
+    throw new Error(msg);
+  }
+
+  // Parse SSE stream
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error("No response body");
+
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+
+    for (const line of lines) {
+      if (line.startsWith("data: ")) {
+        try {
+          onProgress(JSON.parse(line.slice(6)));
+        } catch { /* ignore malformed SSE */ }
+      }
+    }
+  }
+}

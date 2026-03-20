@@ -1,10 +1,13 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { Upload, PenLine, FileText, Trash2, Loader2, Image, File as FileIcon, FileSpreadsheet } from "lucide-react";
+import { Upload, PenLine, FileText, Trash2, Loader2, Image, File as FileIcon, FileSpreadsheet, Cloud } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { DocChangeStatus, Document } from "@/types";
+import type { PullM365Progress } from "@/lib/api";
 import { useProjectStore } from "@/stores/projectStore";
 import { fetchDocContent } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -172,7 +175,7 @@ function DocumentPreview({ doc, projectId, content }: { doc: Document; projectId
 // ---------------------------------------------------------------------------
 
 const DocumentDropZone = ({ projectId }: DocumentDropZoneProps) => {
-  const { documents, docContent, loadDocContent, uploadFile, pasteText, removeDocument } = useProjectStore();
+  const { documents, docContent, loadDocContent, uploadFile, pasteText, removeDocument, pullFromM365 } = useProjectStore();
   const [dragOver, setDragOver] = useState(false);
   const [showTextForm, setShowTextForm] = useState(false);
   const [textTitle, setTextTitle] = useState("");
@@ -180,6 +183,18 @@ const DocumentDropZone = ({ projectId }: DocumentDropZoneProps) => {
   const [uploading, setUploading] = useState(false);
   const [selectedDocName, setSelectedDocName] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Pull from M365 state
+  const [showPullForm, setShowPullForm] = useState(false);
+  const [pullCustomer, setPullCustomer] = useState("");
+  const [pullTimeRange, setPullTimeRange] = useState("90d");
+  const [pulling, setPulling] = useState(false);
+  const [pullProgress, setPullProgress] = useState<{
+    completed: number;
+    total: number;
+    currentLabel: string;
+    errors: string[];
+  } | null>(null);
 
   // Derive selectedDoc from documents list by name — always fresh after state changes
   const selectedDoc = selectedDocName ? documents.find((d) => d.name === selectedDocName) ?? null : null;
@@ -277,6 +292,50 @@ const DocumentDropZone = ({ projectId }: DocumentDropZoneProps) => {
     }
   };
 
+  // --- Pull from M365 ---
+  const handlePullFromM365 = async () => {
+    if (!pullCustomer.trim()) return;
+    setPulling(true);
+    setPullProgress({ completed: 0, total: 9, currentLabel: "Starting...", errors: [] });
+
+    try {
+      await pullFromM365(pullCustomer.trim(), pullTimeRange, (event: PullM365Progress) => {
+        if (event.type === "started") {
+          setPullProgress((p) => p ? { ...p, total: event.total ?? 9 } : p);
+        } else if (event.type === "progress") {
+          setPullProgress((p) => {
+            if (!p) return p;
+            const errors = event.status === "error"
+              ? [...p.errors, `${event.label}: failed`]
+              : p.errors;
+            return {
+              ...p,
+              completed: event.completed ?? p.completed,
+              currentLabel: event.status === "running"
+                ? `Querying ${event.label}...`
+                : `${event.label} ${event.status}`,
+              errors,
+            };
+          });
+        } else if (event.type === "done") {
+          toast.success(
+            `Pulled M365 context: ${event.successCount}/${event.totalQueries} sources`,
+            { duration: 5000 },
+          );
+        } else if (event.type === "error") {
+          toast.error(event.detail || "Failed to save context file", { duration: 8000 });
+        }
+      });
+      setShowPullForm(false);
+      setPullCustomer("");
+    } catch (e: any) {
+      toast.error(e.message || "Failed to pull M365 context", { duration: 8000 });
+    } finally {
+      setPulling(false);
+      setPullProgress(null);
+    }
+  };
+
   const newAndModified = documents.filter((d) => d.changeStatus === "new" || d.changeStatus === "modified");
 
   return (
@@ -295,6 +354,9 @@ const DocumentDropZone = ({ projectId }: DocumentDropZoneProps) => {
           </Button>
           <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-muted-foreground" onClick={handleUploadClick}>
             <Upload className="h-3 w-3" /> Upload
+          </Button>
+          <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-muted-foreground" onClick={() => setShowPullForm(true)}>
+            <Cloud className="h-3 w-3" /> Pull from M365
           </Button>
         </div>
       </div>
@@ -337,6 +399,74 @@ const DocumentDropZone = ({ projectId }: DocumentDropZoneProps) => {
           <div className="flex gap-2 justify-end">
             <Button variant="ghost" size="sm" onClick={() => { setShowTextForm(false); setTextTitle(""); setTextContent(""); }}>Cancel</Button>
             <Button size="sm" onClick={addTextDoc} disabled={uploading}>Save</Button>
+          </div>
+        </div>
+      )}
+
+      {/* Pull from M365 form */}
+      {showPullForm && (
+        <div className="mb-3 rounded-lg border border-border bg-card p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <Cloud className="h-4 w-4 text-primary" />
+            <span className="text-sm font-medium text-foreground">Pull from M365</span>
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            Search emails, meetings, Teams, SharePoint, and people via WorkIQ.
+          </p>
+          <Input
+            placeholder="Customer or company name"
+            value={pullCustomer}
+            onChange={(e) => setPullCustomer(e.target.value)}
+            disabled={pulling}
+            onKeyDown={(e) => { if (e.key === "Enter" && pullCustomer.trim()) handlePullFromM365(); }}
+          />
+          <Select value={pullTimeRange} onValueChange={setPullTimeRange} disabled={pulling}>
+            <SelectTrigger className="h-9 text-xs">
+              <SelectValue placeholder="Time range" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="30d">Last 30 days</SelectItem>
+              <SelectItem value="90d">Last 90 days</SelectItem>
+              <SelectItem value="180d">Last 6 months</SelectItem>
+              <SelectItem value="1y">Last year</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {pullProgress && (
+            <div className="space-y-2">
+              <Progress value={(pullProgress.completed / pullProgress.total) * 100} className="h-2" />
+              <p className="text-[11px] text-muted-foreground">
+                {pullProgress.currentLabel} ({pullProgress.completed}/{pullProgress.total})
+              </p>
+              {pullProgress.errors.length > 0 && (
+                <div className="text-[11px] text-destructive space-y-0.5">
+                  {pullProgress.errors.map((e, i) => <p key={i}>{e}</p>)}
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="flex gap-2 justify-end">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => { setShowPullForm(false); setPullCustomer(""); setPullProgress(null); }}
+              disabled={pulling}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handlePullFromM365}
+              disabled={pulling || !pullCustomer.trim()}
+              className="gap-1"
+            >
+              {pulling ? (
+                <><Loader2 className="h-3 w-3 animate-spin" /> Pulling...</>
+              ) : (
+                <><Cloud className="h-3 w-3" /> Pull</>
+              )}
+            </Button>
           </div>
         </div>
       )}

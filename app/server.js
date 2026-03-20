@@ -26,6 +26,7 @@ const os = require("os");
 const { attachTerminal } = require("./lib/terminal");
 const { migrateBrief } = require("./lib/brief-migrate");
 const { convertDocument, extractContent, NEEDS_CONVERSION } = require("./lib/documents");
+const { isWorkIQAvailable, runWorkIQQuery, buildQueries, deduplicateDocuments, assembleContextFile } = require("./lib/workiq");
 const {
   DOC_EXTENSIONS,
   ensureDirs,
@@ -519,6 +520,88 @@ app.get("/api/projects/:projectId/docs/:filename/content", async (req, res) => {
 
   const result = await extractContent(target);
   res.json({ filename: safe, content: result.content, error: result.error || undefined });
+});
+
+// ---------------------------------------------------------------------------
+// Pull from M365 via WorkIQ (SSE)
+// ---------------------------------------------------------------------------
+
+app.post("/api/projects/:projectId/pull-m365", async (req, res) => {
+  const folder = path.join(BUILD_GUIDES, req.params.projectId);
+  if (!fs.existsSync(folder) || !fs.statSync(folder).isDirectory()) {
+    return res.status(404).json({ detail: `Project '${req.params.projectId}' not found` });
+  }
+
+  const customer = (req.body.customer || "").trim();
+  const timeRange = req.body.timeRange || "90d";
+  if (!customer) return res.status(400).json({ detail: "Customer name required" });
+
+  const available = await isWorkIQAvailable();
+  if (!available) {
+    return res.status(503).json({
+      detail: "WorkIQ CLI not available. Run 'workiq ask -q \"test\"' in a terminal to authenticate.",
+    });
+  }
+
+  // SSE headers
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no",
+  });
+
+  const sendSSE = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+
+  const queries = buildQueries(customer, timeRange);
+  sendSSE({ type: "started", total: queries.length, customer });
+
+  const results = [];
+  let completed = 0;
+
+  const promises = queries.map(async (q) => {
+    sendSSE({ type: "progress", queryId: q.id, label: q.label, status: "running" });
+    const result = await runWorkIQQuery(q.question, 120_000);
+    completed++;
+    const entry = { ...q, content: result.content, error: result.error };
+    results.push(entry);
+    sendSSE({
+      type: "progress",
+      queryId: q.id,
+      label: q.label,
+      status: result.error ? "error" : "done",
+      completed,
+      total: queries.length,
+    });
+    return entry;
+  });
+
+  await Promise.allSettled(promises);
+
+  // Dedup pass + assemble file
+  const dedup = deduplicateDocuments(results);
+  ensureDirs(folder);
+  const docsDir = path.join(folder, "docs");
+  const safeCustomer = customer.toLowerCase().replace(/[^\w-]/g, "_");
+  const filename = `workiq-context-${safeCustomer}.md`;
+  const filePath = path.join(docsDir, filename);
+  const content = assembleContextFile(customer, results, timeRange, dedup);
+
+  try {
+    fs.writeFileSync(filePath, content, "utf-8");
+    const stat = fs.statSync(filePath);
+    sendSSE({
+      type: "done",
+      filename,
+      size: stat.size,
+      successCount: results.filter((r) => !r.error && r.content).length,
+      totalQueries: queries.length,
+    });
+  } catch (e) {
+    sendSSE({ type: "error", detail: `Failed to save context file: ${e.message}` });
+  }
+
+  res.end();
 });
 
 // ---------------------------------------------------------------------------

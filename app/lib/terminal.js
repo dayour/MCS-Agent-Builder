@@ -66,6 +66,14 @@ function resolveClaude() {
 
 const CLAUDE = resolveClaude();
 
+// Strip ANSI escape sequences for clean text analysis
+function stripAnsi(str) {
+  return str.replace(
+    /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><~]/g,
+    ""
+  );
+}
+
 /**
  * Attach terminal handling to a WebSocketServer.
  *
@@ -85,6 +93,7 @@ function attachTerminal(wss, baseDir) {
     let pendingWrite = null;
     let lastCols = 120;
     let lastRows = 30;
+    let readyFallbackTimer = null;
 
     function spawn(cols, rows) {
       lastCols = cols;
@@ -110,18 +119,29 @@ function attachTerminal(wss, baseDir) {
       ptyProc.onData((data) => {
         if (ws.readyState === WebSocket.OPEN) ws.send(data);
 
-        if (
-          !inShell &&
-          (data.includes("\u276f") || data.includes("/help"))
-        ) {
-          ready = true;
-          flush();
+        // Detect Claude Code readiness: only the ❯ prompt character (U+276F).
+        // Do NOT check for "/help" — it appears in the startup banner BEFORE
+        // the input handler is initialized, causing premature command submission.
+        if (!inShell && !ready) {
+          const clean = stripAnsi(data);
+          if (clean.includes("\u276f")) {
+            ready = true;
+            if (readyFallbackTimer) {
+              clearTimeout(readyFallbackTimer);
+              readyFallbackTimer = null;
+            }
+            flush();
+          }
         }
       });
 
       ptyProc.onExit(({ exitCode }) => {
         ptyProc = null;
         ready = false;
+        if (readyFallbackTimer) {
+          clearTimeout(readyFallbackTimer);
+          readyFallbackTimer = null;
+        }
 
         if (ws.readyState === WebSocket.OPEN) {
           ws.send(
@@ -131,13 +151,14 @@ function attachTerminal(wss, baseDir) {
         }
       });
 
-      // Fallback: if prompt detection misses, mark ready after 15s
-      setTimeout(() => {
+      // Fallback: if prompt detection misses, mark ready after 10s
+      readyFallbackTimer = setTimeout(() => {
+        readyFallbackTimer = null;
         if (!ready) {
           ready = true;
           flush();
         }
-      }, 15000);
+      }, 10000);
     }
 
     function spawnShell(cols, rows) {
@@ -203,10 +224,9 @@ function attachTerminal(wss, baseDir) {
     function submit(text) {
       if (!ptyProc) return;
       ready = false;
-      ptyProc.write(text);
-      setTimeout(() => {
-        if (ptyProc) ptyProc.write("\r");
-      }, 100);
+      // Send text + Enter atomically in one write to avoid the 100ms gap
+      // where \r could be lost on Windows ConPTY or during terminal mode changes.
+      ptyProc.write(text + "\r");
     }
 
     ws.on("message", (raw) => {
@@ -234,10 +254,7 @@ function attachTerminal(wss, baseDir) {
 
           if (m.type === "command" && m.text) {
             if (inShell && ptyProc) {
-              ptyProc.write(m.text);
-              setTimeout(() => {
-                if (ptyProc) ptyProc.write("\r");
-              }, 50);
+              ptyProc.write(m.text + "\r");
             } else if (ptyProc && ready) {
               submit(m.text);
             } else if (ptyProc) {

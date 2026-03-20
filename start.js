@@ -389,11 +389,45 @@ if (!checkClaudeCode()) {
   warn("Install: npm install -g @anthropic-ai/claude-code");
 }
 
-// 3-5: Git repo only — auto-update, deps, hooks
+// ---------------------------------------------------------------------------
+// MCP dependency auto-update (npm packages used as MCP servers)
+// ---------------------------------------------------------------------------
+
+const MCP_NPM_DEPS = [
+  "@microsoft/workiq",
+];
+
+function updateMcpDeps() {
+  for (const pkg of MCP_NPM_DEPS) {
+    try {
+      const out = execSync(
+        `npm list -g ${pkg} --json 2>${os.platform() === "win32" ? "NUL" : "/dev/null"}`,
+        { encoding: "utf8", timeout: 10000 }
+      );
+      const currentVer = JSON.parse(out).dependencies?.[pkg]?.version;
+
+      const latest = execSync(
+        `npm view ${pkg} version`,
+        { encoding: "utf8", timeout: 10000 }
+      ).trim();
+
+      if (!latest || latest === currentVer) continue;
+
+      log(`Updating MCP: ${pkg} ${currentVer || "?"} \u2192 ${latest}...`);
+      execSync(`npm install -g ${pkg}@latest`, { stdio: "inherit", timeout: 60000 });
+      log(`${pkg} updated to ${latest}`);
+    } catch {
+      // Offline or error — skip silently
+    }
+  }
+}
+
+// 3-5: Git repo only — auto-update, deps, hooks, MCP deps
 if (isGitRepo) {
   autoUpdate();
   ensureNodeModules();
   ensureGitHooks();
+  updateMcpDeps();
 
   // Frontend deps + rebuild only needed in dev (git repo)
   if (fs.existsSync(path.join(frontendDir, "package.json")) && depsStale(frontendDir)) {

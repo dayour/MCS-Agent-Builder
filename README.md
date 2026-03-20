@@ -169,8 +169,8 @@ The tool continuously learns and improves:
 | Layer | What | Stays Current |
 |-------|------|--------------|
 | **Cache** (24 files) | MCS capabilities — models, connectors, MCP servers, triggers, first-party agents, declarative agents | Auto-refreshed at session start |
-| **Learnings** (8 files) | Experience from past builds — what worked, what didn't | Captured after each build |
-| **Patterns** | YAML syntax, Dataverse API, 17 topic templates, 9 flow templates | Stable reference |
+| **Learnings** (9 files) | Experience from past builds — what worked, what didn't | Captured after each build |
+| **Patterns** | YAML syntax, Dataverse API, 36 topic templates, 9 flow templates | Stable reference |
 | **Frameworks** | Component selection, architecture scoring, eval scenarios | Stable reference |
 
 ---

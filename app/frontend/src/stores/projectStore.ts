@@ -14,7 +14,9 @@ import {
   pasteDocument as apiPaste,
   deleteDocument as apiDeleteDoc,
   deleteAgent as apiDeleteAgent,
+  pullFromM365 as apiPullFromM365,
 } from "@/lib/api";
+import type { PullM365Progress } from "@/lib/api";
 
 interface ProjectStore {
   projectId: string | null;
@@ -32,6 +34,11 @@ interface ProjectStore {
   pasteText: (title: string, text: string) => Promise<void>;
   removeDocument: (filename: string) => Promise<void>;
   removeAgent: (agentId: string) => Promise<void>;
+  pullFromM365: (
+    customer: string,
+    timeRange: string,
+    onProgress: (event: PullM365Progress) => void,
+  ) => Promise<void>;
 }
 
 function apiAgentToAgent(a: ApiAgentSummary): Agent {
@@ -176,5 +183,12 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     if (!id) return;
     await apiDeleteAgent(id, agentId);
     set((s) => ({ agents: s.agents.filter((a) => a.id !== agentId) }));
+  },
+
+  pullFromM365: async (customer, timeRange, onProgress) => {
+    const id = get().projectId;
+    if (!id) return;
+    await apiPullFromM365(id, customer, timeRange, onProgress);
+    await get().refresh();
   },
 }));

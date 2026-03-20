@@ -130,6 +130,74 @@ async function autoUpdate() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// MCP dependency auto-update
+// ---------------------------------------------------------------------------
+
+/**
+ * MCP servers that are installed as global npm packages.
+ * Add entries here as new MCP dependencies are added to the solution.
+ */
+const MCP_NPM_DEPS = [
+  "@microsoft/workiq",
+];
+
+const MCP_CHECK_FILE = path.join(os.homedir(), ".mcs-agent-builder", "mcp-check.json");
+
+/**
+ * Check and update all MCP npm dependencies.
+ * Cached for 4 hours (same cadence as self-update).
+ */
+async function updateMcpDeps() {
+  // Check cache — skip if checked recently
+  try {
+    if (fs.existsSync(MCP_CHECK_FILE)) {
+      const data = JSON.parse(fs.readFileSync(MCP_CHECK_FILE, "utf8"));
+      if (Date.now() - data.lastCheck < 4 * 60 * 60 * 1000) return;
+    }
+  } catch {}
+
+  let updated = 0;
+  for (const pkg of MCP_NPM_DEPS) {
+    try {
+      const installed = execSync(`npm list -g ${pkg} --json 2>` + (os.platform() === "win32" ? "NUL" : "/dev/null"), {
+        encoding: "utf8", timeout: 10000,
+      });
+      const currentVer = JSON.parse(installed).dependencies?.[pkg]?.version;
+
+      const latest = await new Promise((resolve, reject) => {
+        require("https").get(
+          `https://registry.npmjs.org/${pkg}/latest`,
+          { timeout: 3000 },
+          (res) => {
+            let data = "";
+            res.on("data", (c) => (data += c));
+            res.on("end", () => {
+              try { resolve(JSON.parse(data).version); } catch { reject(); }
+            });
+          }
+        ).on("error", reject).on("timeout", function () { this.destroy(); reject(); });
+      });
+
+      if (!latest || latest === currentVer) continue;
+
+      log(`Updating ${pkg} ${currentVer || "?"} \u2192 ${latest}...`);
+      execSync(`npm install -g ${pkg}@latest`, { stdio: "inherit", timeout: 60000 });
+      log(`${pkg} updated to ${latest}`);
+      updated++;
+    } catch {
+      // Offline or error — skip this package silently
+    }
+  }
+
+  // Cache the check timestamp
+  const dir = path.dirname(MCP_CHECK_FILE);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(MCP_CHECK_FILE, JSON.stringify({ lastCheck: Date.now(), packages: MCP_NPM_DEPS }));
+
+  if (updated > 0) log(`${updated} MCP package(s) updated`);
+}
+
 function updatePackage() {
   log(`Updating mcs-agent-builder...`);
   try {
@@ -179,6 +247,9 @@ async function startServer() {
 
   // Auto-update before starting (skips if offline or up-to-date)
   await autoUpdate();
+
+  // Update MCP dependencies (skips if offline or recently checked)
+  await updateMcpDeps();
 
   log(`Starting MCS Agent Builder v${VERSION}...`);
 
@@ -420,14 +491,34 @@ function doctor() {
     }
   });
 
-  // 9. Frontend built
+  // 9. MCP: WorkIQ
+  check("MCP: WorkIQ", () => {
+    try {
+      const out = run("npm list -g @microsoft/workiq --json 2>" + (os.platform() === "win32" ? "NUL" : "/dev/null"));
+      const ver = JSON.parse(out).dependencies?.["@microsoft/workiq"]?.version;
+      if (ver) return { ok: true, detail: `v${ver}` };
+      return { ok: false, detail: "not installed", fix: "npm install -g @microsoft/workiq" };
+    } catch {
+      return { ok: false, detail: "not installed", fix: "npm install -g @microsoft/workiq" };
+    }
+  });
+
+  // 10. MCP: PAC CLI (via dnx)
+  check("MCP: PAC CLI", () => {
+    const dnxPath = path.join(process.env.DOTNET_ROOT || "C:\\Program Files\\dotnet", "dnx.cmd");
+    if (fs.existsSync(dnxPath)) return { ok: true, detail: "dnx available (auto-updates with --yes)" };
+    if (cmdExists("pac")) return { ok: true, detail: "pac CLI in PATH" };
+    return { ok: false, detail: "not found", fix: "Install .NET SDK + PAC CLI" };
+  });
+
+  // 11. Frontend built
   check("Frontend (app/dist)", () => {
     const distIndex = path.join(PKG_DIR, "app", "dist", "index.html");
     if (fs.existsSync(distIndex)) return { ok: true, detail: "built" };
     return { ok: false, detail: "not built", fix: "npm run frontend:build" };
   });
 
-  // 10. node-pty prebuilt
+  // 12. node-pty prebuilt
   check("Terminal (node-pty)", () => {
     try {
       const pty = require("@homebridge/node-pty-prebuilt-multiarch");
@@ -438,7 +529,7 @@ function doctor() {
     }
   });
 
-  // 11. GPT-5.4 review (optional — needs gh CLI + copilot scope)
+  // 13. GPT-5.4 review (optional — needs gh CLI + copilot scope)
   check("GPT-5.4 review (optional)", () => {
     if (!cmdExists("gh")) return { ok: false, detail: "gh CLI not found", fix: "winget install GitHub.cli" };
     try {

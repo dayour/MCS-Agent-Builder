@@ -7,7 +7,7 @@
     },
     "workiq": {
       "command": "cmd",
-      "args": ["/c", "npx", "-y", "@microsoft/workiq", "mcp"]
+      "args": ["/c", "npx", "-y", "@microsoft/workiq@latest", "mcp"]
     },
     "pac-cli": {
       "command": "node",

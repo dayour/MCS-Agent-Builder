@@ -1099,8 +1099,6 @@ async function createTopic(gatewayUrl, envId, botId, headers, topicDef) {
 
 // --- Module Exports (for programmatic use) ---
 module.exports = {
-    getToken,
-    getTenantId,
     buildHeaders,
     loadGatewayFromConfig,
     // BAP API
