@@ -103,6 +103,51 @@ async function runWorkIQQueryWithRetry(question, timeoutMs = 120_000, maxRetries
 }
 
 /**
+ * Run WorkIQ queries in batches to avoid the Windows WAM broker bug (#71)
+ * that crashes after 3+ simultaneous MSAL auth calls in console apps.
+ *
+ * The pre-flight checkWorkIQAuth() warms the MSAL cache, and batching
+ * ensures only 2 concurrent token acquisitions hit WAM at a time.
+ *
+ * @param {Array<{id, label, question}>} queries
+ * @param {{ batchSize?: number, signal?: AbortSignal, onProgress?: function }} opts
+ * @returns {Promise<{results: Array<{id, label, question, content, error}>, authAborted: boolean}>}
+ */
+async function runQueriesBatched(queries, { batchSize = 2, signal, onProgress } = {}) {
+  const results = [];
+  let completed = 0;
+  let authAborted = false;
+
+  for (let i = 0; i < queries.length; i += batchSize) {
+    if (authAborted || signal?.aborted) break;
+
+    const batch = queries.slice(i, i + batchSize);
+    await Promise.allSettled(
+      batch.map(async (q) => {
+        if (authAborted || signal?.aborted) return;
+
+        if (onProgress) onProgress(q.id, q.label, "running");
+        const result = await runWorkIQQueryWithRetry(q.question, 120_000, 2, signal);
+        completed++;
+
+        if (result.authFailed) {
+          authAborted = true;
+          return;
+        }
+
+        const entry = { ...q, content: result.content, error: result.error };
+        results.push(entry);
+        if (onProgress) {
+          onProgress(q.id, q.label, result.error ? "error" : "done", completed, queries.length);
+        }
+      })
+    );
+  }
+
+  return { results, authAborted };
+}
+
+/**
  * Pre-flight auth check — run a cheap query to verify WorkIQ session is active.
  * Uses "What is my name?" which targets the /me Graph endpoint only (2-4s).
  * Returns { ok, error }.
@@ -180,18 +225,11 @@ function runWorkIQQuery(question, timeoutMs = 120_000, signal) {
       if (signal) signal.removeEventListener("abort", onAbort);
       if (killed) return; // already resolved via timeout or abort
 
-      // Check stderr for auth errors (always reliable — stderr won't contain content)
-      const lowerErr = stderr.toLowerCase();
-      const authInStderr = lowerErr.includes("sign in") || lowerErr.includes("not authenticated")
-        || lowerErr.includes("authentication") || lowerErr.includes("token expired")
-        || lowerErr.includes("unauthorized") || lowerErr.includes("401");
-
-      // Only check stdout for auth patterns when exit code is non-zero
-      // (avoids false positives on content that mentions "authentication", "sign in", etc.)
-      const authInStdout = code !== 0 && (() => {
-        const lowerOut = stdout.toLowerCase();
-        return lowerOut.includes("sign in") || lowerOut.includes("not authenticated");
-      })();
+      // Use shared isAuthError() for both stderr and stdout to keep patterns in one place.
+      // stderr is always reliable. Only check stdout when exit code != 0
+      // (avoids false positives on content mentioning "authentication", "sign in", etc.)
+      const authInStderr = isAuthError(stderr);
+      const authInStdout = code !== 0 && isAuthError(stdout);
 
       if (authInStderr || authInStdout) {
         resolve({
@@ -423,7 +461,7 @@ function assembleContextFile(customer, results, timeRange, dedup) {
     lines.push("|----------|------------|--------|------------------------|");
     for (const entry of dedup.map) {
       lines.push(
-        `| ${entry.name} | ${entry.latestDate} | ${entry.latestSource} | ${entry.olderVersions.join(", ")} |`
+        `| ${escapeMd(entry.name)} | ${escapeMd(entry.latestDate)} | ${escapeMd(entry.latestSource)} | ${escapeMd(entry.olderVersions.join(", "))} |`
       );
     }
     lines.push("");
@@ -528,6 +566,12 @@ function escapeOData(str) {
 /** Sanitize a remote filename — strip path separators and ".." segments. */
 function sanitizeFilename(name) {
   return path.basename(name).replace(/\.\./g, "_");
+}
+
+/** Escape text for safe inclusion in a Markdown table cell. */
+function escapeMd(str) {
+  if (!str) return "";
+  return String(str).replace(/\|/g, "\\|").replace(/\n/g, " ");
 }
 
 /**
@@ -1063,10 +1107,12 @@ module.exports = {
   checkWorkIQAuth,
   runWorkIQQuery,
   runWorkIQQueryWithRetry,
+  runQueriesBatched,
   isAuthError,
   buildQueries,
   deduplicateDocuments,
   assembleContextFile,
   extractSharePointUrls,
   downloadAndConvertFiles,
+  escapeMd,
 };

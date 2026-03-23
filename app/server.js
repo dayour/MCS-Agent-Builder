@@ -26,7 +26,7 @@ const os = require("os");
 const { attachTerminal } = require("./lib/terminal");
 const { migrateBrief } = require("./lib/brief-migrate");
 const { convertDocument, extractContent, NEEDS_CONVERSION } = require("./lib/documents");
-const { isWorkIQAvailable, checkWorkIQAuth, runWorkIQQueryWithRetry, isAuthError, buildQueries, deduplicateDocuments, assembleContextFile, extractSharePointUrls, downloadAndConvertFiles } = require("./lib/workiq");
+const { isWorkIQAvailable, checkWorkIQAuth, runQueriesBatched, buildQueries, deduplicateDocuments, assembleContextFile, extractSharePointUrls, downloadAndConvertFiles, escapeMd } = require("./lib/workiq");
 const {
   DOC_EXTENSIONS,
   ensureDirs,
@@ -581,49 +581,30 @@ app.post("/api/projects/:projectId/pull-m365", async (req, res) => {
     const queries = buildQueries(customer, timeRange, aliases);
     sendSSE({ type: "started", total: queries.length, customer });
 
-    const results = [];
-    let completed = 0;
-    let authAborted = false;
-
     // AbortController lets us kill in-flight child processes when auth fails
     const abortController = new AbortController();
 
-    const promises = queries.map(async (q) => {
-      // If another query already detected auth failure, skip this one
-      if (authAborted || clientDisconnected) return null;
-
-      sendSSE({ type: "progress", queryId: q.id, label: q.label, status: "running" });
-      const result = await runWorkIQQueryWithRetry(q.question, 120_000, 2, abortController.signal);
-      completed++;
-
-      // Auth failure after retries → abort remaining queries immediately
-      if (result.authFailed) {
-        authAborted = true;
-        abortController.abort();
-        sendSSE({
-          type: "error",
-          detail: "WorkIQ session expired during pull. Run 'workiq ask -q \"test\"' in a terminal to re-authenticate, then try again.",
-        });
-        return null;
-      }
-
-      const entry = { ...q, content: result.content, error: result.error };
-      results.push(entry);
-      sendSSE({
-        type: "progress",
-        queryId: q.id,
-        label: q.label,
-        status: result.error ? "error" : "done",
-        completed,
-        total: queries.length,
-      });
-      return entry;
+    // Run queries in batches of 2 to avoid the Windows WAM broker bug (#71)
+    // that crashes after 3+ simultaneous MSAL auth calls in console apps.
+    const { results, authAborted } = await runQueriesBatched(queries, {
+      batchSize: 2,
+      signal: abortController.signal,
+      onProgress: (queryId, label, status, completed, total) => {
+        sendSSE({ type: "progress", queryId, label, status, completed, total });
+      },
     });
 
-    await Promise.allSettled(promises);
-
-    // If auth failed mid-pull, end SSE without writing partial results
-    if (authAborted || clientDisconnected) {
+    // If auth failed mid-pull, abort remaining queries and end SSE
+    if (authAborted) {
+      abortController.abort();
+      sendSSE({
+        type: "error",
+        detail: "WorkIQ session expired during pull. Run 'workiq ask -q \"test\"' in a terminal to re-authenticate, then try again.",
+      });
+      res.end();
+      return;
+    }
+    if (clientDisconnected) {
       res.end();
       return;
     }
@@ -687,7 +668,7 @@ app.post("/api/projects/:projectId/pull-m365", async (req, res) => {
             const status = d.error
               ? (d.error === "Already exists in docs" ? "Skipped (exists)" : `Error: ${d.error}`)
               : (d.converted ? `Converted to ${d.converted}` : "Saved");
-            appendLines.push(`| ${d.name} | ${status} |`);
+            appendLines.push(`| ${escapeMd(d.name)} | ${escapeMd(status)} |`);
           }
           appendLines.push("");
           fs.appendFileSync(filePath, appendLines.join("\n"), "utf-8");
