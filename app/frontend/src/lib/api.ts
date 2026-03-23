@@ -187,12 +187,13 @@ export async function pullFromM365(
   projectId: string,
   customer: string,
   timeRange: string,
+  aliases: string,
   onProgress: (event: PullM365Progress) => void,
 ): Promise<void> {
   const res = await fetch(`${BASE}/projects/${projectId}/pull-m365`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ customer, timeRange }),
+    body: JSON.stringify({ customer, timeRange, aliases }),
   });
 
   if (!res.ok) {

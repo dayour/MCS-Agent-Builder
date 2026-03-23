@@ -488,18 +488,21 @@ app.delete("/api/projects/:projectId/docs/:filename", (req, res) => {
     return res.status(404).json({ detail: `Project '${req.params.projectId}' not found` });
   }
 
-  const safe = req.params.filename.replace(/[^\w\-.]/g, "_");
-  const target = path.join(folder, "docs", safe);
-  if (!fs.existsSync(target)) {
-    return res.status(404).json({ detail: `File '${safe}' not found in docs/` });
-  }
+  const filename = req.params.filename;
+  const docsDir = path.join(folder, "docs");
+  const target = path.join(docsDir, filename);
 
-  if (!path.resolve(target).startsWith(path.resolve(path.join(folder, "docs")))) {
+  // Path traversal check
+  if (!path.resolve(target).startsWith(path.resolve(docsDir))) {
     return res.status(400).json({ detail: "Invalid file path" });
   }
 
+  if (!fs.existsSync(target)) {
+    return res.status(404).json({ detail: `File '${filename}' not found in docs/` });
+  }
+
   fs.unlinkSync(target);
-  res.json({ deleted: true, filename: safe });
+  res.json({ deleted: true, filename });
 });
 
 app.get("/api/projects/:projectId/docs/:filename/content", async (req, res) => {
@@ -508,18 +511,21 @@ app.get("/api/projects/:projectId/docs/:filename/content", async (req, res) => {
     return res.status(404).json({ detail: `Project '${req.params.projectId}' not found` });
   }
 
-  const safe = req.params.filename.replace(/[^\w\-.]/g, "_");
-  const target = path.join(folder, "docs", safe);
-  if (!fs.existsSync(target)) {
-    return res.status(404).json({ detail: `File '${safe}' not found` });
-  }
+  const filename = req.params.filename;
+  const docsDir = path.join(folder, "docs");
+  const target = path.join(docsDir, filename);
 
-  if (!path.resolve(target).startsWith(path.resolve(path.join(folder, "docs")))) {
+  // Path traversal check
+  if (!path.resolve(target).startsWith(path.resolve(docsDir))) {
     return res.status(400).json({ detail: "Invalid file path" });
   }
 
+  if (!fs.existsSync(target)) {
+    return res.status(404).json({ detail: `File '${filename}' not found` });
+  }
+
   const result = await extractContent(target);
-  res.json({ filename: safe, content: result.content, error: result.error || undefined });
+  res.json({ filename, content: result.content, error: result.error || undefined });
 });
 
 // ---------------------------------------------------------------------------
@@ -534,6 +540,10 @@ app.post("/api/projects/:projectId/pull-m365", async (req, res) => {
 
   const customer = (req.body.customer || "").trim();
   const timeRange = req.body.timeRange || "90d";
+  const aliases = (req.body.aliases || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
   if (!customer) return res.status(400).json({ detail: "Customer name required" });
 
   const available = await isWorkIQAvailable();
@@ -553,7 +563,7 @@ app.post("/api/projects/:projectId/pull-m365", async (req, res) => {
 
   const sendSSE = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
 
-  const queries = buildQueries(customer, timeRange);
+  const queries = buildQueries(customer, timeRange, aliases);
   sendSSE({ type: "started", total: queries.length, customer });
 
   const results = [];
@@ -601,11 +611,11 @@ app.post("/api/projects/:projectId/pull-m365", async (req, res) => {
     sendSSE({ type: "error", detail: `Failed to save context file: ${e.message}` });
   }
 
-  // Phase 2: Download actual files from SharePoint URLs found in results
+  // Phase 2: Download actual files — CLSCMS library search + SharePoint URLs from results
   const spUrls = extractSharePointUrls(results);
-  if (spUrls.length > 0) {
+  {
     try {
-      const downloadResults = await downloadAndConvertFiles(spUrls, docsDir, sendSSE);
+      const downloadResults = await downloadAndConvertFiles(spUrls, docsDir, customer, aliases, sendSSE);
 
       // Append download summary to context file
       const downloaded = downloadResults.filter((r) => !r.error || r.error === "Already exists in docs");

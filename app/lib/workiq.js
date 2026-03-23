@@ -1,9 +1,9 @@
 /**
  * WorkIQ CLI wrapper — pulls M365 customer context via WorkIQ.
  *
- * Spawns `workiq ask -q "..."` child processes to query emails, meetings,
- * Teams, SharePoint, and people. Assembles results into a consolidated
- * markdown file with a document version map for deduplication.
+ * Spawns `workiq ask -q "..."` child processes to query 4 M365 sources
+ * (Emails, Meetings, SharePoint SDR, Teams). Assembles results into a
+ * consolidated markdown file with a document version map for deduplication.
  */
 
 const { spawn, execSync } = require("child_process");
@@ -109,59 +109,52 @@ const TIME_RANGE_LABELS = {
 };
 
 /**
- * Build the 9 query objects for a customer pull.
+ * Build a search phrase that includes the customer name and any aliases.
+ * e.g., "BlueYonder" + ["BY", "Blue Yonder"] → "BlueYonder (also known as BY, Blue Yonder)"
+ *
+ * @param {string} customer  Primary name
+ * @param {string[]} aliases  Alternative names / abbreviations
+ * @returns {string}
+ */
+function buildNamePhrase(customer, aliases) {
+  if (!aliases || aliases.length === 0) return customer;
+  return `${customer} (also known as ${aliases.join(", ")})`;
+}
+
+/**
+ * Build the 4 query objects for a customer pull.
+ * Focused on the four highest-value M365 sources: Emails, Meetings,
+ * SharePoint SDR (CLSCMS), and Teams conversations.
+ *
  * @param {string} customer  Customer/company name
  * @param {string} timeRange "30d" | "90d" | "180d" | "1y"
+ * @param {string[]} [aliases]  Alternative names / abbreviations
  * @returns {Array<{id: number, label: string, question: string}>}
  */
-function buildQueries(customer, timeRange) {
+function buildQueries(customer, timeRange, aliases) {
   const tr = TIME_RANGE_LABELS[timeRange] || TIME_RANGE_LABELS["90d"];
+  const name = buildNamePhrase(customer, aliases);
 
   return [
     {
       id: 1,
-      label: "Overview",
-      question: `Give me a comprehensive summary of everything related to ${customer} ${tr}. Include projects, discussions, decisions, pain points, and key people involved.`,
+      label: "Emails",
+      question: `Find all emails mentioning ${name} ${tr}. For each: date, participants, summary of decisions and action items. IMPORTANT: If any email has document attachments (SDR, specs, presentations), list the attachment name, date sent, and how it differs from or updates previous versions.`,
     },
     {
       id: 2,
-      label: "Emails",
-      question: `Find all emails mentioning ${customer} ${tr}. For each: date, participants, summary of decisions and action items. IMPORTANT: If any email has document attachments (SDR, specs, presentations), list the attachment name, date sent, and how it differs from or updates previous versions.`,
+      label: "Meetings",
+      question: `Find all meetings about ${name} or with ${name} participants ${tr}. Summarize outcomes, decisions, action items, and technical discussions. Include dates and attendees. Note any documents or files shared during meetings.`,
     },
     {
       id: 3,
-      label: "Meetings",
-      question: `Find all meetings about ${customer} or with ${customer} participants ${tr}. Summarize outcomes, decisions, action items, and technical discussions. Include dates and attendees. Note any documents or files shared during meetings.`,
+      label: "SharePoint SDR",
+      question: `Find all Solution Discovery Reports and customer documents for ${name} in the SharePoint site teams/CLSCMS/account. For each document list: exact file name, last modified date, modified by, version number if available, and a brief content summary. Sort by most recently modified first.`,
     },
     {
       id: 4,
-      label: "SharePoint SDR",
-      question: `Find all Solution Discovery Reports and customer documents for ${customer} in the SharePoint site teams/CLSCMS/account. For each document list: exact file name, last modified date, modified by, version number if available, and a brief content summary. Sort by most recently modified first.`,
-    },
-    {
-      id: 5,
-      label: "Documents (broad)",
-      question: `Find all documents, presentations, and files about ${customer} in SharePoint and OneDrive ${tr}, excluding the CLSCMS/account site. List each with: exact file name, location, last modified date, and brief content description.`,
-    },
-    {
-      id: 6,
       label: "Teams",
-      question: `Find all Teams messages and channel discussions mentioning ${customer} ${tr}. Summarize key conversations, decisions, and blockers. Note any shared file links with dates.`,
-    },
-    {
-      id: 7,
-      label: "People",
-      question: `Who are the key people working with ${customer}? Include internal team members and external contacts. List their roles, involvement level, and how recently they've been active.`,
-    },
-    {
-      id: 8,
-      label: "Requirements",
-      question: `Find any Solution Discovery Report, requirements document, use case document, or agent specification related to ${customer} ${tr}. Summarize key requirements, use cases, and technical details. If multiple versions exist, list each version with its date and what changed.`,
-    },
-    {
-      id: 9,
-      label: "Recent Activity",
-      question: `What has happened with ${customer} in the last 30 days? Include recent emails, meetings, documents, Teams messages, and decisions. Focus on what changed or was decided most recently.`,
+      question: `Find all Teams messages and channel discussions mentioning ${name} ${tr}. Summarize key conversations, decisions, and blockers. Note any shared file links with dates.`,
     },
   ];
 }
@@ -278,15 +271,10 @@ function deduplicateDocuments(results) {
 // ───────────────────────────────────────────────────────────────────────────
 
 const SECTION_MAP = {
-  1: "Overview",
-  2: "Email History",
-  3: "Meetings & Transcripts",
-  4: "SharePoint SDR (CLSCMS)",
-  5: "Documents & Files (Other)",
-  6: "Teams Conversations",
-  7: "Key People & Stakeholders",
-  8: "Requirements & Specifications",
-  9: "Recent Activity",
+  1: "Email History",
+  2: "Meetings & Transcripts",
+  3: "SharePoint SDR (CLSCMS)",
+  4: "Teams Conversations",
 };
 
 /**
@@ -412,6 +400,88 @@ function extractSharePointUrls(results) {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
+// CLSCMS account library direct search
+// ───────────────────────────────────────────────────────────────────────────
+
+const CLSCMS_SITE_PATH = "/teams/CLSCMS";
+const CLSCMS_HOSTNAME = "microsoft.sharepoint.com";
+
+/** Escape a value for use inside an OData single-quoted string literal. */
+function escapeOData(str) {
+  return str.replace(/'/g, "''");
+}
+
+/** Sanitize a remote filename — strip path separators and ".." segments. */
+function sanitizeFilename(name) {
+  return path.basename(name).replace(/\.\./g, "_");
+}
+
+/**
+ * Search the CLSCMS account library directly via Graph API for files
+ * matching the customer name or aliases. Returns driveItems ready for download.
+ *
+ * The CLSCMS site has a dedicated "Account" drive (document library) at
+ * https://microsoft.sharepoint.com/teams/CLSCMS/account — customer SDRs
+ * and agent specs live here, organized by customer folder.
+ *
+ * @param {string} token  Graph API token for Microsoft tenant
+ * @param {string} customer  Primary customer name
+ * @param {string[]} [aliases]  Alternative names
+ * @returns {Promise<Array<{id, name, driveId, size, mimeType}>>}
+ */
+async function searchCLSCMS(token, customer, aliases) {
+  const { httpRequestWithRetry } = require("../../tools/lib/http");
+  const headers = { Authorization: `Bearer ${token}` };
+  const select = "$select=id,name,size,file,parentReference,lastModifiedDateTime";
+
+  // Get all drives on CLSCMS site, find "Account" drive
+  const siteRes = await httpRequestWithRetry("GET",
+    `${GRAPH_BASE}/sites/${CLSCMS_HOSTNAME}:${CLSCMS_SITE_PATH}:/drives?$select=name,id`,
+    headers, null, 1, 10000);
+  if (siteRes.status !== 200) return [];
+
+  const accountDrive = (siteRes.data.value || []).find((d) => d.name === "Account");
+  if (!accountDrive) return [];
+
+  const driveId = accountDrive.id;
+
+  // Search for each name variant, collect unique results
+  const names = [customer, ...(aliases || [])];
+  const seen = new Set();
+  const items = [];
+
+  for (const name of names) {
+    if (!name || name.length < 2) continue;
+    try {
+      const res = await httpRequestWithRetry("GET",
+        `${GRAPH_BASE}/drives/${driveId}/root/search(q='${encodeURIComponent(escapeOData(name))}')?${select}&$top=20`,
+        headers, null, 1, 15000);
+      if (res.status === 200 && res.data.value) {
+        for (const item of res.data.value) {
+          if (seen.has(item.id)) continue;
+          seen.add(item.id);
+          // Only include actual files (not folders) with downloadable extensions
+          const ext = path.extname(item.name || "").toLowerCase();
+          if (item.file && DOWNLOADABLE_EXTENSIONS.has(ext)) {
+            items.push({
+              id: item.id,
+              name: item.name,
+              driveId: item.parentReference?.driveId || "",
+              size: item.size || 0,
+              mimeType: item.file?.mimeType || "",
+            });
+          }
+        }
+      }
+    } catch {
+      // Skip failed searches, continue with other names
+    }
+  }
+
+  return items;
+}
+
+// ───────────────────────────────────────────────────────────────────────────
 // Graph API file resolution + download
 // ───────────────────────────────────────────────────────────────────────────
 
@@ -528,7 +598,7 @@ async function resolveSharePointUrl(token, url) {
     if (siteId && parsed.fileName && parsed.fileName.length > 3) {
       const searchName = path.basename(parsed.fileName, path.extname(parsed.fileName));
       const res = await httpRequestWithRetry("GET",
-        `${GRAPH_BASE}/sites/${siteId}/drive/root/search(q='${encodeURIComponent(searchName)}')?${select}&$top=5`,
+        `${GRAPH_BASE}/sites/${siteId}/drive/root/search(q='${encodeURIComponent(escapeOData(searchName))}')?${select}&$top=5`,
         headers, null, 1, 15000);
       if (res.status === 200 && res.data.value?.length > 0) {
         // Prefer exact name match
@@ -584,19 +654,55 @@ function getGraphTokenForHost(hostname) {
 
 /**
  * Download and convert SharePoint files found in WorkIQ results.
+ * Also searches the CLSCMS account library directly for customer files.
  *
  * @param {Array<{url: string, source: string}>} urls  Extracted SharePoint URLs
  * @param {string} docsDir  Target docs directory
+ * @param {string} customer  Customer name (for CLSCMS search)
+ * @param {string[]} aliases  Customer aliases (for CLSCMS search)
  * @param {function} onProgress  SSE callback: (event) => void
  * @returns {Promise<Array<{name: string, converted: string|null, error: string|null}>>}
  */
-async function downloadAndConvertFiles(urls, docsDir, onProgress) {
-  if (urls.length === 0) return [];
-
+async function downloadAndConvertFiles(urls, docsDir, customer, aliases, onProgress) {
   const { convertDocument } = require("./documents");
 
+  // Get Microsoft tenant token (needed for CLSCMS and most SP URLs)
+  const msToken = getGraphTokenForHost(CLSCMS_HOSTNAME);
+  if (!msToken && urls.length === 0) {
+    onProgress({
+      type: "download-skipped",
+      reason: `Graph API auth needed. Run: az login --tenant ${SP_TENANT_MAP[CLSCMS_HOSTNAME]}`,
+    });
+    return [];
+  }
+
+  // Phase 1: Search CLSCMS account library directly for customer files
+  let clscmsItems = [];
+  if (msToken && customer) {
+    onProgress({ type: "download-progress", index: 0, total: 0, status: "resolving",
+      name: "Searching CLSCMS account library..." });
+    try {
+      clscmsItems = await searchCLSCMS(msToken, customer, aliases);
+    } catch {
+      // CLSCMS search failed — continue with URL extraction
+    }
+  }
+
+  // Build unified download list: CLSCMS items (pre-resolved) + URL items (need resolution)
+  fs.mkdirSync(docsDir, { recursive: true });
+  const existingFiles = new Set(fs.readdirSync(docsDir).map((f) => f.toLowerCase()));
+  const totalItems = clscmsItems.length + urls.length;
+
+  if (totalItems === 0) return [];
+
+  onProgress({ type: "download-started", total: totalItems });
+
+  const results = [];
+  let index = 0;
+
   // Group URLs by hostname and get tokens per host
-  const tokenCache = new Map(); // hostname → token|null
+  const tokenCache = new Map();
+  tokenCache.set(CLSCMS_HOSTNAME, msToken);
   function getTokenForUrl(url) {
     try {
       const hostname = new URL(url).hostname;
@@ -609,127 +715,104 @@ async function downloadAndConvertFiles(urls, docsDir, onProgress) {
     }
   }
 
-  // Quick check: can we get at least one token?
-  const firstToken = getTokenForUrl(urls[0].url);
-  if (!firstToken) {
-    const hostname = new URL(urls[0].url).hostname;
-    const tenantId = SP_TENANT_MAP[hostname];
-    onProgress({
-      type: "download-skipped",
-      reason: tenantId
-        ? `Graph API auth needed for ${hostname}. Run: az login --tenant ${tenantId}`
-        : `Graph API auth not available. Run \`az login\` to enable file downloads.`,
-    });
-    return [];
+  // Phase 1a: Download CLSCMS items (already resolved — have driveId + itemId)
+  for (const item of clscmsItems) {
+    index++;
+    const safeName = sanitizeFilename(item.name);
+    const lowerName = safeName.toLowerCase();
+    const ext = path.extname(lowerName);
+    const baseName = path.basename(safeName, path.extname(safeName));
+    const possibleConverted = ext === ".docx" ? `${baseName}.md`.toLowerCase()
+      : (ext === ".xlsx" || ext === ".xls") ? `${baseName}.csv`.toLowerCase()
+      : lowerName;
+
+    if (existingFiles.has(lowerName) || existingFiles.has(possibleConverted)) {
+      results.push({ name: safeName, converted: null, error: "Already exists in docs" });
+      onProgress({ type: "download-progress", index, total: totalItems, name: safeName, status: "skipped", detail: "Already in docs" });
+      continue;
+    }
+
+    if (item.size > 50 * 1024 * 1024) {
+      results.push({ name: safeName, converted: null, error: `File too large: ${Math.round(item.size / 1024 / 1024)}MB` });
+      onProgress({ type: "download-progress", index, total: totalItems, name: safeName, status: "skipped", detail: "Too large (>50MB)" });
+      continue;
+    }
+
+    onProgress({ type: "download-progress", index, total: totalItems, name: safeName, status: "downloading" });
+
+    try {
+      const tempPath = path.join(docsDir, safeName);
+      await downloadFile(msToken, item.id, tempPath, item.driveId);
+      let convertedName = null, convErr = null;
+      try {
+        const result = await convertDocument(tempPath, docsDir);
+        convertedName = result.convertedName;
+        convErr = result.error;
+      } catch (e) { convErr = `Conversion failed: ${String(e).slice(0, 200)}`; }
+      const finalName = convertedName || safeName;
+      existingFiles.add(finalName.toLowerCase());
+      results.push({ name: safeName, converted: convertedName, error: convErr });
+      onProgress({ type: "download-progress", index, total: totalItems, name: safeName, converted: convertedName, status: "done" });
+    } catch (err) {
+      results.push({ name: safeName, converted: null, error: `Download failed: ${err.message}` });
+      onProgress({ type: "download-progress", index, total: totalItems, name: safeName, status: "error", detail: "Download failed" });
+    }
   }
 
-  onProgress({
-    type: "download-started",
-    total: urls.length,
-  });
+  // Phase 2: Download files from WorkIQ-extracted URLs
 
-  const results = [];
-  const existingFiles = new Set(fs.readdirSync(docsDir).map((f) => f.toLowerCase()));
-
-  for (let i = 0; i < urls.length; i++) {
-    const { url, source } = urls[i];
+  for (const { url, source } of urls) {
+    index++;
 
     // Get token for this URL's host
     const token = getTokenForUrl(url);
     if (!token) {
       const hostname = new URL(url).hostname;
       results.push({ name: url, converted: null, error: `No auth for ${hostname}` });
-      onProgress({
-        type: "download-progress",
-        index: i + 1,
-        total: urls.length,
-        url,
-        status: "error",
-        detail: `No auth for ${hostname}`,
-      });
+      onProgress({ type: "download-progress", index, total: totalItems, url, status: "error", detail: `No auth for ${hostname}` });
       continue;
     }
 
-    onProgress({
-      type: "download-progress",
-      index: i + 1,
-      total: urls.length,
-      url,
-      status: "resolving",
-    });
+    onProgress({ type: "download-progress", index, total: totalItems, url, status: "resolving" });
 
     // Resolve URL to driveItem
     const item = await resolveSharePointUrl(token, url);
     if (!item || !item.driveId) {
       results.push({ name: url, converted: null, error: "Could not resolve SharePoint URL" });
-      onProgress({
-        type: "download-progress",
-        index: i + 1,
-        total: urls.length,
-        url,
-        status: "error",
-        detail: "Could not resolve URL",
-      });
+      onProgress({ type: "download-progress", index, total: totalItems, url, status: "error", detail: "Could not resolve URL" });
       continue;
     }
 
-    // Skip if file already exists in docs/
-    const lowerName = item.name.toLowerCase();
+    // Skip if already downloaded (from CLSCMS phase or duplicate URL)
+    const safeName2 = sanitizeFilename(item.name);
+    const lowerName = safeName2.toLowerCase();
     const ext = path.extname(lowerName);
-    const baseName = path.basename(item.name, path.extname(item.name));
+    const baseName = path.basename(safeName2, path.extname(safeName2));
     const possibleConverted = ext === ".docx" ? `${baseName}.md`.toLowerCase()
       : (ext === ".xlsx" || ext === ".xls") ? `${baseName}.csv`.toLowerCase()
       : lowerName;
 
     if (existingFiles.has(lowerName) || existingFiles.has(possibleConverted)) {
-      results.push({ name: item.name, converted: null, error: "Already exists in docs" });
-      onProgress({
-        type: "download-progress",
-        index: i + 1,
-        total: urls.length,
-        name: item.name,
-        status: "skipped",
-        detail: "Already in docs",
-      });
+      results.push({ name: safeName2, converted: null, error: "Already exists in docs" });
+      onProgress({ type: "download-progress", index, total: totalItems, name: safeName2, status: "skipped", detail: "Already in docs" });
       continue;
     }
 
-    // Skip large files (>50MB)
     if (item.size > 50 * 1024 * 1024) {
-      results.push({ name: item.name, converted: null, error: `File too large: ${Math.round(item.size / 1024 / 1024)}MB` });
-      onProgress({
-        type: "download-progress",
-        index: i + 1,
-        total: urls.length,
-        name: item.name,
-        status: "skipped",
-        detail: "Too large (>50MB)",
-      });
+      results.push({ name: safeName2, converted: null, error: `File too large: ${Math.round(item.size / 1024 / 1024)}MB` });
+      onProgress({ type: "download-progress", index, total: totalItems, name: safeName2, status: "skipped", detail: "Too large (>50MB)" });
       continue;
     }
 
     // Download
-    const tempPath = path.join(docsDir, item.name);
-    onProgress({
-      type: "download-progress",
-      index: i + 1,
-      total: urls.length,
-      name: item.name,
-      status: "downloading",
-    });
+    const tempPath = path.join(docsDir, safeName2);
+    onProgress({ type: "download-progress", index, total: totalItems, name: safeName2, status: "downloading" });
 
     try {
       await downloadFile(token, item.id, tempPath, item.driveId);
     } catch (err) {
-      results.push({ name: item.name, converted: null, error: `Download failed: ${err.message}` });
-      onProgress({
-        type: "download-progress",
-        index: i + 1,
-        total: urls.length,
-        name: item.name,
-        status: "error",
-        detail: `Download failed`,
-      });
+      results.push({ name: safeName2, converted: null, error: `Download failed: ${err.message}` });
+      onProgress({ type: "download-progress", index, total: totalItems, name: safeName2, status: "error", detail: "Download failed" });
       continue;
     }
 
@@ -743,31 +826,15 @@ async function downloadAndConvertFiles(urls, docsDir, onProgress) {
     } catch (convError) {
       convErr = `Conversion failed: ${String(convError).slice(0, 200)}`;
     }
-    const finalName = convertedName || item.name;
-
-    // Track the file
-    existingFiles.add(finalName.toLowerCase());
-
-    results.push({
-      name: item.name,
-      converted: convertedName,
-      error: convErr,
-    });
-
-    onProgress({
-      type: "download-progress",
-      index: i + 1,
-      total: urls.length,
-      name: item.name,
-      converted: convertedName,
-      status: "done",
-    });
+    existingFiles.add((convertedName || safeName2).toLowerCase());
+    results.push({ name: safeName2, converted: convertedName, error: convErr });
+    onProgress({ type: "download-progress", index, total: totalItems, name: safeName2, converted: convertedName, status: "done" });
   }
 
   const downloaded = results.filter((r) => !r.error || r.error === "Already exists in docs");
   onProgress({
     type: "download-done",
-    total: urls.length,
+    total: totalItems,
     downloaded: downloaded.length,
     errors: results.filter((r) => r.error && r.error !== "Already exists in docs").length,
   });

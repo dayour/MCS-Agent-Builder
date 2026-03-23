@@ -187,6 +187,7 @@ const DocumentDropZone = ({ projectId }: DocumentDropZoneProps) => {
   // Pull from M365 state
   const [showPullForm, setShowPullForm] = useState(false);
   const [pullCustomer, setPullCustomer] = useState("");
+  const [pullAliases, setPullAliases] = useState("");
   const [pullTimeRange, setPullTimeRange] = useState("90d");
   const [pulling, setPulling] = useState(false);
   const [pullProgress, setPullProgress] = useState<{
@@ -302,7 +303,7 @@ const DocumentDropZone = ({ projectId }: DocumentDropZoneProps) => {
     setPullProgress({ completed: 0, total: 9, currentLabel: "Starting...", errors: [], phase: "queries" });
 
     try {
-      await pullFromM365(pullCustomer.trim(), pullTimeRange, (event: PullM365Progress) => {
+      await pullFromM365(pullCustomer.trim(), pullTimeRange, pullAliases, (event: PullM365Progress) => {
         if (event.type === "started") {
           setPullProgress((p) => p ? { ...p, total: event.total ?? 9 } : p);
         } else if (event.type === "progress") {
@@ -367,6 +368,7 @@ const DocumentDropZone = ({ projectId }: DocumentDropZoneProps) => {
       });
       setShowPullForm(false);
       setPullCustomer("");
+      setPullAliases("");
     } catch (e: any) {
       toast.error(e.message || "Failed to pull M365 context", { duration: 8000 });
     } finally {
@@ -459,6 +461,13 @@ const DocumentDropZone = ({ projectId }: DocumentDropZoneProps) => {
             disabled={pulling}
             onKeyDown={(e) => { if (e.key === "Enter" && pullCustomer.trim()) handlePullFromM365(); }}
           />
+          <Input
+            placeholder="Also known as (optional, comma-separated)"
+            value={pullAliases}
+            onChange={(e) => setPullAliases(e.target.value)}
+            disabled={pulling}
+            className="text-xs"
+          />
           <Select value={pullTimeRange} onValueChange={setPullTimeRange} disabled={pulling}>
             <SelectTrigger className="h-9 text-xs">
               <SelectValue placeholder="Time range" />
@@ -494,7 +503,7 @@ const DocumentDropZone = ({ projectId }: DocumentDropZoneProps) => {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => { setShowPullForm(false); setPullCustomer(""); setPullProgress(null); }}
+              onClick={() => { setShowPullForm(false); setPullCustomer(""); setPullAliases(""); setPullProgress(null); }}
               disabled={pulling}
             >
               Cancel

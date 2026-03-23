@@ -37,6 +37,7 @@ interface ProjectStore {
   pullFromM365: (
     customer: string,
     timeRange: string,
+    aliases: string,
     onProgress: (event: PullM365Progress) => void,
   ) => Promise<void>;
 }
@@ -185,10 +186,10 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     set((s) => ({ agents: s.agents.filter((a) => a.id !== agentId) }));
   },
 
-  pullFromM365: async (customer, timeRange, onProgress) => {
+  pullFromM365: async (customer, timeRange, aliases, onProgress) => {
     const id = get().projectId;
     if (!id) return;
-    await apiPullFromM365(id, customer, timeRange, onProgress);
+    await apiPullFromM365(id, customer, timeRange, aliases, onProgress);
     await get().refresh();
   },
 }));
