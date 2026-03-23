@@ -619,7 +619,7 @@ async function searchCLSCMS(token, customer, aliases) {
     if (!name || name.length < 2) continue;
     try {
       const res = await httpRequestWithRetry("GET",
-        `${GRAPH_BASE}/drives/${driveId}/root/search(q='${encodeURIComponent(escapeOData(name))}')?${select}&$top=20`,
+        `${GRAPH_BASE}/drives/${driveId}/root/search(q='${escapeOData(name)}')?${select}&$top=20`,
         headers, null, 1, 15000);
       if (res.status === 200 && res.data.value) {
         for (const item of res.data.value) {
@@ -843,7 +843,7 @@ async function resolveSharePointUrl(token, url) {
     if (siteId && parsed.fileName && parsed.fileName.length > 3) {
       const searchName = path.basename(parsed.fileName, path.extname(parsed.fileName));
       const res = await httpRequestWithRetry("GET",
-        `${GRAPH_BASE}/sites/${siteId}/drive/root/search(q='${encodeURIComponent(escapeOData(searchName))}')?${select}&$top=5`,
+        `${GRAPH_BASE}/sites/${siteId}/drive/root/search(q='${escapeOData(searchName)}')?${select}&$top=5`,
         headers, null, 1, 15000);
       if (res.status === 200 && res.data.value?.length > 0) {
         // Prefer exact name match
