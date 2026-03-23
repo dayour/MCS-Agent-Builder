@@ -28,15 +28,11 @@ const { migrateBrief } = require("./lib/brief-migrate");
 const { convertDocument, extractContent, NEEDS_CONVERSION } = require("./lib/documents");
 const { isWorkIQAvailable, checkWorkIQAuth, runQueriesBatched, buildQueries, deduplicateDocuments, assembleContextFile, extractSharePointUrls, downloadAndConvertFiles, escapeMd } = require("./lib/workiq");
 const {
-  DOC_EXTENSIONS,
   ensureDirs,
   listProjects,
   getProject,
   getDocStatus,
-  scanAgents,
   humanizeName,
-  calcReadiness,
-  isBuildReady,
 } = require("./lib/projects");
 
 // ---------------------------------------------------------------------------
@@ -114,7 +110,8 @@ function safeSlug(param) {
 
 /** Verify resolved path is within the expected base directory */
 function assertWithin(base, target) {
-  return path.resolve(target).startsWith(path.resolve(base));
+  const resolvedBase = path.resolve(base) + path.sep;
+  return path.resolve(target).startsWith(resolvedBase);
 }
 
 // ---------------------------------------------------------------------------

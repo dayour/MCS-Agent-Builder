@@ -37,15 +37,17 @@ function getXLSX() {
  * Encrypted Office files are OLE2 containers, not ZIP.
  */
 function isZipFile(filePath) {
+  let fd;
   try {
-    const fd = fs.openSync(filePath, "r");
+    fd = fs.openSync(filePath, "r");
     const buf = Buffer.alloc(4);
     fs.readSync(fd, buf, 0, 4, 0);
-    fs.closeSync(fd);
     // ZIP magic number: PK\x03\x04
     return buf[0] === 0x50 && buf[1] === 0x4b && buf[2] === 0x03 && buf[3] === 0x04;
   } catch {
     return false;
+  } finally {
+    if (fd !== undefined) try { fs.closeSync(fd); } catch {}
   }
 }
 
@@ -119,7 +121,7 @@ async function convertDocument(filePath, docsDir) {
   }
 
   // Check for encrypted files
-  if ([".docx", ".pptx", ".xlsx"].includes(ext) && !isZipFile(filePath)) {
+  if (isEncryptedOfficeFile(filePath)) {
     return {
       convertedName: null,
       error:
@@ -192,7 +194,7 @@ async function extractContent(filePath) {
 
   // Binary Office docs: extract on demand
   if ([".docx", ".pptx", ".xlsx", ".xls"].includes(ext)) {
-    if ([".docx", ".pptx", ".xlsx"].includes(ext) && !isZipFile(filePath)) {
+    if (isEncryptedOfficeFile(filePath)) {
       return {
         content: "",
         error: "This file is encrypted or protected and cannot be previewed.",

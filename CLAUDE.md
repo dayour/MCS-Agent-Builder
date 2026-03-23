@@ -97,7 +97,7 @@ When something fails, stop and research broadly before retrying:
 ├── settings.json, skills/ (13 skills), agents/ (7 teammates), rules/ (path-scoped)
 
 app/
-├── server.js, terminal-server.js, lib/ (documents, projects, workiq, terminal), frontend/ (React + Vite + shadcn/ui)
+├── server.js, terminal-server.js, lib/ (documents, projects, workiq, readiness, brief-migrate, terminal), frontend/ (React + Vite + shadcn/ui)
 
 knowledge/
 ├── cache/ (24 cheat sheets), patterns/ (YAML, Dataverse, topic, flow templates)
@@ -108,8 +108,10 @@ tools/
 ├── mcs-lsp.js, island-client.js, add-tool.js, flow-manager.js
 ├── direct-line-test.js, eval-scoring.js, multi-model-review.js
 ├── solution-library.js, replicate-agent.js, dataverse-helper.ps1
-├── om-cli/ (YAML validation, 357 types), lib/ (http, openai, graph, flow-composer, connector-schema)
+├── copilotstudio-test.js, powercat-test.js, upstream-check.js
+├── om-cli/ (YAML validation, 357 types), lib/ (http, openai, graph-sharepoint, flow-composer, connector-schema)
 ├── gen-constraints.py, drift-detect.py, semantic-gates.py
+├── git-hooks/ (pre-commit, pre-push), update-om-cli.ps1
 
 templates/
 ├── brief.json (schema), default-recommendations.json

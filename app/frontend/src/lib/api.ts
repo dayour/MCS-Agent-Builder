@@ -226,4 +226,11 @@ export async function pullFromM365(
       }
     }
   }
+
+  // Flush remaining buffer (last event may lack trailing newline)
+  if (buffer.startsWith("data: ")) {
+    try {
+      onProgress(JSON.parse(buffer.slice(6)));
+    } catch { /* ignore */ }
+  }
 }

@@ -1181,7 +1181,6 @@ async function clone(workspacePath, connInfo, options = {}) {
         // The LSP creates a subfolder named after the agent
         const agentFolder = result.agentFolderName || connInfo.displayName || 'Agent';
         const agentPath = path.join(workspacePath, agentFolder);
-        const files = fs.existsSync(agentPath) ? findMcsYmlFiles(agentPath) : [];
 
         // Post-clone cleanup (same fixes as post-pull)
         if (fs.existsSync(agentPath)) {

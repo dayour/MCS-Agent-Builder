@@ -137,9 +137,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   loadDocContent: async (filename: string) => {
     const id = get().projectId;
     if (!id) return "";
-    // Return cached content if already loaded
-    const existing = get().docContent[filename];
-    if (existing) return existing;
+    // Return cached content if already loaded (use `in` to avoid refetch on empty docs)
+    if (filename in get().docContent) return get().docContent[filename];
     try {
       const result = await fetchDocContent(id, filename);
       const content = result.content ?? "";

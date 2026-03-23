@@ -170,7 +170,7 @@ The tool continuously learns and improves:
 |-------|------|--------------|
 | **Cache** (24 files) | MCS capabilities — models, connectors, MCP servers, triggers, first-party agents, declarative agents | Auto-refreshed at session start |
 | **Learnings** (9 files) | Experience from past builds — what worked, what didn't | Captured after each build |
-| **Patterns** | YAML syntax, Dataverse API, 36 topic templates, 9 flow templates | Stable reference |
+| **Patterns** | YAML syntax, Dataverse API, 35 topic templates, 9 flow templates | Stable reference |
 | **Frameworks** | Component selection, architecture scoring, eval scenarios | Stable reference |
 
 ---
@@ -199,7 +199,7 @@ Single Node.js process serves the dashboard (Express HTTP), REST API, and Claude
 ```
 app/
   server.js                   Express server (HTTP + WebSocket on one port)
-  lib/                        Readiness calc, document conversion, project CRUD, terminal
+  lib/                        Readiness, documents, projects, workiq, brief-migrate, terminal
   frontend/                   React + TypeScript SPA (Vite + shadcn/ui)
   dist/                       Pre-built frontend (ships with npm package)
 ```
@@ -233,7 +233,7 @@ bin/
 
 app/
   server.js                   Express backend + WebSocket terminal
-  lib/                        Readiness, documents, projects, terminal, brief migration
+  lib/                        Readiness, documents, projects, workiq, brief-migrate, terminal
   frontend/                   React + TypeScript SPA (Vite + shadcn/ui)
 
 knowledge/
@@ -245,17 +245,27 @@ knowledge/
 tools/
   lib/openai.js               GPT-5.4 client (GitHub Copilot Responses API)
   lib/http.js                 Shared HTTP + Azure CLI token helpers
+  lib/graph-sharepoint.js     Graph API + SharePoint file download
   lib/flow-composer.js        Flow composition (builders, wiring, validation)
+  lib/connector-schema.js     Connector schema discovery
   multi-model-review.js       GPT review CLI (14 commands: co-gen, review, scoring, final gate)
   eval-scoring.js             Scoring module (7 methods, dual heuristic+GPT)
   direct-line-test.js         Direct Line eval runner
+  copilotstudio-test.js       Copilot Studio native eval runner
+  powercat-test.js            Power CAT test framework runner
   mcs-lsp.js                  MCS Language Server wrapper (push/pull)
   island-client.js            Island Gateway API client
   flow-manager.js             Power Automate flow CRUD + composition
   add-tool.js                 Headless tool/connector addition
   solution-library.js         Team SharePoint solution library
   replicate-agent.js          Cross-environment agent replication
+  upstream-check.js           Knowledge cache freshness checker
   om-cli/                     ObjectModel CLI — YAML validation (357 types)
+  gen-constraints.py          Pre-generation constraint checks
+  drift-detect.py             Brief-to-YAML spec drift detection
+  semantic-gates.py           Semantic validation (PowerFx, cross-refs, channels)
+  dataverse-helper.ps1        Dataverse Web API PowerShell wrapper
+  git-hooks/                  Pre-commit and pre-push hooks
 
 templates/                    brief.json schema (single source of truth)
 Build-Guides/                 Per-project work (gitignored)
