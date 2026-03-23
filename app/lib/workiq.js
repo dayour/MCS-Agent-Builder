@@ -36,6 +36,70 @@ async function isWorkIQAvailable() {
 // ───────────────────────────────────────────────────────────────────────────
 
 /**
+ * Check if a WorkIQ error message indicates an authentication failure.
+ * @param {string} error  Error message from runWorkIQQuery
+ * @returns {boolean}
+ */
+function isAuthError(error) {
+  if (!error) return false;
+  const lower = error.toLowerCase();
+  return lower.includes("not authenticated") || lower.includes("sign in")
+    || lower.includes("authentication") || lower.includes("token")
+    || lower.includes("unauthorized") || lower.includes("401");
+}
+
+/**
+ * Run a WorkIQ query with automatic retries on failure.
+ * Auth errors are retried once (token refresh race), other errors up to maxRetries.
+ *
+ * @param {string} question  Natural language question
+ * @param {number} timeoutMs Kill the process after this many ms (default 120s)
+ * @param {number} maxRetries Maximum retry attempts (default 2, so 3 total attempts)
+ * @returns {Promise<{content: string, error: string|null, authFailed: boolean}>}
+ */
+async function runWorkIQQueryWithRetry(question, timeoutMs = 120_000, maxRetries = 2) {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const result = await runWorkIQQuery(question, timeoutMs);
+
+    // Success — return immediately
+    if (!result.error) return { ...result, authFailed: false };
+
+    // Auth error — retry once (token might be refreshing), then give up
+    if (isAuthError(result.error)) {
+      if (attempt === 0) {
+        await new Promise((r) => setTimeout(r, 3000));
+        continue;
+      }
+      return { ...result, authFailed: true };
+    }
+
+    // Non-auth error — retry with backoff
+    if (attempt < maxRetries) {
+      await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
+      continue;
+    }
+
+    return { ...result, authFailed: false };
+  }
+
+  // Should not reach here, but just in case
+  return { content: "", error: "All retry attempts exhausted", authFailed: false };
+}
+
+/**
+ * Pre-flight auth check — run a minimal query to verify WorkIQ session is active.
+ * Returns { ok, error }.
+ */
+async function checkWorkIQAuth() {
+  const result = await runWorkIQQuery("ping", 30_000);
+  if (result.error && isAuthError(result.error)) {
+    return { ok: false, error: result.error };
+  }
+  // Even a non-auth error means auth is working (e.g. "no results" is fine)
+  return { ok: true, error: null };
+}
+
+/**
  * Run a single WorkIQ query. Returns { content, error }.
  * @param {string} question  Natural language question
  * @param {number} timeoutMs Kill the process after this many ms (default 120s)
@@ -946,7 +1010,10 @@ async function downloadAndConvertFiles(urls, docsDir, customer, aliases, onProgr
 
 module.exports = {
   isWorkIQAvailable,
+  checkWorkIQAuth,
   runWorkIQQuery,
+  runWorkIQQueryWithRetry,
+  isAuthError,
   buildQueries,
   deduplicateDocuments,
   assembleContextFile,

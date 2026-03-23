@@ -26,7 +26,7 @@ const os = require("os");
 const { attachTerminal } = require("./lib/terminal");
 const { migrateBrief } = require("./lib/brief-migrate");
 const { convertDocument, extractContent, NEEDS_CONVERSION } = require("./lib/documents");
-const { isWorkIQAvailable, runWorkIQQuery, buildQueries, deduplicateDocuments, assembleContextFile, extractSharePointUrls, downloadAndConvertFiles } = require("./lib/workiq");
+const { isWorkIQAvailable, checkWorkIQAuth, runWorkIQQueryWithRetry, isAuthError, buildQueries, deduplicateDocuments, assembleContextFile, extractSharePointUrls, downloadAndConvertFiles } = require("./lib/workiq");
 const {
   DOC_EXTENSIONS,
   ensureDirs,
@@ -549,7 +549,15 @@ app.post("/api/projects/:projectId/pull-m365", async (req, res) => {
   const available = await isWorkIQAvailable();
   if (!available) {
     return res.status(503).json({
-      detail: "WorkIQ CLI not available. Run 'workiq ask -q \"test\"' in a terminal to authenticate.",
+      detail: "WorkIQ CLI not available. Install WorkIQ and run 'workiq ask -q \"test\"' to authenticate.",
+    });
+  }
+
+  // Pre-flight auth check — verify session is active before starting SSE
+  const authCheck = await checkWorkIQAuth();
+  if (!authCheck.ok) {
+    return res.status(503).json({
+      detail: "WorkIQ session expired. Run 'workiq ask -q \"test\"' in a terminal to re-authenticate, then try again.",
     });
   }
 
@@ -561,86 +569,117 @@ app.post("/api/projects/:projectId/pull-m365", async (req, res) => {
     "X-Accel-Buffering": "no",
   });
 
-  const sendSSE = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+  let clientDisconnected = false;
+  req.on("close", () => { clientDisconnected = true; });
 
-  const queries = buildQueries(customer, timeRange, aliases);
-  sendSSE({ type: "started", total: queries.length, customer });
-
-  const results = [];
-  let completed = 0;
-
-  const promises = queries.map(async (q) => {
-    sendSSE({ type: "progress", queryId: q.id, label: q.label, status: "running" });
-    const result = await runWorkIQQuery(q.question, 120_000);
-    completed++;
-    const entry = { ...q, content: result.content, error: result.error };
-    results.push(entry);
-    sendSSE({
-      type: "progress",
-      queryId: q.id,
-      label: q.label,
-      status: result.error ? "error" : "done",
-      completed,
-      total: queries.length,
-    });
-    return entry;
-  });
-
-  await Promise.allSettled(promises);
-
-  // Dedup pass + assemble file
-  const dedup = deduplicateDocuments(results);
-  ensureDirs(folder);
-  const docsDir = path.join(folder, "docs");
-  const safeCustomer = customer.toLowerCase().replace(/[^\w-]/g, "_");
-  const filename = `workiq-context-${safeCustomer}.md`;
-  const filePath = path.join(docsDir, filename);
-  const content = assembleContextFile(customer, results, timeRange, dedup);
+  const sendSSE = (data) => {
+    if (clientDisconnected) return;
+    try { res.write(`data: ${JSON.stringify(data)}\n\n`); } catch {}
+  };
 
   try {
-    fs.writeFileSync(filePath, content, "utf-8");
-    const stat = fs.statSync(filePath);
-    sendSSE({
-      type: "done",
-      filename,
-      size: stat.size,
-      successCount: results.filter((r) => !r.error && r.content).length,
-      totalQueries: queries.length,
-    });
-  } catch (e) {
-    sendSSE({ type: "error", detail: `Failed to save context file: ${e.message}` });
-  }
+    const queries = buildQueries(customer, timeRange, aliases);
+    sendSSE({ type: "started", total: queries.length, customer });
 
-  // Phase 2: Download actual files — CLSCMS library search + SharePoint URLs from results
-  const spUrls = extractSharePointUrls(results);
-  {
-    try {
-      const downloadResults = await downloadAndConvertFiles(spUrls, docsDir, customer, aliases, sendSSE);
+    const results = [];
+    let completed = 0;
+    let authAborted = false;
 
-      // Append download summary to context file
-      const downloaded = downloadResults.filter((r) => !r.error || r.error === "Already exists in docs");
-      if (downloaded.length > 0) {
-        const appendLines = [
-          "",
-          "## Downloaded Documents",
-          "",
-          `> ${downloaded.length} file(s) downloaded and saved to docs/`,
-          "",
-          "| File | Status |",
-          "|------|--------|",
-        ];
-        for (const d of downloadResults) {
-          const status = d.error
-            ? (d.error === "Already exists in docs" ? "Skipped (exists)" : `Error: ${d.error}`)
-            : (d.converted ? `Converted to ${d.converted}` : "Saved");
-          appendLines.push(`| ${d.name} | ${status} |`);
-        }
-        appendLines.push("");
-        fs.appendFileSync(filePath, appendLines.join("\n"), "utf-8");
+    const promises = queries.map(async (q) => {
+      // If another query already detected auth failure, skip this one
+      if (authAborted || clientDisconnected) return null;
+
+      sendSSE({ type: "progress", queryId: q.id, label: q.label, status: "running" });
+      const result = await runWorkIQQueryWithRetry(q.question, 120_000, 2);
+      completed++;
+
+      // Auth failure after retries → signal abort for remaining queries
+      if (result.authFailed) {
+        authAborted = true;
+        sendSSE({
+          type: "error",
+          detail: "WorkIQ session expired during pull. Re-authenticate and try again.",
+        });
+        return null;
       }
-    } catch (e) {
-      sendSSE({ type: "download-skipped", reason: `File download failed: ${e.message}` });
+
+      const entry = { ...q, content: result.content, error: result.error };
+      results.push(entry);
+      sendSSE({
+        type: "progress",
+        queryId: q.id,
+        label: q.label,
+        status: result.error ? "error" : "done",
+        completed,
+        total: queries.length,
+      });
+      return entry;
+    });
+
+    await Promise.allSettled(promises);
+
+    // If auth failed mid-pull, end SSE without writing partial results
+    if (authAborted || clientDisconnected) {
+      res.end();
+      return;
     }
+
+    // Dedup pass + assemble file
+    const dedup = deduplicateDocuments(results);
+    ensureDirs(folder);
+    const docsDir = path.join(folder, "docs");
+    const safeCustomer = customer.toLowerCase().replace(/[^\w-]/g, "_");
+    const filename = `workiq-context-${safeCustomer}.md`;
+    const filePath = path.join(docsDir, filename);
+    const content = assembleContextFile(customer, results, timeRange, dedup);
+
+    try {
+      fs.writeFileSync(filePath, content, "utf-8");
+      const stat = fs.statSync(filePath);
+      sendSSE({
+        type: "done",
+        filename,
+        size: stat.size,
+        successCount: results.filter((r) => !r.error && r.content).length,
+        totalQueries: queries.length,
+      });
+    } catch (e) {
+      sendSSE({ type: "error", detail: `Failed to save context file: ${e.message}` });
+    }
+
+    // Phase 2: Download actual files — CLSCMS library search + SharePoint URLs from results
+    if (!clientDisconnected) {
+      const spUrls = extractSharePointUrls(results);
+      try {
+        const downloadResults = await downloadAndConvertFiles(spUrls, docsDir, customer, aliases, sendSSE);
+
+        // Append download summary to context file
+        const downloaded = downloadResults.filter((r) => !r.error || r.error === "Already exists in docs");
+        if (downloaded.length > 0) {
+          const appendLines = [
+            "",
+            "## Downloaded Documents",
+            "",
+            `> ${downloaded.length} file(s) downloaded and saved to docs/`,
+            "",
+            "| File | Status |",
+            "|------|--------|",
+          ];
+          for (const d of downloadResults) {
+            const status = d.error
+              ? (d.error === "Already exists in docs" ? "Skipped (exists)" : `Error: ${d.error}`)
+              : (d.converted ? `Converted to ${d.converted}` : "Saved");
+            appendLines.push(`| ${d.name} | ${status} |`);
+          }
+          appendLines.push("");
+          fs.appendFileSync(filePath, appendLines.join("\n"), "utf-8");
+        }
+      } catch (e) {
+        sendSSE({ type: "download-skipped", reason: `File download failed: ${e.message}` });
+      }
+    }
+  } catch (e) {
+    sendSSE({ type: "error", detail: `Unexpected error: ${e.message}` });
   }
 
   res.end();
