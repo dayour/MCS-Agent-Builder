@@ -1079,6 +1079,15 @@
           "$ref": "#/definitions/LegacyOrUnknownComponent"
         },
         {
+          "$ref": "#/definitions/CustomMetricDefinitionComponent"
+        },
+        {
+          "$ref": "#/definitions/CustomMetricDefinition"
+        },
+        {
+          "$ref": "#/definitions/CustomMetricCategory"
+        },
+        {
           "$ref": "#/definitions/AIPluginOperationComponent"
         },
         {
@@ -1290,6 +1299,9 @@
         },
         {
           "$ref": "#/definitions/LegacyOrUnknownComponent"
+        },
+        {
+          "$ref": "#/definitions/CustomMetricDefinitionComponent"
         }
       ]
     },
@@ -3211,6 +3223,9 @@
           "$ref": "#/definitions/LegacyOrUnknownComponent"
         },
         {
+          "$ref": "#/definitions/CustomMetricDefinitionComponent"
+        },
+        {
           "$ref": "#/definitions/AIPluginOperationComponent"
         },
         {
@@ -3303,6 +3318,9 @@
         },
         {
           "$ref": "#/definitions/LegacyOrUnknownComponent"
+        },
+        {
+          "$ref": "#/definitions/CustomMetricDefinitionComponent"
         },
         {
           "$ref": "#/definitions/AIPluginOperationComponent"
@@ -14931,6 +14949,86 @@
       "required": [
         "kind",
         "schemaName"
+      ]
+    },
+    "CustomMetricDefinitionComponent": {
+      "title": "CustomMetricDefinitionComponent",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/BotComponentBase",
+      "properties": {
+        "kind": {
+          "const": "CustomMetricDefinitionComponent"
+        },
+        "schemaName": {
+          "title": "SchemaName",
+          "type": "string"
+        },
+        "definition": {
+          "title": "Definition",
+          "$ref": "#/definitions/CustomMetricDefinition"
+        }
+      },
+      "required": [
+        "kind",
+        "schemaName",
+        "definition"
+      ]
+    },
+    "CustomMetricDefinition": {
+      "title": "Custom Metric Definition",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/BotElement",
+      "properties": {
+        "kind": {
+          "const": "CustomMetricDefinition"
+        },
+        "evaluationPrompt": {
+          "title": "Evaluation Prompt",
+          "description": "A prompt for evaluating the custom metric based on its description, classification criteria, and agent context.",
+          "type": "string"
+        },
+        "categories": {
+          "title": "Categories",
+          "description": "A list of possible categories for the custom metric.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CustomMetricCategory"
+          }
+        },
+        "fallbackCategory": {
+          "title": "Fallback Category",
+          "description": "The label of the category used as the fallback when no other category applies.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
+    "CustomMetricCategory": {
+      "title": "Custom Metric Category",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/BotElement",
+      "properties": {
+        "kind": {
+          "const": "CustomMetricCategory"
+        },
+        "label": {
+          "title": "Label",
+          "description": "The label for this category (e.g., 'Positive', 'DealClosed', 'ClassA').",
+          "type": "string"
+        },
+        "description": {
+          "title": "Description",
+          "description": "A description of what this category represents.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind"
       ]
     },
     "AIPluginOperationComponent": {
