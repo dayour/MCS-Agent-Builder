@@ -139,12 +139,12 @@ function buildQueries(customer, timeRange, aliases) {
     {
       id: 1,
       label: "Emails",
-      question: `Find all emails mentioning ${name} ${tr}. For each: date, participants, summary of decisions and action items. IMPORTANT: If any email has document attachments (SDR, specs, presentations), list the attachment name, date sent, and how it differs from or updates previous versions.`,
+      question: `Find all emails mentioning ${name} ${tr}. For each: date, participants, summary of decisions and action items. IMPORTANT: If any email has document attachments (SDR, specs, presentations, spreadsheets), open each attachment and summarize the actual content inside — not just the filename. List the attachment name, date sent, content summary, and how it differs from or updates previous versions.`,
     },
     {
       id: 2,
       label: "Meetings",
-      question: `Find all meetings about ${name} or with ${name} participants ${tr}. Summarize outcomes, decisions, action items, and technical discussions. Include dates and attendees. Note any documents or files shared during meetings.`,
+      question: `Find all meetings about ${name} or with ${name} participants ${tr}. For meetings that have transcripts available, include verbatim quotes from key discussions — speaker name and what they said about decisions, requirements, blockers, and action items. For all meetings: summarize outcomes, decisions, action items, attendees, and any documents or files shared.`,
     },
     {
       id: 3,
@@ -154,7 +154,7 @@ function buildQueries(customer, timeRange, aliases) {
     {
       id: 4,
       label: "Teams",
-      question: `Find all Teams messages and channel discussions mentioning ${name} ${tr}. Summarize key conversations, decisions, and blockers. Note any shared file links with dates.`,
+      question: `Find all Teams messages, channel discussions, and chat threads mentioning ${name} ${tr}. Summarize key conversations, decisions, and blockers. IMPORTANT: For any files or attachments shared in chats, open them and summarize the actual content inside — not just the filename. Note file names, who shared them, dates, and content summaries.`,
     },
   ];
 }
