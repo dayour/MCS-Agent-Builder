@@ -194,6 +194,9 @@ const DocumentDropZone = ({ projectId }: DocumentDropZoneProps) => {
     total: number;
     currentLabel: string;
     errors: string[];
+    phase: "queries" | "downloads";
+    downloadIndex?: number;
+    downloadTotal?: number;
   } | null>(null);
 
   // Derive selectedDoc from documents list by name — always fresh after state changes
@@ -296,7 +299,7 @@ const DocumentDropZone = ({ projectId }: DocumentDropZoneProps) => {
   const handlePullFromM365 = async () => {
     if (!pullCustomer.trim()) return;
     setPulling(true);
-    setPullProgress({ completed: 0, total: 9, currentLabel: "Starting...", errors: [] });
+    setPullProgress({ completed: 0, total: 9, currentLabel: "Starting...", errors: [], phase: "queries" });
 
     try {
       await pullFromM365(pullCustomer.trim(), pullTimeRange, (event: PullM365Progress) => {
@@ -324,6 +327,42 @@ const DocumentDropZone = ({ projectId }: DocumentDropZoneProps) => {
           );
         } else if (event.type === "error") {
           toast.error(event.detail || "Failed to save context file", { duration: 8000 });
+        } else if (event.type === "download-started") {
+          setPullProgress((p) => p ? {
+            ...p,
+            phase: "downloads",
+            completed: 0,
+            total: event.total ?? 0,
+            downloadTotal: event.total ?? 0,
+            currentLabel: `Downloading ${event.total} file(s)...`,
+          } : p);
+        } else if (event.type === "download-progress") {
+          setPullProgress((p) => {
+            if (!p) return p;
+            const label = event.status === "resolving" ? `Resolving ${event.name || "file"}...`
+              : event.status === "downloading" ? `Downloading ${event.name || "file"}...`
+              : event.status === "done" ? `${event.name}${event.converted ? ` → ${event.converted}` : ""}`
+              : event.status === "skipped" ? `Skipped: ${event.name}`
+              : event.status === "error" ? `Failed: ${event.name}`
+              : p.currentLabel;
+            const errors = event.status === "error"
+              ? [...p.errors, `${event.name}: ${event.detail || "download failed"}`]
+              : p.errors;
+            return {
+              ...p,
+              completed: event.index ?? p.completed,
+              downloadIndex: event.index,
+              currentLabel: label,
+              errors,
+            };
+          });
+        } else if (event.type === "download-done") {
+          toast.success(
+            `Downloaded ${event.downloaded}/${event.total} files`,
+            { duration: 5000 },
+          );
+        } else if (event.type === "download-skipped") {
+          toast.info(event.reason || "File downloads skipped", { duration: 5000 });
         }
       });
       setShowPullForm(false);
@@ -411,7 +450,7 @@ const DocumentDropZone = ({ projectId }: DocumentDropZoneProps) => {
             <span className="text-sm font-medium text-foreground">Pull from M365</span>
           </div>
           <p className="text-[11px] text-muted-foreground">
-            Search emails, meetings, Teams, SharePoint, and people via WorkIQ.
+            Search emails, meetings, Teams, SharePoint, and people via WorkIQ. Documents found in SharePoint are automatically downloaded and converted.
           </p>
           <Input
             placeholder="Customer or company name"
@@ -434,7 +473,12 @@ const DocumentDropZone = ({ projectId }: DocumentDropZoneProps) => {
 
           {pullProgress && (
             <div className="space-y-2">
-              <Progress value={(pullProgress.completed / pullProgress.total) * 100} className="h-2" />
+              <div className="flex items-center gap-2">
+                <Progress value={pullProgress.total > 0 ? (pullProgress.completed / pullProgress.total) * 100 : 0} className="h-2 flex-1" />
+                <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                  {pullProgress.phase === "downloads" ? "Files" : "Queries"}
+                </span>
+              </div>
               <p className="text-[11px] text-muted-foreground">
                 {pullProgress.currentLabel} ({pullProgress.completed}/{pullProgress.total})
               </p>

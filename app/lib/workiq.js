@@ -7,6 +7,10 @@
  */
 
 const { spawn, execSync } = require("child_process");
+const fs = require("fs");
+const path = require("path");
+const { getToken } = require("../../tools/lib/http");
+const { downloadFile, GRAPH_BASE } = require("../../tools/lib/graph-sharepoint");
 
 // ───────────────────────────────────────────────────────────────────────────
 // Availability check
@@ -18,7 +22,7 @@ const { spawn, execSync } = require("child_process");
 async function isWorkIQAvailable() {
   try {
     const bin = process.platform === "win32"
-      ? require("path").join(process.env.APPDATA || "", "npm", "workiq.cmd")
+      ? path.join(process.env.APPDATA || "", "npm", "workiq.cmd")
       : "workiq";
     execSync(`"${bin}" --version`, { stdio: "ignore", timeout: 5000, shell: true });
     return true;
@@ -42,13 +46,15 @@ function runWorkIQQuery(question, timeoutMs = 120_000) {
     let stderr = "";
     let killed = false;
 
-    // Use execFile-style spawn (no shell) to avoid command injection from question text.
-    // On Windows, resolve the full path to the workiq binary via npm prefix.
-    const workiqBin = process.platform === "win32"
-      ? require("path").join(process.env.APPDATA || "", "npm", "workiq.cmd")
-      : "workiq";
+    // On Windows, `.cmd` files require shell or `cmd /c` to execute.
+    // Using `cmd /c workiq` with question as a separate array element keeps
+    // the question out of shell parsing (no injection risk).
+    const args = process.platform === "win32"
+      ? ["/c", "workiq", "ask", "-q", question]
+      : ["ask", "-q", question];
+    const cmd = process.platform === "win32" ? "cmd" : "workiq";
 
-    const child = spawn(workiqBin, ["ask", "-q", question], {
+    const child = spawn(cmd, args, {
       shell: false,
       windowsHide: true,
       stdio: ["ignore", "pipe", "pipe"],
@@ -352,10 +358,429 @@ function assembleContextFile(customer, results, timeRange, dedup) {
   return lines.join("\n");
 }
 
+// ───────────────────────────────────────────────────────────────────────────
+// SharePoint URL extraction
+// ───────────────────────────────────────────────────────────────────────────
+
+// Matches SharePoint/OneDrive document URLs in WorkIQ natural-language output.
+// Covers standard URLs, sharing links (:w:/, :x:/, :p:/, :b:/), and -df variants.
+const SP_URL_PATTERN = /https?:\/\/[\w.-]+\.sharepoint(?:-df)?\.com\/[^\s)>\]"']+/gi;
+
+// File extensions we can download and potentially convert
+const DOWNLOADABLE_EXTENSIONS = new Set([
+  ".docx", ".xlsx", ".xls", ".pptx", ".pdf", ".csv", ".txt", ".md", ".json",
+]);
+
+/**
+ * Extract unique SharePoint/OneDrive URLs from WorkIQ query results.
+ * Filters to downloadable document types, deduplicates by URL.
+ *
+ * @param {Array<{id: number, label: string, content: string, error: string|null}>} results
+ * @returns {Array<{url: string, source: string}>}
+ */
+function extractSharePointUrls(results) {
+  const seen = new Set();
+  const urls = [];
+
+  for (const r of results) {
+    if (!r.content) continue;
+
+    SP_URL_PATTERN.lastIndex = 0;
+    let match;
+    while ((match = SP_URL_PATTERN.exec(r.content)) !== null) {
+      let url = match[0];
+
+      // Strip trailing punctuation that leaked from prose
+      url = url.replace(/[.,;:!?)]+$/, "");
+
+      if (seen.has(url)) continue;
+      seen.add(url);
+
+      // Check if URL points to a downloadable file type
+      // SharePoint sharing links encode the extension in the path (:w: = docx, :x: = xlsx, :p: = pptx, :b: = pdf)
+      const lower = url.toLowerCase();
+      const hasFileExt = [...DOWNLOADABLE_EXTENSIONS].some((ext) => lower.includes(ext));
+      const hasSharingCode = /\/:(?:[wxpb]):\//.test(lower);
+
+      if (hasFileExt || hasSharingCode) {
+        urls.push({ url, source: r.label });
+      }
+    }
+  }
+
+  return urls;
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// Graph API file resolution + download
+// ───────────────────────────────────────────────────────────────────────────
+
+/**
+ * Encode a SharePoint URL for the Graph /shares endpoint.
+ * Format: "u!" + base64url(url)
+ */
+function encodeShareUrl(url) {
+  const base64 = Buffer.from(url, "utf-8").toString("base64");
+  const base64url = base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  return `u!${base64url}`;
+}
+
+// Known SharePoint hostname → tenant ID map (expand as needed)
+const SP_TENANT_MAP = {
+  "microsoft.sharepoint.com": "72f988bf-86f1-41af-91ab-2d7cd011db47",
+  "microsoft.sharepoint-df.com": "72f988bf-86f1-41af-91ab-2d7cd011db47",
+  "microsoftapc.sharepoint.com": "72f988bf-86f1-41af-91ab-2d7cd011db47",
+  "microsofteur.sharepoint.com": "72f988bf-86f1-41af-91ab-2d7cd011db47",
+  "microsoft-my.sharepoint.com": "72f988bf-86f1-41af-91ab-2d7cd011db47",
+  "microsoft-my.sharepoint-df.com": "72f988bf-86f1-41af-91ab-2d7cd011db47",
+};
+
+/**
+ * Parse a SharePoint URL into components for Graph API resolution.
+ *
+ * @param {string} url  SharePoint URL
+ * @returns {{ hostname, sitePath, filePath, fileName, sourcedocId, isSharingLink }}
+ */
+function parseSharePointUrl(url) {
+  const parsed = new URL(url);
+  const hostname = parsed.hostname;
+  const pathname = decodeURIComponent(parsed.pathname);
+
+  // Sharing link: /:w:/, /:x:/, /:p:/, /:b:/
+  const isSharingLink = /\/:(?:[wxpb]):\//.test(pathname);
+
+  // Doc.aspx with sourcedoc GUID
+  const sourcedocMatch = parsed.searchParams.get("sourcedoc");
+  const sourcedocId = sourcedocMatch ? sourcedocMatch.replace(/[{}]/g, "") : null;
+
+  // Extract filename from 'file' param or from path
+  const fileParam = parsed.searchParams.get("file");
+  const fileName = fileParam
+    ? decodeURIComponent(fileParam)
+    : path.basename(pathname.replace(/\?.*$/, ""));
+
+  // Extract site path — /teams/X, /sites/X, or /personal/X_domain_com
+  const siteMatch = pathname.match(/^(\/(?:teams|sites|personal)\/[^/]+)/i);
+  const sitePath = siteMatch ? siteMatch[1] : null;
+
+  // Extract file path within the drive (after Shared Documents or similar)
+  const drivePathMatch = pathname.match(/\/(?:Shared Documents|Documents|SiteAssets|account)\/(.+?)(?:\?|$)/i);
+  const filePath = drivePathMatch ? drivePathMatch[1] : null;
+
+  return { hostname, sitePath, filePath, fileName, sourcedocId, isSharingLink };
+}
+
+/**
+ * Resolve a SharePoint URL to a Graph driveItem using multiple strategies:
+ * 1. Sharing link → /shares endpoint
+ * 2. Direct file path → /sites/{siteId}/drive/root:/{filePath}
+ * 3. Doc.aspx with filename → /sites/{siteId}/drive/root/search(q='{name}')
+ *
+ * @param {string} token  Graph API access token
+ * @param {string} url    SharePoint document URL
+ * @returns {Promise<{id: string, name: string, driveId: string, size: number, mimeType: string}|null>}
+ */
+async function resolveSharePointUrl(token, url) {
+  const { httpRequestWithRetry } = require("../../tools/lib/http");
+  const parsed = parseSharePointUrl(url);
+  const headers = { Authorization: `Bearer ${token}` };
+  const select = "$select=id,name,size,file,parentReference";
+
+  const extractItem = (data) => ({
+    id: data.id,
+    name: data.name || "unknown",
+    driveId: data.parentReference?.driveId || "",
+    size: data.size || 0,
+    mimeType: data.file?.mimeType || "",
+  });
+
+  try {
+    // Strategy 1: Sharing links → /shares endpoint
+    if (parsed.isSharingLink) {
+      const encoded = encodeShareUrl(url);
+      const res = await httpRequestWithRetry("GET",
+        `${GRAPH_BASE}/shares/${encoded}/driveItem?${select}`,
+        headers, null, 2, 15000);
+      if (res.status === 200) return extractItem(res.data);
+    }
+
+    // Get the site ID (needed for strategies 2 and 3)
+    let siteId = null;
+    if (parsed.sitePath) {
+      // Normalize: microsoft-my.sharepoint.com → microsoft-my.sharepoint.com (personal sites)
+      const siteHostname = parsed.hostname.replace("-df", "");
+      const siteRes = await httpRequestWithRetry("GET",
+        `${GRAPH_BASE}/sites/${siteHostname}:${parsed.sitePath}:`,
+        headers, null, 1, 10000);
+      if (siteRes.status === 200) siteId = siteRes.data.id;
+    }
+
+    // Strategy 2: Direct file path → /sites/{siteId}/drive/root:/{filePath}
+    if (siteId && parsed.filePath) {
+      const encodedPath = parsed.filePath.split("/").map(encodeURIComponent).join("/");
+      const res = await httpRequestWithRetry("GET",
+        `${GRAPH_BASE}/sites/${siteId}/drive/root:/${encodedPath}:?${select}`,
+        headers, null, 1, 10000);
+      if (res.status === 200 && res.data.id) return extractItem(res.data);
+    }
+
+    // Strategy 3: Search by filename within site drive
+    if (siteId && parsed.fileName && parsed.fileName.length > 3) {
+      const searchName = path.basename(parsed.fileName, path.extname(parsed.fileName));
+      const res = await httpRequestWithRetry("GET",
+        `${GRAPH_BASE}/sites/${siteId}/drive/root/search(q='${encodeURIComponent(searchName)}')?${select}&$top=5`,
+        headers, null, 1, 15000);
+      if (res.status === 200 && res.data.value?.length > 0) {
+        // Prefer exact name match
+        const exact = res.data.value.find((item) =>
+          item.name?.toLowerCase() === parsed.fileName.toLowerCase()
+        );
+        return extractItem(exact || res.data.value[0]);
+      }
+    }
+
+    // Strategy 4: Fallback — try shares endpoint even for non-sharing links
+    if (!parsed.isSharingLink) {
+      const encoded = encodeShareUrl(url);
+      const res = await httpRequestWithRetry("GET",
+        `${GRAPH_BASE}/shares/${encoded}/driveItem?${select}`,
+        headers, null, 1, 10000);
+      if (res.status === 200) return extractItem(res.data);
+    }
+  } catch {
+    // All strategies exhausted
+  }
+
+  return null;
+}
+
+/**
+ * Get a Graph token for a SharePoint hostname.
+ * Maps known hostnames to tenant IDs. Only falls back to default tenant
+ * for unknown hostnames (known tenants that fail = auth setup issue).
+ *
+ * @param {string} hostname  SharePoint hostname (e.g., "microsoft.sharepoint.com")
+ * @returns {string|null} Access token or null if unavailable
+ */
+function getGraphTokenForHost(hostname) {
+  const tenantId = SP_TENANT_MAP[hostname];
+
+  if (tenantId) {
+    // Known tenant — don't fall back to default (which is likely wrong)
+    try {
+      return getToken("https://graph.microsoft.com", tenantId);
+    } catch {
+      return null;
+    }
+  }
+
+  // Unknown hostname — try default tenant (current az-login)
+  try {
+    return getToken("https://graph.microsoft.com");
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Download and convert SharePoint files found in WorkIQ results.
+ *
+ * @param {Array<{url: string, source: string}>} urls  Extracted SharePoint URLs
+ * @param {string} docsDir  Target docs directory
+ * @param {function} onProgress  SSE callback: (event) => void
+ * @returns {Promise<Array<{name: string, converted: string|null, error: string|null}>>}
+ */
+async function downloadAndConvertFiles(urls, docsDir, onProgress) {
+  if (urls.length === 0) return [];
+
+  const { convertDocument } = require("./documents");
+
+  // Group URLs by hostname and get tokens per host
+  const tokenCache = new Map(); // hostname → token|null
+  function getTokenForUrl(url) {
+    try {
+      const hostname = new URL(url).hostname;
+      if (tokenCache.has(hostname)) return tokenCache.get(hostname);
+      const token = getGraphTokenForHost(hostname);
+      tokenCache.set(hostname, token);
+      return token;
+    } catch {
+      return null;
+    }
+  }
+
+  // Quick check: can we get at least one token?
+  const firstToken = getTokenForUrl(urls[0].url);
+  if (!firstToken) {
+    const hostname = new URL(urls[0].url).hostname;
+    const tenantId = SP_TENANT_MAP[hostname];
+    onProgress({
+      type: "download-skipped",
+      reason: tenantId
+        ? `Graph API auth needed for ${hostname}. Run: az login --tenant ${tenantId}`
+        : `Graph API auth not available. Run \`az login\` to enable file downloads.`,
+    });
+    return [];
+  }
+
+  onProgress({
+    type: "download-started",
+    total: urls.length,
+  });
+
+  const results = [];
+  const existingFiles = new Set(fs.readdirSync(docsDir).map((f) => f.toLowerCase()));
+
+  for (let i = 0; i < urls.length; i++) {
+    const { url, source } = urls[i];
+
+    // Get token for this URL's host
+    const token = getTokenForUrl(url);
+    if (!token) {
+      const hostname = new URL(url).hostname;
+      results.push({ name: url, converted: null, error: `No auth for ${hostname}` });
+      onProgress({
+        type: "download-progress",
+        index: i + 1,
+        total: urls.length,
+        url,
+        status: "error",
+        detail: `No auth for ${hostname}`,
+      });
+      continue;
+    }
+
+    onProgress({
+      type: "download-progress",
+      index: i + 1,
+      total: urls.length,
+      url,
+      status: "resolving",
+    });
+
+    // Resolve URL to driveItem
+    const item = await resolveSharePointUrl(token, url);
+    if (!item || !item.driveId) {
+      results.push({ name: url, converted: null, error: "Could not resolve SharePoint URL" });
+      onProgress({
+        type: "download-progress",
+        index: i + 1,
+        total: urls.length,
+        url,
+        status: "error",
+        detail: "Could not resolve URL",
+      });
+      continue;
+    }
+
+    // Skip if file already exists in docs/
+    const lowerName = item.name.toLowerCase();
+    const ext = path.extname(lowerName);
+    const baseName = path.basename(item.name, path.extname(item.name));
+    const possibleConverted = ext === ".docx" ? `${baseName}.md`.toLowerCase()
+      : (ext === ".xlsx" || ext === ".xls") ? `${baseName}.csv`.toLowerCase()
+      : lowerName;
+
+    if (existingFiles.has(lowerName) || existingFiles.has(possibleConverted)) {
+      results.push({ name: item.name, converted: null, error: "Already exists in docs" });
+      onProgress({
+        type: "download-progress",
+        index: i + 1,
+        total: urls.length,
+        name: item.name,
+        status: "skipped",
+        detail: "Already in docs",
+      });
+      continue;
+    }
+
+    // Skip large files (>50MB)
+    if (item.size > 50 * 1024 * 1024) {
+      results.push({ name: item.name, converted: null, error: `File too large: ${Math.round(item.size / 1024 / 1024)}MB` });
+      onProgress({
+        type: "download-progress",
+        index: i + 1,
+        total: urls.length,
+        name: item.name,
+        status: "skipped",
+        detail: "Too large (>50MB)",
+      });
+      continue;
+    }
+
+    // Download
+    const tempPath = path.join(docsDir, item.name);
+    onProgress({
+      type: "download-progress",
+      index: i + 1,
+      total: urls.length,
+      name: item.name,
+      status: "downloading",
+    });
+
+    try {
+      await downloadFile(token, item.id, tempPath, item.driveId);
+    } catch (err) {
+      results.push({ name: item.name, converted: null, error: `Download failed: ${err.message}` });
+      onProgress({
+        type: "download-progress",
+        index: i + 1,
+        total: urls.length,
+        name: item.name,
+        status: "error",
+        detail: `Download failed`,
+      });
+      continue;
+    }
+
+    // Convert if needed
+    let convertedName = null;
+    let convErr = null;
+    try {
+      const result = await convertDocument(tempPath, docsDir);
+      convertedName = result.convertedName;
+      convErr = result.error;
+    } catch (convError) {
+      convErr = `Conversion failed: ${String(convError).slice(0, 200)}`;
+    }
+    const finalName = convertedName || item.name;
+
+    // Track the file
+    existingFiles.add(finalName.toLowerCase());
+
+    results.push({
+      name: item.name,
+      converted: convertedName,
+      error: convErr,
+    });
+
+    onProgress({
+      type: "download-progress",
+      index: i + 1,
+      total: urls.length,
+      name: item.name,
+      converted: convertedName,
+      status: "done",
+    });
+  }
+
+  const downloaded = results.filter((r) => !r.error || r.error === "Already exists in docs");
+  onProgress({
+    type: "download-done",
+    total: urls.length,
+    downloaded: downloaded.length,
+    errors: results.filter((r) => r.error && r.error !== "Already exists in docs").length,
+  });
+
+  return results;
+}
+
 module.exports = {
   isWorkIQAvailable,
   runWorkIQQuery,
   buildQueries,
   deduplicateDocuments,
   assembleContextFile,
+  extractSharePointUrls,
+  downloadAndConvertFiles,
 };

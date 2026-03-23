@@ -25,7 +25,7 @@ beginDialog:
       connectionReference: {{CONNECTION_REF_OFFICE365USERS}}
       connectionProperties:
         mode: Invoker
-      operationId: UserGet_V2
+      operationId: MyProfile_V2
       output:
         kind: SingleVariableOutputBinding
         variable: init:Topic.M365Profile

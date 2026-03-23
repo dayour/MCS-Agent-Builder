@@ -108,8 +108,13 @@ card: |
 ## Connector Issues
 
 ### M365 Users connector requires user authentication
-**Issue:** `UserGet_V2` returns 401 if user is not authenticated.
+**Issue:** The Office 365 Users connector returns 401 if user is not authenticated.
 **Mitigation:** Ensure "Authenticate with Microsoft" is enabled in agent settings. The connector uses the signed-in user's identity.
+
+### CRITICAL: `UserGet_V2` is NOT a valid operationId — use `MyProfile_V2`
+**Issue:** `UserGet_V2` does not exist on the Office 365 Users connector. Using it in `InvokeConnectorAction` causes the connector action to spin infinitely at runtime. No publish error — the failure is silent.
+**Mitigation:** Use `operationId: MyProfile_V2` for the signed-in user's profile. Use `operationId: UserProfile_V2` for looking up a specific user by UPN. Always verify operationIds against the connector's actual schema.
+**Discovered:** 2026-03-20, CDW Legal & HR Policy Advisor build.
 
 ### Azure AD profile fields may be blank
 **Issue:** Fields like `country`, `department`, `jobTitle` are optional in Azure AD and may be null.

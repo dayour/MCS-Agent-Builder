@@ -43,3 +43,12 @@ ID format: tt-NNN (topics-triggers)
 **Confirmed:** 1 build(s) | Last confirmed: 2026-02-27
 **Related cache:** knowledge/cache/triggers.md
 **Tags:** #topics #phase #dependencies #integration #validation #event-trigger
+
+### MyProfile_V2 is the correct operationId for M365 Users connector (NOT UserGet_V2) {#tt-004} — 2026-03-20
+**Context:** CDW Legal & HR Policy Advisor, UserContextInit topic with JIT user context loading via Office 365 Users connector
+**Tried:** `operationId: UserGet_V2` in InvokeConnectorAction — this was the operationId in our pattern files (`jit-user-context.yaml`, `conversation-init.yaml`)
+**Result:** Connector action spun infinitely in MCS runtime. The operationId `UserGet_V2` does not exist on the Office 365 Users connector. No publish error — the failure is silent at runtime only.
+**Better approach:** Use `operationId: MyProfile_V2` for signed-in user profile (returns country, department, displayName, etc.). For looking up a specific user by UPN, use `operationId: UserProfile_V2`. Both pattern files have been corrected. Always verify operationIds against the actual connector schema — invalid IDs cause silent runtime failures, not publish errors.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-03-20
+**Related cache:** knowledge/cache/known-issues.md (Connector Issues section)
+**Tags:** #operationId #connector #office365users #MyProfile_V2 #UserGet_V2 #silent-failure #jit-user-context #pattern-fix

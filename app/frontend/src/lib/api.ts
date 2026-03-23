@@ -160,10 +160,11 @@ export async function fetchDocContent(
 // ─── Pull from M365 (WorkIQ SSE) ────────────────────────────────
 
 export interface PullM365Progress {
-  type: "started" | "progress" | "done" | "error";
+  type: "started" | "progress" | "done" | "error"
+    | "download-started" | "download-progress" | "download-done" | "download-skipped";
   queryId?: number;
   label?: string;
-  status?: "running" | "done" | "error";
+  status?: "running" | "done" | "error" | "resolving" | "downloading" | "skipped";
   completed?: number;
   total?: number;
   customer?: string;
@@ -172,6 +173,14 @@ export interface PullM365Progress {
   successCount?: number;
   totalQueries?: number;
   detail?: string;
+  // Download phase fields
+  index?: number;
+  url?: string;
+  name?: string;
+  converted?: string | null;
+  downloaded?: number;
+  errors?: number;
+  reason?: string;
 }
 
 export async function pullFromM365(

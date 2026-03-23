@@ -26,7 +26,7 @@ const os = require("os");
 const { attachTerminal } = require("./lib/terminal");
 const { migrateBrief } = require("./lib/brief-migrate");
 const { convertDocument, extractContent, NEEDS_CONVERSION } = require("./lib/documents");
-const { isWorkIQAvailable, runWorkIQQuery, buildQueries, deduplicateDocuments, assembleContextFile } = require("./lib/workiq");
+const { isWorkIQAvailable, runWorkIQQuery, buildQueries, deduplicateDocuments, assembleContextFile, extractSharePointUrls, downloadAndConvertFiles } = require("./lib/workiq");
 const {
   DOC_EXTENSIONS,
   ensureDirs,
@@ -599,6 +599,38 @@ app.post("/api/projects/:projectId/pull-m365", async (req, res) => {
     });
   } catch (e) {
     sendSSE({ type: "error", detail: `Failed to save context file: ${e.message}` });
+  }
+
+  // Phase 2: Download actual files from SharePoint URLs found in results
+  const spUrls = extractSharePointUrls(results);
+  if (spUrls.length > 0) {
+    try {
+      const downloadResults = await downloadAndConvertFiles(spUrls, docsDir, sendSSE);
+
+      // Append download summary to context file
+      const downloaded = downloadResults.filter((r) => !r.error || r.error === "Already exists in docs");
+      if (downloaded.length > 0) {
+        const appendLines = [
+          "",
+          "## Downloaded Documents",
+          "",
+          `> ${downloaded.length} file(s) downloaded and saved to docs/`,
+          "",
+          "| File | Status |",
+          "|------|--------|",
+        ];
+        for (const d of downloadResults) {
+          const status = d.error
+            ? (d.error === "Already exists in docs" ? "Skipped (exists)" : `Error: ${d.error}`)
+            : (d.converted ? `Converted to ${d.converted}` : "Saved");
+          appendLines.push(`| ${d.name} | ${status} |`);
+        }
+        appendLines.push("");
+        fs.appendFileSync(filePath, appendLines.join("\n"), "utf-8");
+      }
+    } catch (e) {
+      sendSSE({ type: "download-skipped", reason: `File download failed: ${e.message}` });
+    }
   }
 
   res.end();
