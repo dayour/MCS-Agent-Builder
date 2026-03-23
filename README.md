@@ -223,23 +223,24 @@ Single port, auto-discovered. If 8000 is busy, the next available port is used.
 
 ```
 bin/
-  cli.js                      CLI (start, stop, health, doctor, update)
-  postinstall.js              Post-install setup
+  cli.js                      CLI (mcs start, stop, health, doctor, update)
+  postinstall.js              Post-install setup (git hooks, frontend build check)
 
 .claude/
   settings.json               MCP servers, permissions, Opus + high effort defaults
   skills/                     13 skills (11 workflow + 2 utility)
   agents/                     7 AI teammate definitions
+  rules/                      Path-scoped rules (tool priority, build discipline, auto-refresh)
 
 app/
-  server.js                   Express backend + WebSocket terminal
+  server.js                   Express backend + WebSocket terminal (single port)
   lib/                        Readiness, documents, projects, workiq, brief-migrate, terminal
   frontend/                   React + TypeScript SPA (Vite + shadcn/ui)
 
 knowledge/
   cache/                      24 MCS capability cheat sheets (auto-refreshed)
   learnings/                  Experience from past builds
-  patterns/                   YAML, Dataverse, solution patterns + topic/flow templates
+  patterns/                   YAML, Dataverse, solution patterns + 35 topic + 9 flow templates
   frameworks/                 Decision frameworks + eval scenarios
 
 tools/
@@ -253,13 +254,14 @@ tools/
   direct-line-test.js         Direct Line eval runner
   copilotstudio-test.js       Copilot Studio native eval runner
   powercat-test.js            Power CAT test framework runner
-  mcs-lsp.js                  MCS Language Server wrapper (push/pull)
+  mcs-lsp.js                  MCS Language Server wrapper (push/pull/clone)
   island-client.js            Island Gateway API client
   flow-manager.js             Power Automate flow CRUD + composition
   add-tool.js                 Headless tool/connector addition
   solution-library.js         Team SharePoint solution library
   replicate-agent.js          Cross-environment agent replication
   upstream-check.js           Knowledge cache freshness checker
+  pac-mcp-wrapper.js          PAC CLI MCP server adapter
   om-cli/                     ObjectModel CLI — YAML validation (357 types)
   gen-constraints.py          Pre-generation constraint checks
   drift-detect.py             Brief-to-YAML spec drift detection
@@ -267,7 +269,8 @@ tools/
   dataverse-helper.ps1        Dataverse Web API PowerShell wrapper
   git-hooks/                  Pre-commit and pre-push hooks
 
-templates/                    brief.json schema (single source of truth)
+start.js                      Process manager (spawns server, opens browser, handles updates)
+templates/                    brief.json schema + default-recommendations.json
 Build-Guides/                 Per-project work (gitignored)
 ```
 

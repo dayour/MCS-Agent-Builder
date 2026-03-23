@@ -93,6 +93,9 @@ When something fails, stop and research broadly before retrying:
 ## Project Structure
 
 ```
+bin/
+├── cli.js (mcs start/stop/health/doctor/update), postinstall.js
+
 .claude/
 ├── settings.json, skills/ (13 skills), agents/ (7 teammates), rules/ (path-scoped)
 
@@ -109,6 +112,7 @@ tools/
 ├── direct-line-test.js, eval-scoring.js, multi-model-review.js
 ├── solution-library.js, replicate-agent.js, dataverse-helper.ps1
 ├── copilotstudio-test.js, powercat-test.js, upstream-check.js
+├── pac-mcp-wrapper.js (PAC CLI MCP server adapter)
 ├── om-cli/ (YAML validation, 357 types), lib/ (http, openai, graph-sharepoint, flow-composer, connector-schema)
 ├── gen-constraints.py, drift-detect.py, semantic-gates.py
 ├── git-hooks/ (pre-commit, pre-push), update-om-cli.ps1
@@ -116,6 +120,7 @@ tools/
 templates/
 ├── brief.json (schema), default-recommendations.json
 
+start.js (process manager — spawns server, opens browser, handles updates)
 Build-Guides/[Project]/ (per-project work, gitignored)
 ├── agents/[name]/ (brief.json, build-report.md, topics/, evals)
 ├── docs/ (uploaded customer documents)
