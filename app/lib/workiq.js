@@ -787,6 +787,11 @@ async function downloadAndConvertFiles(urls, docsDir, customer, aliases, onProgr
   const results = [];
   let index = 0;
 
+  // Track Graph item IDs downloaded in CLSCMS phase so Phase 2 URL extraction
+  // skips the same files (CLSCMS names include folder prefix, so name-based
+  // dedup alone misses cross-phase duplicates).
+  const downloadedItemIds = new Set();
+
   // Group URLs by hostname and get tokens per host
   const tokenCache = new Map();
   tokenCache.set(CLSCMS_HOSTNAME, msToken);
@@ -830,6 +835,7 @@ async function downloadAndConvertFiles(urls, docsDir, customer, aliases, onProgr
     try {
       const tempPath = path.join(docsDir, safeName);
       await downloadFile(msToken, item.id, tempPath, item.driveId);
+      downloadedItemIds.add(item.id);
       let convertedName = null, convErr = null;
       try {
         const result = await convertDocument(tempPath, docsDir);
@@ -870,7 +876,14 @@ async function downloadAndConvertFiles(urls, docsDir, customer, aliases, onProgr
       continue;
     }
 
-    // Skip if already downloaded (from CLSCMS phase or duplicate URL)
+    // Skip if this exact item was already downloaded in CLSCMS phase
+    // (CLSCMS names include folder prefix so filename dedup alone won't catch this)
+    if (downloadedItemIds.has(item.id)) {
+      onProgress({ type: "download-progress", index, total: totalItems, name: item.name, status: "skipped", detail: "Already downloaded from CLSCMS" });
+      continue;
+    }
+
+    // Skip if already downloaded (from earlier URL or pre-existing file)
     const safeName2 = sanitizeFilename(item.name);
     const lowerName = safeName2.toLowerCase();
     const ext = path.extname(lowerName);
@@ -902,6 +915,8 @@ async function downloadAndConvertFiles(urls, docsDir, customer, aliases, onProgr
       onProgress({ type: "download-progress", index, total: totalItems, name: safeName2, status: "error", detail: "Download failed" });
       continue;
     }
+
+    downloadedItemIds.add(item.id);
 
     // Convert if needed
     let convertedName = null;
