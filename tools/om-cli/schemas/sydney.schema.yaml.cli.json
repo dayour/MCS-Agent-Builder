@@ -41,6 +41,9 @@
           "$ref": "#/definitions/DialogComponent"
         },
         {
+          "$ref": "#/definitions/ResponseTemplate"
+        },
+        {
           "$ref": "#/definitions/ValueExpression"
         },
         {
@@ -3345,6 +3348,9 @@
       },
       "oneOf": [
         {
+          "$ref": "#/definitions/ResponseTemplate"
+        },
+        {
           "$ref": "#/definitions/EventActivity"
         },
         {
@@ -4953,6 +4959,41 @@
         "kind",
         "schemaName",
         "dialog"
+      ]
+    },
+    "ResponseTemplate": {
+      "title": "Response template",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/LanguageGenerationElement",
+      "properties": {
+        "kind": {
+          "const": "ResponseTemplate"
+        },
+        "activity": {
+          "title": "Activity",
+          "description": "The activity to send. If Mode is Generated, the activity will be used as an example for the model response.",
+          "$ref": "#/definitions/ActivityTemplateBase",
+          "x-defaultDefinition": "#/definitions/Message"
+        },
+        "mode": {
+          "title": "Mode",
+          "description": "Determines how the model will respond. If Strict, the activity will be sent directly, if Generated, the model will generate a response.",
+          "default": "Strict",
+          "$role": "expression",
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "=.*"
+            },
+            {
+              "$ref": "#/definitions/TemplateResponseMode"
+            }
+          ]
+        }
+      },
+      "required": [
+        "kind"
       ]
     },
     "EventActivity": {
@@ -7326,6 +7367,11 @@
         "kind": {
           "const": "QuestionInputSettings"
         },
+        "prompt": {
+          "title": "Prompt",
+          "description": "The activity to send to the user. Can be either a custom message or AI-generated. If not provided, it will default to AI-generated.",
+          "$ref": "#/definitions/ResponseTemplate"
+        },
         "repeatCount": {
           "title": "How many reprompts",
           "description": "The maximum number of times this message will be repeated when a valid response isn't identified.",
@@ -7357,6 +7403,21 @@
           "description": "The value to assign the result variable when the maximum retry count has been reached and no entity has been identified.",
           "$role": "expression",
           "$ref": "#/definitions/ValueExpression"
+        },
+        "invalidPrompt": {
+          "title": "Condition not met prompt",
+          "description": "The prompt to send when the identified entity doesn't pass the validation rules.",
+          "$ref": "#/definitions/ResponseTemplate"
+        },
+        "defaultValueResponse": {
+          "title": "No entity found message",
+          "description": "The message to send when the maximum retry count has been reached and the default entity is used.",
+          "$ref": "#/definitions/ResponseTemplate"
+        },
+        "unrecognizedPrompt": {
+          "title": "Retry prompt",
+          "description": "Send this message again when a valid response isn't identified.",
+          "$ref": "#/definitions/ResponseTemplate"
         }
       },
       "required": [
