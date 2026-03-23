@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-19
-sources: [MS Learn, MCS UI, PPAC docs, WebSearch Mar 2026, MS Security Blog Feb 2026, MS Learn guidance/sec-gov-phase3, MS Learn security-and-governance, MS Learn configuration-end-user-authentication, 2026 Wave 1 Release Plan]
+last_verified: 2026-03-23
+sources: [MS Learn, MCS UI, PPAC docs, WebSearch Mar 2026, MS Security Blog Feb 2026, MS Learn guidance/sec-gov-phase3, MS Learn security-and-governance, MS Learn configuration-end-user-authentication, MS Learn admin-data-loss-prevention, MS Learn admin-dlp-troubleshooting, MS Learn copilot-control-system/management-controls, MS Learn security-scan, 2026 Wave 1 Release Plan]
 confidence: high
 refresh_trigger: before_architecture
 -->
@@ -102,13 +102,14 @@ Microsoft published a comprehensive guide on common agent misconfigurations. Key
 5. Sensitive data exposure through knowledge sources without sensitivity labels
 See: https://www.microsoft.com/en-us/security/blog/2026/02/12/copilot-studio-agent-security-top-10-risks-detect-prevent/
 
-## Upcoming Security Features (2026 Wave 1)
+## Upcoming & Recent Security Features (2026 Wave 1)
 
 | Feature | Status | Timeline | Details |
 |---------|--------|----------|---------|
+| **Configure triggers with end-user credentials** | **Preview (Mar 2026)** | GA May 2026 | Triggers authenticate as end user instead of maker. Native trigger management lifecycle in Copilot Studio. |
 | **Enforce safe sharing by detecting credential oversharing** | Preview | Apr 2026 | Detects when agent makers share agents with overly broad credentials; GA Jun 2026 |
-| **Configure triggers with end-user credentials** | Preview/GA | Preview Mar 2026, GA May 2026 | Triggers authenticate as end user instead of maker |
 | **Unified errors, warnings, governance notifications** | Preview | Apr 2026 | Single view of all security/governance issues; GA Jun 2026 |
+| **Copilot Control System agent lifecycle** | GA | Current | Visibility into agent status, governance, lifecycle. Manage connectors, sharing, DLP, approval workflows from M365 admin center. |
 | **MIP sensitivity labels across channels** | Preview | Jul 2025 | Display labels in connectors, test chat, Teams, M365 Copilot to prevent oversharing |
 | **Admin sharing controls** | GA | Current | Restrict org-wide sharing, reassign ownership, control who can share with whom (Managed Environments) |
 
@@ -128,3 +129,6 @@ See: https://www.microsoft.com/en-us/security/blog/2026/02/12/copilot-studio-age
 - **Admins can reassign agent ownership** with full permissions transfer and restrict org-wide agent sharing
 - **New `copilotstudio` API namespace** (Nov 2025) — previous namespace works temporarily, switch now for future compatibility
 - **Computer use audit logging** (Preview Jan 2026) — enhanced audit logging with session replay for CUA agents
+- **Copilot Control System** (GA) — centralized admin controls for agent lifecycle: manage connectors (enable/block/delegate), limit agent sharing (Editor/Viewer roles, block/limit at managed env level), DLP policies to block publishing channels, define lifecycle approval workflows for production agents
+- **Configure triggers with end-user credentials** (Preview Mar 2026) — triggers now a fully native capability in Copilot Studio; makers can create/configure/test/update/delete triggers directly. Agents can run autonomously with end-user credentials via event triggers.
+- **Kit Compliance Hub** (GA Mar 2026) — defines/enforces governance policies at scale, auto-creates compliance cases when agent configs violate risk thresholds, SLA-driven review lifecycle. Tracks through Teams/Outlook notifications.

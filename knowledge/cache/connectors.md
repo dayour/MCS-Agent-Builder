@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-19
-sources: [MS Learn, Power Platform connector catalog, MS Learn Salesforce connector reference, MS Learn Bing Search connector reference, MS Learn ServiceNow connector reference, MS Learn Zoom Meetings connector reference, WebSearch, 2026 Wave 1 release plan, 2025 Wave 2 release plan]
+last_verified: 2026-03-23
+sources: [MS Learn, Power Platform connector catalog, MS Learn Salesforce connector reference, MS Learn Bing Search connector reference, MS Learn ServiceNow connector reference, MS Learn Zoom Meetings connector reference, WebSearch, 2026 Wave 1 release plan, 2025 Wave 2 release plan, Copilot Studio What's New (fetched 2026-03-23), Power Platform March 2026 blog, MS Learn real-time knowledge connectors]
 confidence: high
 refresh_trigger: before_architecture
 -->
@@ -16,11 +16,17 @@ refresh_trigger: before_architecture
 
 ## Key Changes (Mar 2026 Refresh)
 
-- **OpenAPI v3 support**: Preview Feb 2026, GA May 2026. Import OpenAPI v3 specs directly -- no more downgrading to v2. Source: https://learn.microsoft.com/en-us/power-platform/release-plan/2025wave2/microsoft-copilot-studio/build-power-platform-connectors-openapi-v3
+- **OpenAPI v3 support**: Preview Feb 2026, GA May 2026. Import OpenAPI v3 specs directly -- no more downgrading to v2. No configuration required -- available by default across all environments. Source: https://learn.microsoft.com/en-us/power-platform/release-plan/2025wave2/microsoft-copilot-studio/build-power-platform-connectors-openapi-v3
 - **Enhanced connectors (Connector SDK + PowerFx)**: Preview May 2025, GA May 2026. Build structured data connectors that work as agent knowledge sources. Source: https://learn.microsoft.com/en-us/power-platform/release-plan/2026wave1/microsoft-copilot-studio/build-enhanced-connectors-power-platform-connector-sdk-powerfx
-- **SSO for connectors in agents**: GA Jul 2025. Use single sign-on for connector authentication.
+- **SSO for connectors in agents**: GA Jul 2025. Use single sign-on for connector authentication. SSO Consent Card (Preview Jul 2025) streamlines Entra ID auth in chat.
 - **Connector catalog**: 1,500+ connectors (up from 1,400+).
-- **MCP servers growing rapidly**: 40+ MCP servers now in catalog -- always check if a connector has an MCP server alternative (prefer MCP).
+- **MCP servers growing rapidly**: 45+ MCP servers now (36 catalog + 9 Work IQ) -- always check if a connector has an MCP server alternative (prefer MCP).
+- **Managed Identity for custom connectors** (Preview, Mar 2026): Custom connectors can now use managed identity authentication instead of client secrets. Federated identity trust obtains tokens from Entra ID. No secret rotation needed. Currently single-tenant only. Source: https://ashiqf.com/2026/03/10/access-apis-in-power-platform-without-secrets-using-managed-identity-in-custom-connectors/
+- **Tool groups** (Preview, Nov 2025): Curated action groups for Outlook and SharePoint connectors. Add entire toolsets in one step. Source: https://learn.microsoft.com/en-us/microsoft-copilot-studio/whats-new
+- **Improved ticket-based connector responses** (Feb 2026): Agents more accurately retrieve ServiceNow tickets and Azure DevOps work items and generate clear, actionable summaries.
+- **Copilot connectors expansion**: 35 new M365 Copilot connectors GA (distinct from Power Platform connectors). These are Microsoft Graph connectors that index data into Microsoft 365 for Copilot grounding. 100+ Copilot connectors total. Source: https://techcommunity.microsoft.com/blog/microsoft365copilotblog/fueling-new-experiences-in-microsoft-365-copilot-with-expanded-copilot-connector/4493246
+- **QuickBooks Online connector deprecated** (Mar 2026): Being retired, no longer supported.
+- **Copilot connectors vs Power Platform connectors**: New docs page clarifying the distinction. Copilot connectors = index into Graph (search/knowledge). PP connectors = live API bridges (actions/real-time knowledge). Source: https://learn.microsoft.com/en-us/microsoft-copilot-studio/knowledge-graph-vs-power-platform-connectors
 
 ## Commonly Used Connectors in MCS Agents
 
@@ -56,6 +62,8 @@ refresh_trigger: before_architecture
 | Snowflake | Query data | Premium; also Real-Time Knowledge (preview) |
 | Oracle Database | Query/CRUD | Premium; also Real-Time Knowledge (preview) |
 | SAP OData | Read/write SAP data | Premium; also Real-Time Knowledge (preview) |
+| Google Sheets | Read/write spreadsheet data | Premium; also Real-Time Knowledge (preview). Source: MS Learn real-time connectors page. |
+| Databricks | Query and manage Databricks workspaces | Premium; also Real-Time Knowledge (preview). Also has MCP server in catalog. |
 
 ### Connector-Embedded MCP Servers (Feb 2026 discovery)
 
@@ -85,9 +93,16 @@ Note: More connectors may have embedded MCP server actions. Check the connector 
 |-----------|-------------|-------|
 | monday.com | Work management -- boards, items, updates | Premium. Also has MCP server in catalog (Preview). |
 | Zapier | Connect to 7,000+ apps via Zapier automation | Premium. Also has MCP server in catalog (Preview). |
-| Databricks | Query and manage Databricks workspaces | Premium. Also has MCP server in catalog. |
+| Databricks | Query and manage Databricks workspaces | Premium. Also has MCP server in catalog. Also Real-Time Knowledge (preview). |
 | CData Connect AI | Connect to 200+ data sources via CData | Premium. MCP server in catalog (Preview). |
 | Celonis | Process mining and execution management | Premium. MCP server in catalog (Preview). |
+| Google Sheets | Read/write spreadsheet data | Premium. Now also a Real-Time Knowledge source (preview). |
+
+### Deprecated Connectors (Mar 2026)
+
+| Connector | Status | Notes |
+|-----------|--------|-------|
+| QuickBooks Online | **Deprecated** | Being retired Mar 2026. No longer supported. Migrate to alternative. |
 
 ## Connector Capabilities for Knowledge (Enhanced Connectors)
 
@@ -129,10 +144,15 @@ node tools/mcs-lsp.js push --workspace <path>
 ## Refresh Notes
 
 - Full connector catalog: https://learn.microsoft.com/en-us/connectors/connector-reference/
+- Copilot connectors vs Power Platform connectors comparison: https://learn.microsoft.com/en-us/microsoft-copilot-studio/knowledge-graph-vs-power-platform-connectors
 - New connectors appear monthly -- search "new Power Platform connectors" for updates
 - Check if a connector now has an MCP server (prefer MCP when available)
 - On-premises connectors require an on-premises data gateway
-- OpenAPI v3 support in preview (Feb 2026) -- eliminates need to downgrade specs
+- OpenAPI v3 support in preview (Feb 2026) -- eliminates need to downgrade specs. Available by default across all environments.
 - Enhanced connectors (Connector SDK) allow structured data connectors to serve as knowledge sources
 - Watch for more connectors adding embedded MCP server actions (`mcp_` operations)
 - Component collections now support connector types including MCP
+- Real-Time Knowledge connectors now include 14 supported sources: Salesforce, ServiceNow, AzureSQL, Azure AI Search, SharePoint, Dataverse, Dynamics 365, Snowflake, Databricks, Zendesk, Confluence (Cloud only), Oracle Database, SAP OData, Google Sheets
+- Tool groups (Preview) let makers add curated action sets from Outlook/SharePoint in one step
+- Managed Identity auth for custom connectors eliminates secret rotation (Preview, single-tenant only)
+- QuickBooks Online connector deprecated Mar 2026

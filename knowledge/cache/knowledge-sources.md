@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-19
-sources: [MS Learn (knowledge-copilot-studio, requirements-quotas, knowledge-file-groups, knowledge-real-time-connectors, knowledge-unstructured-data, custom-knowledge-sources, planned-features), MCS UI snapshot, WebSearch Mar 2026, 2026 Wave 1 release plan]
+last_verified: 2026-03-23
+sources: [MS Learn (knowledge-copilot-studio, requirements-quotas, knowledge-file-groups, knowledge-real-time-connectors, knowledge-unstructured-data, custom-knowledge-sources, knowledge-azure-ai-search, planned-features, 2026wave1 release plan), MCS UI snapshot, WebSearch Mar 2026, 2026 Wave 1 release plan, Dynamics 365 Blog Mar 2026]
 confidence: high
 refresh_trigger: before_architecture
 -->
@@ -14,11 +14,12 @@ refresh_trigger: before_architecture
 |------|-------------|-------|------------------------|---------------|
 | Public websites | Web pages searched via Bing | Provide URLs. Requires ownership attestation. | **25 URLs** | 4 URLs |
 | Uploaded files (Documents) | Local files uploaded to Dataverse | Upload .pdf, .docx, .pptx, .txt, .html, .xlsx, .csv | **All documents** (not part of 25-source limit) | Dataverse storage allocation |
-| **File groups** | Group up to 500 files into a single knowledge source with instructions | Upload locally, select "Upload as a group" | **25 groups** per agent | N/A |
+| **File groups** | Group up to 500 files into a single knowledge source with variable-based instructions | Upload locally, select "Upload as a group" | **25 groups** per agent | N/A |
 | SharePoint | Index SharePoint site content via GraphSearch | Connect to SharePoint URL. Requires Entra ID auth. | **25 URLs** | 4 URLs per generative answers node |
 | Dataverse tables | Structured data from Dataverse via RAG | Select tables and views. Requires Entra ID auth. | **Unlimited** | 2 sources, 15 tables per source |
 | Enterprise data (Copilot connectors) | Index non-Microsoft data into Graph for semantic search | Setup in M365 admin center. Add via Knowledge > Advanced. | **Unlimited** | 2 per agent |
 | OneDrive | Personal/shared OneDrive files | Select files/folders from OneDrive | See SharePoint limits | See SharePoint limits |
+| **Azure AI Search** | Vector search over custom indexes | Connect via Access Key, Client Cert, Service Principal, or Entra ID Integrated. One vector index per connection. | **GA** (May 2025). Featured in Add Knowledge dialog. | N/A |
 | **Custom knowledge (OnKnowledgeRequested)** | API-based custom knowledge via topic trigger | Create topic with OnKnowledgeRequested trigger (YAML-only). Call any search API, transform results to Content/ContentLocation/Title format. | Up to 15 snippets across all custom knowledge topics combined | N/A (generative orchestration only) |
 
 ### Unstructured Data Sources (via Knowledge > Advanced)
@@ -55,7 +56,7 @@ Note: Generative orchestration does NOT support custom data or Bing Custom Searc
 
 | Constraint | Limit |
 |-----------|-------|
-| Max knowledge objects per agent | **500** |
+| Max knowledge objects per agent | **500** (but up to **1,000 files** for SharePoint/OneDrive uploads -- GA Oct 2025) |
 | Max different source types per agent | **5** |
 | Max file groups per agent | **25** |
 | Max files per file group | **500** (512 MB each) |
@@ -63,6 +64,7 @@ Note: Generative orchestration does NOT support custom data or Bing Custom Searc
 | SharePoint lists per "Add knowledge" session | **15** (repeat dialog to add more) |
 | Generative orchestration source filter | If >25 knowledge sources, agent uses internal GPT to filter by description (uploaded files exempt from this limit) |
 | Custom knowledge snippets | Up to **15** snippets across all OnKnowledgeRequested topics combined |
+| Connector payload size | **5 MB** (450 KB for GCC) |
 
 ## Real-Time Knowledge Connectors (Preview) -- Supported Systems
 
@@ -171,8 +173,10 @@ Source: https://learn.microsoft.com/en-us/microsoft-copilot-studio/data-privacy-
 | M365 tenant-wide context | Tenant graph grounding | Semantic search across all M365 data |
 | Live external system data | Real-time connectors (Preview) | No data movement, user-authenticated |
 | Structured data analysis | Code interpreter + files | Deterministic computation, not LLM guessing |
-| Custom search API / Azure AI Search | OnKnowledgeRequested trigger | Full control over query and results |
+| Pre-built vector search index | Azure AI Search (direct, GA) | Native integration, vectorized + semantic ranker support |
+| Custom search API | OnKnowledgeRequested trigger | Full control over query and results |
 | Multiple backend systems | Multiple OnKnowledgeRequested topics | Parallel querying with automatic result merging |
+| SharePoint tabular data | SharePoint lists (Preview Apr 2026) | Real-time, ACL-enforced, no data movement |
 
 ## Knowledge Source Behavior Controls
 
@@ -276,7 +280,7 @@ Code interpreter is a Python execution engine integrated within Copilot Studio. 
 | Feature | Status | Details |
 |---------|--------|---------|
 | Code interpreter on customer-uploaded files | **GA** (Nov 2025) | Users can upload files in conversation for analysis |
-| Code interpreter on SharePoint sources | **Preview** (Mar 2026) | Analyze SharePoint Document Library structured files (CSV, Excel) with code |
+| Code interpreter on SharePoint sources | **Preview** (Mar 2026), GA May 2026 | Analyze SharePoint Document Library structured files (CSV, Excel) with code |
 | Code interpreter in prompt builder | **GA** | Enable via prompt settings |
 
 Capabilities: data analysis, process Word/Excel/PowerPoint/PDF files, generate visualizations, deterministic computation. Supports statistical analysis, table joins, forecasting, chart generation.
@@ -292,21 +296,31 @@ Knowledge sources power the `SearchAndSummarizeContent` node:
 
 ## Content Moderation Levels
 
+Moderation levels range from **Lowest** to **Highest**. Topic-level settings take precedence over agent-level. Prompt tools can override via Completion setting.
+
 | Level | Description |
 |-------|-------------|
+| Lowest | Most permissive -- maximum answers, highest risk of harmful content |
 | Low | Most answers, but may allow harmful content |
 | Moderate | Default for prompts. Balanced filtering. |
-| High | Default for agents. Strictest filter, fewer answers. |
+| High | Default for agents. Stricter filter, fewer answers. |
+| Highest | Most restrictive filter, fewest answers |
+
+**Per-prompt content moderation (Feb 2026):** Configure content moderation sensitivity per prompt to control how hate/fairness, sexual, violence, and self-harm content is filtered -- supports regulated and document-processing scenarios.
 
 ## Upcoming Features
 
 | Feature | Status | Expected | Notes |
 |---------|--------|----------|-------|
-| Code interpreter on SharePoint sources | Preview | Mar 2026 | Analyze SharePoint data with Python |
+| Code interpreter on SharePoint sources | Preview Mar 2026 | GA May 2026 | Analyze SharePoint Document Library structured files (CSV, Excel) with Python |
 | Custom MCP servers as knowledge | Preview Mar 2026, GA Apr 2026 | Mar-Apr 2026 | Connect to any external data via MCP |
 | Enhanced connectors (Connector SDK + PowerFx) | Preview (May 2025) | GA May 2026 | Build structured data connectors for agent knowledge |
 | OpenAPI v3 custom connectors | Preview Feb 2026 | GA May 2026 | Import OpenAPI v3 specs directly |
-| File groups | Preview | GA May 2026 | Group files with instructions to guide agent answers |
+| File groups | **GA** (Aug 2025) | -- | Group files with variable-based instructions to guide agent answers. GA May 2026 per 2026w1 release plan refers to additional enhancements. |
+| **SharePoint lists as knowledge source** | Preview Apr 2026 | GA May 2026 | Real-time connection to SharePoint list data. ACL-enforced. Select from recent/my lists. |
+| **Use your own model for generating responses** | Preview Mar 2026 | TBD | Bring custom models for generative answers |
+| **Configure triggers with end-user credentials** | Preview Mar 2026 | GA May 2026 | |
+| **Use MCP-compliant tools in agent workflows** | Preview Apr 2026 | GA Oct 2026 | Broader MCP tool integration in workflows |
 | Reassign agent owner via Power Platform API | -- | GA Mar 2026 | |
 | Build advanced approvals | Preview | GA Mar 2026 | |
 
@@ -316,10 +330,18 @@ Knowledge sources power the `SearchAndSummarizeContent` node:
 - Graph connectors expanding -- new data sources added regularly
 - Search "Copilot Studio knowledge sources" on MS Learn for updates
 - Tenant graph grounding requires M365 Copilot license -- verify before recommending
-- File groups are in preview with GA planned May 2026
-- Code interpreter is GA for uploaded files and prompts; SharePoint preview Mar 2026
+- **File groups are GA (Aug 2025)** with variable-based instructions. 2026w1 plans additional enhancements (GA May 2026).
+- Code interpreter is GA for uploaded files and prompts; SharePoint preview Mar 2026, GA May 2026
 - Real-time connectors still in Preview -- 14 connectors supported
 - ALM not supported for unstructured data sources (import does not auto-process)
 - OnKnowledgeRequested is the recommended approach for custom search APIs (Azure AI Search, etc.)
 - SharePoint without M365 Copilot license: 7 MB file limit for generative answers
 - Enhanced connectors (Connector SDK) allow building structured data connectors usable as knowledge in agents
+- **Azure AI Search is GA (May 2025)** as a first-class knowledge source -- supports vectorized indexes with integrated vectorization and semantic ranker. Does NOT support VNet-configured indexes.
+- **SharePoint lists as knowledge source** -- Preview Apr 2026, GA May 2026. Real-time connection, ACL-enforced.
+- **SharePoint metadata filters (Nov 2025)** -- filter by filename, owner, modified date for better retrieval
+- **1,000 files per agent** for SharePoint/OneDrive uploads (GA Oct 2025), up from previous 500
+- **Connector payload limit**: 5 MB (450 KB for GCC)
+- **Knowledge source suggestions**: MCS now suggests top 10 knowledge sources from previous agents, shared agents, and Office products
+- **Per-prompt content moderation** (Feb 2026): control hate/fairness, sexual, violence, self-harm sensitivity per prompt
+- **Mar 2026 check**: Azure AI Search GA, file groups GA, SharePoint lists Preview Apr 2026, custom MCP servers as knowledge Preview Mar 2026 / GA Apr 2026. No new knowledge source types added since last check. Real-time connectors remain Preview.

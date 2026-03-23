@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-19
-sources: [MS Learn (agents-overview, researcher-agent, wordexcelppt-agents, explore-prebuilt-agents training), Microsoft 365 Blog (2025-03-25, 2025-06-02, 2025-11-18, 2026-03-09), adoption.microsoft.com/ai-agents, WorkIQ internal context]
+last_verified: 2026-03-23
+sources: [MS Learn (agents-overview, researcher-agent, wordexcelppt-agents, explore-prebuilt-agents training, agent-registry, learning-agent-overview, sales-research-agent, copilot-release-notes), Microsoft 365 Blog (2025-03-25, 2025-06-02, 2025-11-18, 2026-03-09), adoption.microsoft.com/ai-agents, support.microsoft.com (researcher-computer-use, workflows-frontier), Dynamics 365 Blog (2026-03-09, 2026-03-18), WorkIQ internal context]
 confidence: high
 refresh_trigger: before_research
 -->
@@ -34,20 +34,22 @@ refresh_trigger: before_research
 
 ## Tier 1: Frontier Reasoning Agents
 
-Deep reasoning agents with specialized models. 25 queries/month combined limit per user.
+Deep reasoning agents with specialized models. 25 queries/month combined limit per user. **Note:** Researcher and Analyst are part of the core Copilot chat experience (available under "Tools") and do NOT fall under agent-related governance settings -- they coexist with agents but are managed separately.
 
 ### Researcher
 - **Status:** GA (July 2025)
 - **License:** M365 Copilot
 - **Model:** OpenAI deep research model
 - **Location:** M365 Copilot Chat
-- **What it does:** Multi-step research across web + work data (emails, meetings, files, chats). Produces structured, cited reports. Takes 5-45 minutes per query. Supports third-party data via Copilot connectors (Salesforce, ServiceNow, Confluence, Jira).
+- **What it does:** Multi-step research across web + work data (emails, meetings, files, chats). Produces structured, cited reports with visuals, charts, and graphs. Takes 5-45 minutes per query. Supports third-party data via Copilot connectors (Salesforce, ServiceNow, Confluence, Jira). Supports multi-agent workflows: can call other connected DAs to accomplish work (Jan 2026 release).
+- **Researcher with Computer Use (Frontier Preview):** Extension that lets Researcher interact with public, gated, and interactive web content through a secure Windows 365 virtual machine. Can browse restricted websites, sign in to verified sources, run code/scripts, and create research materials (reports, presentations, spreadsheets). Configurable via M365 Admin Center > Agents > Researcher > Computer Use tab.
 - **Capability match patterns:**
   - "Research [topic] and summarize findings"
   - "Analyze competitor landscape"
   - "Compile information from multiple sources"
   - "Create a research report on [topic]"
   - "Synthesize web research with internal documents"
+  - "Research content behind login/paywall" (Computer Use)
 - **What it CANNOT do:** Real-time queries, sub-minute responses, write to external systems, custom output formats, proactive/scheduled execution
 - **When to recommend:** Use case is primarily open-ended research synthesis across web + work data
 - **When to build CA instead:** Need custom data sources not in M365/connectors, need specific output format (adaptive cards, structured data), need real-time responses, need to write back to systems
@@ -233,6 +235,17 @@ Available at no extra cost with M365 Copilot Chat (free) or M365 Copilot.
   - "Automated customer outreach"
 - **When to build CA instead:** Need custom CRM integration, need custom qualification criteria, non-standard sales process
 
+### Sales Research Agent
+- **Status:** Public Preview
+- **License:** Dynamics 365 Sales Premium or Dynamics 365 Sales Enterprise
+- **Location:** Dynamics 365 Sales
+- **What it does:** Gathers information from CRM, web, and configured knowledge sources (battle cards, positioning briefs, product comparisons). Provides stakeholder and competitor intelligence, risk mitigation strategies. Supports Fabric Lakehouse as a data source. Produces visual research blueprints with journey lines and AI cursor interaction.
+- **Capability match patterns:**
+  - "Research competitor landscape for this opportunity"
+  - "Stakeholder intelligence and risk analysis"
+  - "Sales data analysis with organizational context"
+- **When to build CA instead:** Need non-D365 CRM data, need custom research workflows, need real-time pipeline automation
+
 ---
 
 ## Tier 5: Frontier Program Agents (Early Access)
@@ -257,14 +270,28 @@ Require Frontier program enrollment.
   - "Workforce planning and staffing insights"
 
 ### Learning Agent (Frontier)
-- **Status:** Frontier Preview
-- **License:** M365 Copilot + Frontier program
+- **Status:** Frontier Preview (Private Preview)
+- **License:** M365 Copilot + Frontier program. Optional: Viva Suite / Viva Premium (enables Viva Learning capabilities)
+- **Supported platforms:** M365 Copilot Web, M365 Copilot Chat Native App, Teams (Web and App). NOT supported in Word, PowerPoint, or Excel App Copilot.
+- **Deployment:** Admins deploy via M365 Admin Center > Agents page > search "Learning (Frontier)". Users find in Agent Store > Built by Microsoft > "Learning (Frontier)". Users in Frontier must also be enabled for Learning agent.
 - **What it does:** Personalized Copilot usage tips, skill-based learning recommendations, curated learning paths, AI-powered role-play exercises via LinkedIn Learning. Focused on Copilot adoption and skill development.
 - **Not to be confused with:** Learning Coach (Tier 3) — which is a free, general-purpose topic explainer. This agent is Frontier-only and specifically focused on Copilot skills and LinkedIn Learning.
 - **Capability match patterns:**
   - "Personalized learning recommendations"
   - "Copilot usage training and tips"
   - "Role-play practice exercises"
+
+### Workflows Agent
+- **Status:** Frontier Early Access (rolling out, US + English only)
+- **License:** M365 Copilot + Frontier program (currently M365 Personal, Family, Premium)
+- **Location:** M365 Copilot Chat
+- **What it does:** Automates work across M365 using natural language. Generates working workflows from descriptions. Supports Outlook, SharePoint, Teams, Planner, Approvals, Office 365 Users, Dataverse. Trigger-based (schedule, event) and action-based (send emails, post Teams messages, create SharePoint items). Collects user input with adaptive cards in Teams. Visual designer for testing and management.
+- **Limitations:** Cannot share workflows; experimental and subject to change; US/English only currently
+- **Capability match patterns:**
+  - "Automate this recurring task across M365 apps"
+  - "Create a workflow triggered by [event]"
+  - "Set up an approval process in Teams"
+- **When to build CA instead:** Need complex multi-system automation, need shared/team workflows, need non-M365 integrations, need production-grade reliability
 
 ---
 
@@ -295,6 +322,7 @@ Require Frontier program enrollment.
 | Customer Need | First-Party Agent | Coverage | Build CA For |
 |--------------|-------------------|----------|-------------|
 | Deep web + work research | Researcher | High | Custom data sources, real-time needs |
+| Research behind logins/paywalls | Researcher + Computer Use (Frontier) | High | Non-web gated content |
 | Data analysis from files | Analyst | High | Live database queries, automated pipelines |
 | Document generation | Word/Excel/PPT Agents | Medium | Branded templates, data-driven content |
 | Meeting management | Facilitator | High | Custom workflows, external integrations |
@@ -303,8 +331,10 @@ Require Frontier program enrollment.
 | HR/IT self-service | Employee Self-Service | Medium | Specific ITSM/HR system integrations |
 | Expert finding | Skills Agent | High | Custom skills taxonomy, external directories |
 | Sales pipeline | Sales Development | Medium | Custom CRM, non-standard processes |
+| Sales research + competitor intel | Sales Research Agent | Medium | Non-D365 CRM, custom research flows |
 | Writing improvement | Writing Coach | High | Domain-specific style guides |
 | Brainstorming | Idea Coach | Medium | Domain-specific ideation frameworks |
+| M365 workflow automation | Workflows (Frontier) | Medium | Complex multi-system automation, shared workflows |
 
 ---
 
@@ -312,6 +342,8 @@ Require Frontier program enrollment.
 
 - [Agents for Microsoft 365 Copilot](https://learn.microsoft.com/en-us/microsoft-365-copilot/extensibility/agents-overview)
 - [Get started with Researcher](https://learn.microsoft.com/en-us/copilot/microsoft-365/researcher-agent)
+- [Researcher with Computer Use (Frontier)](https://support.microsoft.com/en-us/topic/get-started-using-researcher-with-computer-use-in-microsoft-365-copilot-frontier-1f274537-6648-46e8-8264-052a49b92af4)
+- [Agent Registry in M365 Admin Center](https://learn.microsoft.com/en-us/microsoft-365/admin/manage/agent-registry)
 - [Word, Excel, and PowerPoint Agents](https://learn.microsoft.com/en-us/copilot/microsoft-365/wordexcelppt-agents)
 - [Explore Prebuilt Agents (Training)](https://learn.microsoft.com/en-us/training/modules/explore-prebuilt-microsoft-365-copilot-agents/)
 - [Introducing Researcher and Analyst](https://www.microsoft.com/en-us/microsoft-365/blog/2025/03/25/introducing-researcher-and-analyst-in-microsoft-365-copilot/)
@@ -320,3 +352,9 @@ Require Frontier program enrollment.
 - [Wave 3: Frontier Transformation](https://www.microsoft.com/en-us/microsoft-365/blog/2026/03/09/powering-frontier-transformation-with-copilot-and-agents/)
 - [Agents in Microsoft 365](https://adoption.microsoft.com/en-us/ai-agents/agents-in-microsoft-365/)
 - [Frontier Program](https://adoption.microsoft.com/en-us/copilot/frontier-program/)
+- [Learning Agent Setup](https://learn.microsoft.com/en-us/viva/learning/learning-agent-overview-deployment-steps)
+- [Workflows in M365 Copilot (Frontier)](https://support.microsoft.com/en-us/topic/get-started-with-workflows-in-microsoft-365-copilot-frontier-8c6aba25-db31-443d-8319-bc79747b280a)
+- [Sales Research Agent](https://learn.microsoft.com/en-us/dynamics365/sales/use-sales-research-agent)
+- [M365 Copilot Release Notes](https://learn.microsoft.com/en-us/copilot/microsoft-365/release-notes)
+- [Microsoft Agent 365](https://www.microsoft.com/en-us/microsoft-agent-365)
+- [Manage Copilot Agents in M365 Admin](https://learn.microsoft.com/en-us/microsoft-365/admin/manage/manage-copilot-agents-integrated-apps)

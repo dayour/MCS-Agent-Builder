@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-18
-sources: [MS Learn (30 pages), GitHub repo, AppSource, Power CAT blog, community blogs, 3 research agents]
+last_verified: 2026-03-23
+sources: [MS Learn (30 pages), GitHub repo, GitHub releases page, AppSource, Power CAT blog, community blogs, MS Learn kit-overview, MS Learn kit-configure-tests, MS Learn kit-microsoft-authentication, WebSearch Mar 2026]
 confidence: high
 refresh_trigger: on_error
 -->
@@ -12,22 +12,22 @@ Free, MIT-licensed Power Platform solution from Microsoft Power CAT team. Testin
 
 - **GitHub:** microsoft/Power-CAT-Copilot-Studio-Kit (~345 stars, 60 open issues)
 - **AppSource:** https://aka.ms/DownloadCopilotStudioKit
-- **Latest:** March 2026 (2026-03-13) — monthly release cadence, 14 releases in 20 months
+- **Latest:** March 2026 (2026-03-13) — monthly release cadence, 15 releases in 21 months
 - **License:** MIT (no Microsoft Support — community/GitHub issues only)
 - **MS Learn:** `https://learn.microsoft.com/en-us/microsoft-copilot-studio/guidance/kit-*`
 
-## 18 Features
+## 19 Features
 
 | # | Feature | Category | Key Detail |
 |---|---------|----------|------------|
-| 1 | Test Automation | Testing | 6 test types via Direct Line API, Excel bulk import/export |
+| 1 | Test Automation | Testing | 6 test types via Direct Line API + MS Auth (Agent SDK), Excel bulk import/export |
 | 2 | Rubrics Refinement | Testing | 5-point AI rubrics with human alignment workflow |
 | 3 | Multi-turn Testing | Testing | Ordered child tests, critical/non-critical turns |
 | 4 | Plan Validation | Testing | Expected tools + threshold %, uses ConversationTranscript |
 | 5 | Compliance Hub | Governance | Risk thresholds, SLA enforcement, quarantine/delete |
-| 6 | Agent Inventory | Governance | 44-column tenant-wide agent catalog |
-| 7 | Agent Insights Hub | Analytics | App Insights + transcript telemetry, 9-tab React dashboard |
-| 8 | Conversation KPIs | Analytics | Sessions/turns/outcomes, Power BI template, auto 2x/day |
+| 6 | Agent Inventory | Governance | 44-column tenant-wide agent catalog, now pulls base data from PPAC |
+| 7 | Agent Insights Hub | Analytics | App Insights + transcript telemetry, comprehensive monitoring dashboard (NEW Mar 2026) |
+| 8 | Conversation KPIs | Analytics | Sessions/turns/outcomes, Power BI template, auto 2x/day, now shows feedback data |
 | 9 | Agent Value | Analytics | AI-classified agent type/behavior/value |
 | 10 | Conversation Analyzer | Analytics | Custom AI prompt analysis of transcripts |
 | 11 | Agent Review Tool | Quality | Solution anti-pattern detection, severity scoring |
@@ -35,9 +35,10 @@ Free, MIT-licensed Power Platform solution from Microsoft Power CAT team. Testin
 | 13 | Prompt Advisor | Authoring | Confidence scoring, refinement (~120 AI Builder credits/iter) |
 | 14 | Webchat Playground | Authoring | Theme designer with JSON/HTML export |
 | 15 | Adaptive Cards Gallery | Authoring | Template library with sample data |
-| 16 | Component Library | Authoring | Pre-built importable agent components |
+| 16 | Component Library | Authoring | Pre-built importable agent components with browsing app (NEW Mar 2026) |
 | 17 | Automated Testing via Pipelines | CI/CD | Quality gate in PP Pipelines, blocks failed deploys |
 | 18 | Setup Wizard | Admin | Guided connection ref + env var + flow activation |
+| 19 | Microsoft Authentication | Testing | Browser-to-Agent SDK architecture for secure test execution (NEW) |
 
 ## 6 Test Types
 
@@ -128,6 +129,23 @@ Flows must be enabled: Grandchild → Child → Parent. Categories:
 | App Insights | Optional | Enhanced telemetry |
 | Power BI | Optional | Conversation KPIs dashboard |
 
+## March 2026 Release Highlights (2026-03-13)
+
+- **Agent Insights Hub**: Comprehensive analytics and monitoring dashboard — aggregates telemetry from App Insights and Conversation Transcripts. Visibility into agent performance, conversation metrics, topic/tool analytics, error tracking, and credit consumption.
+- **Component Library**: New browsing app for discovering and adding pre-built components to your environment
+- **Enhanced Conversation KPIs**: Now displays feedback data alongside session metrics
+- **Agent Inventory improvements**: Now pulls base agent data from Power Platform Admin Center (PPAC)
+- **Bug fixes**: Binary incompatibility in compliance scanning, conversation KPI discrepancies, agent sync delays, billed message reporting inconsistencies
+
+## Microsoft Authentication for Testing (NEW)
+
+Browser-to-Agent SDK architecture optimized for testing scenarios:
+- Secure communication between test environment and Copilot Studio agents
+- No additional authentication infrastructure required beyond Entra ID app registration
+- Uses Agent Test Runner PCF component
+- Documented architecture: browser environment > Power Platform services > authentication services
+- Setup guide: `MS Learn kit-microsoft-authentication`
+
 ## Known Issues
 
 - Compliance scan is manual-only (no API trigger) — GitHub issue #620
@@ -136,6 +154,7 @@ Flows must be enabled: Grandchild → Child → Parent. Categories:
 - Solution upgrade: `cat_copilottestrunid` deletion error — stage before apply
 - AI Builder credits: seeded credits expire Nov 1, 2026
 - Authentication testing limited to Entra ID v2 SSO + MS Auth only
+- Agent Inventory usage metrics require separate `_AgentInventoryUsage` managed zip + HTTP with Entra ID connector
 
 ## Our Integration Points
 
@@ -158,4 +177,6 @@ Flows must be enabled: Grandchild → Child → Parent. Categories:
 - Check GitHub releases page for new versions (monthly cadence)
 - Monitor GitHub issues for API trigger support (#620, #629)
 - Track AI Builder credit policy changes (Nov 2026 deadline)
-- Watch for M365 Agents SDK migration in Kit (currently Direct Line only)
+- Watch for M365 Agents SDK migration in Kit (currently Direct Line + MS Auth via Agent SDK)
+- Note: Kit now has MS Learn documentation for Microsoft authentication setup (kit-microsoft-authentication)
+- Component Library is a new feature — monitor for pre-built component additions

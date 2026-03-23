@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-19
-sources: [MS Learn, MCS UI, AI Builder docs, WebSearch Mar 2026, MS Learn MCP Mar 2026, Copilot Blog Mar 2026, 2026 Wave 1 release plan]
+last_verified: 2026-03-23
+sources: [MS Learn, MCS UI, AI Builder docs, WebSearch Mar 2026, MS Learn MCP Mar 2026, Copilot Blog Mar 2026, 2026 Wave 1 release plan, Work IQ docs Mar 2026]
 confidence: high
 refresh_trigger: before_architecture
 -->
@@ -49,7 +49,7 @@ Sentiment analysis, entity extraction (20+ types), category classification, key 
 
 | Fact | Value |
 |------|-------|
-| Status | **Public Preview** (since May 27, 2025; **GA target May 2026** per 2026 Wave 1) |
+| Status | **Public Preview** (since May 27, 2025; **GA May 2026** confirmed in 2026 Wave 1 release plan) |
 | Models | OpenAI CUA, Anthropic Claude Sonnet 4.5 (beta, added Feb 2026 — improves nuanced decision-making) |
 | Web success rate | **~80%** |
 | Desktop success rate | **~35%** |
@@ -123,6 +123,24 @@ These are **agent-level settings**, NOT tools/connectors/MCPs. They are toggled 
 
 Moderation precedence: Topic-level > Agent-level. Prompt tool is independent.
 
+## Work IQ MCP Tools (Preview — Mar 2026)
+
+Work IQ is the intelligence layer that grounds M365 Copilot and agents in real-time work context. MCP-based integration with Copilot Studio.
+
+| Server | What It Provides |
+|--------|-----------------|
+| Work IQ Mail | Email insights and context |
+| Work IQ Calendar | Meeting insights and context |
+| Work IQ Teams | Chat and channel insights |
+
+**Requires:** Microsoft 365 Copilot license. Admins manage servers in M365 admin center (allow/block). Agent 365 control plane governs compliance.
+
+**How to add:** Tools > Add Tool > Model Context Protocol > search "mail" / "calendar" / "teams" > select Work IQ server > Create New Connection > credentials > Add and Configure.
+
+**Governance:** Admin control via M365 admin center (Agents and Tools), scoped permissions, Microsoft Defender trace logs for observability, policy enforcement at runtime (rate limits, payload checks, security scans).
+
+**Source:** [Work IQ MCP overview](https://learn.microsoft.com/microsoft-copilot-studio/use-work-iq)
+
 ## Upcoming Features
 
 | Feature | Status | Expected |
@@ -132,10 +150,15 @@ Moderation precedence: Topic-level > Agent-level. Prompt tool is independent.
 | Use your own model for generating responses (BYOM) | Preview Mar 2026 | **Active Preview** |
 | Configure triggers with end-user credentials | Preview Mar 2026, GA May 2026 | **Active Preview** |
 | Evaluate test sets with multiple graders | Preview Feb 8, 2026 | **Active Preview** |
+| Work IQ MCP tools | Preview Mar 2026 | **Active Preview** |
 | Computer Use GA | GA May 2026 | Planned |
 | MCP-compliant tools in agent workflows | Preview Apr 2026, GA Oct 2026 | Planned |
 | Enforce safe sharing (credential oversharing detection) | Preview Apr 2026, GA Jun 2026 | Planned |
 | Unified error/warning/governance notifications | Preview Apr 2026, GA Jun 2026 | Planned |
+| Create agents optimized for M365/M365 Copilot users | Preview Jun 2026 | Planned |
+| Evaluate agents for M365 Copilot in Copilot Studio | Preview Jul 2026 | Planned |
+| Add SharePoint lists as knowledge source | Preview Apr 2026, GA May 2026 | Planned |
+| Build enhanced connectors with Connector SDK + PowerFx | Preview GA May 2025, GA May 2026 | Planned |
 
 ## Features Removed from Release Plan (Feb 2026)
 

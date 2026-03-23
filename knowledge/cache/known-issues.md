@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-18
-sources: [skills-for-copilot-studio repo, ObjectModel repo, Elevate repo, build experience, MS Learn, community reports]
+last_verified: 2026-03-23
+sources: [skills-for-copilot-studio repo, ObjectModel repo, Elevate repo, build experience, MS Learn, community reports, MS Learn M365 Copilot extensibility known-issues, 2025 Wave 2 change history, WebSearch Mar 2026]
 confidence: high
 refresh_trigger: before_build
 -->
@@ -103,6 +103,45 @@ card: |
 **Issue:** `triggerCondition` in YAML accepts any Power Fx expression (e.g., `=Global.UserCounty = "Armstrong"`), but the Copilot Studio UI only shows it as an on/off toggle. Setting it via UI resets complex expressions.
 **Mitigation:** Set `triggerCondition` in YAML only. Do not edit in UI if using Power Fx expressions.
 
+### SharePoint files with null characters in file name return no results
+**Issue:** If a SharePoint file used as a knowledge source contains null characters in the file name, the agent returns no results based on that knowledge source.
+**Mitigation:** Rename the file to remove null characters. No workaround within MCS.
+**Source:** MS Learn M365 Copilot extensibility known issues (Mar 2026).
+
+### SharePoint knowledge fails silently without Copilot license
+**Issue:** Declarative agents grounded in SharePoint knowledge sources provision successfully but fail at runtime with "Sorry, I wasn't able to respond." SharePoint and OneDrive knowledge sources require an active M365 Copilot license. CDX demo tenants without Copilot license can create/publish agents but grounded retrieval fails silently.
+**Mitigation:** Ensure signed-in user has M365 Copilot license (or M365 Copilot Developer License for testing). Verify user has Read permissions on the SharePoint site. Use User authentication (service principals not supported for SP grounding).
+**Source:** MS Learn M365 Copilot extensibility known issues (Mar 2026).
+
+---
+
+## Declarative Agent Issues
+
+### Power Automate Flows unreliable as DA actions
+**Issue:** Power Automate Flows as actions in declarative agents might not run reliably and might not return results. Newly created flows may not appear in the Add Action interface even if the action counter reflects their presence.
+**Mitigation:** Edit the description on the flow details page outside of Copilot Studio to improve trigger success. No workaround for flows not returning results.
+**Source:** MS Learn M365 Copilot extensibility known issues (Mar 2026).
+
+### Custom metadata prompts not supported
+**Issue:** Prompts to get a list of items based on custom metadata are not supported (e.g., "Get ServiceNow tickets assigned to me" where "Assigned To" is custom metadata not mapped to connection schema label properties).
+**Mitigation:** Get items based on matches with the title or description of the connector item instead.
+**Source:** MS Learn M365 Copilot extensibility known issues (Mar 2026).
+
+### URLs disappear in @mention responses in M365 Copilot
+**Issue:** When invoking a declarative agent through @mention, URLs may be removed, hidden, or downgraded to plain text. The @mention pipeline applies stricter output sanitization.
+**Mitigation:** Use Markdown link formatting or angle-bracket notation. Return URLs inside structured JSON fields in API plugin responses. Provide navigational text instead of bare URLs.
+**Source:** MS Learn M365 Copilot extensibility known issues (Mar 2026).
+
+### Sharing agents via M365 Copilot can fail with distribution groups
+**Issue:** When sharing an agent via the "Specific users in your organization" option, search results may include distribution groups. Sharing with a distribution group causes the share to fail.
+**Mitigation:** Share with individual users or security groups, not distribution groups.
+**Source:** MS Learn M365 Copilot extensibility known issues (Mar 2026).
+
+### API plugin OpenAPI limitations
+**Issue:** Nested objects in request bodies/parameters, polymorphic references (oneOf/allOf/anyOf), circular references, API keys in custom headers/query/cookies, dual auth flows, and multiple response semantics are not supported for API plugins.
+**Mitigation:** Use flattened schemas. Use single auth flow per endpoint.
+**Source:** MS Learn M365 Copilot extensibility known issues (Mar 2026).
+
 ---
 
 ## Connector Issues
@@ -182,9 +221,31 @@ card: |
 
 ---
 
+## Removed/Deprioritized Features (Not Bugs — But Build-Relevant)
+
+### "Test and debug agent actions" will NOT be delivered
+**Issue:** This feature was on the 2025 Wave 2 release plan but was deprioritized and removed on Feb 12, 2026. There is no planned native UI for testing individual agent actions in isolation.
+**Mitigation:** Use Copilot Studio Kit test automation, Direct Line testing, or the VS Code extension for action debugging.
+
+### "SSO for non-Entra ID connections" will NOT be delivered
+**Issue:** This feature was deprioritized and removed on Feb 27, 2026. SSO only works with Entra ID connections.
+**Mitigation:** For non-Entra ID OAuth, use manual authentication flows. No SSO shortcut available.
+
+---
+
+## Custom Engine Agent Limitations (M365 Copilot)
+
+### Multiple UX limitations for custom engine agents in M365 Copilot
+**Issue:** Custom engine agents (built with M365 Agents Toolkit/SDK) running in M365 Copilot have significant limitations: no file attachments, no proactive notifications, no editable messages, limited rich card support (no Hero/Thumbnail/Connector/Animation/Audio/Receipt cards), Adaptive Cards with Action.Execute don't persist refreshed content, no sensitivity labels, and no support in Outlook/Word/Excel/PowerPoint/Edge.
+**Mitigation:** Use standard Copilot Studio agents for full feature support. Custom engine agents are best for Teams-only scenarios with simple text interactions.
+**Source:** MS Learn M365 Copilot extensibility known issues (Mar 2026).
+
+---
+
 ## Refresh Notes
 
 - New issues should be added with category headers
 - Remove issues confirmed fixed in newer MCS releases
 - Cross-reference with `knowledge/learnings/` for build-specific issues
 - Check MS Learn release notes monthly for resolved issues
+- Check M365 Copilot extensibility known issues page for DA/plugin issues

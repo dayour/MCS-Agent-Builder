@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-19
-sources: [MS Learn (authoring-triggers, authoring-triggers-about, planned-features), MCS UI snapshot, WebSearch Mar 2026, knowledge/patterns/topic-patterns/]
+last_verified: 2026-03-23
+sources: [MS Learn (authoring-triggers, authoring-triggers-about, planned-features, guidance/generative-orchestration, authoring-select-agent-model, release-plan/2026wave1), MCS UI snapshot, WebSearch Mar 2026, knowledge/patterns/topic-patterns/]
 confidence: high
 refresh_trigger: before_architecture
 -->
@@ -26,14 +26,14 @@ refresh_trigger: before_architecture
 | `OnSignIn` | Sign in | Auth required | No |
 | `OnSelectIntent` | Multiple Topics Matched | Disambiguation needed | Yes |
 | `OnEscalate` | Escalate | "Talk to agent" matched | Yes |
-| `OnPlanComplete` | A plan completes | Agent finishes all planned steps (generative orchestration) | No |
-| `OnGeneratedResponse` | AI-generated response about to be sent | AI composes draft before sending (generative orchestration) | No |
+| `OnPlanComplete` | A plan completes | Agent finishes all planned steps AND the response is sent (generative orchestration). Use for end-of-conversation cleanup, survey redirect, or post-plan actions. | No |
+| `OnGeneratedResponse` | AI-generated response about to be sent | AI composes draft before sending (generative orchestration). Use `Response.FormattedText` to read the draft; set `ContinueResponse` to false to suppress the default response and send your own via a Message node. | No |
 
 ### Hidden/Advanced (YAML-only, not in UI)
 
 | Trigger | How to Enable | Purpose |
 |---------|--------------|---------|
-| `OnKnowledgeRequested` | Name topic exactly `OnKnowledgeRequested` | Intercept knowledge search, inject custom results. System variables: `System.SearchQuery`, `System.KeywordSearchQuery`, `System.SearchResults`. Use with `AutomaticTaskInput(shouldPromptUser:false)` for orchestrator-generated classification. See `knowledge/patterns/topic-patterns/knowledge-routing.yaml`. |
+| `OnKnowledgeRequested` | Name topic exactly `OnKnowledgeRequested` | Intercept knowledge search, inject custom results. Officially documented on [MS Learn generative-orchestration guidance](https://learn.microsoft.com/en-us/microsoft-copilot-studio/guidance/generative-orchestration#custom-triggers-in-generative-orchestration) as one of three "custom triggers in generative orchestration," but still not visible in UI by default. Provides read-only access to `SearchPhrase`/keywords and a system variable to supply custom search results. System variables: `System.SearchQuery`, `System.KeywordSearchQuery`, `System.SearchResults`. Use with `AutomaticTaskInput(shouldPromptUser:false)` for orchestrator-generated classification. See `knowledge/patterns/topic-patterns/knowledge-routing.yaml` and [MS Learn custom-knowledge-sources](https://learn.microsoft.com/en-us/microsoft-copilot-studio/guidance/custom-knowledge-sources). |
 | `ConnectorTriggerOperation` | YAML `kind: ConnectorTriggerOperation` | Event trigger from a Power Automate connector (e.g., SharePoint item created, email received). Distinct from `ConnectorOperation` (which is an action). Used for autonomous agent triggers. |
 
 ### Channel-Universal Initialization (OnActivity vs OnConversationStart)
@@ -85,8 +85,9 @@ Event triggers enable autonomous agent behavior -- the agent acts without user i
 |---------|--------|---------|
 | **Trigger conditions with PowerFx** | GA | Add PowerFx conditions to any trigger -- filter when a topic fires based on variable values or expressions |
 | **Trigger priority** | GA | Explicit ordering -- set priority when multiple topics could match the same intent. Order: (1) An activity occurs, (2) A message is received / custom event / conversation changes / invoked, (3) The agent chooses / User says a phrase. Same-type: oldest first unless Priority property is set. |
-| **Configure triggers with end-user credentials** | **Preview** (Mar 2026), GA May 2026 | Triggers can run authenticated as the end user, enabling user-context-aware trigger logic. Makers can create, configure, test, update, and delete triggers directly in MCS. Enables sharing autonomous agents that run with end-user credentials. |
+| **Configure triggers with end-user credentials** | **Preview** (Mar 2026), GA May 2026 | Triggers can run authenticated as the end user, enabling user-context-aware trigger logic. Makers can create, configure, test, update, and delete triggers directly in MCS. Enables sharing autonomous agents that run with end-user credentials. Confirmed in [2026 Wave 1 release plan](https://learn.microsoft.com/en-us/power-platform/release-plan/2026wave1/microsoft-copilot-studio/planned-features). |
 | **Simplify working with triggers and channels** | GA (Nov 2025) | Streamlined trigger/channel configuration UX |
+| **CUA (Computer Use Agent) tools** | GA May 2026 | Automate web and desktop apps via computer use. Preview since May 2025, GA target May 2026. Triggers agent actions that interact with UI elements. |
 
 ## Key Patterns
 

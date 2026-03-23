@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-19
-sources: [MS Learn, PAC CLI docs, Dataverse MCP docs, direct testing, E2E pipeline test (24/24 pass), ObjectModel schema, Island Gateway wire captures, Power Platform community, VS Code extension blog, 2026 Wave 1 release plan, WebSearch Mar 2026]
+last_verified: 2026-03-23
+sources: [MS Learn, PAC CLI docs, Dataverse MCP docs, direct testing, E2E pipeline test (24/24 pass), ObjectModel schema, Island Gateway wire captures, Power Platform community, VS Code extension blog, 2026 Wave 1 release plan, WebSearch Mar 2026, MS Learn whats-new Mar 2026, MS Learn pac copilot reference]
 confidence: high
 refresh_trigger: on_error
 -->
@@ -96,10 +96,23 @@ Tools: `read_query` (20-row limit), `create_record`, `update_record`, `delete_re
 
 ## Layer 2: PAC CLI
 
-**MSI** (Bash): `pac copilot list/create/publish/status/extract-template/init-skills`, `pac solution export/import`
+**MSI** (Bash): `pac copilot list/create/publish/status/extract-template/init-skills/mcp`, `pac solution export/import`
 > **Note:** `pac copilot create` requires an undocumented template YAML (topics/instructions only, ~30% of config). Prefer Dataverse POST + PvaProvision for full-featured agents.
-> **New (2026):** `pac copilot init-skills` — extracts skill definition files to `.github/skills/`. `pac copilot model prepare-fetch` — takes FetchXML from AI LLM and prepares for execution.
+> **Commands (full list from MS Learn, Mar 2026):**
+> - `pac copilot create` — create from template YAML
+> - `pac copilot extract-template` — extract template from existing agent
+> - `pac copilot extract-translation` — extract localized content files (resx/json)
+> - `pac copilot merge-translation` — merge localized content back
+> - `pac copilot init-skills` — extract skill definition files to `.github/skills/`
+> - `pac copilot list` — list agents in environment
+> - `pac copilot publish` — publish agent
+> - `pac copilot status` — poll deployment status
+> - `pac copilot model list` — list AI Builder models
+> - `pac copilot model predict` — send text/prompt to AI model
+> - `pac copilot model prepare-fetch` — prepare FetchXML from AI LLM for execution
+> - `pac copilot mcp --run` — start built-in MCP server (requires .NET 10+)
 **MCP** (dnx, 52 tools): `copilot_publish`, `env_fetch` (FetchXML, no row limit), `solution_*`, `auth_*`
+> **MCP server prerequisite updated**: Now requires .NET 10.0 or higher (was .NET 8+).
 
 **Not in PAC CLI MCP**: copilot list/create/status/extract-template — use Bash.
 
@@ -150,16 +163,51 @@ The `botcomponent` table has both `data` and `content` columns. Instructions (ty
 
 ---
 
-## Upcoming API Capabilities
+## Upcoming & Recently Shipped API Capabilities
 
 | Feature | Timeline | Status | Impact |
 |---------|----------|--------|--------|
-| Custom MCP servers | Preview Mar 2026, GA Apr 2026 | **Preview (live)** | Create/clone reusable MCP servers via UI; assembles connector actions, tools from other MCPs, custom APIs. Docs: `mcp-create-new-server` |
+| Custom MCP servers | Preview Mar 2026, GA Apr 2026 | **Preview (live)** | Create/clone reusable MCP servers via UI; assembles connector actions, tools from other MCPs, custom APIs. Clone MS-authored MCPs and tailor. Docs: `mcp-create-new-server` |
 | OpenAPI v3 connectors | Preview Feb 2026, GA May 2026 | **Preview** | Import OpenAPI v3 specs directly — no manual downgrade to v2. Auto-translation during creation. |
 | MCP-compliant tools in agent workflows | Preview Apr 2026, GA Oct 2026 | **Planned** | Use MCP tools directly in Power Automate agent workflows |
-| Reassign agent owner via API | GA Mar 2026 | **GA** | `POST /api/CopilotStudio/environments/{envId}/agents/{agentId}/assignTo` — reassign orphaned agents |
+| Reassign agent owner via API | GA Mar 2026 | **GA** | `POST /api/CopilotStudio/environments/{envId}/agents/{agentId}/assignTo` — reassign orphaned agents. **New namespace: `copilotstudio`** (old namespace deprecated but still works temporarily). |
 | Work IQ MCP tools | Preview Mar 2026 | **Preview** | Connect agents to Work IQ service for real-time M365 work insights (emails, meetings, chats, files) |
 | SharePoint lists as knowledge source | Preview Apr 2026, GA May 2026 | **Planned** | Add SharePoint lists directly as knowledge sources |
+| Connector SDK with Power Fx | Preview May 2025, GA May 2026 | **Preview** | Build enhanced connectors with Power Platform Connector SDK and Power Fx |
+| Unified error/warning/governance view | Preview Apr 2026, GA Jun 2026 | **Planned** | See all errors, warnings, and governance notifications in a unified view |
+| Advanced approvals | Preview May 2025, GA Mar 2026 | **GA** | Build advanced approval workflows within agents |
+| Threat protection | Preview Sep 2025, GA Feb 2026 | **GA** | Additional threat protection for Copilot Studio agents |
+| ExecuteCopilotAsyncV2 | Available now | **GA** | Invoke agents from code apps via `/proactivecopilot/executeAsyncV2`. Returns response (not fire-and-forget). Recommended over `/execute` and `/executeAsync`. |
+| Express mode for agent flows | Preview Nov 2025 | **Preview** | Accelerate flow execution to minimize timeouts |
+| Entra agent identities | Nov 2025 | **Preview** | Auto-create Microsoft Entra identities for agents for better security management |
+
+## New API Endpoints & Capabilities (Mar 2026 update)
+
+### CopilotStudio Namespace Migration
+- **New namespace**: `copilotstudio` replaces the previous namespace in Power Platform API calls
+- Previous namespace continues to work temporarily
+- Switch now for future compatibility
+- Source: [What's new - Nov 2025](https://learn.microsoft.com/en-us/microsoft-copilot-studio/whats-new)
+
+### ExecuteCopilotAsyncV2 (Code Apps Integration)
+- **Endpoint**: `POST /proactivecopilot/executeAsyncV2`
+- **Purpose**: Invoke Copilot Studio agents from Power Apps code apps
+- **Parameters**: `message`, `notificationUrl`, `agentName`
+- **Returns**: Agent response synchronously (unlike `/execute` which is fire-and-forget)
+- **Known issues**: Property casing varies (`conversationId` vs `ConversationId` vs `conversationID`) — use optional chaining
+- Source: [Connect your code app to MCS agents](https://learn.microsoft.com/en-us/power-apps/developer/code-apps/how-to/connect-to-copilot-studio)
+
+### HTTP Request Node (GA)
+- **In-agent HTTP requests**: GET, POST, PATCH, PUT, DELETE to external REST APIs
+- **Auth options**: None, API key, OAuth 2.0
+- **No Power Automate required** — direct from topic nodes
+- Source: [Make HTTP requests](https://learn.microsoft.com/en-us/microsoft-copilot-studio/authoring-http-node)
+
+### REST API Tool Extension (Preview)
+- Connect agents to external REST APIs using OpenAPI spec
+- Add REST APIs as tools: OpenAPI spec defines functions and available actions
+- Auth: API key or OAuth 2.0
+- Source: [Extend your agent with tools from a REST API](https://learn.microsoft.com/en-us/microsoft-copilot-studio/agent-extend-action-rest-api)
 
 ## Refresh Notes
 

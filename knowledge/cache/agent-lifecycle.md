@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-19
-sources: [MS Learn, PAC CLI docs, VS Code Extension docs, Dataverse entity reference, WebSearch Mar 2026, MS Learn guidance/alm, MS Learn whats-new, 2026 Wave 1 release plan, MS Learn guidance hub Jan 2026]
+last_verified: 2026-03-23
+sources: [MS Learn, PAC CLI docs, VS Code Extension docs, Dataverse entity reference, WebSearch Mar 2026, MS Learn guidance/alm, MS Learn whats-new, MS Learn guidance/architecture/deployment-lifecycle, MS Learn copilot-control-system/management-controls, 2026 Wave 1 release plan, MS Learn guidance hub Jan/Feb 2026]
 confidence: high
 refresh_trigger: weekly
 -->
@@ -196,14 +196,48 @@ Key new articles: `guidance/alm`, `guidance/generative-orchestration`, `guidance
 | Pipelines in Power Platform | Citizen-developer-friendly deployment |
 | Copilot ALM Starter (GitHub) | Lightweight toolkit — `github.com/microsoft/copilot-alm-starter` |
 
+## Agent Development Lifecycle (MS Learn Guidance, Feb 2026)
+
+MS Learn published a formal **Agent Development Lifecycle** framework with 5 phases:
+
+| Step | Phase | Description |
+|------|-------|-------------|
+| 1 | **Discovery** | Identify requirements, stakeholders, needs, project scope |
+| 2 | **Experimentation** | Test hypotheses, explore technologies, evaluate hero responses. Must use real-world data (not synthetic). |
+| 3 | **Build** | Develop full solution with proper architecture. Architecture decisions affect operational reliability. |
+| 4 | **Deploy** | Release to production. Maintain quality characteristics from experimentation. |
+| 5 | **Operational steady state** | Continuous monitoring, evaluation, adjustment. Model/data drift management. |
+
+Key principles: iterative (phases overlap), feedback-driven (each phase informs next), risk mitigation (early validation). Minimize time between experimentation and build to reduce model/data drift risk.
+
+Source: https://learn.microsoft.com/microsoft-copilot-studio/guidance/architecture/deployment-lifecycle
+
 ## 2026 Wave 1 Lifecycle Features
 
 | Feature | Timeline | Status |
 |---------|----------|--------|
+| Configure triggers with end-user credentials | Preview Mar 2026, GA May 2026 | In Preview |
+| Connect agents to custom MCP servers | Preview Mar 2026, GA Apr 2026 | In Preview |
+| Code interpreter on SharePoint sources | Preview Mar 2026, GA May 2026 | In Preview |
 | Evaluate agents for M365 Copilot in CS | Preview Jul 2026 | Planned |
 | Create agents optimized for M365/Copilot users | Preview Jun 2026 | Planned |
 | Unified error/warning/governance view | Preview Apr 2026, GA Jun 2026 | Planned |
 | Enforce safe sharing (credential oversharing) | Preview Apr 2026, GA Jun 2026 | Planned |
+| Use MCP-compliant tools in agent workflows | Preview Apr 2026, GA Oct 2026 | Planned |
+| Add SharePoint lists as knowledge source | Preview Apr 2026, GA May 2026 | Planned |
+| Group files with instructions to guide answers | Preview Jun 2025, GA May 2026 | In Preview |
+
+## Copilot Control System — Agent Lifecycle Management (GA)
+
+The Copilot Control System provides centralized visibility into agent status, governance, and lifecycle:
+
+- **Connector management**: Enable/block specific connectors in M365 admin center; delegate to AI Administrators via Entra roles
+- **Sharing controls**: Editor/Viewer roles in PPAC; block/limit sharing at managed environment or environment group level
+- **Publishing controls**: DLP policies to block publishing through specific channels
+- **Lifecycle approval workflows**: Define approval processes for agents moving to production
+- **Agent inventory**: Automated discovery and cataloging of all agents across environments
+
+Source: https://learn.microsoft.com/copilot/microsoft-365/copilot-control-system/management-controls
 
 ## PAC CLI Quick Reference
 

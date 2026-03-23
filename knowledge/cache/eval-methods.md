@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-19
-sources: [MS Learn, MCS UI, direct testing, Direct Line docs, microsoft/ai-agent-eval-scenario-library, MS Learn analytics-agent-evaluation-overview, WebSearch Mar 2026]
+last_verified: 2026-03-23
+sources: [MS Learn, MCS UI, direct testing, Direct Line docs, microsoft/ai-agent-eval-scenario-library, MS Learn analytics-agent-evaluation-overview, MS Learn analytics-agent-evaluation-create, MS Learn analytics-agent-evaluation-results, MS Learn guidance/evaluation-overview, MS Learn guidance/architecture/common-evaluation-approaches, MS Learn guidance/kit-overview, MS Learn whats-new, WebSearch Mar 2026, MS Copilot Blog Mar 2026]
 confidence: high
 refresh_trigger: on_error
 -->
@@ -339,16 +339,20 @@ Evals are not just post-build checks — they drive the build itself:
 
 Configuration in `evalConfig`: `targetPassRate` (overall, default 85%), `maxIterationsPerCapability`, `maxRegressionRounds`.
 
-## Recent Eval Enhancements (Jan-Mar 2026)
+## Recent Eval Enhancements (Oct 2025 - Mar 2026)
 
 | Feature | Status | Date | Details |
 |---------|--------|------|---------|
+| **Set-level grading framework** | Preview | Mar 2026 | Evaluate agents across an entire test set (not just individual cases) for overall quality picture. Enables multiple grading approaches on same set. |
+| **Import/export test sets & results** | Preview | Mar 2026 | Import or export test sets, individual test cases, and evaluation results. Simplifies teamwork and supports repeatable testing across environments. |
+| **Rubrics refinement (Kit)** | GA | Mar 2026 | Create, test, and iteratively improve reusable evaluation rubrics for AI-generated responses. Aligns AI grading with human judgment. Kit-only. |
+| **Compliance Hub (Kit)** | GA | Mar 2026 | Define and enforce governance policies for agents at scale. Auto-creates compliance cases when violations detected, SLA-driven review lifecycle. Kit-only. |
+| **General Quality Grader in Test Pane** | GA | Mar 31, 2026 | Auto-evaluate every query/response during testing |
 | **Thumbs-up/down feedback on eval results** | Preview | Jan 2026 | Verify grading performance and drive ongoing improvements to evaluation reliability |
 | **Activity maps in eval results** | Preview | Jan 2026 | View agent's sequence of inputs, decisions, and outputs to diagnose issues |
 | **CSV template for test set import** | Preview | Jan 2026 | Validated CSV template reduces formatting errors, standardizes evaluation data |
 | **Compare multiple agent versions** | GA | Dec 2025 | Side-by-side comparison to validate improvements and spot regressions |
 | **Custom test method** | Preview | Oct 2025 | Maker-defined evaluation criteria with custom labels (see above) |
-| **General Quality Grader in Test Pane** | GA | Mar 31, 2026 | Auto-evaluate every query/response during testing |
 | **Evaluate agents for M365 Copilot** | Preview | Jul 2026 (planned) | Run evaluations on agents published to M365 Copilot from within Copilot Studio |
 
 ## Future: M365 Agents SDK
@@ -495,10 +499,25 @@ The [Power CAT Copilot Studio Kit](https://github.com/microsoft/Power-CAT-Copilo
 | **Multi-turn** | Power Apps UI + cloud flows, stored in Dataverse `Test` entity | CLI-driven, brief.json `turns[]`, Direct Line API |
 | **Plan validation** | Reads `ConversationTranscript` Dataverse entity after test | Captures from Direct Line activity stream during test |
 | **Execution** | Cloud flow per test, sequential | Node.js CLI, parallel-capable |
-| **Scoring** | Custom Power Fx scoring | `eval-scoring.js` shared module (7 methods) |
+| **Scoring** | Custom Power Fx scoring + user-defined rubrics (new) | `eval-scoring.js` shared module (7 methods) |
+| **Rubrics** | User-defined rubrics for generative answers (new, GA) | N/A (use Custom method or Compare meaning) |
+| **Compliance Hub** | Governance at scale, SLA-driven compliance cases (new, GA) | N/A (not in scope) |
 | **Integration** | Standalone Power App | Integrated into eval-driven build loop |
 
 Key difference: The Kit reads Dataverse `ConversationTranscript` (rich, complete, but requires post-test query with delay). We capture from the Direct Line activity stream (real-time, but content depends on what MCS emits). If activity capture proves sparse, Phase B will add Dataverse transcript enrichment as a fallback.
+
+**Kit new features (Mar 2026):** Rubrics refinement (create/test/iterate reusable evaluation standards), Compliance Hub (governance policies at scale with auto-detected violations), user-defined rubrics for generative answer tests. These are Kit-only features not available in MCS native eval.
+
+## Guidance Hub Evaluation Articles (Feb 2026)
+
+MS Learn published a comprehensive evaluation guidance series:
+1. **[Overview](https://learn.microsoft.com/microsoft-copilot-studio/guidance/evaluation-overview)** — Design and operationalize agent evaluation
+2. **[Define purpose and scenarios](https://learn.microsoft.com/microsoft-copilot-studio/guidance/evaluation-define-purpose)** — Identify agent purpose and key test scenarios
+3. **[Derive quality signals](https://learn.microsoft.com/microsoft-copilot-studio/guidance/evaluation-define-quality)** — Map business goals to measurable quality signals
+4. **[Iterative framework](https://learn.microsoft.com/microsoft-copilot-studio/guidance/evaluation-iterative-framework)** — Build evaluation in 4 stages
+5. **[Checklist](https://learn.microsoft.com/microsoft-copilot-studio/guidance/evaluation-checklist)** — Pre-deployment evaluation checklist
+6. **[Evaluation frameworks](https://learn.microsoft.com/microsoft-copilot-studio/guidance/architecture/evaluation-frameworks)** — Architecture-level eval patterns
+7. **[Common evaluation approaches](https://learn.microsoft.com/microsoft-copilot-studio/guidance/architecture/common-evaluation-approaches)** — Decision frameworks, radar charts, hybrid grading
 
 ## Refresh Notes
 
@@ -511,3 +530,6 @@ Key difference: The Kit reads Dataverse `ConversationTranscript` (rich, complete
 - Monitor Power CAT Kit for changes to ConversationTranscript schema (affects Phase B plan validation enrichment)
 - Watch for "Evaluate agents for M365 Copilot in Copilot Studio" (Preview Jul 2026 planned)
 - General Quality Grader in Test Pane went GA Mar 31, 2026 — verify in MCS UI
+- Monitor set-level grading framework moving from Preview to GA
+- Monitor import/export test sets feature moving from Preview to GA
+- Check Kit Rubrics refinement and Compliance Hub for updates

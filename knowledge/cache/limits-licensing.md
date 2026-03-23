@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-19
-sources: [MS Learn quotas page, MS Learn billing-licensing, pricing page, licensing docs, WebSearch Mar 2026, Feb 2026 Licensing Guide, Mar 2026 Licensing Guide, 2026 Wave 1 release plan]
+last_verified: 2026-03-23
+sources: [MS Learn quotas page, MS Learn billing-licensing, MS Learn requirements-quotas, pricing page, licensing docs, WebSearch Mar 2026, Feb 2026 Licensing Guide, Mar 2026 Licensing Guide, 2026 Wave 1 release plan, MS Learn ai-builder/endofaibcredits, MS Learn ai-builder/administer-licensing, samexpert.com licensing guide]
 confidence: high
 refresh_trigger: weekly
 -->
@@ -220,7 +220,7 @@ refresh_trigger: weekly
 
 **Note (Dec 2025 change):** Database capacity tripled from 5 GB to 15 GB. File and log remain at 20 GB and 2 GB respectively. Additional Database, File, and Log capacity can be purchased in 1 GB increments.
 
-**Clarification (Mar 2026):** The Feb 2026 official Licensing Guide confirms 15 GB database, 20 GB file, 2 GB log. Some third-party sources incorrectly report 40 GB file — the official MS number is 20 GB.
+**Clarification (Mar 2026):** The Feb 2026 and Mar 2026 official Licensing Guides confirm 15 GB database, 20 GB file, 2 GB log. Some third-party sources (samexpert.com, others) incorrectly report 40 GB file — the official MS number from MS Learn and the Licensing Guide PDF is 20 GB. The MS Learn quotas page (verified 2026-03-23) does not list file/database capacities directly, but the Licensing Guide is authoritative.
 
 ## Quick Reference
 
@@ -245,6 +245,9 @@ refresh_trigger: weekly
 ## Upcoming Changes
 
 - **AI Builder credits removal (Nov 2026):** Seeded AI Builder credits included with premium Power Platform licenses will be removed. AI Builder capabilities will then be billed through Copilot Credits at higher rates. Plan migration early.
+  - **Dual-mode licensing now active:** Environments first consume AI Builder credits, then fall back to Copilot Credits if exhausted. No automatic conversion between credit types. Consumption resets monthly.
+  - **AI Builder add-on purchases:** Only available as renewal/true-up for existing customers. New customers must purchase Copilot Credits.
+  - **AI Builder trials:** Discontinued as of Nov 2025.
 - **Copilot Credits Pre-Purchase Plan:** One-year prepaid option (CCCUs) available in Azure portal. Pool usable across eligible Microsoft products.
 - **Rate-limit increase requests:** Only available for pay-as-you-go environments. Contact Microsoft Support; subject to review and approval. Message-based environments are NOT eligible.
 - **Quotas are configurable:** Default quotas can be adjusted on a case-by-case basis (contact support).
@@ -283,6 +286,20 @@ Required Dataverse extensions (verify in PPAC > Solutions):
 - Document libraries NOT supported as lists
 - Attachments column does not index attached file contents
 
+## SharePoint Knowledge Limits — Additional Detail (Verified Mar 2026)
+
+From the quotas page, additional limits not fully captured above:
+- **SharePoint list queries**: Only first 2,048 rows of data returned
+- **List views**: Cannot be selected as knowledge source
+- **Glossary/Synonyms**: NOT supported for lists
+- **SPFx components**: Modern pages with SPFx NOT supported
+- **Classic ASPX pages**: Not used for answer generation
+- **Metadata filters** (Nov 2025): Use filename, owner, modified date to refine retrieval
+- **Dynamic SharePoint URL**: Must use Classic data option with Power Fx formula in generative answers node
+- **Guest users**: Generative answers from SharePoint NOT available to guest users in SSO-enabled apps
+- **Document name queries**: Cannot reference file/document names in queries (e.g., "What's in file-name.pdf?")
+- **15 items per Add Knowledge session**: To add more, complete first 15, then Add Knowledge again
+
 ## Refresh Notes
 
 - Check pricing page for credit rate changes
@@ -292,3 +309,4 @@ Required Dataverse extensions (verify in PPAC > Solutions):
 - Monitor pay-as-you-go rate changes
 - Watch for AI Builder credits transition (Nov 2026 deadline)
 - Check Mar/Apr 2026 Licensing Guide updates via licensingschool.co.uk
+- Monitor file capacity clarification (20 GB official vs 40 GB third-party claims)

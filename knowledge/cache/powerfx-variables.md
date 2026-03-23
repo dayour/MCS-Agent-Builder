@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-19
-sources: [MS Learn formula reference, MCS docs, WebSearch Mar 2026, MS Learn advanced-power-fx, MS Learn authoring-variables-about, MS Learn voice-configuration, MS Learn power-fx/formula-reference-copilot-studio]
+last_verified: 2026-03-23
+sources: [MS Learn formula reference, MCS docs, WebSearch Mar 2026, MS Learn advanced-power-fx, MS Learn authoring-variables-about, MS Learn voice-configuration, MS Learn power-fx/formula-reference-copilot-studio (full A-Z verified), MS Learn unified-authoring-conversion, holgerimbery.blog Power Fx deep-dive Jan 2026]
 confidence: high
 refresh_trigger: on_error
 -->
@@ -168,7 +168,7 @@ If a global variable is referenced before initialization, the agent automaticall
 
 Simplified text validation and extraction with regex support via `IsMatch`, `Match`, and `MatchAll` functions. Insert Power Fx formulas directly in the embedded prompt builder prompt editor.
 
-## Additional Functions (Mar 2026 Formula Reference)
+## Additional Functions (Mar 2026 Formula Reference — Full A-Z Verified)
 
 Functions confirmed in the MCS Power Fx formula reference that may be less well known:
 - **`Summarize`** — Groups records by selected columns and summarizes the remainder
@@ -179,6 +179,19 @@ Functions confirmed in the MCS Power Fx formula reference that may be less well 
 - **`Search`** — Finds records in a table that contain a string in one of their columns
 - **`Refresh`** — Refreshes records of a data source
 - **`AsType` / `IsType`** — Treats a record reference as a specific table type
+- **`Patch`** — **NEW IN FORMULA REFERENCE** — Modifies or creates a record in a data source, or merges records outside of a data source. Now listed in official MCS formula reference. (See gotcha note below.)
+- **`Error`** — Create a custom error or pass through an error
+- **`IsError` / `IsBlankOrError` / `IfError`** — Error detection and handling
+- **`GUID`** — Converts a GUID string or creates a new GUID value
+- **`Hex2Dec` / `Dec2Hex`** — Hexadecimal/decimal conversion
+- **`Shuffle`** — Randomly reorders table records
+- **`EDate` / `EOMonth`** — Date arithmetic (add months, end of month)
+- **`WeekNum`** — Returns week number of a date
+- **`With`** — Calculates values for a single record, including inline named values
+- **`Env`** — Access to Power Platform environment variables (shorthand for `Environment.`)
+- **`System`** — Access to system variables (shorthand documented in formula reference)
+- **`Global`** — Access to global variables (shorthand documented in formula reference)
+- **`Topic`** — Access to topic variables (shorthand documented in formula reference)
 
 **Foundry agents use `Local.` scope** instead of `Topic.` for local variables. Foundry system variables are similar but simplified compared to MCS.
 
@@ -189,11 +202,21 @@ Functions confirmed in the MCS Power Fx formula reference that may be less well 
 - **Formula mode in card editor is irreversible** — save JSON copy first
 - **System.* cannot be used directly in card JSON** — assign to Topic variable first
 - **Date/time, Duration, Multiple choice, custom entities** cannot be passed between topics (classic mode)
-- **`Patch`, `Collect`, `Remove`** not available in MCS (Dataverse writes use API/connectors)
+- **`Patch`** now listed in official MCS Power Fx formula reference (Mar 2026). However, practical availability for Dataverse writes within MCS topic nodes is UNVERIFIED — community posts still use connectors/flows for Dataverse writes. Test before relying on direct `Patch` in MCS. `Collect` and `Remove` are NOT listed in the formula reference.
+- **`Collect`, `Remove`** not available in MCS (Dataverse writes use API/connectors)
 - **Global variable name must be unique** across all topics in the agent
 - **Once a variable is made global, it CANNOT be reverted** to topic scope
 - **Flows/skills overwrite globals** — if a flow initializes a variable, it runs even if the variable was already filled, overwriting the previous value
 - **Hidden system variables exist** — not shown in UI picker, access via Power Fx formula with `System.` prefix
+
+## Recent Power Fx Enhancements (2025-2026)
+
+| Feature | Status | Date | Details |
+|---------|--------|------|---------|
+| **Regex support (IsMatch/Match/MatchAll)** | GA | Jun 2025 | Simplified text validation and extraction with regular expressions |
+| **Power Fx in prompt builder** | GA | Jun 2025 | Insert Power Fx formulas directly in the embedded prompt builder prompt editor |
+| **Build enhanced connectors with Connector SDK + PowerFx** | Preview | May 2025 | Build enhanced connectors using Power Platform Connector SDK with Power Fx; GA May 2026 |
+| **Build connectors with OpenAPI v3** | Preview | Feb 2026 | Power Platform connectors with OpenAPI v3 spec; GA May 2026 |
 
 ## Passing Variables Between Topics
 

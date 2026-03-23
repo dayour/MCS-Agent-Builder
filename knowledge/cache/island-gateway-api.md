@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-19
-sources: [Network interception, ObjectModel VS Code extension source (IslandControlPlaneService.cs), direct testing, 2026 Wave 1 release plan, WebSearch Mar 2026]
+last_verified: 2026-03-23
+sources: [Network interception, ObjectModel VS Code extension source (IslandControlPlaneService.cs), direct testing, 2026 Wave 1 release plan, WebSearch Mar 2026, What's New Mar 2026, copilotstudio namespace change]
 confidence: high
 refresh_trigger: on_error
 -->
@@ -420,6 +420,12 @@ az account get-access-token --resource https://service.powerapps.com/ --query ac
 
 ---
 
+## API Namespace Change (Nov 2025)
+
+Power Platform API calls should use the **new `copilotstudio` namespace** instead of the previous namespace. The old namespace continues to work temporarily, but switching now ensures compatibility with future updates. This affects quarantine/block APIs and other admin-level agent management endpoints.
+
+**Source:** [What's new — November 2025](https://learn.microsoft.com/microsoft-copilot-studio/whats-new)
+
 ## What Requires User-Guided Manual Steps (No Playwright — removed Mar 2026)
 
 | Operation | Status | Headless Alternative |
@@ -433,8 +439,9 @@ az account get-access-token --resource https://service.powerapps.com/ --query ac
 | Native eval upload + run | **SOLVED** | Gateway API `makerevaluations/testcomponent` (upload) + `makerevaluations` (run) via `island-client.js upload-evals` / `run-eval` |
 | Knowledge file upload | **Partial** | Component created via Dataverse; file attachment endpoint not found — user uploads in MCS |
 | **Custom MCP server creation** | **Preview (Mar 2026)** | Create/clone MCP servers via MCS UI; assembles connector actions + tools from other MCPs + custom APIs |
-| **Work IQ MCP tools** | **Preview (Mar 2026)** | Connect agents to Work IQ for M365 work insights |
+| **Work IQ MCP tools** | **Preview (Mar 2026)** | Connect agents to Work IQ for M365 work insights (Mail, Calendar, Teams servers) |
 | **Agent owner reassignment** | **GA (Mar 2026)** | Power Platform API `assignTo` endpoint for orphaned agents |
+| **Component collections (enhanced)** | **GA (Nov 2025)** | Sidebar access, export/import, supports child agents + MCP connector types |
 
 ## Tool Addition API Flow — Captured 2026-02-23
 

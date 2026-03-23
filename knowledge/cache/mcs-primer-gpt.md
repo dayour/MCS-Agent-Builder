@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-19
-sources: [CLAUDE.md, knowledge/cache/*.md (synthesized), MS Learn whats-new, 2026 Wave 1 Release Plan, WebSearch Mar 2026]
+last_verified: 2026-03-23
+sources: [CLAUDE.md, knowledge/cache/*.md (synthesized), MS Learn whats-new, 2025 Wave 2 change history, 2026 Wave 1 Release Plan, MS Learn architecture/whats-new, MS Learn M365 extensibility known-issues, WebSearch Mar 2026]
 confidence: high
 refresh_trigger: manual
 -->
@@ -115,11 +115,37 @@ The `brief.json` file is the single source of truth for an agent build:
 
 - **Work IQ MCP tools** (Preview Mar 2026): 6 tools (Mail, Calendar, Teams, Copilot, User, Word) connecting agents to M365 work context
 - **Custom MCP servers** (Preview Mar 2026, GA Apr 2026): Connect any agent to external data
-- **MCP in agent workflows** (Preview Apr 2026): Use MCP tools in agent flows
-- **Computer Use agents** (Preview, GA May 2026): Automate web and desktop apps with vision+reasoning
+- **MCP in agent workflows** (Preview Apr 2026, GA Oct 2026): Use MCP tools in agent flows
+- **Computer Use agents** (Preview, GA May 2026): Automate web and desktop apps with vision+reasoning. Claude Sonnet 4.5 (beta) added for computer use (Feb 2026)
 - **Code interpreter** (GA Aug 2025): Python code generation from natural language, supports Excel/CSV/PDF analysis
+- **Code interpreter on SharePoint** (Preview Mar 2026, GA May 2026): Analyze SP-sourced data directly in conversations
 - **SharePoint Lists as knowledge** (Preview Apr 2026, GA May 2026): Real-time connection to list data
-- **File groups** (GA Aug 2025): Organize uploaded files as single knowledge source with variable-based instructions
+- **File groups** (GA Aug 2025): Organize uploaded files as single knowledge source with variable-based instructions. GA May 2026 for file groups with instructions.
 - **VS Code extension** (GA Jan 2026): Build, edit, manage agents in VS Code
 - **General Quality Grader in Test Pane** (GA Mar 2026): Auto-evaluate during testing
-- **Enforce safe sharing** (Preview Apr 2026): Detect credential oversharing
+- **Advanced Approvals** (GA Mar 2026): Multi-stage + AI-powered approval stages in agent flows
+- **Reassign agent owner via API** (GA Mar 2026): Power Platform API for agent ownership transfer
+- **Batch testing for prompts** (Preview): Systematic prompt validation with test datasets
+- **Prompt builder enhancements** (Feb 2026): Content moderation sensitivity per prompt, Claude Opus 4.6/Sonnet 4.5 model support, inline editing of prompt instructions
+- **Evaluate test sets with multiple graders** (Preview Feb 2026): Run multiple evaluation methods per test set
+- **Triggers with end-user credentials** (Preview Mar 2026, GA May 2026): Autonomous triggers using end-user identity
+- **Use your own model** (Preview Mar 2026): Bring your own model for generative responses
+- **Enforce safe sharing** (Preview Apr 2026, GA Jun 2026): Detect credential oversharing
+- **Unified error/warning/governance view** (Preview Apr 2026, GA Jun 2026): Single pane for all notifications
+- **OpenAPI v3 connectors** (Preview Feb 2026, GA May 2026): Build Power Platform connectors with OpenAPI v3 specs
+- **Enhanced connectors with Connector SDK + PowerFx** (Preview May 2025, GA May 2026)
+
+## Architecture Guidance (Feb 2026 Update)
+
+New articles in the Architecting agent solutions guidance center:
+- **Common evaluation approaches** — patterns for measuring agent quality
+- **Multi-agent patterns** — orchestrator/subagent patterns, workflow-oriented patterns
+- Reference architecture for agents in model-driven apps (Jan 2026)
+- Reference architecture for extracting/analyzing conversation transcripts (Dec 2025)
+
+## Removed/Deprioritized Features (Build-Relevant)
+
+Features removed from the 2025 Wave 2 release plan (will NOT be delivered):
+- **SSO for non-Entra ID connections** — deprioritized Feb 27, 2026
+- **Test and debug agent actions in Copilot Studio** — deprioritized Feb 12, 2026
+- **Lead Manager and Customer Brief templates** — deprioritized Oct 13, 2025

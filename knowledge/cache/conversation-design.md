@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-19
-sources: [MS Learn, MCS UI, community, MS Learn guidance/topic-authoring-best-practices, MS Learn guidance/implement-overview, MS Learn guidance/channels, MS Learn guidance/architecture-overview, MS Learn guidance/cux-principles, WebSearch Mar 2026]
+last_verified: 2026-03-23
+sources: [MS Learn, MCS UI, community, MS Learn guidance/topic-authoring-best-practices, MS Learn guidance/implement-overview, MS Learn guidance/channels, MS Learn guidance/architecture-overview, MS Learn guidance/cux-principles, MS Learn whats-new, 2026 Wave 1 Release Plan, MS Learn batch-testing-prompts, WebSearch Mar 2026]
 confidence: high
 refresh_trigger: weekly
 -->
@@ -144,6 +144,24 @@ MS Learn now organizes MCS guidance into 5 pillars: Plan, Implement, Manage, Imp
 - Integration strategies
 - Evaluation frameworks and common evaluation approaches
 
+## Advanced Approvals (GA Mar 2026)
+
+Multi-stage and AI-powered approvals for agent flows. Key capabilities:
+- **Multi-stage approvals**: Complex approval processes with multiple stages, each with its own stakeholders
+- **Conditional approvals**: Conditions between stages for flexible decision-making (auto-approve, reject, skip, route)
+- **AI stage**: LLM-powered approval decisions with configurable model selection and instructions. Uses Copilot Credits. Favor powerful models (e.g., GPT-o3 over GPT-4.1) for approval decisions.
+- Configure via the approval viewer in agent flows
+
+## Batch Testing for Prompts (Preview)
+
+Systematic prompt validation through Copilot Studio, Power Apps, or Power Automate:
+- Upload CSV or AI-generate test datasets for comprehensive evaluation
+- Define evaluation criteria: Response quality, Response matches, JSON correctness
+- Configure passing score thresholds
+- Track accuracy progression across multiple test runs
+- Compare outcomes from different runs to identify regressions
+- Access via Tools > filter on prompts > Test hub (Preview) in Copilot Studio
+
 ## Custom MCP Servers (Preview Mar 2026, GA Apr 2026)
 
 Connect any agent to any external data with custom MCP servers. Enables connecting to non-Microsoft MCP servers for dynamic, real-time content.
@@ -162,6 +180,41 @@ When using generative orchestration (default for modern agents):
 
 Avoid using periods (`.`) in topic names. It is not possible to export a solution that contains an agent with periods in the name of any of its topics.
 
+## Reassign Agent Owner (GA Mar 2026)
+
+Use Power Platform API to reassign an agent's owner. Enables admin-level agent management without Copilot Studio UI.
+
+## Upcoming: Unified Error/Warning/Governance View (Preview Apr 2026, GA Jun 2026)
+
+See a unified view of errors, warnings, and governance notifications in a single pane, replacing the need to check multiple locations.
+
+## Upcoming: MCP in Agent Workflows (Preview Apr 2026, GA Oct 2026)
+
+Use MCP-compliant tools directly in agent workflows (agent flows), not just in generative orchestration.
+
+## Upcoming: SharePoint Lists as Knowledge (Preview Apr 2026, GA May 2026)
+
+Real-time connection to SharePoint list data as a knowledge source. Enables structured data retrieval beyond document-based knowledge.
+
+## Upcoming: Enforce Safe Sharing (Preview Apr 2026, GA Jun 2026)
+
+Detect credential oversharing in agent configurations. Helps admins identify and remediate security risks.
+
+## Upcoming: Code Interpreter on SharePoint (Preview Mar 2026, GA May 2026)
+
+Use code interpreter to analyze SharePoint-sourced data (Excel/CSV/PDF) directly in agent conversations.
+
+## Upcoming: Triggers with End-User Credentials (Preview Mar 2026, GA May 2026)
+
+Configure autonomous agent triggers that run with end-user credentials instead of maker credentials.
+
+## Removed/Deprioritized Features (Feb 2026 Change History)
+
+The following features were **removed from the release plan** and will not be delivered:
+- **SSO for non-Entra ID connections** — deprioritized (Feb 27, 2026)
+- **Test and debug agent actions in Copilot Studio** — deprioritized (Feb 12, 2026)
+- **Lead Manager and Customer Brief templates** — deprioritized (Oct 13, 2025)
+
 ## Design Checklist
 
 - [ ] Welcome message with capabilities + suggested actions
@@ -178,3 +231,4 @@ Avoid using periods (`.`) in topic names. It is not possible to export a solutio
 - [ ] Clear topic/tool descriptions for generative orchestration routing
 - [ ] No periods in topic names (breaks solution export)
 - [ ] Consider activity maps for debugging (Jan 2026 preview)
+- [ ] Batch-test prompts before deploying (Preview — Test hub)

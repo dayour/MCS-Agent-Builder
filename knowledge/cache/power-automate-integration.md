@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-19
-sources: [MS Learn, MCS UI, community, WebSearch Mar 2026, MS Learn MCP Mar 2026, Copilot Blog Mar 2026, 2026 Wave 1 release plan]
+last_verified: 2026-03-23
+sources: [MS Learn, MCS UI, community, WebSearch Mar 2026, MS Learn MCP Mar 2026, Copilot Blog Mar 2026, 2026 Wave 1 release plan, Advanced Approvals docs Mar 2026]
 confidence: high
 refresh_trigger: before_architecture
 -->
@@ -89,12 +89,31 @@ Agent flows with `When an agent calls the flow` or `When an app calls a flow` tr
 
 | Action | Status | Description |
 |--------|--------|-------------|
-| **Request for Information (RFI)** | Preview (Jul 2025+) | Pauses flow, sends structured form via Outlook, collects 5 input types (Text, Yes/No, Email, Number, Date). First responder's input used. Tenant-internal only. |
-| **Multistage Approvals** | Preview | Sequential human + AI review stages. Combines automated + human decision-making. |
-| **AI Approvals** | Preview | AI evaluates requests using business rules — analyzes unstructured data, interprets documents, applies nuanced logic. Human oversight for final decisions. |
+| **Request for Information (RFI)** | Preview (Nov 2025+) | Pauses flow, sends structured form via Outlook, collects 5 input types (Text, Yes/No, Email, Number, Date). First responder's input used. Tenant-internal only. |
+| **Multistage Approvals** | Preview (GA Mar 2026) | Sequential human + AI review stages via `Run a multistage approval` action in `Human in the loop` connector. Combines automated + human decision-making. |
+| **AI Approvals** | Preview (GA Mar 2026) | AI evaluates requests using business rules — analyzes unstructured data, interprets documents, applies nuanced logic. Human oversight for final decisions. Part of multistage approvals. |
 
 **RFI input options**: Required/optional fields, single-select dropdowns, multi-select lists, placeholder text guidance.
 **RFI limitation**: Requests sent via Outlook only (more platforms planned). Cannot send to users outside tenant.
+
+### Multistage Approvals — Details (Updated Mar 2026)
+
+**Three stage types in a single approval:**
+1. **Manual stages** — Human approver reviews via Teams, Outlook, or PA portal. Approval type: "First to respond" or "Everyone must approve".
+2. **AI stages** — AI model evaluates inputs (documents, images, text, knowledge) with specific instructions. Returns Approve/Reject with rationale. Can route to human stage for review.
+3. **Conditions** — Placed between stages. Evaluate criteria to auto-approve, auto-reject, route to another stage, or skip stages.
+
+**AI stage model selection:** Favor more powerful models (GPT-o3 over GPT-4.1) for complex approval decisions. Can also use Azure AI Foundry custom models.
+
+**Key limitations:**
+- File inputs for AI stages must be **base64 encoded**
+- Same approver **cannot** be assigned to multiple stages (causes flow failure)
+- File attachments not supported in approval requests
+- ALM not supported — importing a flow with advanced approval requires recreating the multistage approval
+- Sharing not supported — recipient must recreate the multistage approval
+- Requires Copilot Studio Copilot Credits in the environment
+
+**Source:** [Multistage and AI approvals in agent flows](https://learn.microsoft.com/microsoft-copilot-studio/flows-advanced-approvals)
 
 ## Flow Error Codes
 
@@ -207,6 +226,17 @@ Before creating a new trigger flow, discover the environment-specific values:
 | Restore accidentally deleted flows | Preview/GA Jun 2026 | Safety net for accidental flow deletion |
 | Share Process license capacity across workflows | GA Apr 2026 | Simplified licensing for shared flows |
 | MCP-compliant tools in agent workflows | Preview Apr 2026, GA Oct 2026 | Use MCP tools directly in PA agent workflows |
+| View property value expanded inline in new designer | GA Jun 2026 | Better flow authoring/debugging UX |
+| Improved PA licensing dashboard | GA May 2026 | Better visibility into flow license consumption |
+
+### 2025 Wave 2 Features Now GA / In Preview
+
+| Feature | Timeline | Impact on MCS Integration |
+|---------|----------|--------------------------|
+| Build advanced approvals (multistage + AI) | Preview May 2025, **GA Mar 2026** | Full approval workflows in agent flows |
+| Express mode for agent/app-invoked flows | Preview Nov 2025 | Faster execution, lower latency |
+| Build Power Platform connectors with OpenAPI v3 | Preview Feb 2026, GA May 2026 | Modern connector authoring |
+| Configure triggers with end-user credentials | Preview Mar 2026, GA May 2026 | Triggers run with end-user identity |
 
 ### Schedule Presets
 

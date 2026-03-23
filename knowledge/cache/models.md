@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-19
-sources: [MS Learn (authoring-select-agent-model, prompt-model-settings, planned-features, bring-your-own-model-prompts), MCS UI snapshot, WebSearch Mar 2026]
+last_verified: 2026-03-23
+sources: [MS Learn (authoring-select-agent-model, prompt-model-settings, prompt-model-availability, planned-features, bring-your-own-model-prompts, authoring-select-external-response-model, release-plan/2026wave1), MCS UI snapshot, WebSearch Mar 2026]
 confidence: high
 refresh_trigger: before_architecture
 -->
@@ -52,7 +52,7 @@ Source: [MS Learn prompt-model-settings](https://learn.microsoft.com/en-us/micro
 
 **Retired models (prompt builder):** Claude Opus 4.1 (retired Feb 2026, replaced by Claude Opus 4.5), o3 (retired Dec 2025, replaced by GPT-5 reasoning), GPT-4o mini/GPT-4o (retired Jul 2025).
 
-**Note:** Prompt builder has a DIFFERENT model lineup and status from agent orchestration. Claude models are "experimental" in prompt builder but "GA" in agent orchestration. GPT-5.2 is still listed in prompt builder but replaced by GPT-5.3/5.4 in agent orchestration.
+**Note:** Prompt builder has a DIFFERENT model lineup and status from agent orchestration. Claude models are "experimental" in prompt builder but "GA" in agent orchestration. GPT-5.2 is still listed in prompt builder but replaced by GPT-5.3/5.4 in agent orchestration. Claude Sonnet 4.5 / Opus 4.5 in prompt builder are unavailable in Asia region but experimental everywhere else (per [prompt-model-availability](https://learn.microsoft.com/en-us/microsoft-copilot-studio/prompt-model-availability)).
 
 ### Bring Your Own Model (BYOM) -- GA for prompts, Preview for response generation (Mar 2026)
 

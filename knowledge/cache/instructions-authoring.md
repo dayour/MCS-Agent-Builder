@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-13
-sources: [MS Learn authoring-instructions, MS Learn generative-mode-guidance, MS Learn create-edit-topics, MS Learn advanced-generative-actions, MCS UI, community blogs]
+last_verified: 2026-03-23
+sources: [MS Learn authoring-instructions, MS Learn generative-mode-guidance, MS Learn create-edit-topics, MS Learn advanced-generative-actions, MS Learn guidance/generative-orchestration, MS Learn whats-new, MCS UI, community blogs, 2026 Wave 1 release plan]
 confidence: high
 refresh_trigger: before_architecture
 -->
@@ -96,7 +96,9 @@ Specialist for [domain]. Handles [capability list]. Escalates to parent when [co
 | Topic-level (generative answers node) | Specific node only | 8,000 chars (additive) |
 | Prompt tool / Custom Prompt action | Specific prompt only | Model token limits |
 
-**BUG (may still exist):** UI may show 8,000 initially but revert to 2,000 after save. Always verify actual char count post-save.
+**BUG (still reported as of Mar 2026):** UI may show 8,000 initially but revert to 2,000 after save. Always verify actual char count post-save. Community reports on Microsoft Q&A confirm this is still encountered.
+
+**IMPORTANT (Mar 2026):** MS Learn now explicitly warns: "Don't use agent instructions to modify the system behavior of citations. Attempting to change citation structure or behavior can negatively affect agent performance. Avoid instructions that explicitly reference or attempt to control citations, including the use of terms such as 'citation' or 'reference.'"
 
 ## The Three-Part Structure (MS Recommended)
 
@@ -343,6 +345,8 @@ To update existing instructions to the universal style:
 - Reference variables and Power Fx expressions dynamically
 - Guide follow-up question generation
 - Set guardrails for what NOT to respond to
+- Provide trigger-level instructions for autonomous agents (each trigger can have its own instructions that complement agent-level instructions)
+- Help the agent fill tool inputs from conversation context (e.g., "Use the email address from the contact field of the lead")
 
 ### CANNOT
 - Control search retrieval (which documents are found)
@@ -350,6 +354,8 @@ To update existing instructions to the universal style:
 - Override default fallback message (edit Fallback topic instead)
 - Change how documents are shared (system-controlled)
 - Guarantee multilingual behavior (not officially supported)
+- Modify citation behavior (MS Learn explicitly warns against this — attempting to change citation structure negatively affects performance)
+- Force the agent to use a specific knowledge article on demand (the AI chooses relevant articles based on the query)
 
 ## Anti-Patterns (DO NOT)
 
@@ -371,6 +377,8 @@ To update existing instructions to the universal style:
 | **Pages of declarative instructions** | Large instruction sets execute on EVERY TURN — performance and reliability degrade | Start minimal, nudge as needed; let orchestrator reason when possible |
 | **Duplicating logic already in descriptions** | Descriptions drive routing (#1 priority); repeating in instructions wastes chars and can conflict | Write descriptions first, then only add instruction text for disambiguation |
 | **Comprehensive upfront** ("cover every scenario") | Over-specifying reduces quality (CAT Webinar 2026); creates maintenance burden | Start with 1,200-2,500 chars; add specificity only when evals fail |
+| **Attempt to control citations** | MS explicitly warns: "Don't use agent instructions to modify the system behavior of citations" — negatively affects performance | Let the system handle citations natively; do not reference "citation" or "reference" in instructions |
+| **Defining available tools in instructions** | Info already available to agent; wastes chars and can conflict with actual tool metadata | Only add `/ToolName` hints for disambiguation or ambiguous routing scenarios |
 
 ## Best Practices Checklist
 
@@ -452,14 +460,23 @@ Use **Get/Use** for retrieving data, **From/With** for acting on results.
 Follow-up questions make agents conversational instead of giving dead-end answers.
 
 **Requirements:**
-- "Use general knowledge" must be ON (otherwise follow-ups are suppressed as ungrounded)
+- "Use general knowledge" must be ON (otherwise follow-ups are suppressed as ungrounded — orchestrator considers ungrounded clarifying questions as ungrounded and suppresses them)
+- If disabled, agent defaults to: "I'm sorry, I'm not sure how to help with that. Can you try rephrasing?"
 - Instructions should reference tools/knowledge/variables so agent generates context-aware follow-ups
+
+**Strategy (from MS Learn guidance, Mar 2026):**
+- Reference tools, knowledge, and variables in instructions so the agent generates context-aware follow-ups
+- Ask the agent to conclude responses with relevant follow-ups based on current context and active tools
+- Keep examples and reasoning visible so the agent learns the expected pattern
+- Listing available tools in follow-up context improves relevance even though orchestrator already knows them
 
 **Pattern:**
 ```
 After answering, suggest a relevant follow-up based on available tools and knowledge.
 Example: After answering about time-off policy, ask "Would you also like to know how to submit a request in Workday?"
 ```
+
+**Proactive next steps:** Agents can anticipate user needs and suggest the next logical step. E.g., after answering "What is the weather in Rome?" the agent can offer "Would you like to know the forecast for tomorrow?" and act on "yes" without extra clarification.
 
 ## Three Instruction Layers
 
@@ -470,6 +487,19 @@ Example: After answering about time-off policy, ask "Would you also like to know
 | **Custom Prompt** (Prompt Builder action) | Specific action only | Summarization, classification, extraction, structured output |
 
 **Decision:** "Should this be agent-level, topic-level, or Custom Prompt?" depends on scope and specificity. Agent-level = global rules. Topic-level = domain narrowing. Custom Prompt = data processing.
+
+### Prompt Builder Enhancements (Feb 2026)
+
+New capabilities for Custom Prompt / Prompt Builder actions:
+
+| Feature | Status | Details |
+|---------|--------|---------|
+| **Content moderation per prompt** | GA (Feb 2026) | Configure sensitivity for hate/fairness, sexual, violence, self-harm content per prompt (low/high settings). Supports regulated and document-processing scenarios. |
+| **Claude models in Prompt Builder** | GA (Feb 2026) | Select Claude Opus 4.6 or Claude Sonnet 4.5 for prompts, enabling fine-grained control over reasoning depth, quality, latency, and cost. |
+| **Inline editing in agent tool details** | GA (Feb 2026) | Edit prompt instructions and settings inline in agent tool details. Model selection, inputs, knowledge, and testing in a single streamlined view. |
+| **Power Fx in prompt editor** | GA (Jun 2025) | Insert Power Fx formulas directly in the embedded prompt builder prompt editor. |
+
+Source: [What's new in Copilot Studio](https://learn.microsoft.com/en-us/microsoft-copilot-studio/whats-new)
 
 ## Three-Layer Architecture (Deterministic → Hybrid → AI)
 
@@ -605,6 +635,17 @@ Autonomous agents with triggers are vulnerable to jailbreak via trigger payloads
 - Limit what tools the agent should use after checking knowledge sources
 - Limit what parameters the agent should use for tools (e.g., only email specified recipients)
 - If content filtering blocks normal behavior, update instructions to indicate the behavior is expected
+
+## Trigger-Level Instructions (Autonomous Agents)
+
+Each trigger can have its own instructions that complement agent-level instructions:
+- Modify the default trigger payload to help the agent understand what to do when the trigger fires
+- Use variables in trigger payloads to reduce payload size (e.g., send only the email subject, not the entire message)
+- Tell the agent what to do with the trigger payload in the trigger instructions (e.g., "Onboard the following employee")
+- Multiple triggers can have different instructions for different use cases within the same agent
+- Triggers cannot be edited directly in Copilot Studio — use Power Automate after creation
+
+Source: [Configure high-quality instructions for generative orchestration](https://learn.microsoft.com/en-us/microsoft-copilot-studio/guidance/generative-mode-guidance)
 
 ## Rich Text Email Pattern
 

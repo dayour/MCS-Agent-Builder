@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-18
-sources: [MS Learn, Adaptive Cards docs, direct testing, WebSearch Mar 2026, MS Learn MCP Mar 2026, CopilotStudioSamples repo, adaptivecards.io samples, Agent Academy]
+last_verified: 2026-03-23
+sources: [MS Learn, Adaptive Cards docs, direct testing, WebSearch Mar 2026, MS Learn MCP Mar 2026, CopilotStudioSamples repo, adaptivecards.io samples, Agent Academy, Localization guidance, Accessibility tips]
 confidence: high
 refresh_trigger: on_error
 -->
@@ -121,3 +121,28 @@ MCS agents can send an Adaptive Card as a **tool completion response** — when 
 - **Consecutive cards**: Include unique identifiers in Action.Submit data payloads to prevent cross-card interference
 - **Interactive UI widgets**: NOT supported in MCS. `mcp-interactiveUI-samples` uses React/HTML in sandboxed iframes — for M365 Copilot declarative agents only, completely different from Adaptive Cards
 - **adaptivecards.microsoft.com**: New docs hub with schema 1.6+ features (Responsive Layout, Icon, Badge, Charts). NOT yet supported in MCS Teams/Omnichannel (capped at 1.5)
+
+## Adaptive Card Localization (New — Jan 2026)
+
+Copilot Studio supports **localization of static text in Adaptive Cards** through JSON/ResX localization files — the same files used for topic localization. Localized text includes: `TextBlock` values, button titles, placeholder text, error messages, image alt text. Export a secondary language file and all static card text appears as entries alongside topic strings.
+
+**Mixed content (static + dynamic):** Use the `Set Text Variable` node (code editor only) to combine static text and variable placeholders. This produces a single string that appears in localization files while preserving variable structure. Translate only the static text; keep `{Topic.varName}` placeholders unchanged.
+
+**Source:** [Localize Adaptive Card content](https://learn.microsoft.com/microsoft-copilot-studio/guidance/localize-adaptive-cards)
+
+## Adaptive Card Accessibility Tips (New — MS Learn)
+
+Official guidance for screen reader / keyboard accessibility of Adaptive Cards in MCS:
+
+| Tip | Detail |
+|-----|--------|
+| Always use `"label"` property | Screen readers announce this on focus; `placeholder` is unreliable |
+| Use `"isRequired"` + `"errorMessage"` | Even optional fields benefit from clear validation feedback |
+| Logical tab order | Structure JSON in the order you want tabbing; avoid `ColumnSet` layouts that confuse keyboard navigation |
+| Descriptive action titles | "Submit request" not "Click here" — screen readers read title aloud |
+| `"style": "heading"` on TextBlock | Marks element as heading for accessibility structure |
+| `"tooltip"` on actions | `Action.ToggleVisibility` supports tooltip; narration software reads it |
+| Avoid `"isVisible": false` for critical inputs | Screen readers skip hidden elements entirely |
+| Test in Teams with Narrator/NVDA | Teams has slight differences in Adaptive Card support |
+
+**Source:** [Accessibility tips for Adaptive Cards](https://learn.microsoft.com/microsoft-copilot-studio/adaptive-card-accessibility-tips)
