@@ -424,6 +424,13 @@ function sanitizeFilename(name) {
  * https://microsoft.sharepoint.com/teams/CLSCMS/account — customer SDRs
  * and agent specs live here, organized by customer folder.
  *
+ * Folder structure: Account / CUSTOMER_NAME_guid / incident / AGENT_guid / files
+ * After search, resolves parent folder paths and filters out false positives
+ * (files that match the search term but live in a different customer's folder).
+ *
+ * Duplicate filenames (same name, different folders) get prefixed with the
+ * opportunity folder name to disambiguate.
+ *
  * @param {string} token  Graph API token for Microsoft tenant
  * @param {string} customer  Primary customer name
  * @param {string[]} [aliases]  Alternative names
@@ -445,10 +452,10 @@ async function searchCLSCMS(token, customer, aliases) {
 
   const driveId = accountDrive.id;
 
-  // Search for each name variant, collect unique results
+  // Search for each name variant, collect unique raw results
   const names = [customer, ...(aliases || [])];
   const seen = new Set();
-  const items = [];
+  const rawItems = [];
 
   for (const name of names) {
     if (!name || name.length < 2) continue;
@@ -460,13 +467,13 @@ async function searchCLSCMS(token, customer, aliases) {
         for (const item of res.data.value) {
           if (seen.has(item.id)) continue;
           seen.add(item.id);
-          // Only include actual files (not folders) with downloadable extensions
           const ext = path.extname(item.name || "").toLowerCase();
           if (item.file && DOWNLOADABLE_EXTENSIONS.has(ext)) {
-            items.push({
+            rawItems.push({
               id: item.id,
               name: item.name,
               driveId: item.parentReference?.driveId || "",
+              parentId: item.parentReference?.id || "",
               size: item.size || 0,
               mimeType: item.file?.mimeType || "",
             });
@@ -476,6 +483,86 @@ async function searchCLSCMS(token, customer, aliases) {
     } catch {
       // Skip failed searches, continue with other names
     }
+  }
+
+  if (rawItems.length === 0) return [];
+
+  // ── Resolve parent folder paths to filter false positives ──
+  // Search results don't include parentReference.path, but a direct
+  // GET on the parent folder does. Resolve unique parent IDs only.
+  const parentPathCache = new Map();
+  const uniqueParentIds = [...new Set(rawItems.map((i) => i.parentId).filter(Boolean))];
+
+  await Promise.all(uniqueParentIds.map(async (pid) => {
+    try {
+      const res = await httpRequestWithRetry("GET",
+        `${GRAPH_BASE}/drives/${driveId}/items/${pid}?$select=name,parentReference`,
+        headers, null, 1, 10000);
+      if (res.status === 200) {
+        const folderPath = res.data.parentReference?.path || "";
+        const folderName = res.data.name || "";
+        parentPathCache.set(pid, { path: folderPath, name: folderName });
+      }
+    } catch { /* skip — file will be kept if name matches */ }
+  }));
+
+  // Build case-insensitive name patterns to match against folder paths
+  const namePatterns = names
+    .filter((n) => n && n.length >= 2)
+    .map((n) => n.toLowerCase());
+
+  // Filter: the CLSCMS Account library is organized by customer folder, so the
+  // folder path is the authoritative signal. A file in TERRACON's folder tree
+  // that happens to contain "Fidelity" in its name (e.g. "High Fidelity Mockups")
+  // is a false positive. Only fall back to filename matching when we couldn't
+  // resolve the folder path.
+  const filtered = rawItems.filter((item) => {
+    const parent = parentPathCache.get(item.parentId);
+    if (parent) {
+      // Folder path resolved — require customer name in ancestor path
+      const fullPath = (parent.path + "/" + parent.name).toLowerCase();
+      return namePatterns.some((p) => fullPath.includes(p));
+    }
+    // Couldn't resolve folder — fall back to filename match
+    const lowerName = item.name.toLowerCase();
+    return namePatterns.some((p) => lowerName.includes(p));
+  });
+
+  // ── Disambiguate duplicate filenames ──
+  // Count occurrences of each filename
+  const nameCounts = new Map();
+  for (const item of filtered) {
+    const key = item.name.toLowerCase();
+    nameCounts.set(key, (nameCounts.get(key) || 0) + 1);
+  }
+
+  // Dedup identical files (same name + same size) — keep first occurrence
+  const dedupKey = new Set();
+  const items = [];
+  for (const item of filtered) {
+    const key = `${item.name.toLowerCase()}|${item.size}`;
+    if (dedupKey.has(key)) continue;
+    dedupKey.add(key);
+
+    // For duplicate names with different sizes, prefix with parent folder name
+    if (nameCounts.get(item.name.toLowerCase()) > 1) {
+      const parent = parentPathCache.get(item.parentId);
+      if (parent?.name) {
+        // Extract readable part: "CAD - Fund Events and PM Change_GUID" → "CAD - Fund Events and PM Change"
+        const folderLabel = parent.name.replace(/_[A-F0-9]{32}$/i, "").trim();
+        const ext = path.extname(item.name);
+        const base = path.basename(item.name, ext);
+        item.name = `${base} (${folderLabel})${ext}`;
+      }
+    }
+
+    items.push({
+      id: item.id,
+      name: item.name,
+      driveId: item.driveId,
+      size: item.size,
+      mimeType: item.mimeType,
+    });
   }
 
   return items;
