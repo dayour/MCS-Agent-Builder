@@ -37,29 +37,46 @@ async function isWorkIQAvailable() {
 
 /**
  * Check if a WorkIQ error message indicates an authentication failure.
+ * Uses specific patterns to avoid false positives on content that
+ * mentions auth-related words (e.g. emails about SSO setup).
+ *
  * @param {string} error  Error message from runWorkIQQuery
  * @returns {boolean}
  */
 function isAuthError(error) {
   if (!error) return false;
   const lower = error.toLowerCase();
-  return lower.includes("not authenticated") || lower.includes("sign in")
-    || lower.includes("authentication") || lower.includes("token")
-    || lower.includes("unauthorized") || lower.includes("401");
+  return lower.includes("not authenticated")
+    || lower.includes("sign in")
+    || lower.includes("token expired")
+    || lower.includes("token invalid")
+    || lower.includes("refresh token")
+    || lower.includes("unauthorized")
+    || lower.includes("401")
+    || lower.includes("authentication required")
+    || lower.includes("authentication failed");
 }
 
 /**
  * Run a WorkIQ query with automatic retries on failure.
  * Auth errors are retried once (token refresh race), other errors up to maxRetries.
+ * Supports an AbortController signal to cancel in-flight queries when another
+ * query detects auth failure (kills the child process immediately).
  *
  * @param {string} question  Natural language question
  * @param {number} timeoutMs Kill the process after this many ms (default 120s)
  * @param {number} maxRetries Maximum retry attempts (default 2, so 3 total attempts)
+ * @param {AbortSignal} [signal] Optional abort signal to cancel the query
  * @returns {Promise<{content: string, error: string|null, authFailed: boolean}>}
  */
-async function runWorkIQQueryWithRetry(question, timeoutMs = 120_000, maxRetries = 2) {
+async function runWorkIQQueryWithRetry(question, timeoutMs = 120_000, maxRetries = 2, signal) {
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    const result = await runWorkIQQuery(question, timeoutMs);
+    // Check if aborted before starting attempt
+    if (signal?.aborted) {
+      return { content: "", error: "Aborted", authFailed: false };
+    }
+
+    const result = await runWorkIQQuery(question, timeoutMs, signal);
 
     // Success — return immediately
     if (!result.error) return { ...result, authFailed: false };
@@ -82,20 +99,21 @@ async function runWorkIQQueryWithRetry(question, timeoutMs = 120_000, maxRetries
     return { ...result, authFailed: false };
   }
 
-  // Should not reach here, but just in case
   return { content: "", error: "All retry attempts exhausted", authFailed: false };
 }
 
 /**
- * Pre-flight auth check — run a minimal query to verify WorkIQ session is active.
+ * Pre-flight auth check — run a cheap query to verify WorkIQ session is active.
+ * Uses "What is my name?" which targets the /me Graph endpoint only (2-4s).
  * Returns { ok, error }.
  */
 async function checkWorkIQAuth() {
-  const result = await runWorkIQQuery("ping", 30_000);
-  if (result.error && isAuthError(result.error)) {
-    return { ok: false, error: result.error };
-  }
-  // Even a non-auth error means auth is working (e.g. "no results" is fine)
+  const result = await runWorkIQQuery("What is my name?", 20_000);
+  if (!result.error) return { ok: true, error: null };
+  if (isAuthError(result.error)) return { ok: false, error: result.error };
+  // Spawn errors or total failures mean WorkIQ is broken, not just unauthed
+  if (result.error.startsWith("Spawn error")) return { ok: false, error: result.error };
+  // Non-auth query errors (timeout, empty response) — auth likely works
   return { ok: true, error: null };
 }
 
@@ -103,8 +121,9 @@ async function checkWorkIQAuth() {
  * Run a single WorkIQ query. Returns { content, error }.
  * @param {string} question  Natural language question
  * @param {number} timeoutMs Kill the process after this many ms (default 120s)
+ * @param {AbortSignal} [signal] Optional abort signal to kill the child process
  */
-function runWorkIQQuery(question, timeoutMs = 120_000) {
+function runWorkIQQuery(question, timeoutMs = 120_000, signal) {
   return new Promise((resolve) => {
     let stdout = "";
     let stderr = "";
@@ -118,14 +137,31 @@ function runWorkIQQuery(question, timeoutMs = 120_000) {
       : ["ask", "-q", question];
     const cmd = process.platform === "win32" ? "cmd" : "workiq";
 
+    // Check if already aborted before spawning
+    if (signal?.aborted) {
+      resolve({ content: "", error: "Aborted" });
+      return;
+    }
+
     const child = spawn(cmd, args, {
       shell: false,
       windowsHide: true,
       stdio: ["ignore", "pipe", "pipe"],
     });
 
+    // Wire abort signal to kill the child process
+    const onAbort = () => {
+      if (!killed) {
+        killed = true;
+        try { child.kill("SIGTERM"); } catch {}
+        resolve({ content: "", error: "Aborted" });
+      }
+    };
+    if (signal) signal.addEventListener("abort", onAbort, { once: true });
+
     const timer = setTimeout(() => {
       killed = true;
+      if (signal) signal.removeEventListener("abort", onAbort);
       try { child.kill("SIGTERM"); } catch {}
       resolve({ content: "", error: `Query timed out after ${Math.round(timeoutMs / 1000)}s` });
     }, timeoutMs);
@@ -135,15 +171,29 @@ function runWorkIQQuery(question, timeoutMs = 120_000) {
 
     child.on("error", (err) => {
       clearTimeout(timer);
+      if (signal) signal.removeEventListener("abort", onAbort);
       resolve({ content: "", error: `Spawn error: ${err.message}` });
     });
 
     child.on("close", (code) => {
       clearTimeout(timer);
-      if (killed) return; // already resolved via timeout
+      if (signal) signal.removeEventListener("abort", onAbort);
+      if (killed) return; // already resolved via timeout or abort
 
-      const lower = (stderr + stdout).toLowerCase();
-      if (lower.includes("sign in") || lower.includes("not authenticated") || lower.includes("authentication")) {
+      // Check stderr for auth errors (always reliable — stderr won't contain content)
+      const lowerErr = stderr.toLowerCase();
+      const authInStderr = lowerErr.includes("sign in") || lowerErr.includes("not authenticated")
+        || lowerErr.includes("authentication") || lowerErr.includes("token expired")
+        || lowerErr.includes("unauthorized") || lowerErr.includes("401");
+
+      // Only check stdout for auth patterns when exit code is non-zero
+      // (avoids false positives on content that mentions "authentication", "sign in", etc.)
+      const authInStdout = code !== 0 && (() => {
+        const lowerOut = stdout.toLowerCase();
+        return lowerOut.includes("sign in") || lowerOut.includes("not authenticated");
+      })();
+
+      if (authInStderr || authInStdout) {
         resolve({
           content: "",
           error: "WorkIQ not authenticated. Run `workiq ask -q \"test\"` in a terminal to sign in.",

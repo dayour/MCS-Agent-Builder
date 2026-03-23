@@ -585,20 +585,24 @@ app.post("/api/projects/:projectId/pull-m365", async (req, res) => {
     let completed = 0;
     let authAborted = false;
 
+    // AbortController lets us kill in-flight child processes when auth fails
+    const abortController = new AbortController();
+
     const promises = queries.map(async (q) => {
       // If another query already detected auth failure, skip this one
       if (authAborted || clientDisconnected) return null;
 
       sendSSE({ type: "progress", queryId: q.id, label: q.label, status: "running" });
-      const result = await runWorkIQQueryWithRetry(q.question, 120_000, 2);
+      const result = await runWorkIQQueryWithRetry(q.question, 120_000, 2, abortController.signal);
       completed++;
 
-      // Auth failure after retries → signal abort for remaining queries
+      // Auth failure after retries → abort remaining queries immediately
       if (result.authFailed) {
         authAborted = true;
+        abortController.abort();
         sendSSE({
           type: "error",
-          detail: "WorkIQ session expired during pull. Re-authenticate and try again.",
+          detail: "WorkIQ session expired during pull. Run 'workiq ask -q \"test\"' in a terminal to re-authenticate, then try again.",
         });
         return null;
       }
@@ -620,6 +624,20 @@ app.post("/api/projects/:projectId/pull-m365", async (req, res) => {
 
     // If auth failed mid-pull, end SSE without writing partial results
     if (authAborted || clientDisconnected) {
+      res.end();
+      return;
+    }
+
+    // Minimum success threshold — require at least 3/4 queries to produce content.
+    // A mostly-empty context file with 3 "Query failed" sections isn't useful.
+    const successCount = results.filter((r) => !r.error && r.content).length;
+    const minRequired = Math.max(1, queries.length - 1); // at least N-1 must succeed
+    if (successCount < minRequired) {
+      const failedLabels = results.filter((r) => r.error).map((r) => `${r.label}: ${r.error}`);
+      sendSSE({
+        type: "error",
+        detail: `Only ${successCount}/${queries.length} queries succeeded (minimum ${minRequired} required). Failed: ${failedLabels.join("; ")}`,
+      });
       res.end();
       return;
     }
