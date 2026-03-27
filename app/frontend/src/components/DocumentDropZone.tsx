@@ -546,7 +546,14 @@ const DocumentDropZone = ({ projectId }: DocumentDropZoneProps) => {
                       {statusCfg.label}
                     </span>
                   </div>
-                  <p className="text-[11px] text-muted-foreground">{doc.size}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {doc.size}
+                    {doc.uploadedAt && (
+                      <span className="ml-2 text-muted-foreground/60">
+                        {new Date(doc.uploadedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                      </span>
+                    )}
+                  </p>
                 </div>
               </div>
               <Button
@@ -567,7 +574,16 @@ const DocumentDropZone = ({ projectId }: DocumentDropZoneProps) => {
         <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="text-sm font-medium truncate pr-8">{selectedDoc?.name}</DialogTitle>
-            {selectedDoc && <p className="text-xs text-muted-foreground">{selectedDoc.size}</p>}
+            {selectedDoc && (
+              <p className="text-xs text-muted-foreground">
+                {selectedDoc.size}
+                {selectedDoc.uploadedAt && (
+                  <span className="ml-2">
+                    {new Date(selectedDoc.uploadedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                  </span>
+                )}
+              </p>
+            )}
           </DialogHeader>
           <div className="flex-1 overflow-auto min-h-0">
             {selectedDoc && (

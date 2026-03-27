@@ -351,7 +351,16 @@ export default function DocumentBar({
           <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col">
             <DialogHeader>
               <DialogTitle className="text-sm font-medium truncate pr-8">{previewDoc?.name}</DialogTitle>
-              {previewDoc && <p className="text-xs text-muted-foreground">{previewDoc.size}</p>}
+              {previewDoc && (
+                <p className="text-xs text-muted-foreground">
+                  {previewDoc.size}
+                  {previewDoc.uploadedAt && (
+                    <span className="ml-2">
+                      {new Date(previewDoc.uploadedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                    </span>
+                  )}
+                </p>
+              )}
             </DialogHeader>
             <div className="flex-1 overflow-auto min-h-0">
               {previewDoc && (

@@ -64,6 +64,7 @@ export interface ApiUploadResult {
   filename: string;
   conversionError?: string | null;
   size: number;
+  mtime?: number;
   path: string;
   briefOutdated: boolean;
 }

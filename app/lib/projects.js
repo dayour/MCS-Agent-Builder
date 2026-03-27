@@ -113,6 +113,7 @@ function scanDocs(folder) {
       docs.push({
         filename: name,
         size: stat.size,
+        mtime: stat.mtimeMs,
         isNew,
         isModified,
       });

@@ -413,6 +413,7 @@ app.post("/api/projects/:projectId/upload", upload.single("file"), async (req, r
     filename: finalName,
     conversionError,
     size: stat ? stat.size : req.file.size,
+    mtime: stat ? stat.mtimeMs : Date.now(),
     path: `Build-Guides/${req.params.projectId}/docs/${finalName}`,
     briefOutdated,
   });

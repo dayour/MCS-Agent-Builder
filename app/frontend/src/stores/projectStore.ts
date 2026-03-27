@@ -85,7 +85,7 @@ function apiDocToDocument(d: ApiDoc): Document {
     name: d.filename,
     type: docTypeFromExt(ext),
     size: formatSize(d.size),
-    uploadedAt: "",
+    uploadedAt: d.mtime ? new Date(d.mtime).toISOString() : "",
     content: "",
     contentHash: "",
     changeStatus: d.isModified ? "modified" : d.isNew ? "new" : "processed",
