@@ -146,13 +146,13 @@
           "$ref": "#/definitions/HttpRequestAction"
         },
         {
+          "$ref": "#/definitions/DialogExpression"
+        },
+        {
           "$ref": "#/definitions/ActionScope"
         },
         {
           "$ref": "#/definitions/Foreach"
-        },
-        {
-          "$ref": "#/definitions/DialogExpression"
         },
         {
           "$ref": "#/definitions/CancelAllDialogs"
@@ -5489,6 +5489,10 @@
         {
           "title": "Set variable to empty (no value)",
           "const": "SetEmpty"
+        },
+        {
+          "title": "Redirect to a topic",
+          "const": "GoToDialog"
         }
       ]
     },

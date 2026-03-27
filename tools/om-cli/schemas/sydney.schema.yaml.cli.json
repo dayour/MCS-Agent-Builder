@@ -686,6 +686,9 @@
           "$ref": "#/definitions/VoiceInputSettings"
         },
         {
+          "$ref": "#/definitions/DialogExpression"
+        },
+        {
           "$ref": "#/definitions/DoNotHoldSettings"
         },
         {
@@ -702,9 +705,6 @@
         },
         {
           "$ref": "#/definitions/DisconnectedNodeContainer"
-        },
-        {
-          "$ref": "#/definitions/DialogExpression"
         },
         {
           "$ref": "#/definitions/BeginDialog"
@@ -7860,6 +7860,10 @@
         "kind": {
           "const": "TeamsApplicationDetails"
         },
+        "lobDisplayName": {
+          "title": "LobDisplayName",
+          "type": "string"
+        },
         "version": {
           "title": "Version",
           "type": "string"
@@ -9527,6 +9531,10 @@
         "sharedConnectionParameters": {
           "title": "SharedConnectionParameters",
           "type": "string"
+        },
+        "allowSharing": {
+          "title": "AllowSharing",
+          "type": "boolean"
         }
       },
       "required": [
@@ -11321,6 +11329,12 @@
           "title": "Hold conversations",
           "description": "When you turn this on, the agent will pause and wait for a resume word to restart the conversation",
           "$ref": "#/definitions/HoldSettings"
+        },
+        "fallbackDialogOnInvalidEntity": {
+          "title": "Fallback dialog when no valid entity found",
+          "description": "The dialog to redirect to when no valid entity is found after all retries.",
+          "$role": "expression",
+          "$ref": "#/definitions/DialogExpression"
         }
       },
       "required": [
@@ -11396,6 +11410,12 @@
           "description": "Send this message again when a silence detection no input event is recevied.",
           "$ref": "#/definitions/ActivityTemplateBase",
           "x-defaultDefinition": "#/definitions/Message"
+        },
+        "fallbackDialogOnSilence": {
+          "title": "Fallback dialog on silence",
+          "description": "The dialog to redirect to when silence is detected and the fallback action is set to GoToDialog.",
+          "$role": "expression",
+          "$ref": "#/definitions/DialogExpression"
         },
         "defaultValueMissingAction": {
           "title": "Fallback action",
@@ -12398,6 +12418,12 @@
         "searchPeople": {
           "title": "Search People",
           "description": "When enabled, can add people in the user's organization as knowledge sources.",
+          "default": false,
+          "type": "boolean"
+        },
+        "searchPeopleIncludeRelatedContent": {
+          "title": "Search People Include Related Content",
+          "description": "When enabled, includes related content (emails, meetings, files) when searching people.",
           "default": false,
           "type": "boolean"
         },
@@ -17492,6 +17518,10 @@
         {
           "title": "Set variable to empty (no value)",
           "const": "SetEmpty"
+        },
+        {
+          "title": "Redirect to a topic",
+          "const": "GoToDialog"
         }
       ]
     },
