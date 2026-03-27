@@ -61,8 +61,8 @@ const MODEL_OPTIONS = [
 
 const ARCH_TYPES = [
   { value: "single-agent", label: "Single-Agent", icon: Bot, desc: "One agent handles everything" },
-  { value: "multi-agent", label: "Multi-Agent", icon: Network, desc: "Orchestrator routes to specialists" },
-  { value: "connected-agent", label: "Connected-Agent", icon: Link, desc: "Agents linked across solutions" },
+  { value: "multi-agent", label: "Multi-Agent", icon: Network, desc: "Orchestrator routes to child agents" },
+  { value: "connected-agent", label: "Connected-Agent", icon: Link, desc: "Main agent + external connected agents" },
 ] as const;
 
 const SOLUTION_TYPES = [
@@ -249,6 +249,9 @@ const ArchitectureSection = ({ data, onChange, context }: Props) => {
     if (editAgentIdx === i) { setEditAgentIdx(null); setAgentDraft(null); }
   };
 
+  // --- Connected Agents ---
+  const connectedAgents = data.connectedAgents || [];
+
   // --- Scaffold ---
   const unlinkedCount = childAgents.filter((c: any) => !c.agentFolderId).length;
 
@@ -276,6 +279,7 @@ const ArchitectureSection = ({ data, onChange, context }: Props) => {
 
 
   const isMultiAgent = data.pattern === "multi-agent";
+  const isConnectedAgent = data.pattern === "connected-agent";
   const selectedType = ARCH_TYPES.find((t) => t.value === data.pattern);
 
   const solutionType = data.solutionType ?? "agent";
@@ -583,10 +587,10 @@ const ArchitectureSection = ({ data, onChange, context }: Props) => {
       )}
 
       {/* Child Agents (multi-agent only) */}
-      {isMultiAgent && !isNonAgent && (
+      {(isMultiAgent || isConnectedAgent) && !isNonAgent && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Specialist Agents</h3>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{isMultiAgent ? "Specialist Agents" : "Child Agents"}</h3>
             <div className="flex gap-2">
               {unlinkedCount > 0 && context?.projectId && (
                 <Button variant="outline" size="sm" onClick={handleScaffold} disabled={scaffolding} className="gap-1.5">
@@ -659,6 +663,129 @@ const ArchitectureSection = ({ data, onChange, context }: Props) => {
         </div>
       )}
 
+      {/* Connected Agents */}
+      {(isConnectedAgent || isMultiAgent) && !isNonAgent && connectedAgents.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Connected Agents</h3>
+          <div className="space-y-3">
+            {connectedAgents.map((ca: any, i: number) => (
+              <div key={i} className="rounded-lg border border-border bg-card p-4 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <Link className="h-4 w-4 text-primary shrink-0" />
+                      <p className="text-sm font-medium text-foreground">{ca.name}</p>
+                      <span className={`text-[10px] font-medium rounded px-1.5 py-0.5 border ${
+                        ca.status === "available"
+                          ? "bg-success/15 text-success border-success/30"
+                          : "bg-amber-500/15 text-amber-600 border-amber-500/30"
+                      }`}>
+                        {ca.status}
+                      </span>
+                      <span className="text-[10px] font-medium bg-muted text-muted-foreground border border-border rounded px-1.5 py-0.5">
+                        {ca.phase}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5 pl-6">{ca.role}</p>
+                    {ca.source && (
+                      <p className="text-[11px] text-muted-foreground mt-1 pl-6">
+                        <span className="font-medium">Source:</span> {ca.source}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Routing Description */}
+                {ca.routingDescription && (
+                  <div className="pl-6">
+                    <p className="text-[11px] font-medium text-muted-foreground mb-1">Routing Description</p>
+                    <p className="text-xs text-foreground bg-muted/50 rounded p-2">{ca.routingDescription}</p>
+                  </div>
+                )}
+
+                {/* MCS Description */}
+                {ca.description && (
+                  <div className="pl-6">
+                    <p className="text-[11px] font-medium text-muted-foreground mb-1">MCS Description</p>
+                    <p className="text-xs text-foreground bg-muted/50 rounded p-2">{ca.description}</p>
+                  </div>
+                )}
+
+                {/* Instructions */}
+                {ca.instructions && (
+                  <div className="pl-6">
+                    <p className="text-[11px] font-medium text-muted-foreground mb-1">Instructions ({ca.instructions.length} chars)</p>
+                    <pre className="text-[11px] text-foreground bg-muted/50 rounded p-2 whitespace-pre-wrap font-mono max-h-48 overflow-y-auto">{ca.instructions}</pre>
+                  </div>
+                )}
+
+                {/* Data Pipeline */}
+                {ca.dataPipeline?.source && (
+                  <div className="pl-6">
+                    <p className="text-[11px] font-medium text-muted-foreground mb-1">Data Pipeline</p>
+                    <div className="text-[11px] bg-muted/50 rounded p-2 space-y-0.5">
+                      <p><span className="font-medium">Source:</span> {ca.dataPipeline.source}</p>
+                      <p><span className="font-medium">Ingestion:</span> {ca.dataPipeline.ingestion}</p>
+                      <p><span className="font-medium">Destination:</span> {ca.dataPipeline.destination}</p>
+                      <p><span className="font-medium">Refresh:</span> {ca.dataPipeline.refreshCadence}</p>
+                      {ca.dataPipeline.authoritative && (
+                        <p><span className="font-medium">Authoritative:</span> {ca.dataPipeline.authoritative}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Prerequisites */}
+                {ca.prerequisites?.length > 0 && (
+                  <div className="pl-6">
+                    <p className="text-[11px] font-medium text-muted-foreground mb-1">Prerequisites</p>
+                    <ul className="text-[11px] text-foreground space-y-0.5 list-disc list-inside">
+                      {ca.prerequisites.map((p: string, j: number) => (
+                        <li key={j}>{p}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Setup Steps */}
+                {ca.setupSteps?.length > 0 && (
+                  <div className="pl-6">
+                    <p className="text-[11px] font-medium text-muted-foreground mb-1">Setup Steps</p>
+                    <ol className="text-[11px] text-foreground space-y-0.5 list-decimal list-inside">
+                      {ca.setupSteps.map((s: string, j: number) => (
+                        <li key={j}>{s}</li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
+
+                {/* Fallback */}
+                {ca.fallback?.trigger && (
+                  <div className="pl-6">
+                    <p className="text-[11px] font-medium text-muted-foreground mb-1">Fallback Plan</p>
+                    <div className="text-[11px] bg-amber-500/5 border border-amber-500/20 rounded p-2 space-y-0.5">
+                      <p><span className="font-medium">Trigger:</span> {ca.fallback.trigger}</p>
+                      <p><span className="font-medium">Approach:</span> {ca.fallback.approach}</p>
+                      {ca.fallback.soqlFallback && (
+                        <pre className="font-mono text-[10px] mt-1 bg-muted/50 rounded p-1.5 whitespace-pre-wrap">{ca.fallback.soqlFallback}</pre>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Empty state for connected agents */}
+      {(isConnectedAgent) && !isNonAgent && connectedAgents.length === 0 && (
+        <div className="rounded-lg border border-dashed border-border bg-muted/30 p-6 text-center">
+          <Link className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+          <p className="text-sm text-muted-foreground">No connected agents configured yet.</p>
+          <p className="text-xs text-muted-foreground mt-1">Connected agents are defined in the brief.json connectedAgents[] array.</p>
+        </div>
+      )}
 
     </div>
   );

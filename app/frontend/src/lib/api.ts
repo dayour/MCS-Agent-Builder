@@ -157,6 +157,186 @@ export async function fetchDocContent(
   return request(`/projects/${projectId}/docs/${encodeURIComponent(filename)}/content`);
 }
 
+// ─── Credential Readiness Check ──────────────────────────────────
+
+export interface PacProfile {
+  index: number;
+  active: boolean;
+  kind: string;
+  name: string;
+  user: string;
+  environment: string;
+  environmentUrl: string;
+}
+
+export interface PacEnvironment {
+  active: boolean;
+  name: string;
+  id: string;
+  url: string;
+}
+
+export interface CredentialCheck {
+  claude: boolean;
+  az: boolean;
+  dataverse: boolean | null;
+  ready: boolean;
+  details: Record<string, string>;
+  azAccount: { user: string; tenantId: string; tenantName: string | null; tenantDomain: string | null } | null;
+  pacProfiles: PacProfile[];
+  pacEnvironments: PacEnvironment[];
+}
+
+export async function checkCredentials(): Promise<CredentialCheck> {
+  return request<CredentialCheck>("/readiness/credentials");
+}
+
+export async function switchPacProfile(profileIndex: number): Promise<{ switched: boolean; activeUser: string; message: string }> {
+  return request("/auth/switch-profile", {
+    method: "POST",
+    body: JSON.stringify({ profileIndex }),
+  });
+}
+
+export async function switchPacEnvironment(environmentId: string): Promise<{ switched: boolean; environmentId: string }> {
+  return request("/auth/switch-environment", {
+    method: "POST",
+    body: JSON.stringify({ environmentId }),
+  });
+}
+
+// ─── Wizard — Conversational Brief Builder ───────────────────────
+
+export interface WizardChatEvent {
+  type: "started" | "token" | "state" | "done" | "error";
+  text?: string;
+  wizardState?: Record<string, unknown>;
+  detail?: string;
+}
+
+export async function wizardChat(
+  mode: "interview" | "fuzzy",
+  messages: Array<{ role: string; content: string }>,
+  currentState: Record<string, unknown>,
+  onEvent: (event: WizardChatEvent) => void,
+  projectId?: string | null,
+): Promise<void> {
+  const res = await fetch(`${BASE}/wizard/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mode, messages, currentState, projectId: projectId || undefined }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => res.statusText);
+    let msg = text;
+    try { const parsed = JSON.parse(text); if (parsed.detail) msg = parsed.detail; } catch {}
+    throw new Error(msg);
+  }
+
+  // Parse SSE stream — same pattern as pullFromM365
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error("No response body");
+
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+
+    for (const line of lines) {
+      if (line.startsWith("data: ")) {
+        try {
+          onEvent(JSON.parse(line.slice(6)));
+        } catch { /* ignore malformed SSE */ }
+      }
+    }
+  }
+
+  if (buffer.startsWith("data: ")) {
+    try {
+      onEvent(JSON.parse(buffer.slice(6)));
+    } catch {}
+  }
+}
+
+export async function wizardSave(
+  projectName: string,
+  agentName: string,
+  draft: Record<string, unknown>,
+): Promise<{ projectId: string; agentId: string }> {
+  return request("/wizard/save", {
+    method: "POST",
+    body: JSON.stringify({ projectName, agentName, draft }),
+  });
+}
+
+// ─── Enrichment — Background Brief Enrichment ────────────────────
+
+export interface EnrichmentStepEvent {
+  type: "state" | "step" | "done";
+  step?: string;
+  status?: string;
+  detail?: string;
+  steps?: Record<string, { status: string; label: string; detail?: string }>;
+  errors?: string[];
+}
+
+export async function startEnrichment(
+  projectId: string,
+  agentId: string,
+): Promise<{ jobId: string; status: string }> {
+  return request("/enrichment/start", {
+    method: "POST",
+    body: JSON.stringify({ projectId, agentId }),
+  });
+}
+
+export async function watchEnrichment(
+  jobId: string,
+  onEvent: (event: EnrichmentStepEvent) => void,
+): Promise<void> {
+  const res = await fetch(`${BASE}/enrichment/status/${jobId}`);
+  if (!res.ok) {
+    const text = await res.text().catch(() => res.statusText);
+    throw new Error(text);
+  }
+
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error("No response body");
+
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+
+    for (const line of lines) {
+      if (line.startsWith("data: ")) {
+        try {
+          onEvent(JSON.parse(line.slice(6)));
+        } catch { /* ignore malformed SSE */ }
+      }
+    }
+  }
+
+  if (buffer.startsWith("data: ")) {
+    try {
+      onEvent(JSON.parse(buffer.slice(6)));
+    } catch {}
+  }
+}
+
 // ─── Pull from M365 (WorkIQ SSE) ────────────────────────────────
 
 export interface PullM365Progress {
@@ -233,4 +413,209 @@ export async function pullFromM365(
       onProgress(JSON.parse(buffer.slice(6)));
     } catch { /* ignore */ }
   }
+}
+
+// ─── Build Runner — Headless agent build ─────────────────────────
+
+export interface BuildStep {
+  id: string;
+  label: string;
+  status: "pending" | "running" | "completed" | "failed" | "skipped";
+  detail: string | null;
+}
+
+export interface BuildJobSummary {
+  id: string;
+  projectId: string;
+  agentId: string;
+  status: "starting" | "running" | "paused_auth" | "completed" | "failed";
+  startedAt: string;
+  completedAt: string | null;
+  errors: string[];
+}
+
+export interface BuildStatusEvent {
+  type: "state" | "step" | "output" | "command_sent" | "auth_required" | "auth_completed" | "done";
+  steps?: BuildStep[];
+  status?: string;
+  step?: string;
+  detail?: string | null;
+  errors?: string[];
+  summary?: string;
+  data?: string;             // raw terminal output
+  command?: string;
+  system?: string;           // auth_required system name
+  instructions?: string;     // auth_required instructions
+  authPrompt?: { system: string; instructions: string } | null;
+}
+
+export async function startBuild(
+  projectId: string,
+  agentId: string,
+): Promise<{ jobId: string; status: string }> {
+  return request("/build/start", {
+    method: "POST",
+    body: JSON.stringify({ projectId, agentId }),
+  });
+}
+
+export async function subscribeBuildStatus(
+  jobId: string,
+  onEvent: (event: BuildStatusEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  const res = await fetch(`${BASE}/build/status/${jobId}`, { signal });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => res.statusText);
+    throw new Error(text);
+  }
+
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error("No response body");
+
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+
+    for (const line of lines) {
+      if (line.startsWith("data: ")) {
+        try {
+          onEvent(JSON.parse(line.slice(6)));
+        } catch { /* ignore malformed SSE */ }
+      }
+    }
+  }
+}
+
+export async function buildAuthComplete(
+  jobId: string,
+): Promise<{ resumed: boolean }> {
+  return request(`/build/${jobId}/auth-complete`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
+export async function fetchBuildLog(jobId: string): Promise<string> {
+  const res = await fetch(`${BASE}/build/log/${jobId}`);
+  if (!res.ok) throw new Error("Failed to fetch build log");
+  return res.text();
+}
+
+export async function fetchBuildJobs(): Promise<{ jobs: BuildJobSummary[] }> {
+  return request("/build/jobs");
+}
+
+// ─── Skill Runner — Generalized headless skill execution ─────────
+
+export type SkillType = "research" | "eval" | "fix" | "build";
+
+export interface SkillStep {
+  id: string;
+  label: string;
+  status: "pending" | "running" | "completed" | "failed" | "skipped";
+  detail: string | null;
+}
+
+export interface SkillJobSummary {
+  id: string;
+  skillType: SkillType;
+  command: string;
+  projectId: string;
+  agentId: string;
+  status: "starting" | "running" | "paused_auth" | "completed" | "failed";
+  startedAt: string;
+  completedAt: string | null;
+  errors: string[];
+}
+
+export interface SkillStatusEvent {
+  type: "state" | "step" | "output" | "command_sent" | "auth_required" | "auth_completed" | "done";
+  skillType?: SkillType;
+  steps?: SkillStep[];
+  status?: string;
+  step?: string;
+  detail?: string | null;
+  errors?: string[];
+  summary?: string;
+  data?: string;
+  command?: string;
+  system?: string;
+  instructions?: string;
+  authPrompt?: { system: string; instructions: string } | null;
+}
+
+export async function startSkill(
+  skillType: SkillType,
+  projectId: string,
+  agentId?: string,
+): Promise<{ jobId: string; status: string; skillType: SkillType }> {
+  return request("/skill/start", {
+    method: "POST",
+    body: JSON.stringify({ skillType, projectId, agentId: agentId || undefined }),
+  });
+}
+
+export async function subscribeSkillStatus(
+  jobId: string,
+  onEvent: (event: SkillStatusEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  const res = await fetch(`${BASE}/skill/status/${jobId}`, { signal });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => res.statusText);
+    throw new Error(text);
+  }
+
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error("No response body");
+
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+
+    for (const line of lines) {
+      if (line.startsWith("data: ")) {
+        try {
+          onEvent(JSON.parse(line.slice(6)));
+        } catch { /* ignore malformed SSE */ }
+      }
+    }
+  }
+}
+
+export async function skillAuthComplete(
+  jobId: string,
+): Promise<{ resumed: boolean }> {
+  return request(`/skill/${jobId}/auth-complete`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
+export async function fetchSkillLog(jobId: string): Promise<string> {
+  const res = await fetch(`${BASE}/skill/log/${jobId}`);
+  if (!res.ok) throw new Error("Failed to fetch skill log");
+  return res.text();
+}
+
+export async function fetchSkillJobs(skillType?: SkillType): Promise<{ jobs: SkillJobSummary[] }> {
+  const query = skillType ? `?type=${skillType}` : "";
+  return request(`/skill/jobs${query}`);
 }

@@ -1,5 +1,5 @@
-import { useParams, useNavigate } from "react-router-dom";
-import { useState, useEffect, useMemo } from "react";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Briefcase, Bot, FileText, Zap, Plug, Database,
   MessageSquare, Shield, Network, TestTube, HelpCircle,
@@ -36,6 +36,7 @@ import OpenQuestionsSection from "@/components/brief/OpenQuestionsSection";
 import DecisionsSection from "@/components/brief/DecisionsSection";
 import { generateBriefReport, downloadFile } from "@/lib/reportGenerator";
 import { computeDecisionImpact } from "@/lib/briefTransforms";
+import EnrichmentBanner from "@/components/brief/EnrichmentBanner";
 
 const iconMap: Record<string, React.ElementType> = {
   Briefcase, FileText, Zap, Plug, Database,
@@ -60,6 +61,8 @@ const sectionComponents: Record<string, React.ComponentType<{ data: any; onChang
 const BriefEditor = () => {
   const { projectId, agentId } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const enrichJobId = searchParams.get("enrich");
   const agents = useProjectStore((s) => s.agents);
   const projectName = useProjectStore((s) => s.projectName);
   const loadProject = useProjectStore((s) => s.loadProject);
@@ -149,6 +152,13 @@ const BriefEditor = () => {
     if (!projectId || !agentId) return;
     runCommand(`/mcs-build ${projectId} ${agentId}`, "build");
   };
+
+  const handleEnrichmentComplete = useCallback(() => {
+    // Reload brief to pick up enrichment changes
+    if (projectId && agentId) loadBrief(projectId, agentId);
+    // Remove enrich param from URL
+    setSearchParams((prev) => { prev.delete("enrich"); return prev; }, { replace: true });
+  }, [projectId, agentId, loadBrief, setSearchParams]);
 
   const completedCount = Object.values(completion).filter(Boolean).length;
   const readiness = BRIEF_SECTIONS.length > 0
@@ -304,6 +314,10 @@ const BriefEditor = () => {
               <div className="mb-4 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
                 {error || pdfError}
               </div>
+            )}
+            {/* Enrichment Progress */}
+            {enrichJobId && (
+              <EnrichmentBanner jobId={enrichJobId} onComplete={handleEnrichmentComplete} />
             )}
             {/* Workflow Phase Banner */}
             {data?.workflow && (

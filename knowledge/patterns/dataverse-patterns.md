@@ -257,7 +257,7 @@ curl -s -X PATCH "$DV_URL/api/data/v9.2/bots($BOT_ID)" \
 |-----------|--------------------------|--------|
 | Use general knowledge | `aISettings.useModelKnowledge` | `true`/`false` |
 | File uploads | `aISettings.isFileAnalysisEnabled` | `true`/`false` |
-| Content moderation | `aISettings.contentModeration` | `"High"`, `"Medium"`, `"Low"` |
+| Content moderation | `aISettings.contentModeration` | `"High"`, **`"Medium"` (default)**, `"Low"`, `"Minimum"`, `"Maximum"` |
 | Use latest models | `aISettings.optInUseLatestModels` | `true`/`false` |
 | Generative orchestration | `settings.GenerativeActionsEnabled` | `true`/`false` |
 | Allow agent connection | `isAgentConnectable` | `true`/`false` |
@@ -266,7 +266,8 @@ curl -s -X PATCH "$DV_URL/api/data/v9.2/bots($BOT_ID)" \
 
 | UI Setting | Field | Values |
 |-----------|-------|--------|
-| Auth mode | `authenticationmode` | `0`=None, `1`=Integrated, `2`=GenericOauth |
+| Auth mode | `authenticationmode` | `0`=None, **`1`=Integrated (default)**, `2`=GenericOauth |
+| Auth trigger | `authenticationtrigger` | **`1`=AsNeeded (default)**, `0`=Always |
 
 ### GptComponent data field (YAML in botcomponent)
 

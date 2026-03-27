@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2, Sparkles } from "lucide-react";
 import Layout from "@/components/Layout";
 import ProjectCard from "@/components/ProjectCard";
 import { Button } from "@/components/ui/button";
@@ -54,9 +54,14 @@ const Index = () => {
               Design and build AI agents for Microsoft Copilot Studio
             </p>
           </div>
-          <Button size="sm" className="gap-1.5" onClick={() => setOpen(true)}>
-            <Plus className="h-3.5 w-3.5" /> New Project
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => navigate("/create")}>
+              <Sparkles className="h-3.5 w-3.5" /> Create with Wizard
+            </Button>
+            <Button size="sm" className="gap-1.5" onClick={() => setOpen(true)}>
+              <Plus className="h-3.5 w-3.5" /> New Project
+            </Button>
+          </div>
         </div>
 
         {loading && projects.length === 0 ? (

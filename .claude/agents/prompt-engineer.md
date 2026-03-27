@@ -52,6 +52,7 @@ Instructions are least important for routing because the orchestrator routes on 
 - Don't list what the orchestrator already knows (tools, topics, knowledge)
 - Prefer one good example over three rules
 - Trim after every edit pass — cut anything the model would do by default
+- Never mention MVP, versions, phases, or roadmap — describe what the agent does, omit what it doesn't
 
 ## Description Engineering
 
@@ -121,6 +122,8 @@ Both patterns follow the three-part structure. See the Review Checklist below fo
 | Hardcode escalation contacts | Not updatable; safety data trapped | Knowledge source + topic; instructions use `/TopicName` |
 | Wrong routing | Instructions are lowest routing priority | Fix topic descriptions first |
 | Agent stops responding | Unknown instruction conflict | Remove all, add back section by section, test between each |
+| Mentioning MVP/roadmap in instructions | Agent doesn't need lifecycle awareness; pre-programmed refusals are less natural | Describe capabilities only; let fallback handle unknown requests |
+| Boundary-heavy instructions | Boundaries dominated by "don't do X" reduce helpfulness; decline topics handle hard stops | Lead with capabilities; minimal boundary section; trust decline topics for 100% guarantee |
 
 ## Topics Extraction Step
 
@@ -137,7 +140,7 @@ Before finalizing instructions, identify what should be a topic instead. This is
 
 ### PE Process
 
-1. Write initial instructions covering all MVP capabilities
+1. Write initial instructions covering all in-scope capabilities (describe what the agent does, not what it can't)
 2. Walk through the decision rules above
 3. Move qualifying content to `topicRecommendations` output (topic name + description + why)
 4. Replace extracted instruction content with `/TopicName` references

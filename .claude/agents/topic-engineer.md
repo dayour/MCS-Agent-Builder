@@ -19,6 +19,25 @@ When generating a topic definition from brief.json, always check the topic entry
 
 For the two-step creation process (Gateway API creates with text placeholder, LSP push updates with card): generate both a plain-text topic definition JSON for `island-client.js createTopic` and the full YAML with `SendMessage` + `AdaptiveCardTemplate` for LSP push. Card schema version: use `1.5` for Teams. See `knowledge/patterns/topic-patterns/adaptive-card.yaml`.
 
+### Adaptive Card Style Catalog
+
+Choose the card pattern that best matches the topic's purpose:
+
+| Pattern File | Use When |
+|-------------|----------|
+| `welcome-card.yaml` | ConversationStart — always used, shows agent name + capability buttons |
+| `adaptive-card.yaml` | General data display (FactSet) or form input (AdaptiveCardPrompt) |
+| `table-list-card.yaml` | Tabular data, comparisons, side-by-side columns |
+| `status-card.yaml` | Progress tracking, status indicators, dashboards |
+| `carousel-card.yaml` | Multiple items (product catalog, recommendations, options) |
+| `approval-card.yaml` | Approve/reject workflows (leave, expense, document) |
+| `confirmation-card.yaml` | Review collected data before confirming an action |
+| `feedback-card.yaml` | Thumbs up/down + detailed feedback collection |
+
+### ConversationStart Welcome Card (ALWAYS)
+
+Every agent gets an adaptive card welcome via `welcome-card.yaml`. During build, replace `{{AGENT_NAME}}` with `brief.agent.name`, `{{WELCOME_MESSAGE}}` with `brief.agent.description`, and generate up to 6 action buttons from `brief.capabilities[]` (MVP phase only). Write to `workspace/Agent/topics/ConversationStart.mcs.yml` and push via LSP.
+
 ## Topic Descriptions Drive Routing
 
 In generative orchestration, the routing priority is: **description > name > parameters > instructions**. Topic descriptions are the primary routing signal. They must be:
@@ -158,6 +177,19 @@ For complex topics (3+ nodes) during `/mcs-build` Step 4 or `/mcs-fix`:
 5. Report: node counts, validation results, GPT contributions
 
 Skip for trivial topics (< 3 nodes), system topic customization, or when lead requests single-model.
+
+## Work IQ Awareness (M365 Data in Topics)
+
+When a topic needs M365 data (email, calendar, teams, sharepoint, files, people, org chart):
+- **Work IQ Copilot** (`mcp_M365Copilot`) covers all M365 data — mail, calendar, teams, sharepoint, onedrive, files, search. Use this for any cross-M365 query.
+- **Work IQ User** (`mcp_MeServer`) covers people, org chart, manager, direct reports, user location. Use this when the topic needs to personalize responses based on who the user is, where they're located, or their org position.
+
+**CDW pattern — location-aware knowledge routing:** When a topic needs to filter results by user location, region, or office (e.g., "show me the policy for my office"), use Work IQ User to get the user's location/office, then pass that context to Work IQ Copilot or `SearchAndSummarizeContent` as a filter. Example flow:
+1. `InvokeConnectorAction` → Work IQ User to get `user.officeLocation`
+2. `SetVariable` → store location in `Topic.userLocation`
+3. `SearchAndSummarizeContent` with instructions referencing `Topic.userLocation` for filtered results
+
+Do NOT generate topics that reference individual M365 MCP servers (Mail, Calendar, Teams, SharePoint) — Work IQ Copilot replaces all of them.
 
 ## Rules
 

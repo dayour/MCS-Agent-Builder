@@ -54,6 +54,7 @@ export interface ApiAgentDetail {
 export interface ApiDoc {
   filename: string;
   size: number;
+  mtime?: number;
   isNew?: boolean;
   isModified?: boolean;
 }
@@ -329,5 +330,35 @@ export interface ApiBrief {
       method: string;
     }>;
   };
+  connectedAgents?: Array<{
+    name: string;
+    source?: string;
+    phase?: string;
+    status?: string;
+    role?: string;
+    routingDescription?: string;
+    instructions?: string;
+    fabricInstructions?: string;
+    description?: string;
+    dataPipeline?: {
+      source?: string;
+      ingestion?: string;
+      destination?: string;
+      refreshCadence?: string;
+      authoritative?: string;
+    };
+    dataSource?: {
+      type?: string;
+      tables?: string[];
+      keyColumns?: Array<{ name: string; type: string; description: string }>;
+    };
+    prerequisites?: string[];
+    setupSteps?: string[];
+    fallback?: {
+      trigger?: string;
+      approach?: string;
+      soqlFallback?: string;
+    };
+  }>;
   updated_at?: string;
 }

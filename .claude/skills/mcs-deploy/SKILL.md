@@ -73,6 +73,7 @@ Determine which deployment mode to use (unless user specified `--mode`):
 | Condition | Recommended Mode | Reason |
 |-----------|-----------------|--------|
 | `architecture.type == "multi-agent"` | `solution` | Multi-agent needs all components in one package |
+| `architecture.type == "single-agent-with-connected-agents"` | `agent` | Connected agents are external (Fabric, other MCS agents) — only the main agent needs deploying. Connected agents must be set up independently in the target environment. |
 | Agent is in a named solution (not default) | `solution` | Solution ALM preserves relationships |
 | Single agent, default solution | `agent` | Faster, simpler, no solution overhead |
 
@@ -184,6 +185,11 @@ For each integration in `brief.json.integrations[]`:
 | Dataverse (same tenant) | None | Auto-connects if same tenant |
 | Dataverse (cross-tenant) | Service principal | Configure service principal in target |
 
+For connected agents (`brief.json.connectedAgents[]`), add setup steps:
+- Connected agents are external — they must exist independently in the target tenant/environment
+- Each connected agent's `prerequisites` and `setupSteps` list what is needed
+- After the main agent deploys, reconnect to the target environment's instance of each connected agent
+
 Generate a checklist:
 ```markdown
 ## Connection Mapping — Manual Steps Required
@@ -191,6 +197,11 @@ Generate a checklist:
 - [ ] SharePoint/OneDrive MCP: Re-authenticate in target MCS → Settings → Tools
 - [ ] ServiceNow connector: Enter API key in target Power Platform admin center
 - [ ] Custom connector "OrderAPI": Update base URL to production endpoint
+
+## Connected Agent Setup (if applicable)
+- [ ] [Connected agent name]: Verify published in target environment
+- [ ] [Connected agent name]: Connect to main agent via MCS UI → Settings → Connected Agents
+- [ ] [Connected agent name]: Verify data pipeline running in target (if applicable)
 ```
 
 **VERIFY:** Connection mapping report written.

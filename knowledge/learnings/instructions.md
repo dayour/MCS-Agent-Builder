@@ -99,7 +99,7 @@ Decision rule: if the behavior maps to a boundaries eval test (100% pass require
 2. **AI orchestrator (instructions):** Core capabilities that need tools/MCP + flexible AI reasoning. Instruction quality still matters — use WHY clauses, tiered response format, scope section, source tagging.
 3. **Minimum topic set:** Greeting (system), Fallback (system), Escalation (system), plus 1 custom topic per boundary that must pass 100%.
 Key rule: if the behavior maps to a boundaries eval test (100% pass required), it MUST have a dedicated topic. Instructions provide ~90% but that's not enough for boundaries.
-Also: add explicit Scope section to instructions when future capabilities exist ("This is the MVP version. X is planned for a future release.") to prevent model from improvising.
+Also: do NOT mention MVP, versions, or future releases in instructions — if a feature doesn't exist, simply don't reference it. The model + fallback topic handle unknown requests gracefully. Pre-programming 'Unavailable Features' sections wastes instruction chars and sounds robotic.
 **Confirmed:** 1 build(s) | Last confirmed: 2026-03-13
 **Related cache:** instructions-authoring.md (three-layer section updated)
 **Tags:** #instructions #topics #three-layer #safety #boundaries #greeting #fallback #adaptive-cards #scope

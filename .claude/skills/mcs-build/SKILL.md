@@ -1,6 +1,6 @@
 ---
 name: mcs-build
-description: "Build agent(s) in Copilot Studio using the fully API-native build stack with user-guided manual steps for OAuth connections. Reads brief.json for architecture mode (single/multi-agent)."
+description: "Build agent(s) in Copilot Studio using the fully API-native build stack with user-guided manual steps for OAuth connections. Reads brief.json for architecture mode (single-agent, multi-agent, or connected-agent with external agents like Fabric Data Agent)."
 ---
 
 # MCS Agent Builder — Unified Hybrid Build Stack
@@ -35,6 +35,45 @@ Reads from:
 Writes to:
 - `Build-Guides/{projectId}/agents/{agentId}/brief.json` — updates `buildStatus` field
 - `Build-Guides/{projectId}/agents/{agentId}/build-report.md` — customer-shareable summary
+
+## Progress Markers (Headless Build UI)
+
+When this skill is invoked via the app's headless build runner (not the interactive terminal), emit structured progress markers so the frontend can show build progress. Print each marker on its own line — the build runner parses them from terminal output.
+
+**Emit at each step transition:**
+```
+##PROGRESS## {"step":"auth","label":"Verifying credentials","status":"running"}
+##PROGRESS## {"step":"auth","label":"Verifying credentials","status":"completed","detail":"admin@M365CPI15209943"}
+##PROGRESS## {"step":"context","label":"Loading build context","status":"running"}
+##PROGRESS## {"step":"create","label":"Creating agent","status":"running"}
+##PROGRESS## {"step":"create","label":"Creating agent","status":"completed","detail":"Bot ID: abc-123"}
+##PROGRESS## {"step":"instructions","label":"Configuring instructions","status":"running"}
+##PROGRESS## {"step":"knowledge","label":"Adding knowledge","status":"running"}
+##PROGRESS## {"step":"tools","label":"Configuring tools","status":"running"}
+##PROGRESS## {"step":"model","label":"Setting model","status":"running"}
+##PROGRESS## {"step":"topics","label":"Authoring topics","status":"running"}
+##PROGRESS## {"step":"publish","label":"Publishing","status":"running"}
+##PROGRESS## {"step":"validate","label":"Validating build","status":"running"}
+```
+
+**On auth requirement (OAuth, manual step):**
+```
+##AUTH_REQUIRED## {"system":"SharePoint","instructions":"Authorize SharePoint access in the browser window"}
+```
+
+**On build completion:**
+```
+##BUILD_COMPLETE## {"success":true,"summary":"Agent built with 5 topics, 3 tools. Published to dktest."}
+##BUILD_COMPLETE## {"success":false,"summary":"Build failed at Step 3: connector not found"}
+```
+
+**Status values:** `"pending"`, `"running"`, `"completed"`, `"failed"`, `"skipped"`
+
+**When to emit:** Print `status:"running"` at the START of each step. Print `status:"completed"` or `"failed"` at the END. Include `detail` for useful context (IDs, counts, error messages). Steps that are skipped (resume build) get `status:"skipped"`.
+
+**Always emit these markers**, regardless of whether the build is running headless or interactive. They are plain text — they appear in the terminal too but don't break anything.
+
+---
 
 ## Smart Build Account & Environment Gate
 
@@ -117,7 +156,17 @@ Reads `brief.json.decisions[]`, filters to MVP-relevant decisions, categorizes a
 
 ---
 
-## Before Building — Knowledge Cache + Learnings Check
+## Before Building — Enrichment Check + Knowledge Cache + Learnings
+
+### Enrichment-Aware Build
+
+If the brief was created via the Agent Wizard and background enrichment ran (check `brief.json._enrichment`):
+- **Instructions**: Enrichment may have generated instructions via Claude Sonnet. Review them during Step 2 — if quality is sufficient, use as-is. If not, spawn PE to revise (not regenerate from scratch).
+- **Eval sets**: Enrichment may have generated eval test sets. Review during Step 4.5 — if coverage is sufficient, use as-is. QA validates and enhances rather than regenerating.
+- **Architecture scoring**: Enrichment ran deterministic scoring (build path, first-party agent matching, channel suggestions). These are pre-applied to the brief.
+- **Research flags**: Check `brief.json.recommendations[]` where `source === "enrichment"` — these are integrations the resolver couldn't match. May need live research or manual configuration.
+
+### Knowledge Cache + Learnings
 
 1. Read `knowledge/cache/api-capabilities.md` — check `last_verified` date
 2. If stale (> 7 days), refresh via WebSearch + MS Learn
@@ -190,7 +239,12 @@ Check for existing agent before creating, to prevent duplicates on build resume 
 **1b.** If no ID, search `pac copilot list` for matching `displayName`. If found, store ID and skip creation.
 
 **1c.** Create new agent via Dataverse POST + PvaProvision:
-1. POST `bots` with name, schemaname, language, runtimeprovider, configuration (including `GenerativeAIRecognizer`)
+1. POST `bots` with:
+   - `name`, `schemaname`, `language: 1033`, `runtimeprovider: 0`
+   - `authenticationmode: 1` (Integrated — "Authenticate with Microsoft")
+   - `authenticationtrigger: 1` (AsNeeded)
+   - `configuration` JSON including `GenerativeAIRecognizer` and `contentModeration: "Medium"`
+   - Example configuration: `{ settings: { GenerativeActionsEnabled: true }, aISettings: { model: { modelNameHint: "GPT5Auto" }, contentModeration: "Medium" }, recognizer: { kind: "GenerativeAIRecognizer" } }`
 2. POST `PvaProvision` bound action
 3. Wait for `statuscode` to transition to `Provisioned(1)` (~5-15s)
 4. PATCH bot `name` field (LSP push updates GptComponent `displayName` but not the bot entity `name`)
@@ -246,17 +300,28 @@ Read `knowledge/learnings/connectors.md` and `integrations.md` — look for conn
 
 **Skip check:** If `"tools"` and `"model"` are both in `completedSteps`, skip this step.
 
-**3a. Model Selection:** Edit `agent.mcs.yml` -> `aISettings.model.modelNameHint`. Check available models via `island-client.js get-models`. Checkpoint: add `"model"`.
+**3a. Model Selection:** Default to `GPT5Auto` (GPT-5 Auto — dynamically routes between general and reasoning). Edit `agent.mcs.yml` -> `aISettings.model.modelNameHint: GPT5Auto`. Only change if brief specifies a different model or the environment doesn't support preview models. Check available models via `island-client.js get-models`. Checkpoint: add `"model"`.
 
 **3b. Settings (type: "setting" integrations):** Patch `bot.configuration` via Dataverse. Always set: `GenerativeActionsEnabled: true`, `recognizer: GenerativeAIRecognizer`. Per-brief: web browsing, model knowledge, content moderation.
 
 **3c. Tool/Connector/MCP Configuration:**
-1. Auto-discover connection refs: `node tools/add-tool.js discover-connections --dataverse-url <url>`
-2. Match discovered connections to brief integrations
-3. For matched: write YAML action files to `workspace/actions/`, push via LSP
-4. For unmatched: guide user to add connector in MCS UI, re-discover, then write YAML + push
 
-**MCP operationId reference:** Calendar=`mcp_CalendarTools`, Mail=`mcp_MailTools`, User Profile=`mcp_MeServer`, Teams=`mcp_TeamsServer`, SharePoint/OneDrive=`mcp_ODSPRemoteServer`. All use connector `shared_a365mcpservers`.
+**Work IQ first:** For any M365 data integration (email, calendar, teams, sharepoint, onedrive, user profile, files, search), add Work IQ from the agent overview page. This adds 2 MCP servers that cover everything:
+
+- **Work IQ Copilot** (`mcp_M365Copilot`) — cross-M365 search and actions for mail, calendar, teams, sharepoint, onedrive, files, everything
+- **Work IQ User** (`mcp_MeServer`) — people, org chart, manager, direct reports
+
+No need to add individual Mail, Calendar, Teams, SharePoint servers separately. These 2 replace all individual M365 MCP servers and connectors. Requires M365 Copilot license. Status: Preview (Mar 2026).
+
+1. Auto-discover connection refs: `node tools/add-tool.js discover-connections --dataverse-url <url>`
+2. Check if `shared_a365mcpservers` connection exists (covers Work IQ)
+3. Match discovered connections to brief integrations — prefer Work IQ matches from the resolver's `workiqRecommended` field
+4. For matched: write YAML action files to `workspace/actions/`, push via LSP
+5. For unmatched: guide user to add Work IQ from overview page in MCS UI, re-discover, then write YAML + push
+
+**Gaps (use connectors instead):** Planner, Excel, Approvals, PowerPoint have no Work IQ equivalent — use Power Platform connectors.
+
+**When NOT to use Work IQ:** Non-M365 integrations (Dynamics 365, Dataverse, Fabric, third-party) use their own MCP servers or connectors as before.
 
 Checkpoint: add `"tools"` to `completedSteps`. Verify via LSP pull that `actions/` has all expected tools.
 
@@ -279,7 +344,8 @@ For each MVP custom/system topic:
    ```
 4. For adaptive card topics: create with text placeholder via Gateway, pull workspace, edit YAML to add `SendMessage` + `AdaptiveCardTemplate`, push via LSP (LSP can update existing topics safely)
 5. For system topic customization: edit in workspace, push via LSP
-6. Conversation Start welcome card: if agent has 2+ capabilities and channel supports cards, use `welcome-card.yaml` template
+6. **Conversation Start welcome card (ALWAYS):** Replace the default plain-text ConversationStart with an adaptive card welcome. Use `welcome-card.yaml` template — fill `{{AGENT_NAME}}`, `{{WELCOME_MESSAGE}}`, and capability action buttons from brief.json capabilities. Write to `workspace/Agent/topics/ConversationStart.mcs.yml`, then push via LSP (system topic update, not new topic creation). This is not optional — every agent gets a welcome card.
+7. Available adaptive card styles for topics (see `knowledge/patterns/topic-patterns/`): `welcome-card.yaml` (welcome), `adaptive-card.yaml` (data display + form), `table-list-card.yaml` (tables/lists), `carousel-card.yaml` (multi-card), `status-card.yaml` (progress/status), `approval-card.yaml` (approve/reject), `confirmation-card.yaml` (review before submit), `feedback-card.yaml` (thumbs up/down). Choose the style that best fits each topic's purpose.
 
 Do not use `mcs-lsp.js push` to create new custom topics because the LSP skips internal MCS registration (NLU trigger indexing, compilation). Gateway API `BotComponentInsert` handles all registration automatically.
 

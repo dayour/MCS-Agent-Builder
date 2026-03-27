@@ -1,5 +1,5 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-23
+last_verified: 2026-03-25
 sources: [MS Learn Built-in MCP catalog (fetched 2026-03-23), Agent 365 tooling overview (fetched 2026-03-23), WebSearch, Dynamics 365 MCP docs, Agent 365 server references, Power Apps MCP docs, Work IQ docs, 2026 Wave 1 release plan, Copilot Studio What's New (fetched 2026-03-23), community blogs]
 confidence: high
 refresh_trigger: before_architecture
@@ -220,25 +220,43 @@ A community-built MCP connector bringing Microsoft 365 search and insight capabi
 
 **Mar 2026 What's New entry:** "(Preview) Use Work IQ tools to connect Microsoft 365 Copilot and your agents to the Work IQ service, enabling access to real-time work insights and context from Microsoft 365 files, emails, meetings, chats, and more." Source: https://learn.microsoft.com/en-us/microsoft-copilot-studio/whats-new
 
-**How agents access Work IQ data:**
-- **Via Work IQ MCP servers** -- Mail, Calendar, Teams, SharePoint, OneDrive, User, Word, Copilot Search all expose Work IQ-indexed data
+**How to add Work IQ to an agent:** From the agent overview page, add Work IQ. This adds **2 MCP servers** that cover all M365 data:
+
+| Server | operationId | What It Covers |
+|--------|-------------|---------------|
+| **Work IQ Copilot (Preview)** | `mcp_M365Copilot` | Everything — mail, calendar, teams, sharepoint, onedrive, files, search across all M365. Cross-M365 multi-turn search and actions. |
+| **Work IQ User** | `mcp_MeServer` | People, org chart, manager, direct reports, user search |
+
+These 2 servers replace the need for individual Mail, Calendar, Teams, SharePoint MCP servers or connectors. No need to add individual Work IQ servers separately unless Work IQ Copilot doesn't cover a specific edge case.
+
+Individual Work IQ servers (Mail, Calendar, Teams, SharePoint, OneDrive, Word) are also available via Tools > Add Tool > MCP if you need them for a specific write operation not covered by Copilot.
+
+**How agents also access Work IQ data:**
 - **Via Work IQ CLI/MCP** -- The `@microsoft/workiq` npm package provides a CLI and MCP server for developer tools (VS Code, GitHub Copilot, Claude Code). This is NOT available inside Copilot Studio as a built-in MCP server.
-- **Via Work IQ Copilot MCP** -- The closest thing to "Work IQ in MCS settings." Searches across entire M365 ecosystem using Work IQ intelligence layer.
+
+**Gaps (use connectors instead):** Planner, Excel, Approvals, PowerPoint have no Work IQ equivalent. Use Power Platform connectors.
 
 **Work IQ for custom agents** (announced Ignite 2025): Secure agent grounding that respects permissions, sensitivity labels, and compliance. Available in Copilot Studio or via API. Requires M365 Copilot license.
 
 Source: https://learn.microsoft.com/en-us/microsoft-agent-365/tooling-servers-overview
 
-## MCP Server operationIds (Agent 365)
+## MCP Server operationIds (Work IQ / Agent 365)
 
-| Service | operationId | Notes |
-|---------|-------------|-------|
-| Mail | `mcp_MailTools` | Work IQ Mail |
-| Calendar | `mcp_CalendarTools` | Work IQ Calendar |
-| Teams | `mcp_TeamsServer` | Work IQ Teams |
-| User Profile | `mcp_MeServer` | Work IQ User |
-| SharePoint/OneDrive | `mcp_ODSPRemoteServer` | Work IQ SharePoint/OneDrive |
-| M365 Copilot Search | `mcp_m365copilot` | Work IQ Copilot (tool: `copilot_chat`) |
+**Source: Official reference pages at learn.microsoft.com/microsoft-agent-365/mcp-server-reference/ (fetched 2026-03-25)**
+
+| Service | Server ID (operationId) | Display Name | Scope | Tool Count | Notes |
+|---------|------------------------|--------------|-------|------------|-------|
+| Mail | `mcp_MailTools` | Work IQ Mail | — | 10 | createMessage, deleteMessage, getMessage, listSent, reply, replyAll, searchMessages, sendDraft, sendMail, updateMessage |
+| Calendar | `mcp_CalendarTools` | Work IQ Calendar | — | 11 | acceptEvent, cancelEvent, createEvent, declineEvent, deleteEvent, findMeetingTimes, getEvent, getSchedule, listCalendarView, listEvents, updateEvent |
+| Teams | `mcp_TeamsServer` | Work IQ Teams | `McpServers.Teams.All` | 24 | 12 chat tools + 12 channel/team tools. Full CRUD for chats, channels, messages, members |
+| User Profile | `mcp_MeServer` | Work IQ User | — | 6 | getDirectReports, getMyManager, getMyProfile, getUserProfile, getUsersManager, listUsers |
+| SharePoint | `mcp_SharePointRemoteServer` | Work IQ SharePoint | — | 30+ | Sites, doc libraries, files (<=5MB), folders, lists, list items, columns, sharing, sensitivity labels |
+| OneDrive | `mcp_OneDriveRemoteServer` | Work IQ OneDrive | — | 14 | Personal OneDrive: files (<=5MB), folders, metadata, sharing, sensitivity labels |
+| Word | `mcp_WordServer` | Work IQ Word | — | 4 | WordCreateNewDocument, WordGetDocumentContent, WordCreateNewComment, WordReplyToComment |
+| M365 Copilot Search | `mcp_M365Copilot` | Work IQ Copilot | — | 1 | copilot_chat -- multi-turn M365 search, file grounding, cross-workload fallback |
+| Dataverse | *(Agent 365 variant)* | Dataverse MCP Server | — | 11 | create_record, describe_table, list_tables, read_query, update_record, create_table, update_table, delete_table, delete_record, search, fetch |
+
+**Key update (Mar 2026):** SharePoint server ID is `mcp_SharePointRemoteServer` (not `mcp_ODSPRemoteServer` as previously cached). OneDrive is now separate at `mcp_OneDriveRemoteServer`. M365 Copilot server ID is `mcp_M365Copilot` (capital C, not lowercase). SharePoint Lists functionality is now merged INTO `mcp_SharePointRemoteServer` (not a separate server).
 
 ## Timeline: MCP Servers Added Late 2025 / Early 2026
 

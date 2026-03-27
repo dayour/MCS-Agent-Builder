@@ -129,6 +129,15 @@ GPT checks: data accuracy (does the report match brief.json?), cross-reference c
 |-------|------|-------------|
 {architecture.children → table rows}
 
+{If connected-agent or single-agent-with-connected-agents:}
+### Connected Agents
+| Agent | Source | Role | Status |
+|-------|--------|------|--------|
+{connectedAgents → table rows}
+
+{For each connected agent with dataPipeline:}
+**{name} — Data Pipeline:** {dataPipeline.source} → {dataPipeline.ingestion} → {dataPipeline.destination} (Refresh: {dataPipeline.refreshCadence})
+
 ## Integrations ({count})
 | Name | Type | Auth | Status | Phase |
 |------|------|------|--------|-------|

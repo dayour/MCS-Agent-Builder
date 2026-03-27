@@ -448,6 +448,44 @@ QA Challenger is dispatched on-demand when eval results show failures. QA classi
 
 ---
 
+## Progress Markers (Headless Skill Runner UI)
+
+When this skill is invoked via the app's headless skill runner (not the interactive terminal), emit structured progress markers so the frontend can show eval progress. Print each marker on its own line — the skill runner parses them from terminal output.
+
+**Emit at each step transition:**
+```
+##PROGRESS## {"step":"load","label":"Loading eval sets","status":"running"}
+##PROGRESS## {"step":"load","label":"Loading eval sets","status":"completed","detail":"3 sets, 25 tests"}
+##PROGRESS## {"step":"detect","label":"Auto-detecting mode","status":"running"}
+##PROGRESS## {"step":"detect","label":"Auto-detecting mode","status":"completed","detail":"Direct Line API"}
+##PROGRESS## {"step":"token","label":"Acquiring test token","status":"running"}
+##PROGRESS## {"step":"token","label":"Acquiring test token","status":"completed"}
+##PROGRESS## {"step":"run","label":"Running tests","status":"running","detail":"0/25 complete"}
+##PROGRESS## {"step":"run","label":"Running tests","status":"running","detail":"15/25 complete"}
+##PROGRESS## {"step":"score","label":"Scoring results","status":"running"}
+##PROGRESS## {"step":"write","label":"Writing results","status":"running"}
+##PROGRESS## {"step":"report","label":"Generating report","status":"running"}
+```
+
+**On auth requirement (OAuth, token refresh):**
+```
+##AUTH_REQUIRED## {"system":"Direct Line","instructions":"Token endpoint requires re-authentication"}
+```
+
+**On completion:**
+```
+##SKILL_COMPLETE## {"success":true,"summary":"Eval complete: boundaries 100%, quality 88%, edge-cases 82%"}
+##SKILL_COMPLETE## {"success":false,"summary":"Eval failed: could not acquire Direct Line token"}
+```
+
+**Status values:** `"pending"`, `"running"`, `"completed"`, `"failed"`, `"skipped"`
+
+**When to emit:** Print `status:"running"` at the START of each step. Print `status:"completed"` or `"failed"` at the END. Include `detail` for useful context (test counts, pass rates, errors). For long-running test execution, emit periodic `detail` updates with progress counts.
+
+**Always emit these markers**, regardless of whether running headless or interactive.
+
+---
+
 ## Important Rules
 
 - **brief.json evalSets is the primary output** — the dashboard reads per-test lastResult from it

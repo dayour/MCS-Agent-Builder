@@ -34,6 +34,9 @@ const {
   getDocStatus,
   humanizeName,
 } = require("./lib/projects");
+const { handleWizardChat, handleWizardSave } = require("./lib/wizard");
+const { startEnrichment, getJob } = require("./lib/enrichment");
+const buildRunner = require("./lib/build-runner");
 
 // ---------------------------------------------------------------------------
 // Paths
@@ -471,8 +474,8 @@ app.get("/api/projects/:projectId/docs/:filename/raw", (req, res) => {
     return res.status(404).json({ detail: `File '${safe}' not found` });
   }
 
-  // Path traversal defense
-  if (!path.resolve(target).startsWith(path.resolve(folder))) {
+  // Path traversal defense — append separator to prevent prefix overlap attacks
+  if (!path.resolve(target).startsWith(path.resolve(folder) + path.sep)) {
     return res.status(400).json({ detail: "Invalid file path" });
   }
 
@@ -679,6 +682,514 @@ app.post("/api/projects/:projectId/pull-m365", async (req, res) => {
   }
 
   res.end();
+});
+
+// ---------------------------------------------------------------------------
+// Credential Readiness Check — surface auth issues before build
+// ---------------------------------------------------------------------------
+
+app.get("/api/readiness/credentials", async (req, res) => {
+  const { execSync } = require("child_process");
+  const results = {
+    claude: false,
+    az: false,
+    dataverse: false,
+    ready: false,
+    details: {},
+    // Rich account info for the account switcher
+    azAccount: null,   // { user, tenantId, tenantName, tenantDomain }
+    pacProfiles: [],   // [{ index, active, name, user, environment, environmentUrl }]
+    pacEnvironments: [], // [{ active, name, id, url }]
+  };
+
+  // 1. Claude CLI configured?
+  try {
+    const configPath = path.join(os.homedir(), ".claude", "config.json");
+    if (fs.existsSync(configPath)) {
+      const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+      results.claude = !!config.primaryApiKey;
+    }
+    if (!results.claude && process.env.ANTHROPIC_API_KEY) {
+      results.claude = true;
+    }
+    results.details.claude = results.claude
+      ? "Configured"
+      : "Run: claude auth login";
+  } catch {
+    results.details.claude = "Run: claude auth login";
+  }
+
+  // 2. Azure CLI logged in? — also capture full account info
+  try {
+    const azOut = execSync("az account show --output json", {
+      timeout: 10000,
+      stdio: ["pipe", "pipe", "pipe"],
+      encoding: "utf-8",
+    });
+    const account = JSON.parse(azOut);
+    results.az = true;
+    results.azAccount = {
+      user: account.user?.name || "unknown",
+      tenantId: account.tenantId,
+      tenantName: account.tenantDisplayName || null,
+      tenantDomain: account.tenantDefaultDomain || null,
+    };
+    results.details.az = `${account.user?.name || "unknown"} (${account.tenantDisplayName || account.tenantId?.substring(0, 8) + "..."})`;
+  } catch {
+    results.details.az = "Run: az login";
+  }
+
+  // 3. PAC CLI profiles — list available auth profiles
+  try {
+    const pacOut = execSync("pac auth list", {
+      timeout: 10000,
+      stdio: ["pipe", "pipe", "pipe"],
+      encoding: "utf-8",
+    });
+    // Parse the table output: Index Active Kind Name User Cloud Type Environment EnvironmentUrl
+    const lines = pacOut.split("\n").filter((l) => l.trim().startsWith("["));
+    for (const line of lines) {
+      const indexMatch = line.match(/\[(\d+)\]/);
+      const active = line.includes("*");
+      // Extract fields by splitting on 2+ spaces (table columns)
+      const afterIndex = line.replace(/\[\d+\]\s+\*?\s*/, "");
+      const parts = afterIndex.split(/\s{2,}/).map((s) => s.trim()).filter(Boolean);
+      // parts: [Kind, Name, User, Cloud, Type, Environment, EnvironmentUrl]
+      if (indexMatch && parts.length >= 3) {
+        results.pacProfiles.push({
+          index: parseInt(indexMatch[1]),
+          active,
+          kind: parts[0] || "",
+          name: parts[1] || "",
+          user: parts[2] || "",
+          environment: parts.length >= 6 ? parts[5] : "",
+          environmentUrl: parts.length >= 7 ? parts[6] : "",
+        });
+      }
+    }
+  } catch { /* PAC CLI not available */ }
+
+  // 4. PAC environments for current profile
+  if (results.pacProfiles.length > 0) {
+    try {
+      const envOut = execSync("pac env list", {
+        timeout: 20000,
+        stdio: ["pipe", "pipe", "pipe"],
+        encoding: "utf-8",
+      });
+      const envLines = envOut.split("\n").slice(2).filter((l) => l.trim());
+      for (const line of envLines) {
+        const active = line.startsWith("*");
+        const clean = line.replace(/^\*?\s*/, "");
+        const parts = clean.split(/\s{2,}/).map((s) => s.trim()).filter(Boolean);
+        if (parts.length >= 3) {
+          results.pacEnvironments.push({
+            active,
+            name: parts[0],
+            id: parts[1],
+            url: parts[2],
+          });
+        }
+      }
+    } catch { /* ignore */ }
+  }
+
+  // 5. Dataverse reachable? (only if az is logged in and a session-config exists)
+  if (results.az) {
+    const sessionConfigs = [];
+    try {
+      const projects = fs.readdirSync(BUILD_GUIDES).filter((d) => {
+        const p = path.join(BUILD_GUIDES, d);
+        return fs.statSync(p).isDirectory() && fs.existsSync(path.join(p, "session-config.json"));
+      });
+      for (const p of projects) {
+        try {
+          const sc = JSON.parse(fs.readFileSync(path.join(BUILD_GUIDES, p, "session-config.json"), "utf-8"));
+          if (sc.dataverseUrl) sessionConfigs.push(sc);
+        } catch { /* ignore */ }
+      }
+    } catch { /* ignore */ }
+
+    if (sessionConfigs.length > 0) {
+      const sc = sessionConfigs[0];
+      try {
+        const tokenOut = execSync(
+          `az account get-access-token --resource ${sc.dataverseUrl} --output json`,
+          { timeout: 15000, stdio: ["pipe", "pipe", "pipe"], encoding: "utf-8" }
+        );
+        const token = JSON.parse(tokenOut);
+        results.dataverse = !!token.accessToken;
+        results.details.dataverse = `Token valid for ${sc.dataverseUrl}`;
+      } catch (err) {
+        results.details.dataverse = `Token failed for ${sc.dataverseUrl} — run: az login --tenant <tenant>`;
+      }
+    } else {
+      results.details.dataverse = "No session-config.json found — will be checked at build time";
+      results.dataverse = null; // unknown, not failed
+    }
+  } else {
+    results.details.dataverse = "Requires az login first";
+  }
+
+  results.ready = results.claude && results.az;
+  res.json(results);
+});
+
+// ---------------------------------------------------------------------------
+// Account Switching — switch PAC profile and/or Azure tenant
+// ---------------------------------------------------------------------------
+
+app.post("/api/auth/switch-profile", async (req, res) => {
+  const { execFileSync } = require("child_process");
+  const { profileIndex } = req.body;
+
+  if (typeof profileIndex !== "number" || !Number.isInteger(profileIndex) || profileIndex < 0) {
+    return res.status(400).json({ detail: "profileIndex (positive integer) required" });
+  }
+
+  try {
+    // Switch PAC profile — use execFileSync to avoid shell injection
+    execFileSync("pac", ["auth", "select", "--index", String(profileIndex)], {
+      timeout: 10000,
+      stdio: ["pipe", "pipe", "pipe"],
+      encoding: "utf-8",
+    });
+
+    // Read the newly selected profile to get the tenant for az login
+    const pacOut = execFileSync("pac", ["auth", "list"], {
+      timeout: 10000,
+      stdio: ["pipe", "pipe", "pipe"],
+      encoding: "utf-8",
+    });
+
+    // Find the active profile's user to log a message
+    const activeLine = pacOut.split("\n").find((l) => l.includes("*"));
+    const userMatch = activeLine?.match(/\S+@\S+/);
+
+    res.json({
+      switched: true,
+      activeUser: userMatch?.[0] || "unknown",
+      message: `Switched to PAC profile [${profileIndex}]. Run 'az login --tenant <tenant>' in terminal if Azure tenant needs switching too.`,
+    });
+  } catch (err) {
+    res.status(500).json({ detail: `Failed to switch profile: ${err.message}` });
+  }
+});
+
+app.post("/api/auth/switch-environment", async (req, res) => {
+  const { execFileSync } = require("child_process");
+  const { environmentId } = req.body;
+
+  if (!environmentId || typeof environmentId !== "string") {
+    return res.status(400).json({ detail: "environmentId (string) required" });
+  }
+
+  // Validate environmentId is a GUID to prevent injection
+  if (!/^[\w-]+$/.test(environmentId)) {
+    return res.status(400).json({ detail: "Invalid environmentId format" });
+  }
+
+  try {
+    execFileSync("pac", ["env", "select", "--environment", environmentId], {
+      timeout: 15000,
+      stdio: ["pipe", "pipe", "pipe"],
+      encoding: "utf-8",
+    });
+    res.json({ switched: true, environmentId });
+  } catch (err) {
+    res.status(500).json({ detail: `Failed to switch environment: ${err.message}` });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Wizard — Conversational Agent Brief Builder
+// ---------------------------------------------------------------------------
+
+app.post("/api/wizard/chat", (req, res) => handleWizardChat(req, res));
+
+app.post("/api/wizard/save", (req, res) =>
+  handleWizardSave(req, res, BUILD_GUIDES)
+);
+
+// ---------------------------------------------------------------------------
+// Enrichment — Background brief enrichment after wizard save
+// ---------------------------------------------------------------------------
+
+app.post("/api/enrichment/start", (req, res) => {
+  const { projectId, agentId } = req.body || {};
+  if (!projectId || !agentId) {
+    return res.status(400).json({ error: "projectId and agentId required" });
+  }
+
+  const agentDir = path.join(BUILD_GUIDES, projectId, "agents", agentId);
+  const briefPath = path.join(agentDir, "brief.json");
+  if (!fs.existsSync(briefPath)) {
+    return res.status(404).json({ error: "brief.json not found" });
+  }
+
+  // startEnrichment returns immediately — workers run in background
+  const job = startEnrichment(agentDir);
+  res.json({ jobId: job.id, status: job.status });
+});
+
+app.get("/api/enrichment/status/:jobId", (req, res) => {
+  const job = getJob(req.params.jobId);
+  if (!job) {
+    return res.status(404).json({ error: "Job not found" });
+  }
+
+  // SSE stream
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
+  });
+
+  // Send current state immediately
+  res.write(`data: ${JSON.stringify({ type: "state", steps: job.steps, status: job.status, errors: job.errors })}\n\n`);
+
+  // If already done, close
+  if (job.status !== "running") {
+    res.write(`data: ${JSON.stringify({ type: "done", status: job.status, errors: job.errors })}\n\n`);
+    return res.end();
+  }
+
+  // Subscribe to live updates
+  const listener = (event) => {
+    try {
+      res.write(`data: ${JSON.stringify(event)}\n\n`);
+      if (event.type === "done") {
+        res.end();
+      }
+    } catch { /* client disconnected */ }
+  };
+  job.listeners.push(listener);
+
+  req.on("close", () => {
+    const idx = job.listeners.indexOf(listener);
+    if (idx >= 0) job.listeners.splice(idx, 1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Build Runner — Headless agent build with progress tracking
+// ---------------------------------------------------------------------------
+
+app.post("/api/build/start", (req, res) => {
+  const { projectId, agentId } = req.body || {};
+  if (!projectId || !agentId) {
+    return res.status(400).json({ error: "projectId and agentId required" });
+  }
+
+  // Validate inputs are safe path segments
+  if (!/^[\w-]+$/.test(projectId) || !/^[\w-]+$/.test(agentId)) {
+    return res.status(400).json({ error: "Invalid projectId or agentId format" });
+  }
+
+  const briefPath = path.join(BUILD_GUIDES, projectId, "agents", agentId, "brief.json");
+  if (!fs.existsSync(briefPath)) {
+    return res.status(404).json({ error: "brief.json not found" });
+  }
+
+  const baseDir = path.resolve(path.join(__dirname, ".."));
+  const job = buildRunner.startBuild(projectId, agentId, baseDir);
+  res.json({ jobId: job.id, status: job.status });
+});
+
+app.get("/api/build/status/:jobId", (req, res) => {
+  const job = buildRunner.getJob(req.params.jobId);
+  if (!job) {
+    return res.status(404).json({ error: "Build job not found" });
+  }
+
+  // SSE stream
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no",
+  });
+
+  // Send current state immediately
+  res.write(`data: ${JSON.stringify({
+    type: "state",
+    steps: job.steps,
+    status: job.status,
+    errors: job.errors,
+    authPrompt: job.authPrompt,
+  })}\n\n`);
+
+  // If already done, close
+  if (job.status === "completed" || job.status === "failed") {
+    res.write(`data: ${JSON.stringify({
+      type: "done",
+      status: job.status,
+      errors: job.errors,
+      steps: job.steps,
+    })}\n\n`);
+    return res.end();
+  }
+
+  // Subscribe to live updates
+  const listener = (event) => {
+    try {
+      res.write(`data: ${JSON.stringify(event)}\n\n`);
+      if (event.type === "done") {
+        res.end();
+      }
+    } catch { /* client disconnected */ }
+  };
+  job.listeners.push(listener);
+
+  req.on("close", () => {
+    const idx = job.listeners.indexOf(listener);
+    if (idx >= 0) job.listeners.splice(idx, 1);
+  });
+});
+
+app.post("/api/build/:jobId/auth-complete", (req, res) => {
+  const result = buildRunner.resumeAfterAuth(req.params.jobId);
+  if (result.error) {
+    return res.status(400).json({ error: result.error });
+  }
+  res.json(result);
+});
+
+app.get("/api/build/log/:jobId", (req, res) => {
+  const log = buildRunner.getJobLog(req.params.jobId);
+  if (log === null) {
+    return res.status(404).json({ error: "Build job not found" });
+  }
+  res.type("text/plain").send(log);
+});
+
+app.get("/api/build/jobs", (req, res) => {
+  res.json({ jobs: buildRunner.getAllJobs() });
+});
+
+// ---------------------------------------------------------------------------
+// Skill Runner — Generalized headless skill execution (research/eval/fix/build)
+// ---------------------------------------------------------------------------
+
+const skillRunner = require("./lib/skill-runner");
+
+/** Map skill type to slash command. agentId may be empty for project-level commands. */
+function buildSkillCommand(skillType, projectId, agentId) {
+  switch (skillType) {
+    case "research": return agentId ? `/mcs-research ${projectId} ${agentId}` : `/mcs-research ${projectId}`;
+    case "eval": return `/mcs-eval ${projectId} ${agentId}`;
+    case "fix": return `/mcs-fix ${projectId} ${agentId}`;
+    case "build": return `/mcs-build ${projectId} ${agentId}`;
+    default: return null;
+  }
+}
+
+app.post("/api/skill/start", (req, res) => {
+  const { skillType, projectId, agentId } = req.body || {};
+  if (!skillType || !projectId) {
+    return res.status(400).json({ error: "skillType and projectId required" });
+  }
+
+  const VALID_TYPES = ["research", "eval", "fix", "build"];
+  if (!VALID_TYPES.includes(skillType)) {
+    return res.status(400).json({ error: `Invalid skillType. Must be one of: ${VALID_TYPES.join(", ")}` });
+  }
+
+  if (!/^[\w-]+$/.test(projectId) || (agentId && !/^[\w-]+$/.test(agentId))) {
+    return res.status(400).json({ error: "Invalid projectId or agentId format" });
+  }
+
+  // eval and fix require agentId; research is optional; build requires it
+  if ((skillType === "eval" || skillType === "fix" || skillType === "build") && !agentId) {
+    return res.status(400).json({ error: `agentId required for ${skillType}` });
+  }
+
+  const command = buildSkillCommand(skillType, projectId, agentId || "");
+  if (!command) {
+    return res.status(400).json({ error: "Could not construct command" });
+  }
+
+  const baseDir = path.resolve(path.join(__dirname, ".."));
+
+  try {
+    const job = skillRunner.startSkill(skillType, command, projectId, agentId || "", baseDir);
+    res.json({ jobId: job.id, status: job.status, skillType: job.skillType });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.get("/api/skill/status/:jobId", (req, res) => {
+  const job = skillRunner.getJob(req.params.jobId);
+  if (!job) {
+    return res.status(404).json({ error: "Skill job not found" });
+  }
+
+  // SSE stream
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no",
+  });
+
+  // Send current state immediately
+  res.write(`data: ${JSON.stringify({
+    type: "state",
+    skillType: job.skillType,
+    steps: job.steps,
+    status: job.status,
+    errors: job.errors,
+    authPrompt: job.authPrompt,
+  })}\n\n`);
+
+  // If already done, close
+  if (job.status === "completed" || job.status === "failed") {
+    res.write(`data: ${JSON.stringify({
+      type: "done",
+      status: job.status,
+      errors: job.errors,
+      steps: job.steps,
+    })}\n\n`);
+    return res.end();
+  }
+
+  // Subscribe to live updates
+  const listener = (event) => {
+    try {
+      res.write(`data: ${JSON.stringify(event)}\n\n`);
+      if (event.type === "done") {
+        res.end();
+      }
+    } catch { /* client disconnected */ }
+  };
+  job.listeners.push(listener);
+
+  req.on("close", () => {
+    const idx = job.listeners.indexOf(listener);
+    if (idx >= 0) job.listeners.splice(idx, 1);
+  });
+});
+
+app.post("/api/skill/:jobId/auth-complete", (req, res) => {
+  const result = skillRunner.resumeAfterAuth(req.params.jobId);
+  if (result.error) {
+    return res.status(400).json({ error: result.error });
+  }
+  res.json(result);
+});
+
+app.get("/api/skill/log/:jobId", (req, res) => {
+  const log = skillRunner.getJobLog(req.params.jobId);
+  if (log === null) {
+    return res.status(404).json({ error: "Skill job not found" });
+  }
+  res.type("text/plain").send(log);
+});
+
+app.get("/api/skill/jobs", (req, res) => {
+  const skillType = req.query.type || undefined;
+  res.json({ jobs: skillRunner.getAllJobs(skillType) });
 });
 
 // ---------------------------------------------------------------------------

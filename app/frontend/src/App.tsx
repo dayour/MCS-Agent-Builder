@@ -10,6 +10,7 @@ const Index = lazy(() => import("./pages/Index"));
 const ProjectPage = lazy(() => import("./pages/ProjectPage"));
 const BriefEditor = lazy(() => import("./pages/BriefEditor"));
 const DocumentViewer = lazy(() => import("./pages/DocumentViewer"));
+const WizardPage = lazy(() => import("./pages/WizardPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const App = () => (
@@ -20,6 +21,7 @@ const App = () => (
       <Suspense fallback={<div className="flex h-screen items-center justify-center text-muted-foreground text-sm">Loading...</div>}>
         <Routes>
           <Route path="/" element={<Index />} />
+          <Route path="/create" element={<WizardPage />} />
           <Route path="/project/:id" element={<ProjectPage />} />
           <Route path="/project/:projectId/agent/:agentId" element={<BriefEditor />} />
           <Route path="/project/:projectId/doc/:docId" element={<DocumentViewer />} />

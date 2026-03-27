@@ -275,6 +275,42 @@ Re-run eval via Direct Line API (same method as `/mcs-eval` Step 2):
 
 ---
 
+## Progress Markers (Headless Skill Runner UI)
+
+When this skill is invoked via the app's headless skill runner (not the interactive terminal), emit structured progress markers so the frontend can show fix progress. Print each marker on its own line — the skill runner parses them from terminal output.
+
+**Emit at each step transition:**
+```
+##PROGRESS## {"step":"read","label":"Reading eval results","status":"running"}
+##PROGRESS## {"step":"read","label":"Reading eval results","status":"completed","detail":"3 sets, 8 failures"}
+##PROGRESS## {"step":"classify","label":"Classifying failures","status":"running"}
+##PROGRESS## {"step":"classify","label":"Classifying failures","status":"completed","detail":"4 instruction, 2 topic, 2 scoring"}
+##PROGRESS## {"step":"generate","label":"Generating fixes","status":"running"}
+##PROGRESS## {"step":"apply","label":"Applying fixes","status":"running"}
+##PROGRESS## {"step":"apply","label":"Applying fixes","status":"completed","detail":"6 fixes applied, republished"}
+##PROGRESS## {"step":"reeval","label":"Re-evaluating","status":"running"}
+##PROGRESS## {"step":"reeval","label":"Re-evaluating","status":"completed","detail":"Pass rate: 92% (was 75%)"}
+```
+
+**On auth requirement:**
+```
+##AUTH_REQUIRED## {"system":"Dataverse","instructions":"Re-authenticate to push fixes"}
+```
+
+**On completion:**
+```
+##SKILL_COMPLETE## {"success":true,"summary":"Fix complete: 6/8 failures resolved, pass rate 75% → 92%"}
+##SKILL_COMPLETE## {"success":false,"summary":"Fix failed: could not apply topic changes"}
+```
+
+**Status values:** `"pending"`, `"running"`, `"completed"`, `"failed"`, `"skipped"`
+
+**When to emit:** Print `status:"running"` at START, `status:"completed"` or `"failed"` at END. Include `detail` for failure counts, fix descriptions, before/after rates.
+
+**Always emit these markers**, regardless of whether running headless or interactive.
+
+---
+
 ## Important Rules
 
 - **User confirms classification before fixes** — Step 2 outputs the plan and waits for approval

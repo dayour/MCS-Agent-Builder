@@ -1,7 +1,6 @@
 {
   "_schema": "2.0",
   "_description": "Single source of truth for agent design, build, and customer reporting. Sections follow the customer meeting flow. Every dropdown has a mapped purpose.",
-
   "workflow": {
     "phase": "preview",
     "previewConfirmed": false,
@@ -10,7 +9,6 @@
     "researchCompletedAt": null,
     "evalStubsGeneratedAt": null
   },
-
   "business": {
     "_meeting": "Section 1 — 'Why are we building this?'",
     "useCase": "One-line use case for headers, report titles, and exec summaries",
@@ -50,7 +48,6 @@
       "notes": "Assumed max licensing. Override only if customer explicitly states a limitation."
     }
   },
-
   "agent": {
     "_meeting": "Section 2 — 'What is this agent?'",
     "name": "Professional agent name",
@@ -60,7 +57,6 @@
     "primaryUsers": "Main user group who will interact most frequently",
     "secondaryUsers": "Supporting user group with occasional use"
   },
-
   "capabilities": [
     {
       "_meeting": "Section 3 — 'What should it do?' (each flagged MVP or Future)",
@@ -70,11 +66,12 @@
       "reason": "Why MVP or why deferred — shown next to Future items (e.g., pending security approval)",
       "description": "Optional detail for the build — PE uses this for instruction writing",
       "source": "from-docs | inferred | user-added — how this capability was identified",
-      "dataSources": ["Systems this capability reads from or writes to"],
+      "dataSources": [
+        "Systems this capability reads from or writes to"
+      ],
       "status": "not_started | building | passing | failing"
     }
   ],
-
   "integrations": [
     {
       "_meeting": "Section 4 — 'What systems does it connect to?'",
@@ -88,7 +85,6 @@
       "notes": "Config details, scoping, constraints"
     }
   ],
-
   "knowledge": [
     {
       "_meeting": "Section 5 — 'What does it need to know?'",
@@ -100,7 +96,6 @@
       "phase": "mvp | future"
     }
   ],
-
   "conversations": {
     "_meeting": "Section 6 — 'How does it interact?'",
     "topics": [
@@ -109,10 +104,14 @@
         "schemaName": "MCS schema name (e.g., cr_orderlookup) — generated during build",
         "description": "What this conversation flow does (used by 'agent chooses' trigger matching)",
         "triggerType": "agent-chooses | phrases | fallback | redirect | escalation | event | auto-start | inactivity",
-        "triggerPhrases": ["Trigger phrases (only for triggerType: phrases)"],
+        "triggerPhrases": [
+          "Trigger phrases (only for triggerType: phrases)"
+        ],
         "topicType": "generative | custom | system",
         "phase": "mvp | future",
-        "implements": ["Capability names this topic implements (links to capabilities[].name)"],
+        "implements": [
+          "Capability names this topic implements (links to capabilities[].name)"
+        ],
         "variables": [
           {
             "name": "Variable name (e.g., orderNumber)",
@@ -121,13 +120,14 @@
             "required": true
           }
         ],
-        "connectedIntegrations": ["Integration names this topic calls (links to integrations[].name)"],
+        "connectedIntegrations": [
+          "Integration names this topic calls (links to integrations[].name)"
+        ],
         "outputFormat": "text | adaptive-card | knowledge | redirect | escalate",
         "yaml": null
       }
     ]
   },
-
   "boundaries": {
     "_meeting": "Section 7 — 'What should it NOT do?'",
     "handle": [
@@ -151,17 +151,31 @@
       }
     ]
   },
-
   "architecture": {
     "_meeting": "Section 8 — 'How is it built?' Walk through 6 factors with the customer.",
     "solutionType": "agent | flow | hybrid | not-recommended",
     "solutionTypeScore": 0,
     "solutionTypeFactors": {
-      "conversationalNeed": { "value": false, "reasoning": "" },
-      "interactionPattern": { "value": false, "reasoning": "" },
-      "capabilityDistribution": { "value": false, "reasoning": "" },
-      "userValueOfNL": { "value": false, "reasoning": "" },
-      "mcsFeasibility": { "value": false, "reasoning": "" }
+      "conversationalNeed": {
+        "value": false,
+        "reasoning": ""
+      },
+      "interactionPattern": {
+        "value": false,
+        "reasoning": ""
+      },
+      "capabilityDistribution": {
+        "value": false,
+        "reasoning": ""
+      },
+      "userValueOfNL": {
+        "value": false,
+        "reasoning": ""
+      },
+      "mcsFeasibility": {
+        "value": false,
+        "reasoning": ""
+      }
     },
     "solutionTypeReason": "2-4 sentence explanation of why this solution type was selected",
     "solutionTypeOverride": false,
@@ -172,23 +186,43 @@
       {
         "_description": "Records when a first-party Microsoft agent covers a customer capability. Populated during Phase A step 5 by matching against knowledge/cache/first-party-agents.md.",
         "agentName": "First-party agent name (e.g., Researcher, Analyst, Facilitator)",
-        "matchedCapabilities": ["Capability names from capabilities[] that this agent covers"],
+        "matchedCapabilities": [
+          "Capability names from capabilities[] that this agent covers"
+        ],
         "coverage": "full | partial | none",
         "recommendation": "use-as-is | augment-with-ca | not-applicable",
         "licenseRequired": "License needed (e.g., M365 Copilot, Frontier program)",
         "notes": "Why this match was made, any caveats"
       }
     ],
-    "type": "single-agent | multi-agent | connected-agent",
-    "reason": "2-4 sentence explanation of WHY this architecture type was selected. Reference the score, key factors, and why other types were ruled out.",
+    "type": "single-agent | single-agent-with-connected-agents | multi-agent",
+    "reason": "2-4 sentence explanation of WHY this architecture type was selected. single-agent = standalone, no child or connected agents. single-agent-with-connected-agents = one main agent + external agents (Fabric Data Agent, other MCS agents). multi-agent = parent orchestrator + child agents built in MCS. Reference the score, key factors, and why other types were ruled out.",
     "factors": {
       "_description": "6-factor scoring — check each with the customer. 0-2 checked = Single Agent, 3+ = Multi-Agent. Each factor must include a 'value' (true/false) and 'reasoning' (1-2 sentences explaining why).",
-      "domainSeparation": { "value": false, "reasoning": "Why single domain or truly separate domains" },
-      "dataIsolation": { "value": false, "reasoning": "Why shared data or isolated data per capability" },
-      "teamOwnership": { "value": false, "reasoning": "Why same team or different teams own parts" },
-      "reusability": { "value": false, "reasoning": "Why one-off or reusable by other orchestrators" },
-      "instructionSize": { "value": false, "reasoning": "Why fits in 8000 chars or would exceed" },
-      "knowledgeIsolation": { "value": false, "reasoning": "Why shared KB or each needs own deep KB" }
+      "domainSeparation": {
+        "value": false,
+        "reasoning": "Why single domain or truly separate domains"
+      },
+      "dataIsolation": {
+        "value": false,
+        "reasoning": "Why shared data or isolated data per capability"
+      },
+      "teamOwnership": {
+        "value": false,
+        "reasoning": "Why same team or different teams own parts"
+      },
+      "reusability": {
+        "value": false,
+        "reasoning": "Why one-off or reusable by other orchestrators"
+      },
+      "instructionSize": {
+        "value": false,
+        "reasoning": "Why fits in 8000 chars or would exceed"
+      },
+      "knowledgeIsolation": {
+        "value": false,
+        "reasoning": "Why shared KB or each needs own deep KB"
+      }
     },
     "score": 0,
     "triggers": [
@@ -212,6 +246,41 @@
     ]
   },
 
+  "connectedAgents": [
+    {
+      "_description": "External agents the main agent can route to. These are NOT child agents built in MCS — they are external agents (Fabric Data Agent, another MCS agent, Copilot agent) that the main agent invokes via connected agent routing. Top-level section because connected agents need full specs: instructions, data sources, pipeline config, setup steps, and fallback plans.",
+      "name": "Connected agent display name in MCS",
+      "source": "Microsoft Fabric Data Agent | Another MCS Agent | Copilot Agent",
+      "phase": "mvp | future",
+      "status": "available | needs-setup",
+      "role": "What this connected agent handles",
+      "routingDescription": "Description used by MCS orchestrator for routing — when to invoke this agent",
+      "instructions": "Instructions for the connected agent itself (e.g., Fabric Data Agent instruction field). Field descriptions, query patterns, response format.",
+      "description": "MCS-facing description for orchestrator routing (max 1024 chars, third-person)",
+      "dataPipeline": {
+        "source": "Where data comes from (e.g., Salesforce Account object)",
+        "ingestion": "How data gets into the connected agent (e.g., Fabric Copy Job)",
+        "destination": "Where data lands (e.g., Fabric Lakehouse)",
+        "refreshCadence": "How often data refreshes and what is authoritative",
+        "authoritative": "Which source is authoritative when data conflicts"
+      },
+      "dataSource": {
+        "type": "Fabric Lakehouse | Fabric Warehouse | Fabric Semantic Model",
+        "tables": ["Table names"],
+        "keyColumns": [
+          { "name": "ColumnName", "type": "data type", "description": "Business meaning" }
+        ]
+      },
+      "prerequisites": ["Prerequisite 1", "Prerequisite 2"],
+      "setupSteps": ["Step 1", "Step 2"],
+      "fallback": {
+        "trigger": "When to use fallback (e.g., connected agent unavailable)",
+        "approach": "What to do instead",
+        "soqlFallback": "(If applicable) Constrained SOQL query for fallback"
+      }
+    }
+  ],
+
   "decisions": [
     {
       "_description": "Structured choice points where research found multiple valid approaches. Each decision stores ranked options with pros/cons/requirements. The recommended option's briefPatch is pre-applied to brief fields as a default. User confirms or selects a different option, which re-applies that option's briefPatch. Only created when 2+ genuinely viable options exist — one clear winner is auto-applied with no decision entry. openQuestions[] remains for freeform unknowns; decisions[] are structured choices.",
@@ -231,9 +300,16 @@
           "id": "opt-1",
           "label": "Option display name (e.g., Azure Function + Readability)",
           "summary": "One-line description of this approach",
-          "pros": ["Advantage 1", "Advantage 2"],
-          "cons": ["Disadvantage 1"],
-          "requirements": ["What the customer needs for this option (e.g., Azure subscription)"],
+          "pros": [
+            "Advantage 1",
+            "Advantage 2"
+          ],
+          "cons": [
+            "Disadvantage 1"
+          ],
+          "requirements": [
+            "What the customer needs for this option (e.g., Azure subscription)"
+          ],
           "cost": "Estimated cost (e.g., ~$0/mo, ~$16/mo)",
           "effort": "Setup effort (e.g., Low, Medium — one-time ~2hr, High)",
           "confidence": "high | medium | low",
@@ -245,7 +321,6 @@
       ]
     }
   ],
-
   "evalSets": [
     {
       "_description": "3 default sets (boundaries, quality, edge-cases) + custom. Aligned with microsoft/ai-agent-eval-scenario-library quality dimensions. Old names (safety/functional/resilience) are auto-migrated at read time.",
@@ -280,20 +355,22 @@
       ]
     }
   ],
-
   "evalConfig": {
     "targetPassRate": 85,
-    "maxIterationsPerCapability": 3,
-    "maxRegressionRounds": 2
+    "mode": "reference-templates"
   },
-
   "mvpSummary": {
     "_description": "Computed summary of all phase-flagged items. Generated by /mcs-research, used by /mcs-build as a quick checklist.",
-    "now": ["MVP items to build this sprint (names from capabilities, integrations, topics)"],
-    "future": ["Deferred items with reasons"],
-    "blockers": ["What blocks future items (e.g., pending security approval)"]
+    "now": [
+      "MVP items to build this sprint (names from capabilities, integrations, topics)"
+    ],
+    "future": [
+      "Deferred items with reasons"
+    ],
+    "blockers": [
+      "What blocks future items (e.g., pending security approval)"
+    ]
   },
-
   "openQuestions": [
     {
       "question": "Unresolved question that needs customer/stakeholder input",
@@ -304,9 +381,7 @@
       "source": "from-docs | inferred | user-added"
     }
   ],
-
   "instructions": "Full agent instructions text (up to 8000 chars). Written by Prompt Engineer, reviewed by QA Challenger. This is what gets pasted into MCS.",
-
   "buildStatus": {
     "status": "not_started | in_progress | published | failed",
     "lastBuild": "ISO timestamp of last build attempt",
@@ -322,11 +397,18 @@
     "azTenantId": "Azure AD tenant GUID",
     "workspacePath": "path to agent subfolder with .mcs/conn.json (NOT parent dir)",
     "publishedAt": "ISO timestamp of last successful publish",
-    "completedSteps": ["created", "instructions", "knowledge", "tools", "model", "topics", "published"],
+    "completedSteps": [
+      "created",
+      "instructions",
+      "knowledge",
+      "tools",
+      "model",
+      "topics",
+      "published"
+    ],
     "lastCompletedStep": "Last step that succeeded (e.g. tools) — used for resume",
     "lastError": "Optional — what failed on last attempt, cleared on next successful step"
   },
-
   "deployStatus": {
     "status": "not_deployed",
     "mode": null,
@@ -339,9 +421,7 @@
     "connectionsMapped": false,
     "lastDeployError": null
   },
-
   "evalCoverage": null,
-
   "recommendations": [
     {
       "category": "instructions-design | knowledge-grounding | connectors-mcp | evaluation-testing | deployment-operations | multi-agent | channels | security-compliance | <custom>",
@@ -349,7 +429,6 @@
       "source": "generic | tailored"
     }
   ],
-
   "notes": {
     "_description": "Flexible key-value store for anything that doesn't fit above. Keys are freeform.",
     "fixHistory": [
@@ -357,10 +436,11 @@
         "date": "ISO timestamp of fix run",
         "beforePassRate": "60%",
         "afterPassRate": "85%",
-        "fixesApplied": ["description of each fix applied"]
+        "fixesApplied": [
+          "description of each fix applied"
+        ]
       }
     ]
   },
-
   "_updateFlags": []
 }

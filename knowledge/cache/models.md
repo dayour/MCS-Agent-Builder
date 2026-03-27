@@ -78,7 +78,8 @@ Source: [MS Learn bring-your-own-model-prompts](https://learn.microsoft.com/en-u
 
 | Use Case | Recommended Model | Rationale |
 |----------|-------------------|-----------|
-| General-purpose agent | GPT-4.1 (default) | Best balance of capability, speed, and cost. GA everywhere. |
+| **General-purpose agent** | **GPT-5 Auto (recommended default)** | **Dynamically routes between general and reasoning. Best quality for mixed workloads.** |
+| General-purpose agent (GA fallback) | GPT-4.1 | Fallback if environment doesn't support preview models. GA everywhere. |
 | Simple FAQ / routing | GPT-4.1 | Fast, cost-effective, GA |
 | Complex reasoning / analysis | GPT-5 Reasoning (Preview) | Better at multi-step logic, 400K context. Premium rate. |
 | Complex reasoning (GA alternative) | Claude Opus 4.6 (GA) | GA deep reasoning, cross-geo. Premium rate. |

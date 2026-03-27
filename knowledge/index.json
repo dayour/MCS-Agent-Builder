@@ -1,0 +1,2924 @@
+{
+  "_meta": {
+    "version": "1.0",
+    "builtAt": "2026-03-25T00:42:08.261Z",
+    "sourceFiles": [
+      "knowledge/cache/adaptive-cards.md",
+      "knowledge/cache/agent-lifecycle.md",
+      "knowledge/cache/ai-tools-computer-use.md",
+      "knowledge/cache/api-capabilities.md",
+      "knowledge/cache/channels.md",
+      "knowledge/cache/connectors.md",
+      "knowledge/cache/conversation-design.md",
+      "knowledge/cache/copilot-studio-kit.md",
+      "knowledge/cache/declarative-agents.md",
+      "knowledge/cache/eval-methods.md",
+      "knowledge/cache/first-party-agents.md",
+      "knowledge/cache/generative-orchestration.md",
+      "knowledge/cache/instructions-authoring.md",
+      "knowledge/cache/island-gateway-api.md",
+      "knowledge/cache/knowledge-sources.md",
+      "knowledge/cache/known-issues.md",
+      "knowledge/cache/limits-licensing.md",
+      "knowledge/cache/mcp-servers.md",
+      "knowledge/cache/mcs-primer-gpt.md",
+      "knowledge/cache/models.md",
+      "knowledge/cache/power-automate-integration.md",
+      "knowledge/cache/powerfx-variables.md",
+      "knowledge/cache/security-auth.md",
+      "knowledge/cache/triggers.md",
+      "knowledge/patterns/solution-patterns.md",
+      "knowledge/frameworks/eval-scenarios/index.json",
+      "knowledge/frameworks/solution-type-scoring.md",
+      "knowledge/frameworks/architecture-scoring.md",
+      "knowledge/frameworks/component-selection.md"
+    ],
+    "stats": {
+      "triggers": 24,
+      "connectors": 35,
+      "mcpServers": 52,
+      "models": 21,
+      "channels": 21,
+      "knowledgeSources": 34,
+      "firstPartyAgents": 24,
+      "patterns": 10,
+      "evalScenarios": 74
+    }
+  },
+  "components": {
+    "triggers": [
+      {
+        "kind": "OnConversationStart",
+        "uiName": "Conversation Start",
+        "firesWhen": "Agent first engages user",
+        "needsUserInput": false,
+        "category": "conversation"
+      },
+      {
+        "kind": "OnRecognizedIntent",
+        "uiName": "The agent chooses / User says a phrase",
+        "firesWhen": "AI matches topic or trigger phrases match",
+        "needsUserInput": true,
+        "category": "conversation"
+      },
+      {
+        "kind": "OnMessageActivity",
+        "uiName": "A message is received",
+        "firesWhen": "Any message activity arrives",
+        "needsUserInput": true,
+        "category": "conversation"
+      },
+      {
+        "kind": "OnEventActivity",
+        "uiName": "A custom client event occurs",
+        "firesWhen": "Event activity from client app",
+        "needsUserInput": false,
+        "category": "event"
+      },
+      {
+        "kind": "OnActivity",
+        "uiName": "An activity occurs",
+        "firesWhen": "Any activity type (broadest)",
+        "needsUserInput": false,
+        "category": "conversation"
+      },
+      {
+        "kind": "OnConversationUpdateActivity",
+        "uiName": "The conversation changes",
+        "firesWhen": "User joins/leaves conversation",
+        "needsUserInput": false,
+        "category": "conversation"
+      },
+      {
+        "kind": "OnInvokeActivity",
+        "uiName": "It's invoked",
+        "firesWhen": "Invoke activity (e.g., Teams extensions)",
+        "needsUserInput": false,
+        "category": "event"
+      },
+      {
+        "kind": "OnSystemRedirect",
+        "uiName": "It's redirected to",
+        "firesWhen": "Called explicitly from another topic",
+        "needsUserInput": false,
+        "category": "conversation"
+      },
+      {
+        "kind": "OnInactivity",
+        "uiName": "The user is inactive for a while",
+        "firesWhen": "No interaction after configured time",
+        "needsUserInput": false,
+        "category": "conversation"
+      },
+      {
+        "kind": "OnUnknownIntent",
+        "uiName": "Fallback / Conversational boosting",
+        "firesWhen": "No topic matches user message",
+        "needsUserInput": true,
+        "category": "conversation"
+      },
+      {
+        "kind": "OnError",
+        "uiName": "On Error",
+        "firesWhen": "Error during conversation",
+        "needsUserInput": false,
+        "category": "conversation"
+      },
+      {
+        "kind": "OnSignIn",
+        "uiName": "Sign in",
+        "firesWhen": "Auth required",
+        "needsUserInput": false,
+        "category": "conversation"
+      },
+      {
+        "kind": "OnSelectIntent",
+        "uiName": "Multiple Topics Matched",
+        "firesWhen": "Disambiguation needed",
+        "needsUserInput": true,
+        "category": "conversation"
+      },
+      {
+        "kind": "OnEscalate",
+        "uiName": "Escalate",
+        "firesWhen": "\"Talk to agent\" matched",
+        "needsUserInput": true,
+        "category": "conversation"
+      },
+      {
+        "kind": "OnPlanComplete",
+        "uiName": "A plan completes",
+        "firesWhen": "Agent finishes all planned steps AND the response is sent (generative orchestration). Use for end-of-conversation cleanup, survey redirect, or post-plan actions.",
+        "needsUserInput": false,
+        "category": "conversation"
+      },
+      {
+        "kind": "OnGeneratedResponse",
+        "uiName": "AI-generated response about to be sent",
+        "firesWhen": "AI composes draft before sending (generative orchestration). Use `Response.FormattedText` to read the draft; set `ContinueResponse` to false to suppress the default response and send your own via a Message node.",
+        "needsUserInput": false,
+        "category": "conversation"
+      },
+      {
+        "kind": "EventTrigger",
+        "uiName": "Event trigger library",
+        "firesWhen": "Built-in library of triggers for Microsoft and partner services (Power Automate connectors)",
+        "needsUserInput": false,
+        "category": "autonomous",
+        "status": "GA"
+      },
+      {
+        "kind": "EventTrigger",
+        "uiName": "SharePoint event",
+        "firesWhen": "Fires when an item is created/modified in SharePoint",
+        "needsUserInput": false,
+        "category": "autonomous",
+        "status": "GA"
+      },
+      {
+        "kind": "EventTrigger",
+        "uiName": "OneDrive event",
+        "firesWhen": "Fires when a file is created in OneDrive",
+        "needsUserInput": false,
+        "category": "autonomous",
+        "status": "GA"
+      },
+      {
+        "kind": "EventTrigger",
+        "uiName": "Dataverse row event",
+        "firesWhen": "Fires when a row is added, modified, or deleted",
+        "needsUserInput": false,
+        "category": "autonomous",
+        "status": "GA"
+      },
+      {
+        "kind": "EventTrigger",
+        "uiName": "Recurrence (schedule)",
+        "firesWhen": "Fires on a recurring time interval (e.g., every 10 minutes)",
+        "needsUserInput": false,
+        "category": "autonomous",
+        "status": "GA"
+      },
+      {
+        "kind": "EventTrigger",
+        "uiName": "Planner task event",
+        "firesWhen": "Fires when a task is completed in Planner",
+        "needsUserInput": false,
+        "category": "autonomous",
+        "status": "GA"
+      },
+      {
+        "kind": "EventTrigger",
+        "uiName": "Email event",
+        "firesWhen": "Fires when an email arrives",
+        "needsUserInput": false,
+        "category": "autonomous",
+        "status": "GA"
+      },
+      {
+        "kind": "EventTrigger",
+        "uiName": "Custom connectors",
+        "firesWhen": "Any Power Automate connector trigger can be used if allowed by data policies",
+        "needsUserInput": false,
+        "category": "autonomous",
+        "status": "GA"
+      }
+    ],
+    "connectors": [
+      {
+        "name": "SharePoint",
+        "category": "m365",
+        "tier": "standard",
+        "keyActions": "Get items, Create item, Get file content",
+        "mcpAlternative": true,
+        "mcpNote": "Yes -- prefer Work IQ SharePoint MCP (or SharePoint/OneDrive MCP)",
+        "notes": ""
+      },
+      {
+        "name": "Outlook 365",
+        "category": "m365",
+        "tier": "standard",
+        "keyActions": "Send email, Get events, Search mail",
+        "mcpAlternative": true,
+        "mcpNote": "Yes -- prefer Work IQ Mail / Work IQ Calendar MCP",
+        "notes": ""
+      },
+      {
+        "name": "Microsoft Teams",
+        "category": "m365",
+        "tier": "standard",
+        "keyActions": "Post message, Get channels, Create meeting",
+        "mcpAlternative": true,
+        "mcpNote": "Yes -- prefer Work IQ Teams MCP",
+        "notes": ""
+      },
+      {
+        "name": "OneDrive for Business",
+        "category": "m365",
+        "tier": "standard",
+        "keyActions": "Get file, Create file, List folder",
+        "mcpAlternative": true,
+        "mcpNote": "Yes -- prefer Work IQ OneDrive MCP (now separate from SharePoint)",
+        "notes": ""
+      },
+      {
+        "name": "Planner",
+        "category": "m365",
+        "tier": "standard",
+        "keyActions": "Create task, List tasks, Update task",
+        "mcpAlternative": false,
+        "mcpNote": "No MCP -- use connector",
+        "notes": ""
+      },
+      {
+        "name": "Excel Online",
+        "category": "m365",
+        "tier": "standard",
+        "keyActions": "Get rows, Add row, Update row",
+        "mcpAlternative": false,
+        "mcpNote": "No MCP -- use connector",
+        "notes": ""
+      },
+      {
+        "name": "Dataverse",
+        "category": "data",
+        "tier": "standard",
+        "keyActions": "CRUD operations on tables",
+        "mcpAlternative": false,
+        "mcpNote": "",
+        "notes": "MCP available (GA) -- prefer Dataverse MCP"
+      },
+      {
+        "name": "SQL Server",
+        "category": "data",
+        "tier": "premium",
+        "keyActions": "Execute query, Get rows",
+        "mcpAlternative": false,
+        "mcpNote": "",
+        "notes": "Premium"
+      },
+      {
+        "name": "HTTP",
+        "category": "data",
+        "tier": "premium",
+        "keyActions": "Send HTTP request (any REST API)",
+        "mcpAlternative": false,
+        "mcpNote": "",
+        "notes": "Premium; flexible fallback"
+      },
+      {
+        "name": "Azure Blob Storage",
+        "category": "data",
+        "tier": "premium",
+        "keyActions": "Upload/download blobs",
+        "mcpAlternative": false,
+        "mcpNote": "",
+        "notes": "Premium"
+      },
+      {
+        "name": "Salesforce",
+        "category": "thirdParty",
+        "tier": "premium",
+        "keyActions": "Get Account/Contact/Opportunity/Lead/Case/Product/User records, Execute SOQL query, Execute SOSL search, Create/Update/Delete/Upsert record, Send HTTP request, Bulk job operations, MCP server action (`mcp_SalesforceManagement`)",
+        "mcpAlternative": false,
+        "mcpNote": "",
+        "notes": "Premium. OAuth 2.0 (Salesforce login). API v58.0. Rate limit: 900 calls/60s/connection. Also a supported Real-Time Knowledge source (preview)."
+      },
+      {
+        "name": "ServiceNow",
+        "category": "thirdParty",
+        "tier": "premium",
+        "keyActions": "18 actions: Create Record, Delete Record, Get Record, List Records, Update Record, Get Record Types, Get Knowledge Articles, Get/Delete/Retrieve Attachment (metadata+content), Upload Attachment (binary+multipart), Get Catalogs, Get Catalog Categories, Get Catalog Item(s), Order Item. `List Records` supports `sysparm_query` (ServiceNow encoded query syntax for filtering by priority, severity, state, assignment_group, etc.), `sysparm_limit`, `sysparm_offset`, `sysparm_fields`. Auth: Basic, OAuth2, Entra ID (Certificate or User Login). Rate limit: 600 calls/60s. Publisher: Microsoft (GA). Also a supported Real-Time Knowledge source (preview).",
+        "mcpAlternative": false,
+        "mcpNote": "",
+        "notes": "Premium"
+      },
+      {
+        "name": "Zoom Meetings (Independent Publisher)",
+        "category": "other",
+        "tier": "premium",
+        "keyActions": "3 actions only: Create Meeting, Get Meetings (list upcoming), Meeting Details (by ID). No recordings, no transcripts, no participants, no past meetings. Auth: OAuth 2.0 (Zoom). Rate limit: 100 calls/60s. Publisher: Akuthota Deekshith (community). Preview status.",
+        "mcpAlternative": false,
+        "mcpNote": "",
+        "notes": "Premium"
+      },
+      {
+        "name": "Jira",
+        "category": "thirdParty",
+        "tier": "premium",
+        "keyActions": "Create/update issues",
+        "mcpAlternative": false,
+        "mcpNote": "",
+        "notes": "Premium; on-prem needs data gateway"
+      },
+      {
+        "name": "Confluence",
+        "category": "thirdParty",
+        "tier": "premium",
+        "keyActions": "Create/update pages",
+        "mcpAlternative": false,
+        "mcpNote": "",
+        "notes": "Premium; on-prem needs data gateway; also Real-Time Knowledge (preview, Cloud only)"
+      },
+      {
+        "name": "Adobe PDF Services",
+        "category": "other",
+        "tier": "premium",
+        "keyActions": "Extract text, convert, merge",
+        "mcpAlternative": false,
+        "mcpNote": "",
+        "notes": "Premium"
+      },
+      {
+        "name": "Encodian",
+        "category": "other",
+        "tier": "premium",
+        "keyActions": "Document generation, conversion",
+        "mcpAlternative": false,
+        "mcpNote": "",
+        "notes": "Premium"
+      },
+      {
+        "name": "Zendesk",
+        "category": "thirdParty",
+        "tier": "premium",
+        "keyActions": "Ticket management, search",
+        "mcpAlternative": false,
+        "mcpNote": "",
+        "notes": "Premium; also Real-Time Knowledge (preview)"
+      },
+      {
+        "name": "Snowflake",
+        "category": "thirdParty",
+        "tier": "premium",
+        "keyActions": "Query data",
+        "mcpAlternative": false,
+        "mcpNote": "",
+        "notes": "Premium; also Real-Time Knowledge (preview)"
+      },
+      {
+        "name": "Oracle Database",
+        "category": "thirdParty",
+        "tier": "premium",
+        "keyActions": "Query/CRUD",
+        "mcpAlternative": false,
+        "mcpNote": "",
+        "notes": "Premium; also Real-Time Knowledge (preview)"
+      },
+      {
+        "name": "SAP OData",
+        "category": "thirdParty",
+        "tier": "premium",
+        "keyActions": "Read/write SAP data",
+        "mcpAlternative": false,
+        "mcpNote": "",
+        "notes": "Premium; also Real-Time Knowledge (preview)"
+      },
+      {
+        "name": "Google Sheets",
+        "category": "other",
+        "tier": "premium",
+        "keyActions": "Read/write spreadsheet data",
+        "mcpAlternative": false,
+        "mcpNote": "",
+        "notes": "Premium; also Real-Time Knowledge (preview). Source: MS Learn real-time connectors page."
+      },
+      {
+        "name": "Databricks",
+        "category": "other",
+        "tier": "premium",
+        "keyActions": "Query and manage Databricks workspaces",
+        "mcpAlternative": false,
+        "mcpNote": "",
+        "notes": "Premium; also Real-Time Knowledge (preview). Also has MCP server in catalog."
+      },
+      {
+        "name": "Salesforce",
+        "category": "thirdParty",
+        "tier": "standard",
+        "keyActions": "",
+        "mcpAlternative": false,
+        "mcpNote": "",
+        "notes": ""
+      },
+      {
+        "name": "Bing Search",
+        "category": "search",
+        "tier": "premium",
+        "keyActions": "`GetNews` (list news by query), `TrigNewNews` (trigger on new article)",
+        "mcpAlternative": false,
+        "mcpNote": "",
+        "notes": "Preview. Standard tier (no premium needed). API key auth (Bing API key). Returns: name, URL, description, datePublished, category. 1,200 calls/min. Trigger poll: 1/900s. Market and safe search filters supported. Available in Copilot Studio, Power Automate, Power Apps, Logic Apps. Source: https://learn.microsoft.com/en-us/connectors/bingsearch/"
+      },
+      {
+        "name": "AI Builder",
+        "category": "ai",
+        "tier": "premium",
+        "keyActions": "Prompt actions, document processing, contract processing (preview)",
+        "mcpAlternative": false,
+        "mcpNote": "",
+        "notes": "Premium. Copilot Credits required (AI Builder credits removed Nov 2026)."
+      },
+      {
+        "name": "Power Automate",
+        "category": "ai",
+        "tier": "standard",
+        "keyActions": "Trigger flows",
+        "mcpAlternative": false,
+        "mcpNote": "",
+        "notes": "Standard"
+      },
+      {
+        "name": "Azure OpenAI",
+        "category": "ai",
+        "tier": "premium",
+        "keyActions": "Custom completions",
+        "mcpAlternative": false,
+        "mcpNote": "",
+        "notes": "Premium"
+      },
+      {
+        "name": "monday.com",
+        "category": "other",
+        "tier": "premium",
+        "keyActions": "Work management -- boards, items, updates",
+        "mcpAlternative": false,
+        "mcpNote": "",
+        "notes": "Premium. Also has MCP server in catalog (Preview)."
+      },
+      {
+        "name": "Zapier",
+        "category": "other",
+        "tier": "premium",
+        "keyActions": "Connect to 7,000+ apps via Zapier automation",
+        "mcpAlternative": false,
+        "mcpNote": "",
+        "notes": "Premium. Also has MCP server in catalog (Preview)."
+      },
+      {
+        "name": "Databricks",
+        "category": "other",
+        "tier": "premium",
+        "keyActions": "Query and manage Databricks workspaces",
+        "mcpAlternative": false,
+        "mcpNote": "",
+        "notes": "Premium. Also has MCP server in catalog. Also Real-Time Knowledge (preview)."
+      },
+      {
+        "name": "CData Connect AI",
+        "category": "other",
+        "tier": "premium",
+        "keyActions": "Connect to 200+ data sources via CData",
+        "mcpAlternative": false,
+        "mcpNote": "",
+        "notes": "Premium. MCP server in catalog (Preview)."
+      },
+      {
+        "name": "Celonis",
+        "category": "other",
+        "tier": "premium",
+        "keyActions": "Process mining and execution management",
+        "mcpAlternative": false,
+        "mcpNote": "",
+        "notes": "Premium. MCP server in catalog (Preview)."
+      },
+      {
+        "name": "Google Sheets",
+        "category": "other",
+        "tier": "premium",
+        "keyActions": "Read/write spreadsheet data",
+        "mcpAlternative": false,
+        "mcpNote": "",
+        "notes": "Premium. Now also a Real-Time Knowledge source (preview)."
+      },
+      {
+        "name": "QuickBooks Online",
+        "category": "other",
+        "tier": "standard",
+        "keyActions": "",
+        "mcpAlternative": false,
+        "mcpNote": "",
+        "notes": "Being retired Mar 2026. No longer supported. Migrate to alternative."
+      }
+    ],
+    "mcpServers": [
+      {
+        "name": "Microsoft Dataverse",
+        "description": "CRUD operations on Dataverse tables, list/describe tables, search, FetchXML queries. Natural language data access.",
+        "status": "GA",
+        "category": "dataverse",
+        "connectorName": "",
+        "oldName": ""
+      },
+      {
+        "name": "Dynamics 365 Sales MCP Server",
+        "description": "List leads, retrieve lead summaries, qualify leads, get/send outreach emails. Cross-functional with Service and ERP.",
+        "status": "Preview",
+        "category": "dynamics365",
+        "connectorName": "`d365salesmcpserver`",
+        "oldName": ""
+      },
+      {
+        "name": "Dynamics 365 ERP Analytics MCP",
+        "description": "Dynamic framework for F&O apps -- data operations + business logic. Adaptive tools, analytics-ready. Replaces older 13-static-tool version.",
+        "status": "Preview",
+        "category": "dynamics365",
+        "connectorName": "`d365erpmcpserver`",
+        "oldName": ""
+      },
+      {
+        "name": "Dynamics 365 Service MCP",
+        "description": "Case management, knowledge articles, omnichannel capabilities. Old D365 Service MCP is deprecated -- use new version.",
+        "status": "Preview",
+        "category": "dynamics365",
+        "connectorName": "`d365customerservicemcpserver`",
+        "oldName": ""
+      },
+      {
+        "name": "D365 Contact Center Admin MCP",
+        "description": "Omnichannel and supervisor capabilities for service operations. Admin-focused.",
+        "status": "Preview",
+        "category": "dynamics365",
+        "connectorName": "`d365contactcenteradminmcpserver`",
+        "oldName": ""
+      },
+      {
+        "name": "Dynamics 365 Business Central",
+        "description": "Business Central connector with MCP capabilities.",
+        "status": "GA",
+        "category": "dynamics365",
+        "connectorName": "`dynamicssmbsaas`",
+        "oldName": ""
+      },
+      {
+        "name": "Fin & Ops Apps (Dynamics 365)",
+        "description": "Finance and operations apps connector.",
+        "status": "GA",
+        "category": "dynamics365",
+        "connectorName": "`dynamicsax`",
+        "oldName": ""
+      },
+      {
+        "name": "Fabric MCP",
+        "description": "Connect to Fabric Data Agents for analytics and insights. Multi-agent orchestration -- Copilot Studio delegates data queries to Fabric agent.",
+        "status": "Preview",
+        "category": "fabric",
+        "connectorName": "",
+        "oldName": ""
+      },
+      {
+        "name": "Office 365 Outlook -- Contact Management",
+        "description": "Manage Outlook contacts.",
+        "status": "GA",
+        "category": "outlook",
+        "connectorName": "",
+        "oldName": ""
+      },
+      {
+        "name": "Office 365 Outlook -- Email Management",
+        "description": "Email composition, management, search, filter via KQL/OData.",
+        "status": "GA",
+        "category": "outlook",
+        "connectorName": "",
+        "oldName": ""
+      },
+      {
+        "name": "Office 365 Outlook -- Meeting Management",
+        "description": "Create, read, update, delete events. Free/busy slots, meeting invitations.",
+        "status": "GA",
+        "category": "outlook",
+        "connectorName": "",
+        "oldName": ""
+      },
+      {
+        "name": "Kusto Query",
+        "description": "~~Run KQL queries against Azure Data Explorer clusters.~~ No longer in the built-in MCS catalog as of Mar 2026. KQL/ADX capabilities are now available via: (1) Azure MCP Server (external, deploy to ACA), (2) Fabric RTI MCP Server (open-source, github.com/microsoft/fabric-rti-mcp), (3) Microsoft Sentinel MCP (data exploration tools include KQL).",
+        "status": "Removed from catalog",
+        "category": "thirdParty",
+        "connectorName": "",
+        "oldName": ""
+      },
+      {
+        "name": "Microsoft Learn Docs MCP",
+        "description": "Search Microsoft Learn documentation, fetch complete articles, search code samples. Free, no auth required. Streamable HTTP transport. Native in Copilot Studio since Aug 2025.",
+        "status": "GA",
+        "category": "reference",
+        "connectorName": "",
+        "oldName": ""
+      },
+      {
+        "name": "Box MCP Server",
+        "description": "Cloud content management -- file access, search, sharing via Box platform. Third-party certified MCP connector.",
+        "status": "Preview",
+        "category": "thirdParty",
+        "connectorName": "",
+        "oldName": ""
+      },
+      {
+        "name": "GitHub",
+        "description": "Repository and issue management via GitHub MCP server. Available in built-in catalog.",
+        "status": "GA",
+        "category": "devtools",
+        "connectorName": "",
+        "oldName": ""
+      },
+      {
+        "name": "Gieni TS Server MCP",
+        "description": "Third-party MCP connector for fetching answers/insights. ISV-certified connector by Orderfox-Gieni.",
+        "status": "Preview",
+        "category": "thirdParty",
+        "connectorName": "",
+        "oldName": ""
+      },
+      {
+        "name": "Power Apps MCP Server",
+        "description": "Human-in-the-loop agent supervision for model-driven apps. Tools: `log_for_review` (passive oversight), `request_assistance` (async human handoff), `invoke_data_entry` (extract data from unstructured content into Dataverse forms with human review). Enhanced agent feed UI. NOT an Agent 365 server -- it is a Power Platform MCP server.",
+        "status": "Preview",
+        "category": "powerplatform",
+        "connectorName": "",
+        "oldName": ""
+      },
+      {
+        "name": "Work IQ Mail",
+        "description": "Create, update, delete messages. Reply, reply-all. Semantic search with KQL-style queries and OData.",
+        "status": "Preview (Work IQ platform)",
+        "category": "outlook",
+        "connectorName": "",
+        "oldName": "Microsoft Outlook Mail MCP"
+      },
+      {
+        "name": "Work IQ User",
+        "description": "Get manager, direct reports, profile info. Search users.",
+        "status": "Preview (Work IQ platform)",
+        "category": "workiq",
+        "connectorName": "",
+        "oldName": "Microsoft 365 User Profile MCP"
+      },
+      {
+        "name": "Work IQ Calendar",
+        "description": "Create, list, update, delete events. Accept/decline. Resolve conflicts. Find free/busy slots.",
+        "status": "Preview (Work IQ platform)",
+        "category": "outlook",
+        "connectorName": "",
+        "oldName": "Microsoft Outlook Calendar MCP"
+      },
+      {
+        "name": "Work IQ Teams",
+        "description": "Create, update, delete chats. Add members. Post messages. Channel operations.",
+        "status": "Preview (Work IQ platform)",
+        "category": "workiq",
+        "connectorName": "",
+        "oldName": "Microsoft Teams MCP"
+      },
+      {
+        "name": "Work IQ SharePoint",
+        "description": "Upload files, get metadata, search files/folders. File and folder management.",
+        "status": "Preview (Work IQ platform)",
+        "category": "workiq",
+        "connectorName": "",
+        "oldName": "Microsoft SharePoint and OneDrive MCP"
+      },
+      {
+        "name": "Work IQ OneDrive",
+        "description": "Manage files and folders in user's personal OneDrive.",
+        "status": "Preview (Work IQ platform)",
+        "category": "workiq",
+        "connectorName": "",
+        "oldName": "*(new -- split from SharePoint)*"
+      },
+      {
+        "name": "Microsoft SharePoint Lists MCP",
+        "description": "Create lists, columns, items. Query with filters and pagination.",
+        "status": "Preview (Work IQ platform)",
+        "category": "workiq",
+        "connectorName": "",
+        "oldName": "*(same)*"
+      },
+      {
+        "name": "Microsoft 365 Admin Center MCP",
+        "description": "Admin-focused capabilities for Microsoft 365 administration.",
+        "status": "Preview (Work IQ platform)",
+        "category": "thirdParty",
+        "connectorName": "",
+        "oldName": "*(same)*"
+      },
+      {
+        "name": "Work IQ Word",
+        "description": "Create/read documents, add comments, reply to comments.",
+        "status": "Preview (Work IQ platform)",
+        "category": "workiq",
+        "connectorName": "",
+        "oldName": "Microsoft Word MCP"
+      },
+      {
+        "name": "Work IQ Copilot",
+        "description": "Chat with M365 Copilot, multi-turn conversations, ground responses with files. Cross-tenant search. Tool: `copilot_chat`. operationId: `mcp_m365copilot`.",
+        "status": "Preview (Work IQ platform)",
+        "category": "workiq",
+        "connectorName": "",
+        "oldName": "Microsoft 365 Copilot (Search) MCP"
+      },
+      {
+        "name": "Dataverse and Dynamics 365",
+        "description": "CRUD operations and domain-specific actions via Agent 365 control plane.",
+        "status": "Preview (Work IQ platform)",
+        "category": "dataverse",
+        "connectorName": "",
+        "oldName": "*(Agent 365 variant)*"
+      },
+      {
+        "name": "Microsoft Sentinel MCP",
+        "description": "Security operations, threat hunting, incident management via Microsoft Sentinel.",
+        "status": "Preview",
+        "category": "security",
+        "connectorName": "",
+        "oldName": ""
+      },
+      {
+        "name": "ICM MCP",
+        "description": "Microsoft internal incident management (IcM).",
+        "status": "GA (Microsoft internal)",
+        "category": "security",
+        "connectorName": "",
+        "oldName": ""
+      },
+      {
+        "name": "Process Mining",
+        "description": "Process mining capabilities via Power Platform. By Microsoft.",
+        "status": "GA",
+        "category": "analytics",
+        "connectorName": "",
+        "oldName": ""
+      },
+      {
+        "name": "Azure Databricks",
+        "description": "Databricks workspace integration. Premium.",
+        "status": "GA",
+        "category": "thirdParty",
+        "connectorName": "",
+        "oldName": ""
+      },
+      {
+        "name": "Databricks",
+        "description": "Alternative Databricks connector with MCP. Premium.",
+        "status": "Preview",
+        "category": "thirdParty",
+        "connectorName": "",
+        "oldName": ""
+      },
+      {
+        "name": "Bigdata-com",
+        "description": "Big data analytics. Premium.",
+        "status": "Preview",
+        "category": "thirdParty",
+        "connectorName": "",
+        "oldName": ""
+      },
+      {
+        "name": "CData Connect AI",
+        "description": "Connect to 200+ data sources via CData. Premium.",
+        "status": "Preview",
+        "category": "thirdParty",
+        "connectorName": "",
+        "oldName": ""
+      },
+      {
+        "name": "Celonis MCP Server",
+        "description": "Process mining and execution management. Premium.",
+        "status": "Preview",
+        "category": "thirdParty",
+        "connectorName": "",
+        "oldName": ""
+      },
+      {
+        "name": "Cronofy MCP",
+        "description": "Cross-platform calendar scheduling. Premium.",
+        "status": "Preview",
+        "category": "thirdParty",
+        "connectorName": "",
+        "oldName": ""
+      },
+      {
+        "name": "Draup MCP Server",
+        "description": "AI-powered talent and sales intelligence. Premium.",
+        "status": "Preview",
+        "category": "thirdParty",
+        "connectorName": "",
+        "oldName": ""
+      },
+      {
+        "name": "Enlyft MCP",
+        "description": "Account intelligence and technographic data. Premium.",
+        "status": "Preview",
+        "category": "thirdParty",
+        "connectorName": "",
+        "oldName": ""
+      },
+      {
+        "name": "Experlogix Smart Flows",
+        "description": "Document generation and smart workflows. Premium.",
+        "status": "GA",
+        "category": "thirdParty",
+        "connectorName": "",
+        "oldName": ""
+      },
+      {
+        "name": "Ezekia-MCP",
+        "description": "Executive search and recruitment. Premium.",
+        "status": "Preview",
+        "category": "thirdParty",
+        "connectorName": "",
+        "oldName": ""
+      },
+      {
+        "name": "Highspot MCP",
+        "description": "Sales enablement platform. Premium.",
+        "status": "Preview",
+        "category": "thirdParty",
+        "connectorName": "",
+        "oldName": ""
+      },
+      {
+        "name": "Intelix IOC Analysis MCP",
+        "description": "Security threat analysis (IOC). Premium.",
+        "status": "Preview",
+        "category": "thirdParty",
+        "connectorName": "",
+        "oldName": ""
+      },
+      {
+        "name": "LSEG",
+        "description": "Financial data and analytics. Premium.",
+        "status": "Preview",
+        "category": "thirdParty",
+        "connectorName": "",
+        "oldName": ""
+      },
+      {
+        "name": "Mobile Text Alerts MCP Server",
+        "description": "SMS messaging. Premium.",
+        "status": "Preview",
+        "category": "thirdParty",
+        "connectorName": "",
+        "oldName": ""
+      },
+      {
+        "name": "monday.com",
+        "description": "Work management platform. Premium.",
+        "status": "Preview",
+        "category": "thirdParty",
+        "connectorName": "",
+        "oldName": ""
+      },
+      {
+        "name": "Morningstar",
+        "description": "Investment research data. Premium.",
+        "status": "Preview",
+        "category": "thirdParty",
+        "connectorName": "",
+        "oldName": ""
+      },
+      {
+        "name": "Process Street MCP Server",
+        "description": "Workflow and process management. Premium.",
+        "status": "Preview",
+        "category": "thirdParty",
+        "connectorName": "",
+        "oldName": ""
+      },
+      {
+        "name": "S360 Breeze MCP",
+        "description": "Sustainability/compliance tooling.",
+        "status": "GA",
+        "category": "thirdParty",
+        "connectorName": "",
+        "oldName": ""
+      },
+      {
+        "name": "SuperMCP",
+        "description": "Marketing analytics data. Premium.",
+        "status": "Preview",
+        "category": "thirdParty",
+        "connectorName": "",
+        "oldName": ""
+      },
+      {
+        "name": "Zapier MCP",
+        "description": "Connect to 7,000+ apps via Zapier. Premium.",
+        "status": "Preview",
+        "category": "thirdParty",
+        "connectorName": "",
+        "oldName": ""
+      },
+      {
+        "name": "Microsoft MCP Management Server",
+        "description": "Create, update, delete, and publish custom MCP servers programmatically. API-first -- no UI needed. Uses connectors, Graph APIs, REST, Dataverse custom APIs. Tools: CreateMCPServer, CreateToolWithConnector, UpdateTool, DeleteMCPServer, PublishMCPServer.",
+        "status": "Preview",
+        "category": "thirdParty",
+        "connectorName": "",
+        "oldName": ""
+      }
+    ],
+    "models": [
+      {
+        "name": "GPT-4o",
+        "category": "general",
+        "status": "RETIRED",
+        "availability": "All regions",
+        "notes": "Replaced by GPT-4.1 (Oct 2025). 1-month grace period expired."
+      },
+      {
+        "name": "GPT-4.1",
+        "category": "general",
+        "status": "GA (Default)",
+        "availability": "All regions",
+        "notes": "Default model for all new agents"
+      },
+      {
+        "name": "GPT-5 Chat",
+        "category": "general",
+        "status": "GA",
+        "availability": "All regions",
+        "notes": "Standard rate. Now GA everywhere (previously EU + US only)."
+      },
+      {
+        "name": "GPT-5 Reasoning",
+        "category": "deep",
+        "status": "Preview",
+        "availability": "Europe + US natively; Preview (cross-geo) in all other regions",
+        "notes": "Premium rate, 400K context"
+      },
+      {
+        "name": "GPT-5 Auto",
+        "category": "auto",
+        "status": "Preview",
+        "availability": "Europe + US natively; Preview (cross-geo) in all other regions",
+        "notes": "Dynamically routes between general and reasoning"
+      },
+      {
+        "name": "GPT-5.3 Chat",
+        "category": "general",
+        "status": "Experimental",
+        "availability": "US only (early access environment)",
+        "notes": "Next-gen general. Replaced GPT-5.2 Chat in model table."
+      },
+      {
+        "name": "GPT-5.4 Reasoning",
+        "category": "deep",
+        "status": "Experimental",
+        "availability": "US only (early access environment)",
+        "notes": "Next-gen reasoning. Replaced GPT-5.2 Reasoning in model table."
+      },
+      {
+        "name": "Claude Sonnet 4.5",
+        "category": "general",
+        "status": "GA",
+        "availability": "GA (cross-geo) all regions; GA natively in US",
+        "notes": "Anthropic model, requires admin enablement. Upgraded from Preview to GA."
+      },
+      {
+        "name": "Claude Sonnet 4.6",
+        "category": "general",
+        "status": "GA",
+        "availability": "GA (cross-geo) all regions; GA natively in US",
+        "notes": "Anthropic model. Upgraded from Experimental to GA."
+      },
+      {
+        "name": "Claude Opus 4.6",
+        "category": "deep",
+        "status": "GA",
+        "availability": "GA (cross-geo) all regions; GA natively in US",
+        "notes": "Anthropic deep reasoning. Upgraded from Experimental to GA."
+      },
+      {
+        "name": "Grok 4.1 Fast",
+        "category": "general",
+        "status": "Experimental",
+        "availability": "US only (early access environment)",
+        "notes": "xAI model. Higher harmful content risk per MS safety eval. Non-reasoning."
+      },
+      {
+        "name": "GPT-4.1 mini",
+        "category": "mini",
+        "status": "",
+        "availability": "Default for prompt builder",
+        "notes": "Default for prompt builder"
+      },
+      {
+        "name": "GPT-4.1",
+        "category": "general",
+        "status": "",
+        "availability": "",
+        "notes": ""
+      },
+      {
+        "name": "GPT-5 chat",
+        "category": "general",
+        "status": "",
+        "availability": "GA",
+        "notes": "GA"
+      },
+      {
+        "name": "GPT-5 reasoning",
+        "category": "deep",
+        "status": "",
+        "availability": "GA",
+        "notes": "GA"
+      },
+      {
+        "name": "GPT-5.2 chat",
+        "category": "general",
+        "status": "",
+        "availability": "Experimental",
+        "notes": "Experimental"
+      },
+      {
+        "name": "GPT-5.2 reasoning",
+        "category": "deep",
+        "status": "",
+        "availability": "Experimental",
+        "notes": "Experimental"
+      },
+      {
+        "name": "Claude Sonnet 4.5",
+        "category": "general",
+        "status": "",
+        "availability": "Experimental (note: GA for agent orchestration, but experimental for prompt builder)",
+        "notes": "Experimental (note: GA for agent orchestration, but experimental for prompt builder)"
+      },
+      {
+        "name": "Claude Opus 4.5",
+        "category": "deep",
+        "status": "",
+        "availability": "Experimental",
+        "notes": "Experimental"
+      },
+      {
+        "name": "GPT-4o",
+        "category": "general",
+        "status": "Default (GCC + GCC-H + DoD)",
+        "availability": "Still the only option for agent orchestration in government clouds",
+        "notes": "Still the only option for agent orchestration in government clouds"
+      },
+      {
+        "name": "GPT-4o mini",
+        "category": "general",
+        "status": "GA (GCC + GCC-H)",
+        "availability": "Available for prompt builder in gov clouds",
+        "notes": "Available for prompt builder in gov clouds"
+      }
+    ],
+    "channels": [
+      {
+        "name": "Microsoft Teams + M365 Copilot",
+        "status": "GA",
+        "setupComplexity": "low",
+        "notes": "Default for M365 orgs; auto-publish. Auto-auth via Entra ID.",
+        "requiresRelayBot": false
+      },
+      {
+        "name": "SharePoint",
+        "status": "GA",
+        "setupComplexity": "low",
+        "notes": "Deploy to SharePoint site via Channels config. Requires WRITE access to SP site.",
+        "requiresRelayBot": false
+      },
+      {
+        "name": "Power Pages",
+        "status": "GA",
+        "setupComplexity": "low",
+        "notes": "Embed in Power Pages sites",
+        "requiresRelayBot": false
+      },
+      {
+        "name": "Demo Website",
+        "status": "GA",
+        "setupComplexity": "none",
+        "notes": "Built-in test/demo page. Not for production.",
+        "requiresRelayBot": false
+      },
+      {
+        "name": "Custom Website (iframe)",
+        "status": "GA",
+        "setupComplexity": "low",
+        "notes": "Embed via iframe code snippet",
+        "requiresRelayBot": false
+      },
+      {
+        "name": "Custom canvas (Web SDK)",
+        "status": "GA",
+        "setupComplexity": "medium",
+        "notes": "Full UI customization with Bot Framework Web Chat (React Web Chat, WebChat JS)",
+        "requiresRelayBot": false
+      },
+      {
+        "name": "Mobile app (Client SDK)",
+        "status": "GA",
+        "setupComplexity": "medium",
+        "notes": "Via Client SDK (Sep 2025) for Android, iOS, Windows -- provides rich multimodal conversations in native apps",
+        "requiresRelayBot": false
+      },
+      {
+        "name": "Outlook (via M365 Copilot)",
+        "status": "GA (Mar 2026)",
+        "setupComplexity": "low",
+        "notes": "Access agents built with Copilot Studio directly within Outlook. Extends agent capabilities to email workflows without switching apps. Requires M365 Copilot.",
+        "requiresRelayBot": false
+      },
+      {
+        "name": "WhatsApp",
+        "status": "GA (Sep 2025)",
+        "setupComplexity": "medium",
+        "notes": "Uses Azure Communication Services",
+        "requiresRelayBot": false
+      },
+      {
+        "name": "Facebook Messenger",
+        "status": "GA",
+        "setupComplexity": "medium",
+        "notes": "Requires Facebook page + app",
+        "requiresRelayBot": false
+      },
+      {
+        "name": "Direct Line",
+        "status": "GA",
+        "setupComplexity": "low",
+        "notes": "REST API for custom integrations and testing. Supports HTTP GET + WebSocket.",
+        "requiresRelayBot": false
+      },
+      {
+        "name": "Telephony (voice)",
+        "status": "GA",
+        "setupComplexity": "high",
+        "notes": "Azure Communication Services integration. Answering machine detection + proactive engagement GA (Jan 2026). SIP X-headers GA (Feb 2026).",
+        "requiresRelayBot": false
+      },
+      {
+        "name": "Slack",
+        "status": "GA",
+        "setupComplexity": "medium",
+        "notes": "Requires Slack app configuration",
+        "requiresRelayBot": false
+      },
+      {
+        "name": "Telegram",
+        "status": "GA",
+        "setupComplexity": "medium",
+        "notes": "Azure Bot Service channel",
+        "requiresRelayBot": true
+      },
+      {
+        "name": "Twilio (SMS)",
+        "status": "GA",
+        "setupComplexity": "medium",
+        "notes": "Azure Bot Service channel",
+        "requiresRelayBot": true
+      },
+      {
+        "name": "Line",
+        "status": "GA",
+        "setupComplexity": "medium",
+        "notes": "Azure Bot Service channel",
+        "requiresRelayBot": true
+      },
+      {
+        "name": "Kik",
+        "status": "GA",
+        "setupComplexity": "medium",
+        "notes": "Azure Bot Service channel",
+        "requiresRelayBot": true
+      },
+      {
+        "name": "GroupMe",
+        "status": "GA",
+        "setupComplexity": "medium",
+        "notes": "Azure Bot Service channel",
+        "requiresRelayBot": true
+      },
+      {
+        "name": "Direct Line Speech",
+        "status": "GA",
+        "setupComplexity": "high",
+        "notes": "Voice integration",
+        "requiresRelayBot": false
+      },
+      {
+        "name": "Email",
+        "status": "GA",
+        "setupComplexity": "medium",
+        "notes": "Azure Bot Service channel",
+        "requiresRelayBot": true
+      },
+      {
+        "name": "Cortana",
+        "status": "Deprecated",
+        "setupComplexity": "--",
+        "notes": "Legacy channel, do not use",
+        "requiresRelayBot": false
+      }
+    ],
+    "knowledgeSources": [
+      {
+        "type": "Public websites",
+        "description": "Web pages searched via Bing",
+        "setup": "Provide URLs. Requires ownership attestation.",
+        "limits": "25 URLs",
+        "notes": ""
+      },
+      {
+        "type": "Uploaded files (Documents)",
+        "description": "Local files uploaded to Dataverse",
+        "setup": "Upload .pdf, .docx, .pptx, .txt, .html, .xlsx, .csv",
+        "limits": "All documents (not part of 25-source limit)",
+        "notes": ""
+      },
+      {
+        "type": "File groups",
+        "description": "Group up to 500 files into a single knowledge source with variable-based instructions",
+        "setup": "Upload locally, select \"Upload as a group\"",
+        "limits": "25 groups per agent",
+        "notes": ""
+      },
+      {
+        "type": "SharePoint",
+        "description": "Index SharePoint site content via GraphSearch",
+        "setup": "Connect to SharePoint URL. Requires Entra ID auth.",
+        "limits": "25 URLs",
+        "notes": ""
+      },
+      {
+        "type": "Dataverse tables",
+        "description": "Structured data from Dataverse via RAG",
+        "setup": "Select tables and views. Requires Entra ID auth.",
+        "limits": "Unlimited",
+        "notes": ""
+      },
+      {
+        "type": "Enterprise data (Copilot connectors)",
+        "description": "Index non-Microsoft data into Graph for semantic search",
+        "setup": "Setup in M365 admin center. Add via Knowledge > Advanced.",
+        "limits": "Unlimited",
+        "notes": ""
+      },
+      {
+        "type": "OneDrive",
+        "description": "Personal/shared OneDrive files",
+        "setup": "Select files/folders from OneDrive",
+        "limits": "See SharePoint limits",
+        "notes": ""
+      },
+      {
+        "type": "Azure AI Search",
+        "description": "Vector search over custom indexes",
+        "setup": "Connect via Access Key, Client Cert, Service Principal, or Entra ID Integrated. One vector index per connection.",
+        "limits": "GA (May 2025). Featured in Add Knowledge dialog.",
+        "notes": ""
+      },
+      {
+        "type": "Custom knowledge (OnKnowledgeRequested)",
+        "description": "API-based custom knowledge via topic trigger",
+        "setup": "Create topic with OnKnowledgeRequested trigger (YAML-only). Call any search API, transform results to Content/ContentLocation/Title format.",
+        "limits": "Up to 15 snippets across all custom knowledge topics combined",
+        "notes": ""
+      },
+      {
+        "type": "Salesforce",
+        "description": "CRM data as knowledge",
+        "setup": "",
+        "limits": "No article count/size limit. Sync every 4-6h.",
+        "notes": ""
+      },
+      {
+        "type": "ServiceNow",
+        "description": "IT service management data",
+        "setup": "",
+        "limits": "No article count/size limit. Sync every 4-6h. Supports synonyms + glossary.",
+        "notes": ""
+      },
+      {
+        "type": "Confluence",
+        "description": "Wiki/documentation content",
+        "setup": "",
+        "limits": "Cloud only. No article count/size limit. Sync every 4-6h.",
+        "notes": ""
+      },
+      {
+        "type": "Zendesk",
+        "description": "Support ticket/article data",
+        "setup": "",
+        "limits": "No article count/size limit. Sync every 4-6h. Supports synonyms + glossary.",
+        "notes": ""
+      },
+      {
+        "type": "Web Search (Bing grounding)",
+        "description": "Open web search across ALL Bing-indexed sites",
+        "setup": "Toggle in Generative AI settings or Knowledge > Web Search. LSP: `gptCapabilities.webBrowsing: true`",
+        "limits": "",
+        "notes": "Requires generative orchestration. Uses Grounding with Bing Search API. Runs in parallel with configured public website sources. NOT the \"Bing Search\" Power Platform connector (that's a separate connector with `GetNews` action)."
+      },
+      {
+        "type": "AI General Knowledge",
+        "description": "LLM foundational knowledge",
+        "setup": "Toggle \"Use general knowledge\" in Generative AI settings.",
+        "limits": "",
+        "notes": "Not real-time. Based on model training data. Can be turned off to restrict to configured sources only."
+      },
+      {
+        "type": "Tenant graph grounding",
+        "description": "Semantic search across M365 tenant data",
+        "setup": "Enable in Generative AI settings",
+        "limits": "",
+        "notes": "Requires M365 Copilot license in same tenant. Requires \"Authenticate with Microsoft\" auth setting. Supports files up to 200 MB (or 512 MB for PDF/PPTX/DOCX). Enabled by default when license present. Does NOT support manual authentication."
+      },
+      {
+        "type": "Real-Time Knowledge connectors (Preview)",
+        "description": "Live API queries to external systems with no data movement",
+        "setup": "Add via Knowledge > Advanced > Real-time connector. Select tables.",
+        "limits": "",
+        "notes": "Preview. Metadata-only indexing. Runtime-authenticated per user."
+      },
+      {
+        "type": "Azure OpenAI Service connection",
+        "description": "Azure OpenAI as knowledge source",
+        "setup": "",
+        "limits": "",
+        "notes": ""
+      },
+      {
+        "type": "Bing Custom Search",
+        "description": "Custom-configured Bing search domains",
+        "setup": "",
+        "limits": "",
+        "notes": ""
+      },
+      {
+        "type": "Custom data sources",
+        "description": "API-based custom knowledge",
+        "setup": "",
+        "limits": "",
+        "notes": ""
+      },
+      {
+        "type": "Salesforce",
+        "description": "",
+        "setup": "",
+        "limits": "",
+        "notes": "Accounts, Contacts, Opportunities, Leads, Cases"
+      },
+      {
+        "type": "ServiceNow",
+        "description": "",
+        "setup": "",
+        "limits": "",
+        "notes": "Supports synonyms and glossary definitions"
+      },
+      {
+        "type": "Azure SQL",
+        "description": "",
+        "setup": "",
+        "limits": "",
+        "notes": "Direct SQL queries"
+      },
+      {
+        "type": "Azure AI Search",
+        "description": "",
+        "setup": "",
+        "limits": "",
+        "notes": "Semantic search"
+      },
+      {
+        "type": "SharePoint",
+        "description": "",
+        "setup": "",
+        "limits": "",
+        "notes": "Also available as standard knowledge source"
+      },
+      {
+        "type": "Dataverse",
+        "description": "",
+        "setup": "",
+        "limits": "",
+        "notes": "Also available as standard knowledge source"
+      },
+      {
+        "type": "Dynamics 365",
+        "description": "",
+        "setup": "",
+        "limits": "",
+        "notes": "CRM data"
+      },
+      {
+        "type": "Snowflake",
+        "description": "",
+        "setup": "",
+        "limits": "",
+        "notes": "Data warehouse queries"
+      },
+      {
+        "type": "Databricks",
+        "description": "",
+        "setup": "",
+        "limits": "",
+        "notes": "Analytics data"
+      },
+      {
+        "type": "Zendesk",
+        "description": "",
+        "setup": "",
+        "limits": "",
+        "notes": "Supports synonyms and glossary definitions"
+      },
+      {
+        "type": "Confluence",
+        "description": "",
+        "setup": "",
+        "limits": "",
+        "notes": "Cloud only"
+      },
+      {
+        "type": "Oracle Database",
+        "description": "",
+        "setup": "",
+        "limits": "",
+        "notes": "Database queries"
+      },
+      {
+        "type": "SAP OData",
+        "description": "",
+        "setup": "",
+        "limits": "",
+        "notes": "SAP system data"
+      },
+      {
+        "type": "Google Sheets",
+        "description": "",
+        "setup": "",
+        "limits": "",
+        "notes": "Spreadsheet data"
+      }
+    ]
+  },
+  "firstPartyAgents": [
+    {
+      "name": "Researcher",
+      "tier": 1,
+      "status": "GA (July 2025)",
+      "license": "M365 Copilot",
+      "capabilities": [],
+      "matchPatterns": [
+        "Research [topic] and summarize findings",
+        "Analyze competitor landscape",
+        "Compile information from multiple sources",
+        "Create a research report on [topic]",
+        "Synthesize web research with internal documents",
+        "Research content behind login/paywall (Computer Use)",
+        "**What it CANNOT do:** Real-time queries, sub-minute responses, write to external systems, custom output formats, proactive/scheduled execution",
+        "**When to recommend:** Use case is primarily open-ended research synthesis across web + work data",
+        "**When to build CA instead:** Need custom data sources not in M365/connectors, need specific output format (adaptive cards, structured data), need real-time responses, need to write back to systems"
+      ],
+      "cantDo": [
+        "Real-time queries",
+        "sub-minute responses",
+        "write to external systems",
+        "custom output formats",
+        "proactive/scheduled execution"
+      ],
+      "whenToBuildCA": "Need custom data sources not in M365/connectors, need specific output format (adaptive cards, structured data), need real-time responses, need to write back to systems"
+    },
+    {
+      "name": "Analyst",
+      "tier": 1,
+      "status": "GA (July 2025)",
+      "license": "M365 Copilot",
+      "capabilities": [],
+      "matchPatterns": [
+        "Analyze this data and find trends",
+        "Create charts/visualizations from spreadsheet",
+        "Statistical analysis of [dataset]",
+        "Compare data across multiple files",
+        "Build a financial model from this data",
+        "**What it CANNOT do:** Connect to live databases, real-time data streams, write results back to source systems, scheduled/automated analysis",
+        "**When to recommend:** Use case is primarily data analysis from files the user can upload or reference",
+        "**When to build CA instead:** Need live database queries, need to write results to systems, need scheduled/automated analysis, need domain-specific analysis logic"
+      ],
+      "cantDo": [
+        "Connect to live databases",
+        "real-time data streams",
+        "write results back to source systems",
+        "scheduled/automated analysis"
+      ],
+      "whenToBuildCA": "Need live database queries, need to write results to systems, need scheduled/automated analysis, need domain-specific analysis logic"
+    },
+    {
+      "name": "Word Agent",
+      "tier": 2,
+      "status": "GA (rolling out 2026)",
+      "license": "M365 Copilot + Anthropic subprocessor enabled by admin",
+      "capabilities": [],
+      "matchPatterns": [
+        "Generate a [report/proposal/memo] document",
+        "Draft a [policy/procedure/guide] based on [context]",
+        "Create a document summarizing [topic]",
+        "**When to build CA instead:** Need structured data extraction, need interactive Q&A, need workflow integration"
+      ],
+      "cantDo": [],
+      "whenToBuildCA": "Need structured data extraction, need interactive Q&A, need workflow integration"
+    },
+    {
+      "name": "Excel Agent",
+      "tier": 2,
+      "status": "GA (rolling out 2026)",
+      "license": "M365 Copilot + Anthropic subprocessor enabled by admin",
+      "capabilities": [],
+      "matchPatterns": [
+        "Create a spreadsheet tracking [items]",
+        "Build a budget/forecast template",
+        "Organize this data into a structured spreadsheet",
+        "**When to build CA instead:** Need live data connections, need automated data refresh, need complex business logic"
+      ],
+      "cantDo": [],
+      "whenToBuildCA": "Need live data connections, need automated data refresh, need complex business logic"
+    },
+    {
+      "name": "PowerPoint Agent",
+      "tier": 2,
+      "status": "GA (rolling out 2026)",
+      "license": "M365 Copilot + Anthropic subprocessor enabled by admin",
+      "capabilities": [],
+      "matchPatterns": [
+        "Create a presentation about [topic]",
+        "Build a slide deck for [meeting/audience]",
+        "Summarize [document] as a presentation",
+        "**When to build CA instead:** Need branded templates, need data-driven slides from live sources, need interactive content"
+      ],
+      "cantDo": [],
+      "whenToBuildCA": "Need branded templates, need data-driven slides from live sources, need interactive content"
+    },
+    {
+      "name": "Writing Coach",
+      "tier": 3,
+      "status": "GA",
+      "license": "M365 Copilot Chat or M365 Copilot",
+      "capabilities": [],
+      "matchPatterns": [
+        "Review and improve my writing",
+        "Adjust tone of this document",
+        "Translate this content",
+        "Provide writing feedback",
+        "**When to build CA instead:** Need domain-specific style enforcement, need automated document workflows, need integration with content management systems"
+      ],
+      "cantDo": [],
+      "whenToBuildCA": "Need domain-specific style enforcement, need automated document workflows, need integration with content management systems"
+    },
+    {
+      "name": "Prompt Coach",
+      "tier": 3,
+      "status": "GA",
+      "license": "M365 Copilot Chat or M365 Copilot",
+      "capabilities": [],
+      "matchPatterns": [
+        "Help me write better prompts",
+        "Optimize my Copilot queries"
+      ],
+      "cantDo": [],
+      "whenToBuildCA": ""
+    },
+    {
+      "name": "Idea Coach",
+      "tier": 3,
+      "status": "GA",
+      "license": "M365 Copilot Chat or M365 Copilot",
+      "capabilities": [],
+      "matchPatterns": [
+        "Brainstorm ideas for [project]",
+        "Help me plan [initiative]"
+      ],
+      "cantDo": [],
+      "whenToBuildCA": ""
+    },
+    {
+      "name": "Visual Creator",
+      "tier": 3,
+      "status": "GA",
+      "license": "M365 Copilot Chat or M365 Copilot",
+      "capabilities": [],
+      "matchPatterns": [
+        "Create an image/visual for [purpose]",
+        "Design a graphic for [context]"
+      ],
+      "cantDo": [],
+      "whenToBuildCA": ""
+    },
+    {
+      "name": "Career Coach",
+      "tier": 3,
+      "status": "GA",
+      "license": "M365 Copilot Chat or M365 Copilot",
+      "capabilities": [],
+      "matchPatterns": [
+        "Career development advice",
+        "Skill gap analysis"
+      ],
+      "cantDo": [],
+      "whenToBuildCA": ""
+    },
+    {
+      "name": "Learning Coach",
+      "tier": 3,
+      "status": "GA",
+      "license": "M365 Copilot Chat or M365 Copilot",
+      "capabilities": [],
+      "matchPatterns": [
+        "Explain [complex topic]",
+        "Create a learning plan for [skill]"
+      ],
+      "cantDo": [],
+      "whenToBuildCA": ""
+    },
+    {
+      "name": "Facilitator",
+      "tier": 3,
+      "status": "GA",
+      "license": "M365 Copilot",
+      "capabilities": [],
+      "matchPatterns": [
+        "Meeting notes and action items",
+        "Meeting management and facilitation",
+        "Summarize meeting discussions",
+        "**When to build CA instead:** Need custom meeting workflows, need integration with external task systems, need post-meeting automation"
+      ],
+      "cantDo": [],
+      "whenToBuildCA": "Need custom meeting workflows, need integration with external task systems, need post-meeting automation"
+    },
+    {
+      "name": "Interpreter",
+      "tier": 3,
+      "status": "GA",
+      "license": "M365 Copilot",
+      "capabilities": [],
+      "matchPatterns": [
+        "Real-time translation in meetings",
+        "Multi-language meeting support"
+      ],
+      "cantDo": [],
+      "whenToBuildCA": ""
+    },
+    {
+      "name": "Project Manager",
+      "tier": 3,
+      "status": "Public Preview",
+      "license": "M365 Copilot",
+      "capabilities": [],
+      "matchPatterns": [
+        "Create and manage project plans",
+        "Generate project status reports",
+        "Automate task assignment and tracking",
+        "**When to build CA instead:** Need integration with non-Planner PM tools (Jira, Azure DevOps, Asana), need custom project workflows"
+      ],
+      "cantDo": [],
+      "whenToBuildCA": "Need integration with non-Planner PM tools (Jira, Azure DevOps, Asana), need custom project workflows"
+    },
+    {
+      "name": "Employee Self-Service",
+      "tier": 3,
+      "status": "Public Preview",
+      "license": "M365 Copilot",
+      "capabilities": [],
+      "matchPatterns": [
+        "HR self-service (leave, benefits, policies)",
+        "IT self-service (device requests, access)",
+        "**When to build CA instead:** Need integration with specific HR/IT systems (ServiceNow, Workday, SAP SuccessFactors)"
+      ],
+      "cantDo": [],
+      "whenToBuildCA": "Need integration with specific HR/IT systems (ServiceNow, Workday, SAP SuccessFactors)"
+    },
+    {
+      "name": "Skills Agent",
+      "tier": 3,
+      "status": "GA",
+      "license": "M365 Copilot",
+      "capabilities": [],
+      "matchPatterns": [
+        "Find an expert in [topic]",
+        "Who has skills in [area]?"
+      ],
+      "cantDo": [],
+      "whenToBuildCA": ""
+    },
+    {
+      "name": "Sales Development Agent",
+      "tier": 3,
+      "status": "Frontier Preview",
+      "license": "M365 Copilot + Dynamics 365 or Salesforce",
+      "capabilities": [],
+      "matchPatterns": [
+        "Lead qualification and nurturing",
+        "Sales pipeline management",
+        "Automated customer outreach",
+        "**When to build CA instead:** Need custom CRM integration, need custom qualification criteria, non-standard sales process"
+      ],
+      "cantDo": [],
+      "whenToBuildCA": "Need custom CRM integration, need custom qualification criteria, non-standard sales process"
+    },
+    {
+      "name": "Sales Research Agent",
+      "tier": 3,
+      "status": "Public Preview",
+      "license": "Dynamics 365 Sales Premium or Dynamics 365 Sales Enterprise",
+      "capabilities": [],
+      "matchPatterns": [
+        "Research competitor landscape for this opportunity",
+        "Stakeholder intelligence and risk analysis",
+        "Sales data analysis with organizational context",
+        "**When to build CA instead:** Need non-D365 CRM data, need custom research workflows, need real-time pipeline automation"
+      ],
+      "cantDo": [],
+      "whenToBuildCA": "Need non-D365 CRM data, need custom research workflows, need real-time pipeline automation"
+    },
+    {
+      "name": "People Agent",
+      "tier": 3,
+      "status": "Frontier Preview",
+      "license": "M365 Copilot + Frontier program",
+      "capabilities": [],
+      "matchPatterns": [
+        "Prepare me for a meeting with [person]",
+        "What's my interaction history with [person]?",
+        "Find colleagues with [expertise]"
+      ],
+      "cantDo": [],
+      "whenToBuildCA": ""
+    },
+    {
+      "name": "Workforce Insights Agent",
+      "tier": 3,
+      "status": "Frontier Preview",
+      "license": "M365 Copilot + Frontier program",
+      "capabilities": [],
+      "matchPatterns": [
+        "Organizational structure analysis",
+        "Workforce planning and staffing insights"
+      ],
+      "cantDo": [],
+      "whenToBuildCA": ""
+    },
+    {
+      "name": "Learning Agent (Frontier)",
+      "tier": 3,
+      "status": "Frontier Preview (Private Preview)",
+      "license": "M365 Copilot + Frontier program. Optional: Viva Suite / Viva Premium (enables Viva Learning capabilities)",
+      "capabilities": [],
+      "matchPatterns": [
+        "Personalized learning recommendations",
+        "Copilot usage training and tips",
+        "Role-play practice exercises"
+      ],
+      "cantDo": [],
+      "whenToBuildCA": ""
+    },
+    {
+      "name": "Workflows Agent",
+      "tier": 3,
+      "status": "Frontier Early Access (rolling out, US + English only)",
+      "license": "M365 Copilot + Frontier program (currently M365 Personal, Family, Premium)",
+      "capabilities": [],
+      "matchPatterns": [
+        "Automate this recurring task across M365 apps",
+        "Create a workflow triggered by [event]",
+        "Set up an approval process in Teams",
+        "**When to build CA instead:** Need complex multi-system automation, need shared/team workflows, need non-M365 integrations, need production-grade reliability"
+      ],
+      "cantDo": [],
+      "whenToBuildCA": "Need complex multi-system automation, need shared/team workflows, need non-M365 integrations, need production-grade reliability"
+    },
+    {
+      "name": "Agents in Channels",
+      "tier": 3,
+      "status": "Public Preview",
+      "license": "M365 Copilot",
+      "capabilities": [],
+      "matchPatterns": [
+        "What was discussed about [topic] in this channel?",
+        "Summarize recent channel activity"
+      ],
+      "cantDo": [],
+      "whenToBuildCA": ""
+    },
+    {
+      "name": "Agents in Communities",
+      "tier": 3,
+      "status": "Public Preview",
+      "license": "M365 Copilot",
+      "capabilities": [],
+      "matchPatterns": [
+        "Community knowledge base Q&A",
+        "Surface expertise within community"
+      ],
+      "cantDo": [],
+      "whenToBuildCA": ""
+    }
+  ],
+  "patterns": [
+    {
+      "id": "sp-001",
+      "name": "Web Content Extraction",
+      "naive": "HTTP Request connector to fetch URL, pass raw HTML to AI prompt.",
+      "proven": "Dedicated content extraction service that returns clean structured article data. Multiple implementation tiers available.",
+      "matchKeywords": [
+        "Capability mentions extract from web, summarize website, read URL content, or web scraping",
+        "Integration lists HTTP connector with a URL-fetching purpose",
+        "Data flow includes: URL input → content extraction → AI processing",
+        "Customer is replacing a per-site scraping script (BeautifulSoup, Scrapy, Cheerio, etc.)"
+      ],
+      "tags": [
+        "web",
+        "http",
+        "content-extraction",
+        "html",
+        "azure-function",
+        "readability",
+        "jina",
+        "firecrawl"
+      ],
+      "tierCount": 5
+    },
+    {
+      "id": "sp-002",
+      "name": "Document Generation",
+      "naive": "Generate document content inline in the agent response (markdown or plain text), tell user to copy-paste.",
+      "proven": "Power Automate flow with Word Online \"Populate a Microsoft Word template\" action. Agent collects data → triggers flow → flow fills template → returns SharePoint URL.",
+      "matchKeywords": [
+        "Capability mentions generate report, create document, produce PDF, fill template",
+        "Output is a formatted document (not just a text response)",
+        "Document has a consistent structure (template-able)"
+      ],
+      "tags": [
+        "document",
+        "generation",
+        "word",
+        "template",
+        "power-automate",
+        "sharepoint"
+      ],
+      "tierCount": 1
+    },
+    {
+      "id": "sp-003",
+      "name": "Iterating Over N Items",
+      "naive": "Topic YAML with a loop construct or repeated question nodes to process each item.",
+      "proven": "Power Automate flow with \"Apply to each\" action. Agent collects the list → sends to flow → flow iterates and processes → returns aggregated result.",
+      "matchKeywords": [
+        "Capability involves processing a list of items (approvals, tickets, records)",
+        "Data flow includes: for each X, do Y",
+        "Topic design would require repeating the same logic N times",
+        "User says batch, bulk, multiple, all items"
+      ],
+      "tags": [
+        "iteration",
+        "loop",
+        "batch",
+        "power-automate",
+        "apply-to-each"
+      ],
+      "tierCount": 1
+    },
+    {
+      "id": "sp-004",
+      "name": "File Upload in Teams Channel",
+      "naive": "Accept file via topic variable, process directly in the agent.",
+      "proven": "Stage files to SharePoint first, pass the SharePoint URL to the agent. Or use Power Automate flow triggered by file upload to a specific Teams channel/SharePoint folder.",
+      "matchKeywords": [
+        "Capability mentions upload file, attach document, send PDF to agent",
+        "Channel is Teams (web chat file upload works differently)",
+        "Data flow includes: user provides file → agent processes file content"
+      ],
+      "tags": [
+        "file-upload",
+        "teams",
+        "sharepoint",
+        "attachment",
+        "binary"
+      ],
+      "tierCount": 1
+    },
+    {
+      "id": "sp-005",
+      "name": "Complex Data Transformation",
+      "naive": "AI prompt action to transform data (parse CSV, reformat JSON, calculate totals).",
+      "proven": "Code interpreter action (if available) or Azure Function / Power Automate expression for deterministic transformations. Use AI only for unstructured-to-structured (e.g., extract fields from free text).",
+      "matchKeywords": [
+        "Capability requires precise calculations (totals, averages, date math)",
+        "Data flow includes structured format conversion (CSV → JSON, XML → table)",
+        "Output must be deterministic (same input = same output every time)",
+        "Data volume exceeds ~50 rows or ~2000 tokens"
+      ],
+      "tags": [
+        "transformation",
+        "calculation",
+        "csv",
+        "json",
+        "code-interpreter",
+        "azure-function"
+      ],
+      "tierCount": 1
+    },
+    {
+      "id": "sp-006",
+      "name": "Scheduled Batch Processing",
+      "naive": "MCS scheduled trigger (Recurrence) to process batches of records at intervals.",
+      "proven": "Power Automate scheduled flow handles the batch. Agent is invoked only for human-in-the-loop decisions or to report results.",
+      "matchKeywords": [
+        "Capability mentions daily report, weekly sync, scheduled cleanup, batch update",
+        "Processing is headless (no user interaction during processing)",
+        "Data flow: timer → query records → process each → report/store results"
+      ],
+      "tags": [
+        "scheduled",
+        "batch",
+        "recurrence",
+        "power-automate",
+        "headless"
+      ],
+      "tierCount": 1
+    },
+    {
+      "id": "sp-007",
+      "name": "Multi-System Orchestration",
+      "naive": "Sequential MCP server or connector calls within a single topic, relying on generative orchestration to chain them.",
+      "proven": "Power Automate flow with explicit action ordering, error handling per step, and transaction compensation. Agent sends the request → flow orchestrates → returns result.",
+      "matchKeywords": [
+        "Capability requires data from 2+ different systems in a specific order",
+        "Data from system A is needed as input to system B",
+        "Any step failure should prevent subsequent steps (transactional)",
+        "Cross-system field mapping is needed"
+      ],
+      "tags": [
+        "orchestration",
+        "multi-system",
+        "transaction",
+        "power-automate",
+        "chaining"
+      ],
+      "tierCount": 1
+    },
+    {
+      "id": "sp-008",
+      "name": "API with Complex Auth",
+      "naive": "HTTP Request action with auth headers (API key, OAuth token) configured in topic YAML or connector.",
+      "proven": "Custom connector with proper auth configuration, or Azure Function as auth proxy. Auth complexity lives outside the agent.",
+      "matchKeywords": [
+        "Integration requires OAuth2 (authorization code, client credentials, or PKCE)",
+        "API uses certificate-based authentication",
+        "API requires multi-step token exchange",
+        "Integration mentions SSO, delegated permissions, or service account"
+      ],
+      "tags": [
+        "auth",
+        "oauth",
+        "custom-connector",
+        "azure-function",
+        "security"
+      ],
+      "tierCount": 1
+    },
+    {
+      "id": "sp-009",
+      "name": "Large Dataset Processing",
+      "naive": "Connector query action that returns all records, process in topic.",
+      "proven": "Power Automate flow with pagination enabled, server-side filtering, and aggregation. Agent sends query parameters → flow handles pagination + processing → returns summary.",
+      "matchKeywords": [
+        "Data source has 500+ records that match the query",
+        "Capability mentions all records, full report, complete list, export",
+        "Query needs aggregation (count, sum, average) across many records",
+        "User expects a summary, not raw record listing"
+      ],
+      "tags": [
+        "large-dataset",
+        "pagination",
+        "aggregation",
+        "power-automate",
+        "performance"
+      ],
+      "tierCount": 1
+    },
+    {
+      "id": "sp-010",
+      "name": "Real-Time Notifications",
+      "naive": "Agent polls a data source on schedule to detect changes, then notifies users.",
+      "proven": "Power Automate event-triggered flow detects the change → sends proactive message or adaptive card to Teams. Agent handles follow-up conversation.",
+      "matchKeywords": [
+        "Capability mentions alert, notify, real-time, when X happens",
+        "Trigger is an external event (new record, status change, email received)",
+        "User expects notification without asking the agent first"
+      ],
+      "tags": [
+        "notifications",
+        "real-time",
+        "event-driven",
+        "power-automate",
+        "proactive"
+      ],
+      "tierCount": 1
+    }
+  ],
+  "scoring": {
+    "solutionType": {
+      "factors": [
+        {
+          "id": 1,
+          "name": "Conversational Need",
+          "agent": "Users need dialogue, explanation, back-and-forth",
+          "simpler": "Data moved/transformed/displayed — dashboard or form suffices"
+        },
+        {
+          "id": 2,
+          "name": "Interaction Pattern",
+          "agent": "Reactive with AI judgment, 40%+ need interpretation",
+          "simpler": "Procedural: event → pipeline of deterministic steps"
+        },
+        {
+          "id": 3,
+          "name": "Capability Distribution",
+          "agent": "50%+ are prompt/topic/knowledge",
+          "simpler": "50%+ are flow/tool with deterministic I/O"
+        },
+        {
+          "id": 4,
+          "name": "User Value of Natural Language",
+          "agent": "Ambiguous queries, contextual follow-ups, broad audience",
+          "simpler": "Structured UI (form, button, list) works equally well"
+        },
+        {
+          "id": 5,
+          "name": "MCS Feasibility",
+          "agent": "Response <30s, data within limits, connectors exist",
+          "simpler": "Sub-second, bulk records, multi-system transactions, batch"
+        }
+      ],
+      "thresholds": {
+        "agent": "4-5",
+        "hybrid": "3",
+        "flow": "1-2",
+        "notRecommended": "0"
+      }
+    },
+    "architecture": {
+      "factors": [
+        {
+          "id": 1,
+          "name": "Domain",
+          "single": "All tasks same domain",
+          "multi": "Truly separate domains"
+        },
+        {
+          "id": 2,
+          "name": "Data sources",
+          "single": "Shared data across capabilities",
+          "multi": "Different systems per capability"
+        },
+        {
+          "id": 3,
+          "name": "Team ownership",
+          "single": "Same team owns everything",
+          "multi": "Different teams own parts"
+        },
+        {
+          "id": 4,
+          "name": "Reusability",
+          "single": "One-off agent",
+          "multi": "Specialists reusable by other orchestrators"
+        },
+        {
+          "id": 5,
+          "name": "Instruction size",
+          "single": "Fits in 8000 chars",
+          "multi": "Would exceed 8000 chars"
+        },
+        {
+          "id": 6,
+          "name": "Knowledge isolation",
+          "single": "Same knowledge base",
+          "multi": "Each needs own deep knowledge"
+        }
+      ],
+      "thresholds": {
+        "single": "0-2",
+        "multi": "3+"
+      }
+    },
+    "componentPriority": [
+      {
+        "tier": 1,
+        "source": "MCS Built-In",
+        "examples": "MCP servers, native knowledge, generative orchestration",
+        "research": "cache only"
+      },
+      {
+        "tier": 2,
+        "source": "Power Platform",
+        "examples": "Power Automate, Dataverse, custom connectors",
+        "research": "cache only"
+      },
+      {
+        "tier": 3,
+        "source": "Azure Services",
+        "examples": "Functions, AI, Storage",
+        "research": "cache + quick verify"
+      },
+      {
+        "tier": 4,
+        "source": "M365 Connectors",
+        "examples": "SharePoint, Outlook, Teams (standard)",
+        "research": "cache only"
+      },
+      {
+        "tier": 5,
+        "source": "Certified Premium",
+        "examples": "Dynamics 365, ServiceNow, Salesforce",
+        "research": "cache + verify"
+      },
+      {
+        "tier": 6,
+        "source": "Third-Party/Custom",
+        "examples": "Custom MCP, HTTP, community tools",
+        "research": "full live research"
+      }
+    ],
+    "buildPath": {
+      "rules": [
+        {
+          "path": "first-party-only",
+          "condition": "All capabilities matched by first-party agents"
+        },
+        {
+          "path": "declarative-agent",
+          "condition": "Config-only (instructions + knowledge + tools), no custom topics, no storage, no custom auth, single-agent, hosted in M365 Copilot"
+        },
+        {
+          "path": "custom-agent",
+          "condition": "Custom topics, storage, complex auth, multi-agent, or features DA can't handle"
+        }
+      ],
+      "daDisqualifiers": [
+        "Requires persistent storage (Dataverse writes)",
+        "Requires custom OAuth/auth flow",
+        "Multi-agent architecture",
+        "Custom topic with complex branching",
+        "Event triggers (autonomous)",
+        "Channel other than M365 Copilot/Teams"
+      ]
+    }
+  },
+  "evalScenarios": {
+    "version": "1.0",
+    "source": "https://github.com/serenaxxiee/copilot-studio-eval-scenario-library",
+    "description": "Copilot Studio Eval Scenario Library — 74 scenarios across 13 categories",
+    "coverageTargets": {
+      "core-business": {
+        "min": 30,
+        "max": 40,
+        "description": "Core business use case tests"
+      },
+      "variations": {
+        "min": 20,
+        "max": 30,
+        "description": "Input variations and edge cases"
+      },
+      "architecture": {
+        "min": 20,
+        "max": 30,
+        "description": "Architecture and infrastructure tests"
+      },
+      "edge-cases": {
+        "min": 10,
+        "max": 20,
+        "description": "Edge cases and adversarial tests"
+      }
+    },
+    "suggestedThresholds": {
+      "overall": 85,
+      "core": 90,
+      "boundaries": 95,
+      "edge": 70
+    },
+    "agentTypeRouting": {
+      "knowledge-answering": [
+        "BP-IR",
+        "CAP-KG",
+        "CAP-CV"
+      ],
+      "task-execution": [
+        "BP-RS",
+        "CAP-TI",
+        "CAP-SB"
+      ],
+      "diagnostic-guidance": [
+        "BP-TS",
+        "CAP-KG",
+        "CAP-GF"
+      ],
+      "multi-step-process": [
+        "BP-PN",
+        "CAP-TR",
+        "CAP-TQ"
+      ],
+      "multi-topic-routing": [
+        "BP-TR",
+        "CAP-TR",
+        "CAP-GF"
+      ],
+      "external-customer-service": [
+        "CAP-TQ",
+        "CAP-SB",
+        "CAP-CV"
+      ],
+      "sensitive-data": [
+        "CAP-SB",
+        "CAP-CV"
+      ],
+      "pre-release-regression": [
+        "CAP-RT"
+      ]
+    },
+    "categories": [
+      {
+        "id": "BP-IR",
+        "name": "Information Retrieval & Policy Q&A",
+        "type": "business-problem",
+        "qualityCategory": "Business Scenario Quality",
+        "file": "business-problem/information-retrieval.md",
+        "scenarioCount": 6,
+        "applicableWhen": "Agent answers questions from knowledge sources (SharePoint, files, websites)"
+      },
+      {
+        "id": "BP-TS",
+        "name": "Troubleshooting & Guided Diagnosis",
+        "type": "business-problem",
+        "qualityCategory": "Business Scenario Quality",
+        "file": "business-problem/troubleshooting.md",
+        "scenarioCount": 6,
+        "applicableWhen": "Agent walks users through diagnostic steps or resolution paths"
+      },
+      {
+        "id": "BP-RS",
+        "name": "Request Submission & Task Execution",
+        "type": "business-problem",
+        "qualityCategory": "Business Scenario Quality",
+        "file": "business-problem/request-submission.md",
+        "scenarioCount": 6,
+        "applicableWhen": "Agent collects data and submits requests via tools/connectors"
+      },
+      {
+        "id": "BP-PN",
+        "name": "Process Navigation & Multi-Step Guidance",
+        "type": "business-problem",
+        "qualityCategory": "Business Scenario Quality",
+        "file": "business-problem/process-navigation.md",
+        "scenarioCount": 6,
+        "applicableWhen": "Agent guides users through multi-step business processes"
+      },
+      {
+        "id": "BP-TR",
+        "name": "Triage & Routing",
+        "type": "business-problem",
+        "qualityCategory": "Business Scenario Quality",
+        "file": "business-problem/triage-routing.md",
+        "scenarioCount": 5,
+        "applicableWhen": "Agent classifies requests and routes to appropriate teams or child agents"
+      },
+      {
+        "id": "CAP-KG",
+        "name": "Knowledge Grounding & Accuracy",
+        "type": "capability",
+        "qualityCategory": "Architecture",
+        "file": "capability/knowledge-grounding.md",
+        "scenarioCount": 6,
+        "applicableWhen": "Agent uses knowledge sources (SharePoint, files, Dataverse)"
+      },
+      {
+        "id": "CAP-TI",
+        "name": "Tool & Connector Invocations",
+        "type": "capability",
+        "qualityCategory": "Architecture",
+        "file": "capability/tool-invocations.md",
+        "scenarioCount": 6,
+        "applicableWhen": "Agent calls external tools, connectors, or Power Automate flows"
+      },
+      {
+        "id": "CAP-TR",
+        "name": "Trigger Routing",
+        "type": "capability",
+        "qualityCategory": "Architecture",
+        "file": "capability/trigger-routing.md",
+        "scenarioCount": 5,
+        "applicableWhen": "Agent routes to different topics based on user intent"
+      },
+      {
+        "id": "CAP-CV",
+        "name": "Compliance & Verbatim Content",
+        "type": "capability",
+        "qualityCategory": "Compliance & Safety",
+        "file": "capability/compliance.md",
+        "scenarioCount": 6,
+        "applicableWhen": "Agent must provide exact regulatory text, disclaimers, or policy content"
+      },
+      {
+        "id": "CAP-SB",
+        "name": "Safety & Boundary Enforcement",
+        "type": "capability",
+        "qualityCategory": "Compliance & Safety",
+        "file": "capability/safety-boundary.md",
+        "scenarioCount": 6,
+        "applicableWhen": "Agent has defined handle/decline/refuse boundaries"
+      },
+      {
+        "id": "CAP-TQ",
+        "name": "Tone, Helpfulness & Response Quality",
+        "type": "capability",
+        "qualityCategory": "Subjective Preferences",
+        "file": "capability/tone-quality.md",
+        "scenarioCount": 6,
+        "applicableWhen": "Agent has defined persona, tone, or response format requirements"
+      },
+      {
+        "id": "CAP-GF",
+        "name": "Graceful Failure & Escalation",
+        "type": "capability",
+        "qualityCategory": "Architecture + Edge Cases",
+        "file": "capability/graceful-failure.md",
+        "scenarioCount": 5,
+        "applicableWhen": "Agent needs to handle errors, unknowns, and escalation paths"
+      },
+      {
+        "id": "CAP-RT",
+        "name": "Regression Testing",
+        "type": "capability",
+        "qualityCategory": "Cross-Cutting",
+        "file": "capability/regression.md",
+        "scenarioCount": 5,
+        "applicableWhen": "Agent is being updated and needs cross-capability regression checks"
+      }
+    ],
+    "scenarios": [
+      {
+        "id": "BP-IR-01",
+        "name": "Verifying Policy Answer Accuracy",
+        "category": "BP-IR",
+        "qualityCategory": "Business Scenario Quality",
+        "coverageTag": "core-business"
+      },
+      {
+        "id": "BP-IR-02",
+        "name": "Testing Answer Personalization by User Context",
+        "category": "BP-IR",
+        "qualityCategory": "Business Scenario Quality",
+        "coverageTag": "variations"
+      },
+      {
+        "id": "BP-IR-03",
+        "name": "Validating Source Attribution",
+        "category": "BP-IR",
+        "qualityCategory": "Business Scenario Quality",
+        "coverageTag": "core-business"
+      },
+      {
+        "id": "BP-IR-04",
+        "name": "Testing Answer Currency",
+        "category": "BP-IR",
+        "qualityCategory": "Business Scenario Quality",
+        "coverageTag": "variations"
+      },
+      {
+        "id": "BP-IR-05",
+        "name": "Handling Ambiguous or Broad Queries",
+        "category": "BP-IR",
+        "qualityCategory": "Business Scenario Quality",
+        "coverageTag": "variations"
+      },
+      {
+        "id": "BP-IR-06",
+        "name": "Negative Test: Incorrect Source Retrieval",
+        "category": "BP-IR",
+        "qualityCategory": "Business Scenario Quality",
+        "coverageTag": "edge-cases"
+      },
+      {
+        "id": "BP-TS-01",
+        "name": "Verifying Diagnostic Step Accuracy",
+        "category": "BP-TS",
+        "qualityCategory": "Business Scenario Quality",
+        "coverageTag": "core-business"
+      },
+      {
+        "id": "BP-TS-02",
+        "name": "Testing Platform-Aware Troubleshooting",
+        "category": "BP-TS",
+        "qualityCategory": "Business Scenario Quality",
+        "coverageTag": "variations"
+      },
+      {
+        "id": "BP-TS-03",
+        "name": "Validating Escalation Judgment",
+        "category": "BP-TS",
+        "qualityCategory": "Business Scenario Quality",
+        "coverageTag": "core-business"
+      },
+      {
+        "id": "BP-TS-04",
+        "name": "Testing Multi-Step Diagnosis Completeness",
+        "category": "BP-TS",
+        "qualityCategory": "Business Scenario Quality",
+        "coverageTag": "core-business"
+      },
+      {
+        "id": "BP-TS-05",
+        "name": "Handling Intermittent or Unreproducible Issues",
+        "category": "BP-TS",
+        "qualityCategory": "Business Scenario Quality",
+        "coverageTag": "variations"
+      },
+      {
+        "id": "BP-TS-06",
+        "name": "Negative Test: Incorrect Diagnosis Path",
+        "category": "BP-TS",
+        "qualityCategory": "Business Scenario Quality",
+        "coverageTag": "edge-cases"
+      },
+      {
+        "id": "BP-RS-01",
+        "name": "Verifying Request Execution Accuracy",
+        "category": "BP-RS",
+        "qualityCategory": "Business Scenario Quality",
+        "coverageTag": "core-business"
+      },
+      {
+        "id": "BP-RS-02",
+        "name": "Testing Confirmation and Acknowledgment",
+        "category": "BP-RS",
+        "qualityCategory": "Business Scenario Quality",
+        "coverageTag": "core-business"
+      },
+      {
+        "id": "BP-RS-03",
+        "name": "Validating Error Handling During Submission",
+        "category": "BP-RS",
+        "qualityCategory": "Business Scenario Quality",
+        "coverageTag": "architecture"
+      },
+      {
+        "id": "BP-RS-04",
+        "name": "Testing Partial Completion Scenarios",
+        "category": "BP-RS",
+        "qualityCategory": "Business Scenario Quality",
+        "coverageTag": "architecture"
+      },
+      {
+        "id": "BP-RS-05",
+        "name": "Verifying Authorization and Permission Checks",
+        "category": "BP-RS",
+        "qualityCategory": "Business Scenario Quality",
+        "coverageTag": "architecture"
+      },
+      {
+        "id": "BP-RS-06",
+        "name": "Negative Test: Unauthorized Action Prevention",
+        "category": "BP-RS",
+        "qualityCategory": "Business Scenario Quality",
+        "coverageTag": "edge-cases"
+      },
+      {
+        "id": "BP-PN-01",
+        "name": "Verifying Step Sequence Accuracy",
+        "category": "BP-PN",
+        "qualityCategory": "Business Scenario Quality",
+        "coverageTag": "core-business"
+      },
+      {
+        "id": "BP-PN-02",
+        "name": "Testing Role-Aware Guidance",
+        "category": "BP-PN",
+        "qualityCategory": "Business Scenario Quality",
+        "coverageTag": "variations"
+      },
+      {
+        "id": "BP-PN-03",
+        "name": "Validating Completeness of Guidance",
+        "category": "BP-PN",
+        "qualityCategory": "Business Scenario Quality",
+        "coverageTag": "core-business"
+      },
+      {
+        "id": "BP-PN-04",
+        "name": "Testing Branching Paths",
+        "category": "BP-PN",
+        "qualityCategory": "Business Scenario Quality",
+        "coverageTag": "variations"
+      },
+      {
+        "id": "BP-PN-05",
+        "name": "Handling Mid-Process Questions",
+        "category": "BP-PN",
+        "qualityCategory": "Business Scenario Quality",
+        "coverageTag": "variations"
+      },
+      {
+        "id": "BP-PN-06",
+        "name": "Negative Test: Incorrect Step Order",
+        "category": "BP-PN",
+        "qualityCategory": "Business Scenario Quality",
+        "coverageTag": "edge-cases"
+      },
+      {
+        "id": "BP-TR-01",
+        "name": "Verifying Classification Accuracy",
+        "category": "BP-TR",
+        "qualityCategory": "Business Scenario Quality",
+        "coverageTag": "core-business"
+      },
+      {
+        "id": "BP-TR-02",
+        "name": "Testing Context Preservation During Handoff",
+        "category": "BP-TR",
+        "qualityCategory": "Business Scenario Quality",
+        "coverageTag": "architecture"
+      },
+      {
+        "id": "BP-TR-03",
+        "name": "Validating Priority Assignment",
+        "category": "BP-TR",
+        "qualityCategory": "Business Scenario Quality",
+        "coverageTag": "core-business"
+      },
+      {
+        "id": "BP-TR-04",
+        "name": "Handling Ambiguous Triage Scenarios",
+        "category": "BP-TR",
+        "qualityCategory": "Business Scenario Quality",
+        "coverageTag": "variations"
+      },
+      {
+        "id": "BP-TR-05",
+        "name": "Negative Test: Misrouted Request",
+        "category": "BP-TR",
+        "qualityCategory": "Business Scenario Quality",
+        "coverageTag": "edge-cases"
+      },
+      {
+        "id": "CAP-KG-01",
+        "name": "Verifying Retrieval from Correct Sources",
+        "category": "CAP-KG",
+        "qualityCategory": "Architecture",
+        "coverageTag": "core-business"
+      },
+      {
+        "id": "CAP-KG-02",
+        "name": "Testing Handling of Missing Sources",
+        "category": "CAP-KG",
+        "qualityCategory": "Architecture",
+        "coverageTag": "architecture"
+      },
+      {
+        "id": "CAP-KG-03",
+        "name": "Validating Behavior with Conflicting Sources",
+        "category": "CAP-KG",
+        "qualityCategory": "Architecture",
+        "coverageTag": "architecture"
+      },
+      {
+        "id": "CAP-KG-04",
+        "name": "Testing Hallucination Prevention",
+        "category": "CAP-KG",
+        "qualityCategory": "Architecture",
+        "coverageTag": "core-business"
+      },
+      {
+        "id": "CAP-KG-05",
+        "name": "Verifying Multi-Source Synthesis",
+        "category": "CAP-KG",
+        "qualityCategory": "Architecture",
+        "coverageTag": "variations"
+      },
+      {
+        "id": "CAP-KG-06",
+        "name": "Negative Test: Ungrounded Claims",
+        "category": "CAP-KG",
+        "qualityCategory": "Architecture",
+        "coverageTag": "edge-cases"
+      },
+      {
+        "id": "CAP-TI-01",
+        "name": "Verifying Tool Invocation",
+        "category": "CAP-TI",
+        "qualityCategory": "Architecture",
+        "coverageTag": "core-business"
+      },
+      {
+        "id": "CAP-TI-02",
+        "name": "Negative Test: Tool Should NOT Be Called",
+        "category": "CAP-TI",
+        "qualityCategory": "Architecture",
+        "coverageTag": "edge-cases"
+      },
+      {
+        "id": "CAP-TI-03",
+        "name": "Verifying Input Collection",
+        "category": "CAP-TI",
+        "qualityCategory": "Architecture",
+        "coverageTag": "core-business"
+      },
+      {
+        "id": "CAP-TI-04",
+        "name": "Verifying Tool Output in Response",
+        "category": "CAP-TI",
+        "qualityCategory": "Architecture",
+        "coverageTag": "core-business"
+      },
+      {
+        "id": "CAP-TI-05",
+        "name": "Testing Error Handling on Tool Failure",
+        "category": "CAP-TI",
+        "qualityCategory": "Architecture",
+        "coverageTag": "architecture"
+      },
+      {
+        "id": "CAP-TI-06",
+        "name": "Verifying Multi-Tool Orchestration",
+        "category": "CAP-TI",
+        "qualityCategory": "Architecture",
+        "coverageTag": "architecture"
+      },
+      {
+        "id": "CAP-TR-01",
+        "name": "Verifying Direct Topic Match",
+        "category": "CAP-TR",
+        "qualityCategory": "Architecture",
+        "coverageTag": "core-business"
+      },
+      {
+        "id": "CAP-TR-02",
+        "name": "Testing Disambiguation Between Similar Topics",
+        "category": "CAP-TR",
+        "qualityCategory": "Architecture",
+        "coverageTag": "variations"
+      },
+      {
+        "id": "CAP-TR-03",
+        "name": "Validating Fallback/Default Routing",
+        "category": "CAP-TR",
+        "qualityCategory": "Architecture",
+        "coverageTag": "architecture"
+      },
+      {
+        "id": "CAP-TR-04",
+        "name": "Testing Topic Handoff",
+        "category": "CAP-TR",
+        "qualityCategory": "Architecture",
+        "coverageTag": "variations"
+      },
+      {
+        "id": "CAP-TR-05",
+        "name": "Negative Test: Incorrect Topic Triggered",
+        "category": "CAP-TR",
+        "qualityCategory": "Architecture",
+        "coverageTag": "edge-cases"
+      },
+      {
+        "id": "CAP-CV-01",
+        "name": "Verifying Required Disclaimer Inclusion",
+        "category": "CAP-CV",
+        "qualityCategory": "Compliance & Safety",
+        "coverageTag": "core-business"
+      },
+      {
+        "id": "CAP-CV-02",
+        "name": "Testing Verbatim Policy Language",
+        "category": "CAP-CV",
+        "qualityCategory": "Compliance & Safety",
+        "coverageTag": "core-business"
+      },
+      {
+        "id": "CAP-CV-03",
+        "name": "Validating Mandatory Warning Presence",
+        "category": "CAP-CV",
+        "qualityCategory": "Compliance & Safety",
+        "coverageTag": "core-business"
+      },
+      {
+        "id": "CAP-CV-04",
+        "name": "Testing Regulatory Compliance Language",
+        "category": "CAP-CV",
+        "qualityCategory": "Compliance & Safety",
+        "coverageTag": "architecture"
+      },
+      {
+        "id": "CAP-CV-05",
+        "name": "Verifying Conditional Compliance",
+        "category": "CAP-CV",
+        "qualityCategory": "Compliance & Safety",
+        "coverageTag": "variations"
+      },
+      {
+        "id": "CAP-CV-06",
+        "name": "Negative Test: Prohibited Content",
+        "category": "CAP-CV",
+        "qualityCategory": "Compliance & Safety",
+        "coverageTag": "edge-cases"
+      },
+      {
+        "id": "CAP-SB-01",
+        "name": "Testing PII Protection",
+        "category": "CAP-SB",
+        "qualityCategory": "Compliance & Safety",
+        "coverageTag": "core-business"
+      },
+      {
+        "id": "CAP-SB-02",
+        "name": "Verifying Adversarial Input Resistance",
+        "category": "CAP-SB",
+        "qualityCategory": "Compliance & Safety",
+        "coverageTag": "architecture"
+      },
+      {
+        "id": "CAP-SB-03",
+        "name": "Testing Scope Boundary Enforcement",
+        "category": "CAP-SB",
+        "qualityCategory": "Compliance & Safety",
+        "coverageTag": "core-business"
+      },
+      {
+        "id": "CAP-SB-04",
+        "name": "Validating Data Leakage Prevention",
+        "category": "CAP-SB",
+        "qualityCategory": "Compliance & Safety",
+        "coverageTag": "architecture"
+      },
+      {
+        "id": "CAP-SB-05",
+        "name": "Testing Prompt Injection Resistance",
+        "category": "CAP-SB",
+        "qualityCategory": "Compliance & Safety",
+        "coverageTag": "architecture"
+      },
+      {
+        "id": "CAP-SB-06",
+        "name": "Negative Test: Out-of-Scope Response",
+        "category": "CAP-SB",
+        "qualityCategory": "Compliance & Safety",
+        "coverageTag": "edge-cases"
+      },
+      {
+        "id": "CAP-TQ-01",
+        "name": "Evaluating Response Clarity and Structure",
+        "category": "CAP-TQ",
+        "qualityCategory": "Subjective Preferences",
+        "coverageTag": "core-business"
+      },
+      {
+        "id": "CAP-TQ-02",
+        "name": "Testing Empathy in Sensitive Contexts",
+        "category": "CAP-TQ",
+        "qualityCategory": "Subjective Preferences",
+        "coverageTag": "core-business"
+      },
+      {
+        "id": "CAP-TQ-03",
+        "name": "Validating Appropriate Formality Level",
+        "category": "CAP-TQ",
+        "qualityCategory": "Subjective Preferences",
+        "coverageTag": "variations"
+      },
+      {
+        "id": "CAP-TQ-04",
+        "name": "Testing Completeness of Responses",
+        "category": "CAP-TQ",
+        "qualityCategory": "Subjective Preferences",
+        "coverageTag": "core-business"
+      },
+      {
+        "id": "CAP-TQ-05",
+        "name": "Evaluating Conciseness vs. Thoroughness Balance",
+        "category": "CAP-TQ",
+        "qualityCategory": "Subjective Preferences",
+        "coverageTag": "variations"
+      },
+      {
+        "id": "CAP-TQ-06",
+        "name": "Testing Consistency Across Conversation Turns",
+        "category": "CAP-TQ",
+        "qualityCategory": "Subjective Preferences",
+        "coverageTag": "variations"
+      },
+      {
+        "id": "CAP-GF-01",
+        "name": "Testing Appropriate Acknowledgment of Limitations",
+        "category": "CAP-GF",
+        "qualityCategory": "Architecture + Edge Cases",
+        "coverageTag": "core-business"
+      },
+      {
+        "id": "CAP-GF-02",
+        "name": "Verifying Human Handoff Triggers",
+        "category": "CAP-GF",
+        "qualityCategory": "Architecture + Edge Cases",
+        "coverageTag": "architecture"
+      },
+      {
+        "id": "CAP-GF-03",
+        "name": "Validating Escalation Context Preservation",
+        "category": "CAP-GF",
+        "qualityCategory": "Architecture + Edge Cases",
+        "coverageTag": "architecture"
+      },
+      {
+        "id": "CAP-GF-04",
+        "name": "Testing Graceful Degradation Under Uncertainty",
+        "category": "CAP-GF",
+        "qualityCategory": "Architecture + Edge Cases",
+        "coverageTag": "variations"
+      },
+      {
+        "id": "CAP-GF-05",
+        "name": "Negative Test: Agent Should Not Escalate",
+        "category": "CAP-GF",
+        "qualityCategory": "Architecture + Edge Cases",
+        "coverageTag": "edge-cases"
+      },
+      {
+        "id": "CAP-RT-01",
+        "name": "Baseline Comparison After Knowledge Source Updates",
+        "category": "CAP-RT",
+        "qualityCategory": "Cross-Cutting",
+        "coverageTag": "architecture"
+      },
+      {
+        "id": "CAP-RT-02",
+        "name": "Regression Check After Topic or Flow Changes",
+        "category": "CAP-RT",
+        "qualityCategory": "Cross-Cutting",
+        "coverageTag": "architecture"
+      },
+      {
+        "id": "CAP-RT-03",
+        "name": "Regression Check After Tool Configuration Changes",
+        "category": "CAP-RT",
+        "qualityCategory": "Cross-Cutting",
+        "coverageTag": "architecture"
+      },
+      {
+        "id": "CAP-RT-04",
+        "name": "Full-Suite Regression Before Publishing",
+        "category": "CAP-RT",
+        "qualityCategory": "Cross-Cutting",
+        "coverageTag": "core-business"
+      },
+      {
+        "id": "CAP-RT-05",
+        "name": "Targeted Regression for Specific Capability",
+        "category": "CAP-RT",
+        "qualityCategory": "Cross-Cutting",
+        "coverageTag": "variations"
+      }
+    ]
+  },
+  "cheatSheet": "# MCS Component Quick Reference (for wizard context)\n\n## Triggers\nConversational: OnConversationStart, OnRecognizedIntent, OnUnknownIntent, OnMessageActivity, OnSystemRedirect\nEvent (autonomous): SharePoint, OneDrive, Dataverse, Recurrence, Planner, Email, Custom connectors\nAdvanced: OnPlanComplete, OnGeneratedResponse, OnKnowledgeRequested (custom knowledge)\n\n## Channels\nAvailable: Microsoft Teams + M365 Copilot, SharePoint, Power Pages, Demo Website, Custom Website (iframe), Custom canvas (Web SDK), Mobile app (Client SDK), Outlook (via M365 Copilot), WhatsApp, Facebook Messenger, Direct Line, Telephony (voice)\nDefault for internal: Teams + M365 Copilot. External: Custom website/WhatsApp.\n\n## MCP Servers (prefer over connectors)\nGA: Microsoft Dataverse, Dynamics 365 Business Central, Fin & Ops Apps (Dynamics 365), Office 365 Outlook -- Contact Management, Office 365 Outlook -- Email Management, Office 365 Outlook -- Meeting Management, Microsoft Learn Docs MCP, GitHub, ICM MCP, Process Mining\nPreview: Dynamics 365 Sales MCP Server, Dynamics 365 ERP Analytics MCP, Dynamics 365 Service MCP, D365 Contact Center Admin MCP, Fabric MCP, Box MCP Server, Gieni TS Server MCP, Power Apps MCP Server, Work IQ Mail, Work IQ User\n\n## Key Connectors\nM365: SharePoint, Outlook, Teams, OneDrive, Planner, Excel Online (all standard)\nData: Dataverse (MCP preferred), SQL Server (premium), HTTP (premium), Azure Blob (premium)\nThird-party: Salesforce, ServiceNow, Jira, Confluence, Zendesk, Snowflake (all premium)\nRule: If connector has MCP server, prefer the MCP server.\n\n## Knowledge Sources\nCore: Public websites (25 URLs), Uploaded files (unlimited), SharePoint (25 URLs), Dataverse (unlimited), Enterprise data/Copilot connectors, Azure AI Search, Custom (OnKnowledgeRequested)\nUnstructured: Salesforce, ServiceNow, Confluence, Zendesk (sync every 4-6h)\nReal-time (preview): Salesforce, ServiceNow, Azure SQL, Snowflake, Databricks, Oracle, SAP, Google Sheets\nLimits: 500 knowledge objects/agent, 25 source limit for gen orchestration (uploaded files exempt), 5 source types max\n\n## Models\nDefault: GPT-4.1 (GA, all regions). Best general: GPT-5 Chat (GA). Deep reasoning: GPT-5 Reasoning (Preview) or Claude Opus 4.6 (GA).\nAnthropic: Claude Sonnet 4.5/4.6 (GA), Claude Opus 4.6 (GA). All cross-geo.\nAuto-routing: GPT-5 Auto (Preview). Cost-effective: GPT-4.1 mini (prompt builder only).\n\n## First-Party Agents (recommend before building)\n- Researcher (Tier 1, GA (July 2025)): Research [topic] and summarize findings; Analyze competitor landscape\n- Analyst (Tier 1, GA (July 2025)): Analyze this data and find trends; Create charts/visualizations from spreadsheet\n- Word Agent (Tier 2, GA (rolling out 2026)): Generate a [report/proposal/memo] document; Draft a [policy/procedure/guide] based on [context]\n- Excel Agent (Tier 2, GA (rolling out 2026)): Create a spreadsheet tracking [items]; Build a budget/forecast template\n- PowerPoint Agent (Tier 2, GA (rolling out 2026)): Create a presentation about [topic]; Build a slide deck for [meeting/audience]\n- Writing Coach (Tier 3, GA): Review and improve my writing; Adjust tone of this document\n- Prompt Coach (Tier 3, GA): Help me write better prompts; Optimize my Copilot queries\n- Idea Coach (Tier 3, GA): Brainstorm ideas for [project]; Help me plan [initiative]\n\n## Solution Patterns (avoid naive approaches)\n- sp-001 Web Content Extraction: Dedicated content extraction service that returns clean structured article data.\n- sp-002 Document Generation: Power Automate flow with Word Online \"Populate a Microsoft Word template\" action\n- sp-003 Iterating Over N Items: Power Automate flow with \"Apply to each\" action. Agent collects the list → sends\n- sp-004 File Upload in Teams Channel: Stage files to SharePoint first, pass the SharePoint URL to the agent. Or use Po\n- sp-005 Complex Data Transformation: Code interpreter action (if available) or Azure Function / Power Automate expres\n- sp-006 Scheduled Batch Processing: Power Automate scheduled flow handles the batch. Agent is invoked only for human\n- sp-007 Multi-System Orchestration: Power Automate flow with explicit action ordering, error handling per step, and \n- sp-008 API with Complex Auth: Custom connector with proper auth configuration, or Azure Function as auth proxy\n\n## Architecture Decisions\nSolution type: 5-factor score (0=not-recommended, 1-2=flow, 3=hybrid, 4-5=agent)\nArchitecture: 6-factor score (0-2=single-agent, 3+=multi-agent)\nBuild path: first-party-only → declarative-agent → custom-agent\nComponent priority: MCS built-in > Power Platform > Azure > M365 > Premium > Third-party"
+}

@@ -24,7 +24,7 @@ This is a customer-shareable deliverable. Write it in clear, professional langua
 
 ## 2. Architecture
 
-**Type:** [Single Agent | Multi-Agent with N specialists]
+**Type:** [Single Agent | Single Agent with Connected Agents | Multi-Agent with N specialists]
 **Model:** [model name] ([GA | Preview])
 **Rationale:** [Why this architecture and model were chosen — 2-3 sentences]
 
@@ -34,6 +34,15 @@ This is a customer-shareable deliverable. Write it in clear, professional langua
 | [Orchestrator name] | Routes to specialists | Published |
 | [Specialist 1] | [domain] | Published |
 | [Specialist 2] | [domain] | Published |
+
+[If connected agents exist (single-agent-with-connected-agents), list them:]
+### Connected Agents (External)
+| Agent | Source | Role | Status |
+|-------|--------|------|--------|
+| [Connected agent name] | [e.g., Microsoft Fabric Data Agent] | [what it handles] | [needs-setup / connected] |
+
+[For each connected agent with a data pipeline:]
+**[Agent name] — Data Pipeline:** [source] → [ingestion method] → [destination] (Refresh: [cadence])
 
 ---
 

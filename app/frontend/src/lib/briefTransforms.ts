@@ -9,7 +9,7 @@
  * doesn't display are never lost.
  */
 import type { ApiBrief } from "@/types/api";
-import type { BriefData, EvalSet, EvalConfig, Overview, Decision, DecisionCategory, DecisionStatus, ConfidenceLevel, SolutionType, Workflow, WorkflowPhase, ItemSource, BuildPath, LicenseStatus, DynamicsLicense, Licensing } from "@/types";
+import type { BriefData, EvalSet, EvalConfig, Overview, Decision, DecisionCategory, DecisionStatus, ConfidenceLevel, SolutionType, Workflow, WorkflowPhase, ItemSource, BuildPath, LicenseStatus, DynamicsLicense, Licensing, ConnectedAgent } from "@/types";
 
 /**
  * Convert raw brief.json → UI BriefData shape.
@@ -132,6 +132,30 @@ export function briefFromApi(raw: ApiBrief): BriefData {
         routingRule: c.routingRule ?? "",
         model: c.model ?? "",
         agentFolderId: c.agentFolderId ?? "",
+      })),
+      connectedAgents: (raw.connectedAgents ?? []).map((ca: any): ConnectedAgent => ({
+        name: ca.name ?? "",
+        source: ca.source ?? "",
+        phase: (ca.phase ?? "mvp").toUpperCase() === "MVP" ? "MVP" : "Future",
+        status: ca.status ?? "needs-setup",
+        role: ca.role ?? "",
+        routingDescription: ca.routingDescription ?? "",
+        instructions: ca.instructions ?? ca.fabricInstructions ?? "",
+        description: ca.description ?? "",
+        dataPipeline: {
+          source: ca.dataPipeline?.source ?? "",
+          ingestion: ca.dataPipeline?.ingestion ?? "",
+          destination: ca.dataPipeline?.destination ?? "",
+          refreshCadence: ca.dataPipeline?.refreshCadence ?? "",
+          authoritative: ca.dataPipeline?.authoritative ?? "",
+        },
+        prerequisites: ca.prerequisites ?? [],
+        setupSteps: ca.setupSteps ?? [],
+        fallback: {
+          trigger: ca.fallback?.trigger ?? "",
+          approach: ca.fallback?.approach ?? "",
+          soqlFallback: ca.fallback?.soqlFallback ?? "",
+        },
       })),
       buildPath: (arch.buildPath ?? null) as BuildPath | null,
       buildPathReason: arch.buildPathReason ?? "",
@@ -365,6 +389,26 @@ export function briefToApi(ui: BriefData, raw: ApiBrief): ApiBrief {
     factors: scoringToFactors(arch.scoring),
     score: arch.scoring.reduce((sum, s) => sum + s.score, 0),
   };
+
+  // Connected Agents (top-level in brief.json)
+  result.connectedAgents = (arch.connectedAgents ?? []).map((ca) => {
+    const existing = (raw.connectedAgents ?? []).find((e: any) => e.name === ca.name);
+    return {
+      ...existing,
+      name: ca.name,
+      source: ca.source,
+      phase: (ca.phase ?? "MVP").toLowerCase() === "mvp" ? "mvp" : "future",
+      status: ca.status,
+      role: ca.role,
+      routingDescription: ca.routingDescription,
+      instructions: ca.instructions,
+      description: ca.description,
+      dataPipeline: ca.dataPipeline,
+      prerequisites: ca.prerequisites,
+      setupSteps: ca.setupSteps,
+      fallback: ca.fallback,
+    };
+  });
 
   // Eval Sets
   result.evalSets = evalSetsToApi(ui["eval-sets"]);
@@ -664,8 +708,8 @@ function normalizeArchType(type: string): string {
   const t = type.toLowerCase().trim();
   if (t === "single agent" || t === "single-agent" || t === "single") return "single-agent";
   if (t === "multi-agent" || t === "multi agent" || t === "multi") return "multi-agent";
-  if (t === "connected agent" || t === "connected-agent" || t === "connected") return "connected-agent";
-  return type; // pass through unknown values
+  if (t === "connected agent" || t === "connected-agent" || t === "connected" || t === "single-agent-with-connected-agents") return "connected-agent";
+  return t; // pass through unknown values (normalized/trimmed)
 }
 
 function factorsToScoring(

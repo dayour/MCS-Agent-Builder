@@ -127,10 +127,14 @@ async function createBot(dvUrl, token, agentName, schemaPrefix) {
         schemaname: schemaName,
         language: 1033,
         runtimeprovider: 0,
-        authenticationmode: 0,
+        authenticationmode: 1,
+        authenticationtrigger: 1,
         accesscontrolpolicy: 0,
         configuration: JSON.stringify({
-            aISettings: { model: { modelNameHint: 'gpt-4o' } },
+            aISettings: {
+                model: { modelNameHint: 'GPT5Auto' },
+                contentModeration: 'Medium'
+            },
             settings: { GenerativeActionsEnabled: true }
         })
     };

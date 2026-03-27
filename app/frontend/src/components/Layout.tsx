@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { FolderOpen, ChevronRight, Bug, Lightbulb, Terminal } from "lucide-react";
+import { Link } from "react-router-dom";
+import { ChevronRight, Bug, Lightbulb, Terminal } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { useTerminalStore } from "@/stores/terminalStore";
@@ -12,8 +12,7 @@ interface LayoutProps {
 }
 
 const Layout = ({ children, breadcrumbs }: LayoutProps) => {
-  const location = useLocation();
-  const { panelOpen, panelWidth, setPanelOpen, sessions } = useTerminalStore();
+  const { panelOpen, panelHeight, setPanelOpen, sessions } = useTerminalStore();
   const [feedbackType, setFeedbackType] = useState<"bug" | "suggestion">("bug");
   const [feedbackOpen, setFeedbackOpen] = useState(false);
 
@@ -31,7 +30,7 @@ const Layout = ({ children, breadcrumbs }: LayoutProps) => {
           {breadcrumbs && breadcrumbs.length > 0 && (
             <nav className="ml-6 flex items-center gap-1.5 text-sm">
               {breadcrumbs.map((crumb, i) => (
-                <span key={i} className="flex items-center gap-1.5">
+                <span key={crumb.href ?? crumb.label} className="flex items-center gap-1.5">
                   <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
                   {crumb.href ? (
                     <Link to={crumb.href} className="text-muted-foreground transition-colors hover:text-foreground">
@@ -69,7 +68,7 @@ const Layout = ({ children, breadcrumbs }: LayoutProps) => {
               onClick={() => setPanelOpen(!panelOpen)}
             >
               <Terminal className="h-3.5 w-3.5" />
-              Terminal
+              Console
               {sessions.length > 0 && (
                 <span className="ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-primary/15 text-[10px] font-medium text-primary">
                   {sessions.length}
@@ -83,7 +82,7 @@ const Layout = ({ children, breadcrumbs }: LayoutProps) => {
 
       <main
         className="animate-fade-in transition-[margin] duration-200"
-        style={{ marginRight: panelOpen ? panelWidth : 0 }}
+        style={{ marginBottom: panelOpen ? panelHeight : 0 }}
       >
         {children}
       </main>

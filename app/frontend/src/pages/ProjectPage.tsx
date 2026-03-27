@@ -10,10 +10,13 @@ import ReadinessRing from "@/components/ReadinessRing";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { Agent, TerminalSession } from "@/types";
+import type { SkillType } from "@/lib/api";
 import { useProjectStore } from "@/stores/projectStore";
 import { useTerminalStore } from "@/stores/terminalStore";
+import { useSkillJobStore, getSkillJobKey } from "@/stores/skillJobStore";
 import { getTerminalWsUrl } from "@/lib/api";
 import DocumentDropZone from "@/components/DocumentDropZone";
+import SkillProgressPanel from "@/components/build/SkillProgressPanel";
 
 // ─── Pipeline color system ────────────────────────────────────────
 // Each step has a consistent color used everywhere (buttons, badges, banners).
@@ -66,6 +69,42 @@ function validateStep(step: PipelineStep, agent: Agent): string | null {
   }
 }
 
+// ─── Active Skill Jobs ────────────────────────────────────────────
+
+function ActiveSkillJobs({ projectId, agents }: { projectId: string; agents: Agent[] }) {
+  const jobs = useSkillJobStore((s) => s.jobs);
+  const clearJob = useSkillJobStore((s) => s.clearJob);
+
+  // Find all jobs for this project
+  const projectJobs = Object.entries(jobs).filter(
+    ([, job]) => job.projectId === projectId
+  );
+
+  if (projectJobs.length === 0) return null;
+
+  return (
+    <div>
+      <h2 className="mb-3 text-sm font-semibold text-foreground">Active Tasks</h2>
+      <div className="space-y-3">
+        {projectJobs.map(([key, job]) => {
+          const agentName = agents.find((a) => a.id === job.agentId)?.name || job.agentId || "Project";
+          return (
+            <div key={key}>
+              <p className="text-xs text-muted-foreground mb-1">
+                {job.skillType} — {agentName}
+              </p>
+              <SkillProgressPanel
+                jobKey={key}
+                onClose={() => clearJob(key)}
+              />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ─── Component ────────────────────────────────────────────────────
 
 const ProjectPage = () => {
@@ -74,6 +113,7 @@ const ProjectPage = () => {
     projectName, agents, loading, error, loadProject, removeAgent,
   } = useProjectStore();
   const { addSession: addTerminalSession } = useTerminalStore();
+  const skillJobs = useSkillJobStore((s) => s.jobs);
   const [showAgentForm, setShowAgentForm] = useState(false);
   const [agentName, setAgentName] = useState("");
   const [agentDesc, setAgentDesc] = useState("");
@@ -100,20 +140,25 @@ const ProjectPage = () => {
     return () => clearInterval(interval);
   }, [id]);
 
-  const skillCommands: Record<string, (projectId: string, agentId: string) => string> = {
-    preview: (pid, aid) => `/mcs-research ${pid} ${aid} --fast`,
-    research: (pid, aid) => `/mcs-research ${pid} ${aid}`,
-    build: (pid, aid) => `/mcs-build ${pid} ${aid}`,
-    evaluate: (pid, aid) => `/mcs-eval ${pid} ${aid}`,
-    fix: (pid, aid) => `/mcs-fix ${pid} ${aid}`,
-    learning: (pid, aid) => `/mcs-retro`,
+  /** Map pipeline steps to skill types for the headless runner. */
+  const HEADLESS_SKILLS: Partial<Record<PipelineStep | "fix", SkillType>> = {
+    research: "research",
+    build: "build",
+    evaluate: "eval",
+    fix: "fix",
   };
 
-  const launchTerminal = async (type: PipelineStep | "fix", agent: { id: string; name: string }) => {
+  /** Terminal commands for steps that don't have headless runners yet. */
+  const TERMINAL_COMMANDS: Record<string, (projectId: string, agentId: string) => string> = {
+    preview: (pid, aid) => `/mcs-research ${pid} ${aid} --fast`,
+    learning: () => `/mcs-retro`,
+  };
+
+  const launchTerminal = async (type: string, agent: { id: string; name: string }) => {
     if (!id) return;
     const store = useTerminalStore.getState();
-    const command = skillCommands[type](id, agent.id);
-    const sessionType = (type === "preview" || type === "fix" || type === "learning") ? "research" : type === "evaluate" ? "evaluate" : type;
+    const command = TERMINAL_COMMANDS[type]?.(id, agent.id);
+    if (!command) return;
 
     const existingId = store.findSession(id);
     if (existingId) {
@@ -127,7 +172,7 @@ const ProjectPage = () => {
     const session: TerminalSession = {
       id: `${id}-${Date.now()}`,
       label: projectName || id,
-      type: sessionType as TerminalSession["type"],
+      type: "research" as TerminalSession["type"],
       projectId: id,
       agentName: agent.name,
       status: "connecting",
@@ -137,41 +182,35 @@ const ProjectPage = () => {
     addTerminalSession(session);
   };
 
-  /** Try to launch a pipeline step. Validates prerequisites first. */
+  const launchSkill = useSkillJobStore((s) => s.launchSkill);
+
+  /** Try to launch a pipeline step. Validates prerequisites, then uses headless runner or terminal. */
   const handlePipelineClick = (step: PipelineStep, agent: Agent) => {
+    if (!id) return;
     const err = validateStep(step, agent);
     if (err) {
       setActionError(err);
       return;
     }
-    launchTerminal(step, agent);
+
+    const skillType = HEADLESS_SKILLS[step];
+    if (skillType) {
+      launchSkill(skillType, id, agent.id);
+    } else {
+      launchTerminal(step, agent);
+    }
   };
 
-  const launchProjectPreview = async () => {
+  /** Launch fix via headless runner. */
+  const handleFixClick = (agent: Agent) => {
     if (!id) return;
-    const store = useTerminalStore.getState();
-    const command = `/mcs-research ${id} --fast`;
+    launchSkill("fix", id, agent.id);
+  };
 
-    const existingId = store.findSession(id);
-    if (existingId) {
-      store.setActiveSession(existingId);
-      store.setPanelOpen(true);
-      store.sendCommand(existingId, command);
-      return;
-    }
-
-    const wsUrl = await getTerminalWsUrl();
-    const session: TerminalSession = {
-      id: `${id}-${Date.now()}`,
-      label: projectName || id,
-      type: "research",
-      projectId: id,
-      agentName: projectName || id,
-      status: "connecting",
-      wsUrl,
-      command,
-    };
-    addTerminalSession(session);
+  const launchProjectPreview = () => {
+    if (!id) return;
+    // Preview uses research skill at project level (no agentId)
+    launchSkill("research", id, "");
   };
 
   if (loading && agents.length === 0) {
@@ -302,13 +341,20 @@ const ProjectPage = () => {
                             const isActive = nextAction === step.key;
                             const isDone = isStepDone(step.key, nextAction);
                             const colors = PIPELINE_COLORS[step.key];
+                            // Check if a headless skill is running for this step
+                            const skillType = HEADLESS_SKILLS[step.key];
+                            const skillKey = skillType && id ? getSkillJobKey(id, agent.id, skillType) : null;
+                            const skillRunning = skillKey ? !!(skillJobs[skillKey] && (skillJobs[skillKey].phase === "starting" || skillJobs[skillKey].phase === "running")) : false;
                             return (
                               <Button
                                 key={step.key}
                                 variant="outline"
                                 size="sm"
+                                disabled={skillRunning}
                                 className={`h-6 gap-1 text-[11px] transition-all ${
-                                  isActive
+                                  skillRunning
+                                    ? `${colors.active} font-medium opacity-80`
+                                    : isActive
                                     ? `${colors.active} font-medium`
                                     : isDone
                                     ? `border-transparent bg-transparent ${colors.done}`
@@ -316,7 +362,7 @@ const ProjectPage = () => {
                                 }`}
                                 onClick={() => handlePipelineClick(step.key, agent)}
                               >
-                                {isDone ? <Check className="h-3 w-3" /> : step.icon}
+                                {skillRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : isDone ? <Check className="h-3 w-3" /> : step.icon}
                                 {step.label}
                               </Button>
                             );
@@ -331,7 +377,7 @@ const ProjectPage = () => {
                               variant="outline"
                               size="sm"
                               className="h-6 gap-1 text-[11px] bg-red-500/15 border-red-500/40 text-red-600 dark:text-red-400"
-                              onClick={() => launchTerminal("fix", agent)}
+                              onClick={() => handleFixClick(agent)}
                             >
                               <Wrench className="h-3 w-3" /> Fix
                             </Button>
@@ -358,6 +404,9 @@ const ProjectPage = () => {
               </div>
             )}
           </div>
+
+          {/* Active Skill Jobs */}
+          {id && <ActiveSkillJobs projectId={id} agents={agents} />}
 
           {/* Documents */}
           {id && <DocumentDropZone projectId={id} />}

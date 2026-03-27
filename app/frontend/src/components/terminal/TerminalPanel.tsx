@@ -1,3 +1,10 @@
+/**
+ * TerminalPanel — VS Code-style bottom drawer console.
+ *
+ * Fixed to the bottom of the viewport. Hidden by default, toggled via
+ * header "Console" button or pipeline actions. Supports multiple tabs,
+ * resize via top-edge drag handle, and session management.
+ */
 import { useRef, useCallback } from "react";
 import { X, Minus, Plus, Circle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,22 +34,26 @@ const typeColors: Record<string, string> = {
 };
 
 const TerminalPanel = () => {
-  const { sessions, activeSessionId, panelOpen, panelWidth, setActiveSession, removeSession, setPanelOpen, setPanelWidth, addSession } = useTerminalStore();
+  const {
+    sessions, activeSessionId, panelOpen, panelHeight,
+    setActiveSession, removeSession, setPanelOpen, setPanelHeight, addSession,
+  } = useTerminalStore();
   const resizing = useRef(false);
-  const startX = useRef(0);
-  const startWidth = useRef(0);
+  const startY = useRef(0);
+  const startHeight = useRef(0);
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
       resizing.current = true;
-      startX.current = e.clientX;
-      startWidth.current = panelWidth;
+      startY.current = e.clientY;
+      startHeight.current = panelHeight;
 
       const handleMouseMove = (ev: MouseEvent) => {
         if (!resizing.current) return;
-        const delta = startX.current - ev.clientX;
-        setPanelWidth(startWidth.current + delta);
+        // Dragging up increases height
+        const delta = startY.current - ev.clientY;
+        setPanelHeight(startHeight.current + delta);
       };
 
       const handleMouseUp = () => {
@@ -54,7 +65,7 @@ const TerminalPanel = () => {
       document.addEventListener("mousemove", handleMouseMove);
       document.addEventListener("mouseup", handleMouseUp);
     },
-    [panelWidth, setPanelWidth]
+    [panelHeight, setPanelHeight]
   );
 
   if (sessions.length === 0) return null;
@@ -63,65 +74,69 @@ const TerminalPanel = () => {
 
   return (
     <div
-      className="fixed top-14 right-0 bottom-0 z-40 flex border-l border-border bg-[#0a0e14] shadow-2xl transition-[width,transform] duration-200"
+      className="fixed left-0 right-0 bottom-0 z-40 flex flex-col border-t border-border bg-[#0a0e14] shadow-2xl transition-[height,transform] duration-200"
       style={{
-        width: panelWidth,
-        transform: panelOpen ? "translateX(0)" : "translateX(100%)",
+        height: panelHeight,
+        transform: panelOpen ? "translateY(0)" : "translateY(100%)",
         pointerEvents: panelOpen ? "auto" : "none",
       }}
     >
-      {/* Resize handle */}
+      {/* Resize handle — top edge */}
       <div
-        className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-primary/30 transition-colors z-50"
+        className="absolute left-0 right-0 top-0 h-1.5 cursor-row-resize hover:bg-primary/30 transition-colors z-50"
         onMouseDown={handleMouseDown}
       />
 
-      <div className="flex flex-col flex-1 min-w-0">
-        {/* Tab bar */}
-        <div className="flex items-center border-b border-border/50 bg-[#0d1117]">
-          <div className="flex-1 flex items-center overflow-x-auto scrollbar-none">
-            {sessions.map((session) => (
+      {/* Tab bar */}
+      <div className="flex items-center border-b border-border/50 bg-[#0d1117] shrink-0">
+        <div className="flex-1 flex items-center overflow-x-auto scrollbar-none">
+          {sessions.map((session) => (
+            <div
+              key={session.id}
+              role="tab"
+              tabIndex={0}
+              aria-selected={session.id === activeSessionId}
+              onClick={() => setActiveSession(session.id)}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setActiveSession(session.id); } }}
+              className={cn(
+                "flex items-center gap-2 px-3 py-2 text-xs border-r border-border/30 shrink-0 transition-colors cursor-pointer",
+                session.id === activeSessionId
+                  ? "bg-[#0a0e14] text-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-[#0a0e14]/50"
+              )}
+            >
+              <Circle className={cn("h-2 w-2 fill-current", statusColors[session.status])} />
+              {/* Only show type badge for workflow sessions, not plain terminals */}
+              {session.type !== "system" && (
+                <span className={cn("inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium", typeColors[session.type])}>
+                  {session.type}
+                </span>
+              )}
+              <span className="max-w-[100px] truncate">{session.agentName}</span>
               <button
-                key={session.id}
-                onClick={() => setActiveSession(session.id)}
-                className={cn(
-                  "flex items-center gap-2 px-3 py-2 text-xs border-r border-border/30 shrink-0 transition-colors",
-                  session.id === activeSessionId
-                    ? "bg-[#0a0e14] text-foreground"
-                    : "text-muted-foreground hover:text-foreground hover:bg-[#0a0e14]/50"
-                )}
+                onClick={(e) => { e.stopPropagation(); removeSession(session.id); }}
+                className="ml-1 rounded p-0.5 hover:bg-muted/20"
               >
-                <Circle className={cn("h-2 w-2 fill-current", statusColors[session.status])} />
-                {/* Only show type badge for workflow sessions, not plain terminals */}
-                {session.type !== "system" && (
-                  <span className={cn("inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium", typeColors[session.type])}>
-                    {session.type}
-                  </span>
-                )}
-                <span className="max-w-[100px] truncate">{session.agentName}</span>
-                <button
-                  onClick={(e) => { e.stopPropagation(); removeSession(session.id); }}
-                  className="ml-1 rounded p-0.5 hover:bg-muted/20"
-                >
-                  <X className="h-3 w-3" />
-                </button>
+                <X className="h-3 w-3" />
               </button>
-            ))}
-          </div>
+            </div>
+          ))}
+        </div>
 
-          <div className="flex items-center gap-1 px-2 shrink-0">
-            {activeSession && (
-              <span className={cn("text-[10px] mr-2", statusColors[activeSession.status])}>
-                {statusLabels[activeSession.status]}
-              </span>
-            )}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 text-muted-foreground hover:text-foreground"
-              onClick={async () => {
+        <div className="flex items-center gap-1 px-2 shrink-0">
+          {activeSession && (
+            <span className={cn("text-[10px] mr-2", statusColors[activeSession.status])}>
+              {statusLabels[activeSession.status]}
+            </span>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 text-muted-foreground hover:text-foreground"
+            onClick={async () => {
+              try {
                 const wsUrl = await getTerminalWsUrl();
-                const session: TerminalSession = {
+                const newSession: TerminalSession = {
                   id: crypto.randomUUID(),
                   label: "Terminal",
                   type: "system",
@@ -130,32 +145,45 @@ const TerminalPanel = () => {
                   status: "connecting",
                   wsUrl,
                 };
-                addSession(session);
-              }}
-            >
-              <Plus className="h-3 w-3" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 text-muted-foreground hover:text-foreground"
-              onClick={() => setPanelOpen(false)}
-            >
-              <Minus className="h-3 w-3" />
-            </Button>
-          </div>
+                addSession(newSession);
+              } catch {
+                // URL resolution failed — create with fallback URL (will show connection error in xterm)
+                const port = parseInt(window.location.port || "8000", 10);
+                const newSession: TerminalSession = {
+                  id: crypto.randomUUID(),
+                  label: "Terminal",
+                  type: "system",
+                  projectId: "system",
+                  agentName: "Terminal",
+                  status: "connecting",
+                  wsUrl: `ws://localhost:${port}/ws`,
+                };
+                addSession(newSession);
+              }
+            }}
+          >
+            <Plus className="h-3 w-3" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 text-muted-foreground hover:text-foreground"
+            onClick={() => setPanelOpen(false)}
+          >
+            <Minus className="h-3 w-3" />
+          </Button>
         </div>
+      </div>
 
-        {/* Terminal area */}
-        <div className="flex-1 p-1 overflow-hidden">
-          {sessions.map((session) => (
-            <XTerminal
-              key={session.id}
-              session={session}
-              visible={session.id === activeSessionId}
-            />
-          ))}
-        </div>
+      {/* Terminal area */}
+      <div className="flex-1 p-1 overflow-hidden">
+        {sessions.map((session) => (
+          <XTerminal
+            key={session.id}
+            session={session}
+            visible={session.id === activeSessionId}
+          />
+        ))}
       </div>
     </div>
   );

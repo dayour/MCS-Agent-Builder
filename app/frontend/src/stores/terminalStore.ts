@@ -1,8 +1,9 @@
 /**
- * Terminal session store — manages the right-side terminal panel.
+ * Terminal session store — manages the bottom-drawer console panel.
  *
  * Sessions are per-project (one tab per project).
  * Research/Build/Evaluate buttons send commands to the project's existing session.
+ * Default hidden — opened via header "Console" button or pipeline actions.
  */
 import { create } from "zustand";
 import type { TerminalSession } from "@/types";
@@ -61,7 +62,10 @@ interface TerminalStore {
   sessions: TerminalSession[];
   activeSessionId: string | null;
   panelOpen: boolean;
+  /** @deprecated Use panelHeight instead. Kept for backwards compat during migration. */
   panelWidth: number;
+  /** Height of the bottom drawer in pixels. */
+  panelHeight: number;
   addSession: (session: TerminalSession) => void;
   removeSession: (id: string) => void;
   setActiveSession: (id: string) => void;
@@ -70,6 +74,7 @@ interface TerminalStore {
   updateSessionStatus: (id: string, status: TerminalSession["status"]) => void;
   setPanelOpen: (open: boolean) => void;
   setPanelWidth: (width: number) => void;
+  setPanelHeight: (height: number) => void;
   openOrCreate: () => void;
   /** Send a command to an existing session's WebSocket. */
   sendCommand: (sessionId: string, command: string) => void;
@@ -84,6 +89,7 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
   activeSessionId: defaultSession.id,
   panelOpen: false,
   panelWidth: 500,
+  panelHeight: 300,
 
   addSession: (session) => {
     // If the session carries an initial command, queue it in pendingCommands
@@ -107,7 +113,7 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
   },
 
   removeSession: (id) => {
-    wsRegistry.delete(id);
+    unregisterSessionWs(id);
     set((s) => {
       const sessions = s.sessions.filter((sess) => sess.id !== id);
       const activeSessionId =
@@ -141,6 +147,8 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
 
   setPanelWidth: (width) => set({ panelWidth: Math.max(300, Math.min(900, width)) }),
 
+  setPanelHeight: (height) => set({ panelHeight: Math.max(150, Math.min(600, height)) }),
+
   openOrCreate: () => {
     const { sessions } = get();
     if (sessions.length === 0) {
@@ -152,6 +160,8 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
             sess.id === session.id ? { ...sess, wsUrl: url } : sess
           ),
         }));
+      }).catch(() => {
+        // URL resolution failed — default URL will be used, xterm will show connection error
       });
       set({ sessions: [session], activeSessionId: session.id, panelOpen: true });
     } else {

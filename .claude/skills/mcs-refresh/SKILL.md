@@ -152,7 +152,22 @@ For each file:
 6. Update `sources` list with what was checked
 7. Adjust `confidence` if findings are ambiguous
 
-### Step 5: Report
+### Step 5: Rebuild Knowledge Index
+
+After updating any cache files, rebuild the compiled knowledge index used by the wizard and knowledge resolver:
+
+```bash
+node tools/build-knowledge-index.js
+```
+
+This re-parses all 24 cache files + patterns + frameworks into `knowledge/index.json` (structured JSON) used for:
+- Wizard inline component resolution (via `app/lib/knowledge-resolver.js`)
+- Background enrichment scoring (via `app/lib/enrichment.js`)
+- Cheat sheet injection into wizard system prompt
+
+**Always run after any cache file update.** The index is the compiled form of the cache — stale index = stale wizard suggestions.
+
+### Step 6: Report
 
 ```
 ## Knowledge Cache Refresh Report

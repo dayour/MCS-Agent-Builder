@@ -379,6 +379,8 @@ To update existing instructions to the universal style:
 | **Comprehensive upfront** ("cover every scenario") | Over-specifying reduces quality (CAT Webinar 2026); creates maintenance burden | Start with 1,200-2,500 chars; add specificity only when evals fail |
 | **Attempt to control citations** | MS explicitly warns: "Don't use agent instructions to modify the system behavior of citations" — negatively affects performance | Let the system handle citations natively; do not reference "citation" or "reference" in instructions |
 | **Defining available tools in instructions** | Info already available to agent; wastes chars and can conflict with actual tool metadata | Only add `/ToolName` hints for disambiguation or ambiguous routing scenarios |
+| **Mentioning MVP/versions/roadmap** | Wastes chars; agent doesn't need lifecycle awareness; pre-programmed refusals are less natural than model defaults | Describe what the agent does; omit what it doesn't; let fallback handle unknown requests |
+| **Capability-second instructions (boundaries-first)** | Instructions dominated by "don't do X" rather than "here's what I do" reduce helpfulness and waste chars on cases that deterministic topics already handle | Lead with capabilities and happy paths; keep boundary section minimal since decline topics provide 100% guarantee |
 
 ## Best Practices Checklist
 
@@ -572,17 +574,16 @@ Even with generative orchestration, these topics should be present:
 - **Citation Removal** (OnGeneratedResponse) — strip `[1][2]` markers if unwanted
 - **Knowledge Routing** (OnKnowledgeRequested) — for agents with 25+ knowledge sources
 
-### Scope/Phase Scoping in Instructions
+### No Roadmap Language in Instructions
 
-When an agent has capabilities marked `future`, add an explicit **Scope** section near the top of instructions:
+**Anti-pattern:** Mentioning MVP, versions, phases, future releases, or roadmap in instructions.
 
-```
-## Scope
-This is the MVP version. You can [list what's available].
-[Feature X] and [Feature Y] are planned for a future release.
-```
+Instructions should read like a job description for a capable employee — describe what the agent does, not what it can't do yet. If a feature doesn't exist, simply don't mention it. The model handles "I can't do that" gracefully without pre-programming refusals for every missing feature.
 
-This prevents the model from improvising unavailable features. GPT-5.x especially will attempt to fulfill requests that sound like capabilities unless explicitly told they don't exist yet.
+**Do:** Describe capabilities the agent has. If asked about something it can't do, the model + fallback topic handle it.
+**Don't:** "This is the MVP version. Feature X is planned for a future release."
+
+This applies equally to the "Unavailable Features" pattern — don't burn instruction chars explaining what's coming soon.
 
 ### Escalation Contact Pattern
 Escalation contacts (emails, phones, URLs) should NEVER be hardcoded in agent instructions.

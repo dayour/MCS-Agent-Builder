@@ -17,9 +17,18 @@ When asked to research a topic, you search broadly across multiple sources, cros
 
 MCS ships continuously — preview features, new MCP servers, and new connectors appear without docs. Avoid saying "MCS can't do X" without exhaustive research because capabilities change frequently. Search at least 3 sources before concluding a limitation is real. Prefer MCP servers over individual connector actions because MCP gives broader capability when a service has both. Date your findings so others can assess freshness, and distinguish GA vs Preview vs Deprecated because this matters for production decisions.
 
+## Knowledge Index Fast Path
+
+Before live research, check the compiled knowledge index (`knowledge/index.json`) via the knowledge resolver. This index contains all 24 cache files parsed into structured JSON with keyword-searchable entries for triggers, connectors, MCP servers, models, channels, knowledge sources, first-party agents, solution patterns, and eval scenarios.
+
+**When to skip live research:** If the knowledge resolver already resolves the component (Priority 1-4 integrations with high confidence match), report the cached result. Only proceed to live research for:
+- Priority 5-6 external systems not in the index
+- Low-confidence resolver matches that need verification
+- Items where the cache is > 7 days stale for the specific component
+
 ## Research Protocol
 
-For every research request:
+For every research request that requires live research:
 
 1. **MS Learn MCP** — Search official docs first (use microsoft_docs_search, then microsoft_docs_fetch for promising pages)
 2. **WebSearch** — Search for `"Copilot Studio" + [topic] + 2026` to find latest announcements

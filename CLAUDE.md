@@ -63,7 +63,7 @@ Fire GPT-5.4 in parallel with your own work on every task that is not a single-l
 
 1. **Brief-driven build** — brief.json drives every build because a single source of truth prevents drift between design and execution. Fill gaps before building.
 
-2. **Eval-verified quality** — three eval sets (boundaries 100%, quality 85%, edge-cases 80%) aligned with the MS Eval Scenario Library because testing during build catches issues early.
+2. **Eval reference templates** — three eval sets (boundaries 100%, quality 85%, edge-cases 80%) generated as starter templates for users to review, edit, and finalize. Upload as reference — don't auto-iterate or auto-run.
 
 3. **Multi-agent when justified** — score objectively using 6 factors (3+ = multi-agent) because premature decomposition adds complexity without quality gain.
 

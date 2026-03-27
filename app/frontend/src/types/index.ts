@@ -327,6 +327,35 @@ export interface ChildAgent {
   agentFolderId: string;
 }
 
+export interface ConnectedAgentDataPipeline {
+  source: string;
+  ingestion: string;
+  destination: string;
+  refreshCadence: string;
+  authoritative: string;
+}
+
+export interface ConnectedAgentFallback {
+  trigger: string;
+  approach: string;
+  soqlFallback: string;
+}
+
+export interface ConnectedAgent {
+  name: string;
+  source: string;
+  phase: string;
+  status: string;
+  role: string;
+  routingDescription: string;
+  instructions: string;
+  description: string;
+  dataPipeline: ConnectedAgentDataPipeline;
+  prerequisites: string[];
+  setupSteps: string[];
+  fallback: ConnectedAgentFallback;
+}
+
 export interface Channel {
   name: string;
   reason: string;
@@ -385,6 +414,7 @@ export interface Architecture {
   triggers: ArchitectureTrigger[];
   channels: Channel[];
   childAgents: ChildAgent[];
+  connectedAgents: ConnectedAgent[];
   scoring: ArchitectureScoring[];
 }
 

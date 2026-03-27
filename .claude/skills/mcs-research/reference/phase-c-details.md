@@ -58,11 +58,18 @@ Score single vs multi-agent using the 6-factor framework:
 Also consider **Connected Agent** -- when the agent bridges to an external agent system (e.g., Azure AI Foundry agent). Rule out explicitly if not applicable.
 
 Update `brief.json architecture`:
-- `architecture.type` -- `"single-agent"`, `"multi-agent"`, or `"connected-agent"` (kebab-case, matching dashboard UI card IDs)
+- `architecture.type` -- `"single-agent"`, `"multi-agent"`, `"connected-agent"`, or `"single-agent-with-connected-agents"` (UI normalizes the last to `connected-agent`)
 - `architecture.reason` -- 2-4 sentences explaining why this type was selected. Reference the score, the key factors that drove the decision, and why the other types were ruled out.
 - `architecture.factors` -- 6-factor object, each with `value` (true/false) and `reasoning` (1-2 sentences explaining why this factor scored the way it did, referencing the agent's specific capabilities and data)
 - `architecture.score` -- count of true factors (0-6)
 - `architecture.children` -- child agents if multi-agent
+- `connectedAgents` -- top-level array (NOT inside architecture) for external connected agents (e.g., Fabric Data Agent, another MCS agent). Each entry has: name, source, role, routingDescription, instructions, description, dataPipeline, dataSource, prerequisites, setupSteps, fallback
+
+**Architecture type guide:**
+- `single-agent` -- standalone, no child or connected agents
+- `single-agent-with-connected-agents` -- one main MCS agent + external agents (Fabric Data Agent, etc.) it routes to. Not multi-agent because you don't build child agents in MCS.
+- `multi-agent` -- parent orchestrator + child agents built in MCS
+- `connected-agent` -- legacy value, same as `single-agent-with-connected-agents`
 
 Every factor should have reasoning, because a bare `true`/`false` without explanation is incomplete. The reasoning should reference the agent's specific capabilities, data sources, teams, and constraints.
 
@@ -108,6 +115,14 @@ Every factor should have reasoning, because a bare `true`/`false` without explan
 ```
 
 ## Step 1.5: Model Selection + Topic Classification (Lead -- no teammates)
+
+### Integration Resolution: Work IQ First
+
+Before model selection, verify that M365 integrations resolve to Work IQ:
+- For any M365 integration (email, calendar, teams, sharepoint, onedrive, user profile, files, search), the resolver should return Work IQ Copilot (`mcp_M365Copilot`) or Work IQ User (`mcp_MeServer`) as the top match
+- Adding Work IQ from the agent overview page gives these 2 servers which cover all M365 data — no need for individual Mail, Calendar, Teams, SharePoint servers
+- If an M365 integration resolved to an individual connector (Priority 4) instead of Work IQ (Priority 1a), override it
+- Non-M365 integrations (Dynamics 365, Dataverse, Fabric, third-party) use their own MCP servers or connectors as before
 
 ### Model Selection
 
@@ -223,26 +238,30 @@ Spawn all teammates simultaneously. They do not depend on each other's output.
 ### Prompt Engineer -- write agent instructions
 
 - Input: full brief.json (Phases A+B complete), `knowledge/cache/instructions-authoring.md`, model selection from Step 1.5
-- Output: instruction text (up to 8,000 chars, self-verified per PE checklist)
+- Output: instruction text (target 2,000-3,500 chars, max 8,000 chars hard limit)
 - Runs independently -- does not need QA or TE output
 
-PE follows the universal instruction template and model-aware rules:
-- 7 universal style rules: (1) Functional role in first line, no superlatives. (2) WHY on every constraint in parentheses. (3) Tiered length with floor + ceiling per question type. (4) Plain emphasis -- bold or "Never X", no aggressive caps. (5) No personality padding. (6) 2-3 varied examples -- happy path + boundary + complex. (7) Flat lists only.
-- Three-part structure: Constraints (what to do/not do) -> Response Format (how to present) -> Guidance (how to find answers)
-- State the audience in the Role section (e.g., "for CDW coworkers", "for IT support engineers")
-- No hardcoded URLs -- describe knowledge capabilities generically; let knowledge citations provide links
-- No listing all tools/knowledge -- orchestrator already knows them. Only `/ToolName` for disambiguation
-- Include follow-up guidance -- "End every response with a relevant follow-up question or next step"
-- Include 2-3 examples for complex behaviors (boundary enforcement, multi-step workflows)
-- Address all capabilities where `phase == "mvp"` -- every MVP capability should have corresponding instruction coverage
-- Do not write dedicated sections for capabilities where `phase == "future"` unless `implementationType` is `"prompt"` (re-tag as MVP since it's zero-cost prompt guidance)
-- Model-specific scan: If `recommendedModel` is set, PE runs the model-specific checks from the Model Family Tuning Guide
-- PE runs their own review checklist before returning (char count, anti-pattern check, reference validity, audience, follow-ups, model awareness checks)
+PE writes concise instructions that trust model intelligence. Users configure the smartest available model (GPT-5.4 / Opus 4.6), so detailed examples and verbose step-by-step scripts are unnecessary overhead. The model infers correct behavior from clear direction.
 
-### QA Challenger -- generate eval sets (3 default + custom)
+PE follows these rules:
+- Four-section structure: Identity (2-3 sentences) -> Capabilities (bullet list) -> Boundaries (handle/decline/refuse) -> Response Style (2-3 sentences)
+- Functional role in first line, no superlatives
+- WHY on every constraint in parentheses
+- Plain emphasis -- bold or "Never X", no aggressive caps
+- No personality padding, no sample dialogues
+- State the audience in the Identity section
+- No hardcoded URLs -- describe knowledge capabilities generically
+- No listing all tools/knowledge -- orchestrator already knows them
+- Address all MVP capabilities -- one bullet each with clear direction
+- Do not write dedicated sections for future capabilities unless `implementationType` is `"prompt"`
+- Model-specific scan: If `recommendedModel` is set, PE runs the model-specific checks
+- PE runs their own review: char count (target < 3500), boundary completeness, MVP coverage
+
+### QA Challenger -- generate eval reference templates (3 default + custom)
 
 - Input: full brief.json (capabilities, boundaries, integrations, **pre-existing evalSets from preview stubs**), eval-scenarios library, topic-triggers + eval-testing learnings
-- Output: 3 eval sets (boundaries/quality/edge-cases) with 40-55 tests, coverage report
+- Output: 3 eval sets (boundaries/quality/edge-cases) with 24-36 reference template tests + coverage report
+- These are **starter templates** that users review, edit, and finalize — not auto-run artifacts
 - Does not review instructions (Lead handles that inline in Step 3)
 - Does not classify topics (Lead already did in Step 1.5)
 
@@ -316,20 +335,20 @@ After all teammates return (or as each finishes):
 **3a. Apply PE instructions + inline review:**
 - Write instructions to brief.json
 - Lead does inline instruction review (no separate QA spawn):
-  1. Three-part structure present? (Constraints + Response Format + Guidance)
+  1. Four-section structure present? (Identity + Capabilities + Boundaries + Response Style)
   2. No hardcoded URLs?
   3. No tool/knowledge listing?
   4. References match `integrations[]`?
   5. Boundaries match `boundaries.*`?
-  6. Audience stated in Role section?
-  7. Follow-up guidance included?
-  8. Length < 8,000 chars?
-  9. Capability-instruction alignment: Every MVP capability addressed? No future capability dedicated sections (unless `implementationType == "prompt"`)?
+  6. Audience stated in Identity section?
+  7. Length 2,000-3,500 chars? (hard max 8,000)
+  8. Capability-instruction alignment: Every MVP capability addressed?
+  9. Concise — no sample dialogues, no verbose examples (trust model intelligence)?
 - If issues found: fix inline (minor) or re-spawn PE with specific fixes (rare)
 
 **3b. Apply QA eval sets:**
 - Write evalSets[] to brief.json
-- Write evalConfig -- `{ targetPassRate: 70, maxIterationsPerCapability: 3, maxRegressionRounds: 2 }`
+- Write evalConfig -- `{ targetPassRate: 85, mode: "reference-templates" }`
 - Review coverage report -- flag gaps
 
 **3c. Apply TE recommendations:**

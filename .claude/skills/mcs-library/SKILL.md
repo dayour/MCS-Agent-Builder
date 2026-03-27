@@ -67,7 +67,7 @@ Spawn two teammates to enrich the raw metadata:
 - Classify by industry (healthcare, financial, retail, etc.)
 - Identify capabilities (claims processing, document analysis, customer service, etc.)
 - Note what tools/connectors are used and knowledge types
-- Determine architecture type (single-agent, multi-agent, orchestrator)
+- Determine architecture type (single-agent, single-agent-with-connected-agents, multi-agent, orchestrator)
 - Write enriched tags to a temporary file for the lead to merge
 
 **Prompt Engineer:**

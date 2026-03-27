@@ -38,7 +38,11 @@ If `solutionType` is `"flow"` or `"not-recommended"`, skip architecture scoring 
 The architecture section in `brief.json` MUST include:
 
 ### 1. `type` — Selected architecture type (kebab-case)
-One of: `"single-agent"`, `"multi-agent"`, `"connected-agent"`
+One of: `"single-agent"`, `"single-agent-with-connected-agents"`, `"multi-agent"`, `"connected-agent"` (legacy alias for single-agent-with-connected-agents)
+
+- **single-agent**: Standalone, no child or connected agents
+- **single-agent-with-connected-agents**: One main MCS agent + external agents (Fabric Data Agent, other MCS agents) it routes to. Use when the main agent connects to external agents but you don't build child agents in MCS. Top-level `connectedAgents[]` array describes each external agent.
+- **multi-agent**: Parent orchestrator + child agents built in MCS. `architecture.children[]` describes each child.
 
 ### 2. `reason` — WHY this type was selected
 2-4 sentences that:
