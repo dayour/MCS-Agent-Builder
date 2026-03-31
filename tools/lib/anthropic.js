@@ -856,18 +856,13 @@ module.exports = {
   isConfigured,
   chatCompletion,
   streamCompletion,
-  streamToCompletion,
   estimateTokens,
   estimateCost,
   getUsageSummary,
   resetUsage,
   getActiveMethod,
-  resolveModel,
-  resolveAccessibleModel,
   probeModelAccess,
-  getEffectiveDefault,
   getModelAccessInfo,
   MODELS,
-  DEFAULT_MODEL,
-  FALLBACK_CHAIN
+  DEFAULT_MODEL
 };

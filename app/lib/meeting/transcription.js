@@ -424,4 +424,4 @@ class TranscriptionService extends EventEmitter {
   }
 }
 
-module.exports = { TranscriptionService, SAMPLE_RATE, BYTES_PER_SAMPLE, CHUNK_DURATION_SEC };
+module.exports = { TranscriptionService };

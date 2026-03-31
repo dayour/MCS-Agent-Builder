@@ -303,4 +303,4 @@ class MeetingSession extends EventEmitter {
   }
 }
 
-module.exports = { MeetingSession, STATES };
+module.exports = { MeetingSession };

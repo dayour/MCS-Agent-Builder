@@ -184,9 +184,7 @@ module.exports = {
     httpRequest,
     httpRequestWithRetry,
     getToken,
-    clearTokenCache,
     getTenantId,
     sleep,
-    DEFAULT_TIMEOUT_MS,
-    RETRY_BACKOFF_BASE_MS
+    DEFAULT_TIMEOUT_MS
 };

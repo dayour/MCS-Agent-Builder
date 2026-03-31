@@ -299,4 +299,4 @@ class AnswerEngine extends EventEmitter {
   }
 }
 
-module.exports = { AnswerEngine, SYSTEM_PROMPT_TEMPLATE };
+module.exports = { AnswerEngine };

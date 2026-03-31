@@ -316,4 +316,4 @@ class AudioBridge extends EventEmitter {
   }
 }
 
-module.exports = { AudioBridge, SAMPLE_RATE, CHUNK_DURATION_MS };
+module.exports = { AudioBridge };

@@ -1,5 +1,4 @@
 import { lazy, Suspense } from "react";
-import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
@@ -20,7 +19,6 @@ const App = () => {
 
   return (
     <TooltipProvider>
-      <Toaster />
       <Sonner />
       <BrowserRouter>
         <div className="flex h-screen w-screen overflow-hidden">

@@ -284,7 +284,6 @@ async function createFolder(token, parentPath, name, driveId) {
 
 module.exports = {
     getGraphToken,
-    buildGraphHeaders,
     listDriveItems,
     downloadFile,
     uploadFile,
