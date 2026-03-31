@@ -1025,6 +1025,18 @@
           "$ref": "#/definitions/TestCaseComponent"
         },
         {
+          "$ref": "#/definitions/EvaluationRunDefinition"
+        },
+        {
+          "$ref": "#/definitions/AgentEvaluationTarget"
+        },
+        {
+          "$ref": "#/definitions/PromptEvaluationTarget"
+        },
+        {
+          "$ref": "#/definitions/FlowEvaluationTarget"
+        },
+        {
           "$ref": "#/definitions/EvaluationSet"
         },
         {
@@ -2806,6 +2818,9 @@
       },
       "oneOf": [
         {
+          "$ref": "#/definitions/EvaluationRunDefinition"
+        },
+        {
           "$ref": "#/definitions/EvaluationSet"
         },
         {
@@ -2813,6 +2828,25 @@
         },
         {
           "$ref": "#/definitions/MultiTurnEvaluationCase"
+        }
+      ]
+    },
+    "EvaluationTargetBase": {
+      "x-definition": {
+        "title": "EvaluationTargetBase",
+        "type": "object",
+        "x-base-ref": "#/definitions/BotElement",
+        "x-abstract": true
+      },
+      "oneOf": [
+        {
+          "$ref": "#/definitions/AgentEvaluationTarget"
+        },
+        {
+          "$ref": "#/definitions/PromptEvaluationTarget"
+        },
+        {
+          "$ref": "#/definitions/FlowEvaluationTarget"
         }
       ]
     },
@@ -4539,6 +4573,9 @@
         "x-abstract": true
       },
       "oneOf": [
+        {
+          "$ref": "#/definitions/EvaluationRunDefinition"
+        },
         {
           "$ref": "#/definitions/EvaluationSet"
         },
@@ -14410,7 +14447,7 @@
         "prefixPaddingInMilliseconds": {
           "title": "Digital prefix padding",
           "description": "The amount of audio before speech is detected to avoid cutting off the beginning speech. Default: 800ms for Semantic VAD, 300ms for Server VAD.",
-          "default": 800,
+          "default": 300,
           "type": "number"
         },
         "silenceDurationInMilliseconds": {
@@ -14593,6 +14630,96 @@
         "definition"
       ]
     },
+    "EvaluationRunDefinition": {
+      "title": "EvaluationRunDefinition",
+      "description": "The root entity for an evaluation run.",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/EvaluationDefinitionBase",
+      "properties": {
+        "kind": {
+          "const": "EvaluationRunDefinition"
+        },
+        "target": {
+          "title": "Target",
+          "description": "The target entity to evaluate.",
+          "$ref": "#/definitions/EvaluationTargetBase"
+        },
+        "evaluationSetSchemaName": {
+          "title": "EvaluationSetSchemaName",
+          "description": "Reference to the evaluation set to use for this run.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "target",
+        "evaluationSetSchemaName"
+      ]
+    },
+    "AgentEvaluationTarget": {
+      "title": "AgentEvaluationTarget",
+      "description": "Targets an agent for evaluation.",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/EvaluationTargetBase",
+      "properties": {
+        "kind": {
+          "const": "AgentEvaluationTarget"
+        },
+        "agentSchemaName": {
+          "title": "AgentSchemaName",
+          "description": "The schema name of the agent to evaluate.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "agentSchemaName"
+      ]
+    },
+    "PromptEvaluationTarget": {
+      "title": "PromptEvaluationTarget",
+      "description": "Targets a prompt for evaluation.",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/EvaluationTargetBase",
+      "properties": {
+        "kind": {
+          "const": "PromptEvaluationTarget"
+        },
+        "aIModelId": {
+          "title": "AIModelId",
+          "description": "The identifier of the AI model (prompt) to evaluate.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "aIModelId"
+      ]
+    },
+    "FlowEvaluationTarget": {
+      "title": "FlowEvaluationTarget",
+      "description": "Targets a flow for evaluation.",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/EvaluationTargetBase",
+      "properties": {
+        "kind": {
+          "const": "FlowEvaluationTarget"
+        },
+        "flowId": {
+          "title": "FlowId",
+          "description": "The identifier of the flow to evaluate.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "flowId"
+      ]
+    },
     "EvaluationSet": {
       "title": "Evaluation set",
       "description": "A set of data for evaluation along with graders that evaluate outputs.",
@@ -14610,6 +14737,11 @@
           "items": {
             "$ref": "#/definitions/GraderBase"
           }
+        },
+        "inputType": {
+          "title": "InputType",
+          "description": "Declares the expected input schema for evaluation cases in this set.",
+          "$ref": "#/definitions/DataType"
         }
       },
       "required": [
@@ -14896,7 +15028,7 @@
         },
         "input": {
           "title": "Input",
-          "type": "string"
+          "$ref": "#/definitions/DataValue"
         }
       },
       "required": [
