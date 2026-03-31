@@ -87,8 +87,16 @@ async function httpRequestWithRetry(method, url, headers, body, retries = DEFAUL
     for (let attempt = 0; attempt <= retries; attempt++) {
         try {
             const res = await httpRequest(method, url, headers, body, timeout);
-            if ((res.status === 429 || res.status >= 500) && attempt < retries) {
-                const delay = RETRY_BACKOFF_BASE_MS * Math.pow(2, attempt);
+            if ((res.status === 429 || res.status === 529 || res.status >= 500) && attempt < retries) {
+                // Respect Retry-After header if present (seconds or date)
+                let delay = RETRY_BACKOFF_BASE_MS * Math.pow(2, attempt);
+                const retryAfter = res.headers?.['retry-after'];
+                if (retryAfter) {
+                    const retrySeconds = parseInt(retryAfter, 10);
+                    if (!isNaN(retrySeconds)) delay = Math.max(delay, retrySeconds * 1000);
+                }
+                // Add jitter (±25%) to prevent thundering herd
+                delay = Math.round(delay * (0.75 + Math.random() * 0.5));
                 console.error(`  [Retry ${attempt + 1}/${retries}] HTTP ${res.status}, waiting ${delay}ms...`);
                 await new Promise(r => setTimeout(r, delay));
                 continue;
@@ -97,7 +105,7 @@ async function httpRequestWithRetry(method, url, headers, body, retries = DEFAUL
         } catch (err) {
             lastError = err;
             if (attempt < retries) {
-                const delay = RETRY_BACKOFF_BASE_MS * Math.pow(2, attempt);
+                const delay = Math.round(RETRY_BACKOFF_BASE_MS * Math.pow(2, attempt) * (0.75 + Math.random() * 0.5));
                 console.error(`  [Retry ${attempt + 1}/${retries}] ${err.message}, waiting ${delay}ms...`);
                 await new Promise(r => setTimeout(r, delay));
             }

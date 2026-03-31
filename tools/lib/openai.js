@@ -179,7 +179,8 @@ function normalizeUsage(data) {
  * @param {number} [options.maxTokens=16384] - Max output tokens
  * @param {number} [options.timeout=60000] - Request timeout in ms
  * @param {string} [options.model] - Model override (default: gpt-5.4)
- * @param {string} [options.reasoningEffort='high'] - Reasoning effort: 'none'|'low'|'medium'|'high'|'xhigh'
+ * @param {string} [options.reasoningEffort] - Reasoning effort: 'none'|'low'|'medium'|'high'|'xhigh'. Scales timeout automatically.
+ * @param {number} [options.retries=3] - Max retry attempts on 429/529/5xx
  * @returns {Promise<{content: string, usage: object, cost: number}>}
  */
 async function chatCompletion(messages, options = {}) {
@@ -197,10 +198,14 @@ async function chatCompletion(messages, options = {}) {
         throw new Error('chatCompletion: messages must be a non-empty array');
     }
 
-    const maxTokens = options.maxTokens ?? 16384;
-    const timeout = options.timeout ?? 60000;
-
     const reasoningEffort = options.reasoningEffort ?? null;
+
+    // Scale timeout based on reasoning effort — high/xhigh need more time
+    const EFFORT_TIMEOUTS = { none: 30000, low: 45000, medium: 60000, high: 120000, xhigh: 300000 };
+    const defaultTimeout = EFFORT_TIMEOUTS[reasoningEffort] ?? 60000;
+    const maxTokens = options.maxTokens ?? 16384;
+    const timeout = options.timeout ?? defaultTimeout;
+    const retries = options.retries ?? 3;
 
     const body = {
         model: options.model || COPILOT_DEFAULT_MODEL,
@@ -213,7 +218,7 @@ async function chatCompletion(messages, options = {}) {
         'Authorization': `Bearer ${getGitHubToken()}`,
         'Content-Type': 'application/json',
         ...COPILOT_HEADERS
-    }, body, 2, timeout);
+    }, body, retries, timeout);
 
     if (res.status !== 200) {
         const raw = typeof res.data === 'object' ? JSON.stringify(res.data) : String(res.data);
@@ -263,8 +268,13 @@ async function* streamCompletion(messages, options = {}) {
         throw new Error('streamCompletion: messages must be a non-empty array');
     }
 
+    const reasoningEffort = options.reasoningEffort ?? null;
+
+    // Scale timeout based on reasoning effort
+    const EFFORT_TIMEOUTS = { none: 30000, low: 45000, medium: 60000, high: 120000, xhigh: 300000 };
+    const defaultTimeout = EFFORT_TIMEOUTS[reasoningEffort] ?? 60000;
     const maxTokens = options.maxTokens ?? 4096;
-    const timeout = options.timeout ?? 60000;
+    const timeout = options.timeout ?? defaultTimeout;
     const signal = options.signal || null;
 
     // Check if already aborted before starting
@@ -273,8 +283,6 @@ async function* streamCompletion(messages, options = {}) {
         err.code = 'ABORT_ERR';
         throw err;
     }
-
-    const reasoningEffort = options.reasoningEffort ?? null;
 
     const body = JSON.stringify({
         model: options.model || COPILOT_DEFAULT_MODEL,
