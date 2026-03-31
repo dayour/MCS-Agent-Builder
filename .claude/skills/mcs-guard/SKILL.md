@@ -1,6 +1,6 @@
 ---
 name: mcs-guard
-description: "Pre-build validation: verify environment, auth, connections, knowledge sources, tools, and model availability before mcs-build starts. Writes guardReport to brief.json."
+description: "Use this skill before /mcs-build to validate all prerequisites. Checks Azure CLI auth, environment reachability, PAC CLI, required connections, knowledge sources, tools, and model availability. Catches failures that would waste build time. Use proactively before any build, or when auth/environment issues are suspected."
 user_invocable: true
 ---
 
@@ -167,8 +167,8 @@ Match `brief.json.model.name` against available models.
       {
         "name": "Azure CLI Auth",
         "status": "pass",
-        "summary": "Authenticated as dennis@testtesttoltest, token valid for 45 min",
-        "evidence": ["az account show succeeded", "Token acquired for orgccf4f9a1.crm.dynamics.com"],
+        "summary": "Authenticated as you@yourtenant, token valid for 45 min",
+        "evidence": ["az account show succeeded", "Token acquired for orgxxxxxxxx.crm.dynamics.com"],
         "fix": null
       },
       {
@@ -211,7 +211,7 @@ Match `brief.json.model.name` against available models.
 Emit at each check transition:
 ```
 ##PROGRESS## {"step":"guard-auth","label":"Checking Azure CLI auth","status":"running"}
-##PROGRESS## {"step":"guard-auth","label":"Checking Azure CLI auth","status":"completed","detail":"Authenticated as dennis@testtesttoltest"}
+##PROGRESS## {"step":"guard-auth","label":"Checking Azure CLI auth","status":"completed","detail":"Authenticated as you@yourtenant"}
 ##PROGRESS## {"step":"guard-env","label":"Checking environment","status":"running"}
 ##PROGRESS## {"step":"guard-connections","label":"Checking connections","status":"running","detail":"4 required"}
 ##PROGRESS## {"step":"guard-knowledge","label":"Checking knowledge sources","status":"running"}

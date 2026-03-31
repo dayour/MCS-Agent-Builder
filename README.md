@@ -36,6 +36,35 @@ npm start
 
 Running from the repo enables auto-update via git pull, frontend hot-reload, and git hooks.
 
+### First Time Setup
+
+After installing, run `mcs doctor` to check prerequisites. Then set up authentication:
+
+```bash
+# 1. Check prerequisites (shows what's missing + fix commands)
+mcs doctor
+
+# 2. Azure CLI — required for building agents
+az login --tenant YourTenant.onmicrosoft.com
+
+# 3. GitHub CLI — optional, enables GPT-5.4 dual reviews
+gh auth login
+gh auth refresh --scopes copilot
+
+# 4. On Windows, start.cmd auto-installs missing prerequisites
+start.cmd
+```
+
+**What each auth gives you:**
+
+| Auth | What It Enables |
+|------|----------------|
+| Azure CLI (`az login`) | Dataverse access, agent creation, publishing, eval testing |
+| GitHub CLI (`gh auth`) | GPT-5.4 dual-model reviews (optional but recommended) |
+| PAC CLI (`pac auth create`) | Power Platform solution ALM (optional, API fallback exists) |
+
+The dashboard will guide you through account and environment selection when you start your first build.
+
 ---
 
 ## What It Does

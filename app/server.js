@@ -23,7 +23,14 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 
-const { attachTerminal } = require("./lib/terminal");
+let attachTerminal;
+try {
+  ({ attachTerminal } = require("./lib/terminal"));
+} catch (e) {
+  console.warn("[server] Terminal unavailable (node-pty not installed). Dashboard will work but terminal sessions will fail.");
+  console.warn("[server] Fix: npm install @homebridge/node-pty-prebuilt-multiarch");
+  attachTerminal = () => {}; // no-op — WebSocket connections will be accepted but no PTY spawned
+}
 const { migrateBrief } = require("./lib/brief-migrate");
 const { convertDocument, extractContent, NEEDS_CONVERSION } = require("./lib/documents");
 const { isWorkIQAvailable, checkWorkIQAuth, runQueriesBatched, buildQueries, deduplicateDocuments, assembleContextFile, extractSharePointUrls, downloadAndConvertFiles, escapeMd } = require("./lib/workiq");

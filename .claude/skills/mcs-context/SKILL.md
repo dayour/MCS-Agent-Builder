@@ -1,6 +1,6 @@
 ---
 name: mcs-context
-description: Pull all M365 context about a customer/company using WorkIQ MCP. Searches emails, meetings, documents, Teams, and people to compile a complete customer context file before research and architecture.
+description: "Use this skill to pull M365 history about a customer or company before research. Searches emails, meetings, documents, Teams, and people via WorkIQ MCP to compile a customer context file. Use when starting a new project, when the user mentions a customer name, or when you need business context for architecture decisions."
 ---
 
 # MCS Customer Context Pull

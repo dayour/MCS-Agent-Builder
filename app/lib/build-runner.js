@@ -11,7 +11,10 @@
  * and the terminal.js PTY pattern (resolveClaude, ready detection, stripAnsi).
  */
 
-const pty = require("@homebridge/node-pty-prebuilt-multiarch");
+let pty;
+try { pty = require("@homebridge/node-pty-prebuilt-multiarch"); } catch {
+  console.warn("[build-runner] node-pty not available — headless builds disabled");
+}
 const path = require("path");
 const fs = require("fs");
 const { resolveClaude } = require("./terminal");
@@ -189,6 +192,13 @@ function startBuild(projectId, agentId, baseDir) {
 
   // Spawn Claude Code PTY
   let ptyProc;
+  if (!pty) {
+    job.status = "failed";
+    job.errors.push("node-pty not installed — run: npm install @homebridge/node-pty-prebuilt-multiarch");
+    job.completedAt = new Date().toISOString();
+    notifyListeners(job, { type: "done", status: "failed", errors: job.errors });
+    return job;
+  }
   try {
     ptyProc = pty.spawn(CLAUDE.exe, CLAUDE.args, {
       name: "xterm-256color",

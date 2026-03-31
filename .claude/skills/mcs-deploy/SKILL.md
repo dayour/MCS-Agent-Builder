@@ -1,347 +1,125 @@
 ---
 name: mcs-deploy
-description: "Deploy agents from dev to prod environments. Two modes: agent-level (fast, replicate-agent.js) and solution-level (PAC CLI export/import, ALM-ready). Includes pre-deploy validation, connection mapping, post-deploy smoke test."
+description: "Use this skill to promote a published agent from dev to prod. Two modes: agent-level (fast, replicate-agent.js) and solution-level (PAC CLI export/import, ALM-ready). Includes pre-deploy validation, connection mapping, post-deploy smoke test, and auto-rollback on failure. Use after /mcs-build when the agent is ready for production."
 ---
 
 # MCS Deployment — Cross-Environment Agent Promotion
 
 Deploy a built and published agent from a source (dev) environment to a target (prod) environment. Two deployment modes cover different ALM needs.
 
-## BUILD DISCIPLINE — VERIFY-THEN-MARK
+## Build Discipline
 
-**This skill has EIGHT separate sub-tasks. Each must be tracked and verified independently.**
+This skill has EIGHT separate sub-tasks. Each must be tracked and verified independently per `.claude/rules/build-discipline.md`.
 
-| Sub-task | What it does | How to verify |
-|----------|-------------|--------------|
-| **Pre-deploy validation** | Check build status, eval scores, workspace freshness | Validation report printed |
-| **Mode selection** | Auto-detect or user-select agent vs solution | Mode logged |
-| **Deploy** | Replicate agent or export/import solution | Target bot ID returned |
-| **Connection mapping** | Identify tools needing manual reconnection | Report generated |
-| **Publish in target** | PvaPublish bound action on target bot | Publish timestamp returned |
-| **Smoke test** | Run boundaries eval set on target agent | Pass/fail result |
-| **Rollback (if smoke fails)** | Unpublish target, offer delete/redeploy | Target agent unpublished, rollback status written |
-| **Write deployStatus** | Update brief.json with deployment results | Read brief.json back |
+| Sub-task | How to verify |
+|----------|--------------|
+| Pre-deploy validation | Validation report printed |
+| Mode selection | Mode logged |
+| Deploy | Target bot ID returned |
+| Connection mapping | Report generated |
+| Publish in target | Publish timestamp returned |
+| Smoke test | Pass/fail result |
+| Rollback (if smoke fails) | Target agent unpublished |
+| Write deployStatus | Read brief.json back |
 
 ## Input
 
 ```
-/mcs-deploy {projectId} {agentId}                    # Auto-detect mode, full deploy
-/mcs-deploy {projectId} {agentId} --mode solution    # Force solution-level deploy
-/mcs-deploy {projectId} {agentId} --mode agent       # Force agent-level deploy
+/mcs-deploy {projectId} {agentId}                    # Auto-detect mode
+/mcs-deploy {projectId} {agentId} --mode solution    # Force solution-level
+/mcs-deploy {projectId} {agentId} --mode agent       # Force agent-level
 /mcs-deploy {projectId} {agentId} --skip-smoke       # Skip post-deploy smoke test
 ```
 
-Reads from:
-- `Build-Guides/{projectId}/agents/{agentId}/brief.json` — buildStatus, evalSets, integrations, architecture
+Reads from: `Build-Guides/{projectId}/agents/{agentId}/brief.json`
+Writes to: `brief.json` (deployStatus), `deployment-report.md`
 
-Writes to:
-- `Build-Guides/{projectId}/agents/{agentId}/brief.json` — `deployStatus` field
-- `Build-Guides/{projectId}/agents/{agentId}/deployment-report.md` — customer-shareable deployment summary
-
-## Prerequisites (Gates)
-
-All three must pass before deployment proceeds:
+## Prerequisites (3 Gates)
 
 ### Gate 1: Build Status
-- `brief.json.buildStatus.status` must be `"published"`
-- If not → **STOP:** "Agent must be published before deployment. Run `/mcs-build` first."
+`buildStatus.status` must be `"published"`. If not → **STOP.**
 
 ### Gate 2: Eval Scores (Soft Gate)
-- Read `brief.json.evalSets[]` — check per-set pass rates
-- If boundaries < 100% → **WARN** (not a hard stop): "Boundaries eval is below 100%. Deploying anyway — review carefully."
-- If quality < evalConfig.targetPassRate → **WARN:** "Quality pass rate ({X}%) is below target ({Y}%). Consider running `/mcs-fix` first."
-- If no eval results exist → **WARN:** "No eval results found. Consider running `/mcs-eval` first."
+- Boundaries < 100% → **WARN** (not hard stop)
+- Quality < target → **WARN**
+- No eval results → **WARN**
 
 ### Gate 3: Dual Auth
-Deploy requires auth to BOTH source and target environments. This is different from build (which only needs source).
+Deploy requires auth to BOTH source and target environments.
 
-1. **Source auth** — verify existing auth from build:
-   - Read `brief.json.buildStatus.accountId` → look up in session-config.json
-   - Quick check: `az account show --query tenantId -o tsv` matches source tenant
-   - Verify PAC CLI: `pac auth list` shows correct source profile
-
-2. **Target auth** — ask user for target environment:
-   - If `brief.json.deployStatus.targetEnvironment` exists → confirm: "Deploy to {env}? (Y/n)"
-   - If not → ask: "Which environment should we deploy to?" (present list from `pac env list` or manual entry)
-   - Persist target to `brief.json.deployStatus.targetEnvironment` and `.targetAccountId`
-   - If target is on a different tenant → need separate PAC CLI profile + Azure CLI login
-   - If same tenant, different env → same PAC CLI profile, just different env selection
+1. **Source auth** — verify existing from build (Azure CLI tenant match + PAC CLI profile)
+2. **Target auth** — ask user for target environment. Persist to `deployStatus.targetEnvironment`. If different tenant → need separate auth.
 
 ## Step 0: Mode Auto-Detection
 
-Determine which deployment mode to use (unless user specified `--mode`):
+| Condition | Mode | Reason |
+|-----------|------|--------|
+| Multi-agent | `solution` | All components in one package |
+| Connected agents (external) | `agent` | Only main agent needs deploying |
+| Agent in named solution | `solution` | Solution ALM preserves relationships |
+| Single agent, default solution | `agent` | Faster, simpler |
 
-| Condition | Recommended Mode | Reason |
-|-----------|-----------------|--------|
-| `architecture.type == "multi-agent"` | `solution` | Multi-agent needs all components in one package |
-| `architecture.type == "single-agent-with-connected-agents"` | `agent` | Connected agents are external (Fabric, other MCS agents) — only the main agent needs deploying. Connected agents must be set up independently in the target environment. |
-| Agent is in a named solution (not default) | `solution` | Solution ALM preserves relationships |
-| Single agent, default solution | `agent` | Faster, simpler, no solution overhead |
-
-Log the decision: "Auto-detected deployment mode: {mode} ({reason})"
-
-User can override with `--mode agent` or `--mode solution`.
+**Precedence (first match wins):** multi-agent → named solution → connected agents → single agent default. User can override with `--mode`.
 
 ## Step 1: Pre-Deploy Validation
 
-Before deploying, validate the agent is ready:
-
-### 1a. Component Inventory
-Pull the workspace to get the latest state:
-```bash
-node tools/mcs-lsp.js pull --env "{sourceEnv}" --bot-id "{botId}" --workspace "Build-Guides/{projectId}/agents/{agentId}/workspace"
-```
-
-Inventory what will be deployed:
-- Topics (count + names)
-- Tools/connectors (count + names + auth methods)
-- Knowledge sources (count + names)
-- Model configuration
-
-### 1b. Environment-Specific Value Scan
-Grep the workspace for values that might be environment-specific:
-- Hardcoded URLs (e.g., `https://org123.crm.dynamics.com`)
-- Environment variable references
-- Connection reference IDs
-- Specific tenant/org IDs
-
-Flag any found: "These values may need updating in the target environment."
-
-### 1c. Validation Report
-Print a summary:
-```
-Pre-Deploy Validation:
-  Build status: published (2026-03-01)
-  Eval scores: boundaries 100%, quality 90%, edge-cases 85%
-  Components: 4 topics, 2 tools, 1 knowledge source
-  Env-specific values: 1 found (Dataverse URL in tool config)
-  Mode: agent (auto-detected — single agent, default solution)
-```
-
-**VERIFY:** Validation report printed and user acknowledges.
+1. **Component inventory:** Pull workspace via `mcs-lsp.js pull`, count topics/tools/knowledge/model.
+2. **Env-specific value scan:** Grep workspace for hardcoded URLs, env variables, connection ref IDs, tenant IDs. Flag any found.
+3. **Validation report:** Print summary with build status, eval scores, components, env-specific values, mode.
 
 ## Step 2a: Agent Mode Deploy
 
-Uses `replicate-agent.js` for fast, lightweight deployment:
-
 ```bash
 node tools/replicate-agent.js \
-  --source-env "{sourceEnvUrl}" \
-  --target-env "{targetEnvUrl}" \
-  --bot-id "{sourceBotId}" \
-  --bot-name "{agentName}"
+  --source-env "{sourceEnvUrl}" --target-env "{targetEnvUrl}" \
+  --bot-id "{sourceBotId}" --bot-name "{agentName}"
 ```
 
-This tool:
-1. Creates a new bot in the target environment (Dataverse POST + PvaProvision)
-2. Clones the LSP workspace from source
-3. Pushes the workspace to the target bot
-
-**VERIFY:** Command returns target bot ID. Log it.
+Creates new bot in target from the **published** agent state (not the current workspace draft). **VERIFY:** returns target bot ID. If `buildStatus.status` is not `"published"`, Gate 1 already blocked — but double-check the source agent is published before cloning.
 
 ## Step 2b: Solution Mode Deploy
 
-Uses PAC CLI solution export/import for ALM-ready deployment:
-
-### Export from source
 ```bash
-pac solution export --name "{solutionName}" --path "Build-Guides/{projectId}/agents/{agentId}/{solutionName}.zip" --managed --overwrite --async
-```
+# Export from source
+pac solution export --name "{solutionName}" --path ".../{solutionName}.zip" --managed --overwrite --async
 
-If the solution isn't managed yet:
-```bash
-pac solution export --name "{solutionName}" --path "Build-Guides/{projectId}/agents/{agentId}/{solutionName}.zip" --overwrite --async
-```
-
-### Switch to target environment
-```bash
+# Switch to target
 pac auth select --index {targetProfileIndex}
-# OR if same tenant:
-pac env select --environment "{targetEnvUrl}"
+
+# Import to target
+pac solution import --path ".../{solutionName}.zip" --publish-changes --activate-plugins --async
 ```
 
-### Import to target
-```bash
-pac solution import --path "Build-Guides/{projectId}/agents/{agentId}/{solutionName}.zip" --publish-changes --activate-plugins --async
-```
-
-**VERIFY:** Import completes without errors. Check `pac solution list` in target for the solution.
-
-### Switch back to source
-```bash
-pac auth select --index {sourceProfileIndex}
-```
+**VERIFY:** `pac solution list` in target shows the solution. **Always switch PAC CLI back to source** after.
 
 ## Step 3: Connection Mapping Report
 
-Many tools/connectors need manual reconnection in the target environment because connection references are environment-specific.
+Generate a checklist for tools/connectors needing manual reconnection:
 
-For each integration in `brief.json.integrations[]`:
+| Auth Method | Action Needed |
+|-------------|---------------|
+| MCP (service principal) | Re-authenticate in target MCS |
+| OAuth connectors | User sign in via MCS UI |
+| API key connectors | Re-enter key in target |
+| Dataverse (same tenant) | Auto-connects |
+| Dataverse (cross-tenant) | Configure service principal |
 
-| Integration | Auth Method | Action Needed |
-|------------|-------------|---------------|
-| MCP servers | Service principal | Re-authenticate in target MCS |
-| OAuth connectors | User delegated | User must sign in via MCS UI in target |
-| API key connectors | API Key | Re-enter API key in target |
-| Dataverse (same tenant) | None | Auto-connects if same tenant |
-| Dataverse (cross-tenant) | Service principal | Configure service principal in target |
-
-For connected agents (`brief.json.connectedAgents[]`), add setup steps:
-- Connected agents are external — they must exist independently in the target tenant/environment
-- Each connected agent's `prerequisites` and `setupSteps` list what is needed
-- After the main agent deploys, reconnect to the target environment's instance of each connected agent
-
-Generate a checklist:
-```markdown
-## Connection Mapping — Manual Steps Required
-
-- [ ] SharePoint/OneDrive MCP: Re-authenticate in target MCS → Settings → Tools
-- [ ] ServiceNow connector: Enter API key in target Power Platform admin center
-- [ ] Custom connector "OrderAPI": Update base URL to production endpoint
-
-## Connected Agent Setup (if applicable)
-- [ ] [Connected agent name]: Verify published in target environment
-- [ ] [Connected agent name]: Connect to main agent via MCS UI → Settings → Connected Agents
-- [ ] [Connected agent name]: Verify data pipeline running in target (if applicable)
-```
-
-**VERIFY:** Connection mapping report written.
+For connected agents: list setup steps (must exist independently in target).
 
 ## Step 4: Publish in Target
 
-After deployment and connection mapping:
-
-### Agent mode
-Get the target bot ID from Step 2a, then:
-```bash
-# Use Dataverse PvaPublish bound action
-node -e "
-const { post } = require('./tools/lib/http.js');
-// PvaPublish bound action on target bot
-"
-```
-
-Or use PAC CLI (switch to target env first):
-```bash
-pac copilot publish --bot "{targetBotId}"
-```
-
-### Solution mode
-Already published via `--publish-changes` in import step. Verify:
-```bash
-pac copilot list
-# Check that the agent appears and has a recent publish date
-```
-
-**VERIFY:** Agent is published in target environment.
+Agent mode: Dataverse `PvaPublish` on target bot ID, or `pac copilot publish --bot "{targetBotId}"`.
+Solution mode: Already published via `--publish-changes`. Verify with `pac copilot list`.
 
 ## Step 5: Post-Deploy Smoke Test
 
-Unless `--skip-smoke` was specified, run the boundaries eval set against the target agent to verify basic functionality:
+Unless `--skip-smoke`: run boundaries eval set against target agent via Direct Line. If token not available → skip with note. Results: all pass → `"pass"`, any fail → `"fail"`.
 
-1. Acquire Direct Line token for the TARGET agent
-2. Run boundaries eval set only:
-```bash
-node tools/direct-line-test.js --token-endpoint "{targetTokenEndpoint}" --brief "Build-Guides/{projectId}/agents/{agentId}/brief.json" --set boundaries --verbose
-```
+## Step 5.5: Rollback on Smoke Failure
 
-3. If Direct Line token not available for target:
-   - Log: "Could not acquire Direct Line token for target. Skipping smoke test."
-   - Set `smokeTestResult: "skipped"` with note "Direct Line token not available in target"
+If smoke test fails → auto-unpublish target (non-negotiable safety measure), then offer rollback options. See `reference/rollback-procedure.md` for the full procedure.
 
-4. Results:
-   - **All pass** → `smokeTestResult: "pass"`
-   - **Any fail** → `smokeTestResult: "fail"` + warn user: "Smoke test failed — {N} boundaries tests failed in target. Review connection mapping and agent state."
-
-**VERIFY:** Smoke test result recorded.
-
-## Step 5.5: Rollback on Smoke Test Failure
-
-If the smoke test fails (`smokeTestResult: "fail"`), automatically execute rollback to prevent a broken agent from being live in the target environment.
-
-**Rollback procedure:**
-
-### 1. Unpublish the target agent (immediate — always runs)
-
-**Agent mode:** Use the target bot ID from Step 2a.
-**Solution mode:** Resolve the target bot ID from `pac copilot list` in the target environment (match by agent name from brief.json).
-
-```bash
-# Unpublish via Dataverse PATCH (primary method)
-# Endpoint: PATCH {targetDataverseUrl}/api/data/v9.2/bots({targetBotId})
-# Body: { "statecode": 0, "statuscode": 0 }
-
-# Fallback: PvaUnpublish bound action if PATCH fails
-```
-
-**If unpublish fails:** retry once. If still fails, log the exact error, set `deployStatus.status: "rollback-partial"`, record `lastDeployError`, and instruct the user: "Could not unpublish target agent — manually disable access in MCS UI immediately."
-
-This ensures the broken agent is not accessible to end users while the issue is investigated.
-
-### 2. Offer full rollback (user choice — never auto-delete)
-Present the rollback options based on deployment mode:
-
-**Agent mode rollback:**
-```
-Smoke test FAILED — {N}/{M} boundaries tests failed in target.
-Target agent has been unpublished (not accessible to users).
-
-Rollback options:
-  [1] Keep unpublished — investigate and fix in target (default)
-  [2] Delete target agent — remove entirely, redeploy later
-  [3] Re-deploy from source — fresh replicate-agent.js run
-
-Choose [1/2/3]:
-```
-
-**Solution mode rollback:**
-```
-Smoke test FAILED — {N}/{M} boundaries tests failed in target.
-Target agent has been unpublished (not accessible to users).
-
-Rollback options:
-  [1] Keep unpublished — investigate and fix in target (default)
-  [2] Uninstall solution — pac solution delete in target, clean slate
-  [3] Re-import from source — fresh solution import
-
-Choose [1/2/3]:
-```
-
-### 3. Execute chosen rollback
-
-| Option | Agent Mode | Solution Mode |
-|--------|-----------|---------------|
-| **Keep (1)** | No action — agent stays unpublished in target | No action — solution stays, agent unpublished |
-| **Delete (2)** | `tools/dataverse-helper.ps1` DELETE bot in target | `pac solution delete --solution-name {name}` in target env |
-| **Re-deploy (3)** | Re-run Step 2a (replicate-agent.js) | Re-run Step 2b (export/import) |
-
-After re-deploy (option 3): re-run smoke test automatically. If it fails again → stop and escalate: "Re-deploy also failed smoke test. Manual investigation required."
-
-### 4. Write rollback status
-Update `brief.json.deployStatus`:
-```json
-{
-  "deployStatus": {
-    "status": "rolled-back",
-    "rollback": {
-      "reason": "smoke-test-failure",
-      "failedTests": ["test question 1", "test question 2"],
-      "action": "unpublished",
-      "rolledBackAt": "2026-03-04T14:45:00Z"
-    }
-  }
-}
-```
-
-**VERIFY:** Target agent is unpublished (Dataverse read-back confirms draft status). Rollback action recorded in brief.json.
-
-**Skip rollback if:** `--skip-smoke` was used (no smoke test = no rollback trigger), or user explicitly opts out.
-
-## Step 6: Write deployStatus to brief.json
-
-**Skip this step if rollback was executed in Step 5.5** — rollback already wrote `deployStatus` with `status: "rolled-back"` or `"rollback-partial"`. Only merge missing metadata (timestamps, mode) into the existing record without overwriting the rollback status.
-
-Update `brief.json.deployStatus`:
+## Step 6: Write deployStatus
 
 ```json
 {
@@ -349,101 +127,34 @@ Update `brief.json.deployStatus`:
     "status": "deployed",
     "mode": "agent",
     "targetEnvironment": "Production (org456)",
-    "targetAccountId": "admin-prod",
     "targetBotId": "abc-123-def",
-    "targetDataverseUrl": "https://org456.crm.dynamics.com",
     "deployedAt": "2026-03-04T14:30:00Z",
     "smokeTestResult": "pass",
-    "connectionsMapped": false,
-    "lastDeployError": null
+    "connectionsMapped": false
   }
 }
 ```
 
-If deploy failed at any step:
-```json
-{
-  "deployStatus": {
-    "status": "failed",
-    "lastDeployError": "Solution import failed: missing dependency XYZ"
-  }
-}
-```
-
-**VERIFY:** Read brief.json back. Confirm deployStatus is written correctly.
+Skip if rollback already wrote status. **VERIFY:** Read brief.json back.
 
 ## Step 7: Generate Deployment Report
 
-Write `Build-Guides/{projectId}/agents/{agentId}/deployment-report.md`:
-
-```markdown
-# Deployment Report: {Agent Name}
-
-**Date:** {timestamp}
-**Source:** {sourceEnv}
-**Target:** {targetEnv}
-**Mode:** {agent | solution}
-**Status:** {Deployed | Failed}
-
-## Pre-Deploy Validation
-- Build: published ({publishDate})
-- Eval scores: boundaries {X}%, quality {Y}%, edge-cases {Z}%
-- Components: {N} topics, {N} tools, {N} knowledge sources
-
-## Deployment Summary
-- Target bot ID: {id}
-- Deployed at: {timestamp}
-- Method: {replicate-agent.js | PAC CLI solution import}
-
-## Connection Mapping (Manual Steps)
-- [ ] {list of connections needing manual setup}
-
-## Smoke Test
-- Result: {pass | fail | skipped}
-- Tests run: {N} (boundaries set)
-- {Details if failures}
-
-## Next Steps
-1. Complete connection mapping (see checklist above)
-2. Run full eval suite on target: `/mcs-eval {projectId} {agentId}` (after switching to target env)
-3. Configure channels in target environment
-4. Share with pilot users
-```
-
-**VERIFY:** Report file exists and contains all sections.
-
-### Step 7.5: GPT Deployment Report Review
-
-After generating the deployment report, fire GPT to catch issues the lead may have missed:
-
-```bash
-node tools/multi-model-review.js review-code --file "Build-Guides/{projectId}/agents/{agentId}/deployment-report.md" --context "Deployment report review: check connection mapping completeness, verify pre/post checklists match actual integrations, flag missing rollback steps"
-```
-
-GPT catches: incomplete connection mapping (integration in brief but not in report), checklist items that contradict build status, missing environment-specific values. Merge findings into the report before finalizing. If GPT is unavailable, proceed with the report as-is.
+Write `deployment-report.md` with: pre-deploy validation, deployment summary, connection mapping checklist, smoke test results, next steps. Fire GPT review (`review-code`) on the report — catches incomplete connection mapping and missing checklist items.
 
 ## Error Handling
 
 | Error | Action |
 |-------|--------|
-| `replicate-agent.js` fails | Check target env permissions. Try solution mode as fallback. |
-| Solution import fails (missing dependency) | List missing dependencies. Ask user to install prerequisites in target. |
-| Solution import fails (version conflict) | Ask user: upgrade existing or import as new? Use `--stage-and-upgrade` if upgrading. |
-| Publish fails in target | Check if connections are mapped. Publish may fail with broken connection refs. |
-| Smoke test token acquisition fails | Use `--skip-smoke` and test manually in MCS Test Chat. |
-| Smoke test fails | Auto-rollback: unpublish target agent, present rollback options (Step 5.5). |
-| Rollback delete/uninstall fails | Log error, leave agent unpublished, escalate to user for manual cleanup. |
-| Target env auth fails | Verify PAC CLI profile exists for target. May need `pac auth create` for new env. |
+| `replicate-agent.js` fails | Check target env permissions. Try solution mode fallback. |
+| Solution import: missing dependency | List missing deps. Ask user to install in target. |
+| Solution import: version conflict | Ask user: upgrade or import as new? |
+| Publish fails in target | Check connection mapping. |
+| Smoke test fails | Auto-rollback (Step 5.5). |
 
-## Important Rules
+## Gotchas
 
-- **brief.json deployStatus is the primary output** — the dashboard reads deployment state from it
-- **deployment-report.md is the customer-shareable summary**
-- **Never deploy without the 3 gates passing** because skipping gates risks deploying a broken or untested agent to production
-- **Connection mapping is always generated** — even if no manual steps are needed (report says "No manual connection mapping needed"), because omitting it causes IT admins to miss reconnection steps
-- **Smoke test only runs boundaries set** — full eval should be run separately via `/mcs-eval`
-- **Smoke test failure triggers auto-unpublish** — target agent is unpublished immediately (non-negotiable safety measure), then user chooses further rollback action (keep unpublished/delete/redeploy). The auto-unpublish always runs; only the delete/redeploy is user-choice.
-- **No teammates needed** — this is a lead-only execution skill (mechanical, no generation)
-- **Always switch PAC CLI back to source** after solution mode deploy because leaving it on target breaks subsequent build commands
-- **Never auto-delete the source agent** after deployment — that's a user decision, and accidental deletion is unrecoverable
-- **Fire GPT review on every generated report** because deployment reports go to IT admins who act on them — errors in the report cause deployment failures
+- **Never deploy without 3 gates passing** — skipping gates risks deploying broken agents
+- **Connection mapping always generated** — even if no manual steps needed (IT admins rely on this)
+- **Smoke test failure triggers auto-unpublish** — non-negotiable, then user chooses further rollback
+- **No teammates needed** — lead-only execution skill
+- **Never auto-delete the source agent** — that's a user decision with no undo

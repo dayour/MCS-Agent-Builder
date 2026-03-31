@@ -6,8 +6,8 @@
       "url": "https://learn.microsoft.com/api/mcp"
     },
     "workiq": {
-      "command": "cmd",
-      "args": ["/c", "npx", "-y", "@microsoft/workiq@latest", "mcp"]
+      "command": "npx",
+      "args": ["-y", "@microsoft/workiq@latest", "mcp"]
     },
     "pac-cli": {
       "command": "node",

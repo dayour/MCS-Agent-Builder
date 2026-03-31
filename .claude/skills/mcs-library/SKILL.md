@@ -1,6 +1,6 @@
 ---
 name: mcs-library
-description: Browse, analyze, and contribute to the team's SharePoint solution library. Uses agent teams for intelligent tagging and pattern extraction.
+description: "Use this skill to browse, search, analyze, or upload to the team's SharePoint solution library. Downloads exported MCS solutions, extracts patterns, and auto-indexes uploads. Use when looking for prior agent builds, reusable patterns, or contributing a completed agent to the library."
 ---
 
 # MCS Solution Library

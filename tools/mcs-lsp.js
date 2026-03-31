@@ -1399,7 +1399,7 @@ Examples:
   node tools/mcs-lsp.js clone --workspace "./Clone/MyAgent" --agent-id "2ae13d0e-..." --env-id "f9a0cae4-..." --dataverse-url "https://org.crm.dynamics.com" --gateway-url "https://powervamg.us-il301.gateway.prod.island.powerapps.com"
 
   # Clone using session-config.json defaults
-  node tools/mcs-lsp.js clone --workspace "./Clone/MyAgent" --agent-id "2ae13d0e-..." --account "admin@M365CPI15209943.onmicrosoft.com" --env-name "dktest"
+  node tools/mcs-lsp.js clone --workspace "./Clone/MyAgent" --agent-id "2ae13d0e-..." --account "you@yourtenant.onmicrosoft.com" --env-name "YourEnv"
 
   # Push/pull/preview/info
   node tools/mcs-lsp.js push --workspace "./Clone/MyAgent"

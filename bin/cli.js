@@ -505,7 +505,10 @@ function doctor() {
 
   // 10. MCP: PAC CLI (via dnx)
   check("MCP: PAC CLI", () => {
-    const dnxPath = path.join(process.env.DOTNET_ROOT || "C:\\Program Files\\dotnet", "dnx.cmd");
+    const dotnetRoot = process.env.DOTNET_ROOT
+      || (os.platform() === "win32" ? "C:\\Program Files\\dotnet" : "/usr/share/dotnet");
+    const dnxExt = os.platform() === "win32" ? "dnx.cmd" : "dnx";
+    const dnxPath = path.join(dotnetRoot, dnxExt);
     if (fs.existsSync(dnxPath)) return { ok: true, detail: "dnx available (auto-updates with --yes)" };
     if (cmdExists("pac")) return { ok: true, detail: "pac CLI in PATH" };
     return { ok: false, detail: "not found", fix: "Install .NET SDK + PAC CLI" };

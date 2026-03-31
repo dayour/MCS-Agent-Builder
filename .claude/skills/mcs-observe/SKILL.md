@@ -1,6 +1,6 @@
 ---
 name: mcs-observe
-description: "Post-deploy agent monitoring: synthetic conversations, latency measurement, knowledge freshness, tool connectivity, quality regression detection. Writes observeReport to brief.json."
+description: "Use this skill after deployment to monitor agent health. Runs synthetic conversations, measures latency, checks knowledge freshness, verifies tool connectivity, and detects quality regression. Use for post-deploy validation, periodic health checks, or when the user reports the agent is misbehaving."
 user_invocable: true
 ---
 

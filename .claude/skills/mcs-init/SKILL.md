@@ -1,6 +1,6 @@
 ---
 name: mcs-init
-description: Initialize a new MCS agent project with folder structure and template files.
+description: "Use this skill to start a new MCS agent project. Creates the folder structure in Build-Guides/, copies template files, and detects the intake path (SDR documents, wizard, or manual). Use when the user says 'new project', 'start a build', or provides intake documents."
 ---
 
 # MCS Project Initializer

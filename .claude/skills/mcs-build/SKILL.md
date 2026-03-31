@@ -1,6 +1,6 @@
 ---
 name: mcs-build
-description: "Build agent(s) in Copilot Studio using the fully API-native build stack with user-guided manual steps for OAuth connections. Reads brief.json for architecture mode (single-agent, multi-agent, or connected-agent with external agents like Fabric Data Agent)."
+description: "Use this skill to build an agent in Copilot Studio from a researched brief.json. Creates the agent, configures instructions, knowledge, tools, model, topics, and publishes. Supports single-agent, multi-agent, and connected-agent architectures. Use after /mcs-research when brief.json is ready, or to resume a partially completed build."
 ---
 
 # MCS Agent Builder — Unified Hybrid Build Stack
@@ -36,42 +36,9 @@ Writes to:
 - `Build-Guides/{projectId}/agents/{agentId}/brief.json` — updates `buildStatus` field
 - `Build-Guides/{projectId}/agents/{agentId}/build-report.md` — customer-shareable summary
 
-## Progress Markers (Headless Build UI)
+## Progress Markers
 
-When this skill is invoked via the app's headless build runner (not the interactive terminal), emit structured progress markers so the frontend can show build progress. Print each marker on its own line — the build runner parses them from terminal output.
-
-**Emit at each step transition:**
-```
-##PROGRESS## {"step":"auth","label":"Verifying credentials","status":"running"}
-##PROGRESS## {"step":"auth","label":"Verifying credentials","status":"completed","detail":"admin@M365CPI15209943"}
-##PROGRESS## {"step":"context","label":"Loading build context","status":"running"}
-##PROGRESS## {"step":"create","label":"Creating agent","status":"running"}
-##PROGRESS## {"step":"create","label":"Creating agent","status":"completed","detail":"Bot ID: abc-123"}
-##PROGRESS## {"step":"instructions","label":"Configuring instructions","status":"running"}
-##PROGRESS## {"step":"knowledge","label":"Adding knowledge","status":"running"}
-##PROGRESS## {"step":"tools","label":"Configuring tools","status":"running"}
-##PROGRESS## {"step":"model","label":"Setting model","status":"running"}
-##PROGRESS## {"step":"topics","label":"Authoring topics","status":"running"}
-##PROGRESS## {"step":"publish","label":"Publishing","status":"running"}
-##PROGRESS## {"step":"validate","label":"Validating build","status":"running"}
-```
-
-**On auth requirement (OAuth, manual step):**
-```
-##AUTH_REQUIRED## {"system":"SharePoint","instructions":"Authorize SharePoint access in the browser window"}
-```
-
-**On build completion:**
-```
-##BUILD_COMPLETE## {"success":true,"summary":"Agent built with 5 topics, 3 tools. Published to dktest."}
-##BUILD_COMPLETE## {"success":false,"summary":"Build failed at Step 3: connector not found"}
-```
-
-**Status values:** `"pending"`, `"running"`, `"completed"`, `"failed"`, `"skipped"`
-
-**When to emit:** Print `status:"running"` at the START of each step. Print `status:"completed"` or `"failed"` at the END. Include `detail` for useful context (IDs, counts, error messages). Steps that are skipped (resume build) get `status:"skipped"`.
-
-**Always emit these markers**, regardless of whether the build is running headless or interactive. They are plain text — they appear in the terminal too but don't break anything.
+Emit `##PROGRESS##` JSON markers at each step transition. Steps: `auth`, `context`, `create`, `instructions`, `knowledge`, `tools`, `model`, `topics`, `publish`, `validate`. Format: `##PROGRESS## {"step":"...","label":"...","status":"running|completed|failed|skipped","detail":"..."}`. Emit `##BUILD_COMPLETE##` at the end. Emit `##AUTH_REQUIRED##` when user action needed (e.g., OAuth consent). Always emit regardless of headless or interactive mode.
 
 ---
 
@@ -453,8 +420,6 @@ Write a customer-shareable build report to `build-report.md` with 11 sections: o
 
 ---
 
-## Post-Build Learnings Capture
+## Post-Build Learnings
 
-After the build report, run two-tier learnings capture. Tier 1 (auto) bumps confirmed counts silently for routine builds. Tier 2 (user-confirmed) captures deviations, workarounds, and discoveries as new learnings entries.
-
-> Full protocol: see reference/learnings-capture.md
+Tier 1 (auto): bump confirmed counts for routine builds. Tier 2 (user-confirmed): deviations, workarounds, discoveries. See `reference/learnings-capture.md` and `.claude/rules/learnings-system.md`.

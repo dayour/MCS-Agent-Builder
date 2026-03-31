@@ -1,11 +1,11 @@
 ---
 name: mcs-fix
-description: "Post-deployment fix: analyze eval set failures, classify root causes, apply targeted fixes, and re-evaluate. For initial build iteration, use /mcs-build (which has an internal fix loop). This skill handles post-deployment edge cases and regressions."
+description: "Use this skill to fix an agent after eval failures. Classifies root causes (instruction gaps, boundary violations, routing failures, knowledge gaps, scoring issues, decision mismatches), applies targeted fixes via PE and TE, then re-evaluates. Use after /mcs-eval shows failures, not during initial build (which has its own fix loop)."
 ---
 
 # MCS Fix — Post-Eval Fix & Re-Evaluate
 
-Analyze eval set failures from `/mcs-eval`, classify root causes, generate and apply targeted fixes, then re-evaluate to measure improvement. Use this skill for post-deployment fixes — the initial build iteration loop is handled by `/mcs-build`.
+Analyze eval set failures from `/mcs-eval`, classify root causes, generate and apply targeted fixes, then re-evaluate to measure improvement.
 
 ## Input
 
@@ -13,340 +13,94 @@ Analyze eval set failures from `/mcs-eval`, classify root causes, generate and a
 /mcs-fix {projectId} {agentId}
 ```
 
-**Reads:** `Build-Guides/{projectId}/agents/{agentId}/brief.json` — evalSets (tests with lastResult), instructions, integrations, capabilities, conversations.topics
+**Reads:** `brief.json` — evalSets (tests with lastResult), instructions, integrations, capabilities, conversations.topics
 **Writes:** `brief.json` (instructions, conversations.topics, evalSets, notes.fixHistory), agent in MCS (via hybrid stack)
 
 ## Prerequisites: Auth Verification
 
-Re-verify auth established during `/mcs-build`. Quick silent check — no user interaction unless something changed.
+Re-verify auth from `/mcs-build`. Quick silent check — `az account show` must match `buildStatus.azTenantId`, Dataverse must be reachable. If missing → "Run `/mcs-build` first."
 
-1. Read `brief.json.buildStatus`: `azTenantId`, `accountId`, `environment`
-2. If `azTenantId` missing → "Run `/mcs-build` first to establish auth, or `az login --tenant {tenantId}` (tenantId from session-config.json)"
-3. Quick check: `az account show --query tenantId -o tsv`
-   - **Match** → log one line (`Azure CLI verified`), proceed
-   - **Mismatch** → run `az login --tenant {azTenantId}` (auto-login, same as build gate — opens browser popup)
-4. Verify PAC CLI: `pac auth list` (confirm correct profile active)
+## Step 1: Read & Validate Eval Results
 
-## Step 1: Read & Validate Eval Results (Lead)
-
-1. Read `brief.json.evalSets[]` — scan all tests for `lastResult`
-2. If no tests have `lastResult` → **exit:** "Run `/mcs-eval` first — no eval results found."
-3. Compute per-set pass rates: for each set, count tests with `lastResult.pass == true` vs total tested
-4. If all sets meet their `passThreshold` → **exit:** "All eval sets passing their thresholds. Nothing to fix."
-5. Output summary:
-
-```
-## Fix: {Agent Name}
-
-**Eval set status:**
-| Set | Passed | Total | Rate | Target | Status |
-|-----|--------|-------|------|--------|--------|
-| boundaries | X | Y | Z% | 100% | PASS/FAIL |
-| quality | X | Y | Z% | 85% | PASS/FAIL |
-| edge-cases | X | Y | Z% | 80% | PASS/FAIL |
-...
-
-**Failing sets:** {list}
-**Failed tests:** {N} test cases to analyze
-
-Proceeding to classify failures...
-```
+1. Read `brief.json.evalSets[]` — scan for `lastResult`
+2. No results → **exit:** "Run `/mcs-eval` first."
+3. All sets passing → **exit:** "All eval sets passing. Nothing to fix."
+4. Output per-set pass rates and failing test count
 
 ## Step 2: Classify Failures (Lead + QA)
 
-### Before Classification: Consult Learnings for Known Failure Patterns
+**Before classification:** read `knowledge/learnings/eval-testing.md`, `instructions.md`, `topics-triggers.md` for known patterns.
 
-Read the following learnings files (if non-empty) to check for known failure patterns before spawning QA:
-- `knowledge/learnings/eval-testing.md` — known failure patterns, scoring calibration insights
-- `knowledge/learnings/instructions.md` — instruction patterns that fixed similar failures (e.g., "DO NOT" boundary language)
-- `knowledge/learnings/topics-triggers.md` — trigger/routing fixes from prior builds
-
-Provide relevant learnings to QA Challenger alongside the brief data so QA can cross-reference known patterns.
-
-### Spawn QA Challenger
-
-Spawn **QA Challenger** to analyze each failed test case. Provide QA with:
-- `brief.json.evalSets[]` (all sets with tests and their lastResult — focus on tests where lastResult.pass == false)
-- `brief.json.instructions` (current instructions)
-- `brief.json.conversations.topics[]` (current topic list)
-- `brief.json.integrations[]` (configured tools)
-- `brief.json.knowledge[]` (knowledge sources)
-- Relevant learnings from the files above (known patterns, prior fixes)
-
-QA classifies each failure into one of 6 root cause categories:
+**Spawn QA Challenger** with brief data + relevant learnings. QA classifies each failure:
 
 | Root Cause | Signal | Fix Method |
 |-----------|--------|-----------|
-| **Instruction gap** | Agent doesn't handle the scenario at all | PE rewrites affected instruction section |
-| **Boundary violation** | Agent should decline/refuse but doesn't | PE strengthens boundary language |
-| **Routing failure** | Wrong topic triggered, or no topic matched | TE adjusts trigger phrases or adds topic |
-| **Knowledge gap** | Agent can't find the information | Flag for manual knowledge update (can't auto-add) |
-| **Scoring issue** | Response is actually fine, eval method too strict | Adjust eval criteria (passingScore, method type) |
-| **Decision mismatch** | Failure caused by integration approach from a pre-applied default decision | Flag the relevant `decisions[]` entry — user should review and potentially select a different option |
+| **Instruction gap** | Agent doesn't handle the scenario | PE rewrites section |
+| **Boundary violation** | Agent should decline but doesn't | PE strengthens boundary |
+| **Routing failure** | Wrong topic triggered | TE adjusts triggers |
+| **Knowledge gap** | Agent can't find info | Flag for manual update |
+| **Scoring issue** | Response is fine, method too strict | Adjust eval criteria |
+| **Decision mismatch** | Failure from pre-applied default decision | Flag decision for user review |
 
-**Decision mismatch detection:** When a failure involves a tool/connector that came from a pending decision's recommended default (check `decisions[].status == "pending"` and `decisions[].briefPatch` matches the failing integration), QA should flag this as a decision mismatch rather than just an instruction or routing fix. The right action is often to revisit the decision, not patch around the wrong tool.
+**Decision mismatch detection:** When failure involves a tool from a pending `decisions[]` entry's recommended default, flag as decision mismatch — the right action is often to revisit the decision, not patch around the wrong tool.
 
-QA outputs a fix plan: which failures, what category, what to change.
+**Output classification and WAIT for user approval before proceeding.**
 
-**Output the classification to user and WAIT for approval before proceeding:**
-
-```
-## Failure Classification
-
-| # | Test Case | Root Cause | Proposed Fix |
-|---|-----------|-----------|-------------|
-| 1 | [question summary] | Instruction gap | PE: add handling for [scenario] |
-| 2 | [question summary] | Routing failure | TE: add trigger phrases for [topic] |
-| 3 | [question summary] | Knowledge gap | Manual: add [source] to knowledge |
-| 4 | [question summary] | Scoring issue | Lower passingScore from 70 to 60 |
-
-Knowledge gaps (#{list}) require manual updates — these will be skipped.
-
-Proceed with fixes for #{fixable count} items?
-```
-
-## Step 3: Generate Fixes (PE + TE + QA, parallel where possible)
-
-Based on QA's classification, generate fixes in parallel:
+## Step 3: Generate Fixes (PE + TE + QA parallel)
 
 ### Instruction Fixes — Prompt Engineer
-
-Spawn **Prompt Engineer** when QA identified `instruction gap` or `boundary violation` failures. Provide PE with:
-- Current instructions from `brief.json.instructions`
-- Failed test cases with QA's analysis (only the instruction-related ones)
-- `brief.json.integrations[]` (for tool reference validation)
-- `brief.json.capabilities[]` (for scope validation)
-- `knowledge/cache/instructions-authoring.md` (for MS best practices and anti-patterns)
-
-**PE fix rules (same as generation — see instructions-authoring.md):**
-- Use three-part structure: Constraints + Response Format + Guidance
-- NO hardcoded URLs — describe knowledge generically
-- NO listing all tools — only `/ToolName` for disambiguation
-- Include follow-up question guidance
-- Boundary violations → check if dedicated topic exists (instructions alone are unreliable for hard boundaries)
-- If routing was wrong → fix topic descriptions FIRST (routing priority: description > name > parameters > instructions)
-
-**PE uses dual model co-generation** for fix proposals — fires `generate-instructions` via GPT and merges (union of constraints, stricter boundaries win). See PE agent definition for full merge protocol.
-
-PE produces:
-- Revised instructions draft (or targeted delta for specific sections)
-- Self-verification: char count < 8000, no anti-patterns, all referenced tools exist, boundaries intact
-- Co-generation summary (if GPT was used): what GPT added, contradictions resolved
+Spawn PE for `instruction gap` and `boundary violation` failures. PE uses dual model co-generation (`generate-instructions`). PE produces revised instructions (or delta), self-verifies: char count < 8000, no anti-patterns, all referenced tools exist.
 
 ### Topic Fixes — Topic Engineer
-
-Spawn **Topic Engineer** when QA identified `routing failure` failures. Provide TE with:
-- Current topic list from `brief.json.conversations.topics[]`
-- Failed routing test cases with QA's analysis
-- `knowledge/patterns/yaml-reference.md` for YAML syntax
-- `knowledge/cache/triggers.md` for trigger options
-
-**TE uses dual model co-generation** for complex topic fixes (3+ nodes) — fires `generate-topics` via GPT and merges. See TE agent definition for full merge protocol.
-
-TE produces:
-- Revised topic YAML (new trigger phrases, adjusted descriptions for "by agent" routing, new topic if needed)
-- Co-generation summary (if GPT was used): what GPT contributed, validation results
-- TE runs full validation pipeline:
-  1. `tools/om-cli/om-cli.exe validate -f <file.yaml>` — structural validation
-  2. `python tools/semantic-gates.py <file.yaml> --brief <brief.json>` — semantic gates (PowerFx, cross-refs, variables, channels, connectors)
+Spawn TE for `routing failure` failures. TE uses dual model co-generation for complex fixes. TE validates via `om-cli validate` + `semantic-gates.py`.
 
 ### Scoring Fixes — Lead
+Adjust `methods[]` or `passThreshold`. Move tests between sets if misclassified. **Never remove existing tests** — only adjust thresholds or add new tests.
 
-For `scoring issue` failures:
-- Adjust the eval set's `methods[]` or `passThreshold` if the set-level config is too strict
-- Move individual tests to a different eval set if the test belongs in a different tier
-- Add new tests if real-world failures reveal untested scenarios
-- **Never remove existing tests** — only adjust set methods/thresholds or move tests between sets
-- Regenerate `evals.csv` after changes (flat export from updated evalSets)
+### Decision Mismatch — Escalate to User
+Present the decision entry from `decisions[]`, show which default was applied, why it failed, and ask the user to reconsider the decision. If user picks a different option → update `decisions[]` selection and re-apply the component change (may require tool swap, connector change, etc.). Do not patch around a wrong decision — fix the decision itself.
 
-### Knowledge Gaps — Skip (Flag Only)
-
-For `knowledge gap` failures:
-- Cannot auto-fix — knowledge sources require manual addition in MCS
-- Output: "These failures require manual knowledge updates: [list]. Add knowledge sources in MCS, then re-run `/mcs-eval`."
+### Knowledge Gaps — Skip
+Flag and skip: "These failures require manual knowledge updates: [list]. Add sources in MCS, then re-run `/mcs-eval`."
 
 ### QA Reviews Fixes
+QA reviews PE and TE outputs: verify instructions don't break passing scenarios, verify YAML syntax and trigger phrase collisions.
 
-After PE and TE produce their outputs, **QA Challenger** reviews both:
-- PE output: verify revised instructions don't break existing passing scenarios
-- TE output: verify YAML syntax, trigger phrases don't collide with existing topics
+**GPT review:** Fire `review-instructions` after QA and before applying. Catches regressions. Merge with QA (union, stricter wins).
 
-### GPT Instruction Review
-
-After QA reviews and before applying fixes, fire GPT-5.4 on PE's revised instructions:
-
-```bash
-node tools/multi-model-review.js review-instructions --brief <path-to-brief.json>
-```
-
-**What GPT checks:** Instruction anti-patterns, missing boundary coverage, model-specific issues, regressions from the fix (did fixing one test break another's expected behavior in instructions?).
-
-**Merge with QA:** Union of findings. If GPT flags a regression risk QA missed, ask PE to revise before Step 4 applies to MCS.
-
-**Never block on GPT** — if unavailable, proceed with QA's review alone.
-
-## Step 4: Apply Fixes (Lead — hybrid build stack)
+## Step 4: Apply Fixes (Lead)
 
 Same tool priority as `/mcs-build`:
+- Instructions → LSP push (`mcs-lsp.js`), fallback Dataverse PATCH
+- Topics/triggers → write `.mcs.yml` to workspace, LSP push
+- Eval criteria → local file update (brief.json + regenerate evals.csv)
 
-| Fix Type | Tool | Method |
-|----------|------|--------|
-| Instructions | LSP push (`mcs-lsp.js`) | Edit `agent.mcs.yml` in workspace, then push. Fallback: Dataverse API PATCH |
-| Topics | LSP push (`mcs-lsp.js`) | Write revised `.mcs.yml` to workspace, then push |
-| Trigger phrases | LSP push (`mcs-lsp.js`) | Update topic `.mcs.yml` in workspace, then push |
-| Eval criteria | Local file | Update `brief.json.evalSets[]` + regenerate `evals.csv` |
+Apply in order: instructions → topics → eval criteria. **Publish** after MCS fixes, verify via `synchronizationstatus`.
 
-**LSP workspace:** Read `brief.json.buildStatus.workspacePath` for the cloned workspace path. If missing, clone first via `node tools/mcs-lsp.js clone`.
+## Step 5: Re-Evaluate & Compare
 
-**Fallback:** If LSP push fails, use Island Gateway API PUT content/botcomponents.
-
-**Apply fixes in order:**
-1. Instructions (Dataverse API — no browser needed)
-2. Topics/triggers (write `.mcs.yml` files to workspace → `node tools/mcs-lsp.js push --workspace <path>`)
-3. Eval criteria (local files — no MCS interaction)
-
-**Publish** after all MCS fixes applied:
-```powershell
-pac copilot publish --bot <bot-id>
-```
-
-**VERIFY:** Dataverse query confirms publish date is today.
-
-## Step 5: Re-Evaluate & Compare (Lead)
-
-Re-run eval via Direct Line API (same method as `/mcs-eval` Step 2):
-1. Read `evals.csv` (possibly updated with scoring fixes)
-2. Run all test cases via `tools/direct-line-test.js`
-3. Compare before vs after results
-
-**Output comparison:**
+Re-run via `tools/direct-line-test.js`. Compare before vs after:
 
 ```
 ## Fix Results: {Agent Name}
 
-**Before:** {X}/{Y} passed ({Z}%)
-**After:** {X'}/{Y'} passed ({Z'}%)
-**Improvement:** +{delta} percentage points
+**Before:** {X}/{Y} ({Z}%) | **After:** {X'}/{Y'} ({Z'}%) | **Improvement:** +{delta}pp
 
 | Test Case | Before | After | Fix Applied |
-|-----------|--------|-------|-------------|
-| [question] | FAIL (45) | PASS (82) | Strengthened boundary in instructions |
-| [question] | FAIL (30) | FAIL (55) | Knowledge gap — needs manual KB update |
-| [question] | FAIL (70) | PASS (85) | Added trigger phrases for topic |
-
-{If still below 70%: "Some failures remain. Review knowledge gaps above, then re-run /mcs-fix."}
-{If >= 70%: "Agent meets quality bar. Consider /mcs-eval for a full re-run to confirm."}
 ```
 
-**Write results:**
+Write updated `lastResult` per test. Append to `notes.fixHistory[]`. Write updated `evals-results.json`.
 
-1. Update `brief.json.evalSets[].tests[].lastResult` with new per-test results
-2. Append to `brief.json.notes.fixHistory[]`:
+## Post-Fix Learnings
 
-```json
-{
-  "date": "2026-02-17T...",
-  "beforePassRate": "60%",
-  "afterPassRate": "85%",
-  "fixesApplied": [
-    "instructions: strengthened boundary for decline scenarios",
-    "topic: added trigger phrases for order-status",
-    "eval: adjusted passingScore for edge-case-3 from 70 to 60"
-  ]
-}
-```
+Tier 1 (auto): bump confirmed counts for known patterns. Tier 2 (user-confirmed): capture new failure patterns, instruction insights, topic/trigger discoveries. See `.claude/rules/learnings-system.md` for protocol.
 
-3. Write updated `evals-results.json` with the new Direct Line results
+## Gotchas
 
----
-
-## Agent Teams
-
-| Step | Teammates |
-|------|-----------|
-| 1: Read & validate | Lead only |
-| 2: Classify failures | Lead + **QA Challenger** |
-| 3: Generate fixes | **Prompt Engineer** (instructions) + **Topic Engineer** (topics) — parallel. **QA Challenger** reviews both outputs. |
-| 4: Apply fixes | Lead only (MCS execution via hybrid stack) |
-| 5: Re-evaluate & compare | Lead only (Direct Line API) |
-
-**Max teammates:** 3 (PE + TE + QA)
-**Typical:** 2 (PE + QA when only instruction fixes needed, or TE + QA when only routing fixes)
-
----
-
-## Progress Markers (Headless Skill Runner UI)
-
-When this skill is invoked via the app's headless skill runner (not the interactive terminal), emit structured progress markers so the frontend can show fix progress. Print each marker on its own line — the skill runner parses them from terminal output.
-
-**Emit at each step transition:**
-```
-##PROGRESS## {"step":"read","label":"Reading eval results","status":"running"}
-##PROGRESS## {"step":"read","label":"Reading eval results","status":"completed","detail":"3 sets, 8 failures"}
-##PROGRESS## {"step":"classify","label":"Classifying failures","status":"running"}
-##PROGRESS## {"step":"classify","label":"Classifying failures","status":"completed","detail":"4 instruction, 2 topic, 2 scoring"}
-##PROGRESS## {"step":"generate","label":"Generating fixes","status":"running"}
-##PROGRESS## {"step":"apply","label":"Applying fixes","status":"running"}
-##PROGRESS## {"step":"apply","label":"Applying fixes","status":"completed","detail":"6 fixes applied, republished"}
-##PROGRESS## {"step":"reeval","label":"Re-evaluating","status":"running"}
-##PROGRESS## {"step":"reeval","label":"Re-evaluating","status":"completed","detail":"Pass rate: 92% (was 75%)"}
-```
-
-**On auth requirement:**
-```
-##AUTH_REQUIRED## {"system":"Dataverse","instructions":"Re-authenticate to push fixes"}
-```
-
-**On completion:**
-```
-##SKILL_COMPLETE## {"success":true,"summary":"Fix complete: 6/8 failures resolved, pass rate 75% → 92%"}
-##SKILL_COMPLETE## {"success":false,"summary":"Fix failed: could not apply topic changes"}
-```
-
-**Status values:** `"pending"`, `"running"`, `"completed"`, `"failed"`, `"skipped"`
-
-**When to emit:** Print `status:"running"` at START, `status:"completed"` or `"failed"` at END. Include `detail` for failure counts, fix descriptions, before/after rates.
-
-**Always emit these markers**, regardless of whether running headless or interactive.
-
----
-
-## Important Rules
-
-- **User confirms classification before fixes** — Step 2 outputs the plan and waits for approval
-- **Knowledge gaps can't be auto-fixed** — flag and skip, don't attempt to add knowledge sources programmatically
-- **Never remove existing tests** — scoring fixes adjust set methods/thresholds, not delete test cases, because removing tests hides regressions. New tests can be added to sets.
-- **Publish after fixes** — agent must be re-published before re-eval (Direct Line tests the published version)
-- **Fix history is append-only** — track improvement over iterations in `notes.fixHistory[]`
-- **Max 2 fix iterations per invocation** — if still failing after 2 rounds of fix→re-eval, exit with "Manual review needed. Remaining failures may require knowledge updates or architectural changes."
-- **brief.json evalSets is THE source of truth** — all fixes update evalSets + brief.json fields, not separate files
-
-- **Environment check** — verify PAC CLI profile matches agent's environment before publishing
-- **No working-paper files** — PE and TE outputs are applied directly to brief.json and MCS. No intermediate files left behind.
-
----
-
-## Post-Fix Learnings Capture (Two-Tier)
-
-After Step 5, run the two-tier learnings capture.
-
-### Tier 1: Auto-Capture (no user confirmation)
-
-- **Known patterns confirmed:** If a fix matched a pattern from existing learnings (e.g., "DO NOT" boundary language from `in-001`), auto-bump its `confirmed` count and `lastConfirmed` in `index.json`.
-- **Scoring adjustments confirmed:** If scoring fixes aligned with prior `eval-testing.md` entries, bump those entries.
-
-### Tier 2: User-Confirmed Capture (new patterns)
-
-Check for genuinely new insights:
-
-- **Recurring failure patterns** — same root cause appearing across multiple agents? Write to `knowledge/learnings/eval-testing.md`
-- **Instruction patterns** — PE discovered a better way to phrase boundaries? Write to `knowledge/learnings/instructions.md`
-- **Topic/trigger insights** — TE found trigger phrase patterns that improve routing? Write to `knowledge/learnings/topics-triggers.md`
-
-**Before writing, run the comparison engine** (see CLAUDE.md "Learnings Protocol" § B):
-1. Check `index.json` for entries with overlapping tags
-2. Same fix pattern → BUMP (Tier 1); new pattern → present to user; contradiction → FLAG
-
-Only capture Tier 2 if there's something genuinely new. Skip if the fix was routine (Tier 1 still runs silently).
-
-Present to user for confirmation before writing NEW entries to learnings files. Update `index.json` for both tiers.
+- **User confirms classification before fixes** — Step 2 waits for approval
+- **Knowledge gaps can't be auto-fixed** — flag and skip
+- **Never remove existing tests** — adjust thresholds or add new tests instead
+- **Publish after fixes** — Direct Line tests the published version
+- **Max 2 fix iterations per invocation** — after 2 rounds, exit with "Manual review needed"
+- **No working-paper files** — PE and TE outputs are applied directly, not saved as intermediate files
+- **Fix history is append-only** — track improvement in `notes.fixHistory[]`

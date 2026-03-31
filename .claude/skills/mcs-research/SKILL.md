@@ -1,6 +1,6 @@
 ---
 name: mcs-research
-description: Full research pass — reads project documents, identifies agents, researches MCS components, designs architecture, enriches brief.json + generates evals. Uses Agent Teams for quality.
+description: "Use this skill to research and design an agent before building it. Reads project documents, identifies agents, researches MCS components, scores architecture, writes instructions, and generates eval sets. Use after /mcs-init, when documents change, when the user wants to analyze requirements, or when brief.json needs enrichment."
 ---
 
 # MCS Research
@@ -372,62 +372,17 @@ No report file is generated. The dashboard renders brief.json directly.
 
 ---
 
-## Post-Research Learnings Capture
+## Post-Research Learnings + Manifest Update
 
-After the terminal output, check for research-phase discoveries worth capturing.
+Tier 1 (auto): bump confirmed counts for known patterns. Tier 2 (user-confirmed): new components not in cache, cache corrections, non-obvious architecture insights. Run comparison engine before writing. See `.claude/rules/learnings-system.md`.
 
-**What to capture:** New components not in cache, cache corrections, customer/industry patterns, non-obvious architecture insights.
-
-**Tier 1 (auto, no user confirmation):** Bump `confirmed` count and `lastConfirmed` date in `index.json` when an approach matched a prior learning. Write cache corrections directly.
-
-**Tier 2 (user confirms):** New discoveries not covered by existing entries, contradictions with existing learnings, non-obvious architecture insights. Present summary, wait for confirmation, then write to `knowledge/learnings/{category}.md` and update `index.json`.
-
-Run the 4-step comparison engine (see CLAUDE.md "Learnings Protocol" section B) before writing any new entry to avoid duplicates and catch contradictions.
-
-If nothing surprising was found, skip the Tier 2 summary -- run Tier 1 auto-check only.
-
-### Update Document Manifest
-
-After all phases complete, set `manifest.lastResearchAt` to the current timestamp. This lets incremental research know when the last full research was performed.
+After all phases, set `manifest.lastResearchAt` to current timestamp.
 
 ---
 
-## Progress Markers (Headless Skill Runner UI)
+## Progress Markers
 
-When this skill is invoked via the app's headless skill runner (not the interactive terminal), emit structured progress markers so the frontend can show research progress. Print each marker on its own line — the skill runner parses them from terminal output.
-
-**Emit at each step transition:**
-```
-##PROGRESS## {"step":"routing","label":"Smart routing","status":"running"}
-##PROGRESS## {"step":"routing","label":"Smart routing","status":"completed","detail":"full research — 3 docs, 2 agents"}
-##PROGRESS## {"step":"docs","label":"Reading documents","status":"running"}
-##PROGRESS## {"step":"docs","label":"Reading documents","status":"completed","detail":"5 docs processed"}
-##PROGRESS## {"step":"agents","label":"Identifying agents","status":"running"}
-##PROGRESS## {"step":"agents","label":"Identifying agents","status":"completed","detail":"2 agents identified"}
-##PROGRESS## {"step":"components","label":"Researching components","status":"running"}
-##PROGRESS## {"step":"architecture","label":"Designing architecture","status":"running"}
-##PROGRESS## {"step":"instructions","label":"Generating instructions","status":"running"}
-##PROGRESS## {"step":"evals","label":"Generating eval sets","status":"running"}
-##PROGRESS## {"step":"topics","label":"Designing topics","status":"running"}
-##PROGRESS## {"step":"reconcile","label":"Reconciliation","status":"running"}
-```
-
-**On auth requirement (OAuth, manual step):**
-```
-##AUTH_REQUIRED## {"system":"SharePoint","instructions":"Authorize SharePoint access in the browser window"}
-```
-
-**On completion:**
-```
-##SKILL_COMPLETE## {"success":true,"summary":"Research complete: 2 agents, 8 topics, 3 tools identified"}
-##SKILL_COMPLETE## {"success":false,"summary":"Research failed: document parsing error"}
-```
-
-**Status values:** `"pending"`, `"running"`, `"completed"`, `"failed"`, `"skipped"`
-
-**When to emit:** Print `status:"running"` at the START of each step. Print `status:"completed"` or `"failed"` at the END. Include `detail` for useful context (counts, names, errors). Steps skipped during incremental research get `status:"skipped"`.
-
-**Always emit these markers**, regardless of whether running headless or interactive. They are plain text — they appear in the terminal too but don't break anything.
+Emit `##PROGRESS##` JSON markers at each step transition. Steps: `routing`, `docs`, `agents`, `components`, `architecture`, `instructions`, `evals`, `topics`, `reconcile`. Format: `##PROGRESS## {"step":"...","label":"...","status":"running|completed|failed|skipped","detail":"..."}`. Emit `##SKILL_COMPLETE##` at the end. Emit `##AUTH_REQUIRED##` when user action needed. Always emit regardless of headless or interactive mode.
 
 ---
 

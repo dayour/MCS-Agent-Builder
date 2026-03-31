@@ -9,7 +9,6 @@
 const { execSync } = require("child_process");
 const path = require("path");
 const fs = require("fs");
-const os = require("os");
 
 const PKG_DIR = path.resolve(__dirname, "..");
 
@@ -47,30 +46,7 @@ if (fs.existsSync(path.join(frontendDir, "package.json")) && !fs.existsSync(dist
 }
 
 // ---------------------------------------------------------------------------
-// 2. Set environment variables (Windows only)
-// ---------------------------------------------------------------------------
-
-if (os.platform() === "win32") {
-  const envVar = "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS";
-  try {
-    const current = execSync(
-      `powershell -Command "[Environment]::GetEnvironmentVariable('${envVar}', 'User')"`,
-      { encoding: "utf8", timeout: 10000 }
-    ).trim();
-    if (current !== "1") {
-      execSync(
-        `powershell -Command "[Environment]::SetEnvironmentVariable('${envVar}', '1', 'User')"`,
-        { timeout: 10000 }
-      );
-      log("Agent Teams environment variable set");
-    }
-  } catch {
-    // Non-critical
-  }
-}
-
-// ---------------------------------------------------------------------------
-// 3. Install git hooks (if in a git repo)
+// 2. Install git hooks (if in a git repo)
 // ---------------------------------------------------------------------------
 
 const gitDir = path.join(PKG_DIR, ".git");
@@ -95,7 +71,7 @@ if (fs.existsSync(gitDir)) {
 }
 
 // ---------------------------------------------------------------------------
-// 4. Success banner
+// 3. Success banner
 // ---------------------------------------------------------------------------
 
 console.log(`

@@ -1,6 +1,6 @@
 ---
 name: mcs-drift
-description: "Detect drift between brief.json (intended design) and live MCS agent state. Compares instructions, topics, knowledge, tools, model, and metadata. Classifies severity and recommends remediation."
+description: "Use this skill to detect drift between brief.json and the live MCS agent. Compares instructions, topics, knowledge, tools, model, and metadata across 7 areas. Classifies severity (benign/risky/blocking) and recommends remediation. Use when the user suspects manual UI edits broke something, after platform updates, or for governance checks."
 user_invocable: true
 ---
 

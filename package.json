@@ -26,6 +26,7 @@
     ".claude/",
     ".mcp.json",
     "start.js",
+    "start.cmd",
     "CLAUDE.md",
     "README.md",
     "CHANGELOG.md"
@@ -34,22 +35,25 @@
     "start": "node start.js",
     "server": "node app/server.js",
     "postinstall": "node bin/postinstall.js",
-    "prepublishOnly": "npm --prefix app/frontend install && npm --prefix app/frontend run build",
-    "test": "node tools/direct-line-test.js",
-    "frontend:dev": "npm --prefix app/frontend run dev",
+    "prepublishOnly": "npm run frontend:build",
+    "test": "echo \"Run 'mcs doctor' to check prerequisites, or 'node tools/direct-line-test.js' for integration tests\" && exit 0",
+    "test:integration": "node tools/direct-line-test.js",
+    "frontend:dev": "npm --prefix app/frontend install && npm --prefix app/frontend run dev",
     "frontend:build": "npm --prefix app/frontend install && npm --prefix app/frontend run build"
   },
   "dependencies": {
-    "@fugood/whisper.node": "^1.0.16",
-    "@homebridge/node-pty-prebuilt-multiarch": "^0.13.1",
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "mammoth": "^1.11.0",
     "multer": "^2.1.1",
-    "native-audio-node": "^0.3.5",
     "turndown": "^7.2.0",
     "ws": "^8.19.0",
     "xlsx": "^0.18.5"
+  },
+  "optionalDependencies": {
+    "@fugood/whisper.node": "^1.0.16",
+    "@homebridge/node-pty-prebuilt-multiarch": "^0.13.1",
+    "native-audio-node": "^0.3.5"
   },
   "engines": {
     "node": ">=18.0.0"

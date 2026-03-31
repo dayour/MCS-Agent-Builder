@@ -1,6 +1,6 @@
 ---
 name: mcs-retro
-description: "Post-session retrospective: capture and classify learnings from build/eval/fix sessions"
+description: "Use this skill after a build, eval, or fix session to capture learnings. Collects discoveries, cross-references the solution library, classifies insights (REPEAT, NEW, CORRECTION, ENHANCEMENT, TOOLING_GAP, SOLUTION_PATTERN, DECISION_OUTCOME), and writes to knowledge/learnings/. Use at the end of any significant work session."
 user_invocable: true
 ---
 

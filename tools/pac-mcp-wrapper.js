@@ -8,13 +8,16 @@
 const { spawn } = require('child_process');
 const path = require('path');
 
-const dnx = path.join(process.env.DOTNET_ROOT || 'C:\\Program Files\\dotnet', 'dnx.cmd');
+const DOTNET_ROOT = process.env.DOTNET_ROOT
+  || (process.platform === 'win32' ? 'C:\\Program Files\\dotnet' : '/usr/share/dotnet');
+const dnxExt = process.platform === 'win32' ? 'dnx.cmd' : 'dnx';
+const dnx = path.join(DOTNET_ROOT, dnxExt);
 
 const child = spawn(
   `"${dnx}" Microsoft.PowerApps.CLI.Tool --yes copilot mcp --run`,
   [],
   {
-    env: { ...process.env, DOTNET_ROOT: 'C:\\Program Files\\dotnet' },
+    env: { ...process.env, DOTNET_ROOT },
     stdio: ['pipe', 'pipe', 'inherit'],
     shell: true
   }
