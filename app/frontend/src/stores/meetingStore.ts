@@ -5,6 +5,7 @@
  * Subscribes to SSE stream for real-time transcript + answer suggestions.
  */
 import { create } from "zustand";
+import { rafBatch } from "@/lib/rafBatcher";
 import {
   prepareMeeting,
   startMeeting,
@@ -124,17 +125,33 @@ export const useMeetingStore = create<MeetingStore>((set, get) => ({
     try {
       await startMeeting(sessionId);
 
-      // Subscribe to SSE stream — use functional set() to avoid stale state
+      // RAF batchers for high-frequency events (~60fps max)
+      const transcriptBatcher = rafBatch<MeetingStore>(set);
+      const deltaBatcher = rafBatch<MeetingStore>(set);
+
+      // Accumulate transcript entries between frames
+      let pendingTranscripts: MeetingTranscriptEntry[] = [];
+      // Accumulate answer deltas keyed by answer id
+      const pendingDeltas = new Map<string, string>();
+
+      // Subscribe to SSE stream
       const unsub = subscribeMeetingStream(
         sessionId,
         (event: MeetingEvent) => {
           switch (event.type) {
             case "transcript": {
               const entry = event as unknown as MeetingTranscriptEntry & { type: string };
-              set((s) => ({ transcript: [...s.transcript, { speaker: entry.speaker, text: entry.text, timestamp: entry.timestamp, duration: entry.duration }] }));
+              pendingTranscripts.push({ speaker: entry.speaker, text: entry.text, timestamp: entry.timestamp, duration: entry.duration });
+              const batch = pendingTranscripts;
+              transcriptBatcher((s) => {
+                const combined = [...s.transcript, ...batch];
+                batch.length = 0;
+                return { transcript: combined };
+              });
               break;
             }
             case "answer_start": {
+              deltaBatcher.flush(); // flush pending deltas before adding new answer
               const e = event as MeetingEvent & { id: string; detection: ActiveAnswer["detection"] };
               const newAnswer: ActiveAnswer = {
                 id: e.id,
@@ -147,11 +164,18 @@ export const useMeetingStore = create<MeetingStore>((set, get) => ({
             }
             case "answer_delta": {
               const e = event as MeetingEvent & { id: string; text: string };
-              set((s) => ({
-                suggestions: s.suggestions.map((a) =>
-                  a.id === e.id ? { ...a, text: a.text + e.text } : a
-                ),
-              }));
+              pendingDeltas.set(e.id, (pendingDeltas.get(e.id) || "") + e.text);
+              deltaBatcher((s) => {
+                // Consume all accumulated deltas in one frame
+                const consumed = new Map(pendingDeltas);
+                pendingDeltas.clear();
+                return {
+                  suggestions: s.suggestions.map((a) => {
+                    const delta = consumed.get(a.id);
+                    return delta ? { ...a, text: a.text + delta } : a;
+                  }),
+                };
+              });
               break;
             }
             case "answer_ttft": {
@@ -164,6 +188,7 @@ export const useMeetingStore = create<MeetingStore>((set, get) => ({
               break;
             }
             case "answer_complete": {
+              deltaBatcher.flush(); // flush pending deltas before finalizing
               const e = event as MeetingEvent & { id: string; text: string; model: string; fallback?: string; cost: number; totalMs: number };
               set((s) => ({
                 suggestions: s.suggestions.map((a) =>
@@ -179,12 +204,16 @@ export const useMeetingStore = create<MeetingStore>((set, get) => ({
               break;
             }
             case "stopped": {
+              transcriptBatcher.flush();
+              deltaBatcher.flush();
               set({ phase: "stopped", stats: (event as MeetingEvent & { stats: MeetingStats }).stats });
               break;
             }
           }
         },
         (err) => {
+          transcriptBatcher.cancel();
+          deltaBatcher.cancel();
           console.error("[meeting] SSE error:", err);
           set({ error: "Meeting connection lost" });
         }

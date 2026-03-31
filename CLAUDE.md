@@ -9,7 +9,7 @@ Research Microsoft-first (MCS built-in > Power Platform > Azure > M365 connector
 ## Workflow
 
 ```
-INIT → CONTEXT → RESEARCH → [SOLUTION TYPE GATE] → BUILD → EVALUATE → [FIX] → [DEPLOY] → [REPORT] → [RETRO]
+INIT → CONTEXT → RESEARCH → [SOLUTION TYPE GATE] → GUARD → BUILD → EVALUATE → [FIX] → [DEPLOY] → [OBSERVE] → [DRIFT] → [REPORT] → [RETRO]
 ```
 
 | Skill | Purpose | Dashboard |
@@ -17,12 +17,15 @@ INIT → CONTEXT → RESEARCH → [SOLUTION TYPE GATE] → BUILD → EVALUATE �
 | `/mcs-init` | Create project folder structure | — |
 | `/mcs-context` | Pull M365 history via WorkIQ | — |
 | `/mcs-research` | Read docs, identify agents, research components, enrich brief.json + generate evals | Research |
+| `/mcs-guard` | Pre-build validation: auth, env, connections, tools, model | — |
 | `/mcs-build` | Build agent(s) in MCS via hybrid stack | Build |
 | `/mcs-eval` | Run eval tests, write results to brief.json | Evaluate |
 | `/mcs-fix` | Analyze eval failures, apply fixes, re-evaluate | Fix Failures |
+| `/mcs-deploy` | Deploy agents from dev to prod | — |
+| `/mcs-observe` | Post-deploy monitoring: health, latency, regression detection | — |
+| `/mcs-drift` | Detect brief ↔ MCS drift, classify severity, suggest remediation | — |
 | `/mcs-refresh` | Refresh knowledge cache files | — |
 | `/mcs-retro` | Post-session retrospective: capture learnings | — |
-| `/mcs-deploy` | Deploy agents from dev to prod | — |
 | `/mcs-report` | Generate reports (brief/build/customer/deployment) | — |
 | `/mcs-library` | Team SharePoint solution library | — |
 | `/bug` | File bug reports via GitHub CLI | Sidebar |
@@ -97,7 +100,7 @@ bin/
 ├── cli.js (mcs start/stop/health/doctor/update), postinstall.js
 
 .claude/
-├── settings.json, skills/ (13 skills), agents/ (7 teammates), rules/ (path-scoped)
+├── settings.json, skills/ (16 skills), agents/ (7 teammates), rules/ (path-scoped)
 
 app/
 ├── server.js, terminal-server.js, lib/ (documents, projects, workiq, readiness, brief-migrate, terminal, enrichment, wizard, build-runner, skill-runner, knowledge-resolver, meeting/), frontend/ (React + Vite + shadcn/ui)

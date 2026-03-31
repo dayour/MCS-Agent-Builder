@@ -1,3 +1,9 @@
+---
+name: mcs-retro
+description: "Post-session retrospective: capture and classify learnings from build/eval/fix sessions"
+user_invocable: true
+---
+
 # /mcs-retro — Post-Session Retrospective
 
 ## Purpose
@@ -74,15 +80,52 @@ Each item gets exactly one classification:
 | **SOLUTION_PATTERN** | Naive approach failed, proven alternative found | Tier 2 (user) | Add/update entry in `knowledge/patterns/solution-patterns.md` |
 | **DECISION_OUTCOME** | A `decisions[]` option was selected and built — record whether it worked | Tier 2 (user) | Update solution pattern `Confirmed builds` count + add learnings entry |
 
-### Step 3.5: GPT Classification Review
+### Step 3.5: GPT Classification Validation (Automatic)
 
-Fire GPT to validate your classification decisions:
+GPT classification review fires automatically on every retro — not optional. This catches misclassifications that compound into learnings bloat (false NEWs that should be REPEATs) or missed knowledge (false REPEATs that are actually novel).
 
-```bash
-node tools/multi-model-review.js review-code --file <temp-classification-summary> --context "Retro classification review: verify REPEAT vs NEW distinction, check for missed contradictions with existing learnings, validate proposed tags"
-```
+**Procedure:**
 
-GPT catches: items classified as NEW that actually match existing entries (should be REPEAT or ENHANCEMENT), items classified as REPEAT where the scenario subtly differs (should be NEW), missed cache corrections. Merge findings before presenting to user. If GPT is unavailable, proceed with your classification.
+1. Write the classification table to a temp file (`Build-Guides/{projectId}/agents/{agentId}/retro-classification-draft.json`):
+   ```json
+   {
+     "items": [
+       {
+         "id": 1,
+         "summary": "LSP push silently ignored settings",
+         "classification": "REPEAT",
+         "matchedEntry": "bm-003",
+         "targetFile": "build-methods.md",
+         "proposedTags": ["lsp", "push", "settings"],
+         "confidence": "high"
+       }
+     ],
+     "existingEntries": ["<relevant index.json entries for context>"]
+   }
+   ```
+
+2. Fire GPT review:
+   ```bash
+   node tools/multi-model-review.js review-code --file "Build-Guides/{projectId}/agents/{agentId}/retro-classification-draft.json" --context "Retro classification review: verify REPEAT vs NEW distinction, check for missed contradictions with existing learnings, validate proposed tags, flag items where confidence should be lower"
+   ```
+
+3. **Merge GPT findings before presenting to user:**
+   - If GPT reclassifies an item (e.g., NEW → ENHANCEMENT): adopt the reclassification and note "GPT reclassified: {reason}" in the presentation table
+   - If GPT finds a missed contradiction: upgrade to CORRECTION
+   - If GPT flags low confidence: add "⚠ low confidence" marker — user should pay extra attention
+   - If GPT and Claude agree: no annotation needed (agreement is the default)
+
+4. **Clean up:** Delete the temp classification file after Step 5 (Apply) completes.
+
+**If GPT fails for any reason** (exit code 3 = unavailable, non-zero exit, timeout, malformed/empty output, unparseable JSON): proceed with Claude's classification alone — never block the retro on GPT. Log the specific reason: "GPT {failure type} — proceeding with single-model classification."
+
+**Merge edge cases:**
+- GPT references an unknown item ID → ignore that finding
+- GPT reclassifies without a reason → mark item as low confidence instead of auto-applying
+- GPT emits conflicting recommendations for the same item → mark as low confidence for user review
+- GPT suggests tag changes only (no reclassification) → apply tag suggestions independently
+
+**Cleanup:** Delete the temp classification file after Step 5 (Apply) completes, OR if the flow exits early (user rejects all, error before Step 5, etc.). Treat cleanup as a finally-style step — always attempt regardless of outcome.
 
 ### Step 4: Present
 

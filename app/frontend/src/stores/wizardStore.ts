@@ -5,14 +5,20 @@
  * and localStorage persistence for session recovery.
  */
 import { create } from "zustand";
+import { useSettingsStore } from "./settingsStore";
+import { rafBatch } from "@/lib/rafBatcher";
 import {
   wizardChat,
   wizardSave,
+  wizardPrefetch,
   startEnrichment,
+  speculativeEnrichment,
+  reconcileEnrichment,
   createProject,
   uploadDocument,
   deleteDocument,
   type WizardChatEvent,
+  type WizardPrefetchResult,
 } from "@/lib/api";
 
 // ---------------------------------------------------------------------------
@@ -120,14 +126,6 @@ const INITIAL_SECTIONS: Record<string, WizardSectionStatus> = {
   architecture: "not_started",
 };
 
-const INITIAL_STATE: WizardState = {
-  sections: { ...INITIAL_SECTIONS },
-  draft: {},
-  suggestions: [],
-  activeSection: null,
-  readyToSave: false,
-};
-
 // ---------------------------------------------------------------------------
 // localStorage persistence
 // ---------------------------------------------------------------------------
@@ -192,6 +190,14 @@ interface WizardStore {
   agentId: string | null;
   enrichJobId: string | undefined;
 
+  // Prefetch cache
+  _prefetchResult: WizardPrefetchResult | null;
+  _prefetchKey: string | null;
+  _prefetchInFlight: boolean;
+
+  // Speculative enrichment
+  _speculativeJobId: string | null;
+
   // Error
   error: string | null;
 
@@ -215,6 +221,17 @@ function nextId() {
   return `msg-${Date.now()}-${++messageCounter}`;
 }
 
+/** Compute a prefetch key from section state (client-side only — server uses MD5). */
+function computePrefetchKey(state: WizardState): string {
+  const src = JSON.stringify({ active: state.activeSection, sections: state.sections });
+  // Simple 32-bit hash — only compared client-side to detect section state changes
+  let hash = 0;
+  for (let i = 0; i < src.length; i++) {
+    hash = ((hash << 5) - hash + src.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash).toString(16).padStart(8, "0");
+}
+
 function freshState(): WizardState {
   return {
     sections: { ...INITIAL_SECTIONS },
@@ -223,6 +240,43 @@ function freshState(): WizardState {
     activeSection: null,
     readyToSave: false,
   };
+}
+
+/**
+ * Fire a background prefetch for the next wizard question.
+ * Non-blocking — errors are silently ignored.
+ */
+function _firePrefetch(
+  get: () => WizardStore,
+  set: (partial: Partial<WizardStore> | ((s: WizardStore) => Partial<WizardStore>)) => void,
+) {
+  const { mode, messages, currentState, projectId, _prefetchInFlight } = get();
+  if (_prefetchInFlight) return; // already in flight
+
+  const settings = useSettingsStore.getState();
+  const prefetchModel = settings.getModelForTask("prefetch");
+  const prefetchKey = computePrefetchKey(currentState);
+
+  set({ _prefetchInFlight: true });
+
+  const apiMessages = messages
+    .filter((m) => m.role === "user" || m.role === "assistant")
+    .map((m) => ({ role: m.role, content: m.content }));
+
+  wizardPrefetch(mode, apiMessages, currentState as Record<string, unknown>, projectId, prefetchModel)
+    .then((result) => {
+      // Only store if state hasn't changed while we were fetching
+      const current = get();
+      const newKey = computePrefetchKey(current.currentState);
+      if (newKey === prefetchKey) {
+        set({ _prefetchResult: result, _prefetchKey: prefetchKey, _prefetchInFlight: false });
+      } else {
+        set({ _prefetchInFlight: false }); // state changed, discard
+      }
+    })
+    .catch(() => {
+      set({ _prefetchInFlight: false }); // silently ignore prefetch failures
+    });
 }
 
 export const useWizardStore = create<WizardStore>((set, get) => ({
@@ -235,6 +289,10 @@ export const useWizardStore = create<WizardStore>((set, get) => ({
   projectId: null,
   agentId: null,
   enrichJobId: undefined,
+  _prefetchResult: null,
+  _prefetchKey: null,
+  _prefetchInFlight: false,
+  _speculativeJobId: null,
   error: null,
   hasSavedSession: loadFromStorage() !== null,
 
@@ -242,7 +300,10 @@ export const useWizardStore = create<WizardStore>((set, get) => ({
   setPagePhase: (pagePhase) => set({ pagePhase }),
 
   sendMessage: async (text: string) => {
-    const { mode, messages, currentState, projectId } = get();
+    const { mode, messages, currentState, projectId, _prefetchResult, _prefetchKey } = get();
+    const settings = useSettingsStore.getState();
+    const wizardModel = settings.getModelForTask("wizardChat");
+    const prefetchEnabled = settings.prefetchEnabled;
 
     // Add user message
     const userMsg: WizardMessage = {
@@ -262,7 +323,51 @@ export const useWizardStore = create<WizardStore>((set, get) => ({
     };
 
     const updatedMessages = [...messages, userMsg, assistantMsg];
-    set({ messages: updatedMessages, phase: "streaming", error: null });
+
+    // Optimistic UI: immediately flash active section to in_progress
+    const optimisticState = { ...currentState };
+    if (currentState.activeSection && currentState.sections?.[currentState.activeSection] !== "complete") {
+      optimisticState.sections = {
+        ...currentState.sections,
+        [currentState.activeSection]: "in_progress",
+      };
+    }
+
+    set({ messages: updatedMessages, phase: "streaming", error: null, currentState: optimisticState });
+
+    // Check prefetch cache — use it if section state matches and user gave a short direct answer
+    // (long messages likely contain new context that the prefetched response wouldn't account for)
+    const currentKey = computePrefetchKey(currentState);
+    const isSimpleAnswer = text.length < 500 && !text.includes("?");
+    if (_prefetchResult && _prefetchKey === currentKey && isSimpleAnswer) {
+      // Cache hit! Use the prefetched response
+      const { text: prefetchedText, state: prefetchedState } = _prefetchResult;
+      const newState = (prefetchedState as WizardState) || currentState;
+
+      const finalMessages = updatedMessages.map((m) =>
+        m.id === assistantMsg.id
+          ? { ...m, content: prefetchedText, streaming: false, wizardState: newState }
+          : m
+      );
+
+      saveToStorage(finalMessages, newState, mode);
+      set({
+        messages: finalMessages,
+        currentState: newState,
+        phase: "chatting",
+        _prefetchResult: null,
+        _prefetchKey: null,
+      });
+
+      // Fire next prefetch in background
+      if (prefetchEnabled && !newState.readyToSave) {
+        _firePrefetch(get, set);
+      }
+      return;
+    }
+
+    // No cache hit — clear stale prefetch and call API normally
+    set({ _prefetchResult: null, _prefetchKey: null });
 
     // Build message history for API (exclude the placeholder)
     const apiMessages = [...messages, userMsg].map((m) => ({
@@ -273,12 +378,15 @@ export const useWizardStore = create<WizardStore>((set, get) => ({
     let accumulatedText = "";
     let finalState: WizardState | null = null;
 
+    // RAF batcher: collapses per-token set() calls into ~60fps updates
+    const batchedSet = rafBatch<WizardStore>(set);
+
     try {
       await wizardChat(mode, apiMessages, currentState, (event: WizardChatEvent) => {
         switch (event.type) {
           case "token":
             accumulatedText += event.text || "";
-            set((s) => ({
+            batchedSet((s) => ({
               messages: s.messages.map((m) =>
                 m.id === assistantMsg.id
                   ? { ...m, content: accumulatedText }
@@ -295,7 +403,10 @@ export const useWizardStore = create<WizardStore>((set, get) => ({
             set({ error: event.detail || "Unknown error" });
             break;
         }
-      }, projectId);
+      }, projectId, wizardModel);
+
+      // Flush any remaining batched token update before finalizing
+      batchedSet.flush();
 
       // Finalize the assistant message
       const newState = finalState || currentState;
@@ -320,7 +431,22 @@ export const useWizardStore = create<WizardStore>((set, get) => ({
           phase: "chatting",
         };
       });
+
+      // Fire background prefetch for the next turn
+      if (prefetchEnabled && !newState.readyToSave) {
+        _firePrefetch(get, set);
+      }
+
+      // Trigger speculative enrichment when readyToSave just became true
+      const speculativeEnabled = settings.speculativeEnrichment;
+      if (speculativeEnabled && newState.readyToSave && !get()._speculativeJobId) {
+        const agentName = newState.draft?.identity?.name || "New Agent";
+        speculativeEnrichment(newState.draft as Record<string, unknown>, agentName)
+          .then((result) => set({ _speculativeJobId: result.jobId }))
+          .catch(() => { /* speculative enrichment is non-blocking */ });
+      }
     } catch (err: any) {
+      batchedSet.cancel(); // discard any pending RAF on error
       set((s) => ({
         error: err.message,
         phase: "chatting",
@@ -368,7 +494,7 @@ export const useWizardStore = create<WizardStore>((set, get) => ({
         type: file.name.split(".").pop() || "file",
         uploadedAt: new Date().toISOString(),
       };
-      set((s) => ({ documents: [...s.documents, doc] }));
+      set((s) => ({ documents: [...s.documents, doc], _prefetchResult: null, _prefetchKey: null }));
     } catch (err: any) {
       set({ error: `Upload failed: ${err.message}` });
       throw err;
@@ -388,24 +514,37 @@ export const useWizardStore = create<WizardStore>((set, get) => ({
   saveBrief: async (projectName: string) => {
     set({ phase: "saving", pagePhase: "saving", error: null });
 
-    const { currentState } = get();
+    const { currentState, _speculativeJobId } = get();
     const agentName =
       currentState.draft.identity?.name || "New Agent";
 
     try {
       const result = await wizardSave(projectName, agentName, currentState.draft);
 
-      // Auto-trigger background enrichment
+      // Try to reconcile speculative enrichment first — if it ran, we skip re-running
       let enrichJobId: string | undefined;
-      try {
-        const enrichResult = await startEnrichment(result.projectId, result.agentId);
-        enrichJobId = enrichResult.jobId;
-      } catch { /* enrichment is non-blocking */ }
+      if (_speculativeJobId) {
+        try {
+          await reconcileEnrichment(_speculativeJobId, result.projectId, result.agentId);
+          enrichJobId = _speculativeJobId; // reuse the same job ID
+        } catch {
+          // Reconcile failed — fall through to normal enrichment
+        }
+      }
+
+      // If no speculative result, trigger fresh enrichment
+      if (!enrichJobId) {
+        try {
+          const enrichResult = await startEnrichment(result.projectId, result.agentId);
+          enrichJobId = enrichResult.jobId;
+        } catch { /* enrichment is non-blocking */ }
+      }
 
       set({
         projectId: result.projectId,
         agentId: result.agentId,
         enrichJobId,
+        _speculativeJobId: null,
         phase: "complete",
         pagePhase: "enriching",
       });
@@ -442,6 +581,10 @@ export const useWizardStore = create<WizardStore>((set, get) => ({
       projectId: null,
       agentId: null,
       enrichJobId: undefined,
+      _prefetchResult: null,
+      _prefetchKey: null,
+      _prefetchInFlight: false,
+      _speculativeJobId: null,
       error: null,
       hasSavedSession: false,
     });

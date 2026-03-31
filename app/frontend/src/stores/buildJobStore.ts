@@ -6,6 +6,7 @@
  * step progress, auth prompts, and completion events.
  */
 import { create } from "zustand";
+import { rafBatch } from "@/lib/rafBatcher";
 import {
   startBuild,
   subscribeBuildStatus,
@@ -153,8 +154,28 @@ export const useBuildJobStore = create<BuildJobStore>((set, get) => ({
       // Subscribe to SSE stream with abort signal
       const localController = new AbortController();
       sseAbort = localController;
+
+      // RAF batcher for high-frequency output events (~60fps max)
+      let pendingLog = "";
+      const logBatcher = rafBatch<BuildJobStore>(set);
+
       subscribeBuildStatus(jobId, (event: BuildStatusEvent) => {
-        // Use functional updates to avoid stale-snapshot races
+        // High-frequency output events go through RAF batcher
+        if (event.type === "output" && event.data) {
+          pendingLog += event.data;
+          logBatcher((s) => {
+            if (!s.job || s.job.jobId !== jobId) return s;
+            // Consume all accumulated output in one frame
+            const chunk = pendingLog;
+            pendingLog = "";
+            return { job: { ...s.job, rawLog: s.job.rawLog + chunk } };
+          });
+          return;
+        }
+
+        // All other events: flush pending log first, then apply immediately
+        logBatcher.flush();
+
         set((s) => {
           if (!s.job || s.job.jobId !== jobId) return s;
           const current = s.job;
@@ -164,12 +185,6 @@ export const useBuildJobStore = create<BuildJobStore>((set, get) => ({
             case "state":
               if (event.steps) {
                 return { job: { ...current, steps: event.steps } };
-              }
-              return s;
-
-            case "output":
-              if (event.data) {
-                return { job: { ...current, rawLog: current.rawLog + event.data } };
               }
               return s;
 
@@ -205,7 +220,6 @@ export const useBuildJobStore = create<BuildJobStore>((set, get) => ({
               };
             }
 
-            // command_sent — intentionally ignored (informational only)
             default:
               return s;
           }
@@ -227,6 +241,7 @@ export const useBuildJobStore = create<BuildJobStore>((set, get) => ({
           };
         });
       }).finally(() => {
+        logBatcher.flush(); // flush any remaining output before cleanup
         // Clear module-level ref if this controller is still the active one
         if (sseAbort?.signal === localController.signal) sseAbort = null;
       });

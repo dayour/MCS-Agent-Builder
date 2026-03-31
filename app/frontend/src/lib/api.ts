@@ -220,11 +220,12 @@ export async function wizardChat(
   currentState: Record<string, unknown>,
   onEvent: (event: WizardChatEvent) => void,
   projectId?: string | null,
+  model?: string,
 ): Promise<void> {
   const res = await fetch(`${BASE}/wizard/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ mode, messages, currentState, projectId: projectId || undefined }),
+    body: JSON.stringify({ mode, messages, currentState, projectId: projectId || undefined, model: model || undefined }),
   });
 
   if (!res.ok) {
@@ -265,6 +266,31 @@ export async function wizardChat(
   }
 }
 
+export interface WizardPrefetchResult {
+  text: string;
+  state: Record<string, unknown> | null;
+  prefetchKey: string;
+}
+
+export async function wizardPrefetch(
+  mode: "interview" | "fuzzy",
+  messages: Array<{ role: string; content: string }>,
+  currentState: Record<string, unknown>,
+  projectId?: string | null,
+  model?: string,
+): Promise<WizardPrefetchResult> {
+  return request("/wizard/prefetch", {
+    method: "POST",
+    body: JSON.stringify({
+      mode,
+      messages,
+      currentState,
+      projectId: projectId || undefined,
+      model: model || undefined,
+    }),
+  });
+}
+
 export async function wizardSave(
   projectName: string,
   agentName: string,
@@ -285,6 +311,27 @@ export interface EnrichmentStepEvent {
   detail?: string;
   steps?: Record<string, { status: string; label: string; detail?: string }>;
   errors?: string[];
+}
+
+export async function speculativeEnrichment(
+  draft: Record<string, unknown>,
+  agentName?: string,
+): Promise<{ jobId: string; status: string }> {
+  return request("/enrichment/speculative", {
+    method: "POST",
+    body: JSON.stringify({ draft, agentName }),
+  });
+}
+
+export async function reconcileEnrichment(
+  speculativeJobId: string,
+  projectId: string,
+  agentId: string,
+): Promise<{ reconciled: boolean; enrichedFields: string[] }> {
+  return request("/enrichment/reconcile", {
+    method: "POST",
+    body: JSON.stringify({ speculativeJobId, projectId, agentId }),
+  });
 }
 
 export async function startEnrichment(

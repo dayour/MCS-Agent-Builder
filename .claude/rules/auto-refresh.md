@@ -16,7 +16,7 @@ On session start, before doing any work, silently check freshness:
 
 Also check knowledge cache staleness:
 1. **Scan** `knowledge/cache/*.md` headers for `last_verified` dates
-2. If any Tier 1 file (triggers, models, mcp-servers, connectors, knowledge-sources, channels) is **> 3 days stale**:
+2. If any Tier 1 file (triggers, models, mcp-servers, connectors, knowledge-sources, channels, first-party-agents, declarative-agents) is **> 3 days stale**:
    - Flag to user: "[Cache] N Tier 1 files stale — run /mcs-refresh"
 3. If only Tier 2-3 files stale: note but don't interrupt
 

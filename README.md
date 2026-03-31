@@ -41,19 +41,22 @@ Running from the repo enables auto-update via git pull, frontend hot-reload, and
 ## What It Does
 
 ```
-  Documents  ──>  Research  ──>  Build  ──>  Evaluate  ──>  Fix  ──>  Deploy
-  (SDR, reqs)     (brief.json)   (MCS API)   (Direct Line)   (auto)   (prod env)
-                       │                          │
-                  GPT reviews                GPT scores
-                  in parallel                in parallel
+  Documents  ──>  Research  ──>  Guard  ──>  Build  ──>  Evaluate  ──>  Fix  ──>  Deploy  ──>  Observe
+  (SDR, reqs)     (brief.json)   (preflight)  (MCS API)  (Direct Line)   (auto)   (prod env)   (health)
+                       │                          │                                     │
+                  GPT reviews                GPT scores                            Drift check
+                  in parallel                in parallel                           (governance)
 ```
 
 1. **Upload** customer documents (SDR, requirements, notes)
 2. **Research** — Claude reads everything, identifies agents, researches MCS components, generates the full design (`brief.json`)
-3. **Build** — Claude builds the agent in Copilot Studio using a hybrid API stack
-4. **Evaluate** — automated tests run against the published agent, scored by both heuristics and GPT-5.4
-5. **Fix** — if eval pass rate is below target, Claude classifies failures, fixes instructions/topics, and re-evaluates
-6. **Deploy** — promote from dev to production (agent-level or solution-level)
+3. **Guard** — pre-build validation checks auth, environment, connections, knowledge, tools, and model availability
+4. **Build** — Claude builds the agent in Copilot Studio using a hybrid API stack
+5. **Evaluate** — automated tests run against the published agent, scored by both heuristics and GPT-5.4
+6. **Fix** — if eval pass rate is below target, Claude classifies failures, fixes instructions/topics, and re-evaluates
+7. **Deploy** — promote from dev to production (agent-level or solution-level, with auto-rollback on smoke test failure)
+8. **Observe** — post-deploy health monitoring: synthetic conversations, latency, knowledge freshness, quality regression
+9. **Drift** — detect and classify differences between the brief and live agent state for governance
 
 The dashboard shows everything in real-time with an embedded Claude Code terminal. Multiple tabs let you work on several agents in parallel.
 
@@ -63,11 +66,15 @@ The dashboard shows everything in real-time with an embedded Claude Code termina
 /mcs-init ProjectName                    Create project, detect SDR files
 /mcs-context CustomerName                Pull M365 history (emails, meetings, docs, Teams)
 /mcs-research ProjectName                Full research + architecture + eval generation
+/mcs-guard ProjectName agentId           Pre-build validation (auth, env, connections, model)
 /mcs-build ProjectName agentId           Build agent(s) in Copilot Studio
 /mcs-eval ProjectName agentId            Run eval tests, write results
 /mcs-fix ProjectName agentId             Fix eval failures, re-evaluate
 /mcs-deploy ProjectName agentId          Deploy to target environment
+/mcs-observe ProjectName agentId         Post-deploy health monitoring
+/mcs-drift ProjectName agentId           Detect brief-vs-live agent drift
 /mcs-report ProjectName agentId          Generate reports (brief/build/customer/deployment)
+/mcs-retro                               Capture session learnings
 /mcs-library list                        Browse team solution library
 /mcs-refresh                             Refresh knowledge cache
 ```
@@ -185,7 +192,7 @@ Run `mcs doctor` to check everything.
 | Claude Code | Yes | AI agent that runs the builds |
 | Git | Optional | Auto-updates (repo mode only) |
 | GitHub CLI + copilot scope | Optional | GPT-5.4 cross-model reviews |
-| Azure CLI | Optional | ADO work items (bug/suggest) |
+| Azure CLI | Required | Dataverse authentication (`az account get-access-token`) |
 | PAC CLI | Optional | Power Platform operations |
 | .NET 10 Runtime | Optional | YAML validation (om-cli) |
 | VS Code + MCS Extension | Optional | Headless LSP sync |
@@ -199,7 +206,7 @@ Single Node.js process serves the dashboard (Express HTTP), REST API, and Claude
 ```
 app/
   server.js                   Express server (HTTP + WebSocket on one port)
-  lib/                        Readiness, documents, projects, workiq, brief-migrate, terminal
+  lib/                        Readiness, documents, projects, workiq, brief-migrate, terminal, wizard, enrichment, build-runner, skill-runner, knowledge-resolver, meeting/
   frontend/                   React + TypeScript SPA (Vite + shadcn/ui)
   dist/                       Pre-built frontend (ships with npm package)
 ```
@@ -228,13 +235,13 @@ bin/
 
 .claude/
   settings.json               MCP servers, permissions, Opus + high effort defaults
-  skills/                     13 skills (11 workflow + 2 utility)
+  skills/                     16 skills (14 MCS workflow + 2 utility)
   agents/                     7 AI teammate definitions
   rules/                      Path-scoped rules (tool priority, build discipline, auto-refresh)
 
 app/
   server.js                   Express backend + WebSocket terminal (single port)
-  lib/                        Readiness, documents, projects, workiq, brief-migrate, terminal
+  lib/                        Readiness, documents, projects, workiq, brief-migrate, terminal, wizard, enrichment, build-runner, skill-runner, knowledge-resolver, meeting/
   frontend/                   React + TypeScript SPA (Vite + shadcn/ui)
 
 knowledge/

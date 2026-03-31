@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link } from "react-router";
 import { useWizardStore } from "@/stores/wizardStore";
 import { useBuildJobStore } from "@/stores/buildJobStore";
 import WizardLayout from "@/components/wizard/WizardLayout";
@@ -21,9 +21,11 @@ import {
   Loader2,
   FileEdit,
   Hammer,
+  Settings,
 } from "lucide-react";
 import { checkCredentials, type CredentialCheck } from "@/lib/api";
 import AccountSwitcher from "@/components/wizard/AccountSwitcher";
+import { SettingsModal } from "@/components/wizard/SettingsModal";
 
 /** Start the guided interview with an opening greeting + example chips. */
 function startInterview() {
@@ -174,6 +176,7 @@ function CredentialBanner({ check }: { check: CredentialCheck }) {
 function WizardHeader() {
   const phase = useWizardStore((s) => s.phase);
   const reset = useWizardStore((s) => s.reset);
+  const [showSettings, setShowSettings] = useState(false);
 
   return (
     <header className="flex items-center gap-3 px-4 h-14 border-b border-border/40 bg-background/95 backdrop-blur-sm shrink-0">
@@ -194,6 +197,16 @@ function WizardHeader() {
 
       <div className="flex-1" />
 
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => setShowSettings(true)}
+        className="text-xs text-muted-foreground"
+        title="Wizard Settings"
+      >
+        <Settings className="h-3.5 w-3.5" />
+      </Button>
+
       {phase !== "idle" && phase !== "complete" && (
         <Button
           variant="ghost"
@@ -205,6 +218,8 @@ function WizardHeader() {
           Start Over
         </Button>
       )}
+
+      <SettingsModal open={showSettings} onOpenChange={setShowSettings} />
     </header>
   );
 }

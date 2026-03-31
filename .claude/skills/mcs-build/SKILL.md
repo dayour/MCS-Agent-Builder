@@ -215,13 +215,13 @@ curl -s -X POST "$DV/api/data/v9.2/bots($BOT)/Microsoft.Dynamics.CRM.PvaPublish"
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{}'
 sleep 5
 # Query WITHOUT $select (synchronizationstatus returns null with $select)
-curl -s "$DV/api/data/v9.2/bots($BOT)" -H "Authorization: Bearer $TOKEN" | python -c "
-import json, sys
-data = json.load(sys.stdin)
-ss = json.loads(data.get('synchronizationstatus', '{}'))
-status = ss.get('lastFinishedPublishOperation', {}).get('status', 'pending')
-print(f'Publish status: {status}')
-"
+curl -s "$DV/api/data/v9.2/bots($BOT)" -H "Authorization: Bearer $TOKEN" | node -e "
+let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{
+  const data=JSON.parse(d);
+  const ss=JSON.parse(data.synchronizationstatus||'{}');
+  const status=(ss.lastFinishedPublishOperation||{}).status||'pending';
+  console.log('Publish status: '+status);
+})"
 ```
 
 **Description PATCH:** Now handled automatically by `mcs-lsp.js push` (patches lines 1-2 of GptComponent `data` field after LSP sync).
@@ -386,10 +386,6 @@ After publish, spawn QA Challenger for formal validation. The lead collects reco
 
 After QA validation, fire GPT-5.4 via `multi-model-review.js`: `review-brief`, `review-instructions`, and per-topic `review-topics`. GPT findings merge with QA verdict (union of findings, stricter wins). If GPT finds a critical issue QA missed, escalate to user before writing buildStatus. If GPT is unavailable, proceed with QA verdict alone.
 
-### Step 7: Offer Library Upload (Optional)
-
-After buildStatus is finalized, if `status == "published"` and QA verdict is not FAIL, offer: "Upload this agent to the team solution library?" If yes, run `solution-library.js upload`. This exports the solution, generates a design-spec.md, uploads to SharePoint, and auto-indexes in `solutions/index.json`. Skip if build failed or no SharePoint auth.
-
 ### Step 6: Finalize brief.json buildStatus
 
 Write the complete buildStatus. Most fields were written incrementally during checkpoints — this step ensures the final state is clean:
@@ -410,6 +406,10 @@ Write the complete buildStatus. Most fields were written incrementally during ch
   }
 }
 ```
+
+### Step 7: Offer Library Upload (Optional)
+
+After buildStatus is finalized, if `status == "published"` and QA verdict is not FAIL, offer: "Upload this agent to the team solution library?" If yes, run `solution-library.js upload`. This exports the solution, generates a design-spec.md, uploads to SharePoint, and auto-indexes in `solutions/index.json`. Skip if build failed or no SharePoint auth.
 
 ---
 

@@ -34,7 +34,7 @@ const {
   getDocStatus,
   humanizeName,
 } = require("./lib/projects");
-const { handleWizardChat, handleWizardSave } = require("./lib/wizard");
+const { handleWizardChat, handleWizardSave, handleWizardPrefetch } = require("./lib/wizard");
 const { startEnrichment, getJob } = require("./lib/enrichment");
 const buildRunner = require("./lib/build-runner");
 
@@ -907,6 +907,21 @@ app.post("/api/auth/switch-environment", async (req, res) => {
 // ---------------------------------------------------------------------------
 
 app.post("/api/wizard/chat", (req, res) => handleWizardChat(req, res));
+app.post("/api/wizard/prefetch", (req, res) => handleWizardPrefetch(req, res));
+
+app.get("/api/models", (req, res) => {
+  const anthropic = require("../tools/lib/anthropic");
+  const openai = require("../tools/lib/openai");
+  res.json({
+    models: [
+      { key: "opus", name: "Claude Opus 4.6", available: anthropic.isConfigured() },
+      { key: "sonnet", name: "Claude Sonnet 4.6", available: anthropic.isConfigured() },
+      { key: "haiku", name: "Claude Haiku 4.5", available: anthropic.isConfigured() },
+      { key: "gpt-5.4", name: "GPT-5.4", available: openai.isConfigured() },
+    ],
+    default: "opus",
+  });
+});
 
 app.post("/api/wizard/save", (req, res) =>
   handleWizardSave(req, res, BUILD_GUIDES)
@@ -970,6 +985,77 @@ app.get("/api/enrichment/status/:jobId", (req, res) => {
     const idx = job.listeners.indexOf(listener);
     if (idx >= 0) job.listeners.splice(idx, 1);
   });
+});
+
+// Speculative enrichment — starts enrichment from draft before save
+app.post("/api/enrichment/speculative", (req, res) => {
+  const { draft, agentName } = req.body || {};
+  if (!draft) {
+    return res.status(400).json({ error: "draft required" });
+  }
+
+  try {
+    const { draftToBrief } = require("./lib/wizard");
+    const brief = draftToBrief(draft, agentName || "Speculative Agent");
+
+    // Create a temp directory with brief.json for the enrichment workers
+    const tmpDir = path.join(os.tmpdir(), `mcs-speculative-${Date.now()}`);
+    fs.mkdirSync(tmpDir, { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, "brief.json"), JSON.stringify(brief, null, 2));
+
+    const job = startEnrichment(tmpDir);
+    // Tag the job as speculative so reconcile can find the temp dir
+    job._speculative = true;
+    job._tmpDir = tmpDir;
+
+    res.json({ jobId: job.id, status: job.status });
+  } catch (err) {
+    console.error("[enrichment] Speculative start error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Reconcile speculative enrichment into a real agent's brief
+app.post("/api/enrichment/reconcile", (req, res) => {
+  const { speculativeJobId, projectId, agentId } = req.body || {};
+  if (!speculativeJobId || !projectId || !agentId) {
+    return res.status(400).json({ error: "speculativeJobId, projectId, and agentId required" });
+  }
+
+  const specJob = getJob(speculativeJobId);
+  if (!specJob || !specJob._speculative) {
+    return res.status(404).json({ error: "Speculative job not found" });
+  }
+
+  try {
+    const agentDir = path.join(BUILD_GUIDES, projectId, "agents", agentId);
+    const targetBrief = path.join(agentDir, "brief.json");
+    const specBrief = path.join(specJob._tmpDir, "brief.json");
+
+    if (!fs.existsSync(targetBrief) || !fs.existsSync(specBrief)) {
+      return res.status(404).json({ error: "Brief files not found" });
+    }
+
+    // Read both briefs and merge speculative enrichment results into the real one
+    const target = JSON.parse(fs.readFileSync(targetBrief, "utf8"));
+    const spec = JSON.parse(fs.readFileSync(specBrief, "utf8"));
+
+    // Merge enrichment-specific fields (instructions, evals, scores) — don't overwrite core brief
+    if (spec.instructions && !target.instructions) target.instructions = spec.instructions;
+    if (spec.evalSets && (!target.evalSets || target.evalSets.length === 0)) target.evalSets = spec.evalSets;
+    if (spec.scoring && !target.scoring) target.scoring = spec.scoring;
+    if (spec.research && !target.research) target.research = spec.research;
+
+    fs.writeFileSync(targetBrief, JSON.stringify(target, null, 2));
+
+    // Cleanup temp dir
+    fs.rmSync(specJob._tmpDir, { recursive: true, force: true });
+
+    res.json({ reconciled: true, enrichedFields: ["instructions", "evalSets", "scoring", "research"].filter((k) => spec[k]) });
+  } catch (err) {
+    console.error("[enrichment] Reconcile error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ---------------------------------------------------------------------------

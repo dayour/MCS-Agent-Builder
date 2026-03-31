@@ -23,7 +23,7 @@ The system captures learnings from every build and makes them available in futur
 
 ### Cache Structure
 
-- `knowledge/cache/` -- 20 quick-reference cheat sheets covering MCS capabilities: options, limits, gotchas, and decision tables. Each file has freshness metadata. For step-by-step details, use MS Learn MCP.
+- `knowledge/cache/` -- 24 quick-reference cheat sheets covering MCS capabilities: options, limits, gotchas, and decision tables. Each file has freshness metadata. For step-by-step details, use MS Learn MCP.
 - `knowledge/patterns/` -- Stable HOW-TO references (YAML syntax, Dataverse API patterns, solution patterns, topic templates).
 - `knowledge/frameworks/` -- Decision frameworks (component selection, architecture scoring, tool priority).
 
@@ -31,15 +31,15 @@ Check cache freshness before architecture decisions because stale data leads to 
 
 ## Tiered Cache Refresh
 
-- **Tier 1 (build-critical):** triggers, models, mcp-servers, connectors, knowledge-sources, channels -- auto-refreshed at session start if older than 7 days
+- **Tier 1 (build-critical):** triggers, models, mcp-servers, connectors, knowledge-sources, channels, first-party-agents, declarative-agents -- auto-refreshed at session start if older than 3 days
 - **Tier 2 (build-phase):** api-capabilities, island-gateway-api, instructions-authoring, generative-orchestration, adaptive-cards, ai-tools-computer-use, power-automate-integration -- refreshed before `/mcs-build` if stale
 - **Tier 3 (reference):** eval-methods, security-auth, agent-lifecycle, limits-licensing, powerfx-variables, conversation-design -- refreshed on demand via `/mcs-refresh`
 
 ### Freshness Rules
 
-- Less than 7 days old: use as-is
-- 7-30 days old: Tier 1 auto-refreshes; Tier 2-3 flagged, refresh on demand
-- Over 30 days old: refresh immediately regardless of tier
+- Less than 3 days old: use as-is
+- 3-14 days old: Tier 1 auto-refreshes; Tier 2-3 flagged, refresh on demand
+- Over 14 days old: refresh immediately regardless of tier
 
 After live research, update the cache file with findings and a new `last_verified` date because future sessions rely on cache accuracy.
 

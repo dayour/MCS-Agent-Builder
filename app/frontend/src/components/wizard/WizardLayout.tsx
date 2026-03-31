@@ -43,7 +43,7 @@ export default function WizardLayout() {
 
       {/* Right: Brief Preview (hidden on mobile) */}
       <div className="hidden lg:flex flex-col w-[40%] border-l border-border/40 bg-muted/10">
-        <BriefPreviewPanel />
+        <BriefPreviewPanel streaming={phase === "streaming"} />
       </div>
     </div>
   );

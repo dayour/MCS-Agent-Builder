@@ -71,6 +71,55 @@ Re-verify auth established during `/mcs-build`. Quick check — confirm account,
    - Test design lessons (e.g., "Multi-turn scenarios need context setup in first message")
 4. Update cache if new findings
 
+## Step 0.5: Pre-Flight Checks
+
+Before loading eval sets, verify the agent is actually ready to be evaluated. These checks catch the #1 user mistake: running eval on an agent that isn't fully built.
+
+**Check 1: Agent is published**
+- Read `brief.json.buildStatus.status`
+- If not `"published"` → **STOP:** "Agent must be published before evaluation. Current status: {status}. Run `/mcs-build` to complete the build."
+- Emit: `##PROGRESS## {"step":"preflight","label":"Pre-flight checks","status":"running","detail":"Checking publish status"}`
+
+**Check 2: Instructions exist and are non-empty**
+- Read `brief.json.instructions` (or pull via LSP if not in brief)
+- If missing or empty string → **STOP:** "Agent has no instructions. An agent without instructions will produce generic responses. Run `/mcs-build` or add instructions manually."
+- If under 50 characters → **WARN:** "Instructions are very short ({N} chars). Eval results may be unreliable."
+
+**Check 3: Tools connected (if configured)**
+- Read `brief.json.integrations[]` — filter for items with `type: "tool"` or `type: "mcp"` or `type: "connector"`
+- If integrations exist, verify each is connected:
+  - Primary: read `brief.json.buildStatus.toolsConfigured[]`
+  - Fallback: pull workspace via LSP if buildStatus is missing
+  - If LSP also fails → **WARN** and continue with brief-only check (do not STOP on lookup failure)
+  - Match tools by: `id` → `schemaName` → normalized `displayName` (first match wins)
+  - If any expected tool has no match → **WARN:** "Tool '{toolName}' is in the brief but not connected to the agent. Tests requiring this tool will fail."
+- If no integrations configured → skip silently
+
+**Check 4: Knowledge sources indexed (if configured)**
+- Read `brief.json.knowledge[]` (primary) — this is where knowledge definitions live in the brief schema
+- Legacy fallback: also check `brief.json.integrations[]` with `type: "knowledge"` for older briefs
+- If knowledge sources exist:
+  - Primary: read `brief.json.buildStatus.knowledgeConfigured[]`
+  - Fallback: pull workspace via LSP if buildStatus is missing
+  - If LSP also fails → **WARN** and continue (do not STOP on lookup failure)
+  - For each expected source: check it appears and has been indexed
+  - If any source is missing or not indexed → **WARN:** "Knowledge source '{sourceName}' is not indexed. Tests requiring grounded answers may fail."
+- If no knowledge sources configured → skip silently
+
+**Pre-flight result:**
+- Any **STOP** → exit skill with clear error message
+- Any **WARN** → list all warnings, ask user: "Continue with evaluation despite warnings? (Y/n)"
+- All clear → proceed silently
+
+Emit completion:
+```
+##PROGRESS## {"step":"preflight","label":"Pre-flight checks","status":"completed","detail":"All checks passed"}
+```
+or
+```
+##PROGRESS## {"step":"preflight","label":"Pre-flight checks","status":"completed","detail":"2 warnings — user acknowledged"}
+```
+
 ## Step 1: Load Eval Sets & Determine Scope
 
 Read `brief.json.evalSets[]`. If empty or missing → **exit:** "Run `/mcs-research` first — no eval sets found."

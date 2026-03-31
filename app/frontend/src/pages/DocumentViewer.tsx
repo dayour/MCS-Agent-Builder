@@ -1,4 +1,4 @@
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link } from "react-router";
 import { useEffect } from "react";
 import { ArrowLeft } from "lucide-react";
 import Layout from "@/components/Layout";

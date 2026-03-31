@@ -29,6 +29,7 @@ knowledgeResolver.load();
 const CLAUDE_MODEL = process.env.WIZARD_CHAT_MODEL || process.env.WIZARD_MODEL || "opus";
 
 const anthropicApi = require("../../tools/lib/anthropic");
+const openaiApi = require("../../tools/lib/openai");
 
 /** Resolve the Claude Code cli.js path and API key for spawning (legacy fallback). */
 function getClaudeConfig() {
@@ -247,6 +248,21 @@ function safeParseJSON(str) {
  * Merge LLM draft with existing draft (union, LLM wins on conflicts).
  * Prevents data loss if LLM forgets previously extracted fields.
  */
+/**
+ * Merge parsed wizard state with current state — shared by chat and prefetch handlers.
+ */
+function mergeWizardState(currentState, parsedState) {
+  if (!parsedState) return currentState || parsedState;
+  if (!currentState) return parsedState;
+  return {
+    sections: { ...(currentState.sections || {}), ...(parsedState.sections || {}) },
+    draft: mergeDrafts(currentState.draft || {}, parsedState.draft || {}),
+    suggestions: parsedState.suggestions || currentState.suggestions || [],
+    activeSection: parsedState.activeSection ?? currentState.activeSection,
+    readyToSave: parsedState.readyToSave ?? currentState.readyToSave ?? false,
+  };
+}
+
 function mergeDrafts(existing, incoming) {
   if (!existing) return incoming;
   if (!incoming) return existing;
@@ -507,8 +523,7 @@ function sendSSE(res, data) {
 }
 
 /**
- * Call Claude via direct Anthropic API with real token streaming.
- * Falls back to CLI subprocess if API is unavailable.
+ * Route model call to the appropriate provider (Claude API, GPT, or CLI fallback).
  *
  * Direct API: ~2-6s total (real streaming, TTFT ~0.6-2.4s depending on model)
  * CLI fallback: ~30s total (fake streaming after full response)
@@ -518,10 +533,15 @@ function sendSSE(res, data) {
  * @param {object} res - Express response (SSE)
  * @returns {Promise<string>} Full response text
  */
-async function streamClaudeResponse(systemPrompt, messages, res) {
+async function streamModelResponse(systemPrompt, messages, res, effectiveModel) {
+  // GPT-5.4 path: route through openai.js (non-streaming)
+  if (effectiveModel === "gpt-5.4") {
+    return streamGPTResponse(systemPrompt, messages, res);
+  }
+
   // Primary path: Direct Anthropic API with real streaming
   if (anthropicApi.isConfigured()) {
-    return streamClaudeResponseDirect(systemPrompt, messages, res);
+    return streamClaudeResponseDirect(systemPrompt, messages, effectiveModel, res);
   }
 
   // Fallback: CLI subprocess (legacy path)
@@ -531,7 +551,7 @@ async function streamClaudeResponse(systemPrompt, messages, res) {
 /**
  * Direct Anthropic API streaming — real token-by-token SSE delivery.
  */
-async function streamClaudeResponseDirect(systemPrompt, messages, res) {
+async function streamClaudeResponseDirect(systemPrompt, messages, effectiveModel, res) {
   const apiMessages = [
     { role: "system", content: systemPrompt },
     ...messages,
@@ -540,7 +560,7 @@ async function streamClaudeResponseDirect(systemPrompt, messages, res) {
   let fullText = "";
 
   for await (const event of anthropicApi.streamCompletion(apiMessages, {
-    model: CLAUDE_MODEL,
+    model: effectiveModel || CLAUDE_MODEL,
     maxTokens: 16384,
     timeout: 180000,
     cacheSystem: true, // Cache the system prompt (wizard prompt is large + stable)
@@ -625,6 +645,38 @@ function streamClaudeResponseCLI(systemPrompt, messages, res) {
   });
 }
 
+/**
+ * GPT-5.4 response via openai.js — non-streaming (chatCompletion returns full response).
+ * Simulates streaming by chunking the response into SSE tokens.
+ */
+async function streamGPTResponse(systemPrompt, messages, res) {
+  if (!openaiApi.isConfigured()) {
+    throw new Error("GPT-5.4 not configured. Run: gh auth login && gh auth refresh --scopes copilot");
+  }
+
+  const gptMessages = [
+    { role: "system", content: systemPrompt },
+    ...messages,
+  ];
+
+  const result = await openaiApi.chatCompletion(gptMessages, {
+    maxTokens: 16384,
+    timeout: 180000,
+  });
+
+  const fullText = result.content || "";
+
+  // Simulate streaming — chunk conversational text to SSE client
+  const delimiterIdx = fullText.indexOf("---WIZARD_STATE---");
+  const conversationalText = delimiterIdx >= 0 ? fullText.slice(0, delimiterIdx) : fullText;
+  const chunks = conversationalText.match(/.{1,12}/gs) || [];
+  for (const chunk of chunks) {
+    sendSSE(res, { type: "token", text: chunk });
+  }
+
+  return fullText;
+}
+
 // ---------------------------------------------------------------------------
 // Conversation History Truncation
 // ---------------------------------------------------------------------------
@@ -632,26 +684,68 @@ function streamClaudeResponseCLI(systemPrompt, messages, res) {
 /**
  * Keep last N messages + summarize earlier ones as system context.
  */
-function truncateHistory(messages, maxMessages = 16) {
+// In-memory rolling summary cache (keyed by message count to refresh periodically)
+const _rollingSummaryCache = new Map();
+
+/**
+ * Build a rolling summary of earlier messages using a lightweight LLM call,
+ * keeping the last few messages in full. Falls back to naive truncation
+ * if the summary call fails or isn't available.
+ */
+async function truncateHistory(messages, maxMessages = 16) {
   if (messages.length <= maxMessages) return messages;
 
-  const early = messages.slice(0, messages.length - maxMessages);
-  const recent = messages.slice(messages.length - maxMessages);
+  const recentCount = Math.min(6, maxMessages);
+  const early = messages.slice(0, messages.length - recentCount);
+  const recent = messages.slice(messages.length - recentCount);
 
-  // Build a summary of early messages
-  const summaryParts = [];
-  for (const m of early) {
-    if (m.role === "user") {
-      summaryParts.push(`User said: ${m.content.substring(0, 200)}`);
-    }
+  // Check cache — keyed by content hash of early messages to avoid cross-request collisions
+  const crypto = require("crypto");
+  const cacheKey = crypto.createHash("md5")
+    .update(early.map((m) => `${m.role}:${m.content.substring(0, 100)}`).join("|"))
+    .digest("hex")
+    .substring(0, 12);
+  const cached = _rollingSummaryCache.get(cacheKey);
+  if (cached) {
+    return [{ role: "system", content: cached }, ...recent];
   }
 
-  const summary = {
-    role: "system",
-    content: `[Earlier conversation summary]\n${summaryParts.join("\n")}`,
-  };
+  // Attempt LLM-powered summary using Haiku (fast + cheap)
+  try {
+    if (anthropicApi.isConfigured()) {
+      const conversationText = early
+        .map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content.substring(0, 300)}`)
+        .join("\n\n");
 
-  return [summary, ...recent];
+      const result = await anthropicApi.chatCompletion(
+        [
+          { role: "system", content: "Summarize this wizard conversation into a concise brief (max 400 words). Focus on: decisions made, data extracted, sections discussed, and what the user wants to build." },
+          { role: "user", content: conversationText },
+        ],
+        { model: "haiku", maxTokens: 1024, timeout: 15000 }
+      );
+
+      const summary = `[Conversation Summary — ${early.length} earlier messages]\n${result.content}`;
+      _rollingSummaryCache.set(cacheKey, summary);
+      // Keep cache small — only last 5 entries
+      if (_rollingSummaryCache.size > 5) {
+        const oldest = _rollingSummaryCache.keys().next().value;
+        _rollingSummaryCache.delete(oldest);
+      }
+      return [{ role: "system", content: summary }, ...recent];
+    }
+  } catch (e) {
+    console.warn("[wizard] Rolling summary failed, using naive truncation:", e.message);
+  }
+
+  // Fallback: naive truncation
+  const summaryParts = early
+    .filter((m) => m.role === "user")
+    .map((m) => `User said: ${m.content.substring(0, 200)}`);
+  return [
+    { role: "system", content: `[Earlier conversation summary]\n${summaryParts.join("\n")}` },
+    ...recent,
+  ];
 }
 
 // ---------------------------------------------------------------------------
@@ -730,6 +824,31 @@ async function buildDocContext(projectId) {
 }
 
 // ---------------------------------------------------------------------------
+// Shared System Prompt Builder (used by chat + prefetch)
+// ---------------------------------------------------------------------------
+
+async function buildSystemPrompt(mode, currentState, projectId) {
+  const modeAddendum = mode === "fuzzy" ? FUZZY_MODE_ADDENDUM : INTERVIEW_MODE_ADDENDUM;
+
+  let stateContext = "";
+  if (currentState && currentState.draft) {
+    stateContext = `\n\n## Current Brief State\nThe user has already provided the following information. Include ALL of this in your draft (cumulative — never lose data):\n\`\`\`json\n${JSON.stringify(currentState.draft, null, 2)}\n\`\`\`\n\nSection statuses: ${JSON.stringify(currentState.sections)}\n`;
+  }
+
+  let docContext = "";
+  if (projectId) {
+    docContext = await buildDocContext(projectId);
+  }
+
+  const cheatSheet = knowledgeResolver.isHealthy()
+    ? `\n\n## MCS Component Knowledge\nUse this reference to suggest specific components when the user describes capabilities or integrations. For ANY M365 data need (email, calendar, teams, sharepoint, files, people, org chart), recommend adding Work IQ from the agent overview page — this gives 2 MCP servers that cover everything: Work IQ Copilot (all M365 data) and Work IQ User (people and org). Don't suggest individual M365 servers or connectors. For non-M365 systems (Salesforce, ServiceNow, Dynamics 365, etc.), mention specific connectors or MCP servers. Don't dump the full list — only reference what's relevant to the current question.\n\n${knowledgeResolver.getCheatSheet()}\n`
+    : "";
+
+  // Static content first for cache hits, dynamic stateContext last
+  return WIZARD_SYSTEM_PROMPT + modeAddendum + cheatSheet + docContext + stateContext;
+}
+
+// ---------------------------------------------------------------------------
 // Route Handlers
 // ---------------------------------------------------------------------------
 
@@ -745,7 +864,7 @@ async function handleWizardChat(req, res) {
     });
   }
 
-  const { mode = "interview", messages = [], currentState, projectId } = req.body;
+  const { mode = "interview", messages = [], currentState, projectId, model } = req.body;
 
   if (!Array.isArray(messages) || messages.length === 0) {
     return res
@@ -764,54 +883,26 @@ async function handleWizardChat(req, res) {
   sendSSE(res, { type: "started" });
 
   try {
-    // Build system prompt
-    const modeAddendum =
-      mode === "fuzzy" ? FUZZY_MODE_ADDENDUM : INTERVIEW_MODE_ADDENDUM;
-
-    // Include current state summary if available
-    let stateContext = "";
-    if (currentState && currentState.draft) {
-      stateContext = `\n\n## Current Brief State\nThe user has already provided the following information. Include ALL of this in your draft (cumulative — never lose data):\n\`\`\`json\n${JSON.stringify(currentState.draft, null, 2)}\n\`\`\`\n\nSection statuses: ${JSON.stringify(currentState.sections)}\n`;
-    }
-
-    // Inject uploaded document content so the wizard can reference files
-    let docContext = "";
-    if (projectId) {
-      docContext = await buildDocContext(projectId);
-    }
-
-    // Inject MCS knowledge cheat sheet so the wizard can suggest components inline
-    const cheatSheet = knowledgeResolver.isHealthy()
-      ? `\n\n## MCS Component Knowledge\nUse this reference to suggest specific components when the user describes capabilities or integrations. For ANY M365 data need (email, calendar, teams, sharepoint, files, people, org chart), recommend adding Work IQ from the agent overview page — this gives 2 MCP servers that cover everything: Work IQ Copilot (all M365 data) and Work IQ User (people and org). Don't suggest individual M365 servers or connectors. For non-M365 systems (Salesforce, ServiceNow, Dynamics 365, etc.), mention specific connectors or MCP servers. Don't dump the full list — only reference what's relevant to the current question.\n\n${knowledgeResolver.getCheatSheet()}\n`
-      : "";
-
-    const systemPrompt = WIZARD_SYSTEM_PROMPT + modeAddendum + stateContext + docContext + cheatSheet;
+    // Build system prompt (shared helper — also used by prefetch)
+    const systemPrompt = await buildSystemPrompt(mode, currentState, projectId);
 
     // Prepare messages — filter to user/assistant only, truncate history
-    const truncated = truncateHistory(
+    const truncated = await truncateHistory(
       messages
         .filter((m) => m.role === "user" || m.role === "assistant")
         .map((m) => ({ role: m.role, content: m.content }))
     );
 
-    // Call Claude via CLI, then stream tokens to SSE client
-    const fullResponse = await streamClaudeResponse(systemPrompt, truncated, res);
+    // Call LLM (Claude or GPT), stream tokens to SSE client
+    const effectiveModel = model || CLAUDE_MODEL;
+    const fullResponse = await streamModelResponse(systemPrompt, truncated, res, effectiveModel);
 
     // Parse the complete response for WIZARD_STATE
     // (conversational text already streamed via SSE — only state is needed here)
     const { state } = parseWizardResponse(fullResponse);
 
     // Merge state to prevent data loss
-    let mergedState = state;
-    if (state && currentState) {
-      mergedState = {
-        sections: { ...(currentState.sections || {}), ...(state.sections || {}) },
-        draft: mergeDrafts(currentState.draft, state.draft),
-        suggestions: state.suggestions || currentState.suggestions || [],
-        activeSection: state.activeSection ?? currentState.activeSection,
-        readyToSave: state.readyToSave ?? currentState.readyToSave ?? false,
-      };
-    }
+    let mergedState = mergeWizardState(currentState, state);
 
     // Run knowledge resolver on the draft for inline component resolution
     if (mergedState && mergedState.draft && knowledgeResolver.isHealthy()) {
@@ -900,9 +991,89 @@ function handleWizardSave(req, res, buildGuidesDir) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Prefetch — Speculative next-question generation
+// ---------------------------------------------------------------------------
+
+/**
+ * POST /api/wizard/prefetch — Non-streaming JSON response.
+ * Generates the likely next wizard question in the background so the
+ * client can serve it instantly when the user responds.
+ *
+ * Returns: { text, state, prefetchKey }
+ * prefetchKey = hash of activeSection + section statuses, used to validate cache hits.
+ */
+async function handleWizardPrefetch(req, res) {
+  const { mode, messages, currentState, projectId, model } = req.body || {};
+
+  if (!messages || !messages.length) {
+    return res.status(400).json({ detail: "messages array required" });
+  }
+
+  // Build a prefetch key from section state — invalidated when sections change
+  const crypto = require("crypto");
+  const keySource = JSON.stringify({
+    active: currentState?.activeSection,
+    sections: currentState?.sections,
+  });
+  const prefetchKey = crypto.createHash("md5").update(keySource).digest("hex").substring(0, 16);
+
+  try {
+    const systemPrompt = await buildSystemPrompt(mode || "interview", currentState || {}, projectId);
+
+    // Add a speculative "continue" user message to prompt the next question
+    const truncated = await truncateHistory(
+      messages
+        .filter((m) => m.role === "user" || m.role === "assistant")
+        .map((m) => ({ role: m.role, content: m.content }))
+    );
+    truncated.push({
+      role: "user",
+      content: "Continue to the next question or topic.",
+    });
+
+    const effectiveModel = model || CLAUDE_MODEL;
+
+    // Use the prefetch model setting or fall back to Haiku for speed/cost
+    const prefetchModel = effectiveModel === "gpt-5.4" ? effectiveModel : "haiku";
+
+    let fullText;
+    if (prefetchModel === "gpt-5.4" && openaiApi.isConfigured()) {
+      const gptMessages = [
+        { role: "system", content: systemPrompt },
+        ...truncated,
+      ];
+      const result = await openaiApi.chatCompletion(gptMessages, {
+        maxTokens: 8192,
+        timeout: 60000,
+      });
+      fullText = result.content || "";
+    } else if (anthropicApi.isConfigured()) {
+      const result = await anthropicApi.chatCompletion(
+        [{ role: "system", content: systemPrompt }, ...truncated],
+        { model: prefetchModel, maxTokens: 8192, timeout: 60000 }
+      );
+      fullText = result.content || "";
+    } else {
+      return res.status(503).json({ detail: "No LLM configured for prefetch" });
+    }
+
+    const { text, state } = parseWizardResponse(fullText);
+
+    // Merge state using shared helper
+    const mergedState = mergeWizardState(currentState, state);
+
+    res.json({ text, state: mergedState, prefetchKey });
+  } catch (err) {
+    console.error("[wizard] Prefetch error:", err.message);
+    res.status(500).json({ detail: err.message });
+  }
+}
+
 module.exports = {
   handleWizardChat,
   handleWizardSave,
+  handleWizardPrefetch,
   draftToBrief,
   parseWizardResponse,
   mergeDrafts,

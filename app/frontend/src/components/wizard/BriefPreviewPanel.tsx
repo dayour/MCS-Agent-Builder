@@ -9,8 +9,9 @@ import {
   Network,
   ChevronRight,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useWizardStore, type WizardDraft } from "@/stores/wizardStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 
 const PREVIEW_SECTIONS = [
   { key: "business", label: "Business Goals", icon: Briefcase },
@@ -23,8 +24,9 @@ const PREVIEW_SECTIONS = [
   { key: "architecture", label: "Architecture", icon: Network },
 ] as const;
 
-export default function BriefPreviewPanel() {
+export default function BriefPreviewPanel({ streaming = false }: { streaming?: boolean }) {
   const currentState = useWizardStore((s) => s.currentState);
+  const progressivePreview = useSettingsStore((s) => s.progressivePreview);
   const { sections, draft } = currentState;
 
   const completed = Object.values(sections).filter((s) => s === "complete").length;
@@ -44,6 +46,7 @@ export default function BriefPreviewPanel() {
       <div className="flex-1 overflow-y-auto py-2">
         {PREVIEW_SECTIONS.map(({ key, label, icon: Icon }) => {
           const status = sections[key] || "not_started";
+          const isActiveStreaming = streaming && progressivePreview && currentState.activeSection === key;
           return (
             <PreviewSection
               key={key}
@@ -52,6 +55,7 @@ export default function BriefPreviewPanel() {
               icon={Icon}
               status={status}
               draft={draft}
+              autoExpand={isActiveStreaming}
             />
           );
         })}
@@ -99,54 +103,71 @@ function PreviewSection({
   icon: Icon,
   status,
   draft,
+  autoExpand = false,
 }: {
   sectionKey: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   status: string;
   draft: WizardDraft;
+  autoExpand?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const hasData = status !== "not_started";
+  const isExpanded = open || autoExpand;
+
+  // Auto-expand when streaming targets this section
+  useEffect(() => {
+    if (autoExpand) setOpen(true);
+  }, [autoExpand]);
 
   return (
     <div className="border-b border-border/20 last:border-0">
       <button
         onClick={() => hasData && setOpen(!open)}
         className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-left transition-colors ${
-          hasData
-            ? "hover:bg-muted/40 cursor-pointer"
-            : "cursor-default opacity-50"
+          autoExpand
+            ? "bg-primary/5"
+            : hasData
+              ? "hover:bg-muted/40 cursor-pointer"
+              : "cursor-default opacity-50"
         }`}
       >
-        <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <Icon className={`h-4 w-4 shrink-0 ${autoExpand ? "text-primary animate-pulse" : "text-muted-foreground"}`} />
         <span className="flex-1 text-xs font-medium truncate">{label}</span>
-        <StatusDot status={status} />
+        <StatusDot status={status} animating={autoExpand} />
         {hasData && (
           <ChevronRight
             className={`h-3 w-3 text-muted-foreground transition-transform ${
-              open ? "rotate-90" : ""
+              isExpanded ? "rotate-90" : ""
             }`}
           />
         )}
       </button>
-      {open && hasData && (
-        <div className="px-4 pb-3 pl-10">
-          <SectionContent sectionKey={sectionKey} draft={draft} />
+      {isExpanded && (
+        <div className={`px-4 pb-3 pl-10 transition-opacity duration-300 ${autoExpand && !hasData ? "opacity-60" : "opacity-100"}`}>
+          {hasData ? (
+            <SectionContent sectionKey={sectionKey} draft={draft} />
+          ) : autoExpand ? (
+            <div className="space-y-1.5">
+              <div className="h-3 w-3/4 rounded bg-muted/40 animate-pulse" />
+              <div className="h-3 w-1/2 rounded bg-muted/40 animate-pulse" />
+            </div>
+          ) : null}
         </div>
       )}
     </div>
   );
 }
 
-function StatusDot({ status }: { status: string }) {
+function StatusDot({ status, animating = false }: { status: string; animating?: boolean }) {
   return (
     <div
       className={`h-2 w-2 rounded-full shrink-0 ${
         status === "complete"
           ? "bg-emerald-500"
           : status === "in_progress"
-            ? "bg-amber-500"
+            ? `bg-amber-500 ${animating ? "animate-pulse" : ""}`
             : "bg-border"
       }`}
     />

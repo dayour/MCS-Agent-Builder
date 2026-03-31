@@ -23,7 +23,7 @@ Use the best tool for each job. User-guided manual steps serve as a last resort 
 | 6 | Direct Line API | Evaluation / testing (send messages, compare responses) |
 
 Detailed capabilities per layer: See `knowledge/cache/api-capabilities.md`
-Decision flow and build phase mapping: See `knowledge/frameworks/tool-priority.md`
+Decision flow and build phase mapping: See the Tool Priority Order table above and `knowledge/frameworks/component-selection.md`
 
 ## Unified Auth Gate
 

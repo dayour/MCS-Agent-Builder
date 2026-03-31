@@ -9,7 +9,7 @@ Deploy a built and published agent from a source (dev) environment to a target (
 
 ## BUILD DISCIPLINE — VERIFY-THEN-MARK
 
-**This skill has SEVEN separate sub-tasks. Each must be tracked and verified independently.**
+**This skill has EIGHT separate sub-tasks. Each must be tracked and verified independently.**
 
 | Sub-task | What it does | How to verify |
 |----------|-------------|--------------|
@@ -19,6 +19,7 @@ Deploy a built and published agent from a source (dev) environment to a target (
 | **Connection mapping** | Identify tools needing manual reconnection | Report generated |
 | **Publish in target** | PvaPublish bound action on target bot | Publish timestamp returned |
 | **Smoke test** | Run boundaries eval set on target agent | Pass/fail result |
+| **Rollback (if smoke fails)** | Unpublish target, offer delete/redeploy | Target agent unpublished, rollback status written |
 | **Write deployStatus** | Update brief.json with deployment results | Read brief.json back |
 
 ## Input
@@ -254,7 +255,91 @@ node tools/direct-line-test.js --token-endpoint "{targetTokenEndpoint}" --brief 
 
 **VERIFY:** Smoke test result recorded.
 
+## Step 5.5: Rollback on Smoke Test Failure
+
+If the smoke test fails (`smokeTestResult: "fail"`), automatically execute rollback to prevent a broken agent from being live in the target environment.
+
+**Rollback procedure:**
+
+### 1. Unpublish the target agent (immediate — always runs)
+
+**Agent mode:** Use the target bot ID from Step 2a.
+**Solution mode:** Resolve the target bot ID from `pac copilot list` in the target environment (match by agent name from brief.json).
+
+```bash
+# Unpublish via Dataverse PATCH (primary method)
+# Endpoint: PATCH {targetDataverseUrl}/api/data/v9.2/bots({targetBotId})
+# Body: { "statecode": 0, "statuscode": 0 }
+
+# Fallback: PvaUnpublish bound action if PATCH fails
+```
+
+**If unpublish fails:** retry once. If still fails, log the exact error, set `deployStatus.status: "rollback-partial"`, record `lastDeployError`, and instruct the user: "Could not unpublish target agent — manually disable access in MCS UI immediately."
+
+This ensures the broken agent is not accessible to end users while the issue is investigated.
+
+### 2. Offer full rollback (user choice — never auto-delete)
+Present the rollback options based on deployment mode:
+
+**Agent mode rollback:**
+```
+Smoke test FAILED — {N}/{M} boundaries tests failed in target.
+Target agent has been unpublished (not accessible to users).
+
+Rollback options:
+  [1] Keep unpublished — investigate and fix in target (default)
+  [2] Delete target agent — remove entirely, redeploy later
+  [3] Re-deploy from source — fresh replicate-agent.js run
+
+Choose [1/2/3]:
+```
+
+**Solution mode rollback:**
+```
+Smoke test FAILED — {N}/{M} boundaries tests failed in target.
+Target agent has been unpublished (not accessible to users).
+
+Rollback options:
+  [1] Keep unpublished — investigate and fix in target (default)
+  [2] Uninstall solution — pac solution delete in target, clean slate
+  [3] Re-import from source — fresh solution import
+
+Choose [1/2/3]:
+```
+
+### 3. Execute chosen rollback
+
+| Option | Agent Mode | Solution Mode |
+|--------|-----------|---------------|
+| **Keep (1)** | No action — agent stays unpublished in target | No action — solution stays, agent unpublished |
+| **Delete (2)** | `tools/dataverse-helper.ps1` DELETE bot in target | `pac solution delete --solution-name {name}` in target env |
+| **Re-deploy (3)** | Re-run Step 2a (replicate-agent.js) | Re-run Step 2b (export/import) |
+
+After re-deploy (option 3): re-run smoke test automatically. If it fails again → stop and escalate: "Re-deploy also failed smoke test. Manual investigation required."
+
+### 4. Write rollback status
+Update `brief.json.deployStatus`:
+```json
+{
+  "deployStatus": {
+    "status": "rolled-back",
+    "rollback": {
+      "reason": "smoke-test-failure",
+      "failedTests": ["test question 1", "test question 2"],
+      "action": "unpublished",
+      "rolledBackAt": "2026-03-04T14:45:00Z"
+    }
+  }
+}
+```
+
+**VERIFY:** Target agent is unpublished (Dataverse read-back confirms draft status). Rollback action recorded in brief.json.
+
+**Skip rollback if:** `--skip-smoke` was used (no smoke test = no rollback trigger), or user explicitly opts out.
+
 ## Step 6: Write deployStatus to brief.json
+
+**Skip this step if rollback was executed in Step 5.5** — rollback already wrote `deployStatus` with `status: "rolled-back"` or `"rollback-partial"`. Only merge missing metadata (timestamps, mode) into the existing record without overwriting the rollback status.
 
 Update `brief.json.deployStatus`:
 
@@ -346,6 +431,8 @@ GPT catches: incomplete connection mapping (integration in brief but not in repo
 | Solution import fails (version conflict) | Ask user: upgrade existing or import as new? Use `--stage-and-upgrade` if upgrading. |
 | Publish fails in target | Check if connections are mapped. Publish may fail with broken connection refs. |
 | Smoke test token acquisition fails | Use `--skip-smoke` and test manually in MCS Test Chat. |
+| Smoke test fails | Auto-rollback: unpublish target agent, present rollback options (Step 5.5). |
+| Rollback delete/uninstall fails | Log error, leave agent unpublished, escalate to user for manual cleanup. |
 | Target env auth fails | Verify PAC CLI profile exists for target. May need `pac auth create` for new env. |
 
 ## Important Rules
@@ -355,6 +442,7 @@ GPT catches: incomplete connection mapping (integration in brief but not in repo
 - **Never deploy without the 3 gates passing** because skipping gates risks deploying a broken or untested agent to production
 - **Connection mapping is always generated** — even if no manual steps are needed (report says "No manual connection mapping needed"), because omitting it causes IT admins to miss reconnection steps
 - **Smoke test only runs boundaries set** — full eval should be run separately via `/mcs-eval`
+- **Smoke test failure triggers auto-unpublish** — target agent is unpublished immediately (non-negotiable safety measure), then user chooses further rollback action (keep unpublished/delete/redeploy). The auto-unpublish always runs; only the delete/redeploy is user-choice.
 - **No teammates needed** — this is a lead-only execution skill (mechanical, no generation)
 - **Always switch PAC CLI back to source** after solution mode deploy because leaving it on target breaks subsequent build commands
 - **Never auto-delete the source agent** after deployment — that's a user decision, and accidental deletion is unrecoverable

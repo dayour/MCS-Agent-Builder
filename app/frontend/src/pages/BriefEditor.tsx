@@ -1,4 +1,4 @@
-import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Briefcase, Bot, FileText, Zap, Plug, Database,

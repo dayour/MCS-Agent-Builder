@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { FolderOpen, Bot, FileText, Clock, Trash2 } from "lucide-react";
 import type { Project } from "@/types";
 import StatusBadge from "./StatusBadge";
