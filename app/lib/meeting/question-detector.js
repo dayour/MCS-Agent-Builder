@@ -167,6 +167,8 @@ class QuestionDetector extends EventEmitter {
       }
     } else if (heuristicResult.confidence >= this.confidenceThreshold) {
       this._emitDetection(combinedText, heuristicResult, timestamp);
+    } else {
+      this.stats.skipped++;
     }
   }
 

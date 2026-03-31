@@ -1,5 +1,5 @@
 /**
- * Raw API response types — matches what server.py returns.
+ * Raw API response types — matches what server.js returns.
  * These map 1:1 to brief.json on disk.
  */
 

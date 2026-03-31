@@ -199,7 +199,10 @@ class AudioBridge extends EventEmitter {
           this.stats.systemChunks++;
           this.emit('audio', { stream: 'system', data: pcm });
         });
-        this._systemRecorder.on('metadata', (meta) => { this._metadata.system = meta; });
+        this._systemRecorder.on('metadata', (meta) => {
+          this._metadata.system = meta;
+          this.emit('status', { type: 'system_format', ...meta });
+        });
         this._systemRecorder.on('error', (e) => { this.emit('error', { stream: 'system', message: e.message || String(e) }); });
         try { await this._systemRecorder.start(); systemStarted = true; errors.pop(); }
         catch (retryErr) { errors.push(`system fallback: ${retryErr.message}`); }
@@ -218,7 +221,7 @@ class AudioBridge extends EventEmitter {
       this.emit('error', { message: `Partial start: ${errors.join('; ')}` });
     }
 
-    this.emit('connected');
+    this.emit('connected', { system: systemStarted, mic: micStarted });
   }
 
   /**

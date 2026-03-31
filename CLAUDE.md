@@ -100,7 +100,7 @@ bin/
 ├── settings.json, skills/ (13 skills), agents/ (7 teammates), rules/ (path-scoped)
 
 app/
-├── server.js, terminal-server.js, lib/ (documents, projects, workiq, readiness, brief-migrate, terminal), frontend/ (React + Vite + shadcn/ui)
+├── server.js, terminal-server.js, lib/ (documents, projects, workiq, readiness, brief-migrate, terminal, enrichment, wizard, build-runner, skill-runner, knowledge-resolver, meeting/), frontend/ (React + Vite + shadcn/ui)
 
 knowledge/
 ├── cache/ (24 cheat sheets), patterns/ (YAML, Dataverse, topic, flow templates)
@@ -113,7 +113,8 @@ tools/
 ├── solution-library.js, replicate-agent.js, dataverse-helper.ps1
 ├── copilotstudio-test.js, powercat-test.js, upstream-check.js
 ├── pac-mcp-wrapper.js (PAC CLI MCP server adapter)
-├── om-cli/ (YAML validation, 357 types), lib/ (http, openai, graph-sharepoint, flow-composer, connector-schema)
+├── om-cli/ (YAML validation, 357 types), lib/ (http, openai, anthropic, graph-sharepoint, flow-composer, connector-schema)
+├── audio-capture/ (C# WASAPI capture service), whisper-models/ (model manager + local models)
 ├── gen-constraints.py, drift-detect.py, semantic-gates.py
 ├── git-hooks/ (pre-commit, pre-push), update-om-cli.ps1
 

@@ -72,7 +72,7 @@ Check `app/lib/readiness.js`:
 ### 8. Package.json Scripts
 
 For each script in `package.json`:
-- Verify the target file exists (e.g., `app/server.py`, `tools/direct-line-test.js`)
+- Verify the target file exists (e.g., `app/server.js`, `tools/direct-line-test.js`)
 
 ### 9. Gitignore Coverage
 

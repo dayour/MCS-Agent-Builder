@@ -1,5 +1,5 @@
 /**
- * API client — fetch wrapper for all server.py endpoints.
+ * API client — fetch wrapper for all server.js endpoints.
  *
  * In dev mode, Vite proxies /api → localhost:8000.
  * In production, same origin serves both API and static files.

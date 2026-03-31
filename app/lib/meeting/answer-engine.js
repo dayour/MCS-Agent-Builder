@@ -70,6 +70,9 @@ class AnswerEngine extends EventEmitter {
    * @param {string} briefing - Pre-generated meeting briefing text
    */
   loadBriefing(briefing) {
+    if (!briefing || typeof briefing !== 'string') {
+      throw new Error('loadBriefing requires a non-empty string');
+    }
     this.briefing = briefing;
     this.systemPrompt = SYSTEM_PROMPT_TEMPLATE.replace('{BRIEFING}', briefing);
     this.isReady = true;
@@ -177,7 +180,12 @@ class AnswerEngine extends EventEmitter {
       this.stats.totalTokens += (usage.completion_tokens || usage.output_tokens || 0);
       this.stats.totalCost += cost;
       this.stats.avgResponseMs = ((this.stats.avgResponseMs * (this.stats.answers - 1)) + totalMs) / this.stats.answers;
-      this.stats.avgTTFT = ((this.stats.avgTTFT * (this.stats.answers - 1)) + (ttft || 0)) / this.stats.answers;
+      if (ttft !== null) {
+        const prevCount = this.stats.answers - 1;
+        this.stats.avgTTFT = prevCount > 0
+          ? ((this.stats.avgTTFT * prevCount) + ttft) / this.stats.answers
+          : ttft;
+      }
 
       this.history.push(answer);
       this.emit('answer_complete', answer);
@@ -240,7 +248,8 @@ class AnswerEngine extends EventEmitter {
     for await (const event of anthropicApi.streamCompletion(messages, {
       model: isGPTModel(this.model) ? 'haiku' : this.model,
       maxTokens: MAX_ANSWER_TOKENS,
-      cacheSystem: true
+      cacheSystem: true,
+      signal
     })) {
       if (signal.aborted) break;
       if (event.type === 'fallback') {

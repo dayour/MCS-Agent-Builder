@@ -111,7 +111,7 @@ async function generateBriefing(options) {
   if (onProgress) onProgress({ stage: 'loading_docs', message: 'Reading customer documents...' });
   const docsDir = path.join(projectDir, 'docs');
   if (fs.existsSync(docsDir)) {
-    const docFiles = fs.readdirSync(docsDir).filter(f => !f.startsWith('.'));
+    const docFiles = fs.readdirSync(docsDir).filter(f => !f.startsWith('.')).sort();
     for (const file of docFiles.slice(0, 8)) { // Max 8 docs
       try {
         const { content } = await extractContent(path.join(docsDir, file));
@@ -155,7 +155,7 @@ async function generateBriefing(options) {
   // ── Section 4: Learnings ───────────────────────────────────────────
   const learningsDir = path.join(KNOWLEDGE_DIR, 'learnings');
   if (fs.existsSync(learningsDir)) {
-    const learningFiles = fs.readdirSync(learningsDir).filter(f => f.endsWith('.md'));
+    const learningFiles = fs.readdirSync(learningsDir).filter(f => f.endsWith('.md')).sort();
     if (learningFiles.length > 0) {
       sections.push('\n\n# LEARNINGS FROM PAST BUILDS\n');
       for (const file of learningFiles.slice(0, 5)) {
@@ -222,7 +222,7 @@ function getSourcePaths(projectDir, agentName) {
   if (fs.existsSync(docsDir)) {
     paths.push(docsDir);
     try {
-      const docFiles = fs.readdirSync(docsDir).filter(f => !f.startsWith('.')).slice(0, 8);
+      const docFiles = fs.readdirSync(docsDir).filter(f => !f.startsWith('.')).sort().slice(0, 8);
       for (const f of docFiles) paths.push(path.join(docsDir, f));
     } catch { /* skip */ }
   }
@@ -245,7 +245,7 @@ function getSourcePaths(projectDir, agentName) {
   if (fs.existsSync(learningsDir)) {
     paths.push(learningsDir);
     try {
-      const files = fs.readdirSync(learningsDir).filter(f => f.endsWith('.md')).slice(0, 5);
+      const files = fs.readdirSync(learningsDir).filter(f => f.endsWith('.md')).sort().slice(0, 5);
       for (const f of files) paths.push(path.join(learningsDir, f));
     } catch { /* skip */ }
   }
