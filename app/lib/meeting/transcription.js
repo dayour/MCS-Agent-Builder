@@ -56,6 +56,7 @@ class TranscriptionService extends EventEmitter {
     this.isRunning = false;
     this._disposed = false;
     this._initPromise = null; // Concurrency guard for initialize()
+    this._calibrated = false; // First-inference calibration flag
 
     // Buffers for each stream
     this.buffers = {
@@ -153,6 +154,42 @@ class TranscriptionService extends EventEmitter {
 
     this.emit('status', { type: 'model_loaded', model: this.modelName, gpu: this.stats.gpuEnabled });
     this.emit('status', { type: 'ready' });
+  }
+
+  /**
+   * Hot-swap to a different model without stopping the service.
+   * Used by calibration to downgrade when GPU is too slow for the current model.
+   * @param {string} newModel - Model name to switch to
+   */
+  async _reloadModel(newModel) {
+    const { ensureModel: ensure } = require('../../../tools/whisper-models/model-manager');
+    let modelPath;
+    try {
+      modelPath = await ensure(newModel);
+    } catch {
+      return; // Can't download — keep current model
+    }
+
+    const { initWhisper } = require('@fugood/whisper.node');
+    const oldContext = this.whisperContext;
+
+    // Wait for any active inference to complete before swapping
+    while (this._activeInference) {
+      await new Promise(r => setTimeout(r, 50));
+    }
+
+    this.whisperContext = await initWhisper({
+      filePath: modelPath,
+      useGpu: this.stats.gpuEnabled
+    });
+    this.modelName = newModel;
+
+    // Release old context
+    if (oldContext) {
+      try { await oldContext.release(); } catch {}
+    }
+
+    this.emit('status', { type: 'model_loaded', model: this.modelName, gpu: this.stats.gpuEnabled });
   }
 
   /**
@@ -326,6 +363,22 @@ class TranscriptionService extends EventEmitter {
     const processingTime = Date.now() - startTime;
     this.stats.totalInferenceMs += processingTime;
     this.stats.inferenceCount = (this.stats.inferenceCount || 0) + 1;
+
+    // Calibration: after first real inference, check if GPU is fast enough.
+    // If inference takes >2x the chunk duration, downgrade model to tiny.en.
+    // This handles weaker integrated GPUs (older Intel UHD, etc.) gracefully.
+    if (!this._calibrated) {
+      this._calibrated = true;
+      const chunkMs = CHUNK_DURATION_SEC * 1000;
+      this.emit('status', { type: 'calibration', model: this.modelName, inferenceMs: processingTime, chunkMs, gpu: this.stats.gpuEnabled });
+      if (processingTime > chunkMs * 2 && this.modelName !== 'tiny.en') {
+        this.emit('status', { type: 'model_downgrade', from: this.modelName, to: 'tiny.en', reason: `Inference ${processingTime}ms too slow for ${chunkMs}ms chunks` });
+        // Reload with smaller model in background (next chunks will use it)
+        this._reloadModel('tiny.en').catch(err => {
+          this.emit('transcription_error', { stream: 'calibration', error: err.message });
+        });
+      }
+    }
 
     // Step 4: Extract text
     const text = (result.segments || [])
