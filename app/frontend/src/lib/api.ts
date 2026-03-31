@@ -619,3 +619,107 @@ export async function fetchSkillJobs(skillType?: SkillType): Promise<{ jobs: Ski
   const query = skillType ? `?type=${skillType}` : "";
   return request(`/skill/jobs${query}`);
 }
+
+// ─── Meeting Co-Pilot ─────────────────────────────────────────────
+
+export interface MeetingPrepareResult {
+  sessionId: string;
+  state: string;
+  briefingTokens: number;
+  message: string;
+}
+
+export interface MeetingTranscriptEntry {
+  speaker: "kim" | "customer";
+  text: string;
+  timestamp: number;
+  duration: number;
+  processingTime?: number;
+}
+
+export interface MeetingAnswerSuggestion {
+  id: string;
+  text: string;
+  detection: { text: string; type: "question" | "requirement"; confidence: number };
+  model: string;
+  cost: number;
+  ttft: number;
+  totalMs: number;
+  timestamp: number;
+}
+
+export interface MeetingEvent {
+  type: string;
+  timestamp: number;
+  [key: string]: unknown;
+}
+
+export interface MeetingStats {
+  session: { id: string; state: string; durationMs: number };
+  audio: { systemBytes: number; micBytes: number; framesReceived: number };
+  transcription: { chunksProcessed: number; silenceSkipped: number; totalDurationMs: number };
+  questions: { questions: number; requirements: number; skipped: number; llmCalls: number };
+  answers: { answers: number; totalTokens: number; totalCost: number; avgResponseMs: number; avgTTFT: number };
+}
+
+export async function prepareMeeting(
+  projectId: string,
+  options?: { agentName?: string; answerModel?: string; transcriptionModel?: string }
+): Promise<MeetingPrepareResult> {
+  return request(`/meeting/prepare/${projectId}`, {
+    method: "POST",
+    body: JSON.stringify(options || {}),
+  });
+}
+
+export async function startMeeting(sessionId: string): Promise<{ sessionId: string; state: string; startedAt: number }> {
+  return request(`/meeting/${sessionId}/start`, { method: "POST" });
+}
+
+export async function stopMeeting(sessionId: string): Promise<unknown> {
+  return request(`/meeting/${sessionId}/stop`, { method: "POST" });
+}
+
+export function subscribeMeetingStream(
+  sessionId: string,
+  onEvent: (event: MeetingEvent) => void,
+  onError?: (err: Error) => void
+): () => void {
+  const es = new EventSource(`${BASE}/meeting/${sessionId}/stream`);
+  es.onmessage = (e) => {
+    try {
+      const event = JSON.parse(e.data) as MeetingEvent;
+      onEvent(event);
+    } catch { /* ignore parse errors */ }
+  };
+  es.onerror = () => {
+    if (onError) onError(new Error("Meeting SSE connection lost"));
+  };
+  return () => es.close();
+}
+
+export async function getMeetingTranscript(
+  sessionId: string
+): Promise<{ transcript: MeetingTranscriptEntry[]; stats: MeetingStats }> {
+  return request(`/meeting/${sessionId}/transcript`);
+}
+
+export async function getMeetingStats(sessionId: string): Promise<MeetingStats> {
+  return request(`/meeting/${sessionId}/stats`);
+}
+
+export async function setMeetingModel(
+  sessionId: string,
+  model: string
+): Promise<{ model: string; message: string }> {
+  return request(`/meeting/${sessionId}/model`, {
+    method: "PATCH",
+    body: JSON.stringify({ model }),
+  });
+}
+
+export async function listMeetingSessions(): Promise<
+  Array<{ id: string; projectId: string; state: string; startedAt: number; transcriptLength: number; suggestionsCount: number }>
+> {
+  return request(`/meeting/sessions`);
+}

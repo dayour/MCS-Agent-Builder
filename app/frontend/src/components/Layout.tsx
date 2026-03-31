@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ChevronRight, Bug, Lightbulb, Terminal } from "lucide-react";
+import { ChevronRight, Bug, Lightbulb, Terminal, Headphones } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { useTerminalStore } from "@/stores/terminalStore";
+import { useMeetingStore } from "@/stores/meetingStore";
 import FeedbackDialog from "@/components/FeedbackDialog";
 
 interface LayoutProps {
@@ -12,13 +13,14 @@ interface LayoutProps {
 }
 
 const Layout = ({ children, breadcrumbs }: LayoutProps) => {
-  const { panelOpen, panelHeight, setPanelOpen, sessions } = useTerminalStore();
+  const { panelOpen, setPanelOpen, setActiveTab, activeTab, sessions } = useTerminalStore();
+  const meetingPhase = useMeetingStore((s) => s.phase);
   const [feedbackType, setFeedbackType] = useState<"bug" | "suggestion">("bug");
   const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-sm">
+    <div className="flex flex-col h-full bg-background overflow-hidden">
+      <header className="shrink-0 z-50 border-b border-border bg-background/80 backdrop-blur-sm">
         <div className="flex h-14 items-center px-6">
           <Link to="/" className="flex items-center gap-2.5">
             <img src="/favicon.png" alt="MCS Agent Builder" className="h-[26px] w-[26px]" />
@@ -62,10 +64,13 @@ const Layout = ({ children, breadcrumbs }: LayoutProps) => {
               <Lightbulb className="h-3.5 w-3.5" /> Suggest
             </Button>
             <Button
-              variant={panelOpen ? "secondary" : "ghost"}
+              variant={panelOpen && activeTab === "console" ? "secondary" : "ghost"}
               size="sm"
               className="h-8 gap-1.5 text-xs"
-              onClick={() => setPanelOpen(!panelOpen)}
+              onClick={() => {
+                if (panelOpen && activeTab === "console") { setPanelOpen(false); }
+                else { setActiveTab("console"); }
+              }}
             >
               <Terminal className="h-3.5 w-3.5" />
               Console
@@ -75,15 +80,27 @@ const Layout = ({ children, breadcrumbs }: LayoutProps) => {
                 </span>
               )}
             </Button>
+            <Button
+              variant={panelOpen && activeTab === "meeting" ? "secondary" : "ghost"}
+              size="sm"
+              className="h-8 gap-1.5 text-xs"
+              onClick={() => {
+                if (panelOpen && activeTab === "meeting") { setPanelOpen(false); }
+                else { setActiveTab("meeting"); }
+              }}
+            >
+              <Headphones className="h-3.5 w-3.5" />
+              Meeting
+              {meetingPhase === "active" && (
+                <span className="ml-0.5 w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+              )}
+            </Button>
             <ThemeToggle />
           </div>
         </div>
       </header>
 
-      <main
-        className="animate-fade-in transition-[margin] duration-200"
-        style={{ marginBottom: panelOpen ? panelHeight : 0 }}
-      >
+      <main className="flex-1 min-h-0 overflow-y-auto animate-fade-in">
         {children}
       </main>
 

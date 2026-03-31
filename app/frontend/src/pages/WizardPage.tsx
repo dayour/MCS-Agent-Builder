@@ -86,7 +86,7 @@ export default function WizardPage() {
   }, [phase, hasSavedSession]);
 
   return (
-    <div className="flex flex-col h-screen bg-background">
+    <div className="flex flex-col h-full bg-background">
       {/* Header */}
       <WizardHeader />
 

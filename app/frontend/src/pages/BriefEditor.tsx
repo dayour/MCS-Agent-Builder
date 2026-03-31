@@ -204,9 +204,9 @@ const BriefEditor = () => {
       { label: projectName || projectId || "", href: `/project/${projectId}` },
       { label: agentName || agentId || "" },
     ]}>
-      <div className="flex h-[calc(100vh-3.5rem)]">
+      <div className="flex h-full min-w-0">
         {/* Sidebar */}
-        <aside className="w-64 shrink-0 border-r border-border bg-surface-1 overflow-y-auto">
+        <aside className="w-56 shrink-0 border-r border-border bg-surface-1 overflow-y-auto">
           <div className="p-4 border-b border-border">
             <Select value={agentId} onValueChange={(val) => navigate(`/project/${projectId}/agent/${val}`)}>
               <SelectTrigger className="h-8 text-xs mb-3">
@@ -309,7 +309,7 @@ const BriefEditor = () => {
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
-          <div className="mx-auto max-w-3xl animate-fade-in">
+          <div className="mx-auto max-w-4xl xl:max-w-none animate-fade-in">
             {(error || pdfError) && (
               <div className="mb-4 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
                 {error || pdfError}

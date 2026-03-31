@@ -160,11 +160,12 @@ async function mergeToBrief(agentDir, patch) {
 // ---------------------------------------------------------------------------
 
 const { spawn } = require("child_process");
+const anthropicApi = require("../../tools/lib/anthropic");
 
-// Enrichment runs in background — Opus for quality (user doesn't wait)
+// Enrichment runs in background — Opus 4.6 for quality + speed
 const ENRICHMENT_MODEL = process.env.ENRICHMENT_MODEL || process.env.WIZARD_MODEL || "opus";
 
-/** Resolve Claude CLI path and API key (same logic as wizard.js). */
+/** Resolve Claude CLI path and API key (legacy fallback). */
 function getClaudeConfig() {
   const npmGlobal = path.join(os.homedir(), "AppData", "Roaming", "npm",
     "node_modules", "@anthropic-ai", "claude-code", "cli.js");
@@ -184,13 +185,28 @@ function getClaudeConfig() {
 const _enrichClaudeConfig = getClaudeConfig();
 
 /**
- * Call Claude via the CLI in print mode.
- * Uses resolved cli.js path + API key from ~/.claude/config.json.
+ * Call Claude via direct Anthropic API (primary) or CLI subprocess (fallback).
+ * Direct API: ~3-8s. CLI: ~30s.
  */
 async function callClaude(systemPrompt, userMessage) {
+  // Primary: direct API — 5-10x faster than CLI
+  if (anthropicApi.isConfigured()) {
+    const result = await anthropicApi.chatCompletion([
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userMessage },
+    ], {
+      model: ENRICHMENT_MODEL,
+      maxTokens: 16384,
+      timeout: 180000,
+      cacheSystem: true,
+    });
+    return result.content;
+  }
+
+  // Fallback: CLI subprocess
   const { cliPath, apiKey } = _enrichClaudeConfig;
   if (!cliPath || !apiKey) {
-    throw new Error("Claude CLI not configured — run: claude auth login");
+    throw new Error("Claude not configured — ensure Claude Code is logged in");
   }
 
   return new Promise((resolve, reject) => {

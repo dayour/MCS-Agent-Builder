@@ -17,6 +17,7 @@ import { useSkillJobStore, getSkillJobKey } from "@/stores/skillJobStore";
 import { getTerminalWsUrl } from "@/lib/api";
 import DocumentDropZone from "@/components/DocumentDropZone";
 import SkillProgressPanel from "@/components/build/SkillProgressPanel";
+import { useMeetingStore } from "@/stores/meetingStore";
 
 // ─── Pipeline color system ────────────────────────────────────────
 // Each step has a consistent color used everywhere (buttons, badges, banners).
@@ -117,6 +118,11 @@ const ProjectPage = () => {
   const [showAgentForm, setShowAgentForm] = useState(false);
   const [agentName, setAgentName] = useState("");
   const [agentDesc, setAgentDesc] = useState("");
+  const meetingPhase = useMeetingStore((s) => s.phase);
+  const openMeetingForProject = useMeetingStore((s) => s.openForProject);
+  const setActiveTab = useTerminalStore((s) => s.setActiveTab);
+  const activeTab = useTerminalStore((s) => s.activeTab);
+  const panelOpen = useTerminalStore((s) => s.panelOpen);
   const [actionError, setActionError] = useState<string | null>(null);
 
   // Auto-clear action errors after 4s
@@ -238,9 +244,27 @@ const ProjectPage = () => {
         )}
         <div className="mb-8 flex items-center justify-between">
           <h1 className="text-2xl font-bold tracking-tight text-foreground">{projectName}</h1>
-          <Button size="sm" className="gap-1.5 bg-violet-600 hover:bg-violet-700 text-white" onClick={launchProjectPreview}>
-            <Eye className="h-3.5 w-3.5" /> Preview
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant={(activeTab === "meeting" && panelOpen) ? "default" : "outline"}
+              className={meetingPhase === "active" ? "gap-1.5 bg-red-600 hover:bg-red-700 text-white" : (activeTab === "meeting" && panelOpen) ? "gap-1.5 bg-primary text-primary-foreground" : "gap-1.5"}
+              onClick={() => {
+                if (id) openMeetingForProject(id, agents[0]?.name);
+                setActiveTab("meeting");
+              }}
+            >
+              {meetingPhase === "active" ? (
+                <>
+                  <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                  Live Meeting
+                </>
+              ) : "Meeting Mode"}
+            </Button>
+            <Button size="sm" className="gap-1.5 bg-violet-600 hover:bg-violet-700 text-white" onClick={launchProjectPreview}>
+              <Eye className="h-3.5 w-3.5" /> Preview
+            </Button>
+          </div>
         </div>
 
         <div className="space-y-8">

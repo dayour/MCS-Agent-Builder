@@ -22,13 +22,15 @@ const knowledgeResolver = require("./knowledge-resolver");
 knowledgeResolver.load();
 
 // ---------------------------------------------------------------------------
-// Claude LLM access — uses `claude` CLI (works with any auth method)
+// Claude LLM access — Direct Anthropic API (fast streaming) with CLI fallback
 // ---------------------------------------------------------------------------
 
-// Opus is both faster and higher quality via claude.ai routing (tested: Opus 93s vs Sonnet 144s for 3 turns)
+// Opus 4.6 for everything — quality and speed over cost
 const CLAUDE_MODEL = process.env.WIZARD_CHAT_MODEL || process.env.WIZARD_MODEL || "opus";
 
-/** Resolve the Claude Code cli.js path and API key for spawning. */
+const anthropicApi = require("../../tools/lib/anthropic");
+
+/** Resolve the Claude Code cli.js path and API key for spawning (legacy fallback). */
 function getClaudeConfig() {
   // Find cli.js — check npm global install location
   const npmGlobal = path.join(os.homedir(), "AppData", "Roaming", "npm",
@@ -51,7 +53,8 @@ function getClaudeConfig() {
 const _claudeConfig = getClaudeConfig();
 
 function isConfigured() {
-  return !!_claudeConfig.cliPath && !!_claudeConfig.apiKey;
+  // Direct API is primary; CLI is fallback
+  return anthropicApi.isConfigured() || (!!_claudeConfig.cliPath && !!_claudeConfig.apiKey);
 }
 
 // ---------------------------------------------------------------------------
@@ -504,20 +507,67 @@ function sendSSE(res, data) {
 }
 
 /**
- * Call Claude via CLI and simulate SSE token streaming to the client.
- * Uses `claude -p` with the authenticated session (supports Opus 4.6).
- * Gets full response first, then streams conversational text token-by-token.
+ * Call Claude via direct Anthropic API with real token streaming.
+ * Falls back to CLI subprocess if API is unavailable.
+ *
+ * Direct API: ~2-6s total (real streaming, TTFT ~0.6-2.4s depending on model)
+ * CLI fallback: ~30s total (fake streaming after full response)
  *
  * @param {string} systemPrompt
  * @param {Array<{role: string, content: string}>} messages
  * @param {object} res - Express response (SSE)
  * @returns {Promise<string>} Full response text
  */
-function streamClaudeResponse(systemPrompt, messages, res) {
+async function streamClaudeResponse(systemPrompt, messages, res) {
+  // Primary path: Direct Anthropic API with real streaming
+  if (anthropicApi.isConfigured()) {
+    return streamClaudeResponseDirect(systemPrompt, messages, res);
+  }
+
+  // Fallback: CLI subprocess (legacy path)
+  return streamClaudeResponseCLI(systemPrompt, messages, res);
+}
+
+/**
+ * Direct Anthropic API streaming — real token-by-token SSE delivery.
+ */
+async function streamClaudeResponseDirect(systemPrompt, messages, res) {
+  const apiMessages = [
+    { role: "system", content: systemPrompt },
+    ...messages,
+  ];
+
+  let fullText = "";
+
+  for await (const event of anthropicApi.streamCompletion(apiMessages, {
+    model: CLAUDE_MODEL,
+    maxTokens: 16384,
+    timeout: 180000,
+    cacheSystem: true, // Cache the system prompt (wizard prompt is large + stable)
+  })) {
+    if (event.type === "fallback") {
+      console.log(`[wizard] Model fallback: ${event.message} (${CLAUDE_MODEL} not accessible)`);
+    }
+    if (event.type === "text") {
+      fullText += event.text;
+      // Only stream conversational text (before ---WIZARD_STATE---) to the client
+      if (!fullText.includes("---WIZARD_STATE---")) {
+        sendSSE(res, { type: "token", text: event.text });
+      }
+    }
+  }
+
+  return fullText;
+}
+
+/**
+ * Legacy CLI subprocess fallback — fake streaming after full response.
+ */
+function streamClaudeResponseCLI(systemPrompt, messages, res) {
   return new Promise((resolve, reject) => {
     const { cliPath, apiKey } = _claudeConfig;
     if (!cliPath || !apiKey) {
-      return reject(new Error("Claude CLI not configured — run: claude auth login"));
+      return reject(new Error("Claude not configured — ensure Claude Code is logged in"));
     }
 
     // Build the user prompt from conversation messages

@@ -103,7 +103,7 @@ const DocumentViewer = () => {
       { label: doc.name },
     ]}>
       <div className="px-6 py-8">
-        <div className="mx-auto max-w-4xl">
+        <div className="mx-auto max-w-5xl xl:max-w-none">
           <div className="mb-6 flex items-center gap-3">
             <Link
               to={`/project/${projectId}`}

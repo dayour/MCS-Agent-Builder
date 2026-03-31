@@ -1194,7 +1194,165 @@ app.get("/api/skill/jobs", (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// Static file serving — SPA with catch-all
+// Meeting Co-Pilot API
+// ---------------------------------------------------------------------------
+
+const { MeetingSession } = require("./lib/meeting/meeting-session");
+
+// Active meeting sessions (keyed by session ID)
+const meetingSessions = new Map();
+
+// Prepare a meeting briefing (pre-meeting step)
+app.post("/api/meeting/prepare/:projectId", async (req, res) => {
+  try {
+    const projectDir = path.join(BUILD_GUIDES, req.params.projectId);
+    if (!fs.existsSync(projectDir)) {
+      return res.status(404).json({ detail: "Project not found" });
+    }
+
+    const session = new MeetingSession({
+      projectId: req.params.projectId,
+      projectDir,
+      agentName: req.body?.agentName,
+      answerModel: req.body?.answerModel || "gpt-5.4",
+      transcriptionModel: req.body?.transcriptionModel || "tiny.en"
+    });
+
+    meetingSessions.set(session.id, session);
+
+    const result = await session.prepare();
+    res.json({
+      sessionId: session.id,
+      state: session.state,
+      briefingTokens: result.tokens,
+      message: "Meeting prepared. Connect to /api/meeting/:id/stream for real-time events, then POST /api/meeting/:id/start."
+    });
+  } catch (err) {
+    console.error("[meeting] Prepare failed:", err.message);
+    res.status(500).json({ detail: err.message });
+  }
+});
+
+// Start a meeting session (begins audio capture + transcription)
+app.post("/api/meeting/:id/start", async (req, res) => {
+  const session = meetingSessions.get(req.params.id);
+  if (!session) return res.status(404).json({ detail: "Session not found" });
+
+  try {
+    await session.start();
+    res.json({ sessionId: session.id, state: session.state, startedAt: session.startedAt });
+  } catch (err) {
+    console.error("[meeting] Start failed:", err.message);
+    res.status(500).json({ detail: err.message });
+  }
+});
+
+// Stop a meeting session
+app.post("/api/meeting/:id/stop", async (req, res) => {
+  const session = meetingSessions.get(req.params.id);
+  if (!session) return res.status(404).json({ detail: "Session not found" });
+
+  try {
+    const summary = await session.stop();
+    res.json(summary);
+  } catch (err) {
+    console.error("[meeting] Stop failed:", err.message);
+    res.status(500).json({ detail: err.message });
+  }
+});
+
+// SSE stream for real-time meeting events (transcript + suggestions)
+app.get("/api/meeting/:id/stream", (req, res) => {
+  const session = meetingSessions.get(req.params.id);
+  if (!session) return res.status(404).json({ detail: "Session not found" });
+
+  // Set up SSE
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive"
+  });
+
+  // Send current state
+  res.write(`data: ${JSON.stringify({ type: "state", state: session.state })}\n\n`);
+
+  // Forward all session events to SSE
+  const handler = (event) => {
+    res.write(`data: ${JSON.stringify(event)}\n\n`);
+  };
+  session.on("event", handler);
+
+  // Cleanup on disconnect
+  req.on("close", () => {
+    session.off("event", handler);
+  });
+});
+
+// Get full transcript for a meeting
+app.get("/api/meeting/:id/transcript", (req, res) => {
+  const session = meetingSessions.get(req.params.id);
+  if (!session) return res.status(404).json({ detail: "Session not found" });
+  res.json({ transcript: session.getTranscript(), stats: session.getStats() });
+});
+
+// Get meeting stats
+app.get("/api/meeting/:id/stats", (req, res) => {
+  const session = meetingSessions.get(req.params.id);
+  if (!session) return res.status(404).json({ detail: "Session not found" });
+  res.json(session.getStats());
+});
+
+// Update answer model at runtime
+app.patch("/api/meeting/:id/model", (req, res) => {
+  const session = meetingSessions.get(req.params.id);
+  if (!session) return res.status(404).json({ detail: "Session not found" });
+  const model = req.body?.model;
+  if (!model) return res.status(400).json({ detail: "model is required" });
+  session.setAnswerModel(model);
+  res.json({ model, message: "Model updated" });
+});
+
+// List active meeting sessions
+app.get("/api/meeting/sessions", (req, res) => {
+  const sessions = [];
+  for (const [id, session] of meetingSessions) {
+    sessions.push({
+      id,
+      projectId: session.projectId,
+      state: session.state,
+      startedAt: session.startedAt,
+      transcriptLength: session.transcript.length,
+      suggestionsCount: session.suggestions.length
+    });
+  }
+  res.json(sessions);
+});
+
+// ---------------------------------------------------------------------------
+// AI Model Status (shows which models are accessible)
+// ---------------------------------------------------------------------------
+
+app.get("/api/ai/status", async (req, res) => {
+  try {
+    const anthropicApi = require("../tools/lib/anthropic");
+    const info = anthropicApi.getModelAccessInfo();
+    if (!info.probed) {
+      // Probe on first request (async, ~3s)
+      await anthropicApi.probeModelAccess();
+    }
+    res.json({
+      configured: anthropicApi.isConfigured(),
+      ...anthropicApi.getModelAccessInfo(),
+      models: anthropicApi.MODELS,
+      usage: anthropicApi.getUsageSummary()
+    });
+  } catch (err) {
+    res.status(500).json({ detail: err.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Static file serving — SPA with catch-all (must be after all API routes)
 // ---------------------------------------------------------------------------
 
 if (fs.existsSync(path.join(DIST_DIR, "assets"))) {
@@ -1254,11 +1412,27 @@ if (require.main === module) {
     console.log(`  Created project directory: ${BUILD_GUIDES}`);
   }
 
-  server.listen(PORT, "127.0.0.1", () => {
+  server.listen(PORT, "127.0.0.1", async () => {
     console.log(`MCS Agent Builder — http://localhost:${PORT}`);
     console.log(`  Base dir: ${BASE_DIR}`);
     console.log(`  Projects: ${BUILD_GUIDES}`);
     console.log(`  Terminal: ws://localhost:${PORT}/ws`);
+
+    // Probe AI model access in background (non-blocking)
+    try {
+      const anthropicApi = require("../tools/lib/anthropic");
+      if (anthropicApi.isConfigured()) {
+        anthropicApi.probeModelAccess().then(access => {
+          const info = anthropicApi.getModelAccessInfo();
+          const directModels = Object.entries(info.access).filter(([k,v]) => v && k !== '_copilotAvailable').map(([k]) => k);
+          const copilotNote = info.copilotAvailable ? ' + all via Copilot' : '';
+          console.log(`  AI: direct=[${directModels.join(',')}]${copilotNote} (default: ${info.effectiveDefault})`);
+          if (info.copilotAvailable && directModels.length < 3) {
+            console.log(`  Opus/Sonnet route via GitHub Copilot (gh auth token)`);
+          }
+        });
+      }
+    } catch { /* non-critical */ }
   });
 }
 

@@ -498,6 +498,24 @@ checkSingleInstance();
     process.exit(code || 0);
   });
 
+  // Launch audio capture service (for meeting co-pilot)
+  let audioCapture = null;
+  const audioCaptureExe = path.join(__dirname, "tools", "audio-capture", "bin", "audio-capture.exe");
+  if (fs.existsSync(audioCaptureExe)) {
+    audioCapture = spawn(audioCaptureExe, ["--idle"], {
+      cwd: path.join(__dirname, "tools", "audio-capture"),
+      stdio: "pipe", // Don't clutter console — runs idle until meeting starts
+    });
+    audioCapture.on("error", () => {
+      warn("Audio capture service unavailable — meeting co-pilot will not have live audio");
+    });
+    audioCapture.on("exit", () => { audioCapture = null; });
+    log("Audio capture service started (idle, waiting for meeting)");
+  } else {
+    log("Audio capture service not built — meeting co-pilot will work without live audio");
+    log("  Build with: cd tools/audio-capture && dotnet publish -c Release -o bin");
+  }
+
   // Wait for dashboard to respond, then open browser
   waitForReady(URL)
     .then(() => {
@@ -514,6 +532,7 @@ checkSingleInstance();
     console.log("\n\x1b[90m  Shutting down...\x1b[0m");
     removeLockfile();
     try { server.kill(); } catch {}
+    try { if (audioCapture) audioCapture.kill(); } catch {}
     setTimeout(() => process.exit(0), 2000);
   }
 

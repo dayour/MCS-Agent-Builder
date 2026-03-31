@@ -17,6 +17,7 @@
 dashboard-data.js
 .mcs-agent-builder.lock
 *.tgz
+kickStartTemplate*.json
 
 # -----------------------------------------------------------------------------
 # Personal config (use session-config.example.json as template)

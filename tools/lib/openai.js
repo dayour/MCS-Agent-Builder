@@ -2,7 +2,8 @@
  * Shared GPT Client — GitHub Copilot API (GPT-5.4)
  *
  * Provides GPT chat completion via the GitHub Copilot Responses API.
- * Zero npm dependencies — uses shared HTTP helpers from ./http.js.
+ * Supports both non-streaming and streaming (SSE) modes.
+ * Zero npm dependencies — uses shared HTTP helpers from ./http.js + native https for SSE.
  *
  * Auth: GitHub PAT with `copilot` scope, auto-detected via `gh auth token`.
  * Setup: `gh auth login` then `gh auth refresh --scopes copilot`
@@ -11,6 +12,7 @@
  * Exports:
  *   isConfigured()            Check if GPT is available
  *   chatCompletion(messages, options)  Send chat completion (GPT-5.4)
+ *   streamCompletion(messages, options) Streaming chat completion (async generator)
  *   estimateTokens(text)      Rough token count (chars/4)
  *   estimateCost(usage)       USD cost estimate
  *   getUsageSummary()         Cumulative session stats
@@ -18,6 +20,7 @@
  *   getActiveMethod()         Returns 'copilot-api' or null
  */
 
+const https = require('https');
 const { execSync } = require('child_process');
 const { httpRequestWithRetry } = require('./http');
 
@@ -173,7 +176,7 @@ function normalizeUsage(data) {
  *
  * @param {Array<{role: string, content: string}>} messages - Chat messages (system/user/assistant)
  * @param {object} [options]
- * @param {number} [options.maxTokens=4096] - Max output tokens
+ * @param {number} [options.maxTokens=16384] - Max output tokens
  * @param {number} [options.timeout=60000] - Request timeout in ms
  * @param {string} [options.model] - Model override (default: gpt-5.4)
  * @returns {Promise<{content: string, usage: object, cost: number}>}
@@ -225,9 +228,179 @@ async function chatCompletion(messages, options = {}) {
     return { content, usage, cost };
 }
 
+/**
+ * Streaming chat completion via GPT-5.4 Responses API SSE.
+ * Returns an async generator yielding events:
+ *   { type: 'text', text: string }       — incremental text delta
+ *   { type: 'done', usage: object, cost: number } — stream complete
+ *   { type: 'aborted' }                  — stream cancelled via AbortSignal
+ *
+ * @param {Array<{role: string, content: string}>} messages
+ * @param {object} [options]
+ * @param {number} [options.maxTokens=4096] - Max output tokens
+ * @param {number} [options.timeout=60000] - Request timeout in ms
+ * @param {string} [options.model] - Model override (default: gpt-5.4)
+ * @param {AbortSignal} [options.signal] - AbortSignal to cancel the stream
+ * @returns {AsyncGenerator<{type: string, text?: string, usage?: object, cost?: number}>}
+ */
+async function* streamCompletion(messages, options = {}) {
+    if (!isConfigured()) {
+        const err = new Error(
+            'GPT not configured. Run:\n' +
+            '  gh auth login\n' +
+            '  gh auth refresh --scopes copilot'
+        );
+        err.code = 'NOT_CONFIGURED';
+        throw err;
+    }
+
+    if (!Array.isArray(messages) || messages.length === 0) {
+        throw new Error('streamCompletion: messages must be a non-empty array');
+    }
+
+    const maxTokens = options.maxTokens ?? 4096;
+    const timeout = options.timeout ?? 60000;
+    const signal = options.signal || null;
+
+    // Check if already aborted before starting
+    if (signal?.aborted) {
+        const err = new Error('Stream aborted');
+        err.code = 'ABORT_ERR';
+        throw err;
+    }
+
+    const body = JSON.stringify({
+        model: options.model || COPILOT_DEFAULT_MODEL,
+        input: toResponsesInput(messages),
+        stream: true,
+        ...(maxTokens ? { max_output_tokens: maxTokens } : {})
+    });
+
+    const endpointUrl = new URL(COPILOT_API_ENDPOINT);
+    const reqOptions = {
+        hostname: endpointUrl.hostname,
+        port: 443,
+        path: endpointUrl.pathname,
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${getGitHubToken()}`,
+            'Content-Type': 'application/json',
+            'Accept': 'text/event-stream',
+            ...COPILOT_HEADERS,
+            'Content-Length': Buffer.byteLength(body)
+        }
+    };
+
+    // Async event queue: SSE callback pushes events, generator yields them
+    const events = [];
+    let waiter = null;
+    let done = false;
+    let streamError = null;
+    let abortCleanup = null;
+
+    function wake() { if (waiter) { waiter(); waiter = null; } }
+    function pushEvent(evt) { events.push(evt); wake(); }
+    function finish(err) { if (err) streamError = err; done = true; wake(); }
+
+    function processSseLine(line) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith(':')) return;
+        if (!trimmed.startsWith('data: ')) return;
+
+        const dataStr = trimmed.slice(6);
+        if (dataStr === '[DONE]') { finish(); return; }
+
+        try {
+            const payload = JSON.parse(dataStr);
+            if (payload.type === 'response.output_text.delta' && payload.delta) {
+                pushEvent({ type: 'text', text: payload.delta });
+            } else if (payload.type === 'response.completed' && payload.response) {
+                const usage = normalizeUsage(payload.response);
+                const cost = estimateCost(usage);
+                _usage.calls++;
+                _usage.inputTokens += usage.prompt_tokens;
+                _usage.outputTokens += usage.completion_tokens;
+                _usage.cost += cost;
+                pushEvent({ type: 'done', usage, cost });
+            }
+        } catch { /* skip unparseable SSE data */ }
+    }
+
+    const req = https.request(reqOptions, (res) => {
+        if (res.statusCode !== 200) {
+            let errorData = '';
+            res.on('data', chunk => errorData += chunk);
+            res.on('end', () => finish(new Error(`GPT streaming API returned ${res.statusCode}: ${errorData.substring(0, 300)}`)));
+            return;
+        }
+
+        let buffer = '';
+        res.on('data', (chunk) => {
+            buffer += chunk.toString();
+            const lines = buffer.split('\n');
+            buffer = lines.pop();
+            for (const line of lines) processSseLine(line);
+        });
+
+        res.on('end', () => {
+            if (buffer.trim()) processSseLine(buffer);
+            finish();
+        });
+
+        res.on('error', (err) => finish(err));
+    });
+
+    req.on('error', (err) => {
+        if (signal?.aborted) {
+            pushEvent({ type: 'aborted' });
+            finish();
+            return;
+        }
+        finish(err);
+    });
+
+    req.setTimeout(timeout, () => {
+        req.destroy(new Error('GPT streaming request timeout'));
+    });
+
+    // Wire AbortSignal — destroy the HTTP request on abort
+    if (signal) {
+        const onAbort = () => {
+            pushEvent({ type: 'aborted' });
+            req.destroy();
+            finish();
+        };
+        signal.addEventListener('abort', onAbort, { once: true });
+        abortCleanup = () => signal.removeEventListener('abort', onAbort);
+    }
+
+    req.write(body);
+    req.end();
+
+    // Yield events as they arrive
+    try {
+        while (true) {
+            while (events.length > 0) {
+                yield events.shift();
+            }
+            if (done) {
+                if (streamError) throw streamError;
+                while (events.length > 0) {
+                    yield events.shift();
+                }
+                return;
+            }
+            await new Promise(r => { waiter = r; });
+        }
+    } finally {
+        if (abortCleanup) abortCleanup();
+    }
+}
+
 module.exports = {
     isConfigured,
     chatCompletion,
+    streamCompletion,
     estimateTokens,
     estimateCost,
     getUsageSummary,

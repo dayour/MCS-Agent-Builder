@@ -1,5 +1,5 @@
 /**
- * Terminal session store — manages the bottom-drawer console panel.
+ * Terminal session store — manages the right-side console/meeting panel.
  *
  * Sessions are per-project (one tab per project).
  * Research/Build/Evaluate buttons send commands to the project's existing session.
@@ -40,9 +40,6 @@ export function unregisterSessionWs(sessionId: string) {
   pendingWrites.delete(sessionId);
 }
 
-export function getSessionWs(sessionId: string): WebSocket | undefined {
-  return wsRegistry.get(sessionId);
-}
 
 function createDefaultSession(): TerminalSession {
   // wsUrl will be resolved asynchronously before first use
@@ -54,18 +51,20 @@ function createDefaultSession(): TerminalSession {
     projectId: "system",
     agentName: "Terminal",
     status: "connecting" as const,
-    wsUrl: `ws://localhost:${port + 1}/ws`,
+    wsUrl: `ws://localhost:${port}/ws`,
   };
 }
+
+export type PanelTab = "console" | "meeting";
 
 interface TerminalStore {
   sessions: TerminalSession[];
   activeSessionId: string | null;
   panelOpen: boolean;
-  /** @deprecated Use panelHeight instead. Kept for backwards compat during migration. */
+  /** Which tab is active in the right panel */
+  activeTab: PanelTab;
+  /** Width of the right panel in pixels. */
   panelWidth: number;
-  /** Height of the bottom drawer in pixels. */
-  panelHeight: number;
   addSession: (session: TerminalSession) => void;
   removeSession: (id: string) => void;
   setActiveSession: (id: string) => void;
@@ -74,7 +73,7 @@ interface TerminalStore {
   updateSessionStatus: (id: string, status: TerminalSession["status"]) => void;
   setPanelOpen: (open: boolean) => void;
   setPanelWidth: (width: number) => void;
-  setPanelHeight: (height: number) => void;
+  setActiveTab: (tab: PanelTab) => void;
   openOrCreate: () => void;
   /** Send a command to an existing session's WebSocket. */
   sendCommand: (sessionId: string, command: string) => void;
@@ -88,8 +87,8 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
   sessions: [defaultSession],
   activeSessionId: defaultSession.id,
   panelOpen: false,
-  panelWidth: 500,
-  panelHeight: 300,
+  activeTab: "console" as PanelTab,
+  panelWidth: 480,
 
   addSession: (session) => {
     // If the session carries an initial command, queue it in pendingCommands
@@ -145,9 +144,9 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
     }
   },
 
-  setPanelWidth: (width) => set({ panelWidth: Math.max(300, Math.min(900, width)) }),
+  setPanelWidth: (width) => set({ panelWidth: Math.max(320, Math.min(Math.floor(window.innerWidth * 0.6), width)) }),
 
-  setPanelHeight: (height) => set({ panelHeight: Math.max(150, Math.min(600, height)) }),
+  setActiveTab: (tab) => set({ activeTab: tab, panelOpen: true }),
 
   openOrCreate: () => {
     const { sessions } = get();
