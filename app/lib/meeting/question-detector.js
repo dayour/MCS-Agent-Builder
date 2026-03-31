@@ -38,8 +38,8 @@ const NOISE_PATTERNS = [
   /^\s*$/
 ];
 
-const DEBOUNCE_MS = 2000;        // Wait 2s for speaker to finish
-const STABILITY_MS = 500;        // Whisper partial must be stable for 500ms before evaluation
+const DEBOUNCE_MS = 1500;        // Wait 1.5s for speaker to finish (reduced from 2s — GPU transcription is faster)
+const STABILITY_MS = 400;        // Whisper segment must be stable for 400ms before evaluation
 const CONFIDENCE_THRESHOLD = 0.6;
 const MIN_TEXT_LENGTH = 10;
 const DEDUP_COOLDOWN_MS = 30000; // Don't re-detect same question within 30s

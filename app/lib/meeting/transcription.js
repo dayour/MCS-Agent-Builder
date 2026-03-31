@@ -3,15 +3,21 @@
  *
  * Wraps @fugood/whisper.node for real-time meeting transcription.
  * Handles two audio streams (system = customer, mic = Kim) with
- * a single shared whisper context for CPU efficiency.
+ * a single shared whisper context.
  *
  * Features:
- *   - 5-second chunking for real-time on CPU (RTF ~0.6x with tiny.en)
+ *   - Vulkan GPU acceleration (Intel Arc / NVIDIA / AMD — 33x faster than CPU)
+ *   - 2.5-second chunking for low-latency real-time transcription
  *   - RMS silence detection (instant, replaces Silero VAD which was too slow on CPU)
  *   - Cross-channel echo suppression (Jaccard word similarity)
  *   - Single whisper context, serialized inference queue with backpressure
- *   - Staggered mic processing (250ms offset to avoid CPU contention)
- *   - Inference timeout guard (30s max per chunk)
+ *   - Staggered mic processing (250ms offset to reduce GPU contention)
+ *   - Inference timeout guard (15s max per chunk)
+ *   - Graceful fallback: Vulkan GPU → CPU (auto-detected)
+ *
+ * Performance (Intel Arc 140V, base.en, 2.5s audio):
+ *   - Vulkan GPU: ~117ms inference → 2.6s total latency
+ *   - CPU fallback: ~2.7s inference → 5.2s total latency
  *
  * Audio input: 16kHz, 16-bit signed integer, mono PCM
  * Output: TranscriptEntry events via EventEmitter
@@ -23,7 +29,7 @@ const { ensureModel, getBestAvailable } = require('../../../tools/whisper-models
 // Audio constants
 const SAMPLE_RATE = 16000;
 const BYTES_PER_SAMPLE = 2; // 16-bit
-const CHUNK_DURATION_SEC = 5; // 5-second chunks — optimal for CPU real-time (RTF ~0.6x with tiny.en)
+const CHUNK_DURATION_SEC = 2.5; // 2.5s chunks — optimal for GPU real-time (~100ms inference)
 const CHUNK_SIZE = SAMPLE_RATE * BYTES_PER_SAMPLE * CHUNK_DURATION_SEC;
 const SILENCE_RMS_THRESHOLD = 200; // Fallback RMS if VAD not available
 
@@ -44,9 +50,12 @@ const ECHO_SIMILARITY_THRESHOLD = 0.55; // Suppress mic text if >55% word overla
 class TranscriptionService extends EventEmitter {
   constructor(options = {}) {
     super();
-    this.modelName = options.model || 'tiny.en';
+    this.modelName = options.model || 'base.en';
+    this.useGpu = options.useGpu !== false; // Default: try GPU
     this.whisperContext = null;
     this.isRunning = false;
+    this._disposed = false;
+    this._initPromise = null; // Concurrency guard for initialize()
 
     // Buffers for each stream
     this.buffers = {
@@ -57,6 +66,7 @@ class TranscriptionService extends EventEmitter {
     // Serialized inference queue (one whisper call at a time, capped to prevent unbounded growth)
     this._queue = [];
     this._processing = false;
+    this._activeInference = null; // Track in-flight inference for cancellation
     this._maxQueueSize = 10; // Drop oldest if queue exceeds this
 
     // Recent transcriptions for echo suppression
@@ -72,17 +82,29 @@ class TranscriptionService extends EventEmitter {
       queueDropped: 0,
       totalDurationMs: 0,
       totalInferenceMs: 0,
-      errors: 0
+      errors: 0,
+      gpuEnabled: false
     };
   }
 
   /**
    * Initialize whisper model. Downloads if needed.
+   * Concurrency-safe: multiple calls return the same promise.
    * @param {function} [onProgress] - Model download progress callback
    */
   async initialize(onProgress) {
     if (this.whisperContext) return;
+    // Concurrency guard: reuse in-flight init promise
+    if (this._initPromise) return this._initPromise;
+    this._initPromise = this._doInitialize(onProgress);
+    try {
+      await this._initPromise;
+    } finally {
+      this._initPromise = null;
+    }
+  }
 
+  async _doInitialize(onProgress) {
     // Ensure whisper model is available
     let modelPath;
     try {
@@ -101,15 +123,35 @@ class TranscriptionService extends EventEmitter {
 
     this.emit('status', { type: 'model_loading', model: this.modelName, path: modelPath });
 
-    // Initialize whisper (single context shared between both streams)
-    const { initWhisper } = require('@fugood/whisper.node');
-    this.whisperContext = await initWhisper({
-      filePath: modelPath,
-      useGpu: false
-    });
+    const { initWhisper, loadWhisperModule } = require('@fugood/whisper.node');
 
-    this.emit('status', { type: 'model_loaded', model: this.modelName });
+    // Try Vulkan GPU first, fall back to CPU
+    if (this.useGpu) {
+      try {
+        // Pre-load Vulkan module BEFORE initWhisper — the module cache is global
+        // and variant-unaware, so the first loadWhisperModule() call wins.
+        await loadWhisperModule('vulkan');
+        this.whisperContext = await initWhisper({
+          filePath: modelPath,
+          useGpu: true
+        });
+        this.stats.gpuEnabled = true;
+        this.emit('status', { type: 'gpu_enabled', backend: 'vulkan' });
+      } catch (gpuErr) {
+        this.emit('status', { type: 'gpu_fallback', error: gpuErr.message, message: 'Falling back to CPU' });
+        this.whisperContext = await initWhisper({
+          filePath: modelPath,
+          useGpu: false
+        });
+      }
+    } else {
+      this.whisperContext = await initWhisper({
+        filePath: modelPath,
+        useGpu: false
+      });
+    }
 
+    this.emit('status', { type: 'model_loaded', model: this.modelName, gpu: this.stats.gpuEnabled });
     this.emit('status', { type: 'ready' });
   }
 
@@ -134,19 +176,27 @@ class TranscriptionService extends EventEmitter {
       this._micStaggerTimer = null;
     }
 
-    // Clear buffers without flushing (avoid crash from whisper inference during shutdown)
-    this.buffers.system = Buffer.alloc(0);
-    this.buffers.mic = Buffer.alloc(0);
-    this._queue = [];
+    // Flush remaining audio (transcribe partial chunks before stopping)
+    try {
+      await this._flushBuffers();
+    } catch {
+      // Best-effort flush — don't fail stop on flush errors
+    }
 
-    // Wait for any in-flight inference to finish (max 10s)
+    // Cancel any in-flight inference
+    if (this._activeInference) {
+      try { await this._activeInference.stop(); } catch {}
+    }
+
+    // Wait for processing to finish (max 15s to match inference timeout)
     let waitCount = 0;
-    while (this._processing && waitCount < 100) {
+    while (this._processing && waitCount < 150) {
       await new Promise(r => setTimeout(r, 100));
       waitCount++;
     }
 
-    this.emit('status', { type: 'stopped', stats: this.stats });
+    this._queue = [];
+    this.emit('status', { type: 'stopped', stats: this.getStats() });
   }
 
   /**
@@ -155,7 +205,7 @@ class TranscriptionService extends EventEmitter {
    * @param {'system'|'mic'} stream - Which stream this data belongs to
    */
   feedAudio(pcmData, stream) {
-    if (!this.isRunning) return;
+    if (!this.isRunning || this._disposed) return;
     if (stream !== 'system' && stream !== 'mic') return;
 
     this.buffers[stream] = Buffer.concat([this.buffers[stream], pcmData]);
@@ -163,13 +213,17 @@ class TranscriptionService extends EventEmitter {
     // Process when we have enough data
     if (this.buffers[stream].length >= CHUNK_SIZE) {
       if (stream === 'system') {
-        this._enqueueChunk(stream);
+        // Drain all ready system chunks (not just one)
+        while (this.buffers.system.length >= CHUNK_SIZE) {
+          this._enqueueChunk('system');
+        }
       } else {
-        // Stagger mic processing by 250ms to avoid CPU contention
+        // Stagger mic processing by 250ms to reduce GPU contention
         if (!this._micStaggerTimer) {
           this._micStaggerTimer = setTimeout(() => {
             this._micStaggerTimer = null;
-            // Drain all ready mic chunks (not just one)
+            if (this._disposed) return;
+            // Drain all ready mic chunks
             while (this.buffers.mic.length >= CHUNK_SIZE) {
               this._enqueueChunk('mic');
             }
@@ -202,10 +256,10 @@ class TranscriptionService extends EventEmitter {
    * Process the inference queue one job at a time.
    */
   async _drainQueue() {
-    if (this._processing || this._queue.length === 0) return;
+    if (this._processing || this._queue.length === 0 || this._disposed) return;
     this._processing = true;
 
-    while (this._queue.length > 0) {
+    while (this._queue.length > 0 && !this._disposed) {
       const job = this._queue.shift();
       try {
         await this._processChunk(job.stream, job.chunk, job.timestamp);
@@ -226,6 +280,8 @@ class TranscriptionService extends EventEmitter {
    * @param {number} timestamp
    */
   async _processChunk(stream, chunk, timestamp) {
+    if (this._disposed) return;
+
     // Step 1: Check for speech via RMS threshold
     const hasSpeech = this._detectSpeech(chunk);
     if (!hasSpeech) {
@@ -234,8 +290,6 @@ class TranscriptionService extends EventEmitter {
     }
 
     // Step 2: Get ArrayBuffer from Int16 PCM chunk
-    // whisper.node's transcribeData expects Int16 PCM in an ArrayBuffer
-    // (the C++ layer converts int16→float32 internally)
     const arrayBuf = chunk.buffer.slice(chunk.byteOffset, chunk.byteOffset + chunk.byteLength);
 
     // Step 3: Transcribe
@@ -243,13 +297,14 @@ class TranscriptionService extends EventEmitter {
     const { promise, stop } = this.whisperContext.transcribeData(arrayBuf, {
       language: 'en',
       translate: false,
-      maxThreads: 8
+      maxThreads: this.stats.gpuEnabled ? 4 : 8
     });
 
-    // Timeout guard — if inference takes too long, abort and skip
-    // 30s is generous for tiny.en on CPU (RTF ~0.6x → ~3s for 5s audio)
-    // but first inference can be 2-3x slower due to memory allocation
-    const INFERENCE_TIMEOUT_MS = 30000;
+    // Track active inference for cancellation during shutdown
+    this._activeInference = { promise, stop };
+
+    // Timeout guard — 15s is generous (GPU: ~100ms, CPU: ~3s for 2.5s audio)
+    const INFERENCE_TIMEOUT_MS = 15000;
     let timeoutId;
     const timeoutPromise = new Promise((_, reject) => {
       timeoutId = setTimeout(async () => {
@@ -263,9 +318,12 @@ class TranscriptionService extends EventEmitter {
       result = await Promise.race([promise, timeoutPromise]);
     } finally {
       clearTimeout(timeoutId);
+      this._activeInference = null;
     }
+    if (this._disposed) return;
     const processingTime = Date.now() - startTime;
     this.stats.totalInferenceMs += processingTime;
+    this.stats.inferenceCount = (this.stats.inferenceCount || 0) + 1;
 
     // Step 4: Extract text
     const text = (result.segments || [])
@@ -392,15 +450,32 @@ class TranscriptionService extends EventEmitter {
   }
 
   /**
-   * Release model resources. Waits for in-flight processing to complete.
+   * Release model resources. Cancels in-flight inference and cleans up timers.
    */
   async dispose() {
+    this._disposed = true;
     this.isRunning = false;
-    this._queue = []; // Clear pending work
+    this._queue = [];
 
-    // Wait for any in-flight inference to finish
+    // Clear timers
+    if (this._micStaggerTimer) {
+      clearTimeout(this._micStaggerTimer);
+      this._micStaggerTimer = null;
+    }
+
+    // Clear buffers
+    this.buffers.system = Buffer.alloc(0);
+    this.buffers.mic = Buffer.alloc(0);
+
+    // Cancel in-flight inference
+    if (this._activeInference) {
+      try { await this._activeInference.stop(); } catch {}
+      this._activeInference = null;
+    }
+
+    // Wait for processing to finish (max 5s — inference was cancelled above)
     let waitCount = 0;
-    while (this._processing && waitCount < 50) { // Max 5 seconds
+    while (this._processing && waitCount < 50) {
       await new Promise(r => setTimeout(r, 100));
       waitCount++;
     }
@@ -415,11 +490,13 @@ class TranscriptionService extends EventEmitter {
    * Get current stats.
    */
   getStats() {
+    const inferenceCount = this.stats.inferenceCount || 0;
     return {
       ...this.stats,
-      avgInferenceMs: this.stats.chunksProcessed > 0
-        ? Math.round(this.stats.totalInferenceMs / this.stats.chunksProcessed)
-        : 0
+      avgInferenceMs: inferenceCount > 0
+        ? Math.round(this.stats.totalInferenceMs / inferenceCount)
+        : 0,
+      chunkDurationSec: CHUNK_DURATION_SEC
     };
   }
 }

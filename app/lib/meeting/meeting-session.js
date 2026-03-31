@@ -32,7 +32,10 @@ class MeetingSession extends EventEmitter {
 
     // Pipeline components
     this.audioBridge = new AudioBridge();
-    this.transcription = new TranscriptionService({ model: options.transcriptionModel || 'tiny.en' });
+    this.transcription = new TranscriptionService({
+      model: options.transcriptionModel || 'base.en',
+      useGpu: options.useGpu !== false
+    });
     this.questionDetector = new QuestionDetector({ useLLM: options.useLLM !== false });
     this.answerEngine = new AnswerEngine({ model: options.answerModel || 'gpt-5.4' });
 
