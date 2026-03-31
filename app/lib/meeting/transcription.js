@@ -304,12 +304,14 @@ class TranscriptionService extends EventEmitter {
     this._activeInference = { promise, stop };
 
     // Timeout guard — 15s is generous (GPU: ~100ms, CPU: ~3s for 2.5s audio)
+    // Reject immediately on timeout; cancel inference fire-and-forget to avoid
+    // a hung stop() blocking the timeout guarantee.
     const INFERENCE_TIMEOUT_MS = 15000;
     let timeoutId;
     const timeoutPromise = new Promise((_, reject) => {
-      timeoutId = setTimeout(async () => {
-        try { await stop(); } catch {}
+      timeoutId = setTimeout(() => {
         reject(new Error(`Transcription timeout after ${INFERENCE_TIMEOUT_MS}ms`));
+        stop().catch(() => {}); // fire-and-forget cancel
       }, INFERENCE_TIMEOUT_MS);
     });
 
