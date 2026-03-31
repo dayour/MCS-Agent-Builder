@@ -130,13 +130,13 @@ Before model selection, verify that M365 integrations resolve to Work IQ:
 
 1. **Query available models:** Read `knowledge/cache/models.md` for the current model catalog. If stale (> 7 days), query live via `node tools/island-client.js get-models --env <envId>`.
 2. **Evaluate model fit:** Consider the agent's requirements:
-   - Reasoning-heavy (complex multi-step logic, code generation) -> models with reasoning capabilities (o3-mini, etc.)
+   - Reasoning-heavy (complex multi-step logic, code generation) -> models with reasoning capabilities (GPT-5 Reasoning, Claude Opus 4.6, etc.)
    - General-purpose (Q&A, summarization, routing) -> latest GA model (default)
    - Cost-sensitive -> smaller/cheaper models
    - Low-latency required -> faster models
 3. **Decision threshold:**
    - If the latest GA model is the obvious choice (general-purpose agent, no special requirements) -> auto-apply to `agent.recommendedModel`, no decision entry.
-   - If meaningfully different options exist (e.g., GPT-4.1 vs o3-mini for a reasoning-heavy agent, or cost matters) -> create model decision with options.
+   - If meaningfully different options exist (e.g., GPT-4.1 vs GPT-5 Reasoning for a reasoning-heavy agent, or cost matters) -> create model decision with options.
 4. **Write to brief.json:** Set `agent.recommendedModel` to the selected/recommended model name. PE uses this for model-aware instruction writing.
 
 **Model decision format (when created):**

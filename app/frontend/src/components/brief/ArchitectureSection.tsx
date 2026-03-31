@@ -46,17 +46,14 @@ const CHANNEL_OPTIONS = [
 ];
 
 const MODEL_OPTIONS = [
-  { value: "gpt-4o", label: "GPT-4o", desc: "Best balance of speed and quality" },
-  { value: "gpt-4o-mini", label: "GPT-4o Mini", desc: "Fast and cost-effective for simple tasks" },
-  { value: "gpt-4.1", label: "GPT-4.1", desc: "Latest GPT model — improved instruction following" },
-  { value: "gpt-4.1-mini", label: "GPT-4.1 Mini", desc: "Compact GPT-4.1 for routine tasks" },
-  { value: "gpt-4.1-nano", label: "GPT-4.1 Nano", desc: "Smallest GPT model — fastest, lowest cost" },
-  { value: "o1", label: "o1", desc: "Reasoning model for complex multi-step problems" },
-  { value: "o1-mini", label: "o1 Mini", desc: "Compact reasoning model" },
-  { value: "o3-mini", label: "o3 Mini", desc: "Latest compact reasoning model" },
-  { value: "DeepSeek-R1", label: "DeepSeek-R1", desc: "Open-source reasoning model" },
-  { value: "claude-sonnet-4-5", label: "Claude Sonnet 4.5", desc: "Anthropic — balanced reasoning and speed" },
-  { value: "claude-opus-4-6", label: "Claude Opus 4.6", desc: "Anthropic — most capable, complex analysis" },
+  { value: "gpt-4.1", label: "GPT-4.1 (Default)", desc: "GA default — general purpose, all regions" },
+  { value: "gpt-5-chat", label: "GPT-5 Chat", desc: "GA — standard rate, all regions" },
+  { value: "gpt-5-reasoning", label: "GPT-5 Reasoning", desc: "Preview — deep reasoning, premium rate" },
+  { value: "gpt-5-auto", label: "GPT-5 Auto", desc: "Preview — routes between general and reasoning" },
+  { value: "gpt-5.4-reasoning", label: "GPT-5.4 Reasoning", desc: "Experimental — next-gen reasoning (US only)" },
+  { value: "claude-sonnet-4-5", label: "Claude Sonnet 4.5", desc: "GA — Anthropic, balanced reasoning and speed" },
+  { value: "claude-sonnet-4-6", label: "Claude Sonnet 4.6", desc: "GA — Anthropic, latest general model" },
+  { value: "claude-opus-4-6", label: "Claude Opus 4.6", desc: "GA — Anthropic, most capable deep reasoning" },
 ];
 
 const ARCH_TYPES = [

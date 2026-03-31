@@ -218,7 +218,7 @@ class QuestionDetector extends EventEmitter {
       const result = await chatCompletion([
         { role: 'system', content: 'You classify meeting utterances. Respond with ONLY a JSON object: {"type":"question"|"requirement"|"none","confidence":0.0-1.0,"summary":"brief restatement"}' },
         { role: 'user', content: `Recent conversation:\n${recentContext}\n\nClassify this customer utterance:\n"${text}"` }
-      ], { maxTokens: 100, timeout: 5000 });
+      ], { maxTokens: 100, timeout: 5000, reasoningEffort: 'low' });
 
       const parsed = JSON.parse(result.content);
       return { ...parsed, method: 'llm' };

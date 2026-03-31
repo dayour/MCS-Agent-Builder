@@ -36,7 +36,10 @@
 
 const fs = require('fs');
 const path = require('path');
-const { isConfigured, chatCompletion, estimateTokens, getUsageSummary, getActiveMethod } = require('./lib/openai');
+const { isConfigured, chatCompletion: _rawChat, estimateTokens, getUsageSummary, getActiveMethod } = require('./lib/openai');
+
+// Reviews and co-generation use high reasoning effort for better quality
+const chatCompletion = (messages, options = {}) => _rawChat(messages, { reasoningEffort: 'high', ...options });
 
 // --- Knowledge file mapping per command ---
 const KNOWLEDGE_DIR = path.resolve(__dirname, '../knowledge');

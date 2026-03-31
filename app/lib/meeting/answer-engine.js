@@ -216,6 +216,7 @@ class AnswerEngine extends EventEmitter {
     for await (const event of gptApi.streamCompletion(messages, {
       maxTokens: MAX_ANSWER_TOKENS,
       timeout: 15000,
+      reasoningEffort: 'medium',
       signal
     })) {
       if (signal.aborted || event.type === 'aborted') break;

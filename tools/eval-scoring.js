@@ -510,6 +510,8 @@ function writeResultsToBrief(briefPath, results) {
 }
 
 // --- Async GPT-Enhanced Scoring (optional — falls back to heuristics) ---
+// Eval scoring uses high reasoning effort because pass/fail accuracy matters
+const EVAL_GPT_OPTIONS = { reasoningEffort: 'high' };
 
 let _openai = null;
 function _getOpenAI() {
@@ -574,7 +576,7 @@ async function semanticSimilarityAsync(actual, expected) {
         const result = await openai.chatCompletion([
             { role: 'system', content: 'Compare the actual response to the expected response for semantic similarity. Output JSON: {"score": 0-100, "reasoning": "brief explanation"}' },
             { role: 'user', content: `Actual: ${actual}\n\nExpected: ${expected}` }
-        ], { maxTokens: 256 });
+        ], { maxTokens: 256, ...EVAL_GPT_OPTIONS });
         const parsed = _parseGptJson(result.content);
         return _mergeScores(hScore, parsed.score, parsed.reasoning);
     } catch {
@@ -604,7 +606,7 @@ async function qualityScoreAsync(actual, expected) {
         const result = await openai.chatCompletion([
             { role: 'system', content: prompt },
             { role: 'user', content: userContent }
-        ], { maxTokens: 256 });
+        ], { maxTokens: 256, ...EVAL_GPT_OPTIONS });
         const parsed = _parseGptJson(result.content);
         return _mergeScores(hScore, parsed.score, parsed.reasoning);
     } catch {
@@ -628,7 +630,7 @@ async function textSimilarityAsync(actual, expected) {
         const result = await openai.chatCompletion([
             { role: 'system', content: 'Compare the two texts for word-level and structural similarity (not just meaning). Score how closely the actual text matches the expected text in wording, phrasing, and structure. Output JSON: {"score": 0-100, "reasoning": "brief explanation"}' },
             { role: 'user', content: `Actual: ${actual}\n\nExpected: ${expected}` }
-        ], { maxTokens: 256 });
+        ], { maxTokens: 256, ...EVAL_GPT_OPTIONS });
         const parsed = _parseGptJson(result.content);
         return _mergeScores(hScore, parsed.score, parsed.reasoning);
     } catch {
@@ -659,7 +661,7 @@ async function toolUseAsync(actual, expected) {
         const result = await openai.chatCompletion([
             { role: 'system', content: 'Evaluate whether the agent response demonstrates use of the expected tools/topics. The expected field lists indicators (tool names, action descriptions, or output markers) that should be evident in the response. Score 0-100 based on how many expected tools are demonstrated. Output JSON: {"score": 0-100, "reasoning": "brief explanation"}' },
             { role: 'user', content: `Agent response: ${actual}\n\nExpected tools/indicators: ${expected}` }
-        ], { maxTokens: 256 });
+        ], { maxTokens: 256, ...EVAL_GPT_OPTIONS });
         const parsed = _parseGptJson(result.content);
         return _mergeScores(hScore, parsed.score, parsed.reasoning);
     } catch {

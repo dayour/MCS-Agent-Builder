@@ -89,7 +89,7 @@ Built-in MCP servers in MCS: Dataverse, Dynamics 365 (Sales, Finance, Supply Cha
 1400+ Power Platform connectors. Key categories: Microsoft 365, Dynamics 365, Azure, third-party (ServiceNow, Jira, Salesforce, SAP). Check if a connector also has an MCP server — prefer MCP.
 
 ### Models (knowledge/cache/models.md)
-GPT-4o, GPT-4o mini, GPT-5 Auto (Preview), o1, o1 mini, o3-mini (Preview). Model availability varies by tenant. Always check the actual MCS UI combobox.
+GPT-4.1 (GA default), GPT-5 Chat (GA), GPT-5 Reasoning (Preview), GPT-5 Auto (Preview), GPT-5.4 Reasoning (Experimental), Claude Sonnet 4.5/4.6 (GA), Claude Opus 4.6 (GA). GPT-4o is RETIRED. Model availability varies by tenant — always check `knowledge/cache/models.md` or `island-client.js get-models`.
 
 ### Triggers (knowledge/cache/triggers.md)
 16+ trigger types: OnConversationStart, OnRecognizedIntent, OnMessageActivity, OnEventActivity, OnActivity, OnConversationUpdateActivity, OnInvokeActivity, OnSystemRedirect, OnInactivity, OnUnknownIntent, OnError, OnSignIn, OnSelectIntent, OnEscalate, OnPlanComplete, OnGeneratedResponse, OnKnowledgeRequested (hidden/YAML-only).

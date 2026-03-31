@@ -179,6 +179,7 @@ function normalizeUsage(data) {
  * @param {number} [options.maxTokens=16384] - Max output tokens
  * @param {number} [options.timeout=60000] - Request timeout in ms
  * @param {string} [options.model] - Model override (default: gpt-5.4)
+ * @param {string} [options.reasoningEffort='high'] - Reasoning effort: 'none'|'low'|'medium'|'high'|'xhigh'
  * @returns {Promise<{content: string, usage: object, cost: number}>}
  */
 async function chatCompletion(messages, options = {}) {
@@ -199,10 +200,13 @@ async function chatCompletion(messages, options = {}) {
     const maxTokens = options.maxTokens ?? 16384;
     const timeout = options.timeout ?? 60000;
 
+    const reasoningEffort = options.reasoningEffort ?? null;
+
     const body = {
         model: options.model || COPILOT_DEFAULT_MODEL,
         input: toResponsesInput(messages),
-        ...(maxTokens ? { max_output_tokens: maxTokens } : {})
+        ...(maxTokens ? { max_output_tokens: maxTokens } : {}),
+        ...(reasoningEffort && reasoningEffort !== 'none' ? { reasoning: { effort: reasoningEffort } } : {})
     };
 
     const res = await httpRequestWithRetry('POST', COPILOT_API_ENDPOINT, {
@@ -240,6 +244,7 @@ async function chatCompletion(messages, options = {}) {
  * @param {number} [options.maxTokens=4096] - Max output tokens
  * @param {number} [options.timeout=60000] - Request timeout in ms
  * @param {string} [options.model] - Model override (default: gpt-5.4)
+ * @param {string} [options.reasoningEffort='high'] - Reasoning effort: 'none'|'low'|'medium'|'high'|'xhigh'
  * @param {AbortSignal} [options.signal] - AbortSignal to cancel the stream
  * @returns {AsyncGenerator<{type: string, text?: string, usage?: object, cost?: number}>}
  */
@@ -269,11 +274,14 @@ async function* streamCompletion(messages, options = {}) {
         throw err;
     }
 
+    const reasoningEffort = options.reasoningEffort ?? null;
+
     const body = JSON.stringify({
         model: options.model || COPILOT_DEFAULT_MODEL,
         input: toResponsesInput(messages),
         stream: true,
-        ...(maxTokens ? { max_output_tokens: maxTokens } : {})
+        ...(maxTokens ? { max_output_tokens: maxTokens } : {}),
+        ...(reasoningEffort && reasoningEffort !== 'none' ? { reasoning: { effort: reasoningEffort } } : {})
     });
 
     const endpointUrl = new URL(COPILOT_API_ENDPOINT);
