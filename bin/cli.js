@@ -253,7 +253,7 @@ async function startServer() {
 
   log(`Starting MCS Agent Builder v${VERSION}...`);
 
-  // Spawn start.js as a detached child so the CLI can exit
+  // Spawn start.js — CLI stays attached to relay signals and forward exit codes
   const startJs = path.join(PKG_DIR, "start.js");
   const child = spawn(process.execPath, [startJs], {
     cwd: PKG_DIR,
@@ -360,7 +360,6 @@ function doctor() {
   console.log(`\n  \x1b[36mMCS Agent Builder\x1b[0m v${VERSION} — Environment Check\n`);
 
   const checks = [];
-  let failures = 0;
 
   function check(name, fn) {
     try {
@@ -369,11 +368,9 @@ function doctor() {
         checks.push({ name, status: "pass", detail: result.detail });
       } else {
         checks.push({ name, status: "fail", detail: result.detail, fix: result.fix });
-        failures++;
       }
     } catch (e) {
       checks.push({ name, status: "fail", detail: e.message, fix: "" });
-      failures++;
     }
   }
 
@@ -390,10 +387,10 @@ function doctor() {
   }
 
   // 1. Node.js
-  check("Node.js (18+)", () => {
+  check("Node.js (20+)", () => {
     const ver = process.versions.node;
     const major = parseInt(ver.split(".")[0], 10);
-    if (major >= 18) return { ok: true, detail: `v${ver}` };
+    if (major >= 20) return { ok: true, detail: `v${ver}` };
     return { ok: false, detail: `v${ver} (too old)`, fix: "Run start.cmd or: winget install OpenJS.NodeJS.LTS" };
   });
 
@@ -404,7 +401,7 @@ function doctor() {
       try {
         const ver = run(`${cmd} -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"`);
         const [maj, min] = ver.split(".").map(Number);
-        if (maj >= 3 && min >= 10) return { ok: true, detail: `v${ver} (${cmd})` };
+        if (maj > 3 || (maj === 3 && min >= 10)) return { ok: true, detail: `v${ver} (${cmd})` };
         return { ok: false, detail: `v${ver} (too old)`, fix: "Run start.cmd or: winget install Python.Python.3.12" };
       } catch {}
     }
@@ -557,7 +554,7 @@ function doctor() {
   // Print results
   const PASS = "\x1b[32mPASS\x1b[0m";
   const FAIL = "\x1b[31mFAIL\x1b[0m";
-  const WARN = "\x1b[33mFAIL\x1b[0m";
+  const WARN = "\x1b[33mWARN\x1b[0m";
 
   for (const c of checks) {
     const isOptional = c.name.includes("optional");
@@ -619,10 +616,24 @@ switch (command) {
   case "stop":
     stopServer();
     break;
-  case "restart":
-    stopServer();
-    setTimeout(() => startServer(), 1500);
+  case "restart": {
+    const lock = readLock();
+    if (lock && isProcessAlive(lock.pid)) {
+      stopServer();
+      // Wait for process to actually die before restarting (up to 6s)
+      const start = Date.now();
+      const waitForDeath = setInterval(() => {
+        if (!isProcessAlive(lock.pid) || Date.now() - start > 6000) {
+          clearInterval(waitForDeath);
+          startServer();
+        }
+      }, 200);
+    } else {
+      // Nothing running — just start
+      startServer();
+    }
     break;
+  }
   case "health":
     healthCheck();
     break;

@@ -61,10 +61,6 @@ Check `app/server.js`:
 - `DASHBOARD_HTML` path resolves
 - `BUILD_GUIDES` path is correct
 
-Check `app/terminal-server.js`:
-- `BASE_DIR` resolves correctly
-- `CLAUDE_CLI` path pattern is documented
-
 Check `app/lib/readiness.js`:
 - All exports used by `server.js` are defined
 - `PROJECT_FILE_MAP` / `AGENT_FILE_MAP` entries reference filenames that match actual conventions

@@ -16,7 +16,6 @@
   "files": [
     "bin/",
     "app/server.js",
-    "app/terminal-server.js",
     "app/lib/",
     "app/dist/",
     "app/frontend/",
@@ -33,7 +32,6 @@
   ],
   "scripts": {
     "start": "node start.js",
-    "server": "node app/server.js",
     "postinstall": "node bin/postinstall.js",
     "prepublishOnly": "npm run frontend:build",
     "test": "echo \"Run 'mcs doctor' to check prerequisites, or 'node tools/direct-line-test.js' for integration tests\" && exit 0",
@@ -56,6 +54,6 @@
     "native-audio-node": "^0.3.5"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   }
 }

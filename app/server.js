@@ -19,6 +19,7 @@ const http = require("http");
 const { WebSocketServer } = require("ws");
 const cors = require("cors");
 const multer = require("multer");
+const { execSync, execFileSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
@@ -697,7 +698,7 @@ app.post("/api/projects/:projectId/pull-m365", async (req, res) => {
 // ---------------------------------------------------------------------------
 
 app.get("/api/readiness/credentials", async (req, res) => {
-  const { execSync } = require("child_process");
+
   const results = {
     claude: false,
     az: false,
@@ -848,7 +849,7 @@ app.get("/api/readiness/credentials", async (req, res) => {
 // ---------------------------------------------------------------------------
 
 app.post("/api/auth/switch-profile", async (req, res) => {
-  const { execFileSync } = require("child_process");
+
   const { profileIndex } = req.body;
 
   if (typeof profileIndex !== "number" || !Number.isInteger(profileIndex) || profileIndex < 0) {
@@ -885,7 +886,7 @@ app.post("/api/auth/switch-profile", async (req, res) => {
 });
 
 app.post("/api/auth/switch-environment", async (req, res) => {
-  const { execFileSync } = require("child_process");
+
   const { environmentId } = req.body;
 
   if (!environmentId || typeof environmentId !== "string") {
@@ -1563,6 +1564,28 @@ if (require.main === module) {
     } catch { /* non-critical */ }
   });
 }
+
+// ---------------------------------------------------------------------------
+// Graceful shutdown — drain connections when parent sends SIGTERM
+// ---------------------------------------------------------------------------
+
+function gracefulShutdown(signal) {
+  console.log(`\n[server] ${signal} received — closing server...`);
+  // Stop accepting new connections
+  server.close(() => {
+    console.log("[server] All connections drained. Exiting.");
+    process.exit(0);
+  });
+  // Close all WebSocket connections
+  wss.clients.forEach((ws) => {
+    try { ws.close(1001, "Server shutting down"); } catch {}
+  });
+  // Force exit after 2.5s if connections don't drain
+  setTimeout(() => process.exit(0), 2500).unref();
+}
+
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 
 // Export for start.js to spawn
 module.exports = { app, server, PORT, BUILD_GUIDES, BASE_DIR };

@@ -103,7 +103,7 @@ bin/
 ├── settings.json, skills/ (16 skills), agents/ (7 teammates), rules/ (path-scoped)
 
 app/
-├── server.js, terminal-server.js, lib/ (documents, projects, workiq, readiness, brief-migrate, terminal, enrichment, wizard, build-runner, skill-runner, knowledge-resolver, meeting/), frontend/ (React + Vite + shadcn/ui)
+├── server.js, lib/ (terminal, documents, projects, workiq, readiness, brief-migrate, enrichment, wizard, build-runner, skill-runner, knowledge-resolver, meeting/), frontend/ (React + Vite + shadcn/ui)
 
 knowledge/
 ├── cache/ (24 cheat sheets), patterns/ (YAML, Dataverse, topic, flow templates)

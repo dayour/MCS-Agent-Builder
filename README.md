@@ -13,28 +13,18 @@ npm install -g mcs-agent-builder
 mcs start
 ```
 
-That's it. One install, one command. Opens your browser to the dashboard automatically. No Python, no git clone, no setup scripts.
+That's it. One install, one command. Opens your browser to the dashboard automatically. No Python, no git clone, no setup scripts. Updates are checked every 4 hours on `mcs start` and applied automatically when possible. Run `mcs update` to force an update anytime.
 
 **Commands:**
 
 ```bash
-mcs start       # launch the dashboard
+mcs start       # launch the dashboard (auto-updates first)
 mcs stop        # stop the dashboard
 mcs restart     # stop + start
-mcs update      # update to latest version (auto-restarts if running)
+mcs update      # force-update to latest version right now
 mcs health      # check if running
 mcs doctor      # check all prerequisites
 ```
-
-**For developers (working from the repo):**
-
-```bash
-git clone https://github.com/microsoft/MCS-Agent-Builder.git
-cd MCS-Agent-Builder
-npm start
-```
-
-Running from the repo enables auto-update via git pull, frontend hot-reload, and git hooks.
 
 ### First Time Setup
 
@@ -50,9 +40,6 @@ az login --tenant YourTenant.onmicrosoft.com
 # 3. GitHub CLI — optional, enables GPT-5.4 dual reviews
 gh auth login
 gh auth refresh --scopes copilot
-
-# 4. On Windows, start.cmd auto-installs missing prerequisites
-start.cmd
 ```
 
 **What each auth gives you:**
@@ -107,19 +94,6 @@ The dashboard shows everything in real-time with an embedded Claude Code termina
 /mcs-library list                        Browse team solution library
 /mcs-refresh                             Refresh knowledge cache
 ```
-
----
-
-## Updates
-
-The tool checks for updates every 4 hours when you run `mcs start`. If a new version is available:
-
-```
-  Update available: 1.0.2 → 1.1.0
-  Run: mcs update
-```
-
-Run `mcs update` to install the latest version. If the dashboard is running, it auto-restarts with the new version.
 
 ---
 
@@ -217,9 +191,9 @@ Run `mcs doctor` to check everything.
 
 | Requirement | Required | Why |
 |-------------|----------|-----|
-| Node.js 18+ | Yes | Server and terminal |
+| Node.js 20+ | Yes | Server and terminal |
 | Claude Code | Yes | AI agent that runs the builds |
-| Git | Optional | Auto-updates (repo mode only) |
+| Git | Optional | Version control (not required for end users) |
 | GitHub CLI + copilot scope | Optional | GPT-5.4 cross-model reviews |
 | Azure CLI | Required | Dataverse authentication (`az account get-access-token`) |
 | PAC CLI | Optional | Power Platform operations |
@@ -248,10 +222,7 @@ Single port, auto-discovered. If 8000 is busy, the next available port is used.
 
 ### Project Data
 
-| Install method | Projects stored at |
-|---------------|-------------------|
-| npm global (`mcs start`) | `~/MCS-Agent-Builder/` |
-| Git repo (`npm start`) | `./Build-Guides/` |
+All projects are stored in `~/MCS-Agent-Builder/`. Each project gets its own folder with agents, documents, and build artifacts.
 
 ---
 
@@ -307,7 +278,6 @@ tools/
 
 start.js                      Process manager (spawns server, opens browser, handles updates)
 templates/                    brief.json schema + default-recommendations.json
-Build-Guides/                 Per-project work (gitignored)
 ```
 
 ---

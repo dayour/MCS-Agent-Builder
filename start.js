@@ -28,7 +28,7 @@ const PORT_START = 8000;
 const PORT_MAX = 8020;
 const LOCKFILE = process.env.MCS_LOCKFILE || path.join(os.homedir(), ".mcs-agent-builder.lock");
 
-const MIN_NODE = 18;
+const MIN_NODE = 20;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -130,7 +130,8 @@ function killPort(port) {
       });
       const killed = new Set();
       for (const line of result.split("\n")) {
-        if (line.match(new RegExp(`[:.:]${port}\\s`))) {
+        // Anchor port match to colon boundary to avoid 8000 matching 18000
+        if (line.match(new RegExp(`[:.]${port}\\s`)) && line.includes(`:${port}`)) {
           const pid = line.trim().split(/\s+/).pop();
           if (pid && /^\d+$/.test(pid) && pid !== "0" && !killed.has(pid)) {
             try {
@@ -241,27 +242,27 @@ function autoUpdate() {
 // ---------------------------------------------------------------------------
 
 function checkClaudeCode() {
-  const nativeDir = path.join(os.homedir(), ".claude-cli");
-  if (fs.existsSync(nativeDir)) {
-    try {
-      const versions = fs.readdirSync(nativeDir)
-        .filter(d => fs.statSync(path.join(nativeDir, d)).isDirectory())
-        .sort();
-      if (versions.length > 0) {
-        const latest = versions[versions.length - 1];
-        if (fs.existsSync(path.join(nativeDir, latest, "claude.exe"))) return true;
-      }
-    } catch {}
-  }
-  const npmCli = path.join(os.homedir(), "AppData", "Roaming", "npm",
-    "node_modules", "@anthropic-ai", "claude-code", "cli.js");
-  if (fs.existsSync(npmCli)) return true;
+  // Reuse resolveClaude() from terminal module — single source of truth
   try {
-    execSync(os.platform() === "win32" ? "where claude" : "which claude", {
-      stdio: "ignore", timeout: 5000,
-    });
-    return true;
-  } catch { return false; }
+    const { resolveClaude } = require("./app/lib/terminal");
+    const result = resolveClaude();
+    return result.mode !== "path" || (() => {
+      try {
+        execSync(os.platform() === "win32" ? "where claude" : "which claude", {
+          stdio: "ignore", timeout: 5000,
+        });
+        return true;
+      } catch { return false; }
+    })();
+  } catch {
+    // terminal module not loadable (node-pty missing) — fallback to basic check
+    try {
+      execSync(os.platform() === "win32" ? "where claude" : "which claude", {
+        stdio: "ignore", timeout: 5000,
+      });
+      return true;
+    } catch { return false; }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -358,9 +359,14 @@ function waitForReady(url, timeout = 30000) {
 
 function openBrowser(url) {
   try {
-    if (os.platform() === "win32") execSync(`start "" "${url}"`, { stdio: "ignore" });
-    else if (os.platform() === "darwin") execSync(`open "${url}"`, { stdio: "ignore" });
-    else execSync(`xdg-open "${url}"`, { stdio: "ignore" });
+    if (os.platform() === "win32") {
+      // Windows `start` is a shell builtin — must use cmd /c, but pass URL as a separate arg
+      spawn("cmd", ["/c", "start", "", url], { stdio: "ignore", detached: true }).unref();
+    } else if (os.platform() === "darwin") {
+      spawn("open", [url], { stdio: "ignore", detached: true }).unref();
+    } else {
+      spawn("xdg-open", [url], { stdio: "ignore", detached: true }).unref();
+    }
   } catch {
     log(`Open in your browser: ${url}`);
   }
@@ -391,13 +397,25 @@ if (!checkClaudeCode()) {
 
 // ---------------------------------------------------------------------------
 // MCP dependency auto-update (npm packages used as MCP servers)
+// Shared 4h cache with cli.js — avoids double-checking on `mcs start`
 // ---------------------------------------------------------------------------
 
 const MCP_NPM_DEPS = [
   "@microsoft/workiq",
 ];
 
+const MCP_CHECK_FILE = path.join(os.homedir(), ".mcs-agent-builder", "mcp-check.json");
+
 function updateMcpDeps() {
+  // Skip if checked recently (4h cache — same cadence as cli.js)
+  try {
+    if (fs.existsSync(MCP_CHECK_FILE)) {
+      const data = JSON.parse(fs.readFileSync(MCP_CHECK_FILE, "utf8"));
+      if (Date.now() - data.lastCheck < 4 * 60 * 60 * 1000) return;
+    }
+  } catch {}
+
+  let updated = 0;
   for (const pkg of MCP_NPM_DEPS) {
     try {
       const out = execSync(
@@ -416,10 +434,20 @@ function updateMcpDeps() {
       log(`Updating MCP: ${pkg} ${currentVer || "?"} \u2192 ${latest}...`);
       execSync(`npm install -g ${pkg}@latest`, { stdio: "inherit", timeout: 60000 });
       log(`${pkg} updated to ${latest}`);
+      updated++;
     } catch {
       // Offline or error — skip silently
     }
   }
+
+  // Cache the check timestamp (shared with cli.js)
+  try {
+    const dir = path.dirname(MCP_CHECK_FILE);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(MCP_CHECK_FILE, JSON.stringify({ lastCheck: Date.now(), packages: MCP_NPM_DEPS }));
+  } catch {}
+
+  if (updated > 0) log(`${updated} MCP package(s) updated`);
 }
 
 // 3-5: Git repo only — auto-update, deps, hooks, MCP deps
@@ -527,13 +555,25 @@ checkSingleInstance();
       warn(`Dashboard may still be starting. Open manually: ${URL}`);
     });
 
-  // Graceful shutdown
+  // Graceful shutdown — kill children, wait up to 3s, then force exit
+  let shuttingDown = false;
   function shutdown() {
+    if (shuttingDown) return; // Prevent double-shutdown on rapid Ctrl+C
+    shuttingDown = true;
     console.log("\n\x1b[90m  Shutting down...\x1b[0m");
     removeLockfile();
-    try { server.kill(); } catch {}
+    try { server.kill("SIGTERM"); } catch {}
     try { if (audioCapture) audioCapture.kill(); } catch {}
-    setTimeout(() => process.exit(0), 2000);
+    // Wait for server to exit gracefully, force after 3s
+    const forceTimer = setTimeout(() => {
+      try { server.kill("SIGKILL"); } catch {}
+      process.exit(0);
+    }, 3000);
+    forceTimer.unref(); // Don't keep process alive just for the timer
+    server.once("exit", () => {
+      clearTimeout(forceTimer);
+      process.exit(0);
+    });
   }
 
   process.on("SIGINT", shutdown);
