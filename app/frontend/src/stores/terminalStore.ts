@@ -6,6 +6,7 @@
  * Default hidden — opened via header "Console" button or pipeline actions.
  */
 import { create } from "zustand";
+import { devtools } from "zustand/middleware";
 import type { TerminalSession } from "@/types";
 import { getTerminalWsUrl } from "@/lib/api";
 
@@ -83,7 +84,7 @@ interface TerminalStore {
 
 const defaultSession = createDefaultSession();
 
-export const useTerminalStore = create<TerminalStore>((set, get) => ({
+export const useTerminalStore = create<TerminalStore>()(devtools((set, get) => ({
   sessions: [defaultSession],
   activeSessionId: defaultSession.id,
   panelOpen: false,
@@ -186,4 +187,4 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
       pendingWrites.set(sessionId, text);
     }
   },
-}));
+}), { name: "TerminalStore" }));

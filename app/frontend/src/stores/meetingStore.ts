@@ -5,6 +5,7 @@
  * Subscribes to SSE stream for real-time transcript + answer suggestions.
  */
 import { create } from "zustand";
+import { devtools } from "zustand/middleware";
 import { rafBatch } from "@/lib/rafBatcher";
 import {
   prepareMeeting,
@@ -75,7 +76,7 @@ interface MeetingStore {
 // Store
 // ---------------------------------------------------------------------------
 
-export const useMeetingStore = create<MeetingStore>((set, get) => ({
+export const useMeetingStore = create<MeetingStore>()(devtools((set, get) => ({
   // Initial state
   phase: "idle",
   sessionId: null,
@@ -278,4 +279,4 @@ export const useMeetingStore = create<MeetingStore>((set, get) => ({
       _unsubscribe: null,
     });
   },
-}));
+}), { name: "MeetingStore" }));

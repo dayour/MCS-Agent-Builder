@@ -5,7 +5,7 @@
  * Displays the system name and instructions, with a "Done" button that
  * calls POST /api/build/:jobId/auth-complete to resume the build.
  */
-import { useState, useCallback } from "react";
+import { useState, useTransition } from "react";
 import { KeyRound, Loader2, ExternalLink, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,25 +26,23 @@ interface OAuthPromptModalProps {
 export default function OAuthPromptModal({ open, onOpenChange }: OAuthPromptModalProps) {
   const job = useBuildJobStore((s) => s.job);
   const resumeAfterAuth = useBuildJobStore((s) => s.resumeAfterAuth);
-  const [resuming, setResuming] = useState(false);
+  const [resuming, startResume] = useTransition();
   const [resumeError, setResumeError] = useState<string | null>(null);
 
   const system = job?.authPrompt?.system || "External Service";
   const instructions = job?.authPrompt?.instructions || "Complete the authorization in your browser, then click Done.";
 
-  const handleDone = useCallback(async () => {
-    setResuming(true);
+  const handleDone = () => {
     setResumeError(null);
-    try {
-      await resumeAfterAuth();
-      onOpenChange(false);
-    } catch (err) {
-      // Keep modal open and show inline error
-      setResumeError(err instanceof Error ? err.message : "Failed to resume build");
-    } finally {
-      setResuming(false);
-    }
-  }, [resumeAfterAuth, onOpenChange]);
+    startResume(async () => {
+      try {
+        await resumeAfterAuth();
+        onOpenChange(false);
+      } catch (err) {
+        setResumeError(err instanceof Error ? err.message : "Failed to resume build");
+      }
+    });
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

@@ -5,7 +5,7 @@
  * (Claude CLI, Azure CLI, Dataverse), fix suggestions, re-check button,
  * and environment selector. "Start Build" enables when all required checks pass.
  */
-import { useState, useCallback } from "react";
+import { useTransition } from "react";
 import {
   CheckCircle2,
   XCircle,
@@ -38,37 +38,35 @@ export default function AuthGateModal({ open, onOpenChange }: AuthGateModalProps
   const launchBuild = useBuildJobStore((s) => s.launchBuild);
   const closeAuthGate = useBuildJobStore((s) => s.closeAuthGate);
 
-  const [refreshing, setRefreshing] = useState(false);
-  const [launching, setLaunching] = useState(false);
+  const [refreshing, startRefresh] = useTransition();
+  const [launching, startLaunch] = useTransition();
 
-  const handleRefresh = useCallback(async () => {
-    setRefreshing(true);
-    try {
-      await refreshCredentials();
-      toast.success("Credentials refreshed");
-    } catch {
-      toast.error("Failed to check credentials");
-    } finally {
-      setRefreshing(false);
-    }
-  }, [refreshCredentials]);
+  const handleRefresh = () => {
+    startRefresh(async () => {
+      try {
+        await refreshCredentials();
+        toast.success("Credentials refreshed");
+      } catch {
+        toast.error("Failed to check credentials");
+      }
+    });
+  };
 
-  const handleLaunch = useCallback(async () => {
-    setLaunching(true);
-    try {
-      await launchBuild();
-      // Only close after successful launch
-      onOpenChange(false);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to start build");
-      setLaunching(false);
-    }
-  }, [launchBuild, onOpenChange]);
+  const handleLaunch = () => {
+    startLaunch(async () => {
+      try {
+        await launchBuild();
+        onOpenChange(false);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to start build");
+      }
+    });
+  };
 
-  const handleClose = useCallback(() => {
+  const handleClose = () => {
     closeAuthGate();
     onOpenChange(false);
-  }, [closeAuthGate, onOpenChange]);
+  };
 
   const copyCommand = (cmd: string) => {
     navigator.clipboard.writeText(cmd).then(

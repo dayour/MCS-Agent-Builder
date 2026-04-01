@@ -11,6 +11,7 @@ import type {
   ApiUploadResult,
   ApiPasteResult,
 } from "@/types/api";
+import { consumeSSE } from "@/lib/sseStream";
 
 const BASE = "/api";
 
@@ -235,35 +236,7 @@ export async function wizardChat(
     throw new Error(msg);
   }
 
-  // Parse SSE stream — same pattern as pullFromM365
-  const reader = res.body?.getReader();
-  if (!reader) throw new Error("No response body");
-
-  const decoder = new TextDecoder();
-  let buffer = "";
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() || "";
-
-    for (const line of lines) {
-      if (line.startsWith("data: ")) {
-        try {
-          onEvent(JSON.parse(line.slice(6)));
-        } catch { /* ignore malformed SSE */ }
-      }
-    }
-  }
-
-  if (buffer.startsWith("data: ")) {
-    try {
-      onEvent(JSON.parse(buffer.slice(6)));
-    } catch {}
-  }
+  await consumeSSE<WizardChatEvent>(res, onEvent);
 }
 
 export interface WizardPrefetchResult {
@@ -354,34 +327,7 @@ export async function watchEnrichment(
     throw new Error(text);
   }
 
-  const reader = res.body?.getReader();
-  if (!reader) throw new Error("No response body");
-
-  const decoder = new TextDecoder();
-  let buffer = "";
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() || "";
-
-    for (const line of lines) {
-      if (line.startsWith("data: ")) {
-        try {
-          onEvent(JSON.parse(line.slice(6)));
-        } catch { /* ignore malformed SSE */ }
-      }
-    }
-  }
-
-  if (buffer.startsWith("data: ")) {
-    try {
-      onEvent(JSON.parse(buffer.slice(6)));
-    } catch {}
-  }
+  await consumeSSE<EnrichmentStepEvent>(res, onEvent);
 }
 
 // ─── Pull from M365 (WorkIQ SSE) ────────────────────────────────
@@ -430,36 +376,7 @@ export async function pullFromM365(
     throw new Error(msg);
   }
 
-  // Parse SSE stream
-  const reader = res.body?.getReader();
-  if (!reader) throw new Error("No response body");
-
-  const decoder = new TextDecoder();
-  let buffer = "";
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() || "";
-
-    for (const line of lines) {
-      if (line.startsWith("data: ")) {
-        try {
-          onProgress(JSON.parse(line.slice(6)));
-        } catch { /* ignore malformed SSE */ }
-      }
-    }
-  }
-
-  // Flush remaining buffer (last event may lack trailing newline)
-  if (buffer.startsWith("data: ")) {
-    try {
-      onProgress(JSON.parse(buffer.slice(6)));
-    } catch { /* ignore */ }
-  }
+  await consumeSSE<PullM365Progress>(res, onProgress);
 }
 
 // ─── Build Runner — Headless agent build ─────────────────────────
@@ -518,28 +435,7 @@ export async function subscribeBuildStatus(
     throw new Error(text);
   }
 
-  const reader = res.body?.getReader();
-  if (!reader) throw new Error("No response body");
-
-  const decoder = new TextDecoder();
-  let buffer = "";
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() || "";
-
-    for (const line of lines) {
-      if (line.startsWith("data: ")) {
-        try {
-          onEvent(JSON.parse(line.slice(6)));
-        } catch { /* ignore malformed SSE */ }
-      }
-    }
-  }
+  await consumeSSE<BuildStatusEvent>(res, onEvent, signal);
 }
 
 export async function buildAuthComplete(
@@ -623,28 +519,7 @@ export async function subscribeSkillStatus(
     throw new Error(text);
   }
 
-  const reader = res.body?.getReader();
-  if (!reader) throw new Error("No response body");
-
-  const decoder = new TextDecoder();
-  let buffer = "";
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() || "";
-
-    for (const line of lines) {
-      if (line.startsWith("data: ")) {
-        try {
-          onEvent(JSON.parse(line.slice(6)));
-        } catch { /* ignore malformed SSE */ }
-      }
-    }
-  }
+  await consumeSSE<SkillStatusEvent>(res, onEvent, signal);
 }
 
 export async function skillAuthComplete(

@@ -5,6 +5,7 @@
  * the UI updates immediately, then syncs with the server in the background.
  */
 import { create } from "zustand";
+import { devtools } from "zustand/middleware";
 import type { Agent, Document, WorkflowPhase } from "@/types";
 import type { ApiProjectDetail, ApiAgentSummary, ApiDoc } from "@/types/api";
 import {
@@ -92,7 +93,7 @@ function apiDocToDocument(d: ApiDoc): Document {
   };
 }
 
-export const useProjectStore = create<ProjectStore>((set, get) => ({
+export const useProjectStore = create<ProjectStore>()(devtools((set, get) => ({
   projectId: null,
   projectName: "",
   agents: [],
@@ -191,4 +192,4 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     await apiPullFromM365(id, customer, timeRange, aliases, onProgress);
     await get().refresh();
   },
-}));
+}), { name: "ProjectStore" }));

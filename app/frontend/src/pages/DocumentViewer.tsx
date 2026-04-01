@@ -102,6 +102,7 @@ const DocumentViewer = () => {
       { label: projectName, href: `/project/${projectId}` },
       { label: doc.name },
     ]}>
+      <title>{doc.name} — MCS Builder</title>
       <div className="px-6 py-8">
         <div className="mx-auto max-w-5xl xl:max-w-none">
           <div className="mb-6 flex items-center gap-3">

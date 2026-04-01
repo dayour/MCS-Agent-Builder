@@ -1,5 +1,5 @@
-import { useParams, useNavigate, useSearchParams } from "react-router";
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useParams, useNavigate, useSearchParams, useBlocker } from "react-router";
+import { useState, useEffect, useMemo, useCallback, useTransition } from "react";
 import {
   Briefcase, Bot, FileText, Zap, Plug, Database,
   MessageSquare, Shield, Network, TestTube, HelpCircle,
@@ -8,6 +8,14 @@ import {
 } from "lucide-react";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import ReadinessRing from "@/components/ReadinessRing";
 import { BRIEF_SECTIONS } from "@/config/briefSections";
 import { useBriefStore } from "@/stores/briefStore";
@@ -72,8 +80,11 @@ const BriefEditor = () => {
   } = useBriefStore();
 
   const [activeSection, setActiveSection] = useState(BRIEF_SECTIONS[0].id);
-  const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfLoading, startPdfExport] = useTransition();
   const [pdfError, setPdfError] = useState<string | null>(null);
+
+  // Warn before navigating away with unsaved changes
+  const blocker = useBlocker(dirty && !saving);
 
   // Load project + brief on mount
   useEffect(() => {
@@ -204,6 +215,7 @@ const BriefEditor = () => {
       { label: projectName || projectId || "", href: `/project/${projectId}` },
       { label: agentName || agentId || "" },
     ]}>
+      <title>{agentName || "Brief"} — MCS Builder</title>
       <div className="flex h-full min-w-0">
         {/* Sidebar */}
         <aside className="w-56 shrink-0 border-r border-border bg-surface-1 overflow-y-auto">
@@ -287,18 +299,18 @@ const BriefEditor = () => {
               size="sm"
               className="w-full gap-2 text-xs"
               disabled={pdfLoading}
-              onClick={async () => {
+              onMouseEnter={() => { import("@/lib/pdf"); }}
+              onClick={() => {
                 if (!data || pdfLoading) return;
-                setPdfLoading(true);
-                try {
-                  const { generateBriefPDF } = await import("@/lib/pdf");
-                  await generateBriefPDF(agentForReport, data as unknown as Record<string, any>);
-                } catch (err) {
-                  console.error("PDF generation failed:", err);
-                  setPdfError(`PDF export failed: ${err instanceof Error ? err.message : "Unknown error"}.`);
-                } finally {
-                  setPdfLoading(false);
-                }
+                startPdfExport(async () => {
+                  try {
+                    const { generateBriefPDF } = await import("@/lib/pdf");
+                    await generateBriefPDF(agentForReport, data as unknown as Record<string, any>);
+                  } catch (err) {
+                    console.error("PDF generation failed:", err);
+                    setPdfError(`PDF export failed: ${err instanceof Error ? err.message : "Unknown error"}.`);
+                  }
+                });
               }}
             >
               {pdfLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />}
@@ -307,9 +319,9 @@ const BriefEditor = () => {
           </div>
         </aside>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="mx-auto max-w-4xl xl:max-w-none animate-fade-in">
+        {/* Content — container query context for responsive brief sections */}
+        <div className="flex-1 overflow-y-auto p-6 @container/brief">
+          <div className="mx-auto max-w-4xl @[80rem]/brief:max-w-none animate-fade-in">
             {(error || pdfError) && (
               <div className="mb-4 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
                 {error || pdfError}
@@ -377,6 +389,35 @@ const BriefEditor = () => {
           </div>
         </div>
       </div>
+
+      {/* Unsaved changes blocker dialog */}
+      <Dialog open={blocker.state === "blocked"} onOpenChange={() => blocker.reset?.()}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Unsaved changes</DialogTitle>
+            <DialogDescription>
+              You have unsaved changes that will be lost if you leave this page.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="ghost" onClick={() => blocker.reset?.()}>
+              Stay
+            </Button>
+            <Button
+              variant="outline"
+              onClick={async () => {
+                await save();
+                blocker.proceed?.();
+              }}
+            >
+              Save & Leave
+            </Button>
+            <Button variant="destructive" onClick={() => blocker.proceed?.()}>
+              Discard & Leave
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 };

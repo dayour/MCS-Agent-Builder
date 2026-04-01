@@ -5,6 +5,7 @@
  * and localStorage persistence for session recovery.
  */
 import { create } from "zustand";
+import { devtools } from "zustand/middleware";
 import { useSettingsStore } from "./settingsStore";
 import { rafBatch } from "@/lib/rafBatcher";
 import {
@@ -279,7 +280,7 @@ function _firePrefetch(
     });
 }
 
-export const useWizardStore = create<WizardStore>((set, get) => ({
+export const useWizardStore = create<WizardStore>()(devtools((set, get) => ({
   mode: "interview",
   phase: "idle",
   pagePhase: "create",
@@ -589,4 +590,4 @@ export const useWizardStore = create<WizardStore>((set, get) => ({
       hasSavedSession: false,
     });
   },
-}));
+}), { name: "WizardStore" }));

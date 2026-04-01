@@ -24,6 +24,18 @@ export default defineConfig({
   build: {
     outDir: path.resolve(__dirname, "../dist"),
     emptyOutDir: true,
+    target: "es2024",
+    rollupOptions: {
+      output: {
+        // Vite 8 (Rolldown) requires manualChunks as a function
+        manualChunks(id: string) {
+          if (id.includes("@radix-ui/")) return "radix";
+          if (id.includes("@react-pdf/")) return "pdf";
+          if (id.includes("@xterm/")) return "xterm";
+          if (id.includes("/marked/") || id.includes("/dompurify/")) return "markdown";
+        },
+      },
+    },
   },
   plugins: [react(), tailwindcss()],
   resolve: {

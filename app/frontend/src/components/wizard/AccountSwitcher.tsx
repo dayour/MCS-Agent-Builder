@@ -5,7 +5,7 @@
  * Shows current account, available PAC profiles, environments, and
  * provides switch actions + copy-paste commands for az login.
  */
-import { useState, useCallback } from "react";
+import { useState, useTransition } from "react";
 import {
   CheckCircle2,
   XCircle,
@@ -39,14 +39,13 @@ export default function AccountSwitcher({
 }: AccountSwitcherProps) {
   const [switching, setSwitching] = useState<number | null>(null);
   const [switchingEnv, setSwitchingEnv] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
+  const [refreshing, startRefresh] = useTransition();
 
-  const handleSwitchProfile = useCallback(async (index: number) => {
+  const handleSwitchProfile = async (index: number) => {
     setSwitching(index);
     try {
       const result = await switchPacProfile(index);
       toast.success(`Switched to ${result.activeUser}`);
-      // Refresh credentials after switch
       const updated = await checkCredentials();
       onCredRefresh(updated);
     } catch (err: any) {
@@ -54,9 +53,9 @@ export default function AccountSwitcher({
     } finally {
       setSwitching(null);
     }
-  }, [onCredRefresh]);
+  };
 
-  const handleSwitchEnv = useCallback(async (envId: string) => {
+  const handleSwitchEnv = async (envId: string) => {
     setSwitchingEnv(envId);
     try {
       await switchPacEnvironment(envId);
@@ -68,20 +67,19 @@ export default function AccountSwitcher({
     } finally {
       setSwitchingEnv(null);
     }
-  }, [onCredRefresh]);
+  };
 
-  const handleRefresh = useCallback(async () => {
-    setRefreshing(true);
-    try {
-      const updated = await checkCredentials();
-      onCredRefresh(updated);
-      toast.success("Credentials refreshed");
-    } catch {
-      toast.error("Failed to check credentials");
-    } finally {
-      setRefreshing(false);
-    }
-  }, [onCredRefresh]);
+  const handleRefresh = () => {
+    startRefresh(async () => {
+      try {
+        const updated = await checkCredentials();
+        onCredRefresh(updated);
+        toast.success("Credentials refreshed");
+      } catch {
+        toast.error("Failed to check credentials");
+      }
+    });
+  };
 
   const copyCommand = (cmd: string) => {
     navigator.clipboard.writeText(cmd).then(

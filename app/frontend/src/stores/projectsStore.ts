@@ -3,6 +3,7 @@
  * Fetches from /api/projects instead of mock data.
  */
 import { create } from "zustand";
+import { devtools } from "zustand/middleware";
 import type { Project } from "@/types";
 import type { ApiProject } from "@/types/api";
 import { fetchProjects, createProject as apiCreate, deleteProject as apiDelete } from "@/lib/api";
@@ -42,7 +43,7 @@ function apiToProject(p: ApiProject): Project {
   };
 }
 
-export const useProjectsStore = create<ProjectsStore>((set) => ({
+export const useProjectsStore = create<ProjectsStore>()(devtools((set) => ({
   projects: [],
   loading: false,
   error: null,
@@ -66,4 +67,4 @@ export const useProjectsStore = create<ProjectsStore>((set) => ({
     await apiDelete(id);
     set((s) => ({ projects: s.projects.filter((p) => p.id !== id) }));
   },
-}));
+}), { name: "ProjectsStore" }));

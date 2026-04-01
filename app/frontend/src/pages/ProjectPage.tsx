@@ -231,7 +231,8 @@ const ProjectPage = () => {
 
   return (
     <Layout breadcrumbs={[{ label: projectName || id || "" }]}>
-      <div className="px-6 py-8">
+      <title>{projectName || "Project"} — MCS Builder</title>
+      <div className="px-6 py-8 @container/project">
         {error && (
           <div className="mb-4 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
             {error}
@@ -360,7 +361,7 @@ const ProjectPage = () => {
                           </Button>
                         </div>
                         {/* Pipeline buttons — ALL always visible */}
-                        <div className="mt-3 flex items-center gap-1.5 pl-14">
+                        <div className="mt-3 flex items-center gap-1.5 pl-14 flex-wrap">
                           {STEPS.map((step) => {
                             const isActive = nextAction === step.key;
                             const isDone = isStepDone(step.key, nextAction);

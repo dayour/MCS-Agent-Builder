@@ -8,6 +8,7 @@
  * Supports multiple concurrent jobs (one per agent per skill type).
  */
 import { create } from "zustand";
+import { devtools } from "zustand/middleware";
 import {
   startSkill as apiStartSkill,
   subscribeSkillStatus,
@@ -96,7 +97,7 @@ function abortSse(key: string) {
   }
 }
 
-export const useSkillJobStore = create<SkillJobStore>((set, get) => ({
+export const useSkillJobStore = create<SkillJobStore>()(devtools((set, get) => ({
   jobs: {},
 
   launchSkill: async (skillType, projectId, agentId) => {
@@ -286,7 +287,7 @@ export const useSkillJobStore = create<SkillJobStore>((set, get) => ({
     const job = get().jobs[key];
     return !!job && (job.phase === "starting" || job.phase === "running" || job.phase === "paused_auth");
   },
-}));
+}), { name: "SkillJobStore" }));
 
 /** Helper to compute the job key from outside the store. */
 export function getSkillJobKey(projectId: string, agentId: string, skillType: SkillType): string {

@@ -3,6 +3,7 @@
  * saves via transform + PUT. Includes debounced auto-save and polling.
  */
 import { create } from "zustand";
+import { devtools } from "zustand/middleware";
 import type { BriefData, BuildStatus, EvalResults } from "@/types";
 import type { ApiBrief } from "@/types/api";
 import { fetchAgent, saveAgentBrief } from "@/lib/api";
@@ -67,7 +68,7 @@ interface BriefStore {
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
-export const useBriefStore = create<BriefStore>((set, get) => ({
+export const useBriefStore = create<BriefStore>()(devtools((set, get) => ({
   projectId: null,
   agentId: null,
   agentName: "",
@@ -212,4 +213,4 @@ export const useBriefStore = create<BriefStore>((set, get) => ({
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(() => { get().save(); }, 500);
   },
-}));
+}), { name: "BriefStore" }));

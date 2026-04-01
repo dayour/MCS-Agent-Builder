@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
 import { useNavigate, Link } from "react-router";
 import { useWizardStore } from "@/stores/wizardStore";
 import { useBuildJobStore } from "@/stores/buildJobStore";
@@ -89,6 +89,7 @@ export default function WizardPage() {
 
   return (
     <div className="flex flex-col h-full bg-background">
+      <title>Create Agent — MCS Builder</title>
       {/* Header */}
       <WizardHeader />
 
@@ -271,22 +272,18 @@ function BottomBar({ credCheck, onCredRefresh }: { credCheck: CredentialCheck | 
 
   const [projectName, setProjectName] = useState("");
   const [showSave, setShowSave] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [saving, startSave] = useTransition();
   const [showAccountSwitcher, setShowAccountSwitcher] = useState(false);
 
   const agentName = currentState.draft.identity?.name || "New Agent";
   const canSave = currentState.readyToSave;
 
-  const handleSave = useCallback(async () => {
+  const handleSave = () => {
     const name = projectName.trim() || agentName;
-    setSaving(true);
-    try {
+    startSave(async () => {
       await saveBrief(name);
-      // Stay on page — pagePhase transitions to "enriching" via store
-    } finally {
-      setSaving(false);
-    }
-  }, [projectName, agentName, saveBrief]);
+    });
+  };
 
   // Auth status dots
   const authItems = credCheck

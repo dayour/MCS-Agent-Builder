@@ -6,6 +6,7 @@
  * step progress, auth prompts, and completion events.
  */
 import { create } from "zustand";
+import { devtools } from "zustand/middleware";
 import { rafBatch } from "@/lib/rafBatcher";
 import {
   startBuild,
@@ -81,7 +82,7 @@ function abortSse() {
   }
 }
 
-export const useBuildJobStore = create<BuildJobStore>((set, get) => ({
+export const useBuildJobStore = create<BuildJobStore>()(devtools((set, get) => ({
   job: null,
   phase: "idle",
   credCheck: null,
@@ -298,4 +299,4 @@ export const useBuildJobStore = create<BuildJobStore>((set, get) => ({
     abortSse();
     set({ job: null, phase: "idle", credCheck: null });
   },
-}));
+}), { name: "BuildJobStore" }));

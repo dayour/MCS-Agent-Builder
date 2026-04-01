@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useTransition } from "react";
 import { useNavigate } from "react-router";
 import { Plus, Loader2, Sparkles } from "lucide-react";
 import Layout from "@/components/Layout";
@@ -22,30 +22,26 @@ const Index = () => {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [creating, setCreating] = useState(false);
+  const [creating, startCreating] = useTransition();
 
   useEffect(() => {
     load();
   }, [load]);
 
-  const handleCreate = async () => {
+  const handleCreate = () => {
     if (!name.trim() || creating) return;
-    setCreating(true);
-    try {
+    startCreating(async () => {
       const id = await createProject(name.trim());
       setName("");
       setDescription("");
       setOpen(false);
       navigate(`/project/${id}`);
-    } catch {
-      // Toast or error handling could go here
-    } finally {
-      setCreating(false);
-    }
+    });
   };
 
   return (
     <Layout>
+      <title>Projects — MCS Builder</title>
       <div className="px-6 py-8">
         <div className="mb-8 flex items-end justify-between">
           <div>
