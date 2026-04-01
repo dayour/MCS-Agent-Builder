@@ -25,8 +25,14 @@
  *   Scoring:
  *   node tools/multi-model-review.js score --actual "<text>" --expected "<text>" [--method compare-meaning|general-quality]
  *
+ *   Pre-implementation challenge (adversarial spec attack):
+ *   node tools/multi-model-review.js challenge -q "<plan>" [--context "<desc>"] [--file <path>]...
+ *
+ *   Failure diagnosis (independent root-cause hypotheses):
+ *   node tools/multi-model-review.js diagnose -q "<error>" [--context "<desc>"] [--file <path>]...
+ *
  *   Ad-hoc query:
- *   node tools/multi-model-review.js ask --question "<text>" [--context "<desc>"] [--file <path>]...
+ *   node tools/multi-model-review.js ask -q "<text>" [--context "<desc>"] [--file <path>]...
  *
  *   Review memory:
  *   node tools/multi-model-review.js learn --pattern "<description>" --severity <high|medium|low>
@@ -46,18 +52,20 @@ const { isConfigured, chatCompletion: _rawChat, estimateTokens, getUsageSummary,
 // the output budget (causing empty/truncated responses) and is 3x slower than 'none'.
 // Tier by task complexity: none for lightweight, medium for reviews, high only for generation.
 const EFFORT_TIERS = {
-    // Lightweight — fast, no reasoning overhead
+    // Lightweight — fast, minimal reasoning
     'score': 'none',
-    'review-code': 'none',
     'learn': 'none',
-    'ask': 'none',
-    // Standard reviews — moderate reasoning for analysis
+    // Standard — moderate reasoning for analysis and second opinions
+    'ask': 'medium',
+    'review-code': 'medium',
     'review-instructions': 'medium',
     'review-topics': 'medium',
     'review-brief': 'medium',
     'review-flow': 'medium',
     'review-components': 'medium',
-    // Heavy — co-generation and final quality gate need deep reasoning
+    // High — pre-implementation challenge, generation, and quality gates
+    'challenge': 'high',
+    'diagnose': 'high',
     'generate-instructions': 'high',
     'generate-evals': 'high',
     'generate-topics': 'high',
@@ -613,8 +621,14 @@ function parseArgs() {
   Scoring:
   node multi-model-review.js score --actual "<text>" --expected "<text>" [--method compare-meaning|general-quality]
 
+  Pre-implementation challenge (highest value — use before coding):
+  node multi-model-review.js challenge -q "<plan/approach>" [--context "<text>"] [--file <path>]...
+
+  Failure diagnosis (independent root-cause hypotheses):
+  node multi-model-review.js diagnose -q "<error/failure>" [--context "<text>"] [--file <path>]...
+
   Ad-hoc query:
-  node multi-model-review.js ask --question "<text>" [--context "<text>"] [--file <path>]...
+  node multi-model-review.js ask -q "<text>" [--context "<text>"] [--file <path>]...
 
   Review memory:
   node multi-model-review.js learn --pattern "<description>" --severity <high|medium|low>
@@ -1480,6 +1494,125 @@ async function askGpt(config) {
     console.log(JSON.stringify(parsed, null, 2));
 }
 
+/**
+ * Challenge — adversarial spec attack before implementation.
+ * GPT acts as an adversarial reviewer finding gaps in a proposed plan/approach.
+ * Highest-value GPT pattern: catches bad specs before code exists.
+ */
+async function challengePlan(config) {
+    if (!config.question) {
+        console.error('--question or -q is required (describe the plan/approach to challenge)');
+        process.exit(1);
+    }
+
+    const messages = [
+        {
+            role: 'system',
+            content: `You are GPT-5.4, acting as an adversarial product owner, security reviewer, and QA lead. Your job is to BREAK the proposed plan before any code is written. Be ruthless but constructive.
+
+For every plan, produce a JSON response:
+{
+  "missing_assumptions": ["assumptions the plan relies on but doesn't state"],
+  "edge_cases": ["scenarios that would break this approach"],
+  "ambiguities": ["places where two engineers would interpret this differently"],
+  "security_concerns": ["auth, injection, data exposure, blast radius issues"],
+  "better_alternatives": ["approaches worth considering instead or in addition"],
+  "acceptance_criteria": ["concrete conditions that must be true for this to be done"],
+  "verdict": "proceed|revise|block",
+  "top_risk": "the single most dangerous assumption in this plan"
+}`
+        }
+    ];
+
+    // Add file context
+    const files = config.withFiles || [];
+    if (config.filePath) files.unshift(config.filePath);
+
+    let fileContext = '';
+    for (const f of files) {
+        try {
+            const content = fs.readFileSync(f, 'utf8');
+            fileContext += `\n--- ${f} ---\n${truncateToTokens(content, 4000)}\n`;
+        } catch {}
+    }
+
+    let userMsg = `Plan/approach to challenge:\n${config.question}`;
+    if (config.contextDesc) userMsg += `\n\nAdditional context: ${config.contextDesc}`;
+    if (fileContext) userMsg += `\n\nRelevant files:\n${fileContext}`;
+
+    messages.push({ role: 'user', content: userMsg });
+
+    const result = await chatCompletion(messages, { maxTokens: 16384 });
+    let parsed;
+    try {
+        parsed = parseGptJson(result.content);
+    } catch {
+        parsed = { answer: result.content, verdict: 'unknown' };
+    }
+    parsed._usage = result.usage;
+    console.log(JSON.stringify(parsed, null, 2));
+}
+
+/**
+ * Diagnose — parallel failure triage with independent root-cause hypotheses.
+ * GPT generates top hypotheses without seeing your diagnosis first.
+ */
+async function diagnoseFailure(config) {
+    if (!config.question) {
+        console.error('--question or -q is required (describe the failure/error)');
+        process.exit(1);
+    }
+
+    const messages = [
+        {
+            role: 'system',
+            content: `You are GPT-5.4, diagnosing a failure independently. You have NOT seen any other diagnosis — produce your own fresh hypotheses. Be concrete and actionable.
+
+Return JSON:
+{
+  "hypotheses": [
+    {
+      "rank": 1,
+      "cause": "specific root cause description",
+      "evidence_for": ["observations that support this"],
+      "evidence_against": ["observations that contradict this"],
+      "discriminating_test": "minimal test to confirm or rule out this hypothesis"
+    }
+  ],
+  "likely_category": "code|config|environment|state|race-condition|api-contract|auth|dependency",
+  "suggested_first_action": "the single most efficient thing to try first"
+}`
+        }
+    ];
+
+    const files = config.withFiles || [];
+    if (config.filePath) files.unshift(config.filePath);
+
+    let fileContext = '';
+    for (const f of files) {
+        try {
+            const content = fs.readFileSync(f, 'utf8');
+            fileContext += `\n--- ${f} ---\n${truncateToTokens(content, 4000)}\n`;
+        } catch {}
+    }
+
+    let userMsg = `Failure to diagnose:\n${config.question}`;
+    if (config.contextDesc) userMsg += `\n\nContext: ${config.contextDesc}`;
+    if (fileContext) userMsg += `\n\nRelevant files/logs:\n${fileContext}`;
+
+    messages.push({ role: 'user', content: userMsg });
+
+    const result = await chatCompletion(messages, { maxTokens: 16384 });
+    let parsed;
+    try {
+        parsed = parseGptJson(result.content);
+    } catch {
+        parsed = { answer: result.content };
+    }
+    parsed._usage = result.usage;
+    console.log(JSON.stringify(parsed, null, 2));
+}
+
 function showUsage() {
     const summary = getUsageSummary();
     const method = getActiveMethod();
@@ -1570,6 +1703,12 @@ async function main() {
                 break;
             case 'ask':
                 await askGpt(config);
+                break;
+            case 'challenge':
+                await challengePlan(config);
+                break;
+            case 'diagnose':
+                await diagnoseFailure(config);
                 break;
             default:
                 console.error(`Unknown command: ${config.command}`);

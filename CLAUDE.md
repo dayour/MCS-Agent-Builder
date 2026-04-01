@@ -41,14 +41,16 @@ Fire GPT-5.4 in parallel with your own work on every task that is not a single-l
 
 | Task Type | GPT Action | Command |
 |-----------|-----------|---------|
+| Planning/approach (HIGHEST VALUE) | Adversarial spec attack before coding | `challenge -q "<plan>" [--file <path>]` |
+| Bug fixing/errors | Independent root-cause hypotheses | `diagnose -q "<error>" [--file <path>]` |
+| Questions/decisions | Second opinion in parallel | `ask -q "<question>" [--file <path>]` |
+| Before deploy/destructive action | Blast radius + safety validation | `challenge -q "<action>" --context "guardrail"` |
 | MCS instructions | Co-generate, PE merges | `generate-instructions --brief <path>` |
 | Eval tests | Co-generate, QA merges | `generate-evals --brief <path>` |
 | Topic YAML (3+ nodes) | Co-generate, TE merges | `generate-topics --topic-spec <path> --brief <path>` |
-| Writing code (3+ lines) | GPT reviews as you write each file | `review-code --file <path>` |
+| Writing code | GPT reviews each file during implementation | `review-code --file <path>` |
 | Component selection | GPT reviews RA's choices | `review-components --brief <path>` |
 | Flow spec design | GPT reviews FD's output | `review-flow --file <path> --brief <path>` |
-| Architecture/design decisions | GPT gives a second opinion | Send context, get alternative perspective |
-| All other non-trivial tasks | GPT reviews after completion | Appropriate `review-*` command |
 
 **Skip only:** GPT unavailable (exit code 3). No other exceptions — fire GPT on everything, including simple questions and single-line fixes.
 
@@ -58,7 +60,7 @@ Fire GPT-5.4 in parallel with your own work on every task that is not a single-l
 
 **Merge protocol:** union of findings from both models, stricter assessment wins on conflicts, flag divergence for the user. Full merge rules for co-generation (instructions/topics/evals) in `.claude/rules/gpt-co-generation.md`.
 
-**How it works:** GPT-5.4 via GitHub Copilot Responses API (`tools/lib/openai.js`). Auth: `gh auth token` with `copilot` scope. CLI: `tools/multi-model-review.js` (15 commands — 3 co-gen + 7 review + 1 scoring + 1 ask + 1 learn + 2 utility). For ad-hoc questions: `ask -q "<question>"`. If GPT fails, proceed with Claude alone — never block on GPT.
+**How it works:** GPT-5.4 via GitHub Copilot Responses API (`tools/lib/openai.js`). Auth: `gh auth token` with `copilot` scope. CLI: `tools/multi-model-review.js` (17 commands — 3 co-gen + 7 review + 1 scoring + 1 challenge + 1 diagnose + 1 ask + 1 learn + 2 utility). If GPT fails, proceed with Claude alone — never block on GPT.
 
 ---
 

@@ -20,25 +20,65 @@ paths:
 
 Fire GPT-5.4 in parallel with your work for every non-trivial task because dual-model review catches bugs during implementation rather than after. GPT serves as both a **co-generator** (produces content independently for merging) and a **reviewer** (validates content after generation). This applies to all work: MCS builds, code writing, reviews, cleanup, app updates, architecture decisions, documentation.
 
-## When to Fire GPT (default: yes)
+## 5 GPT Value Patterns (Ordered by Impact)
 
-| Task Type | GPT Action | How |
-|-----------|-----------|-----|
-| Writing MCS instructions | Co-generate independently, PE merges | `generate-instructions --brief <path>` |
-| Generating eval tests | Co-generate independently, QA merges | `generate-evals --brief <path>` |
-| Generating topic YAML (3+ nodes) | Co-generate independently, TE merges | `generate-topics --topic-spec <path> --brief <path>` |
-| Component selection | GPT reviews RA's choices | `review-components --brief <path>` |
-| Flow spec design | GPT reviews FD's output | `review-flow --file <path> --brief <path>` |
-| Writing code (3+ lines) | GPT reviews after writing | `review-*` or inline `chatCompletion` |
-| Reviewing/auditing | GPT reviews same artifact in parallel | Fire GPT review alongside your own analysis |
-| Architecture/design decisions | GPT gives a second opinion | Send decision context, get alternative perspective |
-| All other non-trivial tasks | GPT reviews after completion | Appropriate `review-*` command |
+The second model is most valuable as an **adversary, oracle, and safety controller** — not a post-hoc reviewer. Move GPT effort upstream.
+
+### Pattern 1: Spec Attack (Highest Value)
+**When:** Before any multi-step task, architecture decision, or non-trivial implementation.
+**Command:** `challenge -q "<plan>" [--file <path>]`
+**GPT role:** Adversarial product owner — finds missing assumptions, edge cases, ambiguities, and security concerns BEFORE code exists.
+**Why:** Bad specs create good-looking wrong code. This is where two models disagree most productively.
+
+### Pattern 2: Independent Design Fork
+**When:** Architecture, refactors, complex features, API design.
+**Command:** `ask -q "<design question>" --context "<constraints>"` — run in parallel with Claude's own design.
+**GPT role:** Produces an independent solution. Lead synthesizes the best of both.
+**Why:** Actual design diversity. Avoids premature convergence.
+
+### Pattern 3: Independent Test Oracle
+**When:** After spec is agreed, parallel with implementation.
+**Command:** `generate-evals --brief <path>` (MCS) or `ask -q "generate test cases for: <spec>"` (code).
+**GPT role:** Generates tests/invariants from spec WITHOUT seeing the implementation.
+**Why:** If GPT sees the code first, it anchors and misses the same bugs. Independent oracle generation catches correlated failures.
+
+### Pattern 4: Action Guardrail
+**When:** Before any side effect — deploys, destructive ops, external API calls, database changes.
+**Command:** `challenge -q "<proposed action>" --context "action guardrail: validate blast radius, reversibility, idempotency"`.
+**GPT role:** Execution safety controller — validates preconditions, blast radius, rollback plan.
+**Why:** Mistakes after side effects are expensive. This is the cost-of-error multiplier.
+
+### Pattern 5: Parallel Failure Triage
+**When:** Bug fixing, errors, test failures, unexpected behavior.
+**Command:** `diagnose -q "<error description>" [--file <path>]`
+**GPT role:** Independent root-cause hypotheses with evidence and discriminating tests.
+**Why:** Two models generate uncorrelated hypotheses. One sees config issues, the other sees code-path issues.
+
+## When to Use Which Command
+
+| Situation | Command | Effort |
+|-----------|---------|--------|
+| Planning what to build | `challenge` | high |
+| Answering a question | `ask` | medium |
+| Debugging a failure | `diagnose` | high |
+| After writing code | `review-code` | medium |
+| MCS instructions/topics/evals | `generate-*` (co-gen) | high |
+| MCS component review | `review-*` | medium |
+| Before deploy/destructive action | `challenge` (guardrail mode) | high |
+| Final pre-publish validation | `review-merged` | high |
+| Quick factual check | `ask` | medium |
 
 ## When to Skip GPT
 
-GPT fires on **everything** — the only valid skip reason is GPT being unavailable (exit code 3), in which case proceed with Claude alone. There are no task-size exceptions. Even simple questions, single-line fixes, and status checks get GPT as a second opinion. Fire GPT as a background agent so it never blocks the response.
+GPT fires on **everything** — the only valid skip reason is GPT being unavailable (exit code 3), in which case proceed with Claude alone. There are no task-size exceptions. Fire GPT as a background agent so it never blocks the response.
 
-**How to fire GPT on non-code tasks:** Use `chatCompletion()` via a background agent with a one-shot prompt. For code changes, use `review-code`. For questions/decisions/planning, spawn a background agent that calls `chatCompletion()` with the user's question and relevant context, then merge its response when it returns.
+## Effort Tiers
+
+| Tier | Commands | Reasoning | When |
+|------|----------|-----------|------|
+| `none` | score, learn | No reasoning | Pure computation |
+| `medium` | ask, review-code, review-* | Moderate | Analysis, second opinions |
+| `high` | challenge, diagnose, generate-*, review-merged | Deep | Pre-implementation, generation, quality gates |
 
 ## Merge Protocol for Co-Generation
 
