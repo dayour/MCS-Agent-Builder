@@ -62,8 +62,12 @@ The second model is most valuable as an **adversary, oracle, and safety controll
 | Answering a question | `ask` | medium |
 | Debugging a failure | `diagnose` | high |
 | After writing code | `review-code` | medium |
-| MCS instructions/topics/evals | `generate-*` (co-gen) | high |
-| MCS component review | `review-*` | medium |
+| MCS instructions/topics/evals | `generate-instructions`, `generate-evals`, `generate-topics` | high |
+| Component/architecture selection | `generate-components` (co-gen) | high |
+| Flow spec design | `generate-flow` (co-gen) | high |
+| Eval failure fixes | `generate-fix` (co-gen) | high |
+| MCS component review (post-merge) | `review-components` | medium |
+| Flow spec review (post-merge) | `review-flow` | medium |
 | Before deploy/destructive action | `challenge` (guardrail mode) | high |
 | Final pre-publish validation | `review-merged` | high |
 | Quick factual check | `ask` | medium |
@@ -103,6 +107,24 @@ Co-generation produces two independent outputs that must be merged. Each content
 - Stricter expected answers for similar tests
 - Recalculate coverage distribution after merge
 
+**Components (RA merges):**
+- Architecture scoring: take the higher score per factor (more conservative = safer)
+- Integrations: union of both sets; higher-priority Microsoft-native option wins on conflicts
+- Decisions: union of both sets; present both perspectives on disagreements
+- Gaps: union of both — if either model flags a gap, it's worth investigating
+
+**Flow specs (FD merges):**
+- Flows: merge action-by-action; better error handling wins; union of connectors
+- If both design the same flow differently: prefer the one with better error handling and sync-callable design
+- Connector conflicts: prefer standard over premium when functionality is equivalent
+- Include testing notes from both
+
+**Fixes (QA/lead merges):**
+- Root cause analysis: union of diagnoses; if models disagree on root cause, present both with evidence
+- Fix proposals: prefer the minimum-change fix; flag when one proposes instruction edit vs topic change
+- Score predictions: take the more conservative estimate
+- Group related failures from both models' analyses
+
 ## Merge Protocol for Reviews
 
 - **Union of findings** -- if either model flags something, it is worth looking at
@@ -122,4 +144,4 @@ This catches cross-artifact issues that individual reviews miss: orphaned capabi
 
 ## How It Works
 
-GPT-5.4 runs via the GitHub Copilot Responses API (`tools/lib/openai.js`). Auth is automatic via `gh auth token` with `copilot` scope. For structured reviews and co-generation, use `tools/multi-model-review.js` (14 commands: 3 co-generation + 7 review + 1 scoring + 1 utility + 1 learn + 1 info). For ad-hoc reviews, call `chatCompletion()` directly from a temp script via Bash.
+GPT-5.4 runs via the GitHub Copilot Responses API (`tools/lib/openai.js`). Auth is automatic via `gh auth token` with `copilot` scope. For structured reviews and co-generation, use `tools/multi-model-review.js` (20 commands: 6 co-generation + 7 review + 1 scoring + 1 challenge + 1 diagnose + 1 ask + 1 learn + 2 utility). For ad-hoc reviews, call `chatCompletion()` directly from a temp script via Bash.

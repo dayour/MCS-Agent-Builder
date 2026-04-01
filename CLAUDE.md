@@ -9,7 +9,7 @@ Research Microsoft-first (MCS built-in > Power Platform > Azure > M365 connector
 ## Workflow
 
 ```
-INIT → CONTEXT → RESEARCH → [SOLUTION TYPE GATE] → GUARD → BUILD → EVALUATE → [FIX] → [DEPLOY] → [OBSERVE] → [DRIFT] → [REPORT] → [RETRO]
+INIT → CONTEXT → RESEARCH → [SOLUTION TYPE GATE] → BUILD (includes guard) → EVALUATE → [FIX] → [REPORT]
 ```
 
 | Skill | Purpose | Dashboard |
@@ -17,50 +17,20 @@ INIT → CONTEXT → RESEARCH → [SOLUTION TYPE GATE] → GUARD → BUILD → E
 | `/mcs-init` | Create project folder structure | — |
 | `/mcs-context` | Pull M365 history via WorkIQ | — |
 | `/mcs-research` | Read docs, identify agents, research components, enrich brief.json + generate evals | Research |
-| `/mcs-guard` | Pre-build validation: auth, env, connections, tools, model | — |
-| `/mcs-build` | Build agent(s) in MCS via hybrid stack | Build |
+| `/mcs-build` | Pre-build validation (guard) + build agent(s) in MCS via hybrid stack | Build |
 | `/mcs-eval` | Run eval tests, write results to brief.json | Evaluate |
 | `/mcs-fix` | Analyze eval failures, apply fixes, re-evaluate | Fix Failures |
-| `/mcs-deploy` | Deploy agents from dev to prod | — |
-| `/mcs-observe` | Post-deploy monitoring: health, latency, regression detection | — |
-| `/mcs-drift` | Detect brief ↔ MCS drift, classify severity, suggest remediation | — |
 | `/mcs-refresh` | Refresh knowledge cache files | — |
-| `/mcs-retro` | Post-session retrospective: capture learnings | — |
 | `/mcs-report` | Generate reports (brief/build/customer/deployment) | — |
-| `/mcs-library` | Team SharePoint solution library | — |
-| `/bug` | File bug reports via GitHub CLI | Sidebar |
-| `/suggest` | File feature suggestions via GitHub CLI | Sidebar |
+| `/feedback` | File bug reports or feature suggestions via GitHub CLI | Sidebar |
 
 Each skill has detailed instructions in its own `.claude/skills/*/SKILL.md`.
 
 ---
 
-## Dual Model Co-Generation — Every Non-Trivial Task
+## Dual Model Co-Generation
 
-Fire GPT-5.4 in parallel with your own work on every task that is not a single-line fix, git operation, or file read. Quality is the priority — cost and tokens do not matter. GPT serves as both a **co-generator** (produces content independently for merging) and a **reviewer** (validates your output). This applies to all work: MCS builds, code, reviews, cleanup, app changes, architecture, docs, debugging, planning, answering questions.
-
-| Task Type | GPT Action | Command |
-|-----------|-----------|---------|
-| Planning/approach (HIGHEST VALUE) | Adversarial spec attack before coding | `challenge -q "<plan>" [--file <path>]` |
-| Bug fixing/errors | Independent root-cause hypotheses | `diagnose -q "<error>" [--file <path>]` |
-| Questions/decisions | Second opinion in parallel | `ask -q "<question>" [--file <path>]` |
-| Before deploy/destructive action | Blast radius + safety validation | `challenge -q "<action>" --context "guardrail"` |
-| MCS instructions | Co-generate, PE merges | `generate-instructions --brief <path>` |
-| Eval tests | Co-generate, QA merges | `generate-evals --brief <path>` |
-| Topic YAML (3+ nodes) | Co-generate, TE merges | `generate-topics --topic-spec <path> --brief <path>` |
-| Writing code | GPT reviews each file during implementation | `review-code --file <path>` |
-| Component selection | GPT reviews RA's choices | `review-components --brief <path>` |
-| Flow spec design | GPT reviews FD's output | `review-flow --file <path> --brief <path>` |
-
-**Skip only:** GPT unavailable (exit code 3). No other exceptions — fire GPT on everything, including simple questions and single-line fixes.
-
-**For code changes:** fire `review-code --file <path>` on each file as you write it — not batched at the end. For multi-file changes, review the first 2-3 files, fix issues, then continue.
-
-**Final quality gate:** after merging all agent team outputs, fire `review-merged --brief <path>` for cross-artifact validation before publish. Catches orphaned capabilities, instruction-topic duplication, eval gaps, and build feasibility blockers.
-
-**Merge protocol:** union of findings from both models, stricter assessment wins on conflicts, flag divergence for the user. Full merge rules for co-generation (instructions/topics/evals) in `.claude/rules/gpt-co-generation.md`.
-
-**How it works:** GPT-5.4 via GitHub Copilot Responses API (`tools/lib/openai.js`). Auth: `gh auth token` with `copilot` scope. CLI: `tools/multi-model-review.js` (17 commands — 3 co-gen + 7 review + 1 scoring + 1 challenge + 1 diagnose + 1 ask + 1 learn + 2 utility). If GPT fails, proceed with Claude alone — never block on GPT.
+Fire GPT-5.4 in parallel with every non-trivial task. No exceptions — skip only when GPT is unavailable (exit code 3). Full protocol, commands, merge rules, and value patterns in `.claude/rules/gpt-co-generation.md`.
 
 ---
 
@@ -102,7 +72,7 @@ bin/
 ├── cli.js (mcs start/stop/health/doctor/update), postinstall.js
 
 .claude/
-├── settings.json, skills/ (16 skills), agents/ (7 teammates), rules/ (path-scoped)
+├── settings.json, skills/ (9 skills), agents/ (6 teammates), rules/ (path-scoped)
 
 app/
 ├── server.js, lib/ (terminal, documents, projects, workiq, readiness, brief-migrate, enrichment, wizard, build-runner, skill-runner, knowledge-resolver, meeting/), frontend/ (React + Vite + shadcn/ui)

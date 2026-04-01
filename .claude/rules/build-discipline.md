@@ -3,7 +3,6 @@ paths:
   - ".claude/skills/mcs-build/**"
   - ".claude/skills/mcs-eval/**"
   - ".claude/skills/mcs-fix/**"
-  - ".claude/skills/mcs-deploy/**"
   - "tools/**"
 ---
 

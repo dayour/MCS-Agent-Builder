@@ -1,12 +1,11 @@
 ---
 paths:
-  - ".claude/skills/bug/**"
-  - ".claude/skills/suggest/**"
+  - ".claude/skills/feedback/**"
 ---
 
 # Bug Reports and Suggestions
 
-Users file bugs and suggestions via the header buttons, which open a feedback dialog. The dialog collects a description plus auto-gathered context (project, agent, page, build/eval status), then dispatches `/bug` or `/suggest` to the embedded Claude terminal for GitHub issue creation.
+Users file bugs and suggestions via the header buttons, which open a feedback dialog. The dialog collects a description plus auto-gathered context (project, agent, page, build/eval status), then dispatches `/feedback bug` or `/feedback suggest` to the embedded Claude terminal for GitHub issue creation.
 
 ## Issue Creation Rules
 

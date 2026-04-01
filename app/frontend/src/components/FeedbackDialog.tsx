@@ -66,8 +66,8 @@ export default function FeedbackDialog({ type, open, onOpenChange }: FeedbackDia
     parts.push(`User says: "${description.trim()}"`);
     const contextString = parts.join(" | ");
 
-    const skill = isBug ? "/bug" : "/suggest";
-    const command = `${skill} ${contextString}`;
+    const type = isBug ? "bug" : "suggest";
+    const command = `/feedback ${type} ${contextString}`;
 
     // Open terminal and send command (queued if WS not open yet)
     openOrCreate();

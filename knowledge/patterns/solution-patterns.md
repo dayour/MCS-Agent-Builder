@@ -6,7 +6,7 @@
 >
 > **Decision generation:** When a pattern matches and has 2+ viable implementation tiers (after filtering against customer constraints), research creates a structured `decisions[]` entry — one option per tier. If only 1 tier survives constraint filtering, it's auto-applied with no decision entry. Default recommendation is always Tier 1 unless customer constraints disqualify it.
 >
-> **Growth:** New patterns are added via `/mcs-retro` (classification: `SOLUTION_PATTERN`, Tier 2). Each pattern tracks `confirmed` builds for confidence weighting.
+> **Growth:** New patterns are added manually or during build/research when a naive approach fails and a proven alternative is found. Each pattern tracks `confirmed` builds for confidence weighting.
 
 ---
 

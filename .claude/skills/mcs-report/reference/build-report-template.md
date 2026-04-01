@@ -60,6 +60,5 @@
 ## Next Steps
 {Based on current state:}
 - {If eval failures exist:} Run /mcs-fix to address {N} failing tests
-- {If not deployed:} Run /mcs-deploy to promote to production
 - {If future items exist:} Plan Phase 2 for {count} deferred capabilities
 ```

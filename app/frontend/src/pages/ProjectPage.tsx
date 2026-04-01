@@ -157,7 +157,6 @@ const ProjectPage = () => {
   /** Terminal commands for steps that don't have headless runners yet. */
   const TERMINAL_COMMANDS: Record<string, (projectId: string, agentId: string) => string> = {
     preview: (pid, aid) => `/mcs-research ${pid} ${aid} --fast`,
-    learning: () => `/mcs-retro`,
   };
 
   const launchTerminal = async (type: string, agent: { id: string; name: string }) => {

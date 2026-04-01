@@ -21,6 +21,9 @@
  *   node tools/multi-model-review.js generate-instructions --brief <path>
  *   node tools/multi-model-review.js generate-evals --brief <path>
  *   node tools/multi-model-review.js generate-topics --topic-spec <path> [--brief <path>]
+ *   node tools/multi-model-review.js generate-components --brief <path>
+ *   node tools/multi-model-review.js generate-flow --brief <path> [--file <existing-flow-spec>]
+ *   node tools/multi-model-review.js generate-fix --brief <path>
  *
  *   Scoring:
  *   node tools/multi-model-review.js score --actual "<text>" --expected "<text>" [--method compare-meaning|general-quality]
@@ -69,6 +72,9 @@ const EFFORT_TIERS = {
     'generate-instructions': 'high',
     'generate-evals': 'high',
     'generate-topics': 'high',
+    'generate-components': 'high',
+    'generate-flow': 'high',
+    'generate-fix': 'high',
     'review-merged': 'high',
 };
 
@@ -123,6 +129,25 @@ const KNOWLEDGE_MAP = {
         'cache/triggers.md',
         'cache/adaptive-cards.md',
         'cache/conversation-design.md'
+    ],
+    'generate-components': [
+        'frameworks/component-selection.md',
+        'frameworks/architecture-scoring.md',
+        'cache/connectors.md',
+        'cache/mcp-servers.md',
+        'cache/knowledge-sources.md'
+    ],
+    'generate-flow': [
+        'cache/power-automate-integration.md',
+        'cache/connectors.md',
+        'patterns/flow-spec-template.md'
+    ],
+    'generate-fix': [
+        'cache/eval-methods.md',
+        'cache/instructions-authoring.md',
+        'cache/generative-orchestration.md',
+        'learnings/eval-testing.md',
+        'learnings/instructions.md'
     ],
     // Expanded review commands
     'review-flow': [
@@ -520,6 +545,144 @@ Output valid JSON:
   "selfCheck": {"deadEnds": [], "missingErrorHandling": [], "variableIssues": []}
 }`,
 
+    'generate-components': `You are an expert Microsoft Copilot Studio architect. Given an agent brief, independently score the architecture (single vs multi-agent) and recommend the optimal component stack.
+
+Architecture Scoring — 6 factors, 1 point each:
+1. Domain separation (0 = same domain, 1 = truly separate domains)
+2. Data sources (0 = shared, 1 = different systems per capability)
+3. Team ownership (0 = same team, 1 = different teams)
+4. Reusability (0 = one-off, 1 = specialists reusable by others)
+5. Instruction size (0 = fits in 8000 chars, 1 = would exceed)
+6. Knowledge isolation (0 = shared knowledge, 1 = each needs own deep knowledge)
+
+Score 0-2 = single agent. Score 3+ = multi-agent.
+
+Component Selection — Microsoft-first priority ladder:
+Priority 1a: Work IQ (2 MCP servers cover all M365 data) — always prefer
+Priority 1b: Other MCS built-in MCP servers (Dataverse, Dynamics, Fabric, GitHub, etc.)
+Priority 2: Power Platform (Power Automate flows, Dataverse, custom connectors)
+Priority 3: Azure Services (Functions, AI, Storage)
+Priority 4: M365 Connectors (only if Work IQ unavailable)
+Priority 5: Certified Premium Connectors (ServiceNow, Salesforce)
+Priority 6: Third-Party / Custom (last resort)
+
+For each capability, recommend the best implementation approach: prompt-only, topic, tool/MCP, flow, or knowledge.
+
+Output valid JSON:
+{
+  "architecture": {
+    "scoring": [{"factor": "<name>", "score": 0|1, "reasoning": "<why>"}],
+    "totalScore": <0-6>,
+    "recommendation": "single-agent|multi-agent",
+    "agents": [{"name": "<agent>", "role": "<purpose>", "capabilities": ["<list>"]}]
+  },
+  "components": {
+    "integrations": [{"name": "<name>", "type": "mcp|connector|flow|custom-api", "priority": <1-6>, "purpose": "<what it enables>", "msFirstCheck": "<why this is the best MS-native option>"}],
+    "knowledge": [{"name": "<name>", "type": "sharepoint|website|file|dataverse", "scope": "<what it covers>"}],
+    "topics": [{"name": "<name>", "triggerType": "<type>", "reason": "<why a topic vs instructions>"}],
+    "flowsNeeded": [{"name": "<name>", "trigger": "<type>", "purpose": "<what it automates>"}]
+  },
+  "decisions": [{"question": "<decision point>", "options": [{"id": "<a|b|c>", "label": "<name>", "pros": ["<list>"], "cons": ["<list>"]}], "recommended": "<option id>", "reason": "<why>"}],
+  "gaps": ["<capabilities without clear implementation path>"],
+  "summary": "2-3 sentence overall assessment"
+}`,
+
+    'generate-flow': `You are an expert Power Automate flow designer for Microsoft Copilot Studio agent integrations. Given an agent brief, independently design complete flow specifications for capabilities that require Power Automate.
+
+Design rules:
+1. One flow per distinct automation — don't merge unrelated triggers
+2. Sync flows called from agents: max 120s timeout, String/Number/Boolean inputs/outputs only
+3. Always include error handling: try/catch scope, failure notification, meaningful error messages
+4. Prefer standard connectors over premium when equivalent capability exists
+5. Use compose actions for data transformation, not nested expressions
+6. Include retry policies for external API calls (exponential backoff, 3 retries)
+7. For scheduled flows: use recurrence trigger with appropriate frequency
+8. For event flows: use appropriate trigger (when item created, HTTP request, etc.)
+9. Document connector requirements (standard vs premium, OAuth vs API key)
+10. Include estimated execution time and throttling considerations
+
+For each flow, specify:
+- Trigger (type, configuration)
+- Actions (ordered steps with data flow between them)
+- Connectors (which ones, auth type, license tier)
+- Input/output schema (for agent-callable flows)
+- Error handling (failure paths, notifications)
+- Testing notes (how to validate the flow works)
+
+Output valid JSON:
+{
+  "flows": [
+    {
+      "name": "<flow name>",
+      "purpose": "<what this flow does>",
+      "capability": "<linked brief capability name>",
+      "trigger": {"type": "<trigger type>", "config": {}},
+      "inputs": [{"name": "<param>", "type": "String|Number|Boolean", "description": "<what>", "required": true|false}],
+      "outputs": [{"name": "<param>", "type": "String|Number|Boolean", "description": "<what>"}],
+      "actions": [{"step": <n>, "action": "<action name>", "connector": "<connector>", "description": "<what it does>", "dataFlow": "<where input comes from>"}],
+      "connectors": [{"name": "<connector>", "tier": "standard|premium", "auth": "<oauth|api-key|none>"}],
+      "errorHandling": {"strategy": "<try-catch|retry|both>", "failureAction": "<what happens on error>"},
+      "estimatedDuration": "<seconds>",
+      "syncCallable": true|false,
+      "testingNotes": "<how to validate>"
+    }
+  ],
+  "sharedConnectors": [{"name": "<connector>", "usedBy": ["<flow names>"], "tier": "standard|premium"}],
+  "summary": "2-3 sentence overall assessment",
+  "totalFlows": <number>
+}`,
+
+    'generate-fix': `You are an expert Microsoft Copilot Studio eval failure analyst. Given an agent brief with eval test results (including failures), independently analyze each failure and propose concrete fixes.
+
+Analysis rules:
+1. Classify root cause: instruction-gap, boundary-miss, topic-routing, tool-config, knowledge-gap, model-limitation, eval-issue
+2. For each failure, propose the MINIMUM change needed — don't over-fix
+3. Instruction edits: provide the exact text to add/change/remove, with character count impact
+4. Topic fixes: specify which node needs changes and what the change is
+5. Tool/connector fixes: specify configuration changes needed
+6. Knowledge fixes: specify what content is missing or misconfigured
+7. If the eval test itself is flawed (unrealistic expectation, wrong method), flag it as eval-issue
+8. Predict score improvement per fix (conservative estimate)
+9. Group related failures — one root cause may fix multiple tests
+10. Prioritize fixes by impact: boundary failures first, then quality, then edge-cases
+
+Output valid JSON:
+{
+  "analysis": [
+    {
+      "testId": "<test question or scenarioId>",
+      "evalSet": "<set name>",
+      "currentScore": <number|null>,
+      "rootCause": "instruction-gap|boundary-miss|topic-routing|tool-config|knowledge-gap|model-limitation|eval-issue",
+      "diagnosis": "<what went wrong and why>",
+      "fix": {
+        "type": "instruction-edit|topic-change|tool-add|tool-config|knowledge-add|eval-adjust|no-fix-needed",
+        "description": "<what to change>",
+        "exactChange": "<the specific text/config to add/modify/remove>",
+        "charImpact": <net chars added to instructions, 0 for non-instruction fixes>
+      },
+      "predictedScoreAfterFix": <number>,
+      "confidence": "high|medium|low"
+    }
+  ],
+  "groupedFixes": [
+    {
+      "rootCause": "<shared root cause>",
+      "affectedTests": ["<test IDs>"],
+      "singleFix": "<one fix that addresses all>",
+      "totalImpact": "<number of tests improved>"
+    }
+  ],
+  "summary": {
+    "totalFailures": <number>,
+    "fixable": <number>,
+    "evalIssues": <number>,
+    "modelLimitations": <number>,
+    "estimatedPassRateAfterFix": {"boundaries": "<N%>", "quality": "<N%>", "edge-cases": "<N%>"}
+  },
+  "prioritizedActions": ["<ordered list of fix actions, highest impact first>"]
+}`,
+
     'review-flow': `You are an expert Power Automate flow reviewer. Review the flow specification for correctness, completeness, and best practices.
 
 Check for:
@@ -617,6 +780,9 @@ function parseArgs() {
   node multi-model-review.js generate-instructions --brief <path>
   node multi-model-review.js generate-evals --brief <path>
   node multi-model-review.js generate-topics --topic-spec <path> [--brief <path>]
+  node multi-model-review.js generate-components --brief <path>
+  node multi-model-review.js generate-flow --brief <path> [--file <existing-spec>]
+  node multi-model-review.js generate-fix --brief <path>
 
   Scoring:
   node multi-model-review.js score --actual "<text>" --expected "<text>" [--method compare-meaning|general-quality]
@@ -995,6 +1161,201 @@ ${briefContext}`;
 
     const result = await chatCompletion([
         { role: 'system', content: PROMPTS['generate-topics'] + '\n\n' + context },
+        { role: 'user', content: userContent }
+    ], { maxTokens: 16384 });
+
+    const parsed = parseGptJson(result.content);
+    parsed._usage = result.usage;
+    parsed._cost = `$${result.cost.toFixed(4)}`;
+    console.log(JSON.stringify(parsed, null, 2));
+}
+
+async function generateComponents(config) {
+    if (!config.briefPath) {
+        console.error('Error: --brief <path> is required for generate-components');
+        process.exit(1);
+    }
+
+    const brief = JSON.parse(fs.readFileSync(config.briefPath, 'utf8'));
+    const context = buildContext('generate-components');
+
+    const capabilities = brief.capabilities || [];
+    const integrations = brief.integrations || [];
+    const knowledge = brief.knowledge || [];
+    const boundaries = brief.boundaries || {};
+    const architecture = brief.architecture || {};
+    const decisions = brief.decisions || [];
+    const topics = (brief.conversations && brief.conversations.topics) || [];
+
+    const userContent = `## Agent Brief — Generate Component Architecture
+
+### Identity
+- **Name:** ${brief.agentName || brief.name || 'Unnamed Agent'}
+- **Purpose:** ${brief.purpose || 'Not specified'}
+- **Model:** ${(brief.model || {}).name || (brief.model || {}).recommended || 'GPT-4o'}
+
+### Capabilities (${capabilities.length})
+${capabilities.map(c => `- **${c.name}**: ${c.description || ''} [phase: ${c.phase || 'mvp'}, type: ${c.implementationType || 'prompt'}]`).join('\n')}
+
+### Current Integrations (${integrations.length})
+${integrations.map(i => `- **${i.name}** (${i.type || 'unknown'}): ${i.description || ''} [priority: ${i.priority || 'unset'}]`).join('\n')}
+
+### Current Knowledge Sources (${knowledge.length})
+${knowledge.map(k => `- **${k.name}** (${k.type || 'unknown'}): ${k.description || k.scope || ''}`).join('\n')}
+
+### Boundaries
+- Handle: ${(boundaries.handle || []).join(', ') || 'none specified'}
+- Decline: ${(boundaries.decline || []).join(', ') || 'none specified'}
+
+### Current Architecture
+${architecture.type ? `- Type: ${architecture.type}, Score: ${architecture.score || 'unscored'}` : '- Not yet scored'}
+
+### Existing Decisions (${decisions.length})
+${decisions.map(d => `- [${d.status || 'pending'}] ${d.question || d.id}`).join('\n')}
+
+### Topics (${topics.length})
+${topics.map(t => `- **${t.name}** [type: ${t.topicType || 'custom'}]`).join('\n')}`;
+
+    const result = await chatCompletion([
+        { role: 'system', content: PROMPTS['generate-components'] + '\n\n' + context },
+        { role: 'user', content: userContent }
+    ], { maxTokens: 16384 });
+
+    const parsed = parseGptJson(result.content);
+    parsed._usage = result.usage;
+    parsed._cost = `$${result.cost.toFixed(4)}`;
+    console.log(JSON.stringify(parsed, null, 2));
+}
+
+async function generateFlow(config) {
+    if (!config.briefPath) {
+        console.error('Error: --brief <path> is required for generate-flow');
+        process.exit(1);
+    }
+
+    const brief = JSON.parse(fs.readFileSync(config.briefPath, 'utf8'));
+    const context = buildContext('generate-flow');
+
+    const capabilities = brief.capabilities || [];
+    const flowCapabilities = capabilities.filter(c => c.implementationType === 'flow' || c.implementationType === 'hybrid');
+    const integrations = brief.integrations || [];
+    const flowIntegrations = integrations.filter(i => i.type === 'flow' || i.type === 'connector');
+
+    // Include existing flow specs if present
+    let existingFlows = '';
+    if (config.filePath) {
+        try {
+            const flowContent = fs.readFileSync(config.filePath, 'utf8');
+            existingFlows = `\n\n### Existing Flow Specs (review and improve)\n\`\`\`\n${truncateToTokens(flowContent, 4000)}\n\`\`\``;
+        } catch { /* skip if unreadable */ }
+    }
+
+    const userContent = `## Agent Brief — Generate Flow Specifications
+
+### Agent
+- **Name:** ${brief.agentName || brief.name || 'Unnamed Agent'}
+- **Purpose:** ${brief.purpose || 'Not specified'}
+
+### Flow Capabilities (${flowCapabilities.length} of ${capabilities.length} total)
+${flowCapabilities.length > 0
+    ? flowCapabilities.map(c => `- **${c.name}**: ${c.description || ''} [phase: ${c.phase || 'mvp'}]`).join('\n')
+    : capabilities.map(c => `- **${c.name}**: ${c.description || ''} [phase: ${c.phase || 'mvp'}, type: ${c.implementationType || 'prompt'}]`).join('\n')}
+
+### Available Integrations (${flowIntegrations.length} flow-related of ${integrations.length} total)
+${integrations.map(i => `- **${i.name}** (${i.type || 'unknown'}): ${i.description || ''}`).join('\n')}
+
+### All Capabilities (for context)
+${capabilities.map(c => `- **${c.name}** [type: ${c.implementationType || 'prompt'}, phase: ${c.phase || 'mvp'}]`).join('\n')}${existingFlows}`;
+
+    const result = await chatCompletion([
+        { role: 'system', content: PROMPTS['generate-flow'] + '\n\n' + context },
+        { role: 'user', content: userContent }
+    ], { maxTokens: 16384 });
+
+    const parsed = parseGptJson(result.content);
+    parsed._usage = result.usage;
+    parsed._cost = `$${result.cost.toFixed(4)}`;
+    console.log(JSON.stringify(parsed, null, 2));
+}
+
+async function generateFix(config) {
+    if (!config.briefPath) {
+        console.error('Error: --brief <path> is required for generate-fix');
+        process.exit(1);
+    }
+
+    const brief = JSON.parse(fs.readFileSync(config.briefPath, 'utf8'));
+    const context = buildContext('generate-fix');
+
+    const evalSets = brief.evalSets || [];
+    const capabilities = brief.capabilities || [];
+    const integrations = brief.integrations || [];
+
+    // Collect failures from eval sets
+    const failures = [];
+    for (const set of evalSets) {
+        for (const test of (set.tests || [])) {
+            if (test.lastResult && test.lastResult.passed === false) {
+                failures.push({
+                    evalSet: set.name,
+                    passThreshold: set.passThreshold,
+                    question: test.question,
+                    expected: test.expected,
+                    actualResponse: test.lastResult.actualResponse || test.lastResult.response || '',
+                    score: test.lastResult.score != null ? test.lastResult.score : null,
+                    capability: test.capability || null,
+                    scenarioId: test.scenarioId || null,
+                    methods: test.methods || set.methods || []
+                });
+            }
+        }
+    }
+
+    if (failures.length === 0) {
+        console.log(JSON.stringify({
+            analysis: [],
+            groupedFixes: [],
+            summary: { totalFailures: 0, fixable: 0, evalIssues: 0, modelLimitations: 0, estimatedPassRateAfterFix: {} },
+            prioritizedActions: [],
+            _note: 'No failures found in evalSets. All tests passed or no results available.'
+        }, null, 2));
+        return;
+    }
+
+    // Include current instructions if available
+    let instructionsContext = '';
+    const instructions = brief.instructions || (brief.conversations && brief.conversations.instructions);
+    if (instructions) {
+        const instrText = typeof instructions === 'string' ? instructions : JSON.stringify(instructions);
+        instructionsContext = `\n\n### Current Instructions\n\`\`\`\n${truncateToTokens(instrText, 3000)}\n\`\`\``;
+    }
+
+    const userContent = `## Agent Brief — Generate Fixes for Eval Failures
+
+### Agent
+- **Name:** ${brief.agentName || brief.name || 'Unnamed Agent'}
+- **Purpose:** ${brief.purpose || 'Not specified'}
+
+### Capabilities (${capabilities.length})
+${capabilities.map(c => `- **${c.name}**: ${c.description || ''} [type: ${c.implementationType || 'prompt'}]`).join('\n')}
+
+### Integrations (${integrations.length})
+${integrations.map(i => `- **${i.name}** (${i.type || 'unknown'}): ${i.description || ''}`).join('\n')}
+${instructionsContext}
+
+### Failed Tests (${failures.length} failures)
+${failures.map((f, i) => `
+**Failure ${i + 1}** [${f.evalSet}, threshold: ${f.passThreshold}%]
+- Question: "${f.question}"
+- Expected: "${f.expected}"
+- Actual: "${truncateToTokens(f.actualResponse, 200)}"
+- Score: ${f.score != null ? f.score : 'not scored'}
+- Capability: ${f.capability || 'unlinked'}
+- Root cause category: TBD
+`).join('\n')}`;
+
+    const result = await chatCompletion([
+        { role: 'system', content: PROMPTS['generate-fix'] + '\n\n' + context },
         { role: 'user', content: userContent }
     ], { maxTokens: 16384 });
 
@@ -1697,6 +2058,15 @@ async function main() {
                 break;
             case 'generate-topics':
                 await generateTopics(config);
+                break;
+            case 'generate-components':
+                await generateComponents(config);
+                break;
+            case 'generate-flow':
+                await generateFlow(config);
+                break;
+            case 'generate-fix':
+                await generateFix(config);
                 break;
             case 'score':
                 await scoreResponse(config);

@@ -35,9 +35,9 @@
 ## Deployment Steps
 {If not yet deployed:}
 1. Verify pre-deployment checklist above
-2. Run: /mcs-deploy {projectId} {agentId}
+2. Export solution via PAC CLI or replicate agent via tools/replicate-agent.js
 3. Complete connection mapping in target MCS
-4. Run smoke test: /mcs-eval {projectId} {agentId} --set safety
+4. Run smoke test in target environment
 5. Configure channels in target environment
 
 {If already deployed:}

@@ -1,6 +1,6 @@
 ---
 name: mcs-build
-description: "Use this skill to build an agent in Copilot Studio from a researched brief.json. Creates the agent, configures instructions, knowledge, tools, model, topics, and publishes. Supports single-agent, multi-agent, and connected-agent architectures. Use after /mcs-research when brief.json is ready, or to resume a partially completed build."
+description: "Use this skill to build an agent in Copilot Studio from a researched brief.json. Runs pre-build validation (auth, env, connections, tools, model), then creates the agent, configures instructions, knowledge, tools, model, topics, and publishes. Supports single-agent, multi-agent, and connected-agent architectures. Use after /mcs-research when brief.json is ready, or to resume a partially completed build."
 ---
 
 # MCS Agent Builder — Unified Hybrid Build Stack
@@ -26,7 +26,8 @@ These rules apply to every build step, because unverified changes silently accum
 ## Input
 
 ```
-/mcs-build {projectId} {agentId}
+/mcs-build {projectId} {agentId}              # Full build (includes full guard)
+/mcs-build {projectId} {agentId} --quick      # Quick guard (auth + env only, skip connection/knowledge/tool/model checks)
 ```
 
 Reads from:
@@ -80,17 +81,141 @@ After Step 1 (create agent): update `mcsAgentId`, `botSchemaName`, `gptComponent
 
 ---
 
-## Step 0.95: Pre-flight Validation
+## Phase 0: Pre-Build Validation (Guard)
 
-Verify all build prerequisites before starting expensive operations. Every check uses buildStatus fields from Step 0.9:
+Validate all prerequisites before expensive operations begin. Catches auth failures, missing connections, unreachable knowledge sources, and model gaps that would otherwise waste build time. Runs automatically at the start of every build — no separate guard step needed.
 
-1. **Token check**: `az account get-access-token --resource <dataverseUrl>` — must succeed
-2. **Environment reachable**: `GET bots?$top=1` — HTTP 200
-3. **Workspace valid** (if resume): `workspacePath` directory exists with `.mcs/conn.json`
-4. **Agent exists** (if resume): `GET bots(<mcsAgentId>)` — HTTP 200
+Supports two modes:
+- **Full** (default): all 7 checks
+- **Quick** (`--quick` flag on `/mcs-build`): checks 1-3 only (auth + env + PAC)
+
+Each check produces `pass`, `warn`, `fail`, or `skipped` (when a dependency check failed). Run all checks even if early ones fail — report everything at once.
+
+### Check 1: Azure CLI Auth
+
+Validates current Azure CLI session is authenticated to the correct tenant.
+
+```bash
+az account show --query "{user:user.name, tenant:tenantId}" -o json
+az account get-access-token --resource https://{org}.crm.dynamics.com --query accessToken -o tsv
+```
+
+| Result | Criteria |
+|--------|----------|
+| `pass` | Signed in, token acquired, tenant matches brief/session-config |
+| `warn` | Signed in but tenant can't be confirmed, or token expires within 10 min |
+| `fail` | Not signed in, token acquisition fails, or tenant mismatch |
+
+If fail: stop checks that depend on Dataverse. Report: "Run `az login --tenant {tenantId}` to authenticate."
+
+### Check 2: Environment Reachability
+
+Validates target Dataverse environment responds.
+
+```bash
+node -e "const {get} = require('./tools/lib/http'); get('{dvUrl}/api/data/v9.2/WhoAmI').then(r => console.log(JSON.stringify(r)))"
+```
+
+| Result | Criteria |
+|--------|----------|
+| `pass` | WhoAmI succeeds, environment URL matches brief |
+| `warn` | Responds but with throttling (429) or slow (>5s) |
+| `fail` | Unreachable, 401/403, DNS failure, or env doesn't exist |
+
+### Check 3: PAC CLI Profile
+
+Validates PAC CLI targets the same environment. `pac auth list` + `pac env who`.
+
+| Result | Criteria |
+|--------|----------|
+| `pass` | Active profile matches target environment |
+| `warn` | PAC available but no profile selected |
+| `fail` | PAC CLI not installed or unreachable |
+
+PAC CLI failure is always a `warn` for overall status (API fallback exists).
+
+### Check 4: Required Connections
+
+Validates all connections from `brief.json.integrations[]` exist in the target environment.
+
+1. Read `brief.json.integrations[]` — extract required connector names
+2. Run `add-tool.js discover-connections --dataverse-url <url>`
+3. Match each required integration against discovered connections
+
+| Result | Criteria |
+|--------|----------|
+| `pass` | All required connections found and in usable state |
+| `warn` | Connection exists but status unknown or needs re-auth |
+| `fail` | One or more required connections missing |
+
+If fail: report which connections are missing with manual creation instructions.
+
+### Check 5: Knowledge Sources Accessibility
+
+Validates all knowledge sources from `brief.json.knowledge[]` are reachable.
+
+- **Public URLs:** HTTP HEAD request, check for 200/301/302
+- **SharePoint sites:** Graph API `GET /sites/{hostname}:/{path}`
+- **Dataverse files:** Check `annotation` table for file existence
+
+### Check 6: Tool / MCP Server Availability
+
+Validates all tools from `brief.json.tools[]` are configured and responsive.
+
+1. Read `brief.json.tools[]` — extract tool names and types
+2. For MCP servers: check `add-tool.js list-connections` output
+3. For Work IQ servers: verify Work IQ MCP is configured
+
+### Check 7: Model Availability
+
+Validates requested AI model is available for the target environment.
+
+```bash
+node tools/island-client.js list-models --env {envUrl}
+```
+
+Match `brief.json.model.name` against available models.
+
+### Guard Output
+
+Write results to `brief.json.guardReport`:
+
+```json
+{
+  "guardReport": {
+    "status": "pass|warn|fail",
+    "mode": "full|quick",
+    "checkedAt": "2026-03-31T12:00:00Z",
+    "checks": [{ "name": "...", "status": "...", "summary": "...", "evidence": [], "fix": null }],
+    "blockingIssues": [],
+    "warnings": [],
+    "nextAction": "..."
+  }
+}
+```
+
+**Status precedence:** `fail` > `warn` > `pass`. Any hard fail = overall fail.
+
+- **All pass:** proceed to Step 1
+- **Warnings only:** log warnings, proceed
+- **Any fail:** stop build, report blocking issues with remediation steps
+
+### Guard Progress Markers
+
+```
+##PROGRESS## {"step":"guard-auth","label":"Checking Azure CLI auth","status":"running"}
+##PROGRESS## {"step":"guard-env","label":"Checking environment","status":"running"}
+##PROGRESS## {"step":"guard-connections","label":"Checking connections","status":"running"}
+##PROGRESS## {"step":"guard-knowledge","label":"Checking knowledge sources","status":"running"}
+##PROGRESS## {"step":"guard-tools","label":"Checking tools/MCP","status":"running"}
+##PROGRESS## {"step":"guard-model","label":"Checking model availability","status":"running"}
+```
+
+### Brief Completeness (always runs, even in quick mode)
+
 5. **Brief completeness**: instructions non-empty and < 8000 chars, agent name non-empty, agent description present (warn if missing), at least 1 MVP capability
 
-If checks 1-4 fail, stop with a clear error and remediation steps. If check 5 has warnings, log them and proceed (quality issues, not blockers). If workspace is missing, clear `workspacePath` and re-clone in Step 1e. If agent was deleted, clear `mcsAgentId` and re-create in Step 1.
+If workspace is missing, clear `workspacePath` and re-clone in Step 1e. If agent was deleted, clear `mcsAgentId` and re-create in Step 1.
 
 ---
 
@@ -373,10 +498,6 @@ Write the complete buildStatus. Most fields were written incrementally during ch
   }
 }
 ```
-
-### Step 7: Offer Library Upload (Optional)
-
-After buildStatus is finalized, if `status == "published"` and QA verdict is not FAIL, offer: "Upload this agent to the team solution library?" If yes, run `solution-library.js upload`. This exports the solution, generates a design-spec.md, uploads to SharePoint, and auto-indexes in `solutions/index.json`. Skip if build failed or no SharePoint auth.
 
 ---
 

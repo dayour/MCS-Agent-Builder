@@ -4,7 +4,6 @@ paths:
   - ".claude/skills/mcs-build/**"
   - ".claude/skills/mcs-eval/**"
   - ".claude/skills/mcs-fix/**"
-  - ".claude/skills/mcs-retro/**"
   - "knowledge/**"
 ---
 
@@ -140,5 +139,3 @@ Learnings are consulted at these specific points across all workflow skills beca
 | `/mcs-build` | Before Step 4 (topics) | `topics-triggers.md` |
 | `/mcs-eval` | Before Step 2 (run evaluation) | `eval-testing.md` |
 | `/mcs-fix` | Step 2 (classify failures) | `eval-testing.md`, `instructions.md`, `topics-triggers.md` |
-| `/mcs-retro` | Step 1.5 (library consultation) | `solutions/index.json`, `solutions/cache/*.json` |
-| `/mcs-retro` | All steps (collect + compare) | All learnings files + `index.json` + all cache files |

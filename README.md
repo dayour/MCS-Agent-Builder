@@ -82,16 +82,10 @@ The dashboard shows everything in real-time with an embedded Claude Code termina
 /mcs-init ProjectName                    Create project, detect SDR files
 /mcs-context CustomerName                Pull M365 history (emails, meetings, docs, Teams)
 /mcs-research ProjectName                Full research + architecture + eval generation
-/mcs-guard ProjectName agentId           Pre-build validation (auth, env, connections, model)
-/mcs-build ProjectName agentId           Build agent(s) in Copilot Studio
+/mcs-build ProjectName agentId           Pre-build validation (guard) + build agent(s) in Copilot Studio
 /mcs-eval ProjectName agentId            Run eval tests, write results
 /mcs-fix ProjectName agentId             Fix eval failures, re-evaluate
-/mcs-deploy ProjectName agentId          Deploy to target environment
-/mcs-observe ProjectName agentId         Post-deploy health monitoring
-/mcs-drift ProjectName agentId           Detect brief-vs-live agent drift
 /mcs-report ProjectName agentId          Generate reports (brief/build/customer/deployment)
-/mcs-retro                               Capture session learnings
-/mcs-library list                        Browse team solution library
 /mcs-refresh                             Refresh knowledge cache
 ```
 
@@ -164,8 +158,7 @@ Complex builds use 7 AI teammates + GPT-5.4 that challenge each other's work:
 | **Topic Engineer** | Generates YAML topics + adaptive cards |
 | **QA Challenger** | Reviews all outputs, challenges claims, generates eval sets |
 | **Flow Designer** | Designs Power Automate flow specs |
-| **Repo Checker** | Validates repo integrity after changes |
-| **Repo Optimizer** | Finds dead code, duplication, bloat |
+| **Repo Auditor** | Validates repo integrity + finds dead code, duplication, bloat |
 | **GPT-5.4** | Parallel second opinion on every review (via Copilot API) |
 
 You interact with the lead only. The lead delegates, teammates debate and iterate, then the lead executes validated outputs in Copilot Studio.

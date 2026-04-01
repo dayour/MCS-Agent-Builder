@@ -21,13 +21,12 @@ Enabled via: `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` in `.claude/settings.json`
 | Prompt Engineer | Write MCS agent instructions + review/sharpen skill files | Sharp instructions, correct `/` references | `generate-instructions` co-gen + merge |
 | Topic Engineer | Generate validated YAML topics + adaptive cards | Syntax-correct YAML, channel-safe cards | `generate-topics` co-gen for 3+ node topics |
 | QA Challenger | Review all outputs, find gaps, challenge claims | Catches errors before they hit MCS | `generate-evals` co-gen + all `review-*` commands |
-| Repo Checker | Validate repo integrity after changes | Catches broken paths, stale docs, drift | `review-code` on changed files + semantic consistency |
-| Repo Optimizer | Audit repo for dead code, duplication, bloat | Catches waste before it accumulates | `review-code` for dead code + complexity analysis |
+| Repo Auditor | Validate repo integrity + find dead code, duplication, bloat | Catches broken refs, drift, and waste | `review-code` on changed files + semantic consistency |
 | Flow Designer | Design Power Automate flow specs from brief.json capabilities | Actionable flow specs with triggers, actions, connectors | `review-flow` before returning specs |
 
 Every teammate has GPT-5.4 access via `tools/multi-model-review.js`. Teammates follow the same merge protocol: union of findings, stricter wins, and GPT is never blocking because if it is unavailable Claude proceeds alone.
 
-Definitions: `.claude/agents/` (research-analyst.md, prompt-engineer.md, topic-engineer.md, qa-challenger.md, repo-checker.md, repo-optimizer.md, flow-designer.md)
+Definitions: `.claude/agents/` (research-analyst.md, prompt-engineer.md, topic-engineer.md, qa-challenger.md, repo-auditor.md, flow-designer.md)
 
 ## When to Use Agent Teams
 
@@ -50,7 +49,7 @@ GPT runs in parallel with every Claude generation and review at zero added laten
 | Fix | PE: `generate-instructions` (co-gen for fix proposals), TE: `generate-topics` (co-gen for topic fixes) |
 
 **During general development (Tier 2-3 checks):**
-- Tier 2: Repo Checker in background after 3+ file changes or code changes
+- Tier 2: Repo Auditor in background after 3+ file changes or code changes
 - Tier 3: QA Challenger before irreversible decisions (schema, workflow, architecture)
 
 ## Workflow: Lead + Teammates
@@ -90,7 +89,7 @@ Quality checks scale with risk. Not every response needs a full team debate.
 After any batch of edits, do a quick inline verification: grep for broken references, re-read changed files, verify cross-references. Takes 10-20 seconds and catches obvious issues. No teammate needed.
 
 **Tier 2: Background Repo Check (after significant changes)**
-After changing 3+ files or any code changes, spawn Repo Checker in background. It runs async so work continues unblocked. Results come back in approximately 60 seconds. Fix issues if found.
+After changing 3+ files or any code changes, spawn Repo Auditor in background. It runs async so work continues unblocked. Results come back in approximately 60 seconds. Fix issues if found.
 
 **Tier 3: QA Challenge (before irreversible decisions only)**
 Before committing to designs that are hard to undo (schema changes, workflow redesign, architecture decisions affecting multiple files), QA Challenger reviews and challenges the approach. This blocks work but is worth the wait for high-impact decisions.
@@ -98,8 +97,8 @@ Before committing to designs that are hard to undo (schema changes, workflow red
 | Trigger | Tier | Blocks Work? |
 |---------|------|-------------|
 | Any file edits | Tier 1: self-check (grep + re-read) | No -- inline, 10 sec |
-| 3+ file changes or code changes | Tier 2: Repo Checker in background | No -- runs async |
+| 3+ file changes or code changes | Tier 2: Repo Auditor in background | No -- runs async |
 | Schema change, workflow redesign, architecture decision | Tier 3: QA Challenger | Yes -- worth the 2-3 min |
-| Before any commit | Tier 2: Repo Checker | No -- runs async |
-| Before commits / weekly | Tier 2: Repo Optimizer in background | No -- runs async |
+| Before any commit | Tier 2: Repo Auditor | No -- runs async |
+| Before commits / weekly | Tier 2: Repo Auditor in background | No -- runs async |
 | Simple answer, status check, brainstorming | None | -- |
