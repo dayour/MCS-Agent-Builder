@@ -36,14 +36,9 @@ Fire GPT-5.4 in parallel with your work for every non-trivial task because dual-
 
 ## When to Skip GPT
 
-Skip GPT for these lightweight operations because the overhead outweighs the benefit:
+GPT fires on **everything** — the only valid skip reason is GPT being unavailable (exit code 3), in which case proceed with Claude alone. There are no task-size exceptions. Even simple questions, single-line fixes, and status checks get GPT as a second opinion. Fire GPT as a background agent so it never blocks the response.
 
-- Single-line fixes, typos, trivial renames
-- Pure git operations (commit, push, branch)
-- File reads, searches, status checks
-- Trivial topics (fewer than 3 nodes) -- co-generation skipped, though review still runs
-- Incremental instruction deltas (not full rewrites)
-- When GPT is unavailable (exit code 3) -- proceed without it
+**How to fire GPT on non-code tasks:** Use `chatCompletion()` via a background agent with a one-shot prompt. For code changes, use `review-code`. For questions/decisions/planning, spawn a background agent that calls `chatCompletion()` with the user's question and relevant context, then merge its response when it returns.
 
 ## Merge Protocol for Co-Generation
 

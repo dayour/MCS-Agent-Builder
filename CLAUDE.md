@@ -50,7 +50,7 @@ Fire GPT-5.4 in parallel with your own work on every task that is not a single-l
 | Architecture/design decisions | GPT gives a second opinion | Send context, get alternative perspective |
 | All other non-trivial tasks | GPT reviews after completion | Appropriate `review-*` command |
 
-**Skip only:** single-line fixes, typos, git ops, file reads, status checks, GPT unavailable (exit code 3).
+**Skip only:** GPT unavailable (exit code 3). No other exceptions — fire GPT on everything, including simple questions and single-line fixes.
 
 **For code changes:** fire `review-code --file <path>` on each file as you write it — not batched at the end. For multi-file changes, review the first 2-3 files, fix issues, then continue.
 
@@ -58,7 +58,7 @@ Fire GPT-5.4 in parallel with your own work on every task that is not a single-l
 
 **Merge protocol:** union of findings from both models, stricter assessment wins on conflicts, flag divergence for the user. Full merge rules for co-generation (instructions/topics/evals) in `.claude/rules/gpt-co-generation.md`.
 
-**How it works:** GPT-5.4 via GitHub Copilot Responses API (`tools/lib/openai.js`). Auth: `gh auth token` with `copilot` scope. CLI: `tools/multi-model-review.js` (14 commands). If GPT fails, proceed with Claude alone — never block on GPT.
+**How it works:** GPT-5.4 via GitHub Copilot Responses API (`tools/lib/openai.js`). Auth: `gh auth token` with `copilot` scope. CLI: `tools/multi-model-review.js` (15 commands — 3 co-gen + 7 review + 1 scoring + 1 ask + 1 learn + 2 utility). For ad-hoc questions: `ask -q "<question>"`. If GPT fails, proceed with Claude alone — never block on GPT.
 
 ---
 

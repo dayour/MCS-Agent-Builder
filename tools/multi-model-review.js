@@ -25,6 +25,9 @@
  *   Scoring:
  *   node tools/multi-model-review.js score --actual "<text>" --expected "<text>" [--method compare-meaning|general-quality]
  *
+ *   Ad-hoc query:
+ *   node tools/multi-model-review.js ask --question "<text>" [--context "<desc>"] [--file <path>]...
+ *
  *   Review memory:
  *   node tools/multi-model-review.js learn --pattern "<description>" --severity <high|medium|low>
  *
@@ -47,6 +50,7 @@ const EFFORT_TIERS = {
     'score': 'none',
     'review-code': 'none',
     'learn': 'none',
+    'ask': 'none',
     // Standard reviews — moderate reasoning for analysis
     'review-instructions': 'medium',
     'review-topics': 'medium',
@@ -609,6 +613,9 @@ function parseArgs() {
   Scoring:
   node multi-model-review.js score --actual "<text>" --expected "<text>" [--method compare-meaning|general-quality]
 
+  Ad-hoc query:
+  node multi-model-review.js ask --question "<text>" [--context "<text>"] [--file <path>]...
+
   Review memory:
   node multi-model-review.js learn --pattern "<description>" --severity <high|medium|low>
 
@@ -634,6 +641,7 @@ Setup:    gh auth login && gh auth refresh --scopes copilot`);
             case '--expected': config.expected = args[++i]; break;
             case '--method': config.method = args[++i]; break;
             case '--with': config.withFiles.push(args[++i]); break;
+            case '--question': case '-q': config.question = args[++i]; break;
             case '--pattern': config.pattern = args[++i]; break;
             case '--severity': config.severity = args[++i]; break;
             case '--verbose': config.verbose = true; break;
@@ -1421,6 +1429,57 @@ function learnPattern(config) {
     }, null, 2));
 }
 
+/**
+ * Ad-hoc GPT query — ask any question with optional file context.
+ * Returns GPT's response as JSON { answer, files_reviewed }.
+ */
+async function askGpt(config) {
+    if (!config.question) {
+        console.error('--question or -q is required for the ask command');
+        process.exit(1);
+    }
+
+    const messages = [
+        {
+            role: 'system',
+            content: 'You are GPT-5.4, a senior software engineer providing a second opinion. Be concise, direct, and specific. If you disagree with something, say so clearly and explain why. Return your response as JSON: { "answer": "<your response>", "files_reviewed": [<list of files if any>] }'
+        }
+    ];
+
+    // Add file context if provided
+    const files = config.withFiles || [];
+    if (config.filePath) files.unshift(config.filePath);
+
+    let fileContext = '';
+    for (const f of files) {
+        try {
+            const content = fs.readFileSync(f, 'utf8');
+            const tokens = estimateTokens(content);
+            fileContext += `\n--- ${f} (${tokens} tokens) ---\n${truncateToTokens(content, 4000)}\n`;
+        } catch { /* skip unreadable files */ }
+    }
+
+    let userMsg = config.question;
+    if (config.contextDesc) userMsg += `\n\nContext: ${config.contextDesc}`;
+    if (fileContext) userMsg += `\n\nFiles:\n${fileContext}`;
+
+    messages.push({ role: 'user', content: userMsg });
+
+    const result = await chatCompletion(messages);
+
+    // chatCompletion returns { content: string, usage, cost }
+    let parsed;
+    try {
+        parsed = parseGptJson(result.content);
+    } catch {
+        parsed = { answer: result.content, files_reviewed: files };
+    }
+    if (!parsed.files_reviewed) parsed.files_reviewed = files;
+    parsed._usage = result.usage;
+
+    console.log(JSON.stringify(parsed, null, 2));
+}
+
 function showUsage() {
     const summary = getUsageSummary();
     const method = getActiveMethod();
@@ -1508,6 +1567,9 @@ async function main() {
                 break;
             case 'score':
                 await scoreResponse(config);
+                break;
+            case 'ask':
+                await askGpt(config);
                 break;
             default:
                 console.error(`Unknown command: ${config.command}`);
