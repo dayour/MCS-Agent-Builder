@@ -38,8 +38,38 @@ const fs = require('fs');
 const path = require('path');
 const { isConfigured, chatCompletion: _rawChat, estimateTokens, getUsageSummary, getActiveMethod } = require('./lib/openai');
 
-// Reviews and co-generation use high reasoning effort for better quality
-const chatCompletion = (messages, options = {}) => _rawChat(messages, { reasoningEffort: 'high', ...options });
+// --- Reasoning Effort Tiers ---
+// Not everything needs 'high' reasoning. High effort burns reasoning tokens that eat into
+// the output budget (causing empty/truncated responses) and is 3x slower than 'none'.
+// Tier by task complexity: none for lightweight, medium for reviews, high only for generation.
+const EFFORT_TIERS = {
+    // Lightweight — fast, no reasoning overhead
+    'score': 'none',
+    'review-code': 'none',
+    'learn': 'none',
+    // Standard reviews — moderate reasoning for analysis
+    'review-instructions': 'medium',
+    'review-topics': 'medium',
+    'review-brief': 'medium',
+    'review-flow': 'medium',
+    'review-components': 'medium',
+    // Heavy — co-generation and final quality gate need deep reasoning
+    'generate-instructions': 'high',
+    'generate-evals': 'high',
+    'generate-topics': 'high',
+    'review-merged': 'high',
+};
+
+let _currentCommand = null;
+
+/**
+ * Command-aware chat completion. Automatically applies the right reasoning effort
+ * based on the current command type, unless explicitly overridden.
+ */
+const chatCompletion = (messages, options = {}) => {
+    const effort = options.reasoningEffort || EFFORT_TIERS[_currentCommand] || 'medium';
+    return _rawChat(messages, { reasoningEffort: effort, ...options });
+};
 
 // --- Knowledge file mapping per command ---
 const KNOWLEDGE_DIR = path.resolve(__dirname, '../knowledge');
@@ -213,7 +243,32 @@ const FILE_TYPE_CHECKS = [
 /**
  * Build the system context (MCS primer + command-specific knowledge files).
  */
+// --- Knowledge Context Budget ---
+// Larger context burns more tokens/minute against the rate limit and increases latency.
+// Budget varies by effort tier: lightweight commands get less context (they don't need it),
+// heavy co-generation gets more (quality matters more than speed).
+const CONTEXT_TOKEN_BUDGETS = {
+    none: 3000,    // review-code, score — fast, minimal context
+    medium: 6000,  // reviews — moderate context
+    high: 10000,   // co-generation, review-merged — full context
+};
+
+/**
+ * Truncate text to approximately `maxTokens` tokens, preserving the beginning
+ * (most important) and appending a truncation notice.
+ */
+function truncateToTokens(text, maxTokens) {
+    const estimated = estimateTokens(text);
+    if (estimated <= maxTokens) return text;
+    // chars/4 ≈ tokens, so maxTokens * 4 ≈ chars to keep
+    const maxChars = maxTokens * 4;
+    return text.slice(0, maxChars) + '\n\n[... truncated for token budget — see full file in knowledge/cache/ ...]';
+}
+
 function buildContext(command) {
+    const effort = EFFORT_TIERS[command] || 'medium';
+    const totalBudget = CONTEXT_TOKEN_BUDGETS[effort] || 6000;
+
     const primerPath = path.resolve(KNOWLEDGE_DIR, 'cache/mcs-primer-gpt.md');
     let primer = '';
     try {
@@ -221,6 +276,11 @@ function buildContext(command) {
     } catch {
         primer = '# MCS Primer not found — proceeding without domain context.';
     }
+
+    // Reserve 40% of budget for primer, 60% for knowledge files
+    const primerBudget = Math.floor(totalBudget * 0.4);
+    const knowledgeBudget = totalBudget - primerBudget;
+    primer = truncateToTokens(primer, primerBudget);
 
     const files = KNOWLEDGE_MAP[command] || [];
     const sections = [];
@@ -233,7 +293,12 @@ function buildContext(command) {
         }
     }
 
-    const knowledge = sections.join('\n\n---\n\n');
+    if (sections.length === 0) return primer;
+
+    // Distribute knowledge budget evenly across files, then truncate each
+    const perFileBudget = Math.floor(knowledgeBudget / sections.length);
+    const trimmedSections = sections.map(s => truncateToTokens(s, perFileBudget));
+    const knowledge = trimmedSections.join('\n\n---\n\n');
     return `${primer}\n\n---\n\n${knowledge}`;
 }
 
@@ -1370,15 +1435,21 @@ function showUsage() {
             calls: summary.calls,
             inputTokens: summary.inputTokens,
             outputTokens: summary.outputTokens,
+            reasoningTokens: summary.reasoningTokens,
             totalTokens: summary.inputTokens + summary.outputTokens,
             estimatedCost: `$${summary.cost.toFixed(4)}`
-        }
+        },
+        cache: summary.cache,
+        throttle: summary.throttle
     }, null, 2));
 }
 
 // --- Main ---
 async function main() {
     const config = parseArgs();
+
+    // Set current command for effort tier lookup
+    _currentCommand = config.command;
 
     // These commands don't need GPT configured for API calls
     if (config.command === 'usage') {
