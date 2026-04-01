@@ -17,7 +17,11 @@ const { QuestionDetector } = require('./question-detector');
 const { AnswerEngine } = require('./answer-engine');
 const { generateBriefing, estimateTokenCount } = require('./briefing-generator');
 
-const STATES = ['idle', 'preparing', 'ready', 'capturing', 'active', 'stopped'];
+// Sentence accumulation tuning — ignore Whisper punctuation (it adds periods to every chunk).
+// Instead, flush based on time gaps and buffer duration.
+const SENTENCE_MIN_BUFFER_MS = 5000;    // Don't flush until at least 5s of speech accumulated
+const SENTENCE_MAX_BUFFER_MS = 12000;   // Force flush after 12s regardless
+const SENTENCE_SILENCE_GAP_MS = 3000;   // Flush if 3s gap between chunks (speaker paused)
 
 class MeetingSession extends EventEmitter {
   constructor(options = {}) {
@@ -43,13 +47,22 @@ class MeetingSession extends EventEmitter {
     this.transcript = [];
     this.suggestions = [];
 
+    // Mic mode — when true, mic audio is completely disabled (privacy/CPU saving).
+    // Default: false. Mic audio is always transcribed for AI context but never displayed.
+    this.micDisabled = false;
+
+    // Sentence accumulator — buffers per speaker until silence gap, duration threshold, or speaker change
+    this._sentenceBuffer = { speaker: null, text: '', timestamp: null, lastChunkAt: null, timer: null, gen: 0 };
+    this._entrySeq = 0; // monotonic ID for transcript entries
+
     // Wire up events
     this._wireEvents();
   }
 
   _wireEvents() {
-    // Audio → Transcription
+    // Audio → Transcription (skip mic only when explicitly disabled)
     this.audioBridge.on('audio', ({ stream, data }) => {
+      if (stream === 'mic' && this.micDisabled) return;
       this.transcription.feedAudio(data, stream);
     });
 
@@ -69,11 +82,9 @@ class MeetingSession extends EventEmitter {
       this._emitEvent('audio_error', err);
     });
 
-    // Transcription → Question Detector + Transcript Store
+    // Transcription → Sentence Accumulator → Question Detector + Transcript Store
     this.transcription.on('transcript', (entry) => {
-      this.transcript.push(entry);
-      this._emitEvent('transcript', entry);
-      this.questionDetector.process(entry);
+      this._accumulateSentence(entry);
     });
 
     this.transcription.on('status', (status) => {
@@ -126,6 +137,90 @@ class MeetingSession extends EventEmitter {
       console.error('[meeting] Answer engine error:', err);
       this._emitEvent('answer_error', { error: String(err?.message || err) });
     });
+  }
+
+  /**
+   * Accumulate transcript chunks into longer, sentence-level entries.
+   *
+   * Whisper adds punctuation to every 2.5s chunk, so we can't rely on
+   * sentence boundaries. Instead flush based on:
+   *   1. Speaker change — flush previous speaker's buffer
+   *   2. Silence gap — if >3s since last chunk from same speaker, they paused
+   *   3. Max duration — force flush after 12s to keep lines from growing too long
+   *   4. Silence timeout — if no new chunk arrives within 3s, speaker stopped talking
+   */
+  _accumulateSentence(entry) {
+    const buf = this._sentenceBuffer;
+    const now = Date.now();
+
+    // Speaker changed — flush what we have, then start new buffer
+    if (buf.speaker && buf.speaker !== entry.speaker && buf.text) {
+      this._flushSentenceBuffer();
+    }
+
+    // Silence gap — if same speaker but long pause between chunks, flush first
+    if (buf.speaker === entry.speaker && buf.lastChunkAt &&
+        (now - buf.lastChunkAt) > SENTENCE_SILENCE_GAP_MS && buf.text) {
+      this._flushSentenceBuffer();
+    }
+
+    // Append to buffer
+    if (!buf.speaker) {
+      buf.speaker = entry.speaker;
+      buf.timestamp = entry.timestamp;
+    }
+    buf.text = buf.text ? (buf.text + ' ' + entry.text) : entry.text;
+    buf.lastChunkAt = now;
+
+    // Always feed raw entries to question detector (needs per-chunk for low latency)
+    this.questionDetector.process(entry);
+
+    // Max duration reached — force flush
+    const bufferAge = now - buf.timestamp;
+    if (bufferAge >= SENTENCE_MAX_BUFFER_MS) {
+      this._flushSentenceBuffer();
+      return;
+    }
+
+    // Reset silence timeout — flush if speaker stops talking for 3s
+    if (buf.timer) clearTimeout(buf.timer);
+    const gen = buf.gen;
+    buf.timer = setTimeout(() => {
+      if (this._sentenceBuffer.gen === gen) this._flushSentenceBuffer();
+    }, SENTENCE_SILENCE_GAP_MS);
+  }
+
+  /**
+   * Flush the sentence buffer — emit accumulated text as one transcript entry.
+   */
+  _flushSentenceBuffer() {
+    const buf = this._sentenceBuffer;
+    if (buf.timer) { clearTimeout(buf.timer); buf.timer = null; }
+    if (!buf.text || !buf.speaker) { return; }
+
+    const merged = {
+      id: `t_${++this._entrySeq}`,
+      speaker: buf.speaker,
+      text: buf.text.trim(),
+      timestamp: buf.timestamp,
+      duration: Date.now() - buf.timestamp,
+      final: true
+    };
+
+    // Always store in transcript (used by post-meeting analysis for full context)
+    this.transcript.push(merged);
+
+    // Only emit to UI for customer entries — mic entries provide silent AI context
+    if (merged.speaker === 'customer') {
+      this._emitEvent('transcript', merged);
+    }
+
+    // Reset
+    buf.speaker = null;
+    buf.text = '';
+    buf.timestamp = null;
+    buf.lastChunkAt = null;
+    buf.gen++;
   }
 
   /**
@@ -228,10 +323,13 @@ class MeetingSession extends EventEmitter {
       console.error('[meeting] Audio stop error:', err.message);
     }
 
-    // Then stop transcription (waits for in-flight inference)
+    // Then stop transcription (waits for in-flight inference + flushes remaining audio)
     try { await this.transcription.stop(); } catch (err) {
       console.error('[meeting] Transcription stop error:', err.message);
     }
+
+    // Flush sentence buffer AFTER transcription stop — captures any final chunks
+    this._flushSentenceBuffer();
 
     // Cancel any in-flight answer generation and clean up question detector timers
     try { this.answerEngine.cancelAnswer(); } catch {}
@@ -261,6 +359,20 @@ class MeetingSession extends EventEmitter {
    */
   setAnswerModel(model) {
     this.answerEngine.setModel(model);
+  }
+
+  /**
+   * Toggle mic capture. When disabled, mic audio is completely ignored
+   * (saves CPU, or for privacy in sensitive meetings).
+   * Default: enabled — mic is transcribed silently for AI context.
+   * @param {boolean} disabled
+   */
+  setMicDisabled(disabled) {
+    this.micDisabled = !!disabled;
+    if (this.micDisabled) {
+      this._flushSentenceBuffer();
+    }
+    this._emitEvent('mic_changed', { disabled: this.micDisabled });
   }
 
   /**

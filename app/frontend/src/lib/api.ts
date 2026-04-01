@@ -552,6 +552,7 @@ export interface MeetingPrepareResult {
 }
 
 export interface MeetingTranscriptEntry {
+  id?: string;
   speaker: "kim" | "customer";
   text: string;
   timestamp: number;
@@ -614,7 +615,11 @@ export function subscribeMeetingStream(
       onEvent(event);
     } catch { /* ignore parse errors */ }
   };
+  let errored = false;
   es.onerror = () => {
+    if (errored) return; // Prevent repeated callbacks from EventSource auto-reconnect
+    errored = true;
+    es.close();
     if (onError) onError(new Error("Meeting SSE connection lost"));
   };
   return () => es.close();
@@ -637,6 +642,16 @@ export async function setMeetingModel(
   return request(`/meeting/${sessionId}/model`, {
     method: "PATCH",
     body: JSON.stringify({ model }),
+  });
+}
+
+export async function setMeetingMic(
+  sessionId: string,
+  disabled: boolean
+): Promise<{ micDisabled: boolean }> {
+  return request(`/meeting/${sessionId}/mic`, {
+    method: "PATCH",
+    body: JSON.stringify({ disabled }),
   });
 }
 

@@ -32,13 +32,13 @@ const { chatCompletion } = require('../../../tools/lib/anthropic');
  * @returns {Promise<{report: string, briefUpdates: object, savedTo: string}>}
  */
 async function analyzeMeeting(meetingData, onProgress) {
-  const { id, projectId, projectDir, startedAt, stoppedAt, transcript, suggestions, briefing } = meetingData;
+  const { id, projectId, projectDir, startedAt, stoppedAt, transcript = [], suggestions = [], briefing } = meetingData;
 
   if (onProgress) onProgress({ stage: 'analyzing', message: 'Analyzing meeting transcript...' });
 
   // Format transcript for the prompt
   const transcriptText = transcript
-    .map(e => `[${new Date(e.timestamp).toLocaleTimeString()}] ${e.speaker === 'kim' ? 'Kim' : 'Customer'}: ${e.text}`)
+    .map(e => `[${new Date(e.timestamp).toLocaleTimeString()}] ${e.speaker === 'kim' ? 'You' : 'Customer'}: ${e.text}`)
     .join('\n');
 
   // Format Q&A pairs
@@ -48,50 +48,42 @@ async function analyzeMeeting(meetingData, onProgress) {
 
   const durationMin = Math.round((stoppedAt - startedAt) / 60000);
 
-  const analysisPrompt = `You are analyzing a customer meeting for MCS (Microsoft Copilot Studio) agent solutioning. Generate a comprehensive post-meeting report.
+  const analysisPrompt = `You are analyzing a customer meeting. Generate a concise, actionable post-meeting report.
 
 ## Meeting Info
 - Duration: ${durationMin} minutes
 - Date: ${new Date(startedAt).toLocaleDateString()}
-- Transcript entries: ${transcript.length}
-- Questions detected: ${suggestions.length}
 
-## Full Transcript
+## Transcript
 ${transcriptText || '(No transcript available)'}
 
-## Questions & Answers During Meeting
-${qaText || '(No Q&A pairs)'}
+${qaText ? `## Questions & Answers During Meeting\n${qaText}` : ''}
 
-${briefing ? `## Pre-Meeting Briefing\n${briefing}` : ''}
+${briefing ? `## Pre-Meeting Context\n${briefing}` : ''}
 
 ---
 
-Generate the following sections:
+Generate the following sections. Be concise and action-oriented.
 
-### 1. MEETING SUMMARY
-2-3 paragraph summary of what was discussed, key themes, and overall direction.
+### SUMMARY
+2-3 paragraph recap of what was discussed, key themes, decisions made, and overall direction. Focus on substance — what matters, what was agreed, what was left open.
 
-### 2. CUSTOMER REQUIREMENTS → MCS CAPABILITIES
-For each requirement identified, map to specific MCS capabilities:
-| Requirement | MCS Component | Implementation Notes |
-|------------|--------------|---------------------|
-(Include connectors, MCPs, knowledge sources, topics, channels as relevant)
+### KEY TAKEAWAYS
+Bulleted list of the most important points, decisions, or insights from the meeting.
 
-### 3. RECOMMENDED AGENT ARCHITECTURE
-- Single agent vs multi-agent recommendation with reasoning
-- List of agents (if multi-agent) with their roles
-- Key topics each agent needs
-- Knowledge sources required
-- Connectors/MCPs to configure
+### NEXT STEPS
+Bulleted list of concrete next steps with owner (where identifiable) and any deadlines mentioned. Be specific — "Schedule follow-up" is too vague, "Kim to send architecture proposal by Friday" is good.
 
-### 4. ACTION ITEMS
-Bulleted list with owner (Kim or Customer) where identifiable.
+### ACTION ITEMS
+| Action | Owner | Status |
+|--------|-------|--------|
+(List every commitment or task mentioned, who owns it, and whether it's new/in-progress/blocked)
 
-### 5. FOLLOW-UP EMAIL DRAFT
-Professional follow-up email to the customer summarizing the meeting and next steps.
+### FOLLOW-UP SUGGESTIONS
+Recommendations for follow-up: things to research, clarify, or prepare before the next interaction. Include a draft follow-up message if appropriate.
 
-### 6. BRIEF.JSON UPDATES
-JSON object with new data to merge into the project's brief.json:
+### BRIEF UPDATES
+JSON object with new data to merge into the project's brief.json (only include items that are NEW from this meeting):
 \`\`\`json
 {
   "capabilities": [{"name": "...", "description": "..."}],
@@ -99,8 +91,7 @@ JSON object with new data to merge into the project's brief.json:
   "decisions": [{"decision": "...", "rationale": "...", "date": "${new Date().toISOString().split('T')[0]}"}],
   "boundaries": ["..."]
 }
-\`\`\`
-Only include items that are NEW from this meeting.`;
+\`\`\``;
 
   const result = await chatCompletion([
     { role: 'user', content: analysisPrompt }
@@ -110,7 +101,8 @@ Only include items that are NEW from this meeting.`;
     timeout: 90000
   });
 
-  const report = result.content;
+  const report = typeof result.content === 'string' ? result.content : String(result.content || '');
+  if (!report) throw new Error('Analysis returned empty content');
 
   // Save report to project directory
   let savedTo = null;
@@ -138,7 +130,7 @@ Only include items that are NEW from this meeting.`;
     mergeBriefUpdates(projectDir, briefUpdates);
   }
 
-  if (onProgress) onProgress({ stage: 'done', message: `Report saved to ${savedTo}` });
+  if (onProgress) onProgress({ stage: 'done', message: savedTo ? `Report saved to ${savedTo}` : 'Analysis complete' });
 
   return { report, briefUpdates, savedTo, cost: result.cost };
 }

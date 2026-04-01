@@ -34,10 +34,12 @@ export function MeetingControls({ projectId, agentName }: MeetingControlsProps) 
   const error = useMeetingStore((s) => s.error);
   const transcript = useMeetingStore((s) => s.transcript);
   const suggestions = useMeetingStore((s) => s.suggestions);
+  const micDisabled = useMeetingStore((s) => s.micDisabled);
   const prepare = useMeetingStore((s) => s.prepare);
   const start = useMeetingStore((s) => s.start);
   const stop = useMeetingStore((s) => s.stop);
   const setModel = useMeetingStore((s) => s.setModel);
+  const toggleMic = useMeetingStore((s) => s.toggleMic);
   const reset = useMeetingStore((s) => s.reset);
 
   return (
@@ -105,12 +107,25 @@ export function MeetingControls({ projectId, agentName }: MeetingControlsProps) 
         </button>
       )}
       {phase === "active" && (
-        <button
-          onClick={() => stop()}
-          className="px-2.5 py-1 text-xs rounded-md bg-red-600 text-white hover:bg-red-700 whitespace-nowrap"
-        >
-          Stop
-        </button>
+        <>
+          <button
+            onClick={() => toggleMic()}
+            className={`px-1.5 py-0.5 text-[10px] rounded whitespace-nowrap ${
+              micDisabled
+                ? "text-amber-500 hover:text-amber-400"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+            title={micDisabled ? "Mic disabled — AI has no context from your voice" : "Mic on — your voice provides AI context (not shown in transcript)"}
+          >
+            {micDisabled ? "Mic Off" : "Mic"}
+          </button>
+          <button
+            onClick={() => stop()}
+            className="px-2.5 py-1 text-xs rounded-md bg-red-600 text-white hover:bg-red-700 whitespace-nowrap"
+          >
+            Stop
+          </button>
+        </>
       )}
       {(phase === "stopped" || phase === "error") && (
         <button

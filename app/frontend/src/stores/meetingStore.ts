@@ -13,6 +13,7 @@ import {
   stopMeeting,
   subscribeMeetingStream,
   setMeetingModel,
+  setMeetingMic,
   type MeetingTranscriptEntry,
   type MeetingEvent,
   type MeetingStats,
@@ -56,6 +57,9 @@ interface MeetingStore {
   error: string | null;
   briefingTokens: number | null;
   stats: MeetingStats | null;
+  analysisReport: string | null;
+  analysisLoading: boolean;
+  micDisabled: boolean;
 
   // Project context (persists across navigation)
   openForProject: (projectId: string, agentName?: string) => void;
@@ -65,6 +69,7 @@ interface MeetingStore {
   start: () => Promise<void>;
   stop: () => Promise<void>;
   setModel: (model: string) => Promise<void>;
+  toggleMic: () => Promise<void>;
   dismissSuggestion: (id: string) => void;
   reset: () => void;
 
@@ -88,6 +93,9 @@ export const useMeetingStore = create<MeetingStore>()(devtools((set, get) => ({
   error: null,
   briefingTokens: null,
   stats: null,
+  analysisReport: null,
+  analysisLoading: false,
+  micDisabled: false,
   _unsubscribe: null,
 
   openForProject: (projectId) => {
@@ -142,7 +150,7 @@ export const useMeetingStore = create<MeetingStore>()(devtools((set, get) => ({
           switch (event.type) {
             case "transcript": {
               const entry = event as unknown as MeetingTranscriptEntry & { type: string };
-              pendingTranscripts.push({ speaker: entry.speaker, text: entry.text, timestamp: entry.timestamp, duration: entry.duration });
+              pendingTranscripts.push({ id: entry.id, speaker: entry.speaker, text: entry.text, timestamp: entry.timestamp, duration: entry.duration });
               const batch = pendingTranscripts;
               transcriptBatcher((s) => {
                 const combined = [...s.transcript, ...batch];
@@ -207,7 +215,20 @@ export const useMeetingStore = create<MeetingStore>()(devtools((set, get) => ({
             case "stopped": {
               transcriptBatcher.flush();
               deltaBatcher.flush();
-              set({ phase: "stopped", stats: (event as MeetingEvent & { stats: MeetingStats }).stats });
+              set({ phase: "stopped", stats: (event as MeetingEvent & { stats: MeetingStats }).stats, analysisLoading: true });
+              break;
+            }
+            case "analysis_progress": {
+              // Analysis is running — keep loading state
+              break;
+            }
+            case "analysis_complete": {
+              const e = event as MeetingEvent & { report: string };
+              set({ analysisReport: e.report, analysisLoading: false });
+              break;
+            }
+            case "analysis_error": {
+              set({ analysisLoading: false });
               break;
             }
           }
@@ -256,6 +277,17 @@ export const useMeetingStore = create<MeetingStore>()(devtools((set, get) => ({
     }
   },
 
+  toggleMic: async () => {
+    const { sessionId, micDisabled } = get();
+    const newDisabled = !micDisabled;
+    set({ micDisabled: newDisabled });
+    if (sessionId) {
+      try {
+        await setMeetingMic(sessionId, newDisabled);
+      } catch { /* ignore — state is already set locally */ }
+    }
+  },
+
   dismissSuggestion: (id: string) => {
     const { dismissedIds } = get();
     const newDismissed = new Set(dismissedIds);
@@ -276,6 +308,9 @@ export const useMeetingStore = create<MeetingStore>()(devtools((set, get) => ({
       error: null,
       briefingTokens: null,
       stats: null,
+      analysisReport: null,
+      analysisLoading: false,
+      micDisabled: false,
       _unsubscribe: null,
     });
   },

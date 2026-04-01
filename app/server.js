@@ -1291,6 +1291,7 @@ app.get("/api/skill/jobs", (req, res) => {
 // ---------------------------------------------------------------------------
 
 const { MeetingSession } = require("./lib/meeting/meeting-session");
+const { analyzeMeeting } = require("./lib/meeting/post-meeting");
 
 // Active meeting sessions (keyed by session ID)
 const meetingSessions = new Map();
@@ -1340,14 +1341,38 @@ app.post("/api/meeting/:id/start", async (req, res) => {
   }
 });
 
-// Stop a meeting session
+// Stop a meeting session — stops capture, then triggers post-meeting analysis
 app.post("/api/meeting/:id/stop", async (req, res) => {
   const session = meetingSessions.get(req.params.id);
   if (!session) return res.status(404).json({ detail: "Session not found" });
 
   try {
     const summary = await session.stop();
+
+    // Return immediately with stats so the UI can transition to "stopped"
+    // Then run analysis async and push result via SSE
     res.json(summary);
+
+    // Fire post-meeting analysis in background (non-blocking)
+    if (session.transcript.length > 0) {
+      analyzeMeeting({
+        id: session.id,
+        projectId: session.projectId,
+        projectDir: session.projectDir,
+        startedAt: session.startedAt,
+        stoppedAt: session.stoppedAt,
+        transcript: session.transcript,
+        suggestions: session.suggestions,
+        briefing: session.answerEngine?.briefing
+      }, (progress) => {
+        session.emit('event', { type: 'analysis_progress', ...progress });
+      }).then((result) => {
+        session.emit('event', { type: 'analysis_complete', report: result.report, briefUpdates: result.briefUpdates, savedTo: result.savedTo });
+      }).catch((err) => {
+        console.error("[meeting] Post-meeting analysis failed:", err.message);
+        session.emit('event', { type: 'analysis_error', error: err.message });
+      });
+    }
   } catch (err) {
     console.error("[meeting] Stop failed:", err.message);
     res.status(500).json({ detail: err.message });
@@ -1403,6 +1428,16 @@ app.patch("/api/meeting/:id/model", (req, res) => {
   if (!model) return res.status(400).json({ detail: "model is required" });
   session.setAnswerModel(model);
   res.json({ model, message: "Model updated" });
+});
+
+// Toggle mic capture (disabled = no mic processing at all; enabled = silent context for AI)
+app.patch("/api/meeting/:id/mic", (req, res) => {
+  const session = meetingSessions.get(req.params.id);
+  if (!session) return res.status(404).json({ detail: "Session not found" });
+  const disabled = req.body?.disabled;
+  if (disabled === undefined) return res.status(400).json({ detail: "disabled (boolean) is required" });
+  session.setMicDisabled(disabled);
+  res.json({ micDisabled: session.micDisabled });
 });
 
 // List active meeting sessions

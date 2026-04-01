@@ -31,11 +31,13 @@ const SAMPLE_RATE = 16000;
 const BYTES_PER_SAMPLE = 2; // 16-bit
 const CHUNK_DURATION_SEC = 2.5; // 2.5s chunks — optimal for GPU real-time (~100ms inference)
 const CHUNK_SIZE = SAMPLE_RATE * BYTES_PER_SAMPLE * CHUNK_DURATION_SEC;
-const SILENCE_RMS_THRESHOLD = 200; // Fallback RMS if VAD not available
+const SILENCE_RMS_THRESHOLD = 200;     // System audio speech detection threshold
+const MIC_RMS_THRESHOLD = 500;         // Higher threshold for mic — filters speaker bleed-through
 
 // Echo suppression
 const ECHO_WINDOW_MS = 5000;     // Compare mic text against system text from last 5s
-const ECHO_SIMILARITY_THRESHOLD = 0.55; // Suppress mic text if >55% word overlap with system
+const ECHO_SIMILARITY_THRESHOLD = 0.35; // Suppress mic text if >35% word overlap with system
+const ECHO_CONSECUTIVE_WORDS = 3;       // Suppress if 3+ consecutive words match system text
 
 /**
  * @typedef {Object} TranscriptEntry
@@ -319,9 +321,9 @@ class TranscriptionService extends EventEmitter {
   async _processChunk(stream, chunk, timestamp) {
     if (this._disposed) return;
 
-    // Step 1: Check for speech via RMS threshold
-    const hasSpeech = this._detectSpeech(chunk);
-    if (!hasSpeech) {
+    // Step 1: Check for speech via RMS threshold (mic uses higher threshold to filter speaker bleed)
+    const threshold = stream === 'mic' ? MIC_RMS_THRESHOLD : SILENCE_RMS_THRESHOLD;
+    if (this._calculateRMS(chunk) < threshold) {
       this.stats.silenceSkipped++;
       return;
     }
@@ -442,7 +444,9 @@ class TranscriptionService extends EventEmitter {
   _isEcho(micText, timestamp) {
     if (this._recentSystem.length === 0) return false;
 
-    const micWords = new Set(micText.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/).filter(w => w.length > 2));
+    const cleanMic = micText.toLowerCase().replace(/[^\w\s]/g, '');
+    const micWordsArr = cleanMic.split(/\s+/).filter(w => w.length > 2);
+    const micWords = new Set(micWordsArr);
     if (micWords.size === 0) return false;
 
     // Check against all recent system transcriptions within window
@@ -450,10 +454,12 @@ class TranscriptionService extends EventEmitter {
     for (const sys of this._recentSystem) {
       if (sys.timestamp < cutoff) continue;
 
-      const sysWords = new Set(sys.text.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/).filter(w => w.length > 2));
+      const cleanSys = sys.text.toLowerCase().replace(/[^\w\s]/g, '');
+      const sysWordsArr = cleanSys.split(/\s+/).filter(w => w.length > 2);
+      const sysWords = new Set(sysWordsArr);
       if (sysWords.size === 0) continue;
 
-      // Jaccard similarity
+      // Check 1: Jaccard word similarity (lowered threshold catches partial echoes)
       let intersection = 0;
       for (const word of micWords) {
         if (sysWords.has(word)) intersection++;
@@ -463,6 +469,18 @@ class TranscriptionService extends EventEmitter {
 
       if (similarity >= ECHO_SIMILARITY_THRESHOLD) {
         return true;
+      }
+
+      // Check 2: Consecutive word sequence match (catches Whisper transcription drift)
+      // If 3+ consecutive words from mic appear in system text, it's an echo
+      if (micWordsArr.length >= ECHO_CONSECUTIVE_WORDS) {
+        const sysJoined = ' ' + sysWordsArr.join(' ') + ' ';
+        for (let i = 0; i <= micWordsArr.length - ECHO_CONSECUTIVE_WORDS; i++) {
+          const seq = ' ' + micWordsArr.slice(i, i + ECHO_CONSECUTIVE_WORDS).join(' ') + ' ';
+          if (sysJoined.includes(seq)) {
+            return true;
+          }
+        }
       }
     }
 
