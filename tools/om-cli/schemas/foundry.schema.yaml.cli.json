@@ -5314,6 +5314,70 @@
         {
           "title": "Spanish_PR",
           "const": 20490
+        },
+        {
+          "title": "Hungarian",
+          "const": 1038
+        },
+        {
+          "title": "Lithuanian",
+          "const": 1063
+        },
+        {
+          "title": "Romanian",
+          "const": 1048
+        },
+        {
+          "title": "Latvian",
+          "const": 1062
+        },
+        {
+          "title": "Estonian",
+          "const": 1061
+        },
+        {
+          "title": "Slovenian",
+          "const": 1060
+        },
+        {
+          "title": "Vietnamese",
+          "const": 1066
+        },
+        {
+          "title": "Croatian",
+          "const": 1050
+        },
+        {
+          "title": "Serbian_Latin",
+          "const": 2074
+        },
+        {
+          "title": "Bulgarian",
+          "const": 1026
+        },
+        {
+          "title": "Slovak",
+          "const": 1051
+        },
+        {
+          "title": "Catalan",
+          "const": 1027
+        },
+        {
+          "title": "Serbian_Cyrillic",
+          "const": 3098
+        },
+        {
+          "title": "Basque",
+          "const": 1069
+        },
+        {
+          "title": "Galician",
+          "const": 1110
+        },
+        {
+          "title": "Kazakh",
+          "const": 1087
         }
       ]
     },
