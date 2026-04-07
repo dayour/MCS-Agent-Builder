@@ -96,16 +96,6 @@ function setWriteLock(agentDir, promise) {
   _writeLocks.set(agentDir, promise);
 }
 
-/** Write brief.json with per-project serialization. */
-function writeBrief(agentDir, brief) {
-  const lock = getWriteLock(agentDir).then(() => {
-    const briefPath = path.join(agentDir, "brief.json");
-    fs.writeFileSync(briefPath, JSON.stringify(brief, null, 2), "utf-8");
-  }).catch((err) => { console.error("[enrichment] writeBrief error:", err.message); throw err; });
-  setWriteLock(agentDir, lock);
-  return lock;
-}
-
 /**
  * Check if a brief field was last set by the user (manual edit).
  * Protected fields are not overwritten by enrichment.

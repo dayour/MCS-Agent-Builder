@@ -40,8 +40,8 @@ Each skill has detailed instructions in its own `.claude/skills/*/SKILL.md`.
 ## Dual Model Co-Generation (Hook-Enforced)
 
 Fire GPT-5.4 on **every interaction** — not just "non-trivial" tasks, **everything**. Enforced by three layers:
-1. **UserPromptSubmit hook** (`.claude/hooks/gpt-reminder.sh`) — injects reminder on every prompt
-2. **Stop hook** (`.claude/hooks/check-gpt-attestation.sh`) — blocks response if no attestation found
+1. **UserPromptSubmit hook** (`.claude/hooks/gpt-reminder.js`) — injects reminder on every prompt
+2. **Stop hook** (`.claude/hooks/check-gpt-attestation.js`) — blocks response if no attestation found
 3. **Attestation** — `multi-model-review.js` writes `$TMPDIR/claude-gpt-attestations/<session>.json` on every call
 
 Skip only when GPT is unavailable (exit code 3) — the tool writes an "unavailable" attestation, satisfying the hook. Full protocol, commands, merge rules, and value patterns in `.claude/rules/gpt-co-generation.md`.

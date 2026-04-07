@@ -13,8 +13,6 @@ const {
   calcReadiness,
   isBuildReady,
   determineStage,
-  hasEvalResults,
-  isV2,
   SKIP_FOLDERS,
 } = require("./readiness");
 const { migrateBrief } = require("./brief-migrate");

@@ -981,6 +981,24 @@
       ]
     },
     {
+      "id": "in-006",
+      "file": "instructions.md",
+      "title": "Conciseness principle — start minimal, nudge as needed",
+      "date": "2026-03-17",
+      "confirmed": 0,
+      "lastConfirmed": "2026-03-17",
+      "tags": [
+        "instructions",
+        "conciseness",
+        "description-engineering",
+        "topics-extraction",
+        "advanced-patterns",
+        "framework-update"
+      ],
+      "status": "active",
+      "projects": []
+    },
+    {
       "id": "bm-030",
       "file": "build-methods.md",
       "title": "Bots entity rejects $select and $top -- query without OData params",
@@ -1118,7 +1136,7 @@
       "projects": []
     },
     {
-      "id": "bm-036",
+      "id": "bm-042",
       "file": "build-methods.md",
       "title": "Work IQ dual-connector architecture",
       "date": "2026-04-06",
@@ -1136,7 +1154,7 @@
       ]
     },
     {
-      "id": "bm-037",
+      "id": "bm-043",
       "file": "build-methods.md",
       "title": "Dataverse MCP requires M:M connection reference association",
       "date": "2026-04-06",

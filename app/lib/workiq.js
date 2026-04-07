@@ -254,7 +254,9 @@ function runWorkIQQuery(question, timeoutMs = 120_000, signal) {
 // ───────────────────────────────────────────────────────────────────────────
 
 const TIME_RANGE_LABELS = {
+  "7d": "in the last 7 days",
   "30d": "in the last 30 days",
+  "60d": "in the last 60 days",
   "90d": "in the last 90 days",
   "180d": "in the last 6 months",
   "1y": "in the last year",
@@ -279,7 +281,7 @@ function buildNamePhrase(customer, aliases) {
  * SharePoint SDR (CLSCMS), and Teams conversations.
  *
  * @param {string} customer  Customer/company name
- * @param {string} timeRange "30d" | "90d" | "180d" | "1y"
+ * @param {string} timeRange "7d" | "30d" | "60d" | "90d" | "180d" | "1y"
  * @param {string[]} [aliases]  Alternative names / abbreviations
  * @returns {Array<{id: number, label: string, question: string}>}
  */

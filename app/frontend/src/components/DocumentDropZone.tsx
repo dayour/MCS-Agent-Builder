@@ -516,7 +516,9 @@ const DocumentDropZone = ({ projectId }: DocumentDropZoneProps) => {
               <SelectValue placeholder="Time range" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="7d">Last 7 days</SelectItem>
               <SelectItem value="30d">Last 30 days</SelectItem>
+              <SelectItem value="60d">Last 60 days</SelectItem>
               <SelectItem value="90d">Last 90 days</SelectItem>
               <SelectItem value="180d">Last 6 months</SelectItem>
               <SelectItem value="1y">Last year</SelectItem>

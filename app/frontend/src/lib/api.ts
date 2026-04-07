@@ -412,17 +412,6 @@ export async function startDeltaEnrichment(
   });
 }
 
-export async function markDocsProcessed(
-  projectId: string,
-  filenames: string[],
-  source?: string,
-): Promise<{ marked: number }> {
-  return request(`/projects/${projectId}/mark-processed`, {
-    method: "POST",
-    body: JSON.stringify({ filenames, source }),
-  });
-}
-
 export async function watchEnrichment(
   jobId: string,
   onEvent: (event: EnrichmentStepEvent) => void,
@@ -494,16 +483,6 @@ export interface BuildStep {
   detail: string | null;
 }
 
-export interface BuildJobSummary {
-  id: string;
-  projectId: string;
-  agentId: string;
-  status: "starting" | "running" | "paused_auth" | "completed" | "failed";
-  startedAt: string;
-  completedAt: string | null;
-  errors: string[];
-}
-
 export interface BuildStatusEvent {
   type: "state" | "step" | "output" | "command_sent" | "auth_required" | "auth_completed" | "done";
   steps?: BuildStep[];
@@ -559,10 +538,6 @@ export async function fetchBuildLog(jobId: string): Promise<string> {
   return res.text();
 }
 
-export async function fetchBuildJobs(): Promise<{ jobs: BuildJobSummary[] }> {
-  return request("/build/jobs");
-}
-
 // ─── Skill Runner — Generalized headless skill execution ─────────
 
 export type SkillType = "research" | "eval" | "fix" | "build";
@@ -572,18 +547,6 @@ export interface SkillStep {
   label: string;
   status: "pending" | "running" | "completed" | "failed" | "skipped";
   detail: string | null;
-}
-
-export interface SkillJobSummary {
-  id: string;
-  skillType: SkillType;
-  command: string;
-  projectId: string;
-  agentId: string;
-  status: "starting" | "running" | "paused_auth" | "completed" | "failed";
-  startedAt: string;
-  completedAt: string | null;
-  errors: string[];
 }
 
 export interface SkillStatusEvent {
@@ -643,11 +606,6 @@ export async function fetchSkillLog(jobId: string): Promise<string> {
   return res.text();
 }
 
-export async function fetchSkillJobs(skillType?: SkillType): Promise<{ jobs: SkillJobSummary[] }> {
-  const query = skillType ? `?type=${skillType}` : "";
-  return request(`/skill/jobs${query}`);
-}
-
 // ─── Meeting Co-Pilot ─────────────────────────────────────────────
 
 export interface MeetingPrepareResult {
@@ -664,17 +622,6 @@ export interface MeetingTranscriptEntry {
   timestamp: number;
   duration: number;
   processingTime?: number;
-}
-
-export interface MeetingAnswerSuggestion {
-  id: string;
-  text: string;
-  detection: { text: string; type: "question" | "requirement"; confidence: number };
-  model: string;
-  cost: number;
-  ttft: number;
-  totalMs: number;
-  timestamp: number;
 }
 
 export interface MeetingEvent {
@@ -731,15 +678,6 @@ export function subscribeMeetingStream(
   return () => es.close();
 }
 
-export async function getMeetingTranscript(
-  sessionId: string
-): Promise<{ transcript: MeetingTranscriptEntry[]; stats: MeetingStats }> {
-  return request(`/meeting/${sessionId}/transcript`);
-}
-
-export async function getMeetingStats(sessionId: string): Promise<MeetingStats> {
-  return request(`/meeting/${sessionId}/stats`);
-}
 
 export async function setMeetingModel(
   sessionId: string,
@@ -761,8 +699,3 @@ export async function setMeetingMic(
   });
 }
 
-export async function listMeetingSessions(): Promise<
-  Array<{ id: string; projectId: string; state: string; startedAt: number; transcriptLength: number; suggestionsCount: number }>
-> {
-  return request(`/meeting/sessions`);
-}
