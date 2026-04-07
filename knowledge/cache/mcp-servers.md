@@ -1,5 +1,5 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-25
+last_verified: 2026-04-06
 sources: [MS Learn Built-in MCP catalog (fetched 2026-03-23), Agent 365 tooling overview (fetched 2026-03-23), WebSearch, Dynamics 365 MCP docs, Agent 365 server references, Power Apps MCP docs, Work IQ docs, 2026 Wave 1 release plan, Copilot Studio What's New (fetched 2026-03-23), community blogs]
 confidence: high
 refresh_trigger: before_architecture
@@ -220,16 +220,29 @@ A community-built MCP connector bringing Microsoft 365 search and insight capabi
 
 **Mar 2026 What's New entry:** "(Preview) Use Work IQ tools to connect Microsoft 365 Copilot and your agents to the Work IQ service, enabling access to real-time work insights and context from Microsoft 365 files, emails, meetings, chats, and more." Source: https://learn.microsoft.com/en-us/microsoft-copilot-studio/whats-new
 
-**How to add Work IQ to an agent:** From the agent overview page, add Work IQ. This adds **2 MCP servers** that cover all M365 data:
+**How to add Work IQ to an agent:** From the agent overview page, click "Add Work IQ". This adds **2 MCP servers** as a pair:
 
-| Server | operationId | What It Covers |
-|--------|-------------|---------------|
-| **Work IQ Copilot (Preview)** | `mcp_M365Copilot` | Everything — mail, calendar, teams, sharepoint, onedrive, files, search across all M365. Cross-M365 multi-turn search and actions. |
-| **Work IQ User** | `mcp_MeServer` | People, org chart, manager, direct reports, user search |
+| Server | operationId | Connector | What It Covers |
+|--------|-------------|-----------|---------------|
+| **Work IQ Copilot (Preview)** | `mcp_m365copilot` | `shared_a365copilotchatmcp` | Cross-M365 **search only** (read) — mail, calendar, teams, sharepoint, onedrive, files. Single tool: `copilot_chat`. Multi-turn via `conversationId`. File grounding via `fileUris`. |
+| **Work IQ User (Preview)** | `mcp_MeServer` | `shared_a365memcp` | People, org chart, manager, direct reports, user search. 6 tools. |
 
-These 2 servers replace the need for individual Mail, Calendar, Teams, SharePoint MCP servers or connectors. No need to add individual Work IQ servers separately unless Work IQ Copilot doesn't cover a specific edge case.
+**CRITICAL (Apr 2026 discovery):** Work IQ Copilot is **search/read-only**. It does NOT replace individual Work IQ servers for **write operations** (send email, create meeting, post Teams message, upload file). For write ops, add the individual Work IQ servers (Mail, Calendar, Teams, SharePoint) via Tools > Add Tool > MCP.
 
-Individual Work IQ servers (Mail, Calendar, Teams, SharePoint, OneDrive, Word) are also available via Tools > Add Tool > MCP if you need them for a specific write operation not covered by Copilot.
+**Dual-connector architecture (Apr 2026):**
+| Connector ID | What It Hosts | When to Use |
+|---|---|---|
+| `shared_a365copilotchatmcp` | Work IQ Copilot only (`mcp_m365copilot`) | Added from overview page "Add Work IQ" |
+| `shared_a365memcp` | Work IQ User only (`mcp_MeServer`) | Added from overview page "Add Work IQ" |
+| `shared_a365mcpservers` | ALL individual Work IQ servers (Mail, Calendar, Teams, User, SharePoint, OneDrive, Word, Copilot) as separate operationIds | Added from Tools > Add Tool > MCP |
+
+MS recommends new dedicated connectors for new connections. Old `shared_a365mcpservers` remains supported. Build tools must check for BOTH connector patterns when discovering existing connections.
+
+**Default for read-only agents:** Work IQ Copilot + Work IQ User (from overview page) covers all M365 search + people. Add Dataverse MCP separately for table queries.
+
+**Default for read-write agents:** Add individual Work IQ servers (Mail, Calendar, Teams, etc.) via Tools > Add Tool > MCP for write operations. Work IQ Copilot + User as supplementary search/people layer.
+
+Individual Work IQ servers (Mail, Calendar, Teams, SharePoint, OneDrive, Word) are also available via Tools > Add Tool > MCP for write operations or edge cases not covered by Copilot search.
 
 **How agents also access Work IQ data:**
 - **Via Work IQ CLI/MCP** -- The `@microsoft/workiq` npm package provides a CLI and MCP server for developer tools (VS Code, GitHub Copilot, Claude Code). This is NOT available inside Copilot Studio as a built-in MCP server.

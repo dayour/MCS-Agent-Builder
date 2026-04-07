@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-23
-sources: [MS Learn (agents-overview, researcher-agent, wordexcelppt-agents, explore-prebuilt-agents training, agent-registry, learning-agent-overview, sales-research-agent, copilot-release-notes), Microsoft 365 Blog (2025-03-25, 2025-06-02, 2025-11-18, 2026-03-09), adoption.microsoft.com/ai-agents, support.microsoft.com (researcher-computer-use, workflows-frontier), Dynamics 365 Blog (2026-03-09, 2026-03-18), WorkIQ internal context]
+last_verified: 2026-04-07
+sources: [MS Learn (agents-overview, researcher-agent, wordexcelppt-agents, explore-prebuilt-agents training, agent-registry, learning-agent-overview, sales-research-agent, copilot-release-notes, whats-new), Microsoft 365 Blog (2025-03-25, 2025-06-02, 2025-11-18, 2026-03-09), adoption.microsoft.com/ai-agents, support.microsoft.com (researcher-computer-use, workflows-frontier), Dynamics 365 Blog (2026-03-09, 2026-03-18), TechCommunity (people-skills-expansion-4497646, ess-agent-ga-4469413, planner-agent-rename-MC1250279), WebSearch Apr 2026]
 confidence: high
 refresh_trigger: before_research
 -->
@@ -26,9 +26,10 @@ refresh_trigger: before_research
 | **M365 Copilot** ($30/user/month) | All first-party agents, DA hosting, Agent Store access |
 | **M365 Copilot Chat** (free) | Prebuilt chat agents only (coaches, Visual Creator) |
 | **Frontier Program** (enrollment required) | Early access to People, Workforce Insights, Learning agents |
-| **Agent 365** ($15/user/month, GA May 2026) | Agent Registry, Entra Agent Identity, governance controls |
-| **M365 E7** ($99/user/month, GA May 2026) | Bundles E5 + Copilot + Entra Suite + Agent 365 |
+| **Agent 365** ($15/user/month, **GA May 1, 2026**) | Agent Registry, Entra Agent Identity, governance controls. Confirmed GA date per [Mar 2026 Partner Center](https://learn.microsoft.com/en-us/partner-center/announcements/2026-march). |
+| **M365 E7** ($99/user/month, **GA May 2026**) | Bundles E5 + Copilot + Entra Suite + Agent 365 |
 | **Anthropic subprocessor** (admin toggle) | Word, Excel, PowerPoint creation agents |
+| **People Skills** (M365 E3/E5+) | AI-inferred skills on profile cards (180-day refresh for E3/E5; 30-day for Copilot/Viva users). Replaces Skills Agent functionality. |
 
 ---
 
@@ -197,33 +198,37 @@ Available at no extra cost with M365 Copilot Chat (free) or M365 Copilot.
   - "Real-time translation in meetings"
   - "Multi-language meeting support"
 
-### Project Manager
-- **Status:** Public Preview
-- **License:** M365 Copilot
+### Planner Agent (formerly Project Manager)
+- **Status:** **GA** (rolling out mid-Mar 2026, completion expected early May 2026; renamed from "Project Manager" to "Planner Agent" per [MC1250279](https://mc.merill.net/message/MC1250279))
+- **License:** M365 Copilot (now available on both Planner premium AND basic plans)
 - **Location:** Microsoft Planner
-- **What it does:** Automates plan creation, status report generation, task execution in Planner
+- **What it does:** Automates plan creation, status report generation, task execution in Planner. AI-assisted project tracking with intelligent task suggestions.
+- **Name change:** Renamed from "Project Manager" to "Planner Agent" mid-Mar 2026 to align with M365 Copilot branding. No functional or behavioral changes.
 - **Capability match patterns:**
   - "Create and manage project plans"
   - "Generate project status reports"
   - "Automate task assignment and tracking"
 - **When to build CA instead:** Need integration with non-Planner PM tools (Jira, Azure DevOps, Asana), need custom project workflows
 
-### Employee Self-Service
-- **Status:** Public Preview
+### Employee Self-Service (ESS Agent)
+- **Status:** **GA** (announced at Ignite Nov 2025, rolling out in waves; GA confirmed per [TechCommunity](https://techcommunity.microsoft.com/blog/microsoft365copilotblog/announcing-general-availability-of-the-employee-self-service-agent-in-microsoft-/4469413))
 - **License:** M365 Copilot
-- **What it does:** Centralized HR/IT self-service (leave management, device requests, policy questions)
+- **What it does:** Centralized HR/IT self-service (leave management, device requests, policy questions). Includes "accelerator packs" with Microsoft-built connectors, starter workflows, and inline agent handoff for common HR and IT scenarios. Configurable and extendable in Copilot Studio.
 - **Capability match patterns:**
   - "HR self-service (leave, benefits, policies)"
   - "IT self-service (device requests, access)"
-- **When to build CA instead:** Need integration with specific HR/IT systems (ServiceNow, Workday, SAP SuccessFactors)
+  - "Employee onboarding questions"
+  - "Leave balance check and ticket submission"
+- **When to build CA instead:** Need integration with specific HR/IT systems (ServiceNow, Workday, SAP SuccessFactors) beyond the included accelerator packs
 
 ### Skills Agent
-- **Status:** GA
+- **Status:** **RETIRED** (removed from agent store Mar 16, 2026; fully retired end of Mar 2026)
 - **License:** M365 Copilot
 - **What it does:** Find experts, understand skillsets across the organization. Powered by People Skills data layer.
+- **Replaced by:** Capabilities integrated into M365 Copilot natively + Workforce Insights Agent (for leaders) + Learning Agent (for employees). Per [TechCommunity announcement](https://techcommunity.microsoft.com/blog/microsoft365copilotblog/people-skills-expanding-skills-intelligence-to-more-users-and-surfaces-across-mi/4497646), "All existing skills capabilities continue to be supported through M365 Copilot and the new Learning and Workforce Insights agents."
 - **Capability match patterns:**
-  - "Find an expert in [topic]"
-  - "Who has skills in [area]?"
+  - "Find an expert in [topic]" -- now handled by M365 Copilot natively via People Skills
+  - "Who has skills in [area]?" -- now handled by M365 Copilot natively via People Skills
 
 ### Sales Development Agent
 - **Status:** Frontier Preview
@@ -253,13 +258,14 @@ Available at no extra cost with M365 Copilot Chat (free) or M365 Copilot.
 Require Frontier program enrollment.
 
 ### People Agent
-- **Status:** Frontier Preview
+- **Status:** **RETIRED** (retired end of Mar 2026, along with Skills Agent; per [Topedia](https://blog-en.topedia.com/2026/03/microsoft-retires-skills-agent-and-people-agent-in-microsoft-365-copilot/) and [TechCommunity People Skills expansion](https://techcommunity.microsoft.com/blog/microsoft365copilotblog/people-skills-expanding-skills-intelligence-to-more-users-and-surfaces-across-mi/4497646))
 - **License:** M365 Copilot + Frontier program
 - **What it does:** Prepares meeting context, provides interaction insights, identifies colleagues by skills
+- **Replaced by:** People-related capabilities being integrated natively into M365 Copilot Chat. People Skills now appearing on Teams profile cards (Mar 2026). Workforce Insights Agent covers organizational skills analysis for leaders.
 - **Capability match patterns:**
-  - "Prepare me for a meeting with [person]"
-  - "What's my interaction history with [person]?"
-  - "Find colleagues with [expertise]"
+  - "Prepare me for a meeting with [person]" -- now handled by M365 Copilot natively
+  - "What's my interaction history with [person]?" -- now handled by M365 Copilot natively
+  - "Find colleagues with [expertise]" -- now handled by People Skills in M365 Copilot
 
 ### Workforce Insights Agent
 - **Status:** Frontier Preview
@@ -280,6 +286,16 @@ Require Frontier program enrollment.
   - "Personalized learning recommendations"
   - "Copilot usage training and tips"
   - "Role-play practice exercises"
+
+### Copilot Cowork
+- **Status:** Frontier (available Mar 30, 2026 per [Microsoft 365 Blog](https://www.microsoft.com/en-us/microsoft-365/blog/2026/03/30/copilot-cowork-now-available-in-frontier/))
+- **License:** M365 Copilot + Frontier program
+- **Location:** M365 Copilot Chat (Researcher)
+- **What it does:** Multi-model collaboration feature -- GPT drafts a response to a research query, Claude reviews it for accuracy, completeness, and citation quality before the response is given to the user. Combines OpenAI and Anthropic models in sequence for higher-quality research output.
+- **Capability match patterns:**
+  - "Research [topic] with extra quality assurance"
+  - "Get a peer-reviewed research summary"
+- **Note:** This is a Researcher enhancement, not a standalone agent. It extends the existing Researcher with multi-model critique capabilities.
 
 ### Workflows Agent
 - **Status:** Frontier Early Access (rolling out, US + English only)
@@ -327,14 +343,15 @@ Require Frontier program enrollment.
 | Document generation | Word/Excel/PPT Agents | Medium | Branded templates, data-driven content |
 | Meeting management | Facilitator | High | Custom workflows, external integrations |
 | Translation | Interpreter | High | Rare — only if custom terminology needed |
-| Project management | Project Manager | Medium | Non-Planner tools, custom workflows |
-| HR/IT self-service | Employee Self-Service | Medium | Specific ITSM/HR system integrations |
-| Expert finding | Skills Agent | High | Custom skills taxonomy, external directories |
+| Project management | Planner Agent (GA) | Medium-High | Non-Planner tools, custom workflows |
+| HR/IT self-service | Employee Self-Service (GA) | Medium-High | Specific ITSM/HR system integrations beyond accelerator packs |
+| Expert finding | ~~Skills Agent~~ **RETIRED** -- use M365 Copilot + People Skills natively | Medium | Custom skills taxonomy, external directories |
 | Sales pipeline | Sales Development | Medium | Custom CRM, non-standard processes |
 | Sales research + competitor intel | Sales Research Agent | Medium | Non-D365 CRM, custom research flows |
 | Writing improvement | Writing Coach | High | Domain-specific style guides |
 | Brainstorming | Idea Coach | Medium | Domain-specific ideation frameworks |
 | M365 workflow automation | Workflows (Frontier) | Medium | Complex multi-system automation, shared workflows |
+| Workforce/skills intelligence (leaders) | Workforce Insights (Frontier) | Medium | Custom workforce analytics, non-M365 data |
 
 ---
 
@@ -358,3 +375,8 @@ Require Frontier program enrollment.
 - [M365 Copilot Release Notes](https://learn.microsoft.com/en-us/copilot/microsoft-365/release-notes)
 - [Microsoft Agent 365](https://www.microsoft.com/en-us/microsoft-agent-365)
 - [Manage Copilot Agents in M365 Admin](https://learn.microsoft.com/en-us/microsoft-365/admin/manage/manage-copilot-agents-integrated-apps)
+- [People Skills: Expanding skills intelligence](https://techcommunity.microsoft.com/blog/microsoft365copilotblog/people-skills-expanding-skills-intelligence-to-more-users-and-surfaces-across-mi/4497646)
+- [Employee Self-Service Agent GA](https://techcommunity.microsoft.com/blog/microsoft365copilotblog/announcing-general-availability-of-the-employee-self-service-agent-in-microsoft-/4469413)
+- [Planner Agent rename MC1250279](https://mc.merill.net/message/MC1250279)
+- [Copilot Cowork in Frontier](https://www.microsoft.com/en-us/microsoft-365/blog/2026/03/30/copilot-cowork-now-available-in-frontier/)
+- [Agent Evaluation GA](https://techcommunity.microsoft.com/blog/copilot-studio-blog/agent-evaluation-in-microsoft-copilot-studio-is-now-generally-available/4507392)

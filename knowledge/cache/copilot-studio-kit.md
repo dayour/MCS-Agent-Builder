@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-23
-sources: [MS Learn (30 pages), GitHub repo, GitHub releases page, AppSource, Power CAT blog, community blogs, MS Learn kit-overview, MS Learn kit-configure-tests, MS Learn kit-microsoft-authentication, WebSearch Mar 2026]
+last_verified: 2026-04-07
+sources: [MS Learn (30 pages), GitHub repo, GitHub releases page, AppSource, Power CAT blog, community blogs, MS Learn kit-overview, MS Learn kit-configure-tests, MS Learn kit-microsoft-authentication, WebSearch Mar 2026, WebSearch Apr 2026, GitHub releases Apr 2026]
 confidence: high
 refresh_trigger: on_error
 -->
@@ -180,3 +180,5 @@ Browser-to-Agent SDK architecture optimized for testing scenarios:
 - Watch for M365 Agents SDK migration in Kit (currently Direct Line + MS Auth via Agent SDK)
 - Note: Kit now has MS Learn documentation for Microsoft authentication setup (kit-microsoft-authentication)
 - Component Library is a new feature — monitor for pre-built component additions
+- **As of 2026-04-07**: Latest release is still March 2026 (2026-03-13). No April release yet. Monthly cadence suggests April release ~mid-April.
+- **15 GitHub issues fixed** in Jan 2026 release, **12 fixed** in Mar 2026 release — active maintenance confirmed

@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-23
-sources: [MS Learn (overview-declarative-agent, declarative-agent-architecture, declarative-agent-manifest-1.6, declarative-agent-tool-comparison, agents-overview, declarative-agent-connected-agent, copilot-studio-experience, agent-builder, declarative-agent-ui-widgets, build-mcp-plugins, plugin-manifest-2.4, copilot-release-notes), Microsoft 365 Blog (2025-05-19, 2026-03-09), M365 Dev Blog (build-declarative-agents-with-mcp), M365 Copilot Release Notes (Jan 2026, Feb 2026), Tech Community (whats-new-feb-2026), voitanos.io (atk-v6.6.0-review), WorkIQ internal context (CAPE Day 2026-03-11)]
+last_verified: 2026-04-07
+sources: [MS Learn (overview-declarative-agent, declarative-agent-architecture, declarative-agent-manifest-1.6, declarative-agent-tool-comparison, agents-overview, declarative-agent-connected-agent, copilot-studio-experience, agent-builder, declarative-agent-ui-widgets, build-mcp-plugins, plugin-manifest-2.4, copilot-release-notes, whats-new-m365-extensibility Apr 2026), Microsoft 365 Blog (2025-05-19, 2026-03-09), M365 Dev Blog (build-declarative-agents-with-mcp), M365 Copilot Release Notes (Jan 2026, Feb 2026, Mar 2026), Tech Community (whats-new-feb-2026), voitanos.io (atk-v6.6.0-review), WorkIQ internal context (CAPE Day 2026-03-11), WebSearch Apr 2026, 2026 Wave 1 release plan]
 confidence: high
 refresh_trigger: before_research
 -->
@@ -54,7 +54,7 @@ A DA is a customized version of Microsoft 365 Copilot configured through a JSON 
 | Instructions | 8,000 chars | Same as CA |
 | Description | 1,000 chars | Agent description in manifest |
 | Name | 100 chars | Agent name in manifest |
-| Conversation starters | Max 6 | Hints shown to user at start |
+| Conversation starters | Max 6 (12 via ATK) | Hints shown to user at start. 12 via Agents Toolkit (Jun 2025+), 6 via Agent Builder. |
 | Actions (plugins) | 1-10 | API plugins per agent |
 | Web search sites | Max 4 | Sites scoped for web grounding (max 2 path segments, no query params) |
 | Teams message URLs | Max 5 | Teams channels/chats scoped for search |
@@ -111,9 +111,9 @@ DAs can delegate to other DAs via `worker_agents` in the manifest. Researcher ag
 
 | Tool | Audience | How | Notes |
 |------|----------|-----|-------|
-| **Agent Builder** (in M365 Copilot) | Business users, no-code | copilot.microsoft.com → Create agent | Now powered by GPT-5.1 (Feb 2026). Can generate Office docs (Jan 2026 via Copilot Studio lite). |
-| **Copilot Studio** (DA mode) | Makers, low-code | Agents → M365 Copilot → Add | Extends Agent Builder DAs with knowledge types, tools, evals (2026 Wave 1 focus) |
-| **M365 Agents Toolkit (ATK)** (VS Code) | Developers, pro-code | VS Code extension v6.6.0+, generates manifest JSON | MCP GA, embedded knowledge, GCC-M support (March 2026). 61 legacy templates removed. |
+| **Agent Builder** (in M365 Copilot) | Business users, no-code | copilot.microsoft.com → Create agent | Now powered by GPT-5.1 (Feb 2026). Natural language agent creation (Mar 2026). Can generate Office docs (Jan 2026 via Copilot Studio lite). Share to teams in Teams (Mar 2026). |
+| **Copilot Studio** (DA mode) | Makers, low-code | Agents → M365 Copilot → Add | Extends Agent Builder DAs with knowledge types, tools, evals (2026 Wave 1 focus). Copy DA to CS for advanced capabilities. |
+| **M365 Agents Toolkit (ATK)** (VS Code) | Developers, pro-code | VS Code extension v6.6.0+, generates manifest JSON | MCP GA, embedded knowledge, GCC-M support (March 2026). 61 legacy templates removed. Package Management API expanded (Mar 2026). |
 | **TypeSpec** (`@microsoft/typespec-m365-copilot`) | Developers | Type-safe manifest authoring with compile-time validation | Schema v1.6 support |
 | **SharePoint** | Site owners, no-code | Create agent scoped to a SharePoint site | Now supports scanned PDFs and image-based docs (March 2026) |
 
@@ -155,6 +155,8 @@ These are **separate planes** — no unified orchestration layer today. Bridge p
 | Build DAs via Agents Toolkit | M365 Copilot (developer builds, no extra license) |
 | Prebuilt chat agents (coaches) | M365 Copilot Chat (free) or M365 Copilot |
 
+**Government cloud support:** GCC (GA Jul 2025), GCCM (GA Nov 2025), GCCH Agent Builder (GA Feb 2026). M365 Agents Toolkit NOT supported for Gov publishing.
+
 ## Key Repos & Resources
 
 | Resource | URL | Purpose |
@@ -180,6 +182,9 @@ These are **separate planes** — no unified orchestration layer today. Bridge p
 | microsoft/AgentSchema | [GitHub](https://github.com/microsoft/AgentSchema) | Unified YAML spec (MCS + Foundry) |
 | Copilot Camp | [GitHub](https://microsoft.github.io/copilot-camp/) | Hands-on labs for DA + CEA |
 | Agent Academy | [GitHub](https://microsoft.github.io/agent-academy/) | Hands-on missions including DA deployment |
+| Federated Copilot Connectors | [MS Learn](https://learn.microsoft.com/en-us/microsoft-365/copilot/extensibility/overview-copilot-connector) | MCP-based real-time connectors for M365 Copilot (GA Apr 2026) |
+| DA Instructions Guide | [MS Learn](https://learn.microsoft.com/en-us/microsoft-365-copilot/extensibility/declarative-agent-instructions) | Best practices for writing DA instructions |
+| Package Management API | [MS Learn](https://learn.microsoft.com/en-us/microsoft-365-copilot/extensibility/api/admin-settings/package/overview) | Full CRUD for agent/app packages (Mar 2026) |
 
 ## Convergence Signals (Internal)
 
@@ -195,6 +200,11 @@ From CAPE Day (2026-03-11), WorkIQ research, and March 2026 announcements:
 - MCP support in DAs is GA (ATK v6.6.0, March 2026) — this removes the #4 hard disqualifier
 - DAs now available in Outlook (agents built with Copilot Studio and Foundry accessible in Outlook, Feb/March 2026)
 - Scanned PDFs / image-based documents from SharePoint now supported as DA knowledge (March 2026 rollout)
+- **Mar 2026 new:** Natural language agent creation in Agent Builder — describe agent in natural language, auto-configured. Share agents to teams in Teams. Package Management API expanded with full CRUD + admin actions.
+- **Mar 2026 new:** Interactive UI widgets for DAs GA — extend MCP server-based actions with OpenAI Apps SDK for inline/fullscreen widgets in M365 Copilot.
+- **Apr 2026 new:** Federated Copilot connectors GA (Apr/May 2026) — MCP-based, no data copy. 10 initial connectors (Canva, HubSpot, Linear, Intercom, Google Calendar, Google Contacts, Notion, S&P Global, Moody's, LSEG). Supported in Researcher agent, M365 Chat, Agent Mode in Excel. Enabled by default in M365 admin center.
+- **2026 Wave 1 planned (Apr-Sep 2026):** Create agents optimized for M365/M365 Copilot users (Preview Jun 2026). Evaluate DA agents in Copilot Studio (Preview Jul 2026). These represent Copilot Studio's deeper integration with DA lifecycle.
+- DA manifest schema remains at v1.6 as of Apr 2026. No v1.7 announced yet.
 
 ---
 

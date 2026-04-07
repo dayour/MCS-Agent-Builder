@@ -106,41 +106,154 @@ function writeBrief(agentDir, brief) {
   return lock;
 }
 
+/**
+ * Check if a brief field was last set by the user (manual edit).
+ * Protected fields are not overwritten by enrichment.
+ */
+function isUserEdited(brief, fieldName) {
+  const prov = brief._provenance?.[fieldName];
+  if (!prov) return false;
+  return prov.lastSetBy === "user";
+}
+
+/**
+ * Record provenance for a field that was just written.
+ * @param {Object} brief       The brief object (mutated in place)
+ * @param {string} fieldName   Top-level field name
+ * @param {string} setBy       Who set it: "enrichment" | "wizard" | "user" | "research"
+ * @param {string[]} [sourceFiles]  Optional source document filenames
+ */
+function setProvenance(brief, fieldName, setBy, sourceFiles) {
+  brief._provenance = brief._provenance || {};
+  brief._provenance[fieldName] = {
+    lastSetBy: setBy,
+    lastSetAt: new Date().toISOString(),
+    sourceFiles: sourceFiles || [],
+  };
+}
+
 /** Merge enrichment results into existing brief (read-modify-write). */
 async function mergeToBrief(agentDir, patch) {
   const lock = getWriteLock(agentDir).then(() => {
     const briefPath = path.join(agentDir, "brief.json");
     const brief = JSON.parse(fs.readFileSync(briefPath, "utf-8"));
+    const patchSource = patch._source || "enrichment";
+    const patchSourceFiles = patch._sourceFiles || [];
 
     // Apply patch fields
     for (const [key, value] of Object.entries(patch)) {
       if (value === undefined) continue;
+      // Skip internal patch metadata
+      if (key === "_source" || key === "_sourceFiles" || key === "_jobId") continue;
+
       if (key === "_enrichment") {
         // Merge enrichment metadata, don't overwrite (multiple workers write subfields)
         brief._enrichment = brief._enrichment || {};
         Object.assign(brief._enrichment, value);
+      } else if (key === "_provenance") {
+        // Merge provenance metadata
+        brief._provenance = brief._provenance || {};
+        Object.assign(brief._provenance, value);
       } else if (key === "architecture") {
         // Merge architecture fields, don't overwrite
         brief.architecture = brief.architecture || {};
         Object.assign(brief.architecture, value);
+        setProvenance(brief, "architecture", patchSource, patchSourceFiles);
       } else if (key === "workflow" && typeof value === "object") {
         // Merge workflow fields, don't overwrite
         brief.workflow = brief.workflow || {};
         Object.assign(brief.workflow, value);
       } else if (key === "evalSets" && Array.isArray(value)) {
-        brief.evalSets = value;
+        if (isUserEdited(brief, "evalSets")) {
+          // Preserve user-edited/added tests, append new enrichment tests
+          const existingTests = new Set();
+          for (const es of brief.evalSets || []) {
+            for (const t of es.tests || []) {
+              if (t.source === "user-edited" || t.source === "user-added") {
+                existingTests.add(t.question);
+              }
+            }
+          }
+          // Merge: keep user tests, add new enrichment tests
+          for (const newSet of value) {
+            const existingSet = (brief.evalSets || []).find((s) => s.name === newSet.name);
+            if (existingSet) {
+              for (const t of newSet.tests || []) {
+                if (!existingTests.has(t.question)) {
+                  existingSet.tests.push(t);
+                }
+              }
+            } else {
+              (brief.evalSets = brief.evalSets || []).push(newSet);
+            }
+          }
+          console.log("[enrichment] Preserved user-edited eval tests, appended new");
+        } else {
+          brief.evalSets = value;
+          setProvenance(brief, "evalSets", patchSource, patchSourceFiles);
+        }
       } else if (key === "instructions" && typeof value === "string") {
-        brief.instructions = value;
+        if (isUserEdited(brief, "instructions")) {
+          console.log("[enrichment] Skipping instructions — user-edited");
+        } else {
+          brief.instructions = value;
+          setProvenance(brief, "instructions", patchSource, patchSourceFiles);
+        }
       } else if (key === "capabilities" && Array.isArray(value)) {
-        // Merge capability metadata (preserving user data)
         if (Array.isArray(brief.capabilities)) {
+          // Update metadata on existing caps, append genuinely new ones
+          const existingNames = new Set(brief.capabilities.map((c) => c.name));
           for (const enriched of value) {
             const existing = brief.capabilities.find((c) => c.name === enriched.name);
             if (existing) {
+              // Only update machine-managed metadata, not user-editable fields
               if (enriched.implementationType) existing.implementationType = enriched.implementationType;
               if (enriched._patternMatch) existing._patternMatch = enriched._patternMatch;
+              if (enriched._provenance) existing._provenance = enriched._provenance;
+            } else if (!existingNames.has(enriched.name)) {
+              // Genuinely new capability — append
+              brief.capabilities.push(enriched);
+              existingNames.add(enriched.name);
             }
           }
+        } else {
+          brief.capabilities = value;
+        }
+        setProvenance(brief, "capabilities", patchSource, patchSourceFiles);
+      } else if (key === "integrations" && Array.isArray(value)) {
+        if (Array.isArray(brief.integrations)) {
+          // Append new integrations, don't duplicate
+          const existingNames = new Set(brief.integrations.map((i) => (i.name || "").toLowerCase()));
+          for (const newInteg of value) {
+            if (!existingNames.has((newInteg.name || "").toLowerCase())) {
+              brief.integrations.push(newInteg);
+              existingNames.add((newInteg.name || "").toLowerCase());
+            }
+          }
+        } else {
+          brief.integrations = value;
+        }
+        setProvenance(brief, "integrations", patchSource, patchSourceFiles);
+      } else if (key === "knowledge" && Array.isArray(value)) {
+        if (Array.isArray(brief.knowledge)) {
+          const existingNames = new Set(brief.knowledge.map((k) => (k.name || k.source || "").toLowerCase()));
+          for (const newK of value) {
+            if (!existingNames.has((newK.name || newK.source || "").toLowerCase())) {
+              brief.knowledge.push(newK);
+            }
+          }
+        } else {
+          brief.knowledge = value;
+        }
+        setProvenance(brief, "knowledge", patchSource, patchSourceFiles);
+      } else if (key === "recommendations" && Array.isArray(value)) {
+        // Always append recommendations, never replace
+        brief.recommendations = brief.recommendations || [];
+        for (const rec of value) {
+          const exists = brief.recommendations.some(
+            (r) => r.text === rec.text && r.category === rec.category
+          );
+          if (!exists) brief.recommendations.push(rec);
         }
       } else {
         brief[key] = value;
@@ -608,36 +721,207 @@ async function enrichResearch(job) {
 }
 
 // ---------------------------------------------------------------------------
+// Worker 5: Delta Document Extraction (new/changed docs only)
+// ---------------------------------------------------------------------------
+
+const { extractContent } = require("./documents");
+
+/**
+ * Extract new capabilities, integrations, and knowledge from delta documents.
+ * Only processes files in deltaFiles — does NOT re-read existing brief content.
+ */
+async function enrichFromDocs(job, deltaFiles, projectDir) {
+  updateStep(job, "docExtract", "running", `Processing ${deltaFiles.length} document(s)`);
+  try {
+    const brief = readBrief(job.projectPath);
+    if (!brief) throw new Error("brief.json not found");
+
+    const docsDir = path.join(projectDir, "docs");
+
+    // Read each delta file's content
+    const docContents = [];
+    for (const filename of deltaFiles) {
+      const fp = path.join(docsDir, filename);
+      if (!fs.existsSync(fp)) continue;
+      const { content, error } = await extractContent(fp);
+      if (error || !content) {
+        console.log(`[enrichment] Skipping ${filename}: ${error || "no content"}`);
+        continue;
+      }
+      // Truncate very large docs to avoid blowing context
+      const truncated = content.length > 50000 ? content.slice(0, 50000) + "\n\n[... truncated]" : content;
+      docContents.push({ filename, content: truncated });
+    }
+
+    if (docContents.length === 0) {
+      updateStep(job, "docExtract", "completed", "No readable content in delta files");
+      return;
+    }
+
+    const existingCaps = (brief.capabilities || []).map((c) => c.name).join(", ");
+    const existingInteg = (brief.integrations || []).map((i) => i.name).join(", ");
+    const existingKnowledge = (brief.knowledge || []).map((k) => k.name || k.source).join(", ");
+
+    const systemPrompt = `You are analyzing new documents for an existing Microsoft Copilot Studio agent brief. Extract ONLY items not already present in the brief.
+
+Current agent: "${brief.agent?.name || "Agent"}"
+Existing capabilities: ${existingCaps || "none"}
+Existing integrations: ${existingInteg || "none"}
+Existing knowledge sources: ${existingKnowledge || "none"}
+
+From the documents below, extract:
+1. NEW capabilities not already in the brief — include name, description, implementationType (prompt/action/flow)
+2. NEW integrations/systems mentioned — include name, type, purpose
+3. NEW knowledge source candidates — include name, source type, description
+4. CONTRADICTIONS with existing brief data — flag as warnings with explanation
+
+Rules:
+- Do NOT repeat items already listed above
+- Set source: "from-docs" on all new items
+- Be selective — only extract clearly defined agent capabilities, not every topic mentioned
+- Return ONLY valid JSON, no markdown
+
+Output format:
+{
+  "capabilities": [{ "name": "...", "description": "...", "implementationType": "prompt", "source": "from-docs", "phase": "mvp" }],
+  "integrations": [{ "name": "...", "type": "connector|mcp|api", "purpose": "...", "source": "from-docs" }],
+  "knowledge": [{ "name": "...", "sourceType": "sharepoint|website|file", "description": "...", "source": "from-docs" }],
+  "warnings": ["..."]
+}`;
+
+    const docsText = docContents
+      .map((d) => `--- ${d.filename} ---\n${d.content}`)
+      .join("\n\n");
+
+    const response = await callClaude(systemPrompt, docsText);
+
+    // Parse response
+    let extracted;
+    try {
+      const jsonMatch = response.match(/\{[\s\S]*\}/);
+      extracted = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(response);
+    } catch {
+      console.error("[enrichment] Failed to parse doc extraction response");
+      extracted = { capabilities: [], integrations: [], knowledge: [], warnings: [] };
+    }
+
+    // Build the merge patch — append-only
+    const patch = {};
+    const now = new Date().toISOString();
+    const sourceFiles = docContents.map((d) => d.filename);
+
+    if (extracted.capabilities?.length > 0) {
+      const newCaps = extracted.capabilities.map((c) => ({
+        ...c,
+        source: "from-docs",
+        phase: c.phase || "mvp",
+        _provenance: { sourceFiles, extractedAt: now },
+      }));
+      patch.capabilities = [...(brief.capabilities || []), ...newCaps];
+    }
+
+    if (extracted.integrations?.length > 0) {
+      const newInteg = extracted.integrations.map((i) => ({
+        ...i,
+        source: "from-docs",
+        status: "needs-setup",
+        phase: "mvp",
+        _provenance: { sourceFiles, extractedAt: now },
+      }));
+      patch.integrations = [...(brief.integrations || []), ...newInteg];
+    }
+
+    if (extracted.knowledge?.length > 0) {
+      const newKnowledge = extracted.knowledge.map((k) => ({
+        ...k,
+        source: "from-docs",
+        _provenance: { sourceFiles, extractedAt: now },
+      }));
+      patch.knowledge = [...(brief.knowledge || []), ...newKnowledge];
+    }
+
+    if (Object.keys(patch).length > 0) {
+      await mergeToBrief(job.projectPath, patch);
+    }
+
+    const summary = [
+      extracted.capabilities?.length ? `${extracted.capabilities.length} capabilities` : null,
+      extracted.integrations?.length ? `${extracted.integrations.length} integrations` : null,
+      extracted.knowledge?.length ? `${extracted.knowledge.length} knowledge sources` : null,
+    ].filter(Boolean).join(", ");
+
+    const warnings = extracted.warnings || [];
+    if (warnings.length > 0) {
+      notifyListeners(job, { type: "info", message: `Doc extraction warnings: ${warnings.join("; ")}` });
+    }
+
+    updateStep(job, "docExtract", "completed", summary || "No new items found");
+  } catch (err) {
+    job.errors.push(`docExtract: ${err.message}`);
+    updateStep(job, "docExtract", "failed", err.message);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Orchestrator
 // ---------------------------------------------------------------------------
 
 /**
  * Start background enrichment for an agent brief.
  * Returns immediately with the job handle — workers run asynchronously.
- * @param {string} agentDir - Full path to agent directory containing brief.json
+ *
+ * @param {string} agentDir  Full path to agent directory containing brief.json
+ * @param {Object} [options]
+ * @param {string[]} [options.deltaFiles]  New/changed doc filenames for delta processing
+ * @param {string}   [options.projectDir]  Project folder (for reading docs/)
+ * @param {Function} [options.onComplete]  Callback after all workers finish
  * @returns {EnrichmentJob} Job handle for tracking progress via SSE
  */
-function startEnrichment(agentDir) {
+function startEnrichment(agentDir, options = {}) {
   const job = createJob(agentDir);
+  const { deltaFiles, projectDir, onComplete } = options;
+  const isDelta = Array.isArray(deltaFiles) && deltaFiles.length > 0 && projectDir;
 
-  console.log(`[enrichment] Starting job ${job.id} for ${agentDir}`);
+  // Add docExtract step to job if delta mode
+  if (isDelta) {
+    job.steps.docExtract = { status: "pending", label: "Extracting from new documents" };
+  }
+
+  console.log(`[enrichment] Starting ${isDelta ? "delta" : "full"} job ${job.id} for ${agentDir}`);
 
   // Fire-and-forget: run workers in background, don't block the caller
   (async () => {
     try {
-      // All 4 workers in parallel — scoring is deterministic <100ms,
-      // no reason to serialize it. LLM tasks run concurrently for speed.
-      await Promise.all([
-        enrichScoring(job),
-        enrichInstructions(job),
-        enrichEvals(job),
-        enrichResearch(job),
-      ]);
+      if (isDelta) {
+        // Delta mode: extract from docs first, then run dependent workers
+        await enrichFromDocs(job, deltaFiles, projectDir);
+
+        // Run remaining workers (scoring always, others conditionally)
+        const brief = readBrief(agentDir);
+        const skipInstructions = brief?._provenance?.instructions?.lastSetBy === "user";
+
+        const workers = [enrichScoring(job), enrichResearch(job)];
+        if (!skipInstructions) workers.push(enrichInstructions(job));
+        workers.push(enrichEvals(job));
+        await Promise.all(workers);
+      } else {
+        // Full mode: all 4 workers in parallel (original behavior)
+        await Promise.all([
+          enrichScoring(job),
+          enrichInstructions(job),
+          enrichEvals(job),
+          enrichResearch(job),
+        ]);
+      }
 
       job.status = job.errors.length > 0 ? "completed_with_errors" : "completed";
       job.completedAt = new Date().toISOString();
       notifyListeners(job, { type: "done", status: job.status, errors: job.errors });
       console.log(`[enrichment] Job ${job.id} ${job.status} (${job.errors.length} errors)`);
+
+      if (typeof onComplete === "function") {
+        try { onComplete(job); } catch (e) { console.error("[enrichment] onComplete error:", e.message); }
+      }
     } catch (err) {
       job.status = "failed";
       job.completedAt = new Date().toISOString();

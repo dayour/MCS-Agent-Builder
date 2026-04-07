@@ -9,6 +9,8 @@ export default function ChatPanel() {
   const phase = useWizardStore((s) => s.phase);
   const currentState = useWizardStore((s) => s.currentState);
   const sendMessage = useWizardStore((s) => s.sendMessage);
+  const lastComparison = useWizardStore((s) => s.lastComparison);
+  const dualModelStatus = useWizardStore((s) => s.dualModelStatus);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const isStreaming = phase === "streaming";
@@ -45,7 +47,21 @@ export default function ChatPanel() {
         {messages.length === 0 ? (
           <EmptyState />
         ) : (
-          messages.map((msg) => <ChatMessage key={msg.id} message={msg} />)
+          messages.map((msg, idx) => {
+            // Find the last assistant message index
+            const lastAssistantIdx = messages.reduce(
+              (acc, m, i) => (m.role === "assistant" ? i : acc), -1
+            );
+            return (
+              <ChatMessage
+                key={msg.id}
+                message={msg}
+                isLatestAssistant={idx === lastAssistantIdx}
+                comparison={idx === lastAssistantIdx ? lastComparison : null}
+                dualModelStatus={idx === lastAssistantIdx ? dualModelStatus : "idle"}
+              />
+            );
+          })
         )}
       </div>
 
@@ -59,7 +75,7 @@ export default function ChatPanel() {
       )}
 
       {/* Composer */}
-      <ChatComposer onSend={handleSend} disabled={isStreaming} />
+      <ChatComposer onSend={handleSend} disabled={isStreaming} streaming={isStreaming} />
     </div>
   );
 }

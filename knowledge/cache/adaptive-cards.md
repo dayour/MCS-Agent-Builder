@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-23
-sources: [MS Learn, Adaptive Cards docs, direct testing, WebSearch Mar 2026, MS Learn MCP Mar 2026, CopilotStudioSamples repo, adaptivecards.io samples, Agent Academy, Localization guidance, Accessibility tips]
+last_verified: 2026-04-06
+sources: [MS Learn, Adaptive Cards docs, direct testing, WebSearch Mar 2026, MS Learn MCP Mar 2026, CopilotStudioSamples repo, adaptivecards.io samples, Agent Academy, Localization guidance, Accessibility tips, Fidelity FSC build session Apr 2026]
 confidence: high
 refresh_trigger: on_error
 -->
@@ -120,7 +120,44 @@ MCS agents can send an Adaptive Card as a **tool completion response** — when 
 - **Variables in cards**: Global, topic, and agent flow output variables all supported via PowerFx binding (Jan 2026 community tutorial confirmed)
 - **Consecutive cards**: Include unique identifiers in Action.Submit data payloads to prevent cross-card interference
 - **Interactive UI widgets**: NOT supported in MCS. `mcp-interactiveUI-samples` uses React/HTML in sandboxed iframes — for M365 Copilot declarative agents only, completely different from Adaptive Cards
-- **adaptivecards.microsoft.com**: New docs hub with schema 1.6+ features (Responsive Layout, Icon, Badge, Charts). NOT yet supported in MCS Teams/Omnichannel (capped at 1.5)
+- **adaptivecards.microsoft.com**: New docs hub with schema 1.6+ features (Responsive Layout, Icon, Badge). Chart elements are GA in v1.5 and render in Teams desktop (see Native Chart Elements section below). 1.6-only features (Responsive Layout, Icon, Badge) NOT yet supported in MCS Teams/Omnichannel
+
+## Native Chart Elements (GA in v1.5)
+
+Eight chart types are available as native Adaptive Card body elements in schema v1.5. They render in **Teams desktop** without any custom extensions.
+
+| Element | Data Shape | Notes |
+|---------|-----------|-------|
+| `Chart.Donut` | `data: [{legend, value, color}]` | Colors are semantic: `good`, `warning`, `attention`, `neutral`, `categoricalRed`, `categoricalPurple`, `categoricalBlue`, etc. |
+| `Chart.Gauge` | `value` + `segments: [{legend, size, color}]` | Has `valueFormat` (`Percentage` or `Fraction`), `showLegend`, `showMinMax` |
+| `Chart.HorizontalBar` | `data: [{x, y}]` | Has `displayMode` (`AbsoluteWithAxis`, `AbsoluteNoAxis`, `PartToWhole`), `color`, `colorSet` |
+| `Chart.HorizontalBar.Stacked` | `data: [{x, y}]` | Same shape as HorizontalBar |
+| `Chart.VerticalBar` | `data: [{x, y}]` | Single series |
+| `Chart.VerticalBar.Grouped` | `data: [{legend, values: [{x, y}]}]` | Multi-series support |
+| `Chart.Line` | `data: [{legend, values: [{x, y}]}]` | Multi-series support |
+| `Chart.Pie` | `data: [{legend, value, color}]` | Same data shape as Donut |
+
+**Common properties (all chart types):** `title`, `colorSet`, `fallback`
+
+**Source:** [Charts in Adaptive Cards](https://learn.microsoft.com/en-us/microsoftteams/platform/task-modules-and-cards/cards/charts-in-adaptive-cards)
+
+## Channel Rendering Matrix
+
+| Channel | Card Version | Chart Elements | Key Behaviors |
+|---------|-------------|---------------|--------------|
+| Teams desktop | Full v1.5 | Yes | Chart elements render. `Action.Submit` with `msteams.imBack` works. Full feature set. |
+| Teams mobile | Capped at v1.2 | No (won't render) | Chart elements likely fall back or disappear. Use `"fallback": "drop"` for graceful degradation. |
+| MCS test chat | v1.6 | No | Renders cards but NOT chart elements, NOT `suggestedActions` alongside cards, NOT `msteams.imBack`. |
+| M365 Copilot | Limited | Unverified | Cards render. `OnConversationStart` does NOT fire (use `conversationStarters` instead). Chart rendering unverified. |
+| Web Chat | v1.6 | Unverified | Cards render. `msteams.imBack` does not work. `suggestedActions` work standalone but NOT alongside card attachments. |
+
+## Known Gotchas (Cross-Channel)
+
+- **suggestedActions + AdaptiveCardTemplate = invisible**: Putting `suggestedActions` on the same `SendActivity` as an `AdaptiveCardTemplate` makes the suggested actions invisible -- the card swallows them
+- **Action.Submit with msteams.imBack**: Only works in the Teams channel. Does not function in MCS test chat, Web Chat, or M365 Copilot
+- **Never use curly braces {} in instruction text**: MCS parses them as PowerFx expressions, causing silent failures or parse errors
+- **Code Interpreter images**: Do NOT render in Teams or M365 Copilot (confirmed in official MS FAQ)
+- **Cross-channel button strategy**: Use `Action.Submit` + `msteams.imBack` for Teams, `conversationStarters` for M365 Copilot, and accept the test chat limitation (no workaround)
 
 ## Adaptive Card Localization (New — Jan 2026)
 

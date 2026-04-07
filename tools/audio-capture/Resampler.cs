@@ -1,11 +1,15 @@
 using NAudio.Wave;
+using NAudio.Wave.SampleProviders;
 
 namespace AudioCapture;
 
 /// <summary>
 /// Resamples audio from any input format (typically 48kHz/32-bit float stereo)
-/// to 16kHz/16-bit/mono PCM. This is the standard format for speech processing
-/// and the format we send over the WebSocket.
+/// to 16kHz/16-bit/mono PCM using NAudio's WDL resampler (high-quality sinc interpolation).
+///
+/// Previous implementation used linear interpolation which introduces aliasing artifacts
+/// that degrade speech recognition accuracy. The WDL resampler (from Cockos/Reaper)
+/// provides band-limited sinc interpolation — significantly better for ASR.
 /// </summary>
 public sealed class Resampler : IDisposable
 {
@@ -17,11 +21,7 @@ public sealed class Resampler : IDisposable
 
     /// <summary>
     /// Resample a buffer from the source format to 16kHz/16-bit/mono PCM.
-    /// This performs the conversion in a single pass:
-    ///   1. Decode source bytes to float samples
-    ///   2. Mix down to mono if stereo/multi-channel
-    ///   3. Resample from source rate to 16kHz using linear interpolation
-    ///   4. Convert float samples to 16-bit PCM bytes
+    /// Uses NAudio's WDL resampler for high-quality sinc interpolation.
     /// </summary>
     public byte[] Process(byte[] input, WaveFormat sourceFormat)
     {
@@ -36,8 +36,8 @@ public sealed class Resampler : IDisposable
             // Step 2: Mix down to mono
             float[] mono = MixToMono(samples, sourceFormat.Channels);
 
-            // Step 3: Resample to 16kHz
-            float[] resampled = ResampleLinear(mono, sourceFormat.SampleRate, TargetFormat.SampleRate);
+            // Step 3: Resample using WDL sinc resampler (via NAudio pipeline)
+            float[] resampled = ResampleWdl(mono, sourceFormat.SampleRate, TargetFormat.SampleRate);
 
             // Step 4: Convert to 16-bit PCM bytes
             return FloatToPcm16(resampled);
@@ -131,29 +131,36 @@ public sealed class Resampler : IDisposable
     }
 
     /// <summary>
-    /// Resample using linear interpolation. Good enough for speech audio
-    /// where we're going from 48kHz to 16kHz (3:1 decimation).
+    /// Resample using NAudio's WDL resampler (high-quality sinc interpolation).
+    /// Replaces the old linear interpolation which introduced aliasing artifacts.
     /// </summary>
-    private static float[] ResampleLinear(float[] source, int sourceRate, int targetRate)
+    private static float[] ResampleWdl(float[] source, int sourceRate, int targetRate)
     {
         if (sourceRate == targetRate) return source;
 
-        double ratio = (double)sourceRate / targetRate;
-        int outputLength = (int)(source.Length / ratio);
-        if (outputLength == 0) return Array.Empty<float>();
+        // Wrap float array in an ISampleProvider for the WDL resampler pipeline
+        var sourceProvider = new FloatArraySampleProvider(source, sourceRate);
+        var resampler = new WdlResamplingSampleProvider(sourceProvider, targetRate);
 
-        float[] result = new float[outputLength];
-
-        for (int i = 0; i < outputLength; i++)
+        // Read all resampled samples
+        int estimatedLength = (int)((long)source.Length * targetRate / sourceRate) + 1024;
+        float[] result = new float[estimatedLength];
+        int totalRead = 0;
+        int read;
+        while ((read = resampler.Read(result, totalRead, Math.Min(4096, result.Length - totalRead))) > 0)
         {
-            double srcIndex = i * ratio;
-            int idx = (int)srcIndex;
-            double frac = srcIndex - idx;
+            totalRead += read;
+            // Grow buffer if needed
+            if (totalRead >= result.Length - 4096)
+            {
+                Array.Resize(ref result, result.Length + estimatedLength);
+            }
+        }
 
-            if (idx + 1 < source.Length)
-                result[i] = (float)(source[idx] * (1.0 - frac) + source[idx + 1] * frac);
-            else if (idx < source.Length)
-                result[i] = source[idx];
+        // Trim to actual size
+        if (totalRead < result.Length)
+        {
+            Array.Resize(ref result, totalRead);
         }
 
         return result;
@@ -178,5 +185,35 @@ public sealed class Resampler : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+    }
+
+    /// <summary>
+    /// Minimal ISampleProvider wrapper around a float[] array.
+    /// Allows feeding raw float samples into NAudio's resampler pipeline.
+    /// </summary>
+    private sealed class FloatArraySampleProvider : ISampleProvider
+    {
+        private readonly float[] _data;
+        private int _position;
+
+        public WaveFormat WaveFormat { get; }
+
+        public FloatArraySampleProvider(float[] data, int sampleRate)
+        {
+            _data = data;
+            _position = 0;
+            WaveFormat = WaveFormat.CreateIeeeFloatWaveFormat(sampleRate, 1);
+        }
+
+        public int Read(float[] buffer, int offset, int count)
+        {
+            int available = _data.Length - _position;
+            int toCopy = Math.Min(count, available);
+            if (toCopy <= 0) return 0;
+
+            Array.Copy(_data, _position, buffer, offset, toCopy);
+            _position += toCopy;
+            return toCopy;
+        }
     }
 }

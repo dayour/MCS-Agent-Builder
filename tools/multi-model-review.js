@@ -48,6 +48,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const { isConfigured, chatCompletion: _rawChat, estimateTokens, getUsageSummary, getActiveMethod } = require('./lib/openai');
 
 // --- Reasoning Effort Tiers ---
@@ -80,9 +81,43 @@ const EFFORT_TIERS = {
 
 let _currentCommand = null;
 
+// --- Conversation Threading ---
+// Stores GPT's previous_response_id per session for multi-turn context continuity.
+const THREAD_DIR = path.join(os.tmpdir(), 'claude-gpt-threads');
+
+function getThreadResponseId(sessionId) {
+    try {
+        const threadFile = path.join(THREAD_DIR, `${sessionId}.json`);
+        if (fs.existsSync(threadFile)) {
+            const data = JSON.parse(fs.readFileSync(threadFile, 'utf8'));
+            // Expire threads older than 1 hour
+            if (data.updatedAt && Date.now() - new Date(data.updatedAt).getTime() < 3600000) {
+                return data.responseId || null;
+            }
+        }
+    } catch { /* ignore */ }
+    return null;
+}
+
+function updateThread(sessionId, responseId) {
+    try {
+        if (!fs.existsSync(THREAD_DIR)) fs.mkdirSync(THREAD_DIR, { recursive: true });
+        const threadFile = path.join(THREAD_DIR, `${sessionId}.json`);
+        fs.writeFileSync(threadFile, JSON.stringify({
+            sessionId,
+            responseId,
+            updatedAt: new Date().toISOString(),
+        }));
+    } catch { /* best-effort */ }
+}
+
 /**
  * Command-aware chat completion. Automatically applies the right reasoning effort
  * based on the current command type, unless explicitly overridden.
+ *
+ * Note: Conversation threading via previous_response_id is supported in openai.js
+ * but NOT by the GitHub Copilot Responses API (returns 400). Threading is disabled
+ * until Copilot adds support. The thread read/write functions remain for future use.
  */
 const chatCompletion = (messages, options = {}) => {
     const effort = options.reasoningEffort || EFFORT_TIERS[_currentCommand] || 'medium';
@@ -2084,13 +2119,52 @@ async function main() {
                 console.error(`Unknown command: ${config.command}`);
                 process.exit(1);
         }
+        // Write attestation on successful GPT call — used by Stop hook enforcement
+        writeAttestation(config.command);
     } catch (err) {
         if (err.code === 'NOT_CONFIGURED') {
             console.error(JSON.stringify({ error: err.message }));
+            // Write unavailable attestation so Stop hook knows GPT was attempted
+            writeAttestation(config.command, 'unavailable');
             process.exit(3);
         }
         console.error(JSON.stringify({ error: err.message }));
         process.exit(1);
+    }
+}
+
+/**
+ * Write attestation file proving GPT was invoked this session.
+ * The Stop hook reads this to enforce dual-model co-generation.
+ */
+function writeAttestation(command, status = 'success') {
+    try {
+        const attestDir = path.join(os.tmpdir(), 'claude-gpt-attestations');
+        // Read session ID from bridge file written by gpt-reminder.js hook
+        let sessionId = process.env.CLAUDE_SESSION_ID || 'unknown';
+        if (sessionId === 'unknown') {
+            try {
+                const bridge = JSON.parse(fs.readFileSync(path.join(attestDir, 'current-session.json'), 'utf8'));
+                if (bridge.sessionId) sessionId = bridge.sessionId;
+            } catch { /* no bridge file — use unknown */ }
+        }
+        if (!fs.existsSync(attestDir)) fs.mkdirSync(attestDir, { recursive: true });
+        const attestPath = path.join(attestDir, `${sessionId}.json`);
+
+        // Append to existing attestation or create new
+        let record = { sessionId, invocations: [] };
+        if (fs.existsSync(attestPath)) {
+            try { record = JSON.parse(fs.readFileSync(attestPath, 'utf8')); } catch {}
+        }
+        record.invocations.push({
+            command,
+            status,
+            timestamp: new Date().toISOString(),
+        });
+        record.lastUpdated = new Date().toISOString();
+        fs.writeFileSync(attestPath, JSON.stringify(record, null, 2));
+    } catch {
+        // Attestation is best-effort — never block the actual tool
     }
 }
 

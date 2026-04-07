@@ -8,7 +8,7 @@
  *
  * Model routing:
  *   - GPT-5.4 (default) — all real-time meeting answers via streaming
- *   - Claude (haiku/sonnet/opus) — fallback only if GPT unavailable
+ *   - Claude Opus — fallback only if GPT unavailable
  */
 
 const EventEmitter = require('events');
@@ -200,11 +200,11 @@ class AnswerEngine extends EventEmitter {
   }
 
   /**
-   * Stream answer via GPT-5.4. Falls back to Claude Haiku if GPT unavailable.
+   * Stream answer via GPT-5.4. Falls back to Claude Opus if GPT unavailable.
    */
   async _streamGPT(answerId, messages, startTime, signal, onResult) {
     if (!gptApi.isConfigured()) {
-      this.emit('status', { type: 'gpt_unavailable', fallback: 'haiku' });
+      this.emit('status', { type: 'gpt_unavailable', fallback: 'opus' });
       return this._streamClaude(answerId, messages, startTime, signal, onResult);
     }
 
@@ -247,7 +247,7 @@ class AnswerEngine extends EventEmitter {
     let cost = 0;
 
     for await (const event of anthropicApi.streamCompletion(messages, {
-      model: isGPTModel(this.model) ? 'haiku' : this.model,
+      model: isGPTModel(this.model) ? 'opus' : this.model,
       maxTokens: MAX_ANSWER_TOKENS,
       cacheSystem: true,
       signal

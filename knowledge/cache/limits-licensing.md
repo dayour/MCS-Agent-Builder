@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-23
-sources: [MS Learn quotas page, MS Learn billing-licensing, MS Learn requirements-quotas, pricing page, licensing docs, WebSearch Mar 2026, Feb 2026 Licensing Guide, Mar 2026 Licensing Guide, 2026 Wave 1 release plan, MS Learn ai-builder/endofaibcredits, MS Learn ai-builder/administer-licensing, samexpert.com licensing guide]
+last_verified: 2026-04-07
+sources: [MS Learn quotas page, MS Learn billing-licensing, MS Learn requirements-quotas, pricing page, licensing docs, WebSearch Mar 2026, Feb 2026 Licensing Guide, Mar 2026 Licensing Guide, Apr 2026 Licensing Guide, 2026 Wave 1 release plan, MS Learn ai-builder/endofaibcredits, MS Learn ai-builder/administer-licensing, samexpert.com licensing guide, WebSearch Apr 2026]
 confidence: high
 refresh_trigger: weekly
 -->
@@ -254,6 +254,7 @@ refresh_trigger: weekly
 - **Improved PA licensing dashboard (May 2026):** Better visibility into Power Automate license usage.
 - **Share Process license capacity across workflows (Apr 2026):** Simplifies licensing for shared flows.
 - **Mar 2026 Licensing Guide:** Minor changes documented in Appendix D change log. No major rate changes from Feb 2026 guide.
+- **Apr 2026 Licensing Guide:** Published (19 pages). PDF available at `cdn-dynmedia-1.microsoft.com`. Could not parse PDF directly — monitor for changes vs Mar guide. Check for any credit rate adjustments.
 
 ## Licensing Access Requirements
 
@@ -308,5 +309,7 @@ From the quotas page, additional limits not fully captured above:
 - Check for Teams plan feature expansion
 - Monitor pay-as-you-go rate changes
 - Watch for AI Builder credits transition (Nov 2026 deadline)
-- Check Mar/Apr 2026 Licensing Guide updates via licensingschool.co.uk
+- **Apr 2026 Licensing Guide now published** — check for changes vs Mar guide (PDF at cdn-dynmedia-1.microsoft.com)
 - Monitor file capacity clarification (20 GB official vs 40 GB third-party claims)
+- MS Learn quotas page confirmed no changes to limits as of Apr 2026 refresh
+- **Licensing FAQ** still lists 5 GB Database for Dataverse default capacity (Power Platform licensing FAQ) — this contradicts the Licensing Guide's 15 GB. The FAQ page may be stale. Rely on the Licensing Guide PDF as authoritative.

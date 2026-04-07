@@ -57,6 +57,7 @@ export interface ApiDoc {
   mtime?: number;
   isNew?: boolean;
   isModified?: boolean;
+  status?: string;
 }
 
 export interface ApiUploadResult {

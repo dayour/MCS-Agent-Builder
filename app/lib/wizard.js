@@ -510,6 +510,13 @@ function draftToBrief(draft, agentName) {
     instructions: "",
     recommendations: [],
     notes: {},
+    _provenance: {
+      capabilities: { lastSetBy: "wizard", lastSetAt: new Date().toISOString(), sourceFiles: [] },
+      integrations: { lastSetBy: "wizard", lastSetAt: new Date().toISOString(), sourceFiles: [] },
+      knowledge: { lastSetBy: "wizard", lastSetAt: new Date().toISOString(), sourceFiles: [] },
+      boundaries: { lastSetBy: "wizard", lastSetAt: new Date().toISOString(), sourceFiles: [] },
+      architecture: { lastSetBy: "wizard", lastSetAt: new Date().toISOString(), sourceFiles: [] },
+    },
     updated_at: new Date().toISOString(),
   };
 }
@@ -566,7 +573,7 @@ async function streamClaudeResponseDirect(systemPrompt, messages, effectiveModel
     cacheSystem: true, // Cache the system prompt (wizard prompt is large + stable)
   })) {
     if (event.type === "fallback") {
-      console.log(`[wizard] Model fallback: ${event.message} (${CLAUDE_MODEL} not accessible)`);
+      console.log(`[wizard] Model fallback: ${event.from}→${event.to} (${event.message})`);
     }
     if (event.type === "text") {
       fullText += event.text;
@@ -678,6 +685,78 @@ async function streamGPTResponse(systemPrompt, messages, res) {
 }
 
 // ---------------------------------------------------------------------------
+// Dual-Model: Parallel Claude + GPT
+// ---------------------------------------------------------------------------
+
+/**
+ * Fire Claude (streaming to client) and GPT (background) in parallel.
+ * Claude tokens stream immediately — zero latency penalty.
+ * After both complete, compare responses and return metadata.
+ *
+ * @param {string} systemPrompt
+ * @param {Array} messages
+ * @param {object} res - Express SSE response
+ * @param {string} primaryModel - Claude model shorthand
+ * @param {object} dualConfig - from dual-model/config.js
+ * @returns {Promise<{primaryText: string, comparison: object|null}>}
+ */
+async function dualStreamModelResponse(systemPrompt, messages, res, primaryModel, dualConfig) {
+  const { compare } = require("../../tools/lib/dual-model");
+
+  // Fire GPT in background immediately (before Claude starts)
+  const gptStart = Date.now();
+  const gptPromise = backgroundGPTResponse(systemPrompt, messages, dualConfig.secondaryTimeoutMs + 180000)
+    .catch(err => {
+      console.log(`[dual-model] GPT background error: ${err.message}`);
+      return null;
+    });
+
+  // Stream Claude normally — tokens go to client immediately
+  const claudeStart = Date.now();
+  const primaryText = await streamClaudeResponseDirect(systemPrompt, messages, primaryModel, res);
+  const claudeLatency = Date.now() - claudeStart;
+
+  // Wait for GPT (bounded — don't hold SSE open forever after Claude finishes)
+  let comparison = null;
+  try {
+    const gptResult = await Promise.race([
+      gptPromise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error("secondary-timeout")), dualConfig.secondaryTimeoutMs)),
+    ]);
+
+    if (gptResult) {
+      const gptLatency = Date.now() - gptStart;
+      comparison = await compare(
+        { content: primaryText, model: primaryModel, latencyMs: claudeLatency },
+        { content: gptResult.content, model: "gpt-5.4", latencyMs: gptLatency },
+        { mode: "wizard" },
+      );
+      console.log(`[dual-model] Comparison: ${comparison.agreement} (score: ${comparison.similarityScore})`);
+    }
+  } catch (err) {
+    console.log(`[dual-model] Secondary model skipped: ${err.message}`);
+  }
+
+  return { primaryText, comparison };
+}
+
+/**
+ * Collect GPT response in background. Non-blocking — failures are caught by caller.
+ * @returns {Promise<{content: string}>}
+ */
+async function backgroundGPTResponse(systemPrompt, messages, timeoutMs) {
+  if (!openaiApi.isConfigured()) {
+    throw new Error("GPT not configured");
+  }
+  const gptMessages = [{ role: "system", content: systemPrompt }, ...messages];
+  const result = await openaiApi.chatCompletion(gptMessages, {
+    maxTokens: 16384,
+    timeout: timeoutMs,
+  });
+  return { content: result.content || "" };
+}
+
+// ---------------------------------------------------------------------------
 // Conversation History Truncation
 // ---------------------------------------------------------------------------
 
@@ -710,7 +789,7 @@ async function truncateHistory(messages, maxMessages = 16) {
     return [{ role: "system", content: cached }, ...recent];
   }
 
-  // Attempt LLM-powered summary using Haiku (fast + cheap)
+  // Attempt LLM-powered summary using Opus
   try {
     if (anthropicApi.isConfigured()) {
       const conversationText = early
@@ -722,7 +801,7 @@ async function truncateHistory(messages, maxMessages = 16) {
           { role: "system", content: "Summarize this wizard conversation into a concise brief (max 400 words). Focus on: decisions made, data extracted, sections discussed, and what the user wants to build." },
           { role: "user", content: conversationText },
         ],
-        { model: "haiku", maxTokens: 1024, timeout: 15000 }
+        { model: "opus", maxTokens: 1024, timeout: 30000 }
       );
 
       const summary = `[Conversation Summary — ${early.length} earlier messages]\n${result.content}`;
@@ -864,7 +943,7 @@ async function handleWizardChat(req, res) {
     });
   }
 
-  const { mode = "interview", messages = [], currentState, projectId, model } = req.body;
+  const { mode = "interview", messages = [], currentState, projectId, model, dualModel } = req.body;
 
   if (!Array.isArray(messages) || messages.length === 0) {
     return res
@@ -895,7 +974,20 @@ async function handleWizardChat(req, res) {
 
     // Call LLM (Claude or GPT), stream tokens to SSE client
     const effectiveModel = model || CLAUDE_MODEL;
-    const fullResponse = await streamModelResponse(systemPrompt, truncated, res, effectiveModel);
+    const { getConfig: getDualConfig } = require("../../tools/lib/dual-model");
+    const dualConfig = getDualConfig();
+    // Enable dual-model from request body (frontend setting) or config (env var)
+    const dualEnabled = dualModel === true || dualConfig.enabled;
+    let fullResponse;
+    let comparison = null;
+
+    if (dualEnabled && openaiApi.isConfigured() && effectiveModel !== "gpt-5.4") {
+      const result = await dualStreamModelResponse(systemPrompt, truncated, res, effectiveModel, dualConfig);
+      fullResponse = result.primaryText;
+      comparison = result.comparison;
+    } else {
+      fullResponse = await streamModelResponse(systemPrompt, truncated, res, effectiveModel);
+    }
 
     // Parse the complete response for WIZARD_STATE
     // (conversational text already streamed via SSE — only state is needed here)
@@ -913,6 +1005,11 @@ async function handleWizardChat(req, res) {
     // Send the parsed state
     if (mergedState) {
       sendSSE(res, { type: "state", wizardState: mergedState });
+    }
+
+    // Send dual-model comparison if available
+    if (comparison) {
+      sendSSE(res, { type: "comparison", data: comparison });
     }
 
     sendSSE(res, { type: "done" });
@@ -1034,8 +1131,8 @@ async function handleWizardPrefetch(req, res) {
 
     const effectiveModel = model || CLAUDE_MODEL;
 
-    // Use the prefetch model setting or fall back to Haiku for speed/cost
-    const prefetchModel = effectiveModel === "gpt-5.4" ? effectiveModel : "haiku";
+    // Use the prefetch model setting or fall back to Opus
+    const prefetchModel = effectiveModel === "gpt-5.4" ? effectiveModel : "opus";
 
     let fullText;
     if (prefetchModel === "gpt-5.4" && openaiApi.isConfigured()) {

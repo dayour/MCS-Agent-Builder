@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { Link } from "react-router";
 import { ChevronRight, Bug, Lightbulb, Terminal, Headphones } from "lucide-react";
-import ThemeToggle from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { useTerminalStore } from "@/stores/terminalStore";
 import { useMeetingStore } from "@/stores/meetingStore";
 import FeedbackDialog from "@/components/FeedbackDialog";
+import ThemeToggle from "@/components/ThemeToggle";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -21,17 +21,11 @@ const Layout = ({ children, breadcrumbs }: LayoutProps) => {
   return (
     <div className="flex flex-col h-full bg-background overflow-hidden">
       <header className="shrink-0 z-50 border-b border-border bg-background/80 backdrop-blur-sm">
-        <div className="flex h-14 items-center px-6">
-          <Link to="/" className="flex items-center gap-2.5">
-            <img src="/favicon.png" alt="MCS Agent Builder" className="h-[26px] w-[26px]" />
-            <span className="text-sm font-semibold tracking-tight text-foreground">
-              MCS Agent Builder
-            </span>
-          </Link>
-
+        <div className="flex h-12 items-center px-5">
+          {/* Breadcrumbs (site nav moved to NavigationRail) */}
           {breadcrumbs && breadcrumbs.length > 0 && (
-            <nav className="ml-6 flex items-center gap-1.5 text-sm">
-              {breadcrumbs.map((crumb, i) => (
+            <nav className="flex items-center gap-1.5 text-sm">
+              {breadcrumbs.map((crumb) => (
                 <span key={crumb.href ?? crumb.label} className="flex items-center gap-1.5">
                   <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
                   {crumb.href ? (
@@ -39,7 +33,7 @@ const Layout = ({ children, breadcrumbs }: LayoutProps) => {
                       {crumb.label}
                     </Link>
                   ) : (
-                    <span className="text-foreground">{crumb.label}</span>
+                    <span className="text-foreground font-medium">{crumb.label}</span>
                   )}
                 </span>
               ))}
@@ -95,6 +89,7 @@ const Layout = ({ children, breadcrumbs }: LayoutProps) => {
                 <span className="ml-0.5 w-2 h-2 rounded-full bg-red-500 animate-pulse" />
               )}
             </Button>
+            <div className="mx-1 h-4 w-px bg-border" />
             <ThemeToggle />
           </div>
         </div>

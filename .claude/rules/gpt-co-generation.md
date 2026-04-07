@@ -18,7 +18,7 @@ paths:
 
 # Dual Model Co-Generation and Review
 
-Fire GPT-5.4 in parallel with your work for every non-trivial task because dual-model review catches bugs during implementation rather than after. GPT serves as both a **co-generator** (produces content independently for merging) and a **reviewer** (validates content after generation). This applies to all work: MCS builds, code writing, reviews, cleanup, app updates, architecture decisions, documentation.
+Fire GPT-5.4 on **every interaction** — no size threshold, no "trivial" exception, everything. This is hook-enforced: the Stop hook blocks if no GPT attestation exists for the session. GPT serves as both a **co-generator** (produces content independently for merging) and a **reviewer** (validates content after generation). This applies to all work: MCS builds, code writing, reviews, cleanup, app updates, architecture decisions, documentation, and even simple greetings (use `ask -q`).
 
 ## 5 GPT Value Patterns (Ordered by Impact)
 
@@ -75,6 +75,22 @@ The second model is most valuable as an **adversary, oracle, and safety controll
 ## When to Skip GPT
 
 GPT fires on **everything** — the only valid skip reason is GPT being unavailable (exit code 3), in which case proceed with Claude alone. There are no task-size exceptions. Fire GPT as a background agent so it never blocks the response.
+
+## Hook Enforcement (3 Layers)
+
+GPT co-generation is mechanically enforced — forgetting is not possible:
+
+1. **UserPromptSubmit hook** (`.claude/hooks/gpt-reminder.js`): Injects a `[GPT CO-GEN REQUIRED]` reminder into every user prompt AND writes a **per-interaction pending marker** (`$TMPDIR/claude-gpt-attestations/pending-<sessionId>.json`) with the prompt timestamp. This marker is the clock that the Stop hook reads.
+
+2. **Stop hook** (`.claude/hooks/check-gpt-attestation.js`): After every response, reads the pending marker timestamp and checks if ANY GPT attestation exists AFTER that timestamp. This is **per-interaction enforcement** — a GPT call from a previous interaction does not satisfy the current one. Falls back to 5-minute window if no pending marker exists (grace period for first run).
+
+3. **Attestation file** (`$TMPDIR/claude-gpt-attestations/<session-id>.json`): Written by `multi-model-review.js` on every successful call (or attempted call with exit 3). Contains session ID, command, status, and timestamp array. Per-session isolation prevents cross-session spoofing.
+
+**Per-interaction flow:** UserPromptSubmit writes marker → Claude works → Claude calls GPT (writes attestation) → Stop hook checks attestation timestamp > marker timestamp → pass/block.
+
+**Break-glass:** GPT unavailable (exit 3) writes `status: "unavailable"` attestation, satisfying the Stop hook. No manual bypass path — if GPT is reachable, it must be called.
+
+**Known limitation:** Background agents spawned via the Agent tool do not trigger hooks and therefore bypass GPT enforcement. The lead agent (main conversation) must fire GPT — subagents are exempt.
 
 ## Effort Tiers
 

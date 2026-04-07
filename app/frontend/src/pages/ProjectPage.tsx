@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router";
 import {
-  Bot, Plus, Eye, Microscope, Hammer, FlaskConical,
-  Wrench, Trash2, Loader2, Network, BookOpen, Check,
+  Plus, Eye, Microscope, Hammer, FlaskConical,
+  Wrench, Trash2, Loader2, BookOpen, Check,
 } from "lucide-react";
 import Layout from "@/components/Layout";
+import AgentIconBadge from "@/components/AgentIcon";
 import StatusBadge from "@/components/StatusBadge";
 import ReadinessRing from "@/components/ReadinessRing";
 import { Button } from "@/components/ui/button";
@@ -303,7 +304,6 @@ const ProjectPage = () => {
 
                   const renderAgentCard = (agent: typeof agents[0], indent: boolean, badge?: string) => {
                     const isOrch = badge === "Orchestrator";
-                    const AgentIcon = isOrch ? Network : Bot;
                     const nextAction = getNextAction(agent);
                     const hasFailures = agent.evalPassRate !== null && agent.evalPassRate < 70;
 
@@ -327,9 +327,7 @@ const ProjectPage = () => {
                             to={`/project/${id}/agent/${agent.id}`}
                             className="flex items-center gap-4 flex-1 min-w-0"
                           >
-                            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${isOrch ? "bg-primary/10" : "bg-surface-3"}`}>
-                              <AgentIcon className="h-5 w-5 text-primary" />
-                            </div>
+                            <AgentIconBadge agent={agent} size={40} className={isOrch ? "ring-2 ring-primary/30" : ""} />
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2">
                                 <h3 className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">

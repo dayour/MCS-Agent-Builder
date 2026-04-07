@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-23
-sources: [MS Learn, PAC CLI docs, Dataverse MCP docs, direct testing, E2E pipeline test (24/24 pass), ObjectModel schema, Island Gateway wire captures, Power Platform community, VS Code extension blog, 2026 Wave 1 release plan, WebSearch Mar 2026, MS Learn whats-new Mar 2026, MS Learn pac copilot reference]
+last_verified: 2026-04-07
+sources: [MS Learn, PAC CLI docs, Dataverse MCP docs, direct testing, E2E pipeline test (24/24 pass), ObjectModel schema, Island Gateway wire captures, Power Platform community, VS Code extension blog, 2026 Wave 1 release plan, WebSearch Apr 2026, MS Learn whats-new Apr 2026, MS Learn pac copilot reference, 2026 Wave 1 planned features page Apr 2026]
 confidence: high
 refresh_trigger: on_error
 -->
@@ -167,19 +167,34 @@ The `botcomponent` table has both `data` and `content` columns. Instructions (ty
 
 | Feature | Timeline | Status | Impact |
 |---------|----------|--------|--------|
-| Custom MCP servers | Preview Mar 2026, GA Apr 2026 | **Preview (live)** | Create/clone reusable MCP servers via UI; assembles connector actions, tools from other MCPs, custom APIs. Clone MS-authored MCPs and tailor. Docs: `mcp-create-new-server` |
+| Custom MCP servers | Preview Mar 2026, GA in 2026 Wave 1 | **Preview (live)** | Create/clone reusable MCP servers via UI; assembles connector actions, tools from other MCPs, custom APIs. Clone MS-authored MCPs and tailor. Docs: `mcp-create-new-server` |
 | OpenAPI v3 connectors | Preview Feb 2026, GA May 2026 | **Preview** | Import OpenAPI v3 specs directly — no manual downgrade to v2. Auto-translation during creation. |
 | MCP-compliant tools in agent workflows | Preview Apr 2026, GA Oct 2026 | **Planned** | Use MCP tools directly in Power Automate agent workflows |
-| Reassign agent owner via API | GA Mar 2026 | **GA** | `POST /api/CopilotStudio/environments/{envId}/agents/{agentId}/assignTo` — reassign orphaned agents. **New namespace: `copilotstudio`** (old namespace deprecated but still works temporarily). |
+| Reassign agent owner via API | GA Mar 19, 2026 | **GA** | `POST /api/CopilotStudio/environments/{envId}/agents/{agentId}/assignTo` — reassign orphaned agents. **New namespace: `copilotstudio`** (old namespace deprecated but still works temporarily). |
 | Work IQ MCP tools | Preview Mar 2026 | **Preview** | Connect agents to Work IQ service for real-time M365 work insights (emails, meetings, chats, files) |
-| SharePoint lists as knowledge source | Preview Apr 2026, GA May 2026 | **Planned** | Add SharePoint lists directly as knowledge sources |
+| SharePoint lists as knowledge source | Preview Apr 2026, GA May 2026 | **Preview imminent** | Add SharePoint lists directly as knowledge sources |
 | Connector SDK with Power Fx | Preview May 2025, GA May 2026 | **Preview** | Build enhanced connectors with Power Platform Connector SDK and Power Fx |
-| Unified error/warning/governance view | Preview Apr 2026, GA Jun 2026 | **Planned** | See all errors, warnings, and governance notifications in a unified view |
+| Unified error/warning/governance view | Preview Apr 2026, GA Jun 2026 | **Preview imminent** | See all errors, warnings, and governance notifications in a unified view |
 | Advanced approvals | Preview May 2025, GA Mar 2026 | **GA** | Build advanced approval workflows within agents |
-| Threat protection | Preview Sep 2025, GA Feb 2026 | **GA** | Additional threat protection for Copilot Studio agents |
+| Threat protection | Preview Sep 2025, GA Jun 2026 | **Preview** | Additional threat protection for Copilot Studio agents (GA date moved to Jun 2026) |
 | ExecuteCopilotAsyncV2 | Available now | **GA** | Invoke agents from code apps via `/proactivecopilot/executeAsyncV2`. Returns response (not fire-and-forget). Recommended over `/execute` and `/executeAsync`. |
-| Express mode for agent flows | Preview Nov 2025 | **Preview** | Accelerate flow execution to minimize timeouts |
+| Express mode for agent flows | Preview Nov 2025, GA May 2026 | **Preview** → **GA May 2026** | Accelerate flow execution to minimize timeouts. Opt-in per flow. |
 | Entra agent identities | Nov 2025 | **Preview** | Auto-create Microsoft Entra identities for agents for better security management |
+| Agent evaluations | Preview Oct 2025, GA Mar 2026 | **GA** | Customizable test sets with multiple graders; multi-turn conversation tests; real-time feedback |
+| GPT-5 Chat global | Nov 2025 (EU/US), GA global Mar 2026 | **GA (global)** | Available in all commercial regions excluding GCC |
+| Claude Sonnet 4.5 / 4.6 / Opus 4.6 | GA Mar 2026 | **GA (global)** | External models — GA globally excluding GCC. Admin opt-in for external models. |
+| Agent node in agent flows | Mar 2026 | **GA** | Call a Copilot Studio agent from within an agent flow via "Run an agent" node. Agent reasons over data, pulls knowledge, uses tools. |
+| Prompt assistant | Mar 2026 | **GA** | GPT-powered prompt suggestions in Prompt Builder to draft prompts faster |
+| Bing Custom Search knowledge | Mar 2026 | **GA** | Add Bing Custom Search as a knowledge source with Custom Configuration ID |
+| Multi-turn conversation tests | Mar 2026 | **GA** | Evaluate agents across realistic multi-turn dialog flows (not just single-turn) |
+| Configure triggers with end-user credentials | Preview Apr 2026, GA Jun 2026 | **Planned** | Event triggers run with end-user identity (moved from Mar preview to Apr 2026) |
+| Enforce safe sharing (credential oversharing) | Preview Apr 2026, GA Jun 2026 | **Planned** | Detect and prevent credential oversharing |
+| Define custom metrics for analytics | Preview Apr 2026, GA May 2026 | **Planned** | Custom metrics to measure agent performance |
+| See evaluation results in real time | Preview May 2026, GA May 2026 | **Planned** | Watch evaluation progress as it runs |
+| File groups (knowledge) | Preview Jun 2025, GA May 2026 | **Preview** | Organize files as single knowledge source with variable-based instructions |
+| Code interpreter on SharePoint sources | Preview Mar 2026, GA May 2026 | **Active Preview** | Use code interpreter on SharePoint/OneDrive files in agent conversations |
+| Post-call action topics (voice) | Mar 2026 | **GA** | Trigger backend actions automatically after voice call ends |
+| Voice reprompt messages | Mar 2026 | **GA** | Randomized reprompt messages for voice scenarios |
 
 ## New API Endpoints & Capabilities (Mar 2026 update)
 

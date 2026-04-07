@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-26
-sources: [MS Learn, Power Platform connector catalog, MS Learn Salesforce connector reference (deep-dive 2026-03-26), MS Learn Bing Search connector reference, MS Learn ServiceNow connector reference, MS Learn Zoom Meetings connector reference, WebSearch, 2026 Wave 1 release plan, 2025 Wave 2 release plan, Copilot Studio What's New (fetched 2026-03-23), Power Platform March 2026 blog, MS Learn real-time knowledge connectors, MS Learn add-tools-custom-agent, MS Learn connector-request-failure, Salesforce REST API docs, MCS Cat Blog MCP-vs-connectors, GPTfy integration comparison]
+last_verified: 2026-04-07
+sources: [MS Learn, Power Platform connector catalog, MS Learn Salesforce connector reference (deep-dive 2026-03-26), MS Learn Bing Search connector reference, MS Learn ServiceNow connector reference, MS Learn Zoom Meetings connector reference, WebSearch Apr 2026, 2026 Wave 1 release plan (planned-features Apr 2026), 2025 Wave 2 release plan, Copilot Studio What's New (fetched 2026-04-07), Power Platform March 2026 blog, MS Learn real-time knowledge connectors, MS Learn add-tools-custom-agent, MS Learn connector-request-failure, Salesforce REST API docs, MCS Cat Blog MCP-vs-connectors, GPTfy integration comparison]
 confidence: high
 refresh_trigger: before_architecture
 -->
@@ -14,7 +14,7 @@ refresh_trigger: before_architecture
 | Premium | Premium license required | HTTP, SQL Server, Azure services, Salesforce |
 | Custom | Built by org | Custom API connectors (OpenAPI-based) |
 
-## Key Changes (Mar 2026 Refresh)
+## Key Changes (Apr 2026 Refresh)
 
 - **OpenAPI v3 support**: Preview Feb 2026, GA May 2026. Import OpenAPI v3 specs directly -- no more downgrading to v2. No configuration required -- available by default across all environments. Source: https://learn.microsoft.com/en-us/power-platform/release-plan/2025wave2/microsoft-copilot-studio/build-power-platform-connectors-openapi-v3
 - **Enhanced connectors (Connector SDK + PowerFx)**: Preview May 2025, GA May 2026. Build structured data connectors that work as agent knowledge sources. Source: https://learn.microsoft.com/en-us/power-platform/release-plan/2026wave1/microsoft-copilot-studio/build-enhanced-connectors-power-platform-connector-sdk-powerfx
@@ -26,7 +26,12 @@ refresh_trigger: before_architecture
 - **Improved ticket-based connector responses** (Feb 2026): Agents more accurately retrieve ServiceNow tickets and Azure DevOps work items and generate clear, actionable summaries.
 - **Copilot connectors expansion**: 35 new M365 Copilot connectors GA (distinct from Power Platform connectors). These are Microsoft Graph connectors that index data into Microsoft 365 for Copilot grounding. 100+ Copilot connectors total. Source: https://techcommunity.microsoft.com/blog/microsoft365copilotblog/fueling-new-experiences-in-microsoft-365-copilot-with-expanded-copilot-connector/4493246
 - **QuickBooks Online connector deprecated** (Mar 2026): Being retired, no longer supported.
+- **Impala connector deprecated** (Apr 2026): Being retired and removed Apr 1-14, 2026. Existing connections will stop working.
 - **Copilot connectors vs Power Platform connectors**: New docs page clarifying the distinction. Copilot connectors = index into Graph (search/knowledge). PP connectors = live API bridges (actions/real-time knowledge). Source: https://learn.microsoft.com/en-us/microsoft-copilot-studio/knowledge-graph-vs-power-platform-connectors
+- **Federated Copilot connectors GA (Apr/May 2026)**: MCP-based real-time connectors for M365 Copilot. No data storage/indexing -- real-time access via user identity. 10 initial connectors: Canva, HubSpot, Linear, Intercom, Google Calendar, Google Contacts, Notion, S&P Global, Moody's, LSEG. Supported in Researcher agent, M365 Chat, Agent Mode in Excel. Enabled by default in M365 admin center. **Note:** These are M365 Copilot connectors, NOT Power Platform connectors -- they don't appear in the PP connector catalog. Source: https://blog-en.topedia.com/2026/03/federated-copilot-connectors-will-reach-general-availability-in-microsoft-365-copilot/
+- **MIP labels across connectors** (Preview, Jul 2025): Microsoft Information Protection sensitivity labels now displayed across connectors, test chat, Teams, and M365 Copilot. Prevents oversharing. Integration with Dataverse and Microsoft Purview.
+- **Use MCP-compliant tools in agent workflows** (Preview Apr 2026, GA Oct 2026): Broader MCP tool integration in agent workflow steps. Source: 2026w1 planned features.
+- **Express mode for agent-invoked flows** (Preview Nov 2025, GA May 2026): Faster flow execution to minimize timeouts. Source: 2026w1 planned features.
 
 ## Commonly Used Connectors in MCS Agents
 
@@ -98,11 +103,12 @@ Note: More connectors may have embedded MCP server actions. Check the connector 
 | Celonis | Process mining and execution management | Premium. MCP server in catalog (Preview). |
 | Google Sheets | Read/write spreadsheet data | Premium. Now also a Real-Time Knowledge source (preview). |
 
-### Deprecated Connectors (Mar 2026)
+### Deprecated Connectors (Apr 2026)
 
 | Connector | Status | Notes |
 |-----------|--------|-------|
-| QuickBooks Online | **Deprecated** | Being retired Mar 2026. No longer supported. Migrate to alternative. |
+| QuickBooks Online | **Deprecated** | Retired Mar 2026. No longer supported. Migrate to alternative. |
+| Impala | **Deprecated** | Retired Apr 1-14, 2026. Existing connections stop working. No new connections allowed. |
 
 ## Connector Capabilities for Knowledge (Enhanced Connectors)
 
@@ -156,3 +162,11 @@ node tools/mcs-lsp.js push --workspace <path>
 - Tool groups (Preview) let makers add curated action sets from Outlook/SharePoint in one step
 - Managed Identity auth for custom connectors eliminates secret rotation (Preview, single-tenant only)
 - QuickBooks Online connector deprecated Mar 2026
+- Impala connector deprecated Apr 2026 (retired Apr 1-14)
+- Federated Copilot connectors GA Apr/May 2026 -- MCP-based, no data copy, 10 initial connectors. M365 Copilot only (not PP catalog)
+- MIP sensitivity labels across connectors (Preview Jul 2025) -- prevents oversharing
+- MCP-compliant tools in agent workflows: Preview Apr 2026, GA Oct 2026
+- Express mode for agent-invoked flows: Preview Nov 2025, GA May 2026
+- Agent evaluations now GA (Mar 2026) -- multi-turn conversation tests added
+- Work IQ tools connection (Preview Mar 2026) -- access M365 data from agents
+- **Apr 2026 check**: No new Power Platform connector types added. Federated Copilot connectors are M365-only. Impala connector retired. Enhanced connectors and OpenAPI v3 still on track for GA May 2026. Tool groups still Preview.

@@ -1,7 +1,7 @@
 {
   "_meta": {
     "version": "1.0",
-    "builtAt": "2026-03-25T00:42:08.261Z",
+    "builtAt": "2026-04-07T21:17:38.795Z",
     "sourceFiles": [
       "knowledge/cache/adaptive-cards.md",
       "knowledge/cache/agent-lifecycle.md",
@@ -35,12 +35,12 @@
     ],
     "stats": {
       "triggers": 24,
-      "connectors": 35,
-      "mcpServers": 52,
+      "connectors": 36,
+      "mcpServers": 63,
       "models": 21,
       "channels": 21,
       "knowledgeSources": 34,
-      "firstPartyAgents": 24,
+      "firstPartyAgents": 25,
       "patterns": 10,
       "evalScenarios": 74
     }
@@ -319,7 +319,7 @@
         "name": "Salesforce",
         "category": "thirdParty",
         "tier": "premium",
-        "keyActions": "Get Account/Contact/Opportunity/Lead/Case/Product/User records, Execute SOQL query, Execute SOSL search, Create/Update/Delete/Upsert record, Send HTTP request, Bulk job operations, MCP server action (`mcp_SalesforceManagement`)",
+        "keyActions": "25 active actions (6 deprecated): Get Account/Contact/Case/Opportunity/Product/User records (typed, OData params), Get records (generic, any object), Get record (by ID), Get record by External ID, Execute SOQL query (parameterized @params), Execute SOSL search, Create/Update(V3)/Delete/Upsert record, Send HTTP request, Bulk job ops (Create/Upload/Close/Get/Delete), Get object types, MCP server action (`mcp_SalesforceManagement`). OData filter: `eq`,`ne`,`gt`,`ge`,`lt`,`le`,`and`,`or`,`not` -- no `contains`/`startswith`. `$select`/`$top`/`$skip`/`$orderby` supported. Custom fields (`__c`) work in all params. Row limit: 2000 (Salesforce API) but 500KB response limit is usually binding. SOQL supports JOINs, aggregates, GROUP BY, date literals, relationship queries. Full deep-dive: `Build-Guides/CDW/agents/account-prospecting/research/salesforce-connector-deep-dive.md`",
         "mcpAlternative": false,
         "mcpNote": "",
         "notes": "Premium. OAuth 2.0 (Salesforce login). API v58.0. Rate limit: 900 calls/60s/connection. Also a supported Real-Time Knowledge source (preview)."
@@ -538,7 +538,16 @@
         "keyActions": "",
         "mcpAlternative": false,
         "mcpNote": "",
-        "notes": "Being retired Mar 2026. No longer supported. Migrate to alternative."
+        "notes": "Retired Mar 2026. No longer supported. Migrate to alternative."
+      },
+      {
+        "name": "Impala",
+        "category": "other",
+        "tier": "standard",
+        "keyActions": "",
+        "mcpAlternative": false,
+        "mcpNote": "",
+        "notes": "Retired Apr 1-14, 2026. Existing connections stop working. No new connections allowed."
       }
     ],
     "mcpServers": [
@@ -957,6 +966,94 @@
         "category": "thirdParty",
         "connectorName": "",
         "oldName": ""
+      },
+      {
+        "name": "Work IQ Copilot (Preview)",
+        "description": "",
+        "status": "",
+        "category": "workiq",
+        "connectorName": "",
+        "oldName": ""
+      },
+      {
+        "name": "Work IQ User (Preview)",
+        "description": "",
+        "status": "",
+        "category": "workiq",
+        "connectorName": "",
+        "oldName": ""
+      },
+      {
+        "name": "Mail",
+        "description": "",
+        "status": "",
+        "category": "outlook",
+        "connectorName": "",
+        "oldName": ""
+      },
+      {
+        "name": "Calendar",
+        "description": "",
+        "status": "",
+        "category": "outlook",
+        "connectorName": "",
+        "oldName": ""
+      },
+      {
+        "name": "Teams",
+        "description": "",
+        "status": "",
+        "category": "workiq",
+        "connectorName": "",
+        "oldName": ""
+      },
+      {
+        "name": "User Profile",
+        "description": "",
+        "status": "",
+        "category": "thirdParty",
+        "connectorName": "",
+        "oldName": ""
+      },
+      {
+        "name": "SharePoint",
+        "description": "",
+        "status": "",
+        "category": "workiq",
+        "connectorName": "",
+        "oldName": ""
+      },
+      {
+        "name": "OneDrive",
+        "description": "",
+        "status": "",
+        "category": "workiq",
+        "connectorName": "",
+        "oldName": ""
+      },
+      {
+        "name": "Word",
+        "description": "",
+        "status": "",
+        "category": "workiq",
+        "connectorName": "",
+        "oldName": ""
+      },
+      {
+        "name": "M365 Copilot Search",
+        "description": "",
+        "status": "",
+        "category": "workiq",
+        "connectorName": "",
+        "oldName": ""
+      },
+      {
+        "name": "Dataverse",
+        "description": "",
+        "status": "",
+        "category": "dataverse",
+        "connectorName": "",
+        "oldName": ""
       }
     ],
     "models": [
@@ -977,9 +1074,9 @@
       {
         "name": "GPT-5 Chat",
         "category": "general",
-        "status": "GA",
+        "status": "GA (Global)",
         "availability": "All regions",
-        "notes": "Standard rate. Now GA everywhere (previously EU + US only)."
+        "notes": "Standard rate. GA globally since Mar 2026 (previously EU + US only as of Nov 2025). \"ChatGPT-5 is now generally available globally\" per [What's New Mar 2026](https://learn.microsoft.com/en-us/microsoft-copilot-studio/whats-new)."
       },
       {
         "name": "GPT-5 Reasoning",
@@ -1012,23 +1109,23 @@
       {
         "name": "Claude Sonnet 4.5",
         "category": "general",
-        "status": "GA",
+        "status": "GA (Global)",
         "availability": "GA (cross-geo) all regions; GA natively in US",
-        "notes": "Anthropic model, requires admin enablement. Upgraded from Preview to GA."
+        "notes": "Anthropic model, requires admin enablement. GA globally since Mar 2026 per [What's New](https://learn.microsoft.com/en-us/microsoft-copilot-studio/whats-new). Also available for Computer Use agents (Feb 2026)."
       },
       {
         "name": "Claude Sonnet 4.6",
         "category": "general",
-        "status": "GA",
+        "status": "GA (Global)",
         "availability": "GA (cross-geo) all regions; GA natively in US",
-        "notes": "Anthropic model. Upgraded from Experimental to GA."
+        "notes": "Anthropic model. GA globally since Mar 2026 per [What's New](https://learn.microsoft.com/en-us/microsoft-copilot-studio/whats-new)."
       },
       {
         "name": "Claude Opus 4.6",
         "category": "deep",
-        "status": "GA",
+        "status": "GA (Global)",
         "availability": "GA (cross-geo) all regions; GA natively in US",
-        "notes": "Anthropic deep reasoning. Upgraded from Experimental to GA."
+        "notes": "Anthropic deep reasoning. GA globally since Mar 2026. Also available in prompt builder (Feb 2026)."
       },
       {
         "name": "Grok 4.1 Fast",
@@ -1357,18 +1454,18 @@
         "notes": "Requires generative orchestration. Uses Grounding with Bing Search API. Runs in parallel with configured public website sources. NOT the \"Bing Search\" Power Platform connector (that's a separate connector with `GetNews` action)."
       },
       {
-        "type": "AI General Knowledge",
-        "description": "LLM foundational knowledge",
-        "setup": "Toggle \"Use general knowledge\" in Generative AI settings.",
+        "type": "Allow ungrounded responses",
+        "description": "Controls whether the agent can respond using only the model's general knowledge",
+        "setup": "Toggle \"Allow ungrounded responses\" in Generative AI settings > Knowledge section.",
         "limits": "",
-        "notes": "Not real-time. Based on model training data. Can be turned off to restrict to configured sources only."
+        "notes": "Requires generative orchestration. When OFF, agent blocks any response in a turn where it didn't use a knowledge source or tool (fallback topic triggers). When ON, model can answer from general knowledge. Note: turning OFF doesn't guarantee zero general knowledge -- model may still blend general knowledge with retrieved info. Replaces the older \"Use general knowledge\" toggle name."
       },
       {
         "type": "Tenant graph grounding",
         "description": "Semantic search across M365 tenant data",
         "setup": "Enable in Generative AI settings",
         "limits": "",
-        "notes": "Requires M365 Copilot license in same tenant. Requires \"Authenticate with Microsoft\" auth setting. Supports files up to 200 MB (or 512 MB for PDF/PPTX/DOCX). Enabled by default when license present. Does NOT support manual authentication."
+        "notes": "Requires M365 Copilot license in same tenant. Requires \"Authenticate with Microsoft\" auth setting. Supports files up to 200 MB (or 512 MB for PDF/PPTX/DOCX). Enabled by default when license present. Does NOT support manual authentication. Maker does NOT need M365 Copilot license to create agent with semantic index."
       },
       {
         "type": "Real-Time Knowledge connectors (Preview)",
@@ -1704,10 +1801,10 @@
       "whenToBuildCA": ""
     },
     {
-      "name": "Project Manager",
+      "name": "Planner Agent (formerly Project Manager)",
       "tier": 3,
-      "status": "Public Preview",
-      "license": "M365 Copilot",
+      "status": "GA (rolling out mid-Mar 2026, completion expected early May 2026; renamed from \"Project Manager\" to \"Planner Agent\" per [MC1250279](https://mc.merill.net/message/MC1250279))",
+      "license": "M365 Copilot (now available on both Planner premium AND basic plans)",
       "capabilities": [],
       "matchPatterns": [
         "Create and manage project plans",
@@ -1719,28 +1816,30 @@
       "whenToBuildCA": "Need integration with non-Planner PM tools (Jira, Azure DevOps, Asana), need custom project workflows"
     },
     {
-      "name": "Employee Self-Service",
+      "name": "Employee Self-Service (ESS Agent)",
       "tier": 3,
-      "status": "Public Preview",
+      "status": "GA (announced at Ignite Nov 2025, rolling out in waves; GA confirmed per [TechCommunity](https://techcommunity.microsoft.com/blog/microsoft365copilotblog/announcing-general-availability-of-the-employee-self-service-agent-in-microsoft-/4469413))",
       "license": "M365 Copilot",
       "capabilities": [],
       "matchPatterns": [
         "HR self-service (leave, benefits, policies)",
         "IT self-service (device requests, access)",
-        "**When to build CA instead:** Need integration with specific HR/IT systems (ServiceNow, Workday, SAP SuccessFactors)"
+        "Employee onboarding questions",
+        "Leave balance check and ticket submission",
+        "**When to build CA instead:** Need integration with specific HR/IT systems (ServiceNow, Workday, SAP SuccessFactors) beyond the included accelerator packs"
       ],
       "cantDo": [],
-      "whenToBuildCA": "Need integration with specific HR/IT systems (ServiceNow, Workday, SAP SuccessFactors)"
+      "whenToBuildCA": "Need integration with specific HR/IT systems (ServiceNow, Workday, SAP SuccessFactors) beyond the included accelerator packs"
     },
     {
       "name": "Skills Agent",
       "tier": 3,
-      "status": "GA",
+      "status": "RETIRED (removed from agent store Mar 16, 2026; fully retired end of Mar 2026)",
       "license": "M365 Copilot",
       "capabilities": [],
       "matchPatterns": [
-        "Find an expert in [topic]",
-        "Who has skills in [area]?"
+        "Find an expert in [topic] -- now handled by M365 Copilot natively via People Skills",
+        "Who has skills in [area]? -- now handled by M365 Copilot natively via People Skills"
       ],
       "cantDo": [],
       "whenToBuildCA": ""
@@ -1778,13 +1877,13 @@
     {
       "name": "People Agent",
       "tier": 3,
-      "status": "Frontier Preview",
+      "status": "RETIRED (retired end of Mar 2026, along with Skills Agent; per [Topedia](https://blog-en.topedia.com/2026/03/microsoft-retires-skills-agent-and-people-agent-in-microsoft-365-copilot/) and [TechCommunity People Skills expansion](https://techcommunity.microsoft.com/blog/microsoft365copilotblog/people-skills-expanding-skills-intelligence-to-more-users-and-surfaces-across-mi/4497646))",
       "license": "M365 Copilot + Frontier program",
       "capabilities": [],
       "matchPatterns": [
-        "Prepare me for a meeting with [person]",
-        "What's my interaction history with [person]?",
-        "Find colleagues with [expertise]"
+        "Prepare me for a meeting with [person] -- now handled by M365 Copilot natively",
+        "What's my interaction history with [person]? -- now handled by M365 Copilot natively",
+        "Find colleagues with [expertise] -- now handled by People Skills in M365 Copilot"
       ],
       "cantDo": [],
       "whenToBuildCA": ""
@@ -1812,6 +1911,20 @@
         "Personalized learning recommendations",
         "Copilot usage training and tips",
         "Role-play practice exercises"
+      ],
+      "cantDo": [],
+      "whenToBuildCA": ""
+    },
+    {
+      "name": "Copilot Cowork",
+      "tier": 3,
+      "status": "Frontier (available Mar 30, 2026 per [Microsoft 365 Blog](https://www.microsoft.com/en-us/microsoft-365/blog/2026/03/30/copilot-cowork-now-available-in-frontier/))",
+      "license": "M365 Copilot + Frontier program",
+      "capabilities": [],
+      "matchPatterns": [
+        "Research [topic] with extra quality assurance",
+        "Get a peer-reviewed research summary",
+        "**Note:** This is a Researcher enhancement, not a standalone agent. It extends the existing Researcher with multi-model critique capabilities."
       ],
       "cantDo": [],
       "whenToBuildCA": ""

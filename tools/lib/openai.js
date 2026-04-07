@@ -287,7 +287,8 @@ function normalizeUsage(data) {
  * @param {string} [options.reasoningEffort] - Reasoning effort: 'none'|'low'|'medium'|'high'|'xhigh'. Scales timeout automatically.
  * @param {number} [options.retries=3] - Max retry attempts on 429/529/5xx
  * @param {boolean} [options.cache=true] - Enable response caching (default: true)
- * @returns {Promise<{content: string, usage: object, cost: number, cached: boolean}>}
+ * @param {string} [options.previousResponseId] - Thread continuation: pass prior response ID for conversation context
+ * @returns {Promise<{content: string, usage: object, cost: number, cached: boolean, responseId?: string}>}
  */
 async function chatCompletion(messages, options = {}) {
     if (!isConfigured()) {
@@ -337,7 +338,8 @@ async function chatCompletion(messages, options = {}) {
         model,
         input: toResponsesInput(messages),
         ...(maxTokens ? { max_output_tokens: maxTokens } : {}),
-        ...(reasoningEffort && reasoningEffort !== 'none' ? { reasoning: { effort: reasoningEffort } } : {})
+        ...(reasoningEffort && reasoningEffort !== 'none' ? { reasoning: { effort: reasoningEffort } } : {}),
+        ...(options.previousResponseId ? { previous_response_id: options.previousResponseId } : {}),
     };
 
     try {
@@ -366,11 +368,13 @@ async function chatCompletion(messages, options = {}) {
         // Reconcile: replace reservation estimate with actual tokens
         _reconcileReservation(reservationId, usage.prompt_tokens + usage.completion_tokens);
 
-        const result = { content, usage, cost, cached: false };
+        // Extract response ID for conversation threading
+        const responseId = res.data?.id || null;
+        const result = { content, usage, cost, cached: false, responseId };
 
         // Cache the result
         if (cacheKeyVal) {
-            _setCache(cacheKeyVal, { content, usage, cost });
+            _setCache(cacheKeyVal, { content, usage, cost, responseId });
         }
 
         return result;

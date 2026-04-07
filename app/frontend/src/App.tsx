@@ -13,8 +13,9 @@ import {
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import RightPanel from "./components/terminal/RightPanel";
+import NavigationRail from "./components/nav/NavigationRail";
 import { useTerminalStore } from "./stores/terminalStore";
-import { fetchProjects, fetchProject, fetchAgent } from "@/lib/api";
+import { fetchProjects, fetchProject, fetchAgent, fetchSolutions } from "@/lib/api";
 
 // ---------------------------------------------------------------------------
 // Error Boundary — catches render errors with retry support
@@ -138,6 +139,9 @@ function AppShell() {
   return (
     <div className="flex h-screen w-screen overflow-hidden">
       <NavigationProgress />
+      {/* Left: Navigation rail */}
+      <NavigationRail />
+      {/* Center: Main content area */}
       <div
         className="flex-1 min-w-0 flex flex-col overflow-hidden"
         style={{ marginRight: panelOpen ? panelWidth : 0, transition: "margin-right 200ms ease" }}
@@ -147,6 +151,7 @@ function AppShell() {
           <Outlet />
         </ErrorBoundary>
       </div>
+      {/* Right: Terminal / Meeting panel */}
       <ErrorBoundary>
         <RightPanel />
       </ErrorBoundary>
@@ -177,6 +182,22 @@ const router = createBrowserRouter([
           const { default: Component } = await import("./pages/WizardPage");
           return { Component };
         },
+      },
+      {
+        path: "agents",
+        lazy: async () => {
+          const { default: Component } = await import("./pages/AgentsGallery");
+          return { Component };
+        },
+        loader: () => fetchProjects(),
+      },
+      {
+        path: "discover",
+        lazy: async () => {
+          const { default: Component } = await import("./pages/DiscoverPage");
+          return { Component };
+        },
+        loader: () => fetchSolutions(),
       },
       {
         path: "project/:id",

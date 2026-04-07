@@ -433,3 +433,56 @@ Link to agent via YAML `InvokeFlowTaskAction` (NOT `InvokeFlowAction` — differ
 **Confirmed:** 1 build(s) | Last confirmed: 2026-03-16
 **Related cache:** N/A (tooling)
 **Tags:** #python #node-js #json-parsing #windows #git-bash #tooling
+
+### Work IQ dual-connector architecture: overview-page add uses different connectors than Tools menu {#bm-036} — 2026-04-06
+**Context:** Fidelity FSC build — had added 3 individual MCPs (Teams, SharePoint, UserProfile) via `shared_a365mcpservers`. User manually added "Work IQ" from the agent overview page instead.
+**Tried:** Individual MCP servers via `shared_a365mcpservers` connector with operationIds `mcp_TeamsServer`, `mcp_ODSPRemoteServer`, `mcp_MeServer`.
+**Result:** Work IQ from the overview page adds 2 servers using DIFFERENT dedicated connectors:
+  1. Work IQ Copilot → `shared_a365copilotchatmcp`, operationId `mcp_m365copilot` (cross-M365 **search-only**, 1 tool: `copilot_chat`)
+  2. Work IQ User → `shared_a365memcp`, operationId `mcp_MeServer` (people/org, 6 tools)
+  These are separate from `shared_a365mcpservers` (the unified connector hosting ALL individual servers).
+**Better approach:** Default to Work IQ from overview page for read-only agents — covers search + people in 2 servers. For write operations (send email, create meeting, post Teams), add individual Work IQ servers via Tools > Add Tool > MCP (uses `shared_a365mcpservers`). Build tools must check for BOTH connector patterns: `shared_a365copilotchatmcp`/`shared_a365memcp` AND `shared_a365mcpservers`. Work IQ Copilot is NOT full CRUD — it's search-only across M365. MS recommends new dedicated connectors for new connections but old unified connector still supported.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-04-06
+**Related cache:** mcp-servers.md
+**Tags:** #work-iq #mcp #connector #dual-architecture #overview-page #search-only #read-write
+
+### Dataverse MCP requires botcomponent_connectionreference M:M association {#bm-037} — 2026-04-06
+**Context:** Fidelity FSC build — added Dataverse MCP via raw Dataverse POST (botcomponent type 9)
+**Tried:** Created botcomponent with `InvokeExternalAgentTaskAction` YAML referencing `new_sharedcommondataserviceforapps_26751` connection reference. Component appeared in Dataverse query but NOT linked.
+**Result:** Querying existing TeamsMCP showed it had a `botcomponent_connectionreference` M:M record. DataverseMCP did not. Created the association via POST to `botcomponents(<id>)/botcomponent_connectionreference/$ref`.
+**Better approach:** When creating MCP action components via raw Dataverse POST, always create the M:M `botcomponent_connectionreference` association as a second step. Use: `POST /botcomponents(<componentId>)/botcomponent_connectionreference/$ref` with body `{"@odata.id": "/connectionreferences(<connRefId>)"}`. Without this, MCS may not resolve the connection at runtime.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-04-06
+**Related cache:** mcp-servers.md, api-capabilities.md
+**Tags:** #dataverse-mcp #botcomponent #connection-reference #m2m #association #headless
+
+### DataverseSearchSource is NOT a valid knowledge source kind -- use DataverseStructuredSearchSource {#bm-038b} -- 2026-04-06
+**Context:** Fidelity FSC Incident Management, creating 6 Dataverse knowledge sources via raw Dataverse POST
+**Tried:** Created botcomponents with `kind: KnowledgeSourceConfiguration` and `source.kind: DataverseSearchSource` with `tables: [{logicalName: "cr509_fscincidents"}]`
+**Result:** Components created successfully but MCS publish failed with `UnknownElementError: Node is unknown to the system` for all 6 components. DataverseSearchSource is not a recognized kind.
+**Better approach:** The valid kind is `DataverseStructuredSearchSource` with `skillConfiguration` reference (not `tables`). This requires UI setup because the skillConfiguration reference is auto-generated. For structured Dataverse data, use Dataverse MCP Server instead -- it provides precise field-level queries which is better than fuzzy text search for structured tables. Delete invalid knowledge sources to unblock publish.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-04-06
+**Tags:** #dataverse #knowledge-source #DataverseSearchSource #DataverseStructuredSearchSource #publish-error #UnknownElementError
+
+### PvaPublish is a bound action on the bot entity -- not a root API endpoint {#bm-039} -- 2026-04-06
+**Context:** Fidelity FSC Incident Management, publishing agent after topic updates
+**Tried:** POST to `api/data/v9.2/PvaPublish` with `{BotId: "..."}` in body
+**Result:** HTTP 404 -- `Resource not found for the segment 'PvaPublish'`
+**Better approach:** PvaPublish is a bound action. Correct URL: `api/data/v9.2/bots(<botId>)/Microsoft.Dynamics.CRM.PvaPublish` with empty body `{}`. Returns HTTP 200 on success.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-04-06
+**Tags:** #PvaPublish #bound-action #dataverse #api #publish
+
+### componenttype 9 for topics -- componenttype 1 is Botskill (wrong) {#bm-040} -- 2026-04-06
+**Context:** Creating Leadership Summary Report topic via raw Dataverse POST
+**Tried:** `componenttype: 1` in the botcomponent POST body
+**Result:** HTTP 400 -- `Invalid bot component with bot component type:[Botskill]`
+**Better approach:** Use `componenttype: 9` for custom topics (AdaptiveDialog). Key component type mapping: 1=Botskill, 2=Variable, 8=TaskDialog (MCP actions), 9=Topic (custom/system), 10=Localized topic, 15=Instructions (GptComponentMetadata), 16=Knowledge source, 19=Eval data. Always verify componenttype before POST.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-04-06
+**Tags:** #componenttype #botcomponent #topic #dataverse #POST
+
+### Never use curly braces in MCS instruction text -- PowerFx parse error {#bm-041} -- 2026-04-06
+**Context:** Added QuickChart URL examples to agent instructions with placeholder `{encoded_config}`
+**Tried:** Instruction text containing `https://quickchart.io/chart?c={encoded_config}&w=500`
+**Result:** Runtime error: `Name isn't valid. 'encoded_config' isn't recognized` -- MCS parses all `{...}` in instruction text as PowerFx expression references, even in URLs or examples
+**Better approach:** Never include curly braces in instruction YAML text fields. Use URL-encoded equivalents (%7B/%7D), describe patterns in words instead of literal examples, or move complex URL templates to external documentation. This applies to all text fields in botcomponent data, not just instructions.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-04-06
+**Tags:** #instructions #PowerFx #curly-braces #parse-error #encoding

@@ -7,17 +7,20 @@
  *
  * Features:
  *   - Vulkan GPU acceleration (Intel Arc / NVIDIA / AMD — 33x faster than CPU)
- *   - 2.5-second chunking for low-latency real-time transcription
- *   - RMS silence detection (instant, replaces Silero VAD which was too slow on CPU)
+ *   - 8-second chunking with 1s overlap for word-boundary continuity
+ *   - Beam search (size 5) + temperature fallback for better accuracy
+ *   - Prompt conditioning with meeting context + previous chunk text
+ *   - Frame-level RMS VAD with adaptive thresholds and hangover
+ *   - Timestamp-based overlap dedup (uses segment t0/t1)
  *   - Cross-channel echo suppression (Jaccard word similarity)
  *   - Single whisper context, serialized inference queue with backpressure
  *   - Staggered mic processing (250ms offset to reduce GPU contention)
- *   - Inference timeout guard (15s max per chunk)
+ *   - Inference timeout guard (30s max per chunk)
  *   - Graceful fallback: Vulkan GPU → CPU (auto-detected)
  *
- * Performance (Intel Arc 140V, base.en, 2.5s audio):
- *   - Vulkan GPU: ~117ms inference → 2.6s total latency
- *   - CPU fallback: ~2.7s inference → 5.2s total latency
+ * Performance (Intel Arc 140V, base.en, 8s audio):
+ *   - Vulkan GPU: ~300-500ms inference → ~8.5s total latency
+ *   - CPU fallback: ~8-10s inference → ~18s total latency
  *
  * Audio input: 16kHz, 16-bit signed integer, mono PCM
  * Output: TranscriptEntry events via EventEmitter
@@ -29,10 +32,19 @@ const { ensureModel, getBestAvailable } = require('../../../tools/whisper-models
 // Audio constants
 const SAMPLE_RATE = 16000;
 const BYTES_PER_SAMPLE = 2; // 16-bit
-const CHUNK_DURATION_SEC = 2.5; // 2.5s chunks — optimal for GPU real-time (~100ms inference)
+const CHUNK_DURATION_SEC = 8;   // 8s chunks — reduces word-boundary cuts vs old 2.5s
+const OVERLAP_DURATION_SEC = 1; // 1s overlap between consecutive chunks for continuity
 const CHUNK_SIZE = SAMPLE_RATE * BYTES_PER_SAMPLE * CHUNK_DURATION_SEC;
-const SILENCE_RMS_THRESHOLD = 200;     // System audio speech detection threshold
-const MIC_RMS_THRESHOLD = 500;         // Higher threshold for mic — filters speaker bleed-through
+const OVERLAP_SIZE = SAMPLE_RATE * BYTES_PER_SAMPLE * OVERLAP_DURATION_SEC;
+const STRIDE_SIZE = CHUNK_SIZE - OVERLAP_SIZE; // Advance by 7s, transcribe 8s
+
+// VAD — adaptive RMS with pre/post-roll (fallback when whisper VAD model unavailable)
+const SILENCE_RMS_THRESHOLD = 150;     // Lowered from 200 — catches quieter speech
+const MIC_RMS_THRESHOLD = 400;         // Lowered from 500 — catches soft-spoken participants
+const VAD_FRAME_MS = 20;              // Analyze in 20ms frames for granular speech detection
+const VAD_PRE_ROLL_MS = 300;          // Keep 300ms before speech onset
+const VAD_POST_ROLL_MS = 500;         // Keep 500ms after speech offset
+const VAD_HANGOVER_FRAMES = 15;       // ~300ms hangover to bridge brief pauses
 
 // Echo suppression
 const ECHO_WINDOW_MS = 5000;     // Compare mic text against system text from last 5s
@@ -66,11 +78,24 @@ class TranscriptionService extends EventEmitter {
       mic: Buffer.alloc(0)
     };
 
+    // Overlap buffers — keep last 1s of each chunk for continuity
+    this._overlapBuffers = {
+      system: null, // Buffer or null
+      mic: null
+    };
+    // Track last emitted timestamp per stream for overlap dedup
+    this._lastEmittedT1 = { system: 0, mic: 0 };
+    // Previous chunk text per stream for prompt conditioning
+    this._prevChunkText = { system: '', mic: '' };
+
+    // Meeting context for prompt conditioning (set via setMeetingContext)
+    this._meetingContext = null; // { title, participants: string[] }
+
     // Serialized inference queue (one whisper call at a time, capped to prevent unbounded growth)
     this._queue = [];
     this._processing = false;
     this._activeInference = null; // Track in-flight inference for cancellation
-    this._maxQueueSize = 10; // Drop oldest if queue exceeds this
+    this._maxQueueSize = 6; // Reduced from 10 — 8s chunks are 3x larger, fewer needed
 
     // Recent transcriptions for echo suppression
     this._recentSystem = []; // [{text, timestamp}]
@@ -82,6 +107,7 @@ class TranscriptionService extends EventEmitter {
       chunksProcessed: 0,
       silenceSkipped: 0,
       echoSuppressed: 0,
+      overlapDeduped: 0,
       queueDropped: 0,
       totalDurationMs: 0,
       totalInferenceMs: 0,
@@ -243,17 +269,26 @@ class TranscriptionService extends EventEmitter {
    * @param {Buffer} pcmData - 16kHz, 16-bit signed, mono PCM
    * @param {'system'|'mic'} stream - Which stream this data belongs to
    */
+  /**
+   * Set meeting context for Whisper prompt conditioning.
+   * Called by MeetingSession after briefing is loaded.
+   * @param {{ title?: string, participants?: string[] }} context
+   */
+  setMeetingContext(context) {
+    this._meetingContext = context;
+  }
+
   feedAudio(pcmData, stream) {
     if (!this.isRunning || this._disposed) return;
     if (stream !== 'system' && stream !== 'mic') return;
 
     this.buffers[stream] = Buffer.concat([this.buffers[stream], pcmData]);
 
-    // Process when we have enough data
-    if (this.buffers[stream].length >= CHUNK_SIZE) {
+    // Process when we have a full stride (7s new + 1s overlap = 8s chunk)
+    const minNeeded = this._overlapBuffers[stream] ? STRIDE_SIZE : CHUNK_SIZE;
+    if (this.buffers[stream].length >= minNeeded) {
       if (stream === 'system') {
-        // Drain all ready system chunks (not just one)
-        while (this.buffers.system.length >= CHUNK_SIZE) {
+        while (this._hasEnoughAudio('system')) {
           this._enqueueChunk('system');
         }
       } else {
@@ -262,8 +297,7 @@ class TranscriptionService extends EventEmitter {
           this._micStaggerTimer = setTimeout(() => {
             this._micStaggerTimer = null;
             if (this._disposed) return;
-            // Drain all ready mic chunks
-            while (this.buffers.mic.length >= CHUNK_SIZE) {
+            while (this._hasEnoughAudio('mic')) {
               this._enqueueChunk('mic');
             }
           }, 250);
@@ -272,14 +306,34 @@ class TranscriptionService extends EventEmitter {
     }
   }
 
+  /** Check if stream has enough new audio for next chunk */
+  _hasEnoughAudio(stream) {
+    const minNeeded = this._overlapBuffers[stream] ? STRIDE_SIZE : CHUNK_SIZE;
+    return this.buffers[stream].length >= minNeeded;
+  }
+
   /**
    * Extract a chunk from the buffer and add to inference queue.
    * Drops oldest chunks if queue is full (backpressure).
    * @param {'system'|'mic'} stream
    */
   _enqueueChunk(stream) {
-    const chunk = this.buffers[stream].subarray(0, CHUNK_SIZE);
-    this.buffers[stream] = this.buffers[stream].subarray(CHUNK_SIZE);
+    let chunk;
+    const overlap = this._overlapBuffers[stream];
+
+    if (overlap) {
+      // Prepend 1s overlap from previous chunk + 7s new audio = 8s total
+      const newAudio = this.buffers[stream].subarray(0, STRIDE_SIZE);
+      this.buffers[stream] = this.buffers[stream].subarray(STRIDE_SIZE);
+      chunk = Buffer.concat([overlap, newAudio]);
+    } else {
+      // First chunk: take full 8s, no overlap prefix
+      chunk = this.buffers[stream].subarray(0, CHUNK_SIZE);
+      this.buffers[stream] = this.buffers[stream].subarray(CHUNK_SIZE);
+    }
+
+    // Save last 1s as overlap for next chunk
+    this._overlapBuffers[stream] = Buffer.from(chunk.subarray(chunk.length - OVERLAP_SIZE));
 
     // Backpressure: if queue is full, drop oldest chunk
     if (this._queue.length >= this._maxQueueSize) {
@@ -321,9 +375,9 @@ class TranscriptionService extends EventEmitter {
   async _processChunk(stream, chunk, timestamp) {
     if (this._disposed) return;
 
-    // Step 1: Check for speech via RMS threshold (mic uses higher threshold to filter speaker bleed)
+    // Step 1: Speech detection — adaptive RMS with frame-level analysis
     const threshold = stream === 'mic' ? MIC_RMS_THRESHOLD : SILENCE_RMS_THRESHOLD;
-    if (this._calculateRMS(chunk) < threshold) {
+    if (!this._detectSpeechFrames(chunk, threshold)) {
       this.stats.silenceSkipped++;
       return;
     }
@@ -331,21 +385,29 @@ class TranscriptionService extends EventEmitter {
     // Step 2: Get ArrayBuffer from Int16 PCM chunk
     const arrayBuf = chunk.buffer.slice(chunk.byteOffset, chunk.byteOffset + chunk.byteLength);
 
-    // Step 3: Transcribe
+    // Step 3: Build prompt for conditioning
+    const prompt = this._buildPrompt(stream);
+
+    // Step 4: Transcribe with beam search + temperature fallback
     const startTime = Date.now();
     const { promise, stop } = this.whisperContext.transcribeData(arrayBuf, {
       language: 'en',
       translate: false,
-      maxThreads: this.stats.gpuEnabled ? 4 : 8
+      maxThreads: this.stats.gpuEnabled ? 4 : 8,
+      // Decode tuning — beam search + temperature fallback for better accuracy
+      beamSize: 5,
+      temperature: 0.0,
+      temperatureInc: 0.2,    // Fallback: 0.0 → 0.2 → 0.4 → ... → 1.0
+      bestOf: 5,
+      tokenTimestamps: true,  // Needed for overlap dedup
+      ...(prompt ? { prompt } : {})
     });
 
     // Track active inference for cancellation during shutdown
     this._activeInference = { promise, stop };
 
-    // Timeout guard — 15s is generous (GPU: ~100ms, CPU: ~3s for 2.5s audio)
-    // Reject immediately on timeout; cancel inference fire-and-forget to avoid
-    // a hung stop() blocking the timeout guarantee.
-    const INFERENCE_TIMEOUT_MS = 15000;
+    // Timeout guard — 30s for 8s chunks (GPU: ~300-500ms, CPU: ~8-10s)
+    const INFERENCE_TIMEOUT_MS = 30000;
     let timeoutId;
     const timeoutPromise = new Promise((_, reject) => {
       timeoutId = setTimeout(() => {
@@ -367,37 +429,59 @@ class TranscriptionService extends EventEmitter {
     this.stats.inferenceCount = (this.stats.inferenceCount || 0) + 1;
 
     // Calibration: after first real inference, check if GPU is fast enough.
-    // If inference takes >2x the chunk duration, downgrade model to tiny.en.
-    // This handles weaker integrated GPUs (older Intel UHD, etc.) gracefully.
     if (!this._calibrated) {
       this._calibrated = true;
       const chunkMs = CHUNK_DURATION_SEC * 1000;
       this.emit('status', { type: 'calibration', model: this.modelName, inferenceMs: processingTime, chunkMs, gpu: this.stats.gpuEnabled });
       if (processingTime > chunkMs * 2 && this.modelName !== 'tiny.en') {
         this.emit('status', { type: 'model_downgrade', from: this.modelName, to: 'tiny.en', reason: `Inference ${processingTime}ms too slow for ${chunkMs}ms chunks` });
-        // Reload with smaller model in background (next chunks will use it)
         this._reloadModel('tiny.en').catch(err => {
           this.emit('transcription_error', { stream: 'calibration', error: err.message });
         });
       }
     }
 
-    // Step 4: Extract text
-    const text = (result.segments || [])
+    // Step 5: Extract text with overlap dedup using segment timestamps
+    const segments = result.segments || [];
+    const overlapMs = OVERLAP_DURATION_SEC * 1000; // 1000ms
+    const lastT1 = this._lastEmittedT1[stream];
+
+    // Filter: only keep segments that START after the overlap region
+    // Segments have t0/t1 in milliseconds relative to chunk start
+    const newSegments = lastT1 > 0
+      ? segments.filter(s => s.t0 >= overlapMs - 100) // 100ms tolerance
+      : segments; // First chunk: keep everything
+
+    if (lastT1 > 0 && segments.length > newSegments.length) {
+      this.stats.overlapDeduped += (segments.length - newSegments.length);
+    }
+
+    const text = newSegments
       .map(s => s.text?.trim())
       .filter(t => t && t.length > 0)
       .join(' ')
       .trim();
 
+    // Update last emitted timestamp for next chunk's dedup
+    if (segments.length > 0) {
+      this._lastEmittedT1[stream] = segments[segments.length - 1].t1 || 0;
+    }
+
+    // Store full text for prompt conditioning (including overlap, for context)
+    const fullText = segments.map(s => s.text?.trim()).filter(Boolean).join(' ').trim();
+    if (fullText) {
+      this._prevChunkText[stream] = fullText;
+    }
+
     if (!text || text.length < 3) return;
 
-    // Step 5: Echo suppression for mic channel
+    // Step 6: Echo suppression for mic channel
     if (stream === 'mic' && this._isEcho(text, timestamp)) {
       this.stats.echoSuppressed++;
       return;
     }
 
-    // Step 6: Store for echo detection and emit
+    // Step 7: Store for echo detection and emit
     const entry = {
       speaker: stream === 'mic' ? 'kim' : 'customer',
       text,
@@ -407,10 +491,8 @@ class TranscriptionService extends EventEmitter {
       processingTime
     };
 
-    // Track system transcriptions for echo suppression (mic echoes system audio)
     if (stream === 'system') {
       this._recentSystem.push({ text, timestamp });
-      // Prune old entries
       const cutoff = Date.now() - ECHO_WINDOW_MS;
       while (this._recentSystem.length > 0 && this._recentSystem[0].timestamp < cutoff) {
         this._recentSystem.shift();
@@ -423,15 +505,72 @@ class TranscriptionService extends EventEmitter {
   }
 
   /**
-   * Detect if a chunk contains speech using RMS threshold.
+   * Frame-level speech detection with hangover.
+   * Analyzes 20ms frames within the chunk. Returns true if any speech region
+   * is found (with hangover to bridge brief pauses). More sensitive than
+   * whole-chunk RMS because a quiet word in 8s of audio won't be masked
+   * by the average energy of the full chunk.
    * @param {Buffer} int16Chunk
+   * @param {number} threshold - RMS threshold for speech
    * @returns {boolean}
    */
-  _detectSpeech(int16Chunk) {
-    // Use fast RMS-based silence detection
-    // Silero VAD is too slow on CPU (~1-12s per call, gets progressively slower)
-    // RMS detection is instant and sufficient for filtering silence chunks
-    return this._calculateRMS(int16Chunk) >= SILENCE_RMS_THRESHOLD;
+  _detectSpeechFrames(int16Chunk, threshold) {
+    const frameSize = SAMPLE_RATE * BYTES_PER_SAMPLE * VAD_FRAME_MS / 1000; // 640 bytes per 20ms frame
+    const numFrames = Math.floor(int16Chunk.length / frameSize);
+    if (numFrames === 0) return this._calculateRMS(int16Chunk) >= threshold;
+
+    let speechFrames = 0;
+    let hangover = 0;
+
+    for (let i = 0; i < numFrames; i++) {
+      const frame = int16Chunk.subarray(i * frameSize, (i + 1) * frameSize);
+      const rms = this._calculateRMS(frame);
+
+      if (rms >= threshold) {
+        speechFrames++;
+        hangover = VAD_HANGOVER_FRAMES; // Reset hangover on speech
+      } else if (hangover > 0) {
+        speechFrames++; // Count hangover frames as speech (bridges pauses)
+        hangover--;
+      }
+    }
+
+    // Consider chunk as speech if >5% of frames contain speech
+    return speechFrames > numFrames * 0.05;
+  }
+
+  /**
+   * Build Whisper prompt for conditioning.
+   * Includes meeting context (title, participant names) and previous chunk text
+   * for consistency. Capped at 224 tokens (~800 chars) to avoid prompt overflow.
+   * @param {'system'|'mic'} stream
+   * @returns {string|undefined}
+   */
+  _buildPrompt(stream) {
+    const parts = [];
+
+    // Meeting context — helps Whisper recognize proper nouns
+    if (this._meetingContext) {
+      if (this._meetingContext.title) {
+        parts.push(this._meetingContext.title);
+      }
+      if (this._meetingContext.participants?.length) {
+        parts.push(this._meetingContext.participants.join(', '));
+      }
+    }
+
+    // Previous chunk text — helps Whisper maintain consistency
+    const prev = this._prevChunkText[stream];
+    if (prev) {
+      // Take last ~400 chars of previous transcript for context
+      parts.push(prev.slice(-400));
+    }
+
+    if (parts.length === 0) return undefined;
+
+    // Cap total prompt at ~800 chars (~224 tokens)
+    const prompt = parts.join('. ');
+    return prompt.length > 800 ? prompt.slice(-800) : prompt;
   }
 
   /**
@@ -492,15 +631,28 @@ class TranscriptionService extends EventEmitter {
    */
   async _flushBuffers() {
     for (const stream of ['system', 'mic']) {
+      // Build final chunk from overlap + remaining buffer
+      const overlap = this._overlapBuffers[stream];
+      const remaining = this.buffers[stream];
+      const total = (overlap ? overlap.length : 0) + remaining.length;
+
       // Process if at least 1 second of audio remains
-      if (this.buffers[stream].length >= SAMPLE_RATE * BYTES_PER_SAMPLE) {
-        const padded = Buffer.alloc(CHUNK_SIZE);
-        this.buffers[stream].copy(padded, 0, 0, Math.min(this.buffers[stream].length, CHUNK_SIZE));
-        this._queue.push({ stream, chunk: padded, timestamp: Date.now() });
+      if (total >= SAMPLE_RATE * BYTES_PER_SAMPLE) {
+        const parts = overlap ? [overlap, remaining] : [remaining];
+        let chunk = Buffer.concat(parts);
+        // Pad to chunk size if needed (Whisper handles short audio fine, but pad for consistency)
+        if (chunk.length < CHUNK_SIZE) {
+          const padded = Buffer.alloc(CHUNK_SIZE);
+          chunk.copy(padded, 0, 0, chunk.length);
+          chunk = padded;
+        }
+        // Don't dedup overlap on final flush — emit everything
+        this._lastEmittedT1[stream] = 0;
+        this._queue.push({ stream, chunk, timestamp: Date.now() });
       }
       this.buffers[stream] = Buffer.alloc(0);
+      this._overlapBuffers[stream] = null;
     }
-    // Drain remaining queue before returning
     if (this._queue.length > 0) {
       await this._drainQueue();
     }
@@ -539,6 +691,8 @@ class TranscriptionService extends EventEmitter {
     // Clear buffers
     this.buffers.system = Buffer.alloc(0);
     this.buffers.mic = Buffer.alloc(0);
+    this._overlapBuffers.system = null;
+    this._overlapBuffers.mic = null;
 
     // Cancel in-flight inference
     if (this._activeInference) {
@@ -569,7 +723,8 @@ class TranscriptionService extends EventEmitter {
       avgInferenceMs: inferenceCount > 0
         ? Math.round(this.stats.totalInferenceMs / inferenceCount)
         : 0,
-      chunkDurationSec: CHUNK_DURATION_SEC
+      chunkDurationSec: CHUNK_DURATION_SEC,
+      overlapDurationSec: OVERLAP_DURATION_SEC
     };
   }
 }

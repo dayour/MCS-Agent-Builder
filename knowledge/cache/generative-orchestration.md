@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-23
-sources: [MS Learn advanced-generative-actions, MS Learn guidance/generative-orchestration, MS Learn guidance/generative-mode-guidance, MS Learn whats-new, MS Learn faqs-generative-orchestration, MCS UI, community blogs, WebSearch Mar 2026, MS Learn MCP Mar 2026, 2026 Wave 1 release plan, MS Learn guidance hub]
+last_verified: 2026-04-07
+sources: [MS Learn advanced-generative-actions, MS Learn guidance/generative-orchestration, MS Learn guidance/generative-mode-guidance, MS Learn whats-new Apr 2026, MS Learn faqs-generative-orchestration, MCS UI, community blogs, WebSearch Apr 2026, MS Learn MCP Apr 2026, 2026 Wave 1 release plan Apr 2026, MS Learn guidance hub]
 confidence: high
 refresh_trigger: before_architecture
 -->
@@ -12,7 +12,7 @@ LLM-driven planner: interprets intent → selects tools/topics/knowledge/agents 
 
 **ALWAYS use generative orchestration. Never use classic.** Generative orchestration is required for MCP tools, knowledge grounding, AI routing, and multi-step planning. Classic orchestration is legacy and does not support modern MCS features. Set via `bot.configuration`: `"settings": { "GenerativeActionsEnabled": true }`. Our build pipeline sets this on every agent at creation time AND in the settings configuration step.
 
-**Routing priority**: Description (most important) > Name > Input/output parameters > Agent instructions
+**Routing priority**: Names + Descriptions (most important) > Input/output parameters > Agent instructions
 
 ## Architecture Components (from MS Learn guidance hub, Mar 2026)
 
@@ -110,7 +110,7 @@ Source: [Apply generative orchestration capabilities](https://learn.microsoft.co
 
 ## Best Practices (from official guidance, updated Mar 2026)
 
-- **Routing priority**: Description (most important) > Name > Input/output parameters > Agent instructions
+- **Routing priority**: Names + Descriptions (most important) > Input/output parameters > Agent instructions
 - Use **active voice, present tense** for descriptions ("This tool provides..." not "Weather info is provided by...")
 - Avoid overlapping descriptions — test and revise if agent invokes multiple similar topics
 - Return topic results as **output variables** (not message nodes) — lets orchestrator compose contextual responses
@@ -135,27 +135,29 @@ Source: [Apply generative orchestration capabilities](https://learn.microsoft.co
 | Pre-knowledge hook | **On Knowledge Requested** trigger (YAML-only) |
 | Switch to classic | Settings > Generative AI > Orchestration → No |
 
-## Models (Mar 2026)
+## Models (Apr 2026)
 
 GPT-4o **retired** (all commercial regions, Oct 2025). **GPT-4.1** is the default.
 
 | Model | Category | Status | Notes |
 |-------|----------|--------|-------|
 | GPT-4.1 | General | **Default (GA)** | All regions |
-| GPT-5 Chat | General | **GA** (EU + US); Preview elsewhere | Cross-geo in non-GA regions |
+| GPT-5 Chat | General | **GA (global)** | All commercial regions excl. GCC (promoted from EU/US-only Mar 2026) |
 | GPT-5 Reasoning | Deep | **Preview** | Cross-geo outside EU/US |
 | GPT-5 Auto | Auto | **Preview** | Routes dynamically per query |
 | GPT-5.2 Chat | General | **Experimental** | Cross-geo |
 | GPT-5.2 Reasoning | Deep | **Experimental** | Cross-geo |
-| Claude Sonnet 4.5 | General | **Preview** | Cross-geo, external model (admin opt-in). Also available for Computer Use and Prompt Builder. |
-| Claude Sonnet 4.6 | General | **Experimental** | Cross-geo, external model |
-| Claude Opus 4.6 | Deep | **Experimental** | Cross-geo, external model. Also available in Prompt Builder. |
+| Claude Sonnet 4.5 | General | **GA (global)** | Cross-geo, external model (admin opt-in). Also for Computer Use and Prompt Builder. Promoted from Preview Mar 2026. |
+| Claude Sonnet 4.6 | General | **GA (global)** | Cross-geo, external model. Promoted from Experimental Mar 2026. |
+| Claude Opus 4.6 | Deep | **GA (global)** | Cross-geo, external model. Also in Prompt Builder. Promoted from Experimental Mar 2026. |
 | Grok 4.1 Fast | General | **Experimental** | **US only**, external model (admin opt-in, xAI), safety caveats |
 
 GCC/GCCHigh/DoD: still GPT-4o only (Default).
 Generative orchestration available for all supported languages (GA for multi-language support since Jun 2025).
 
 **Prompt Builder model selection (Feb 2026):** Claude Opus 4.6 and Claude Sonnet 4.5 now selectable per-prompt in Prompt Builder for fine-grained control over reasoning depth, quality, latency, and cost.
+
+> **Status changes (Mar 2026):** GPT-5 Chat promoted to GA global. Claude Sonnet 4.5, Sonnet 4.6, and Opus 4.6 all promoted to GA global (excluding GCC). These are production-ready for all commercial regions.
 
 ## Generative AI Settings
 
@@ -168,17 +170,24 @@ Generative orchestration available for all supported languages (GA for multi-lan
 | Tenant graph grounding | Off (needs M365 Copilot license) |
 | Deep reasoning | Off (opt-in) |
 
-## Recent Enhancements (Jun 2025 - Mar 2026)
+## Recent Enhancements (Jun 2025 - Apr 2026)
 
 | Feature | Date | Status | Details |
 |---------|------|--------|---------|
+| **Agent evaluations** | Mar 2026 | **GA** | Customizable test sets with multiple graders; multi-turn conversation tests; real-time thumbs up/down feedback |
+| **GPT-5 Chat global GA** | Mar 2026 | **GA** | All commercial regions excluding GCC |
+| **Claude models GA** | Mar 2026 | **GA** | Sonnet 4.5, Sonnet 4.6, Opus 4.6 — all GA globally excluding GCC |
+| **Agent node in flows** | Mar 2026 | **GA** | Call an agent from within an agent flow via "Run an agent" node |
+| **Prompt assistant** | Mar 2026 | **GA** | GPT-powered prompt suggestions in Prompt Builder |
+| **Bing Custom Search knowledge** | Mar 2026 | **GA** | Add Bing Custom Search as knowledge source with Custom Configuration ID |
+| **Post-call action topics (voice)** | Mar 2026 | **GA** | Trigger backend actions after voice call ends |
 | Work IQ MCP tools | Mar 2026 | **Preview** | Connect agents to Work IQ for M365 work insights |
 | Improved Graph connector responses | Feb 2026 | **GA** | Better retrieval for ServiceNow tickets and Azure DevOps work items |
 | Claude Sonnet 4.5 for Computer Use | Feb 2026 | **GA** | Improved nuanced decision-making for complex CUA tasks |
 | Prompt builder enhancements | Feb 2026 | **GA** | Content moderation per prompt, Claude models, inline editing |
-| Eval enhancements (thumbs up/down, activity maps, CSV import) | Jan 2026 | **Preview** | Real-time feedback, runtime activity maps, CSV template for test sets |
+| Eval enhancements (thumbs up/down, activity maps, CSV import) | Jan 2026 | **Preview** → **GA Mar 2026** | Real-time feedback, runtime activity maps, CSV template for test sets |
 | VS Code extension | Jan 2026 | **GA** | Build/edit/manage agents in VS Code (advanced developer workflows) |
-| Eval test sets (customizable) | Oct 2025 | **Preview** | Upload, manually create, or AI-generate test sets with graders |
+| Eval test sets (customizable) | Oct 2025 | **Preview** → **GA Mar 2026** | Upload, manually create, or AI-generate test sets with graders |
 | Tool groups | Nov 2025 | **Preview** | Curated sets of tools from Outlook/SharePoint connectors in one step |
 | Themes analytics | Oct 2025 | **Preview** | Group user questions into themes for pattern analysis |
 | SharePoint metadata filters | Nov 2025 | **GA** | Filter by filename, owner, modified date for retrieval |
@@ -187,9 +196,24 @@ Generative orchestration available for all supported languages (GA for multi-lan
 | Knowledge source analytics | Jun 2025+ | **GA** | See how autonomous agents used knowledge during runs |
 | File/image upload for analysis | Aug 2025 | **GA** | Users upload files/images; agent analyzes and passes to downstream systems |
 | Code interpreter | Aug 2025 | **GA** | Generate Python code-based actions from natural language in prompt builder and agent workflows |
-| Computer Use agents | Sep 2025 | **Preview** | Automate desktop tasks on Windows using vision and reasoning |
+| Computer Use agents | Sep 2025 | **Preview** (GA May 2026) | Automate desktop tasks on Windows using vision and reasoning |
 | Client SDK (native apps) | Sep 2025 | **GA** | Embed agents in Android/iOS/Windows apps for multimodal conversations |
 | Advanced NLU customization | Jul 2025 | **GA** | Define topics and entities using own data for higher accuracy (esp. D365) |
 | MIP sensitivity labels | Jul 2025 | **Preview** | Display Purview labels across connectors, test chat, Teams, M365 Copilot |
 
-Source: [What's new in Copilot Studio](https://learn.microsoft.com/en-us/microsoft-copilot-studio/whats-new)
+### Upcoming (Apr-Sep 2026, from 2026 Wave 1 release plan)
+
+| Feature | Preview | GA | Details |
+|---------|---------|-----|---------|
+| Configure triggers with end-user credentials | Apr 2026 | Jun 2026 | Event triggers run with end-user identity |
+| Define custom metrics for analytics | Apr 2026 | May 2026 | Custom metrics to measure agent performance |
+| Enforce safe sharing (credential oversharing) | Apr 2026 | Jun 2026 | Detect and prevent credential oversharing |
+| Unified errors/warnings/governance view | Apr 2026 | Jun 2026 | All notifications in unified view |
+| SharePoint lists as knowledge source | Apr 2026 | May 2026 | Add SharePoint lists directly |
+| MCP-compliant tools in agent workflows | Apr 2026 | Oct 2026 | Use MCP tools in Power Automate agent workflows |
+| See evaluation results in real time | May 2026 | May 2026 | Watch eval progress live |
+| Computer Use GA | — | May 2026 | Web + desktop automation, production-ready |
+| Create agents optimized for M365 | Jun 2026 | — | M365-optimized agent creation |
+| Evaluate agents for M365 Copilot | Jul 2026 | — | M365 Copilot eval support |
+
+Source: [What's new in Copilot Studio](https://learn.microsoft.com/en-us/microsoft-copilot-studio/whats-new), [2026 Wave 1 planned features](https://learn.microsoft.com/en-us/power-platform/release-plan/2026wave1/microsoft-copilot-studio/planned-features)

@@ -158,6 +158,51 @@ export async function fetchDocContent(
   return request(`/projects/${projectId}/docs/${encodeURIComponent(filename)}/content`);
 }
 
+// ─── Solutions / Templates ───────────────────────────────────────
+
+export interface SolutionTemplate {
+  id: string;
+  name: string;
+  files: number;
+  agents: number;
+  tags: Record<string, string>;
+  hasPresentation: boolean;
+  hasSolution: boolean;
+}
+
+export async function fetchSolutions(): Promise<SolutionTemplate[]> {
+  const data = await request<{ solutions: SolutionTemplate[] }>("/solutions");
+  return data.solutions;
+}
+
+// ─── Platform Agents ─────────────────────────────────────────────
+
+export interface PlatformAgent {
+  id: string;
+  name: string;
+  schemaName: string;
+  status: string;
+  description: string;
+}
+
+export async function fetchPlatformAgents(): Promise<{ agents: PlatformAgent[]; error?: string }> {
+  return request<{ agents: PlatformAgent[]; error?: string }>("/platform/agents");
+}
+
+export async function importPlatformAgent(agentName: string, schemaName?: string): Promise<{ projectId: string; agentId: string; existed: boolean; message: string }> {
+  return request("/platform/agents/import", {
+    method: "POST",
+    body: JSON.stringify({ agentName, schemaName }),
+  });
+}
+
+export async function deploySolutionTemplate(solutionId: string, solutionName: string): Promise<{ projectId: string; agentId: string; existed: boolean; message: string }> {
+  return request("/solutions/deploy", {
+    method: "POST",
+    body: JSON.stringify({ solutionId, solutionName }),
+  });
+}
+
 // ─── Credential Readiness Check ──────────────────────────────────
 
 export interface PacProfile {
@@ -166,6 +211,8 @@ export interface PacProfile {
   kind: string;
   name: string;
   user: string;
+  cloud: string;
+  type: string;
   environment: string;
   environmentUrl: string;
 }
@@ -206,12 +253,44 @@ export async function switchPacEnvironment(environmentId: string): Promise<{ swi
   });
 }
 
+export async function deletePacProfile(profileIndex: number): Promise<{ deleted: boolean; index: number }> {
+  return request(`/auth/profile/${profileIndex}`, { method: "DELETE" });
+}
+
 // ─── Wizard — Conversational Brief Builder ───────────────────────
 
+export interface ComparisonDivergence {
+  aspect: string;
+  primaryPosition: string;
+  secondaryPosition: string;
+  severity: "info" | "warning" | "conflict";
+}
+
+export interface ComparisonResult {
+  agreement: "agree" | "partial" | "diverge" | "conflict";
+  similarityScore: number;
+  divergences: ComparisonDivergence[];
+  safety: {
+    primaryRefused: boolean;
+    secondaryRefused: boolean;
+    saferResponse: "primary" | "secondary" | "neither";
+  };
+  meta: {
+    primaryModel: string;
+    secondaryModel: string;
+    primaryLatencyMs: number | null;
+    secondaryLatencyMs: number | null;
+    comparisonMethod: string;
+    comparisonLatencyMs: number;
+    timestamp: string;
+  };
+}
+
 export interface WizardChatEvent {
-  type: "started" | "token" | "state" | "done" | "error";
+  type: "started" | "token" | "state" | "comparison" | "done" | "error";
   text?: string;
   wizardState?: Record<string, unknown>;
+  data?: ComparisonResult;
   detail?: string;
 }
 
@@ -222,11 +301,17 @@ export async function wizardChat(
   onEvent: (event: WizardChatEvent) => void,
   projectId?: string | null,
   model?: string,
+  dualModelEnabled?: boolean,
 ): Promise<void> {
   const res = await fetch(`${BASE}/wizard/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ mode, messages, currentState, projectId: projectId || undefined, model: model || undefined }),
+    body: JSON.stringify({
+      mode, messages, currentState,
+      projectId: projectId || undefined,
+      model: model || undefined,
+      dualModel: dualModelEnabled ?? false,
+    }),
   });
 
   if (!res.ok) {
@@ -317,6 +402,27 @@ export async function startEnrichment(
   });
 }
 
+export async function startDeltaEnrichment(
+  projectId: string,
+  agentId: string,
+): Promise<{ jobId: string | null; status: string; deltaFiles?: string[]; message?: string }> {
+  return request("/enrichment/delta", {
+    method: "POST",
+    body: JSON.stringify({ projectId, agentId }),
+  });
+}
+
+export async function markDocsProcessed(
+  projectId: string,
+  filenames: string[],
+  source?: string,
+): Promise<{ marked: number }> {
+  return request(`/projects/${projectId}/mark-processed`, {
+    method: "POST",
+    body: JSON.stringify({ filenames, source }),
+  });
+}
+
 export async function watchEnrichment(
   jobId: string,
   onEvent: (event: EnrichmentStepEvent) => void,
@@ -333,7 +439,7 @@ export async function watchEnrichment(
 // ─── Pull from M365 (WorkIQ SSE) ────────────────────────────────
 
 export interface PullM365Progress {
-  type: "started" | "progress" | "done" | "error"
+  type: "started" | "progress" | "done" | "error" | "merge-info"
     | "download-started" | "download-progress" | "download-done" | "download-skipped";
   queryId?: number;
   label?: string;

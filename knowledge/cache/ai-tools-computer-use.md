@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-23
-sources: [MS Learn, MCS UI, AI Builder docs, WebSearch Mar 2026, MS Learn MCP Mar 2026, Copilot Blog Mar 2026, 2026 Wave 1 release plan, Work IQ docs Mar 2026]
+last_verified: 2026-04-07
+sources: [MS Learn, MCS UI, AI Builder docs, WebSearch Apr 2026, MS Learn MCP Apr 2026, Copilot Blog Apr 2026, 2026 Wave 1 release plan Apr 2026, Work IQ docs Apr 2026, MS Learn whats-new Apr 2026]
 confidence: high
 refresh_trigger: before_architecture
 -->
@@ -10,22 +10,24 @@ refresh_trigger: before_architecture
 
 Three ways to use: agent-level tool (autonomous), topic-level node (controlled), AI Plugin (M365 Copilot).
 
-### Available Models (Mar 2026)
+### Available Models (Apr 2026)
 
 | Model | Rate | Context | Status |
 |-------|------|---------|--------|
 | GPT-4.1 mini (default) | Basic (0.1/1K tokens) | 128K | GA (Default) |
 | GPT-4.1 | Standard (1.5/1K tokens) | 128K | GA |
-| GPT-5 Chat | Standard (1.5/1K tokens) | 128K | GA (EU/US), Preview elsewhere |
+| GPT-5 Chat | Standard (1.5/1K tokens) | 128K | **GA (global)** — all commercial regions excl. GCC |
 | GPT-5 Reasoning | Premium (10/1K tokens) | 400K | Preview |
 | GPT-5 Auto | Variable | Variable | Preview (routes dynamically) |
 | GPT-5.2 Chat | Standard | 128K | Experimental |
 | GPT-5.2 Reasoning | Premium | 400K | Experimental |
-| Claude Sonnet 4.5 | Standard | 200K | Preview (external, cross-geo). Also for Prompt Builder and Computer Use. |
-| Claude Sonnet 4.6 | Standard | 200K | Experimental (external) |
-| Claude Opus 4.6 | Premium | 200K | Experimental (external). Also for Prompt Builder. |
+| Claude Sonnet 4.5 | Standard | 200K | **GA (global)** — excl. GCC. Also for Prompt Builder and Computer Use. |
+| Claude Sonnet 4.6 | Standard | 200K | **GA (global)** — excl. GCC. |
+| Claude Opus 4.6 | Premium | 200K | **GA (global)** — excl. GCC. Also for Prompt Builder. |
 | Grok 4.1 Fast (Non-reasoning) | Standard | Large | Experimental (**US only**, external, safety caveats) |
 | Azure AI Foundry (BYOM) | Varies | Varies | Preview (Mar 2026) |
+
+> **Status changes (Mar 2026):** GPT-5 Chat promoted to GA global. Claude Sonnet 4.5, Sonnet 4.6, and Opus 4.6 all promoted to GA global (excluding GCC).
 
 ### Prompt Builder Enhancements (Feb 2026)
 
@@ -146,10 +148,10 @@ Work IQ is the intelligence layer that grounds M365 Copilot and agents in real-t
 | Feature | Status | Expected |
 |---------|--------|----------|
 | Code interpreter on SharePoint sources | Preview Mar 2026, GA May 2026 | **Active Preview** |
-| Custom MCP servers (connect any external data) | Preview Mar 2026, GA Apr 2026 | **Active Preview** |
+| Custom MCP servers (connect any external data) | Preview Mar 2026 | **Active Preview** |
 | Use your own model for generating responses (BYOM) | Preview Mar 2026 | **Active Preview** |
-| Configure triggers with end-user credentials | Preview Mar 2026, GA May 2026 | **Active Preview** |
-| Evaluate test sets with multiple graders | Preview Feb 8, 2026 | **Active Preview** |
+| Configure triggers with end-user credentials | Preview Apr 2026, GA Jun 2026 | **Planned** (moved from Mar to Apr preview) |
+| Agent evaluations (multi-turn, multi-grader) | GA Mar 2026 | **GA** |
 | Work IQ MCP tools | Preview Mar 2026 | **Active Preview** |
 | Computer Use GA | GA May 2026 | Planned |
 | MCP-compliant tools in agent workflows | Preview Apr 2026, GA Oct 2026 | Planned |
@@ -157,8 +159,11 @@ Work IQ is the intelligence layer that grounds M365 Copilot and agents in real-t
 | Unified error/warning/governance notifications | Preview Apr 2026, GA Jun 2026 | Planned |
 | Create agents optimized for M365/M365 Copilot users | Preview Jun 2026 | Planned |
 | Evaluate agents for M365 Copilot in Copilot Studio | Preview Jul 2026 | Planned |
-| Add SharePoint lists as knowledge source | Preview Apr 2026, GA May 2026 | Planned |
-| Build enhanced connectors with Connector SDK + PowerFx | Preview GA May 2025, GA May 2026 | Planned |
+| Add SharePoint lists as knowledge source | Preview Apr 2026, GA May 2026 | **Planned** (imminent) |
+| Build enhanced connectors with Connector SDK + PowerFx | Preview May 2025, GA May 2026 | **Preview** |
+| Define custom metrics for analytics | Preview Apr 2026, GA May 2026 | Planned |
+| See evaluation results in real time | Preview May 2026, GA May 2026 | Planned |
+| Express mode for agent flows GA | Preview Nov 2025, GA May 2026 | **Preview** → GA May 2026 |
 
 ## Features Removed from Release Plan (Feb 2026)
 

@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-23
-sources: [MS Learn, PAC CLI docs, VS Code Extension docs, Dataverse entity reference, WebSearch Mar 2026, MS Learn guidance/alm, MS Learn whats-new, MS Learn guidance/architecture/deployment-lifecycle, MS Learn copilot-control-system/management-controls, 2026 Wave 1 release plan, MS Learn guidance hub Jan/Feb 2026]
+last_verified: 2026-04-07
+sources: [MS Learn, PAC CLI docs, VS Code Extension docs, Dataverse entity reference, WebSearch Mar 2026, MS Learn guidance/alm, MS Learn whats-new, MS Learn guidance/architecture/deployment-lifecycle, MS Learn copilot-control-system/management-controls, 2026 Wave 1 release plan, MS Learn guidance hub Jan/Feb 2026, WebSearch Apr 2026, 2026 Wave 1 planned features Apr 2026]
 confidence: high
 refresh_trigger: weekly
 -->
@@ -162,6 +162,15 @@ These items are NOT included in solution export/import and require manual post-d
 6. **Unstructured data knowledge sources** (SharePoint, OneDrive, Salesforce, Confluence, ServiceNow, ZenDesk) -- ALM not supported, importing agents doesn't trigger knowledge source processing
 7. **Dataverse extensions** required for SharePoint unstructured data: Power AI Extensions Base v1.0.1.688+, AI Platform Extensions Components v1.0.0.157+, Relevance Search v1.0.0.90+
 
+## Git Integration (Native Source Control)
+
+MS Learn ALM guidance now highlights **native Git integration** as a key ALM capability:
+- Enable source control with native Git integration directly from Power Platform
+- Supports Azure DevOps Repos for Dataverse Git integration
+- Enables PR-based workflows for agent component review
+
+Source: https://learn.microsoft.com/microsoft-copilot-studio/guidance/alm
+
 ## ALM Golden Rules
 
 1. Don't customize outside of a development environment
@@ -216,16 +225,23 @@ Source: https://learn.microsoft.com/microsoft-copilot-studio/guidance/architectu
 
 | Feature | Timeline | Status |
 |---------|----------|--------|
-| Configure triggers with end-user credentials | Preview Mar 2026, GA May 2026 | In Preview |
+| Configure triggers with end-user credentials | Preview Apr 2026, GA Jun 2026 | Planned **(Updated: shifted from Mar→Apr preview, May→Jun GA)** |
 | Connect agents to custom MCP servers | Preview Mar 2026, GA Apr 2026 | In Preview |
 | Code interpreter on SharePoint sources | Preview Mar 2026, GA May 2026 | In Preview |
 | Evaluate agents for M365 Copilot in CS | Preview Jul 2026 | Planned |
+| See evaluation results in real time | Preview May 2026, GA May 2026 | Planned **(New)** |
+| Define custom metrics for analytics | Preview Apr 2026, GA May 2026 | Planned **(New)** |
 | Create agents optimized for M365/Copilot users | Preview Jun 2026 | Planned |
+| Get M365 Copilot agent suggestions from CS work | GA May 2026 | Planned **(New)** |
 | Unified error/warning/governance view | Preview Apr 2026, GA Jun 2026 | Planned |
 | Enforce safe sharing (credential oversharing) | Preview Apr 2026, GA Jun 2026 | Planned |
+| Strengthen security with additional threat protection | Preview Sep 2025, GA Jun 2026 | In Preview **(Updated: GA moved to Jun 2026)** |
 | Use MCP-compliant tools in agent workflows | Preview Apr 2026, GA Oct 2026 | Planned |
 | Add SharePoint lists as knowledge source | Preview Apr 2026, GA May 2026 | Planned |
 | Group files with instructions to guide answers | Preview Jun 2025, GA May 2026 | In Preview |
+| Express mode for agent-invoked flows | Preview Nov 2025, GA May 2026 | In Preview **(New)** |
+| Build connectors with OpenAPI v3 | Preview Feb 2026, GA May 2026 | In Preview |
+| Build enhanced connectors with Connector SDK + PowerFx | Preview May 2025, GA May 2026 | In Preview |
 
 ## Copilot Control System — Agent Lifecycle Management (GA)
 

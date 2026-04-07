@@ -66,6 +66,84 @@ function loadManifest(folder) {
   return null;
 }
 
+/**
+ * Atomically write doc-manifest.json (write .tmp then rename).
+ * @param {string} folder  Project folder (contains docs/)
+ * @param {Object} manifest  Full manifest object with docsProcessed[]
+ */
+function saveManifest(folder, manifest) {
+  if (!manifest || !Array.isArray(manifest.docsProcessed)) {
+    throw new Error("Invalid manifest: must have docsProcessed array");
+  }
+  const manifestPath = path.join(folder, "doc-manifest.json");
+  const tmpPath = manifestPath + ".tmp";
+  fs.writeFileSync(tmpPath, JSON.stringify(manifest, null, 2), "utf-8");
+  fs.renameSync(tmpPath, manifestPath);
+}
+
+/**
+ * Mark a single document as processed in the manifest.
+ * Creates the manifest if it doesn't exist.
+ *
+ * @param {string} folder     Project folder
+ * @param {string} filename   Document filename (in docs/)
+ * @param {Object} [opts]     Optional: { source, matchedAgents, status }
+ */
+function markDocProcessed(folder, filename, opts = {}) {
+  markDocsProcessed(folder, [filename], opts);
+}
+
+/**
+ * Mark multiple documents as processed in a single manifest write.
+ * Creates the manifest if it doesn't exist.
+ *
+ * @param {string} folder       Project folder
+ * @param {string[]} filenames  Document filenames (in docs/)
+ * @param {Object} [opts]       Optional: { source, matchedAgents, status }
+ */
+function markDocsProcessed(folder, filenames, opts = {}) {
+  const docsDir = path.join(folder, "docs");
+  let manifest = loadManifest(folder) || {
+    projectId: path.basename(folder),
+    lastResearchAt: null,
+    docsProcessed: [],
+  };
+
+  const existingMap = {};
+  for (const entry of manifest.docsProcessed) {
+    existingMap[entry.filename] = entry;
+  }
+
+  const now = new Date().toISOString();
+  for (const filename of filenames) {
+    const fp = path.join(docsDir, filename);
+    if (!fs.existsSync(fp)) continue;
+
+    const stat = fs.statSync(fp);
+    const sha256 = fileSha256(fp);
+    const entry = {
+      filename,
+      sha256,
+      size: stat.size,
+      mtime: stat.mtimeMs / 1000,
+      processedAt: now,
+      source: opts.source || "enrichment",
+      matchedAgents: opts.matchedAgents || [],
+      status: opts.status || "processed",
+    };
+
+    if (existingMap[filename]) {
+      Object.assign(existingMap[filename], entry);
+    } else {
+      manifest.docsProcessed.push(entry);
+      existingMap[filename] = entry;
+    }
+  }
+
+  manifest.lastResearchAt = now;
+  saveManifest(folder, manifest);
+}
+
 // ---------------------------------------------------------------------------
 // Document scanning
 // ---------------------------------------------------------------------------
@@ -105,7 +183,8 @@ function scanDocs(folder) {
               stat.size !== knownSize ||
               Math.abs(stat.mtimeMs / 1000 - knownMtime) > 1.0;
           } else if (known.sha256) {
-            isModified = false; // Old manifest — can't compare cheaply
+            const currentHash = fileSha256(fp);
+            isModified = currentHash.toLowerCase() !== known.sha256.toLowerCase();
           }
         }
       }
@@ -410,6 +489,9 @@ module.exports = {
   ensureDirs,
   fileSha256,
   loadManifest,
+  saveManifest,
+  markDocProcessed,
+  markDocsProcessed,
   scanDocs,
   scanAgents,
   listProjects,

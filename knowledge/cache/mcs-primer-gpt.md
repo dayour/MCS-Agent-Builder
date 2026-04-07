@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-23
-sources: [CLAUDE.md, knowledge/cache/*.md (synthesized), MS Learn whats-new, 2025 Wave 2 change history, 2026 Wave 1 Release Plan, MS Learn architecture/whats-new, MS Learn M365 extensibility known-issues, WebSearch Mar 2026]
+last_verified: 2026-04-07
+sources: [CLAUDE.md, knowledge/cache/*.md (synthesized), MS Learn whats-new, 2025 Wave 2 change history, 2026 Wave 1 Release Plan, MS Learn architecture/whats-new, MS Learn M365 extensibility known-issues, WebSearch Mar 2026, WebSearch Apr 2026, MS Learn whats-new Apr 2026, 2026 Wave 1 planned features Apr 2026, MS Learn system-service-card Apr 2026]
 confidence: high
 refresh_trigger: manual
 -->
@@ -102,16 +102,20 @@ The `brief.json` file is the single source of truth for an agent build:
 |-------|--------|-------|
 | GPT-4.1 | **GA (Default)** | Default for new agents since Oct 2025, replaced GPT-4o |
 | GPT-4.1 mini | Preview | Experimental response model for generative answers |
-| GPT-5 Chat | **GA** | GA for EU and US regions since Nov 2025 |
+| ChatGPT-5 (GPT-5 Chat) | **GA (Global)** | **GA globally** (excluding GCC) as of Mar 2026. Previously GA for EU/US since Nov 2025. |
 | GPT-5 Reasoning | Preview | Advanced reasoning with chain-of-thought |
-| Claude Sonnet 4 / 4.5 | GA | Multi-model option, available in most geos since Jan 2026 |
-| Claude Opus 4.1 / 4.5 / 4.6 | GA | For orchestration and prompt builder |
+| Claude Sonnet 4.5 / 4.6 | **GA (Global)** | GA globally (excluding GCC) as of Mar 2026. Available for orchestration + prompt builder. |
+| Claude Opus 4.6 | **GA (Global)** | GA globally (excluding GCC) as of Mar 2026. For orchestration and prompt builder. |
+| Claude Sonnet 4.5 (beta) | Preview | For Computer Use agents (Feb 2026). Improved decision-making for CUA. |
 | GPT-4o | **Retired** | Retired Oct 2025 for generative orchestration (except GCC) |
 | GPT-4o mini | GA (legacy) | Still available for lightweight use cases |
+| xAI Grok 4.1 Fast | GA | Referenced in MCS Application Card (Apr 2026). Third-party model option. |
 
 **Model selection**: Dropdown in agent settings for orchestration model. Prompt builder has separate model selection (Claude + OpenAI). Admin can disable Anthropic models at tenant level.
 
-## Key Platform Updates (Q1 2026)
+**Application Card (Apr 2026)**: The MCS System Service Card now references GPT-5 series, Anthropic Claude Sonnet 4, and xAI Grok 4.1 Fast as models leveraged by Copilot Studio. Microsoft does not train foundation models using customer data. Source: https://learn.microsoft.com/microsoft-copilot-studio/system-service-card-copilot-studio
+
+## Key Platform Updates (Q1-Q2 2026)
 
 - **Work IQ MCP tools** (Preview Mar 2026): 6 tools (Mail, Calendar, Teams, Copilot, User, Word) connecting agents to M365 work context
 - **Custom MCP servers** (Preview Mar 2026, GA Apr 2026): Connect any agent to external data
@@ -126,14 +130,26 @@ The `brief.json` file is the single source of truth for an agent build:
 - **Advanced Approvals** (GA Mar 2026): Multi-stage + AI-powered approval stages in agent flows
 - **Reassign agent owner via API** (GA Mar 2026): Power Platform API for agent ownership transfer
 - **Batch testing for prompts** (Preview): Systematic prompt validation with test datasets
+- **Agent evaluations GA** (Mar 2026): Agent evaluations fully GA with multi-turn conversation tests, custom graders, and activity maps
+- **Prompt assistant** (GA Mar 2026): GPT model-powered suggestions in Prompt builder for faster prompt drafting
 - **Prompt builder enhancements** (Feb 2026): Content moderation sensitivity per prompt, Claude Opus 4.6/Sonnet 4.5 model support, inline editing of prompt instructions
-- **Evaluate test sets with multiple graders** (Preview Feb 2026): Run multiple evaluation methods per test set
-- **Triggers with end-user credentials** (Preview Mar 2026, GA May 2026): Autonomous triggers using end-user identity
+- **Bing Custom Search as knowledge** (GA Mar 2026): Ground agent responses in a curated, scoped web index
+- **Agent node in agent flows** (GA Mar 2026): Call a Copilot Studio agent from an agent flow
+- **Reprompt messages with randomization** (GA Mar 2026): Improve conversation recovery in Question nodes
+- **Post-call action topics** (GA Mar 2026): Auto-trigger backend actions after voice calls end
+- **Question/reaction analytics** (GA Mar 2026): Filter and export user questions and reactions with CSAT data
+- **Triggers with end-user credentials** (Preview Apr 2026, GA Jun 2026): Autonomous triggers using end-user identity **(Updated: shifted from Mar/May)**
 - **Use your own model** (Preview Mar 2026): Bring your own model for generative responses
 - **Enforce safe sharing** (Preview Apr 2026, GA Jun 2026): Detect credential oversharing
 - **Unified error/warning/governance view** (Preview Apr 2026, GA Jun 2026): Single pane for all notifications
+- **Define custom metrics for analytics** (Preview Apr 2026, GA May 2026): Define org-specific custom metrics **(New in Wave 1)**
+- **SharePoint lists as knowledge** (Preview Apr 2026, GA May 2026): Real-time structured data from SP lists
+- **Express mode for agent-invoked flows** (Preview Nov 2025, GA May 2026): Minimize timeouts for faster flow execution
 - **OpenAPI v3 connectors** (Preview Feb 2026, GA May 2026): Build Power Platform connectors with OpenAPI v3 specs
 - **Enhanced connectors with Connector SDK + PowerFx** (Preview May 2025, GA May 2026)
+- **MCP-compliant tools in agent workflows** (Preview Apr 2026, GA Oct 2026): Use MCP tools in agent flows, not just orchestration
+- **See evaluation results in real time** (Preview May 2026, GA May 2026): View results as they stream in **(New in Wave 1)**
+- **Multi-agent orchestration GA updates** (Apr 2026): Microsoft Fabric integration, M365 Agents SDK, A2A communication — rolling GA
 
 ## Architecture Guidance (Feb 2026 Update)
 

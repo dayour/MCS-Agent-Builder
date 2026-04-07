@@ -1,11 +1,11 @@
 /**
- * Shared Claude Client — Unified Claude Access (Direct API + GitHub Copilot)
+ * Shared Claude Client — Unified Claude Access (GitHub Copilot + Direct API)
  *
  * Provides Claude chat completion with streaming support.
  * Routes intelligently:
- *   - Direct Anthropic API for models the key can access (typically Haiku)
- *   - GitHub Copilot Chat Completions API for higher-tier models (Sonnet/Opus)
- *     when the direct API key lacks access
+ *   - GitHub Copilot Chat Completions API as PRIMARY (all models via gh auth token)
+ *   - Direct Anthropic API as FALLBACK for models the key can access (e.g. Haiku)
+ *     when Copilot is unavailable
  *
  * Zero npm dependencies — uses shared HTTP helpers from ./http.js.
  *
@@ -128,11 +128,12 @@ let _usage = { calls: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, ca
 
 /**
  * Returns the active method for Claude access.
- * @returns {'anthropic-api'|'copilot-claude'|null}
+ * Copilot is primary (all models), direct API is fallback (limited models).
+ * @returns {'copilot-claude'|'anthropic-api'|null}
  */
 function getActiveMethod() {
-  if (getApiKey()) return 'anthropic-api';
   if (hasCopilotAccess()) return 'copilot-claude';
+  if (getApiKey()) return 'anthropic-api';
   return null;
 }
 
@@ -221,8 +222,14 @@ async function probeModelAccess() {
   if (_probePromise) return _probePromise;
 
   _probePromise = (async () => {
-    // Only probe direct API if we have an API key
-    if (getApiKey()) {
+    const copilotAvail = hasCopilotAccess();
+
+    // If Copilot is available, all models are accessible — mark them all true
+    if (copilotAvail) {
+      for (const key of Object.keys(MODELS)) _modelAccess[key] = true;
+      _effectiveDefault = DEFAULT_MODEL;
+    } else if (getApiKey()) {
+      // Copilot unavailable — probe direct API to find what this key can access
       await Promise.allSettled(
         Object.keys(MODELS).map(async (key) => {
           try {
@@ -237,19 +244,13 @@ async function probeModelAccess() {
           }
         })
       );
-    }
-
-    // Set effective default — if Copilot available, all models are accessible via that route
-    const copilotAvail = hasCopilotAccess();
-    if (copilotAvail) {
-      _effectiveDefault = DEFAULT_MODEL;
-    } else {
       _effectiveDefault = FALLBACK_CHAIN.find(k => _modelAccess[k]) || 'haiku';
     }
+
     _accessProbed = true;
     _probePromise = null;
 
-    return { ..._modelAccess, _copilotAvailable: copilotAvail };
+    return { ..._modelAccess, _copilotAvailable: copilotAvail, _primaryRoute: copilotAvail ? 'copilot' : 'direct' };
   })();
 
   return _probePromise;
@@ -566,17 +567,17 @@ async function chatCompletion(messages, options = {}) {
 
   const requestedModel = options.model || DEFAULT_MODEL;
 
-  // If direct API can't access this model and Copilot is available, route through Copilot
-  if (_accessProbed && !_modelAccess[requestedModel] && hasCopilotAccess() && COPILOT_MODEL_MAP[requestedModel]) {
-    const result = await copilotChatCompletion(messages, options);
-    return { ...result, fallback: `direct→copilot` };
+  // PRIMARY: GitHub Copilot — all models available
+  if (hasCopilotAccess() && COPILOT_MODEL_MAP[requestedModel]) {
+    try {
+      return await copilotChatCompletion(messages, options);
+    } catch (copilotErr) {
+      // Copilot failed — fall through to direct API
+      if (!getApiKey()) throw copilotErr; // No fallback available
+    }
   }
 
-  // No direct API key at all — use Copilot if available
-  if (!getApiKey() && hasCopilotAccess()) {
-    return copilotChatCompletion(messages, options);
-  }
-
+  // FALLBACK: Direct Anthropic API
   const timeout = options.timeout ?? 60000;
   const effectiveModel = resolveAccessibleModel(requestedModel);
   const effectiveOptions = effectiveModel !== requestedModel ? { ...options, model: effectiveModel } : options;
@@ -584,18 +585,11 @@ async function chatCompletion(messages, options = {}) {
   const body = buildRequestBody(messages, effectiveOptions);
   const res = await httpRequestWithRetry('POST', ANTHROPIC_API_URL, buildHeaders(), body, 2, timeout);
 
-  // If 400 and looks like model access denial, try Copilot first, then Haiku fallback
+  // If 400 and model access denial, fall down the chain
   if (res.status === 400 && isModelAccessError(res.data) && MODELS[requestedModel] && requestedModel !== 'haiku') {
     _modelAccess[requestedModel] = false;
     _effectiveDefault = FALLBACK_CHAIN.find(k => _modelAccess[k]) || 'haiku';
 
-    // Try GitHub Copilot for the requested model (keeps quality)
-    if (hasCopilotAccess() && COPILOT_MODEL_MAP[requestedModel]) {
-      const result = await copilotChatCompletion(messages, options);
-      return { ...result, fallback: `direct→copilot` };
-    }
-
-    // Last resort: fall back to a model the direct API can access
     const fallback = FALLBACK_CHAIN.find(k => k !== requestedModel && _modelAccess[k] !== false);
     if (fallback) {
       const fbBody = buildRequestBody(messages, { ...options, model: fallback });
@@ -606,7 +600,7 @@ async function chatCompletion(messages, options = {}) {
         const usage = fbRes.data.usage || {};
         const cost = estimateCost(usage, fallback);
         trackUsage(usage, fallback);
-        return { content, usage, cost, model: fbRes.data.model, fallback: `${requestedModel}→${fallback}` };
+        return { content, usage, cost, model: fbRes.data.model, fallback: `copilot-failed→${fallback}` };
       }
     }
   }
@@ -660,20 +654,13 @@ async function* streamCompletion(messages, options = {}) {
 
   const requestedModel = options.model || DEFAULT_MODEL;
 
-  // If direct API can't access this model and Copilot is available, route through Copilot
-  if (_accessProbed && !_modelAccess[requestedModel] && hasCopilotAccess() && COPILOT_MODEL_MAP[requestedModel]) {
-    yield { type: 'fallback', from: requestedModel, to: requestedModel, message: `direct→copilot` };
+  // PRIMARY: GitHub Copilot — all models available
+  if (hasCopilotAccess() && COPILOT_MODEL_MAP[requestedModel]) {
     yield* copilotStreamCompletion(messages, options);
     return;
   }
 
-  // No direct API key at all — use Copilot if available
-  if (!getApiKey() && hasCopilotAccess()) {
-    yield* copilotStreamCompletion(messages, options);
-    return;
-  }
-
-  // Resolve model with access fallback
+  // FALLBACK: Direct Anthropic API (Copilot unavailable)
   const effectiveModel = resolveAccessibleModel(requestedModel);
   const effectiveOptions = effectiveModel !== requestedModel ? { ...options, model: effectiveModel } : options;
   let usedFallback = effectiveModel !== requestedModel ? `${requestedModel}→${effectiveModel}` : null;
@@ -706,9 +693,8 @@ async function* streamCompletion(messages, options = {}) {
     req.end();
   });
 
-  // If 400 and looks like model access denial, try fallback
+  // If 400 and model access denial, fall down the chain
   if (response.statusCode === 400 && MODELS[requestedModel] && requestedModel !== 'haiku') {
-    // Read error body to check if it's an access error
     let errorBody = '';
     for await (const chunk of response) errorBody += chunk;
     let errorData;
@@ -719,14 +705,6 @@ async function* streamCompletion(messages, options = {}) {
     _modelAccess[requestedModel] = false;
     _effectiveDefault = FALLBACK_CHAIN.find(k => _modelAccess[k]) || 'haiku';
 
-    // Try GitHub Copilot for the requested model (keeps quality)
-    if (hasCopilotAccess() && COPILOT_MODEL_MAP[requestedModel]) {
-      yield { type: 'fallback', from: requestedModel, to: requestedModel, message: `direct→copilot` };
-      yield* copilotStreamCompletion(messages, options);
-      return;
-    }
-
-    // Last resort: fall back to a model the direct API can access
     const fallback = FALLBACK_CHAIN.find(k => k !== requestedModel && _modelAccess[k] !== false);
     if (fallback) {
       usedFallback = `${requestedModel}→${fallback}`;

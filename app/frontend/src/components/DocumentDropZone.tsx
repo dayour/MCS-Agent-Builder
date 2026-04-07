@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import type { DocChangeStatus, Document } from "@/types";
 import type { PullM365Progress } from "@/lib/api";
 import { useProjectStore } from "@/stores/projectStore";
-import { fetchDocContent } from "@/lib/api";
+import { fetchDocContent, startDeltaEnrichment, watchEnrichment } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { marked } from "marked";
 import { toast } from "sonner";
@@ -25,6 +25,7 @@ interface DocumentDropZoneProps {
 const STATUS_CONFIG: Record<DocChangeStatus, { label: string; className: string }> = {
   new: { label: "New", className: "bg-info/15 text-info border-info/40" },
   modified: { label: "Modified", className: "bg-warning/15 text-warning border-warning/40" },
+  processing: { label: "Processing", className: "bg-purple-500/15 text-purple-500 border-purple-500/40" },
   processed: { label: "Processed", className: "bg-success/15 text-success border-success/40" },
 };
 
@@ -378,6 +379,42 @@ const DocumentDropZone = ({ projectId }: DocumentDropZoneProps) => {
   };
 
   const newAndModified = documents.filter((d) => d.changeStatus === "new" || d.changeStatus === "modified");
+  const [enriching, setEnriching] = useState(false);
+
+  const agents = useProjectStore((s) => s.agents);
+  const loadProject = useProjectStore((s) => s.loadProject);
+
+  const handleDeltaEnrich = async () => {
+    if (!agents.length) {
+      toast.error("No agents found — create an agent first via the wizard");
+      return;
+    }
+    setEnriching(true);
+    try {
+      const agentId = agents[0].id;
+      const result = await startDeltaEnrichment(projectId, agentId);
+      if (!result.jobId) {
+        toast.info(result.message || "No new documents to process");
+        return;
+      }
+      toast.info(`Processing ${result.deltaFiles?.length || 0} document(s)...`);
+      await watchEnrichment(result.jobId, (event) => {
+        if (event.type === "done") {
+          if (event.status === "completed") {
+            toast.success("Documents processed and brief updated");
+          } else {
+            toast.warning(`Enrichment finished with status: ${event.status}`);
+          }
+        }
+      });
+      // Refresh project to pick up updated manifest + brief
+      await loadProject(projectId);
+    } catch (e) {
+      toast.error(`Delta enrichment failed: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setEnriching(false);
+    }
+  };
 
   return (
     <div>
@@ -386,7 +423,13 @@ const DocumentDropZone = ({ projectId }: DocumentDropZoneProps) => {
         <div className="flex items-center gap-3">
           <h2 className="text-sm font-semibold text-foreground">Documents ({documents.length})</h2>
           {newAndModified.length > 0 && (
-            <span className="text-[11px] text-info font-medium">{newAndModified.length} pending research</span>
+            <button
+              onClick={handleDeltaEnrich}
+              disabled={enriching || !agents.length}
+              className="text-[11px] text-info font-medium hover:underline disabled:opacity-50 disabled:no-underline cursor-pointer"
+            >
+              {enriching ? "Processing..." : `${newAndModified.length} new — process into brief`}
+            </button>
           )}
         </div>
         <div className="flex gap-1">

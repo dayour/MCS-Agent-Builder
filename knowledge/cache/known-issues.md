@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-23
-sources: [skills-for-copilot-studio repo, ObjectModel repo, Elevate repo, build experience, MS Learn, community reports, MS Learn M365 Copilot extensibility known-issues, 2025 Wave 2 change history, WebSearch Mar 2026]
+last_verified: 2026-04-07
+sources: [skills-for-copilot-studio repo, ObjectModel repo, Elevate repo, build experience, MS Learn, community reports, MS Learn M365 Copilot extensibility known-issues, 2025 Wave 2 change history, WebSearch Mar 2026, WebSearch Apr 2026, MS Learn extensibility known-issues Apr 2026]
 confidence: high
 refresh_trigger: before_build
 -->
@@ -199,9 +199,9 @@ card: |
 
 ## PowerFx Issues
 
-### No regex support in PowerFx
-**Issue:** PowerFx has no native regex functions for string manipulation.
-**Mitigation:** Use nested `Substitute()` for pattern removal (e.g., citation stripping). For validation, use adaptive card `regex` property on Input fields.
+### ~~No regex support in PowerFx~~ **RESOLVED (GA Jun 2025)**
+**Issue:** ~~PowerFx has no native regex functions for string manipulation.~~ **RESOLVED.** `IsMatch`, `Match`, and `MatchAll` functions with regex support are **GA since Jun 2025**.
+**Mitigation:** Use `IsMatch(text, pattern)`, `Match(text, pattern)`, `MatchAll(text, pattern)` for regex validation and extraction. Legacy workaround of nested `Substitute()` is no longer needed for pattern matching.
 
 ### System.* variables need assignment to Topic.* first
 **Issue:** Some `System.*` variables can't be used directly in PowerFx expressions or card templates.
@@ -238,6 +238,39 @@ card: |
 ### Multiple UX limitations for custom engine agents in M365 Copilot
 **Issue:** Custom engine agents (built with M365 Agents Toolkit/SDK) running in M365 Copilot have significant limitations: no file attachments, no proactive notifications, no editable messages, limited rich card support (no Hero/Thumbnail/Connector/Animation/Audio/Receipt cards), Adaptive Cards with Action.Execute don't persist refreshed content, no sensitivity labels, and no support in Outlook/Word/Excel/PowerPoint/Edge.
 **Mitigation:** Use standard Copilot Studio agents for full feature support. Custom engine agents are best for Teams-only scenarios with simple text interactions.
+**Source:** MS Learn M365 Copilot extensibility known issues (Mar 2026).
+
+---
+
+## Computer Use Agent (CUA) Limitations (Preview)
+
+### Hosted machine groups not supported
+**Issue:** Hosted machine groups are not supported for CUA.
+**Mitigation:** Use dedicated machines or Cloud PC pools (Preview Jan 2026).
+
+### Multi-screen desktops not supported
+**Issue:** CUA cannot interact with multi-screen desktop setups.
+**Mitigation:** Use single-screen configurations.
+
+### Hosted browser throttling
+**Issue:** The service may throttle hosted browser usage based on demand. Only one active hosted browser session per user at a time. Not recommended for production use.
+**Mitigation:** Use Cloud PC pools for production scenarios. Wait 2-3 minutes between CUA sessions.
+
+### CUA input schema breaking change
+**Issue:** A breaking change alters the expected input schema (from `context:` to `inputType:`) for tools configured before August 2025.
+**Mitigation:** Edit the tool's inputs, add any temporary input, save (refreshes schema), delete the temporary input, save again, retest, and publish.
+**Source:** MS Learn troubleshooting-computer-use (Mar 2026).
+
+---
+
+## M365 Government Tenant Limitations
+
+### Some features not supported in M365 Government tenants
+**Issue:** The following features are NOT supported in M365 Government tenants:
+- Authenticated custom actions (API plugins)
+- Usage billing for extensibility features
+- Publishing agents via M365 Agents Toolkit
+**Mitigation:** Use alternative approaches (e.g., manual connector auth, non-Toolkit publishing).
 **Source:** MS Learn M365 Copilot extensibility known issues (Mar 2026).
 
 ---

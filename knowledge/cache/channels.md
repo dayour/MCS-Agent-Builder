@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-23
-sources: [MS Learn (publication-fundamentals-publish-channels, guidance/channels, publication-add-bot-to-sharepoint, planned-features, whats-new, 2026wave1 release plan), MCS UI snapshot, WebSearch Mar 2026, M365 Copilot Blog Feb 2026, Dynamics 365 Blog Mar 2026]
+last_verified: 2026-04-07
+sources: [MS Learn (publication-fundamentals-publish-channels, guidance/channels, publication-add-bot-to-sharepoint, planned-features, whats-new, 2026wave1 release plan), MCS UI snapshot, WebSearch Apr 2026, M365 Copilot Blog Mar 2026, Dynamics 365 Blog Mar 2026]
 confidence: high
 refresh_trigger: weekly
 -->
@@ -131,3 +131,4 @@ These channels require creating an Azure Bot Service relay bot that bridges betw
 - Attachments: Users cannot send/upload *general* attachments in any channel. Agent replies with error. Only supported if message is sent to a Bot Framework skill. However, the Aug 2025 file/image upload feature allows structured uploads for agent analysis.
 - Voice/IVR features (answering machine detection, SIP X-headers) GA since Jan-Feb 2026. "Simplify working with triggers and channels" GA since Nov 2025.
 - **Mar 2026 check:** Outlook added as new channel surface via M365 Copilot. No other new channel types added. Channel list otherwise stable. 2026 Wave 1 release plan does not announce additional channels for Apr-Sep 2026.
+- **Apr 2026 check:** No new channels added since Mar 2026. Channel list stable. 2026 Wave 1 planned features focus on voice enhancements (post-call action topics GA Mar 2026), MCP-compliant tools in workflows (Preview Apr 2026), and agent security -- not new channels. Power Pages 2026 Wave 1 includes improvements for embedded Copilot Studio agents but Power Pages was already a supported channel. Adaptive card accessibility best practices published Mar 2026. Reprompt message randomization for voice scenarios added Mar 2026.

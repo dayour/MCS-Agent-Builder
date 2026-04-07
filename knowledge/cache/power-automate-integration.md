@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-23
-sources: [MS Learn, MCS UI, community, WebSearch Mar 2026, MS Learn MCP Mar 2026, Copilot Blog Mar 2026, 2026 Wave 1 release plan, Advanced Approvals docs Mar 2026]
+last_verified: 2026-04-07
+sources: [MS Learn, MCS UI, community, WebSearch Apr 2026, MS Learn MCP Apr 2026, Copilot Blog Apr 2026, 2026 Wave 1 release plan Apr 2026, Advanced Approvals docs Apr 2026, MS Learn whats-new Apr 2026, MS Learn agent-node-workflow]
 confidence: high
 refresh_trigger: before_architecture
 -->
@@ -75,15 +75,16 @@ Requires generative orchestration. Triggers use **maker credentials only**.
 
 **Payload instructions**: customize per-trigger what agent should do. Better than agent-level instructions for multi-trigger agents.
 
-## Express Mode (Preview) — Details
+## Express Mode (Preview, GA May 2026) — Details
 
 Agent flows with `When an agent calls the flow` or `When an app calls a flow` trigger. Provides faster execution on a simplified pipeline.
 
 **When to use**: Logic-heavy flows (not data-heavy), time-sensitive responses to agents.
 **When NOT to use**: Data-heavy flows (large table queries, 1500+ rows), fire-and-forget (no response action needed).
 **Limitations**: No `Delay` or `Webhook` actions. Loop iterations may not appear in Run details. Not all environments support it yet (depends on new architecture).
-**No extra cost** — same Copilot Studio per-action billing.
-**Availability**: Auto-rolling to environments on new architecture. Check for express mode toggle on trigger card.
+**No extra cost** — same Copilot Studio per-action billing. Express mode is only for flows under the Copilot Studio plan.
+**Availability**: Auto-rolling to environments on new architecture. Check for express mode toggle on trigger card. Opt-in from Copilot Studio or Power Automate when creating/editing flows.
+**GA date**: May 2026 (confirmed in 2026 Wave 1 release plan).
 
 ## Human-in-the-Loop Actions (Agent Flows Only)
 
@@ -124,9 +125,31 @@ Agent flows with `When an agent calls the flow` or `When an app calls a flow` tr
 | `AsyncResponsePayloadTooLarge` | Output too large | Reduce payload, filter |
 | `BindingKeyNotFoundError` | Inputs changed | Remove and re-add flow |
 
-## Execute Agent Action (Jan 2026+)
+## Execute Agent Action / Agent Node (Jan-Mar 2026)
 
 **New capability:** The `Execute Agent` action in Power Automate lets you trigger a Copilot Studio agent to run during a flow. Pass context and let the agent handle reasoning steps the flow cannot. This enables agent-in-the-loop patterns where a flow orchestrates deterministic steps and delegates complex reasoning to an agent.
+
+### Agent Node in Agent Flows (GA Mar 2026)
+
+The **agent node** (`Run an agent`) is a dedicated node type in agent flows that calls a Copilot Studio agent inline. This is the recommended way to invoke agents from flows (replaces generic Execute Agent action for agent flows).
+
+**Capabilities:**
+- Call any published agent from within an agent flow
+- Send messages with dynamic content from earlier flow steps (e.g., trigger tokens)
+- Retrieve agent response and use it in subsequent workflow steps
+- Optional: "Request human assistance when unsure" — agent escalates to human via email when uncertain
+- Agent can reason over data, pull knowledge sources, and choose tools autonomously
+
+**Configuration fields:**
+| Field | Required | Description |
+|-------|----------|-------------|
+| Agent | Yes | Select published agent from dropdown |
+| Message | No | Text + dynamic content tokens from flow context |
+| Request human assistance | No | Toggle — agent emails connection owner when stuck |
+
+**Use cases:** Support ticket triage, expense report review, document summarization within a multi-step workflow. The agent handles interpretation while the flow controls sequencing.
+
+**Source:** [Add an agent node to an agent flow](https://learn.microsoft.com/en-us/microsoft-copilot-studio/agent-node-workflow)
 
 ## Convert Cloud Flow to Agent Flow
 
@@ -147,7 +170,8 @@ Cloud flows can be converted to agent flows (one-way, irreversible):
 | Human data collection mid-process | Agent flow (Request for Information) |
 | Error handling beyond basic | Agent flow |
 | RPA / desktop automation | Computer Use tool (NOT flow) |
-| Agent reasoning mid-flow | Execute Agent action (agent-in-the-loop) |
+| Agent reasoning mid-flow | **Agent node** ("Run an agent") in agent flow — preferred over Execute Agent action (GA Mar 2026) |
+| Complex document analysis mid-flow | Agent node — agent reasons over data, pulls knowledge, uses tools |
 
 ## Capacity / Billing
 
@@ -163,7 +187,7 @@ Cloud flows can be converted to agent flows (one-way, irreversible):
 
 **User credentials in flows**: Cloud flows can run with **user credentials** in supported authenticated agents. Not yet supported in environments using **customer-managed keys (CMK)** — use specific connections instead of "Provided by run-only user".
 
-**End-user credential triggers (Preview Mar 2026, GA May 2026)**: Configure triggers with end-user credentials — event triggers can now run with the end user's identity rather than the maker's. Moved from 2025 Wave 2 to 2026 Wave 1.
+**End-user credential triggers (Preview Apr 2026, GA Jun 2026)**: Configure triggers with end-user credentials — event triggers can run with the end user's identity rather than the maker's. Timeline updated: Preview moved from Mar to Apr 2026, GA from May to Jun 2026 (2026 Wave 1 release plan, confirmed Apr 2026).
 
 ## Programmatic Flow CRUD (`tools/flow-manager.js`)
 
@@ -228,15 +252,17 @@ Before creating a new trigger flow, discover the environment-specific values:
 | MCP-compliant tools in agent workflows | Preview Apr 2026, GA Oct 2026 | Use MCP tools directly in PA agent workflows |
 | View property value expanded inline in new designer | GA Jun 2026 | Better flow authoring/debugging UX |
 | Improved PA licensing dashboard | GA May 2026 | Better visibility into flow license consumption |
+| **Express mode GA** | Preview Nov 2025, **GA May 2026** | Dramatically faster agent flow execution; opt-in per flow |
 
 ### 2025 Wave 2 Features Now GA / In Preview
 
 | Feature | Timeline | Impact on MCS Integration |
 |---------|----------|--------------------------|
 | Build advanced approvals (multistage + AI) | Preview May 2025, **GA Mar 2026** | Full approval workflows in agent flows |
-| Express mode for agent/app-invoked flows | Preview Nov 2025 | Faster execution, lower latency |
+| Express mode for agent/app-invoked flows | Preview Nov 2025, **GA May 2026** | Faster execution, lower latency (promoted to GA May 2026) |
 | Build Power Platform connectors with OpenAPI v3 | Preview Feb 2026, GA May 2026 | Modern connector authoring |
-| Configure triggers with end-user credentials | Preview Mar 2026, GA May 2026 | Triggers run with end-user identity |
+| Configure triggers with end-user credentials | Preview **Apr 2026**, GA **Jun 2026** | Triggers run with end-user identity (moved from Mar/May to Apr/Jun) |
+| **Agent node in agent flows** | **GA Mar 2026** | Call a Copilot Studio agent from within an agent flow — agent-in-the-loop |
 
 ### Schedule Presets
 

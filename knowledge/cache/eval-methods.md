@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-23
-sources: [MS Learn, MCS UI, direct testing, Direct Line docs, microsoft/ai-agent-eval-scenario-library, MS Learn analytics-agent-evaluation-overview, MS Learn analytics-agent-evaluation-create, MS Learn analytics-agent-evaluation-results, MS Learn guidance/evaluation-overview, MS Learn guidance/architecture/common-evaluation-approaches, MS Learn guidance/kit-overview, MS Learn whats-new, WebSearch Mar 2026, MS Copilot Blog Mar 2026]
+last_verified: 2026-04-07
+sources: [MS Learn, MCS UI, direct testing, Direct Line docs, microsoft/ai-agent-eval-scenario-library, MS Learn analytics-agent-evaluation-overview, MS Learn analytics-agent-evaluation-create, MS Learn analytics-agent-evaluation-results, MS Learn guidance/evaluation-overview, MS Learn guidance/architecture/common-evaluation-approaches, MS Learn guidance/kit-overview, MS Learn whats-new, WebSearch Mar 2026, MS Copilot Blog Mar 2026, 2026 Wave 1 release plan Apr 2026, MS Learn whats-new Apr 2026]
 confidence: high
 refresh_trigger: on_error
 -->
@@ -111,8 +111,8 @@ Methods are assigned at the **eval set level**, not per test. Each set can use m
 | **Keyword match** | **GA** | Any / All mode | Looks for matching words/phrases in response |
 | **Text similarity** | **GA** | 0-100 threshold (cosine similarity) | Text closeness (may miss meaning differences) |
 | **Exact match** | **GA** | Pass/Fail | Response must match expected completely |
-| **Tool use** | **GA** | Pass/Fail | Checks if agent used specific tools or topics |
-| **Custom** | **Preview** | Pass/Fail (label-based) | Maker-defined evaluation criteria with custom labels. See below. |
+| **Tool use** (aka **Capability use**) | **GA** | Pass/Fail | Checks if agent used specific tools or topics |
+| **Custom** | **GA (Mar 2026)** | Pass/Fail (label-based) | Maker-defined evaluation criteria with custom labels. See below. |
 
 ### Custom Method (Preview — New Mar 2026)
 
@@ -352,7 +352,10 @@ Configuration in `evalConfig`: `targetPassRate` (overall, default 85%), `maxIter
 | **Activity maps in eval results** | Preview | Jan 2026 | View agent's sequence of inputs, decisions, and outputs to diagnose issues |
 | **CSV template for test set import** | Preview | Jan 2026 | Validated CSV template reduces formatting errors, standardizes evaluation data |
 | **Compare multiple agent versions** | GA | Dec 2025 | Side-by-side comparison to validate improvements and spot regressions |
-| **Custom test method** | Preview | Oct 2025 | Maker-defined evaluation criteria with custom labels (see above) |
+| **Agent evaluations GA** | **GA** | **Mar 2026** | Agent evaluations are now generally available. Validate agent performance using customizable test sets. |
+| **Multi-turn conversation tests** | **GA** | **Mar 2026** | Create multi-turn conversation tests to evaluate how agents perform across realistic dialog flows instead of single-turn interactions. |
+| **Custom test method** | **GA (Mar 2026)** | Oct 2025 (Preview), Mar 2026 (GA) | Maker-defined evaluation criteria with custom labels (see above). Moved from Preview to GA. |
+| **See evaluation results in real time** | Preview | May 2026 (planned) | View evaluation results as they stream in, rather than waiting for full completion. GA May 2026. |
 | **Evaluate agents for M365 Copilot** | Preview | Jul 2026 (planned) | Run evaluations on agents published to M365 Copilot from within Copilot Studio |
 
 ## Future: M365 Agents SDK
@@ -364,9 +367,11 @@ Microsoft recommends migrating from Direct Line to the **M365 Agents SDK** for n
 
 **Current status (Mar 2026):** SDK is GA. Migration path is clear but not urgent — Direct Line remains functional. Consider for future eval runner v2.
 
-## Multi-Turn Test Support
+## Multi-Turn Test Support (GA Mar 2026 — MCS Native)
 
-Multi-turn tests send an ordered sequence of messages in **one conversation** (same Direct Line conversation ID, watermark preserved between turns). This is critical for gen-orchestration agents where context accumulates across turns.
+Multi-turn conversation tests are now **GA in Copilot Studio** (Mar 2026). You can create multi-turn tests natively in MCS to evaluate how agents perform across realistic dialog flows instead of single-turn interactions.
+
+In our runner, multi-turn tests send an ordered sequence of messages in **one conversation** (same Direct Line conversation ID, watermark preserved between turns). This is critical for gen-orchestration agents where context accumulates across turns.
 
 ### Schema
 
@@ -404,8 +409,8 @@ Multi-turn tests send an ordered sequence of messages in **one conversation** (s
 | Tier | Multi-Turn Support |
 |------|--------------------|
 | **Tier 1 (Direct Line)** | Full support — same conversation, watermark tracking, activity capture |
-| **Manual (MCS Native)** | Not supported — MCS native eval is single-turn only. Multi-turn requires Direct Line. |
-| **Tier 3 (Native MCS)** | Not supported — MCS native eval is single-turn only |
+| **Manual (MCS Native)** | **Now supported (GA Mar 2026)** — MCS native eval supports multi-turn conversation test sets |
+| **Tier 3 (Native MCS)** | **Now supported (GA Mar 2026)** — MCS native eval supports multi-turn conversation test sets |
 
 ### Example Results
 
@@ -521,7 +526,7 @@ MS Learn published a comprehensive evaluation guidance series:
 
 ## Refresh Notes
 
-- Check MS Learn for new test method types — **Custom method added Oct 2025 (Preview)**
+- Check MS Learn for new test method types — **Custom method GA Mar 2026** (was Preview Oct 2025)
 - Search "Copilot Studio evaluation" for updates to the eval framework
 - New scoring methods may appear — check MCS UI "New evaluation" dialog
 - Monitor M365 Agents SDK for eval-relevant features

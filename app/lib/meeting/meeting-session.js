@@ -19,8 +19,9 @@ const { generateBriefing, estimateTokenCount } = require('./briefing-generator')
 
 // Sentence accumulation tuning — ignore Whisper punctuation (it adds periods to every chunk).
 // Instead, flush based on time gaps and buffer duration.
-const SENTENCE_MIN_BUFFER_MS = 5000;    // Don't flush until at least 5s of speech accumulated
-const SENTENCE_MAX_BUFFER_MS = 12000;   // Force flush after 12s regardless
+// With 8s chunks (up from 2.5s), each chunk is more complete — adjust accordingly.
+const SENTENCE_MIN_BUFFER_MS = 8000;    // Match chunk size — one full chunk before flush
+const SENTENCE_MAX_BUFFER_MS = 20000;   // Force flush after 20s (was 12s for 2.5s chunks)
 const SENTENCE_SILENCE_GAP_MS = 3000;   // Flush if 3s gap between chunks (speaker paused)
 
 class MeetingSession extends EventEmitter {
@@ -142,11 +143,11 @@ class MeetingSession extends EventEmitter {
   /**
    * Accumulate transcript chunks into longer, sentence-level entries.
    *
-   * Whisper adds punctuation to every 2.5s chunk, so we can't rely on
+   * Whisper adds punctuation to every chunk, so we can't rely on
    * sentence boundaries. Instead flush based on:
    *   1. Speaker change — flush previous speaker's buffer
    *   2. Silence gap — if >3s since last chunk from same speaker, they paused
-   *   3. Max duration — force flush after 12s to keep lines from growing too long
+   *   3. Max duration — force flush after 20s to keep lines manageable
    *   4. Silence timeout — if no new chunk arrives within 3s, speaker stopped talking
    */
   _accumulateSentence(entry) {
@@ -260,6 +261,13 @@ class MeetingSession extends EventEmitter {
 
       // Load context into answer engine
       this.answerEngine.loadBriefing(briefing);
+
+      // Pass meeting context to transcription for Whisper prompt conditioning
+      // This helps Whisper recognize participant names, project terms, etc.
+      this.transcription.setMeetingContext({
+        title: options.meetingTitle || this.agentName || null,
+        participants: options.participants || []
+      });
 
       // Initialize whisper
       await this.transcription.initialize((p) => {

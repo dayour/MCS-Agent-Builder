@@ -1,12 +1,12 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-23
-sources: [MS Learn (authoring-select-agent-model, prompt-model-settings, prompt-model-availability, planned-features, bring-your-own-model-prompts, authoring-select-external-response-model, release-plan/2026wave1), MCS UI snapshot, WebSearch Mar 2026]
+last_verified: 2026-04-07
+sources: [MS Learn (authoring-select-agent-model, prompt-model-settings, prompt-model-availability, planned-features, bring-your-own-model-prompts, authoring-select-external-response-model, release-plan/2026wave1, whats-new), MCS UI snapshot, WebSearch Apr 2026]
 confidence: high
 refresh_trigger: before_architecture
 -->
 # MCS Available Models
 
-## Models Available in MCS (Mar 2026)
+## Models Available in MCS (Apr 2026)
 
 ### Model Categories
 
@@ -25,14 +25,14 @@ Source: [MS Learn authoring-select-agent-model](https://learn.microsoft.com/en-u
 |-------|----------|--------|-------------|-------|
 | GPT-4o | General | **RETIRED** | All regions | Replaced by GPT-4.1 (Oct 2025). 1-month grace period expired. |
 | **GPT-4.1** | General | **GA (Default)** | All regions | Default model for all new agents |
-| **GPT-5 Chat** | General | **GA** | All regions | Standard rate. Now GA everywhere (previously EU + US only). |
+| **GPT-5 Chat** | General | **GA (Global)** | All regions | Standard rate. GA globally since Mar 2026 (previously EU + US only as of Nov 2025). "ChatGPT-5 is now generally available globally" per [What's New Mar 2026](https://learn.microsoft.com/en-us/microsoft-copilot-studio/whats-new). |
 | **GPT-5 Reasoning** | Deep | **Preview** | Europe + US natively; Preview (cross-geo) in all other regions | Premium rate, 400K context |
 | **GPT-5 Auto** | Auto | **Preview** | Europe + US natively; Preview (cross-geo) in all other regions | Dynamically routes between general and reasoning |
 | GPT-5.3 Chat | General | **Experimental** | **US only** (early access environment) | Next-gen general. Replaced GPT-5.2 Chat in model table. |
 | GPT-5.4 Reasoning | Deep | **Experimental** | **US only** (early access environment) | Next-gen reasoning. Replaced GPT-5.2 Reasoning in model table. |
-| **Claude Sonnet 4.5** | General | **GA** | GA (cross-geo) all regions; GA natively in US | Anthropic model, requires admin enablement. Upgraded from Preview to GA. |
-| **Claude Sonnet 4.6** | General | **GA** | GA (cross-geo) all regions; GA natively in US | Anthropic model. Upgraded from Experimental to GA. |
-| **Claude Opus 4.6** | Deep | **GA** | GA (cross-geo) all regions; GA natively in US | Anthropic deep reasoning. Upgraded from Experimental to GA. |
+| **Claude Sonnet 4.5** | General | **GA (Global)** | GA (cross-geo) all regions; GA natively in US | Anthropic model, requires admin enablement. GA globally since Mar 2026 per [What's New](https://learn.microsoft.com/en-us/microsoft-copilot-studio/whats-new). Also available for Computer Use agents (Feb 2026). |
+| **Claude Sonnet 4.6** | General | **GA (Global)** | GA (cross-geo) all regions; GA natively in US | Anthropic model. GA globally since Mar 2026 per [What's New](https://learn.microsoft.com/en-us/microsoft-copilot-studio/whats-new). |
+| **Claude Opus 4.6** | Deep | **GA (Global)** | GA (cross-geo) all regions; GA natively in US | Anthropic deep reasoning. GA globally since Mar 2026. Also available in prompt builder (Feb 2026). |
 | Grok 4.1 Fast | General | **Experimental** | **US only** (early access environment) | xAI model. Higher harmful content risk per MS safety eval. Non-reasoning. |
 
 ### Prompt Builder Model Lineup (AI Builder prompts in MCS / Power Apps / Power Automate)
@@ -137,4 +137,5 @@ Note: Exact credit-per-token rates vary; see [AI Builder Capability Rate table](
 - GPT-4o retired in commercial (Oct 2025) -- still default in GCC/GCC-H/DoD
 - Prompt builder has different model lineup AND different status from agent orchestration -- check both pages
 - BYOM via Azure AI Foundry: GA for prompts, Preview Mar 2026 for response generation
-- **Mar 2026 changes:** GPT-5.2 Chat/Reasoning replaced by GPT-5.3 Chat / GPT-5.4 Reasoning (experimental, US early-access only). Claude Sonnet 4.5, Sonnet 4.6, Opus 4.6 all upgraded to GA. GPT-5 Chat now GA in all regions (was EU + US only).
+- **Mar 2026 changes:** GPT-5.2 Chat/Reasoning replaced by GPT-5.3 Chat / GPT-5.4 Reasoning (experimental, US early-access only). Claude Sonnet 4.5, Sonnet 4.6, Opus 4.6 all upgraded to GA globally. GPT-5 Chat now GA in all regions (was EU + US only). Claude Sonnet 4.5 (beta) now available for Computer Use agents (Feb 2026). Claude Opus 4.6 and Claude Sonnet 4.5 now available in prompt builder (Feb 2026).
+- **Apr 2026 check:** Model table on MS Learn unchanged from Mar 2026. No new models added to agent orchestration table. GPT-5 Chat confirmed GA globally ("ChatGPT-5 is now generally available globally" per What's New). All Claude models confirmed GA globally. Prompt builder now includes content moderation sensitivity per prompt (Feb 2026). Multi-model "Cowork" feature (GPT drafts, Claude critiques) in Frontier -- this is an M365 Copilot feature, not a Copilot Studio agent feature. Government clouds still GPT-4o only.

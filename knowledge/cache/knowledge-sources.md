@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-23
-sources: [MS Learn (knowledge-copilot-studio, requirements-quotas, knowledge-file-groups, knowledge-real-time-connectors, knowledge-unstructured-data, custom-knowledge-sources, knowledge-azure-ai-search, planned-features, 2026wave1 release plan), MCS UI snapshot, WebSearch Mar 2026, 2026 Wave 1 release plan, Dynamics 365 Blog Mar 2026]
+last_verified: 2026-04-07
+sources: [MS Learn (knowledge-copilot-studio, requirements-quotas, knowledge-file-groups, knowledge-real-time-connectors, knowledge-unstructured-data, custom-knowledge-sources, knowledge-azure-ai-search, planned-features, 2026wave1 release plan, whats-new Apr 2026), MCS UI snapshot, WebSearch Apr 2026, 2026 Wave 1 release plan, Dynamics 365 Blog Mar 2026, MCS Cat Blog (dynamic-knowledge-urls)]
 confidence: high
 refresh_trigger: before_architecture
 -->
@@ -38,8 +38,8 @@ refresh_trigger: before_architecture
 | Type | Description | Setup | Notes |
 |------|-------------|-------|-------|
 | Web Search (Bing grounding) | Open web search across ALL Bing-indexed sites | Toggle in Generative AI settings or Knowledge > Web Search. LSP: `gptCapabilities.webBrowsing: true` | Requires generative orchestration. Uses Grounding with Bing Search API. Runs in parallel with configured public website sources. **NOT the "Bing Search" Power Platform connector** (that's a separate connector with `GetNews` action). |
-| AI General Knowledge | LLM foundational knowledge | Toggle "Use general knowledge" in Generative AI settings. | Not real-time. Based on model training data. Can be turned off to restrict to configured sources only. |
-| **Tenant graph grounding** | Semantic search across M365 tenant data | Enable in Generative AI settings | **Requires M365 Copilot license** in same tenant. Requires "Authenticate with Microsoft" auth setting. Supports files up to 200 MB (or 512 MB for PDF/PPTX/DOCX). Enabled by default when license present. Does NOT support manual authentication. |
+| **Allow ungrounded responses** | Controls whether the agent can respond using only the model's general knowledge | Toggle "Allow ungrounded responses" in Generative AI settings > Knowledge section. | Requires generative orchestration. When OFF, agent blocks any response in a turn where it didn't use a knowledge source or tool (fallback topic triggers). When ON, model can answer from general knowledge. **Note:** turning OFF doesn't guarantee zero general knowledge -- model may still blend general knowledge with retrieved info. Replaces the older "Use general knowledge" toggle name. |
+| **Tenant graph grounding** | Semantic search across M365 tenant data | Enable in Generative AI settings | **Requires M365 Copilot license** in same tenant. Requires "Authenticate with Microsoft" auth setting. Supports files up to 200 MB (or 512 MB for PDF/PPTX/DOCX). Enabled by default when license present. Does NOT support manual authentication. Maker does NOT need M365 Copilot license to create agent with semantic index. |
 | **Real-Time Knowledge connectors (Preview)** | Live API queries to external systems with no data movement | Add via Knowledge > Advanced > Real-time connector. Select tables. | Preview. Metadata-only indexing. Runtime-authenticated per user. |
 
 ### Classic Orchestration Only
@@ -51,6 +51,8 @@ refresh_trigger: before_architecture
 | Custom data sources | API-based custom knowledge | 3 sources |
 
 Note: Generative orchestration does NOT support custom data or Bing Custom Search directly. To use them, embed inside a generative answers node in a topic.
+
+**Update (Mar 2026):** Bing Custom Search can now also be added as a knowledge source in generative orchestration agents. Source: https://learn.microsoft.com/en-us/microsoft-copilot-studio/knowledge-bing-custom-search
 
 ### Agent-Level Limits
 
@@ -199,6 +201,25 @@ source:
 triggerCondition: false
 ```
 
+### Dynamic Knowledge URLs (Feb 2026)
+
+Knowledge source URLs can be parameterized with variables so a single source shifts automatically based on user context, conversation topic, or environment.
+
+| Source Type | Dynamic URL Support | Notes |
+|------------|-------------------|-------|
+| Public websites | **Yes** | Click {x} icon in URL field, insert variable |
+| SharePoint (Connector Powered by Work IQ) | **Yes** (Mar 2026) | Supported since March 10, 2026 |
+| SharePoint (Upload File / Dataverse sync) | **No** | Variables not supported |
+
+**Implementation steps:**
+1. Define variables (topic inputs, user profiles, tools, or environment variables)
+2. Insert variables into knowledge URLs via the {x} icon in the URL field
+3. Variables resolve at runtime when users trigger knowledge retrieval
+
+**Limitations:** Bing guarantees indexing only 2 levels deep for public website knowledge. Variables don't control crawl depth -- only which URL to target.
+
+Source: https://microsoft.github.io/mcscatblog/posts/dynamic-knowledge-urls-copilot-studio/
+
 ### 25-Source UniversalSearchTool Limit
 
 When an agent has **more than 25 knowledge sources** (uploaded files are exempt from this count), the orchestrator's UniversalSearchTool auto-selects the **top 25 by description match**. Sources with poor or missing descriptions may be skipped entirely.
@@ -244,6 +265,7 @@ source:
   kind: DataverseStructuredSearchSource
   skillConfiguration: TableName_randomId
 ```
+> **WARNING (2026-04-06):** `DataverseSearchSource` is NOT a valid kind — only `DataverseStructuredSearchSource` works. The `skillConfiguration` reference is auto-generated by MCS UI and cannot be guessed. Creating Dataverse knowledge sources via raw Dataverse POST with fabricated schemas will pass creation but FAIL publish with `UnknownElementError`. For structured Dataverse data access, use **Dataverse MCP Server** instead — it provides precise field-level queries and is fully headless. Reserve Dataverse knowledge sources for UI-created RAG scenarios only.
 
 **File naming:** `{botSchema}.topic.{SourceName}_{randomId}.mcs.yml` in `knowledge/` folder.
 
@@ -313,14 +335,19 @@ Moderation levels range from **Lowest** to **Highest**. Topic-level settings tak
 | Feature | Status | Expected | Notes |
 |---------|--------|----------|-------|
 | Code interpreter on SharePoint sources | Preview Mar 2026 | GA May 2026 | Analyze SharePoint Document Library structured files (CSV, Excel) with Python |
-| Custom MCP servers as knowledge | Preview Mar 2026, GA Apr 2026 | Mar-Apr 2026 | Connect to any external data via MCP |
 | Enhanced connectors (Connector SDK + PowerFx) | Preview (May 2025) | GA May 2026 | Build structured data connectors for agent knowledge |
 | OpenAPI v3 custom connectors | Preview Feb 2026 | GA May 2026 | Import OpenAPI v3 specs directly |
-| File groups | **GA** (Aug 2025) | -- | Group files with variable-based instructions to guide agent answers. GA May 2026 per 2026w1 release plan refers to additional enhancements. |
-| **SharePoint lists as knowledge source** | Preview Apr 2026 | GA May 2026 | Real-time connection to SharePoint list data. ACL-enforced. Select from recent/my lists. |
+| File groups | **GA** (Aug 2025) | GA May 2026 (enhancements) | Group files with variable-based instructions to guide agent answers. GA May 2026 per 2026w1 release plan refers to additional enhancements. |
+| **SharePoint lists as knowledge source** | Preview Apr 2026 | GA May 2026 | Real-time connection to SharePoint list data. ACL-enforced. Select from recent/my lists. Source: 2026w1 planned features. |
 | **Use your own model for generating responses** | Preview Mar 2026 | TBD | Bring custom models for generative answers |
-| **Configure triggers with end-user credentials** | Preview Mar 2026 | GA May 2026 | |
+| **Configure triggers with end-user credentials** | Preview Apr 2026 | GA Jun 2026 | **Updated from previous dates (was Mar/May)** |
 | **Use MCP-compliant tools in agent workflows** | Preview Apr 2026 | GA Oct 2026 | Broader MCP tool integration in workflows |
+| **Define custom metrics for analytics** | Preview Apr 2026 | GA May 2026 | Custom metrics for agent analytics |
+| **See evaluation results in real time** | Preview May 2026 | GA May 2026 | Live eval results |
+| **Create agents optimized for M365/M365 Copilot users** | Preview Jun 2026 | -- | Copilot Studio support for Agent Builder agents |
+| **Evaluate agents for M365 Copilot in Copilot Studio** | Preview Jul 2026 | -- | Eval DA agents in CS |
+| **Enforce safe sharing by detecting credential oversharing** | Preview Apr 2026 | GA Jun 2026 | Security enhancement |
+| **Unified view of errors, warnings, governance** | Preview Apr 2026 | GA Jun 2026 | Consolidated notification view |
 | Reassign agent owner via Power Platform API | -- | GA Mar 2026 | |
 | Build advanced approvals | Preview | GA Mar 2026 | |
 
@@ -345,3 +372,4 @@ Moderation levels range from **Lowest** to **Highest**. Topic-level settings tak
 - **Knowledge source suggestions**: MCS now suggests top 10 knowledge sources from previous agents, shared agents, and Office products
 - **Per-prompt content moderation** (Feb 2026): control hate/fairness, sexual, violence, self-harm sensitivity per prompt
 - **Mar 2026 check**: Azure AI Search GA, file groups GA, SharePoint lists Preview Apr 2026, custom MCP servers as knowledge Preview Mar 2026 / GA Apr 2026. No new knowledge source types added since last check. Real-time connectors remain Preview.
+- **Apr 2026 check**: "Allow ungrounded responses" is the new official name for controlling general knowledge usage (replaces older "Use general knowledge" toggle). Bing Custom Search now available as knowledge source in generative orchestration (Mar 2026). Dynamic knowledge URLs supported for public websites and SharePoint (Connector Powered by Work IQ). Agent evaluations now GA (Mar 2026). Multi-turn conversation tests added. Configure triggers with end-user credentials timeline shifted: Preview Apr 2026, GA Jun 2026. Custom MCP servers as knowledge renamed to "Use MCP-compliant tools in agent workflows" (Preview Apr 2026, GA Oct 2026). Federated Copilot connectors (MCP-based, no data copy) GA Apr/May 2026 for M365 Copilot (Canva, HubSpot, Linear, Intercom, Google Calendar, Google Contacts, Notion, S&P Global, Moody's, LSEG) -- these are M365 Copilot features, not directly added via Copilot Studio knowledge.

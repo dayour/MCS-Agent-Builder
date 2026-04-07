@@ -19,7 +19,9 @@ const http = require("http");
 const { WebSocketServer } = require("ws");
 const cors = require("cors");
 const multer = require("multer");
-const { execSync, execFileSync } = require("child_process");
+const { execSync, execFileSync, exec } = require("child_process");
+const { promisify } = require("util");
+const execAsync = promisify(exec);
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
@@ -34,12 +36,13 @@ try {
 }
 const { migrateBrief } = require("./lib/brief-migrate");
 const { convertDocument, extractContent, NEEDS_CONVERSION } = require("./lib/documents");
-const { isWorkIQAvailable, checkWorkIQAuth, runQueriesBatched, buildQueries, deduplicateDocuments, assembleContextFile, extractSharePointUrls, downloadAndConvertFiles, escapeMd } = require("./lib/workiq");
+const { isWorkIQAvailable, checkWorkIQAuth, runQueriesBatched, buildQueries, deduplicateDocuments, assembleContextFileIncremental, extractSharePointUrls, downloadAndConvertFiles, escapeMd } = require("./lib/workiq");
 const {
   ensureDirs,
   listProjects,
   getProject,
   getDocStatus,
+  markDocsProcessed,
   humanizeName,
 } = require("./lib/projects");
 const { handleWizardChat, handleWizardSave, handleWizardPrefetch } = require("./lib/wizard");
@@ -470,6 +473,29 @@ app.get("/api/projects/:projectId/doc-status", (req, res) => {
   res.json(result);
 });
 
+app.post("/api/projects/:projectId/mark-processed", (req, res) => {
+  const folder = path.join(BUILD_GUIDES, req.params.projectId);
+  if (!fs.existsSync(folder) || !fs.statSync(folder).isDirectory()) {
+    return res.status(404).json({ detail: `Project '${req.params.projectId}' not found` });
+  }
+
+  const filenames = req.body.filenames;
+  if (!Array.isArray(filenames) || filenames.length === 0) {
+    return res.status(400).json({ detail: "filenames array required" });
+  }
+
+  try {
+    markDocsProcessed(folder, filenames, {
+      source: req.body.source || "enrichment",
+      matchedAgents: req.body.agentId ? [req.body.agentId] : [],
+    });
+    const result = getDocStatus(BUILD_GUIDES, req.params.projectId);
+    res.json({ marked: filenames.length, ...result });
+  } catch (e) {
+    res.status(500).json({ detail: `Failed to mark docs: ${e.message}` });
+  }
+});
+
 app.get("/api/projects/:projectId/docs/:filename/raw", (req, res) => {
   const folder = path.join(BUILD_GUIDES, req.params.projectId);
   if (!fs.existsSync(folder) || !fs.statSync(folder).isDirectory()) {
@@ -639,7 +665,17 @@ app.post("/api/projects/:projectId/pull-m365", async (req, res) => {
     const safeCustomer = customer.toLowerCase().replace(/[^\w-]/g, "_");
     const filename = `workiq-context-${safeCustomer}.md`;
     const filePath = path.join(docsDir, filename);
-    const content = assembleContextFile(customer, results, timeRange, dedup);
+    // Incremental merge: preserve existing content for sections where new queries failed
+    const existingContent = fs.existsSync(filePath)
+      ? fs.readFileSync(filePath, "utf-8")
+      : null;
+    const { content, preserved, replaced } = assembleContextFileIncremental(
+      customer, results, timeRange, dedup, existingContent
+    );
+
+    if (existingContent && (preserved.length > 0 || replaced.length > 0)) {
+      sendSSE({ type: "merge-info", preserved, replaced });
+    }
 
     try {
       fs.writeFileSync(filePath, content, "utf-8");
@@ -650,6 +686,7 @@ app.post("/api/projects/:projectId/pull-m365", async (req, res) => {
         size: stat.size,
         successCount: results.filter((r) => !r.error && r.content).length,
         totalQueries: queries.length,
+        incremental: !!existingContent,
       });
     } catch (e) {
       sendSSE({ type: "error", detail: `Failed to save context file: ${e.message}` });
@@ -697,21 +734,36 @@ app.post("/api/projects/:projectId/pull-m365", async (req, res) => {
 // Credential Readiness Check — surface auth issues before build
 // ---------------------------------------------------------------------------
 
-app.get("/api/readiness/credentials", async (req, res) => {
+// Cache credential results (30s TTL) — CLI calls are expensive and block-free now
+let _credCache = { data: null, ts: 0 };
+const CRED_CACHE_TTL = 30000;
 
+/** Run a CLI command asynchronously (non-blocking). Returns stdout or throws.
+ *  Uses exec (shell) because az/pac are .cmd wrappers on Windows.
+ *  Args are always hardcoded constants — no user input passes through. */
+async function runCliAsync(cmd, args, timeoutMs = 10000) {
+  const command = [cmd, ...args].join(" ");
+  const { stdout } = await execAsync(command, {
+    timeout: timeoutMs,
+    windowsHide: true,
+    encoding: "utf-8",
+  });
+  return stdout;
+}
+
+async function gatherCredentials() {
   const results = {
     claude: false,
     az: false,
     dataverse: false,
     ready: false,
     details: {},
-    // Rich account info for the account switcher
-    azAccount: null,   // { user, tenantId, tenantName, tenantDomain }
-    pacProfiles: [],   // [{ index, active, name, user, environment, environmentUrl }]
-    pacEnvironments: [], // [{ active, name, id, url }]
+    azAccount: null,
+    pacProfiles: [],
+    pacEnvironments: [],
   };
 
-  // 1. Claude CLI configured?
+  // 1. Claude CLI configured? (local file check — instant)
   try {
     const configPath = path.join(os.homedir(), ".claude", "config.json");
     if (fs.existsSync(configPath)) {
@@ -728,82 +780,132 @@ app.get("/api/readiness/credentials", async (req, res) => {
     results.details.claude = "Run: claude auth login";
   }
 
-  // 2. Azure CLI logged in? — also capture full account info
-  try {
-    const azOut = execSync("az account show --output json", {
-      timeout: 10000,
-      stdio: ["pipe", "pipe", "pipe"],
-      encoding: "utf-8",
-    });
-    const account = JSON.parse(azOut);
-    results.az = true;
-    results.azAccount = {
-      user: account.user?.name || "unknown",
-      tenantId: account.tenantId,
-      tenantName: account.tenantDisplayName || null,
-      tenantDomain: account.tenantDefaultDomain || null,
-    };
-    results.details.az = `${account.user?.name || "unknown"} (${account.tenantDisplayName || account.tenantId?.substring(0, 8) + "..."})`;
-  } catch {
+  // 2 + 3: Run az and pac in PARALLEL (non-blocking)
+  const [azResult, pacResult] = await Promise.allSettled([
+    // Azure CLI account info
+    runCliAsync("az", ["account", "show", "--output", "json"], 10000),
+    // PAC CLI auth profiles
+    runCliAsync("pac", ["auth", "list"], 10000),
+  ]);
+
+  // Process Azure result
+  if (azResult.status === "fulfilled") {
+    try {
+      const account = JSON.parse(azResult.value);
+      results.az = true;
+      results.azAccount = {
+        user: account.user?.name || "unknown",
+        tenantId: account.tenantId,
+        tenantName: account.tenantDisplayName || null,
+        tenantDomain: account.tenantDefaultDomain || null,
+      };
+      results.details.az = `${account.user?.name || "unknown"} (${account.tenantDisplayName || account.tenantId?.substring(0, 8) + "..."})`;
+    } catch {
+      results.details.az = "Run: az login";
+    }
+  } else {
     results.details.az = "Run: az login";
   }
 
-  // 3. PAC CLI profiles — list available auth profiles
-  try {
-    const pacOut = execSync("pac auth list", {
-      timeout: 10000,
-      stdio: ["pipe", "pipe", "pipe"],
-      encoding: "utf-8",
-    });
-    // Parse the table output: Index Active Kind Name User Cloud Type Environment EnvironmentUrl
-    const lines = pacOut.split("\n").filter((l) => l.trim().startsWith("["));
-    for (const line of lines) {
+  // Process PAC auth list result — column-position parser (output is fixed-width)
+  if (pacResult.status === "fulfilled") {
+    const allLines = pacResult.value.replace(/\r/g, "").split("\n");
+    const header = allLines[0] || "";
+    // Detect column start positions from the header row
+    const colStarts = {
+      kind: header.indexOf("Kind"),
+      name: header.indexOf("Name"),
+      user: header.indexOf("User"),
+      cloud: header.indexOf("Cloud"),
+      type: header.indexOf("Type"),
+      env: header.indexOf("Environment"),
+      envUrl: header.indexOf("Environment Url"),
+    };
+    const hasColumns = colStarts.kind >= 0 && colStarts.user >= 0;
+    const dataLines = allLines.filter((l) => l.trim().startsWith("["));
+    for (const line of dataLines) {
       const indexMatch = line.match(/\[(\d+)\]/);
-      const active = line.includes("*");
-      // Extract fields by splitting on 2+ spaces (table columns)
-      const afterIndex = line.replace(/\[\d+\]\s+\*?\s*/, "");
-      const parts = afterIndex.split(/\s{2,}/).map((s) => s.trim()).filter(Boolean);
-      // parts: [Kind, Name, User, Cloud, Type, Environment, EnvironmentUrl]
-      if (indexMatch && parts.length >= 3) {
+      const active = /\]\s+\*/.test(line);
+      if (!indexMatch) continue;
+      if (hasColumns) {
+        // Slice by column positions — reliable even when fields are empty
+        const slice = (from, to) => (to > 0 ? line.substring(from, to) : line.substring(from)).trim();
         results.pacProfiles.push({
           index: parseInt(indexMatch[1]),
           active,
-          kind: parts[0] || "",
-          name: parts[1] || "",
-          user: parts[2] || "",
-          environment: parts.length >= 6 ? parts[5] : "",
-          environmentUrl: parts.length >= 7 ? parts[6] : "",
+          kind: slice(colStarts.kind, colStarts.name),
+          name: slice(colStarts.name, colStarts.user),
+          user: slice(colStarts.user, colStarts.cloud),
+          cloud: slice(colStarts.cloud, colStarts.type),
+          type: slice(colStarts.type, colStarts.env),
+          environment: colStarts.envUrl > 0 ? slice(colStarts.env, colStarts.envUrl) : slice(colStarts.env, -1),
+          environmentUrl: colStarts.envUrl > 0 ? slice(colStarts.envUrl, -1) : "",
+        });
+      } else {
+        // Fallback: regex extraction for non-standard output
+        const userMatch = line.match(/\S+@\S+/);
+        results.pacProfiles.push({
+          index: parseInt(indexMatch[1]),
+          active,
+          kind: "UNIVERSAL",
+          name: "",
+          user: userMatch?.[0] || "",
+          cloud: "",
+          type: "",
+          environment: "",
+          environmentUrl: "",
         });
       }
     }
-  } catch { /* PAC CLI not available */ }
-
-  // 4. PAC environments for current profile
-  if (results.pacProfiles.length > 0) {
-    try {
-      const envOut = execSync("pac env list", {
-        timeout: 20000,
-        stdio: ["pipe", "pipe", "pipe"],
-        encoding: "utf-8",
-      });
-      const envLines = envOut.split("\n").slice(2).filter((l) => l.trim());
-      for (const line of envLines) {
-        const active = line.startsWith("*");
-        const clean = line.replace(/^\*?\s*/, "");
-        const parts = clean.split(/\s{2,}/).map((s) => s.trim()).filter(Boolean);
-        if (parts.length >= 3) {
-          results.pacEnvironments.push({
-            active,
-            name: parts[0],
-            id: parts[1],
-            url: parts[2],
-          });
-        }
-      }
-    } catch { /* ignore */ }
   }
 
-  // 5. Dataverse reachable? (only if az is logged in and a session-config exists)
+  // 4 + 5: PAC environments + Dataverse token in PARALLEL
+  const parallelPhase2 = [];
+
+  // PAC env list (only if we have profiles)
+  if (results.pacProfiles.length > 0) {
+    parallelPhase2.push(
+      runCliAsync("pac", ["env", "list"], 20000)
+        .then((envOut) => {
+          const envLines = envOut.replace(/\r/g, "").split("\n");
+          // Find header line (contains "Environment ID" or "Display Name")
+          const headerIdx = envLines.findIndex((l) => l.includes("Environment ID") || l.includes("Display Name"));
+          const envHeader = headerIdx >= 0 ? envLines[headerIdx] : "";
+          const envColStarts = {
+            active: 0,
+            name: envHeader.indexOf("Display Name"),
+            id: envHeader.indexOf("Environment ID"),
+            url: envHeader.indexOf("Environment URL"),
+            unique: envHeader.indexOf("Unique Name"),
+          };
+          const hasEnvColumns = envColStarts.name >= 0 && envColStarts.id >= 0;
+          const envDataLines = envLines.slice(headerIdx + 1).filter((l) => l.trim());
+          for (const line of envDataLines) {
+            if (!line.trim() || line.startsWith("Connected as")) continue;
+            const active = line.startsWith("*");
+            if (hasEnvColumns) {
+              const slice = (from, to) => (to > 0 ? line.substring(from, to) : line.substring(from)).trim();
+              const name = slice(envColStarts.name, envColStarts.id);
+              const id = slice(envColStarts.id, envColStarts.url > 0 ? envColStarts.url : -1);
+              const url = envColStarts.url > 0 ? slice(envColStarts.url, envColStarts.unique > 0 ? envColStarts.unique : -1) : "";
+              if (name && id) {
+                results.pacEnvironments.push({ active, name, id, url });
+              }
+            } else {
+              // Fallback: split by 2+ spaces
+              const clean = line.replace(/^\*?\s*/, "");
+              const parts = clean.split(/\s{2,}/).map((s) => s.trim()).filter(Boolean);
+              if (parts.length >= 3) {
+                results.pacEnvironments.push({ active, name: parts[0], id: parts[1], url: parts[2] });
+              }
+            }
+          }
+        })
+        .catch(() => { /* ignore */ })
+    );
+  }
+
+  // Dataverse token check (only if az is logged in)
   if (results.az) {
     const sessionConfigs = [];
     try {
@@ -821,27 +923,58 @@ app.get("/api/readiness/credentials", async (req, res) => {
 
     if (sessionConfigs.length > 0) {
       const sc = sessionConfigs[0];
-      try {
-        const tokenOut = execSync(
-          `az account get-access-token --resource ${sc.dataverseUrl} --output json`,
-          { timeout: 15000, stdio: ["pipe", "pipe", "pipe"], encoding: "utf-8" }
-        );
-        const token = JSON.parse(tokenOut);
-        results.dataverse = !!token.accessToken;
-        results.details.dataverse = `Token valid for ${sc.dataverseUrl}`;
-      } catch (err) {
-        results.details.dataverse = `Token failed for ${sc.dataverseUrl} — run: az login --tenant <tenant>`;
-      }
+      parallelPhase2.push(
+        runCliAsync("az", ["account", "get-access-token", "--resource", sc.dataverseUrl, "--output", "json"], 15000)
+          .then((tokenOut) => {
+            const token = JSON.parse(tokenOut);
+            results.dataverse = !!token.accessToken;
+            results.details.dataverse = `Token valid for ${sc.dataverseUrl}`;
+          })
+          .catch(() => {
+            results.details.dataverse = `Token failed for ${sc.dataverseUrl} — run: az login --tenant <tenant>`;
+          })
+      );
     } else {
       results.details.dataverse = "No session-config.json found — will be checked at build time";
-      results.dataverse = null; // unknown, not failed
+      results.dataverse = null;
     }
   } else {
     results.details.dataverse = "Requires az login first";
   }
 
+  if (parallelPhase2.length > 0) await Promise.all(parallelPhase2);
+
+  // Fallback: if pac env list returned nothing, use the active profile's own environment
+  if (results.pacEnvironments.length === 0) {
+    const active = results.pacProfiles.find((p) => p.active);
+    if (active && active.environment) {
+      results.pacEnvironments.push({
+        active: true,
+        name: active.environment,
+        id: "profile-default",
+        url: active.environmentUrl || "",
+      });
+    }
+  }
+
   results.ready = results.claude && results.az;
-  res.json(results);
+  return results;
+}
+
+app.get("/api/readiness/credentials", async (req, res) => {
+  try {
+    const now = Date.now();
+    const force = req.query.force === "1";
+    if (!force && _credCache.data && (now - _credCache.ts) < CRED_CACHE_TTL) {
+      return res.json(_credCache.data);
+    }
+    const results = await gatherCredentials();
+    _credCache = { data: results, ts: Date.now() };
+    res.json(results);
+  } catch (err) {
+    console.error("[credentials] Error:", err.message);
+    res.status(500).json({ detail: err.message });
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -875,6 +1008,10 @@ app.post("/api/auth/switch-profile", async (req, res) => {
     const activeLine = pacOut.split("\n").find((l) => l.includes("*"));
     const userMatch = activeLine?.match(/\S+@\S+/);
 
+    // Invalidate caches after profile switch
+    _credCache = { data: null, ts: 0 };
+    _platformAgentsCache = { data: null, ts: 0 };
+
     res.json({
       switched: true,
       activeUser: userMatch?.[0] || "unknown",
@@ -904,9 +1041,35 @@ app.post("/api/auth/switch-environment", async (req, res) => {
       stdio: ["pipe", "pipe", "pipe"],
       encoding: "utf-8",
     });
+    // Invalidate caches after environment switch
+    _credCache = { data: null, ts: 0 };
+    _platformAgentsCache = { data: null, ts: 0 };
+
     res.json({ switched: true, environmentId });
   } catch (err) {
     res.status(500).json({ detail: `Failed to switch environment: ${err.message}` });
+  }
+});
+
+app.delete("/api/auth/profile/:index", async (req, res) => {
+  const index = parseInt(req.params.index, 10);
+  if (isNaN(index) || index < 1) {
+    return res.status(400).json({ detail: "Valid profile index (>= 1) required" });
+  }
+
+  try {
+    execFileSync("pac", ["auth", "delete", "--index", String(index)], {
+      timeout: 10000,
+      stdio: ["pipe", "pipe", "pipe"],
+      encoding: "utf-8",
+    });
+    // Invalidate caches
+    _credCache = { data: null, ts: 0 };
+    _platformAgentsCache = { data: null, ts: 0 };
+
+    res.json({ deleted: true, index });
+  } catch (err) {
+    res.status(500).json({ detail: `Failed to delete profile: ${err.message}` });
   }
 });
 
@@ -917,6 +1080,174 @@ app.post("/api/auth/switch-environment", async (req, res) => {
 app.post("/api/wizard/chat", (req, res) => handleWizardChat(req, res));
 app.post("/api/wizard/prefetch", (req, res) => handleWizardPrefetch(req, res));
 
+// ---------------------------------------------------------------------------
+// ─── Platform Agents (pac copilot list) ────────────────────────────
+// Cache platform agents (60s TTL) — pac copilot list is slow
+let _platformAgentsCache = { data: null, ts: 0 };
+const PLATFORM_AGENTS_CACHE_TTL = 60000;
+
+app.get("/api/platform/agents", async (req, res) => {
+  try {
+    const now = Date.now();
+    if (_platformAgentsCache.data && (now - _platformAgentsCache.ts) < PLATFORM_AGENTS_CACHE_TTL) {
+      return res.json(_platformAgentsCache.data);
+    }
+    const pacOut = await runCliAsync("pac", ["copilot", "list"], 30000);
+    // Parse column-aligned text table: Name | Copilot ID | Component State | ...
+    const lines = pacOut.split("\n").map((l) => l.trimEnd());
+    // Find the header line (contains "Copilot ID")
+    const headerIdx = lines.findIndex((l) => /Copilot ID/i.test(l));
+    const agents = [];
+    if (headerIdx >= 0) {
+      const header = lines[headerIdx];
+      // Determine column start positions from the header
+      const nameCol = 0;
+      const idCol = header.indexOf("Copilot ID");
+      const stateCol = header.indexOf("Component State");
+      const managedCol = header.indexOf("Is Managed");
+      // Parse data rows (everything after header that has a GUID at the ID position)
+      for (let i = headerIdx + 1; i < lines.length; i++) {
+        const line = lines[i];
+        if (!line.trim() || line.startsWith("Connected")) continue;
+        const id = idCol >= 0 ? line.substring(idCol, stateCol > 0 ? stateCol : idCol + 36).trim() : "";
+        if (!/^[0-9a-f-]{36}$/i.test(id)) continue;
+        agents.push({
+          id,
+          name: line.substring(nameCol, idCol).trim(),
+          status: stateCol >= 0 ? line.substring(stateCol, managedCol > 0 ? managedCol : stateCol + 20).trim().toLowerCase() : "published",
+          description: "",
+        });
+      }
+    }
+    const result = { agents };
+    _platformAgentsCache = { data: result, ts: Date.now() };
+    res.json(result);
+  } catch (err) {
+    // PAC CLI not available or not connected — return empty, not error
+    console.warn("[platform/agents] pac copilot list failed:", err.message);
+    res.json({ agents: [], error: err.message });
+  }
+});
+
+// Import a platform agent into a local project
+app.post("/api/platform/agents/import", async (req, res) => {
+  const { agentName, schemaName } = req.body;
+  if (!agentName) return res.status(400).json({ detail: "agentName required" });
+
+  const folderName = agentName.replace(/ /g, "-").replace(/[^\w-]/g, "");
+  if (!folderName) return res.status(400).json({ detail: "Invalid agent name" });
+
+  const projectFolder = path.join(BUILD_GUIDES, folderName);
+  const existed = fs.existsSync(projectFolder);
+
+  if (!existed) {
+    fs.mkdirSync(path.join(projectFolder, "docs"), { recursive: true });
+    fs.mkdirSync(path.join(projectFolder, "agents", folderName), { recursive: true });
+  }
+
+  // Write a stub brief.json with the agent name for the scaffold
+  const agentFolder = path.join(projectFolder, "agents", folderName);
+  if (!fs.existsSync(agentFolder)) fs.mkdirSync(agentFolder, { recursive: true });
+
+  const briefPath = path.join(agentFolder, "brief.json");
+  if (!fs.existsSync(briefPath)) {
+    const brief = {
+      agentName,
+      schemaName: schemaName || "",
+      importedFromPlatform: true,
+      importedAt: new Date().toISOString(),
+      business: { description: `Imported from Copilot Studio platform agent: ${agentName}` },
+    };
+    fs.writeFileSync(briefPath, JSON.stringify(brief, null, 2));
+  }
+
+  res.json({
+    projectId: folderName,
+    agentId: folderName,
+    existed,
+    message: existed
+      ? `Project "${agentName}" already exists.`
+      : `Created project "${agentName}" from platform agent.`,
+  });
+});
+
+// Deploy a solution template into a new project
+app.post("/api/solutions/deploy", async (req, res) => {
+  const { solutionId, solutionName } = req.body;
+  if (!solutionName) return res.status(400).json({ detail: "solutionName required" });
+
+  const folderName = solutionName.replace(/ /g, "-").replace(/[^\w-]/g, "");
+  if (!folderName) return res.status(400).json({ detail: "Invalid solution name" });
+
+  const projectFolder = path.join(BUILD_GUIDES, folderName);
+  const existed = fs.existsSync(projectFolder);
+
+  if (!existed) {
+    fs.mkdirSync(path.join(projectFolder, "docs"), { recursive: true });
+    fs.mkdirSync(path.join(projectFolder, "agents", folderName), { recursive: true });
+  }
+
+  // Read solution details from index if available
+  let solutionInfo = null;
+  try {
+    const indexPath = path.join(__dirname, "..", "knowledge", "solutions", "index.json");
+    if (fs.existsSync(indexPath)) {
+      const data = JSON.parse(fs.readFileSync(indexPath, "utf8"));
+      solutionInfo = (data.solutions || []).find((s) => s.id === solutionId);
+    }
+  } catch { /* ignore */ }
+
+  // Write a stub brief.json with template reference
+  const agentFolder = path.join(projectFolder, "agents", folderName);
+  if (!fs.existsSync(agentFolder)) fs.mkdirSync(agentFolder, { recursive: true });
+
+  const briefPath = path.join(agentFolder, "brief.json");
+  if (!fs.existsSync(briefPath)) {
+    const brief = {
+      agentName: solutionName,
+      deployedFromTemplate: true,
+      templateId: solutionId || "",
+      deployedAt: new Date().toISOString(),
+      business: {
+        description: `Created from solution template: ${solutionName}`,
+      },
+    };
+    fs.writeFileSync(briefPath, JSON.stringify(brief, null, 2));
+  }
+
+  res.json({
+    projectId: folderName,
+    agentId: folderName,
+    existed,
+    solutionFiles: solutionInfo?.files?.length || 0,
+    message: existed
+      ? `Project "${solutionName}" already exists.`
+      : `Created project "${solutionName}" from template.`,
+  });
+});
+
+// ─── Solutions / Templates ─────────────────────────────────────────
+app.get("/api/solutions", (req, res) => {
+  try {
+    const indexPath = path.join(__dirname, "..", "knowledge", "solutions", "index.json");
+    if (!fs.existsSync(indexPath)) return res.json({ solutions: [] });
+    const data = JSON.parse(fs.readFileSync(indexPath, "utf8"));
+    const solutions = (data.solutions || []).map((s) => ({
+      id: s.id,
+      name: s.folderName,
+      files: (s.files || []).length,
+      agents: (s.agents || []).length,
+      tags: s.tags || {},
+      hasPresentation: (s.files || []).some((f) => f.type === "presentation"),
+      hasSolution: (s.files || []).some((f) => f.type === "solution"),
+    }));
+    res.json({ solutions });
+  } catch (err) {
+    console.error("[solutions] Error:", err.message);
+    res.json({ solutions: [] });
+  }
+});
+
 app.get("/api/models", (req, res) => {
   const anthropic = require("../tools/lib/anthropic");
   const openai = require("../tools/lib/openai");
@@ -924,7 +1255,6 @@ app.get("/api/models", (req, res) => {
     models: [
       { key: "opus", name: "Claude Opus 4.6", available: anthropic.isConfigured() },
       { key: "sonnet", name: "Claude Sonnet 4.6", available: anthropic.isConfigured() },
-      { key: "haiku", name: "Claude Haiku 4.5", available: anthropic.isConfigured() },
       { key: "gpt-5.4", name: "GPT-5.4", available: openai.isConfigured() },
     ],
     default: "opus",
@@ -952,8 +1282,70 @@ app.post("/api/enrichment/start", (req, res) => {
   }
 
   // startEnrichment returns immediately — workers run in background
-  const job = startEnrichment(agentDir);
+  const projectDir = path.join(BUILD_GUIDES, projectId);
+  const job = startEnrichment(agentDir, {
+    onComplete: () => {
+      // Mark all current docs as processed after full enrichment
+      try {
+        const docsDir = path.join(projectDir, "docs");
+        if (fs.existsSync(docsDir)) {
+          const allDocs = fs.readdirSync(docsDir).filter((f) => {
+            const ext = path.extname(f).toLowerCase();
+            return fs.statSync(path.join(docsDir, f)).isFile() && [".md",".csv",".json",".txt",".pdf",".docx",".pptx",".xlsx",".xls",".jpg",".jpeg",".png"].includes(ext);
+          });
+          if (allDocs.length > 0) {
+            markDocsProcessed(projectDir, allDocs, { source: "enrichment", matchedAgents: [agentId] });
+            console.log(`[enrichment] Marked ${allDocs.length} docs as processed (full enrichment)`);
+          }
+        }
+      } catch (e) {
+        console.error(`[enrichment] Failed to update manifest after full enrichment: ${e.message}`);
+      }
+    },
+  });
   res.json({ jobId: job.id, status: job.status });
+});
+
+// Delta enrichment — process only new/changed documents
+app.post("/api/enrichment/delta", (req, res) => {
+  const { projectId, agentId } = req.body || {};
+  if (!projectId || !agentId) {
+    return res.status(400).json({ error: "projectId and agentId required" });
+  }
+
+  const projectDir = path.join(BUILD_GUIDES, projectId);
+  const agentDir = path.join(projectDir, "agents", agentId);
+  const briefPath = path.join(agentDir, "brief.json");
+  if (!fs.existsSync(briefPath)) {
+    return res.status(404).json({ error: "brief.json not found" });
+  }
+
+  // Find new/changed docs from manifest comparison
+  const docStatus = getDocStatus(BUILD_GUIDES, projectId);
+  const deltaFiles = [...(docStatus?.newDocs || []), ...(docStatus?.changedDocs || [])];
+
+  if (deltaFiles.length === 0) {
+    return res.json({ jobId: null, status: "no_delta", message: "No new or changed documents to process" });
+  }
+
+  // Start delta enrichment with manifest update on completion
+  const job = startEnrichment(agentDir, {
+    deltaFiles,
+    projectDir,
+    onComplete: () => {
+      try {
+        markDocsProcessed(projectDir, deltaFiles, {
+          source: "enrichment",
+          matchedAgents: [agentId],
+        });
+        console.log(`[enrichment] Marked ${deltaFiles.length} docs as processed`);
+      } catch (e) {
+        console.error(`[enrichment] Failed to update manifest: ${e.message}`);
+      }
+    },
+  });
+
+  res.json({ jobId: job.id, status: job.status, deltaFiles });
 });
 
 app.get("/api/enrichment/status/:jobId", (req, res) => {
@@ -1553,11 +1945,12 @@ if (require.main === module) {
       if (anthropicApi.isConfigured()) {
         anthropicApi.probeModelAccess().then(access => {
           const info = anthropicApi.getModelAccessInfo();
-          const directModels = Object.entries(info.access).filter(([k,v]) => v && k !== '_copilotAvailable').map(([k]) => k);
-          const copilotNote = info.copilotAvailable ? ' + all via Copilot' : '';
-          console.log(`  AI: direct=[${directModels.join(',')}]${copilotNote} (default: ${info.effectiveDefault})`);
-          if (info.copilotAvailable && directModels.length < 3) {
-            console.log(`  Opus/Sonnet route via GitHub Copilot (gh auth token)`);
+          const directModels = Object.entries(info.access).filter(([k,v]) => v && k !== '_copilotAvailable' && k !== '_primaryRoute').map(([k]) => k);
+          const primary = info.copilotAvailable ? 'copilot' : 'direct';
+          if (info.copilotAvailable) {
+            console.log(`  AI: copilot=[all models] (default: ${info.effectiveDefault}) — direct API fallback: [${directModels.join(',')}]`);
+          } else {
+            console.log(`  AI: direct=[${directModels.join(',')}] (default: ${info.effectiveDefault}) — no Copilot available`);
           }
         });
       }

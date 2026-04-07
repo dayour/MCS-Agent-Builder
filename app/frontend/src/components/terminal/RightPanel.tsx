@@ -70,7 +70,7 @@ const RightPanel = () => {
   );
 
   const hasMeeting = meetingPhase !== "idle" || activeTab === "meeting";
-  if (sessions.length === 0 && !hasMeeting) return null;
+  if (sessions.length === 0 && !hasMeeting && !panelOpen) return null;
 
   const activeSession = sessions.find((s) => s.id === activeSessionId);
 

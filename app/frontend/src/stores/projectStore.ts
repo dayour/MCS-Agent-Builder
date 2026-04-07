@@ -89,7 +89,10 @@ function apiDocToDocument(d: ApiDoc): Document {
     uploadedAt: d.mtime ? new Date(d.mtime).toISOString() : "",
     content: "",
     contentHash: "",
-    changeStatus: d.isModified ? "modified" : d.isNew ? "new" : "processed",
+    changeStatus: d.status === "processing" ? "processing"
+      : d.isModified ? "modified"
+      : d.isNew ? "new"
+      : "processed",
   };
 }
 

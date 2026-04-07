@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-23
-sources: [MS Learn authoring-instructions, MS Learn generative-mode-guidance, MS Learn create-edit-topics, MS Learn advanced-generative-actions, MS Learn guidance/generative-orchestration, MS Learn whats-new, MCS UI, community blogs, 2026 Wave 1 release plan]
+last_verified: 2026-04-07
+sources: [MS Learn authoring-instructions, MS Learn generative-mode-guidance, MS Learn create-edit-topics, MS Learn advanced-generative-actions, MS Learn guidance/generative-orchestration, MS Learn whats-new Apr 2026, MCS UI, community blogs, 2026 Wave 1 release plan, WebSearch Apr 2026, MS Learn guidance hub whats-new]
 confidence: high
 refresh_trigger: before_architecture
 -->
@@ -41,12 +41,13 @@ Instructions execute on **every turn** — every character costs tokens per conv
 
 | Priority | What | Implication |
 |----------|------|-------------|
-| 1 | **Tool/topic/knowledge DESCRIPTIONS** | Write excellent descriptions FIRST — they matter most |
-| 2 | **Tool/topic/knowledge NAMES** | Use clear, descriptive names |
-| 3 | **Input/output parameters** | Well-named parameters help routing |
-| 4 | **Agent instructions** | Instructions are LEAST important for routing |
+| 1 | **Tool/topic/knowledge NAMES + DESCRIPTIONS** | Write excellent names AND descriptions FIRST — they matter most |
+| 2 | **Input/output parameters** | Well-named parameters help routing |
+| 3 | **Agent instructions** | Instructions are LEAST important for routing |
 
-**Key insight:** Instructions influence *response generation* and *disambiguation* more than routing. If routing is wrong, fix topic descriptions first, not instructions.
+> **MS Learn discrepancy (Apr 2026):** The `generative-orchestration` guidance page says "Prefer using tool names. Names carry more weight than descriptions." while the `advanced-generative-actions` page says descriptions are the primary routing signal. **Practical guidance:** Both matter — invest equally in clear, descriptive names AND detailed descriptions. The orchestrator uses both; neither alone is sufficient. Names may edge out descriptions for tool disambiguation, but descriptions drive topic/knowledge selection.
+
+**Key insight:** Instructions influence *response generation* and *disambiguation* more than routing. If routing is wrong, fix topic names and descriptions first, not instructions.
 
 ## Description Engineering
 
@@ -490,7 +491,7 @@ Example: After answering about time-off policy, ask "Would you also like to know
 
 **Decision:** "Should this be agent-level, topic-level, or Custom Prompt?" depends on scope and specificity. Agent-level = global rules. Topic-level = domain narrowing. Custom Prompt = data processing.
 
-### Prompt Builder Enhancements (Feb 2026)
+### Prompt Builder Enhancements (Feb-Mar 2026)
 
 New capabilities for Custom Prompt / Prompt Builder actions:
 
@@ -500,6 +501,8 @@ New capabilities for Custom Prompt / Prompt Builder actions:
 | **Claude models in Prompt Builder** | GA (Feb 2026) | Select Claude Opus 4.6 or Claude Sonnet 4.5 for prompts, enabling fine-grained control over reasoning depth, quality, latency, and cost. |
 | **Inline editing in agent tool details** | GA (Feb 2026) | Edit prompt instructions and settings inline in agent tool details. Model selection, inputs, knowledge, and testing in a single streamlined view. |
 | **Power Fx in prompt editor** | GA (Jun 2025) | Insert Power Fx formulas directly in the embedded prompt builder prompt editor. |
+| **Prompt assistant** | GA (Mar 2026) | GPT model-powered prompt suggestions in Prompt Builder to draft prompts faster. Reduces time to craft effective prompts. |
+| **Create the perfect prompt with Copilot** | GA (Mar 2026) | Copilot assists with prompt authoring — was Preview since Feb 2025, now GA. |
 
 Source: [What's new in Copilot Studio](https://learn.microsoft.com/en-us/microsoft-copilot-studio/whats-new)
 

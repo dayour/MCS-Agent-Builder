@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-23
-sources: [MS Learn formula reference, MCS docs, WebSearch Mar 2026, MS Learn advanced-power-fx, MS Learn authoring-variables-about, MS Learn voice-configuration, MS Learn power-fx/formula-reference-copilot-studio (full A-Z verified), MS Learn unified-authoring-conversion, holgerimbery.blog Power Fx deep-dive Jan 2026]
+last_verified: 2026-04-07
+sources: [MS Learn formula reference, MCS docs, WebSearch Mar 2026, MS Learn advanced-power-fx, MS Learn authoring-variables-about, MS Learn voice-configuration, MS Learn power-fx/formula-reference-copilot-studio (full A-Z verified), MS Learn unified-authoring-conversion, holgerimbery.blog Power Fx deep-dive Jan 2026, WebSearch Apr 2026, MS Learn formula reference Apr 2026]
 confidence: high
 refresh_trigger: on_error
 -->
@@ -215,8 +215,10 @@ Functions confirmed in the MCS Power Fx formula reference that may be less well 
 |---------|--------|------|---------|
 | **Regex support (IsMatch/Match/MatchAll)** | GA | Jun 2025 | Simplified text validation and extraction with regular expressions |
 | **Power Fx in prompt builder** | GA | Jun 2025 | Insert Power Fx formulas directly in the embedded prompt builder prompt editor |
-| **Build enhanced connectors with Connector SDK + PowerFx** | Preview | May 2025 | Build enhanced connectors using Power Platform Connector SDK with Power Fx; GA May 2026 |
-| **Build connectors with OpenAPI v3** | Preview | Feb 2026 | Power Platform connectors with OpenAPI v3 spec; GA May 2026 |
+| **Build enhanced connectors with Connector SDK + PowerFx** | Preview | May 2025 | Build enhanced connectors using Power Platform Connector SDK with Power Fx; **GA May 2026** |
+| **Build connectors with OpenAPI v3** | Preview | Feb 2026 | Power Platform connectors with OpenAPI v3 spec; **GA May 2026** |
+| **Prompt assistant in Prompt builder** | **GA** | Mar 2026 | Draft prompts faster with GPT model-powered suggestions in Prompt builder |
+| **Inline prompt editing** | **GA** | Feb 2026 | Edit prompt instructions and settings inline in agent tool details, bringing model selection, inputs, knowledge, and testing into a single experience |
 
 ## Passing Variables Between Topics
 

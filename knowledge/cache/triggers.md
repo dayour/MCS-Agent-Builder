@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-23
-sources: [MS Learn (authoring-triggers, authoring-triggers-about, planned-features, guidance/generative-orchestration, authoring-select-agent-model, release-plan/2026wave1), MCS UI snapshot, WebSearch Mar 2026, knowledge/patterns/topic-patterns/]
+last_verified: 2026-04-07
+sources: [MS Learn (authoring-triggers, authoring-triggers-about, planned-features, guidance/generative-orchestration, authoring-select-agent-model, release-plan/2026wave1), MCS UI snapshot, WebSearch Apr 2026, knowledge/patterns/topic-patterns/]
 confidence: high
 refresh_trigger: before_architecture
 -->
@@ -79,15 +79,18 @@ Event triggers enable autonomous agent behavior -- the agent acts without user i
 - `Activity.Text` may be empty when knowledge sources are invoked; use `LastMessage.Text` instead for reliable previous-message access
 - `OnPlanComplete` interacts with knowledge source output: when a knowledge source is used, the output is written directly into the activity, which may replace `Activity.Text` content
 
-## Trigger Enhancements (Mar 2026)
+## Trigger Enhancements (Apr 2026)
 
 | Feature | Status | Details |
 |---------|--------|---------|
 | **Trigger conditions with PowerFx** | GA | Add PowerFx conditions to any trigger -- filter when a topic fires based on variable values or expressions |
 | **Trigger priority** | GA | Explicit ordering -- set priority when multiple topics could match the same intent. Order: (1) An activity occurs, (2) A message is received / custom event / conversation changes / invoked, (3) The agent chooses / User says a phrase. Same-type: oldest first unless Priority property is set. |
-| **Configure triggers with end-user credentials** | **Preview** (Mar 2026), GA May 2026 | Triggers can run authenticated as the end user, enabling user-context-aware trigger logic. Makers can create, configure, test, update, and delete triggers directly in MCS. Enables sharing autonomous agents that run with end-user credentials. Confirmed in [2026 Wave 1 release plan](https://learn.microsoft.com/en-us/power-platform/release-plan/2026wave1/microsoft-copilot-studio/planned-features). |
+| **Configure triggers with end-user credentials** | **Preview** (Apr 2026), GA Jun 2026 | Triggers can run authenticated as the end user, enabling user-context-aware trigger logic. Makers can create, configure, test, update, and delete triggers directly in MCS. Enables sharing autonomous agents that run with end-user credentials. Updated timeline per [2026 Wave 1 planned features](https://learn.microsoft.com/en-us/power-platform/release-plan/2026wave1/microsoft-copilot-studio/planned-features): Preview Apr 2026, GA Jun 2026. |
 | **Simplify working with triggers and channels** | GA (Nov 2025) | Streamlined trigger/channel configuration UX |
 | **CUA (Computer Use Agent) tools** | GA May 2026 | Automate web and desktop apps via computer use. Preview since May 2025, GA target May 2026. Triggers agent actions that interact with UI elements. |
+| **Post-call action topics (voice)** | **GA** (Mar 2026) | Configure post-call action topics for voice-enabled agents to trigger backend actions automatically after a call ends, based on how the conversation concluded. |
+| **Agent evaluations GA** | **GA** (Mar 2026) | Agent evaluations now generally available -- validate agent performance using customizable test sets. Evaluation automation APIs also GA via Power Platform APIs and connectors for CI/CD integration. |
+| **MCP-compliant tools in agent workflows** | **Preview** (Apr 2026), GA Oct 2026 | Use MCP-compliant tools in agent workflows. Preview Apr 2026 per [2026 Wave 1 planned features](https://learn.microsoft.com/en-us/power-platform/release-plan/2026wave1/microsoft-copilot-studio/planned-features). |
 
 ## Key Patterns
 

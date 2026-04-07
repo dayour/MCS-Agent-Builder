@@ -11,11 +11,11 @@ interface ProjectCardProps {
 }
 
 const ProjectCard = ({ project, onDelete }: ProjectCardProps) => (
-  <div className="group relative flex flex-col rounded-lg border border-border bg-card p-5 transition-all hover:border-primary/30 hover:bg-surface-2">
-    <Link to={`/project/${project.id}`} className="flex flex-col flex-1">
-      <div className="mb-3 flex items-start justify-between">
-        <div className="flex h-9 w-9 items-center justify-center rounded-md bg-surface-3">
-          <FolderOpen className="h-4 w-4 text-primary" />
+  <div className="group relative flex flex-col rounded-xl border border-border bg-card shadow-[var(--shadow-card-val)] transition-all duration-200 hover:shadow-[var(--shadow-card-hover-val)] hover:border-primary/30">
+    <Link to={`/project/${project.id}`} className="flex flex-col flex-1 p-5">
+      <div className="mb-3.5 flex items-start justify-between">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[hsl(var(--brand-background))]">
+          <FolderOpen className="h-5 w-5 text-primary" />
         </div>
         <ReadinessRing value={project.readiness} />
       </div>
@@ -48,7 +48,7 @@ const ProjectCard = ({ project, onDelete }: ProjectCardProps) => (
       <Button
         variant="ghost"
         size="icon"
-        className="absolute top-2 right-2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-destructive"
+        className="absolute top-3 right-3 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:bg-destructive/10"
         onClick={(e) => { e.preventDefault(); onDelete(project.id); }}
       >
         <Trash2 className="h-3.5 w-3.5" />

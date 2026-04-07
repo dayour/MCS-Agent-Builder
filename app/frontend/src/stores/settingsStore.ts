@@ -9,7 +9,7 @@ import { devtools, persist } from "zustand/middleware";
 
 export type ModelKey = "opus" | "sonnet" | "haiku" | "gpt-5.4";
 export type ModelTask = "wizardChat" | "enrichment" | "prefetch";
-export type FeatureKey = "prefetchEnabled" | "speculativeEnrichment" | "progressivePreview";
+export type FeatureKey = "prefetchEnabled" | "speculativeEnrichment" | "progressivePreview" | "dualModelEnabled";
 
 export const AVAILABLE_MODELS: Record<ModelKey, string> = {
   opus: "Claude Opus 4.6",
@@ -23,6 +23,7 @@ interface SettingsState {
   prefetchEnabled: boolean;
   speculativeEnrichment: boolean;
   progressivePreview: boolean;
+  dualModelEnabled: boolean;
   setModel: (task: ModelTask, model: ModelKey) => void;
   toggleFeature: (feature: FeatureKey, enabled: boolean) => void;
   reset: () => void;
@@ -38,6 +39,7 @@ const DEFAULT_STATE = {
   prefetchEnabled: true,
   speculativeEnrichment: true,
   progressivePreview: true,
+  dualModelEnabled: true,
 };
 
 export const useSettingsStore = create<SettingsState>()(
@@ -63,6 +65,7 @@ export const useSettingsStore = create<SettingsState>()(
         prefetchEnabled: state.prefetchEnabled,
         speculativeEnrichment: state.speculativeEnrichment,
         progressivePreview: state.progressivePreview,
+        dualModelEnabled: state.dualModelEnabled,
       }),
       // Deep-merge persisted models with defaults to guard against partial/stale storage
       merge: (persisted, current) => {
@@ -82,6 +85,7 @@ export const useSettingsStore = create<SettingsState>()(
           prefetchEnabled: typeof p?.prefetchEnabled === "boolean" ? p.prefetchEnabled : DEFAULT_STATE.prefetchEnabled,
           speculativeEnrichment: typeof p?.speculativeEnrichment === "boolean" ? p.speculativeEnrichment : DEFAULT_STATE.speculativeEnrichment,
           progressivePreview: typeof p?.progressivePreview === "boolean" ? p.progressivePreview : DEFAULT_STATE.progressivePreview,
+          dualModelEnabled: typeof p?.dualModelEnabled === "boolean" ? p.dualModelEnabled : DEFAULT_STATE.dualModelEnabled,
         };
       },
     },

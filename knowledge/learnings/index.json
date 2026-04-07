@@ -83,7 +83,7 @@
     {
       "id": "bm-004",
       "file": "build-methods.md",
-      "title": "PAC CLI publish (MSI) crashes â€” PvaPublish bound action is reliable",
+      "title": "PAC CLI publish (MSI) crashes -- PvaPublish bound action is reliable",
       "date": "2026-02-20",
       "confirmed": 5,
       "lastConfirmed": "2026-03-06",
@@ -124,7 +124,7 @@
     {
       "id": "bm-006",
       "file": "build-methods.md",
-      "title": "Az.Accounts not needed â€” az CLI provides reliable Dataverse tokens",
+      "title": "Az.Accounts not needed -- az CLI provides reliable Dataverse tokens",
       "date": "2026-02-20",
       "confirmed": 1,
       "lastConfirmed": "2026-02-20",
@@ -164,7 +164,7 @@
     {
       "id": "et-001",
       "file": "eval-testing.md",
-      "title": "Direct Line does NOT support Integrated auth â€” use Playwright Test Chat",
+      "title": "Direct Line does NOT support Integrated auth -- use Playwright Test Chat",
       "date": "2026-02-21",
       "confirmed": 3,
       "lastConfirmed": "2026-03-12",
@@ -206,7 +206,7 @@
     {
       "id": "bm-007",
       "file": "build-methods.md",
-      "title": "LSP push is the primary build method â€” replaces Dataverse PATCH + Playwright Code Editor",
+      "title": "LSP push is the primary build method -- replaces Dataverse PATCH + Playwright Code Editor",
       "date": "2026-02-26",
       "confirmed": 5,
       "lastConfirmed": "2026-03-05",
@@ -230,7 +230,7 @@
     {
       "id": "bm-008",
       "file": "build-methods.md",
-      "title": "LSP push doesn't update bot entity name â€” use Dataverse PATCH",
+      "title": "LSP push doesn't update bot entity name -- use Dataverse PATCH",
       "date": "2026-02-26",
       "confirmed": 1,
       "lastConfirmed": "2026-02-26",
@@ -268,7 +268,7 @@
     {
       "id": "bm-010",
       "file": "build-methods.md",
-      "title": "LSP push does NOT handle settings.mcs.yml â€” use Dataverse API (fastest) or Playwright",
+      "title": "LSP push does NOT handle settings.mcs.yml -- use Dataverse API (fastest) or Playwright",
       "date": "2026-02-27",
       "confirmed": 1,
       "lastConfirmed": "2026-02-27",
@@ -308,7 +308,7 @@
     {
       "id": "bm-012",
       "file": "build-methods.md",
-      "title": "Connected agents via Island Gateway API â€” no Playwright needed",
+      "title": "Connected agents via Island Gateway API -- no Playwright needed",
       "date": "2026-02-27",
       "confirmed": 1,
       "lastConfirmed": "2026-02-27",
@@ -327,7 +327,7 @@
     {
       "id": "bm-013",
       "file": "build-methods.md",
-      "title": "Eval test case upload via Dataverse API â€” componenttype 19",
+      "title": "Eval test case upload via Dataverse API -- componenttype 19",
       "date": "2026-02-27",
       "confirmed": 1,
       "lastConfirmed": "2026-02-27",
@@ -369,7 +369,7 @@
     {
       "id": "bm-015",
       "file": "build-methods.md",
-      "title": "Build Step 4 must filter by topicType â€” generative topics need no YAML",
+      "title": "Build Step 4 must filter by topicType -- generative topics need no YAML",
       "date": "2026-02-27",
       "confirmed": 1,
       "lastConfirmed": "2026-02-27",
@@ -451,7 +451,7 @@
     {
       "id": "in-003",
       "file": "instructions.md",
-      "title": "Capability-instruction phase mismatch â€” PE must respect phase tags",
+      "title": "Capability-instruction phase mismatch -- PE must respect phase tags",
       "date": "2026-02-27",
       "confirmed": 1,
       "lastConfirmed": "2026-02-27",
@@ -471,7 +471,7 @@
     {
       "id": "ar-001",
       "file": "architecture.md",
-      "title": "MCP servers only callable from orchestrator â€” topics can't invoke MCP",
+      "title": "MCP servers only callable from orchestrator -- topics can't invoke MCP",
       "date": "2026-02-27",
       "confirmed": 2,
       "lastConfirmed": "2026-03-12",
@@ -532,7 +532,7 @@
     {
       "id": "in-004",
       "file": "instructions.md",
-      "title": "Multi-model instruction patterns â€” universal style over model-specific branching",
+      "title": "Multi-model instruction patterns -- universal style over model-specific branching",
       "date": "2026-02-27",
       "confirmed": 2,
       "lastConfirmed": "2026-03-12",
@@ -552,7 +552,7 @@
     {
       "id": "bm-016",
       "file": "build-methods.md",
-      "title": "Conversation starters require 'title' field â€” text-only format blocks publish",
+      "title": "Conversation starters require 'title' field -- text-only format blocks publish",
       "date": "2026-03-05",
       "confirmed": 1,
       "lastConfirmed": "2026-03-05",
@@ -571,7 +571,7 @@
     {
       "id": "bm-017",
       "file": "build-methods.md",
-      "title": "Agent description lives in botcomponent.description column â€” NOT YAML comment headers or data field",
+      "title": "Agent description lives in botcomponent.description column -- NOT YAML comment headers or data field",
       "date": "2026-03-05",
       "confirmed": 3,
       "lastConfirmed": "2026-03-05",
@@ -592,7 +592,7 @@
     {
       "id": "bm-018",
       "file": "build-methods.md",
-      "title": "synchronizationstatus requires full entity query â€” $select returns null",
+      "title": "synchronizationstatus requires full entity query -- $select returns null",
       "date": "2026-03-05",
       "confirmed": 1,
       "lastConfirmed": "2026-03-05",
@@ -609,9 +609,9 @@
       ]
     },
     {
-      “id”: “bm-033”,
-      “file”: “build-methods.md”,
-      “title”: “OData $filter on _parentbotid_value unreliable â€” use FetchXML”,
+      "id": "bm-033",
+      "file": "build-methods.md",
+      "title": "OData $filter on _parentbotid_value unreliable -- use FetchXML",
       "date": "2026-03-06",
       "confirmed": 1,
       "lastConfirmed": "2026-03-06",
@@ -628,9 +628,9 @@
       ]
     },
     {
-      “id”: “bm-034”,
-      “file”: “build-methods.md”,
-      “title”: “$select=data on botcomponents returns empty â€” query full entity”,
+      "id": "bm-034",
+      "file": "build-methods.md",
+      "title": "$select=data on botcomponents returns empty -- query full entity",
       "date": "2026-03-06",
       "confirmed": 1,
       "lastConfirmed": "2026-03-06",
@@ -646,9 +646,9 @@
       ]
     },
     {
-      “id”: “bm-035”,
-      “file”: “build-methods.md”,
-      “title”: “LSP push 0 changes on new agents â€” verifyAndPatchBody fallback”,
+      "id": "bm-035",
+      "file": "build-methods.md",
+      "title": "LSP push 0 changes on new agents -- verifyAndPatchBody fallback",
       "date": "2026-03-06",
       "confirmed": 1,
       "lastConfirmed": "2026-03-06",
@@ -666,9 +666,9 @@
       ]
     },
     {
-      “id”: “bm-036”,
-      “file”: “build-methods.md”,
-      “title”: “Auth gate must explicitly ask for environment â€” never assume”,
+      "id": "bm-036",
+      "file": "build-methods.md",
+      "title": "Auth gate must explicitly ask for environment -- never assume",
       "date": "2026-03-06",
       "confirmed": 1,
       "lastConfirmed": "2026-03-06",
@@ -704,9 +704,9 @@
       ]
     },
     {
-      “id”: “bm-038”,
-      “file”: “build-methods.md”,
-      “title”: “Connectivity API doesn't resolve â€” blocks add-tool.js”,
+      "id": "bm-038",
+      "file": "build-methods.md",
+      "title": "Connectivity API doesn't resolve -- blocks add-tool.js",
       "date": "2026-03-06",
       "confirmed": 1,
       "lastConfirmed": "2026-03-06",
@@ -725,7 +725,7 @@
     {
       "id": "bm-018b",
       "file": "build-methods.md",
-      "title": "Build discipline: never skip MVP items â€” attempt and document failures",
+      "title": "Build discipline: never skip MVP items -- attempt and document failures",
       "date": "2026-03-06",
       "confirmed": 1,
       "lastConfirmed": "2026-03-06",
@@ -879,7 +879,7 @@
     {
       "id": "bm-026",
       "file": "build-methods.md",
-      "title": "LSP push creates topics that don't render in MCS visual editor — use Gateway API",
+      "title": "LSP push creates topics that don't render in MCS visual editor -- use Gateway API",
       "date": "2026-03-10",
       "confirmed": 1,
       "lastConfirmed": "2026-03-10",
@@ -900,7 +900,7 @@
     {
       "id": "bm-027",
       "file": "build-methods.md",
-      "title": "MCS native eval runs are sequential — one at a time per agent",
+      "title": "MCS native eval runs are sequential -- one at a time per agent",
       "date": "2026-03-10",
       "confirmed": 1,
       "lastConfirmed": "2026-03-10",
@@ -960,7 +960,7 @@
     {
       "id": "in-005",
       "file": "instructions.md",
-      "title": "Instructions-only agents fail safety evals — three-layer architecture required",
+      "title": "Instructions-only agents fail safety evals -- three-layer architecture required",
       "date": "2026-03-13",
       "confirmed": 1,
       "lastConfirmed": "2026-03-13",
@@ -983,7 +983,7 @@
     {
       "id": "bm-030",
       "file": "build-methods.md",
-      "title": "Bots entity rejects $select and $top — query without OData params",
+      "title": "Bots entity rejects $select and $top -- query without OData params",
       "date": "2026-03-16",
       "confirmed": 1,
       "lastConfirmed": "2026-03-16",
@@ -1003,7 +1003,7 @@
     {
       "id": "bm-031",
       "file": "build-methods.md",
-      "title": "Update brief.json before GPT review — not after",
+      "title": "Update brief.json before GPT review -- not after",
       "date": "2026-03-16",
       "confirmed": 1,
       "lastConfirmed": "2026-03-16",
@@ -1040,7 +1040,7 @@
     {
       "id": "in-008",
       "file": "instructions.md",
-      "title": "Topic-action chaining — output DATA not status messages",
+      "title": "Topic-action chaining -- output DATA not status messages",
       "date": "2026-03-18",
       "confirmed": 0,
       "lastConfirmed": "2026-03-18",
@@ -1057,7 +1057,7 @@
     {
       "id": "bm-032",
       "file": "build-methods.md",
-      "title": "Python JSON parsing unreliable on Windows — use Node.js",
+      "title": "Python JSON parsing unreliable on Windows -- use Node.js",
       "date": "2026-03-16",
       "confirmed": 1,
       "lastConfirmed": "2026-03-16",
@@ -1116,6 +1116,162 @@
       ],
       "status": "active",
       "projects": []
+    },
+    {
+      "id": "bm-036",
+      "file": "build-methods.md",
+      "title": "Work IQ dual-connector architecture",
+      "date": "2026-04-06",
+      "confirmed": 1,
+      "lastConfirmed": "2026-04-06",
+      "tags": [
+        "work-iq",
+        "mcp",
+        "connector",
+        "dual-architecture"
+      ],
+      "status": "active",
+      "projects": [
+        "Fidelity"
+      ]
+    },
+    {
+      "id": "bm-037",
+      "file": "build-methods.md",
+      "title": "Dataverse MCP requires M:M connection reference association",
+      "date": "2026-04-06",
+      "confirmed": 1,
+      "lastConfirmed": "2026-04-06",
+      "tags": [
+        "dataverse-mcp",
+        "botcomponent",
+        "connection-reference",
+        "headless"
+      ],
+      "status": "active",
+      "projects": [
+        "Fidelity"
+      ]
+    },
+    {
+      "id": "tt-005",
+      "file": "topics-triggers.md",
+      "title": "Native AC chart elements (Chart.Donut, Chart.HorizontalBar, Chart.Gauge, Chart.Line) are GA in v1.5",
+      "date": "2026-04-06",
+      "confirmed": 1,
+      "lastConfirmed": "2026-04-06",
+      "tags": [
+        "adaptive-cards",
+        "charts",
+        "Chart.Donut",
+        "Chart.HorizontalBar",
+        "Chart.Gauge",
+        "Chart.Line",
+        "native-charts",
+        "v1.5",
+        "teams"
+      ],
+      "status": "active",
+      "projects": [
+        "Fidelity"
+      ]
+    },
+    {
+      "id": "tt-006",
+      "file": "topics-triggers.md",
+      "title": "suggestedActions don't render alongside AdaptiveCardTemplate attachments",
+      "date": "2026-04-06",
+      "confirmed": 1,
+      "lastConfirmed": "2026-04-06",
+      "tags": [
+        "suggestedActions",
+        "adaptive-cards",
+        "msteams",
+        "imBack",
+        "conversationStarters",
+        "cross-channel"
+      ],
+      "status": "active",
+      "projects": [
+        "Fidelity"
+      ]
+    },
+    {
+      "id": "bm-038b",
+      "file": "build-methods.md",
+      "title": "DataverseSearchSource is NOT a valid knowledge source kind -- use DataverseStructuredSearchSource",
+      "date": "2026-04-06",
+      "confirmed": 1,
+      "lastConfirmed": "2026-04-06",
+      "tags": [
+        "dataverse",
+        "knowledge-source",
+        "DataverseSearchSource",
+        "DataverseStructuredSearchSource",
+        "publish-error",
+        "UnknownElementError"
+      ],
+      "status": "active",
+      "projects": [
+        "Fidelity"
+      ]
+    },
+    {
+      "id": "bm-039",
+      "file": "build-methods.md",
+      "title": "PvaPublish is a bound action on the bot entity -- not a root API endpoint",
+      "date": "2026-04-06",
+      "confirmed": 1,
+      "lastConfirmed": "2026-04-06",
+      "tags": [
+        "PvaPublish",
+        "bound-action",
+        "dataverse",
+        "api",
+        "publish"
+      ],
+      "status": "active",
+      "projects": [
+        "Fidelity"
+      ]
+    },
+    {
+      "id": "bm-040",
+      "file": "build-methods.md",
+      "title": "componenttype 9 for topics -- componenttype 1 is Botskill (wrong)",
+      "date": "2026-04-06",
+      "confirmed": 1,
+      "lastConfirmed": "2026-04-06",
+      "tags": [
+        "componenttype",
+        "botcomponent",
+        "topic",
+        "dataverse",
+        "POST"
+      ],
+      "status": "active",
+      "projects": [
+        "Fidelity"
+      ]
+    },
+    {
+      "id": "bm-041",
+      "file": "build-methods.md",
+      "title": "Never use curly braces in MCS instruction text -- PowerFx parse error",
+      "date": "2026-04-06",
+      "confirmed": 1,
+      "lastConfirmed": "2026-04-06",
+      "tags": [
+        "instructions",
+        "PowerFx",
+        "curly-braces",
+        "parse-error",
+        "encoding"
+      ],
+      "status": "active",
+      "projects": [
+        "Fidelity"
+      ]
     }
   ]
 }

@@ -1,13 +1,13 @@
 {
   "_comment": "Tracked upstream repos — checked every 3 days by tools/upstream-check.js",
   "schedule": "3 days",
-  "lastFullCheck": "2026-03-23T20:15:47.909Z",
+  "lastFullCheck": "2026-04-07T21:11:06.847Z",
   "repos": [
     {
       "repo": "microsoft/skills-for-copilot-studio",
       "description": "MCS YAML authoring skills, templates, schemas, scripts",
-      "lastChecked": "2026-03-23",
-      "lastCommitSha": "552cc2c70a8db2ce00bba0a99fdc4aea590e8fb6",
+      "lastChecked": "2026-04-07",
+      "lastCommitSha": "e74935941f730b8551d64142080bd073c84d89bd",
       "watchPaths": [
         "skills/",
         "templates/",
@@ -20,7 +20,7 @@
     {
       "repo": "microsoft/ai-agent-eval-scenario-library",
       "description": "70 eval scenarios across business-problem + capability dimensions",
-      "lastChecked": "2026-03-23",
+      "lastChecked": "2026-04-07",
       "lastCommitSha": null,
       "watchPaths": [
         "scenarios/",
@@ -32,8 +32,8 @@
     {
       "repo": "microsoft/Power-CAT-Copilot-Studio-Kit",
       "description": "Power CAT testing framework, Dataverse entities, test execution",
-      "lastChecked": "2026-03-23",
-      "lastCommitSha": null,
+      "lastChecked": "2026-04-07",
+      "lastCommitSha": "bcbdfcd08a3b889d69ff43097fb82b0bc166bab5",
       "watchPaths": [
         "src/",
         "docs/"
@@ -44,8 +44,8 @@
     {
       "repo": "microsoft/CopilotStudioSamples",
       "description": "Official MCS samples: adaptive cards, topics, solutions, extensibility, SSO, testing",
-      "lastChecked": "2026-03-23",
-      "lastCommitSha": "108986c853f8fa2b6c00161430269ef8eb4c50e5",
+      "lastChecked": "2026-04-07",
+      "lastCommitSha": "57f7b6a1a5654c97356c60e8dc4378d7fd50c2d5",
       "watchPaths": [
         "authoring/snippets/",
         "authoring/solutions/",
@@ -58,8 +58,8 @@
     {
       "repo": "microsoft/AgentSchema",
       "description": "Unified declarative YAML spec bridging Copilot Studio and Azure Foundry. Joint MCS + Foundry collaboration.",
-      "lastChecked": "2026-03-23",
-      "lastCommitSha": "b36539bd536242c4a37f65afe49076137368dc61",
+      "lastChecked": "2026-04-07",
+      "lastCommitSha": "8ccde5b9b57d0db77d8be5441ca4b7edea5ee7c0",
       "watchPaths": [
         "schemas/",
         "docs/",
@@ -71,7 +71,7 @@
     {
       "repo": "pnp/copilot-pro-dev-samples",
       "description": "Community-contributed M365 Copilot samples. Canonical source for declarative agent samples (migrated from OfficeDev).",
-      "lastChecked": "2026-03-23",
+      "lastChecked": "2026-04-07",
       "lastCommitSha": "b11dbee3188dbba01740306d3b90981bc86510e8",
       "watchPaths": [
         "samples/"
@@ -82,8 +82,8 @@
     {
       "repo": "microsoft/Agents",
       "description": "M365 Agents SDK hub. Includes copilotstudio-client sample for programmatic MCS agent invocation.",
-      "lastChecked": "2026-03-23",
-      "lastCommitSha": "02dc5d8f71b2dd7100b7a87b66a52a71b5fcf3aa",
+      "lastChecked": "2026-04-07",
+      "lastCommitSha": "52fa88645b7daeab82c3b471f1f300836437377e",
       "watchPaths": [
         "samples/",
         "docs/"
@@ -94,8 +94,8 @@
     {
       "repo": "microsoft/copilot-camp",
       "description": "Hands-on labs covering both DA and custom engine agent approaches. Best structured learning path.",
-      "lastChecked": "2026-03-23",
-      "lastCommitSha": "97fff4717fd3884a4dbb1a5a03e7ee269219f3d1",
+      "lastChecked": "2026-04-07",
+      "lastCommitSha": "9eb47c2508aae83f16b6bcf06614c21d14469663",
       "watchPaths": [
         "docs/"
       ],
@@ -105,8 +105,8 @@
     {
       "repo": "microsoft/mcs-labs",
       "description": "Hands-on labs for building AI agents with Copilot Studio. Includes Agent Builder, MCP, multi-agent, ALM labs.",
-      "lastChecked": "2026-03-23",
-      "lastCommitSha": "fea97873080e4014c4442651e7ba019fc83de1b4",
+      "lastChecked": "2026-04-07",
+      "lastCommitSha": "dc50c077f4e36c6ed22f4d4f26b69ac187105681",
       "watchPaths": [
         "labs/"
       ],

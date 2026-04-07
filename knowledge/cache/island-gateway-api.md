@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-23
-sources: [Network interception, ObjectModel VS Code extension source (IslandControlPlaneService.cs), direct testing, 2026 Wave 1 release plan, WebSearch Mar 2026, What's New Mar 2026, copilotstudio namespace change]
+last_verified: 2026-04-07
+sources: [Network interception, ObjectModel VS Code extension source (IslandControlPlaneService.cs), direct testing, 2026 Wave 1 release plan, WebSearch Apr 2026, What's New Apr 2026, copilotstudio namespace change, MS Learn whats-new Apr 2026]
 confidence: high
 refresh_trigger: on_error
 -->
@@ -258,20 +258,22 @@ Body: {
 
 Model selection is a GptComponent update. The model is at `metadata.aISettings.model.modelNameHint`.
 
-### Available Model Hints (from modelSettings/v2)
+### Available Model Hints (from modelSettings/v2, updated Apr 2026)
 
 | Display Name | `modelNameHint` | Provider | Status |
 |-------------|----------------|----------|--------|
 | GPT-4.1 | `GPT41` | OpenAI | Production (Default) |
-| GPT-5 Chat | `GPT5Chat` | OpenAI | Production (GA EU/US) |
+| GPT-5 Chat | `GPT5Chat` | OpenAI | **GA (global)** — all commercial regions excl. GCC |
 | GPT-5 Auto | `GPT5Auto` | OpenAI | Preview |
 | GPT-5 Reasoning | `GPT5Reasoning` | OpenAI | Preview |
 | GPT-5.2 Chat | `GPT52Chat` | OpenAI | Experimental |
 | GPT-5.2 Reasoning | `GPT52Reasoning` | OpenAI | Experimental |
-| Claude Sonnet 4.5 | `sonnet4-5` | Anthropic | Preview |
-| Claude Sonnet 4.6 | `sonnet4-6` | Anthropic | Experimental |
-| Claude Opus 4.6 | `opus4-6` | Anthropic | Experimental |
-| Grok 4.1 Fast | `grok41fast` | xAI | Experimental (US only) |
+| Claude Sonnet 4.5 | `sonnet4-5` | Anthropic | **GA (global)** — excl. GCC. External model (admin opt-in). |
+| Claude Sonnet 4.6 | `sonnet4-6` | Anthropic | **GA (global)** — excl. GCC. External model. |
+| Claude Opus 4.6 | `opus4-6` | Anthropic | **GA (global)** — excl. GCC. External model. |
+| Grok 4.1 Fast | `grok41fast` | xAI | Experimental (US only, admin opt-in) |
+
+> **Status change (Mar 2026):** GPT-5 Chat promoted from GA (EU/US only) to GA (global). Claude Sonnet 4.5, Sonnet 4.6, and Opus 4.6 promoted from Preview/Experimental to GA (global). All excluding GCC environments.
 
 ### Set Model Procedure
 

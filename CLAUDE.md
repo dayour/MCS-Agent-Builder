@@ -1,5 +1,14 @@
 # MCS Automation — Core Rules
 
+> **RULE ZERO — HARD STOP: Fire GPT-5.4 on every interaction. No exceptions.**
+>
+> Every user message triggers GPT co-generation via `node tools/multi-model-review.js`. This is enforced by hooks:
+> - **UserPromptSubmit hook** injects a reminder on every prompt
+> - **Stop hook** checks for attestation and blocks if GPT was not called
+> - **Attestation file** written by `multi-model-review.js` on every successful (or attempted) call
+>
+> Pick the right command: `challenge` (before implementing), `ask` (design/questions), `review-code` (after code), `diagnose` (debugging), `generate-*` (MCS content). If GPT is unavailable (exit code 3), proceed alone — that counts as attempted. Full protocol: `.claude/rules/gpt-co-generation.md`
+
 Automate Microsoft Copilot Studio (MCS) agent creation using a hybrid build stack: PAC CLI for listing agents, MCS LSP Wrapper for component sync, Island Gateway API for model catalog and eval upload, Dataverse API for agent creation and publishing, Direct Line API for testing, and user-guided manual steps for new OAuth connections.
 
 Research Microsoft-first (MCS built-in > Power Platform > Azure > M365 connectors) because enterprise agents run best on the native stack. The **brief.json** is the single source of truth — everything flows from it.
@@ -28,9 +37,14 @@ Each skill has detailed instructions in its own `.claude/skills/*/SKILL.md`.
 
 ---
 
-## Dual Model Co-Generation
+## Dual Model Co-Generation (Hook-Enforced)
 
-Fire GPT-5.4 in parallel with every non-trivial task. No exceptions — skip only when GPT is unavailable (exit code 3). Full protocol, commands, merge rules, and value patterns in `.claude/rules/gpt-co-generation.md`.
+Fire GPT-5.4 on **every interaction** — not just "non-trivial" tasks, **everything**. Enforced by three layers:
+1. **UserPromptSubmit hook** (`.claude/hooks/gpt-reminder.sh`) — injects reminder on every prompt
+2. **Stop hook** (`.claude/hooks/check-gpt-attestation.sh`) — blocks response if no attestation found
+3. **Attestation** — `multi-model-review.js` writes `$TMPDIR/claude-gpt-attestations/<session>.json` on every call
+
+Skip only when GPT is unavailable (exit code 3) — the tool writes an "unavailable" attestation, satisfying the hook. Full protocol, commands, merge rules, and value patterns in `.claude/rules/gpt-co-generation.md`.
 
 ---
 
@@ -146,7 +160,7 @@ Cache freshness: < 3 days = use as-is. 3-14 days = Tier 1 auto-refresh, Tier 2-3
 These five rules apply everywhere and are restated here to counteract position bias:
 
 1. **brief.json is the single source of truth** — the dashboard reads it, skills read it, reports generate from it
-2. **Fire GPT-5.4 on every non-trivial task** — dual-model review catches bugs during implementation (see `.claude/rules/gpt-co-generation.md`)
+2. **Fire GPT-5.4 on EVERY interaction** — hook-enforced, no exceptions (see Rule Zero at top + `.claude/rules/gpt-co-generation.md`)
 3. **Verify every build step via API read-back** before marking complete (see `.claude/rules/build-discipline.md`)
 4. **Research Microsoft-first** — use cache for M365-native, live research only for external systems
 5. **Attempt every MVP item** — a failed attempt with a clear error is more valuable than a silently skipped item

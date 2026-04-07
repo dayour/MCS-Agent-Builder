@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-23
-sources: [MS Learn, MCS UI, PPAC docs, WebSearch Mar 2026, MS Security Blog Feb 2026, MS Learn guidance/sec-gov-phase3, MS Learn security-and-governance, MS Learn configuration-end-user-authentication, MS Learn admin-data-loss-prevention, MS Learn admin-dlp-troubleshooting, MS Learn copilot-control-system/management-controls, MS Learn security-scan, 2026 Wave 1 Release Plan]
+last_verified: 2026-04-07
+sources: [MS Learn, MCS UI, PPAC docs, WebSearch Mar 2026, MS Security Blog Feb 2026, MS Learn guidance/sec-gov-phase3, MS Learn security-and-governance, MS Learn configuration-end-user-authentication, MS Learn admin-data-loss-prevention, MS Learn admin-dlp-troubleshooting, MS Learn copilot-control-system/management-controls, MS Learn security-scan, 2026 Wave 1 Release Plan, WebSearch Apr 2026, MS Learn whats-new Apr 2026]
 confidence: high
 refresh_trigger: before_architecture
 -->
@@ -106,9 +106,10 @@ See: https://www.microsoft.com/en-us/security/blog/2026/02/12/copilot-studio-age
 
 | Feature | Status | Timeline | Details |
 |---------|--------|----------|---------|
-| **Configure triggers with end-user credentials** | **Preview (Mar 2026)** | GA May 2026 | Triggers authenticate as end user instead of maker. Native trigger management lifecycle in Copilot Studio. |
+| **Configure triggers with end-user credentials** | **Preview** | Preview Apr 2026, GA Jun 2026 | Triggers authenticate as end user instead of maker. Native trigger management lifecycle in Copilot Studio. **(Updated: Preview shifted to Apr 2026 from original Mar 2026; GA shifted to Jun 2026.)** |
 | **Enforce safe sharing by detecting credential oversharing** | Preview | Apr 2026 | Detects when agent makers share agents with overly broad credentials; GA Jun 2026 |
 | **Unified errors, warnings, governance notifications** | Preview | Apr 2026 | Single view of all security/governance issues; GA Jun 2026 |
+| **Strengthen security with additional threat protection** | Preview (Sep 2025) | **GA Jun 2026** | Enhanced threat detection including advanced prompt injection detection. **(Updated: GA moved to Jun 2026 per 2026 Wave 1.)** |
 | **Copilot Control System agent lifecycle** | GA | Current | Visibility into agent status, governance, lifecycle. Manage connectors, sharing, DLP, approval workflows from M365 admin center. |
 | **MIP sensitivity labels across channels** | Preview | Jul 2025 | Display labels in connectors, test chat, Teams, M365 Copilot to prevent oversharing |
 | **Admin sharing controls** | GA | Current | Restrict org-wide sharing, reassign ownership, control who can share with whom (Managed Environments) |

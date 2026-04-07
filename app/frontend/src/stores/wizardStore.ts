@@ -20,6 +20,7 @@ import {
   deleteDocument,
   type WizardChatEvent,
   type WizardPrefetchResult,
+  type ComparisonResult,
 } from "@/lib/api";
 
 // ---------------------------------------------------------------------------
@@ -199,6 +200,10 @@ interface WizardStore {
   // Speculative enrichment
   _speculativeJobId: string | null;
 
+  // Dual-model comparison
+  lastComparison: ComparisonResult | null;
+  dualModelStatus: "idle" | "running" | "complete" | "failed" | "disabled";
+
   // Error
   error: string | null;
 
@@ -294,6 +299,8 @@ export const useWizardStore = create<WizardStore>()(devtools((set, get) => ({
   _prefetchKey: null,
   _prefetchInFlight: false,
   _speculativeJobId: null,
+  lastComparison: null,
+  dualModelStatus: "idle",
   error: null,
   hasSavedSession: loadFromStorage() !== null,
 
@@ -334,7 +341,7 @@ export const useWizardStore = create<WizardStore>()(devtools((set, get) => ({
       };
     }
 
-    set({ messages: updatedMessages, phase: "streaming", error: null, currentState: optimisticState });
+    set({ messages: updatedMessages, phase: "streaming", error: null, currentState: optimisticState, lastComparison: null, dualModelStatus: "running" });
 
     // Check prefetch cache — use it if section state matches and user gave a short direct answer
     // (long messages likely contain new context that the prefetched response wouldn't account for)
@@ -400,11 +407,17 @@ export const useWizardStore = create<WizardStore>()(devtools((set, get) => ({
             finalState = event.wizardState || null;
             break;
 
+          case "comparison":
+            if (event.data) {
+              set({ lastComparison: event.data, dualModelStatus: "complete" });
+            }
+            break;
+
           case "error":
             set({ error: event.detail || "Unknown error" });
             break;
         }
-      }, projectId, wizardModel);
+      }, projectId, wizardModel, settings.dualModelEnabled);
 
       // Flush any remaining batched token update before finalizing
       batchedSet.flush();

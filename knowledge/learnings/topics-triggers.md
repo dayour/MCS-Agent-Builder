@@ -52,3 +52,34 @@ ID format: tt-NNN (topics-triggers)
 **Confirmed:** 1 build(s) | Last confirmed: 2026-03-20
 **Related cache:** knowledge/cache/known-issues.md (Connector Issues section)
 **Tags:** #operationId #connector #office365users #MyProfile_V2 #UserGet_V2 #silent-failure #jit-user-context #pattern-fix
+
+### Native Adaptive Card chart elements (Chart.Donut, Chart.HorizontalBar, Chart.Gauge, Chart.Line, Chart.Pie) are GA in v1.5 {#tt-005} -- 2026-04-06
+**Context:** Fidelity FSC Incident Management agent, building leadership summary with visual charts for Teams demo
+**Tried:** Initially used QuickChart.io image URLs in model instructions for chart generation. Researched native AC chart elements.
+**Result:** MS Learn confirms 8 native chart types at AC v1.5: Chart.Donut, Chart.Gauge, Chart.VerticalBar.Grouped, Chart.VerticalBar, Chart.HorizontalBar, Chart.HorizontalBar.Stacked, Chart.Line, Chart.Pie. Teams desktop supports v1.5 so they should render natively. Created a Leadership Summary Report topic with Chart.Donut (severity distribution), Chart.HorizontalBar (service health uptime), and Chart.Gauge (response coverage) -- published successfully to MCS. Pending verification in Teams channel.
+**Key schema details:**
+- Chart.Donut: `data: [{legend: "Label", value: 42, color: "attention"}]` -- colors are semantic (good/warning/attention/neutral/categoricalRed/etc.)
+- Chart.HorizontalBar: `data: [{x: "Label", y: 99.5}]` -- has displayMode: AbsoluteWithAxis/AbsoluteNoAxis/PartToWhole
+- Chart.Gauge: `value: 83, segments: [{legend: "Label", size: 83, color: "good"}]` -- shows percentage gauge
+- Chart.Line: `data: [{legend: "Series", values: [{x: "Label", y: 42}]}]` -- multi-series support
+- All support `title`, `colorSet`, and `fallback` properties
+**Gotchas:**
+- Code Interpreter images do NOT render in Teams/M365 Copilot (official MS FAQ limitation)
+- Teams mobile capped at AC v1.2 -- chart elements likely won't render on mobile
+- MCS test chat won't render native charts (unknown element type in web chat)
+- suggestedActions on same activity as AdaptiveCardTemplate attachment don't render -- card swallows them
+- Action.Submit with msteams.imBack only works in Teams, not MCS test chat
+- For MCS test chat / web chat, use QuickChart.io image URLs as fallback
+- componenttype 9 for topics (not 1 which is Botskill)
+**Better approach:** Use native AC chart elements for Teams/M365 (no external dependency, interactive). Keep QuickChart in model instructions as fallback for generative responses. For dedicated topic cards, native charts are superior.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-04-06
+**Related cache:** knowledge/cache/adaptive-cards.md
+**Tags:** #adaptive-cards #charts #Chart.Donut #Chart.HorizontalBar #Chart.Gauge #Chart.Line #native-charts #quickchart #teams #v1.5
+
+### suggestedActions don't render alongside AdaptiveCardTemplate attachments {#tt-006} -- 2026-04-06
+**Context:** FSC Incident Management ConversationStart topic, trying to make buttons work in MCS test chat
+**Tried:** Added `suggestedActions` with `type: imBack` on the same `SendActivity` as an `AdaptiveCardTemplate` attachment
+**Result:** In MCS test chat, the adaptive card renders but suggestedActions are invisible -- the card attachment swallows the suggested actions. In Teams, the suggestedActions also don't appear (card takes priority).
+**Better approach:** For Teams: use Action.Submit with `msteams.imBack` data INSIDE the card. For M365 Copilot: use `conversationStarters` in the agent config (type 15 GptComponentMetadata). For MCS test chat: accept that card buttons won't work, users type instead. Don't try to combine suggestedActions + card attachments on the same activity.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-04-06
+**Tags:** #suggestedActions #adaptive-cards #msteams #imBack #conversationStarters #cross-channel

@@ -69,6 +69,8 @@ Fields: { "content": "<updated YAML/JSON>" }
 ### Limitations
 - **20-row limit** on `read_query` results
 - **No bound actions** (PvaPublish, PvaDeleteBot, PvaGetDirectLineEndpoint)
+  - PvaPublish correct URL: `POST bots(<botId>)/Microsoft.Dynamics.CRM.PvaPublish` with empty body `{}`
+  - NOT `POST PvaPublish` at API root (returns 404)
 - **Interactive auth only** (MSAL browser popup on first use)
 - **Requires PPAC admin** to enable MCP for the environment
 
@@ -216,17 +218,23 @@ Remove-Bot -Ctx $ctx -BotId $botId
 - After PATCHing `data`, call `PvaPublish` to sync to `content` for runtime
 
 ### Component Type Codes
-| Code | Type |
-|------|------|
-| 0 | Topic |
-| 5 | Trigger |
-| 9 | Topic (V2) |
-| 14 | Bot File Attachment |
-| 15 | Custom GPT (instructions) |
-| 16 | Knowledge Source |
-| 17 | External Trigger |
-| 18 | Copilot Settings |
-| 19 | Test Case (**deprecated for creation** — use Gateway API `makerevaluations/testcomponent` instead; raw POST can't set `parentBotComponentId`) |
+| Code | Type | Notes |
+|------|------|-------|
+| 0 | Topic (legacy) | Older format |
+| 1 | Botskill | NOT for topics — do not use for custom topic creation |
+| 2 | Variable | Global variables |
+| 5 | Trigger | |
+| 8 | TaskDialog | MCP server actions (e.g., DataverseMCP, Work IQ) |
+| 9 | Topic (V2) | **Use this for all custom topics** (AdaptiveDialog YAML) |
+| 10 | Localized Topic | Translated topic variants |
+| 14 | Bot File Attachment | |
+| 15 | Custom GPT (instructions) | GptComponentMetadata YAML — includes instructions, conversationStarters, gptCapabilities, aISettings |
+| 16 | Knowledge Source | KnowledgeSourceConfiguration YAML — SharePointSearchSource, DataverseStructuredSearchSource, PublicSiteSearchSource |
+| 17 | External Trigger | |
+| 18 | Copilot Settings | |
+| 19 | Test Case | **Deprecated for creation** — use Gateway API `makerevaluations/testcomponent` instead; raw POST can't set `parentBotComponentId` |
+
+> **WARNING:** Using wrong componenttype causes HTTP 400 with misleading error. componenttype=1 returns "Invalid bot component with bot component type:[Botskill]" — always use componenttype=9 for custom topics.
 
 ---
 

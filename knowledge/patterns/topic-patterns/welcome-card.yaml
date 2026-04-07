@@ -106,9 +106,26 @@ beginDialog:
 #     ]
 #   }
 
-# --- Channel compatibility ---
-# Teams: Full support. Action.Submit with msteams.imBack sends text as if user typed it.
-# Web Chat: Action.Submit works. No msteams wrapper needed (agent receives data object).
-# M365 Copilot: Adaptive cards rendered. Action buttons work.
-# Mobile Teams: Full support, buttons stack vertically on small screens.
+# --- Channel compatibility (updated 2026-04-06) ---
+# Teams desktop: Full v1.5 support. Action.Submit with msteams.imBack sends text as user typed it.
+#   Native chart elements (Chart.Donut, Chart.Line, etc.) render natively.
+# Teams mobile: Capped at v1.2 — chart elements and newer features won't render.
+# MCS test chat: Cards render but Action.Submit buttons do NOT fire (msteams.imBack ignored).
+#   suggestedActions alongside AdaptiveCardTemplate are INVISIBLE (card swallows them).
+#   Users must type queries manually in test chat.
+# M365 Copilot: Cards render. OnConversationStart does NOT fire — use conversationStarters
+#   in the agent config (type 15 GptComponentMetadata) instead. Chart rendering unverified.
+# Web Chat / Direct Line: Cards render. msteams.imBack not supported. Use suggestedActions
+#   on a SEPARATE activity (not alongside a card attachment).
 # WhatsApp: Very limited — falls back to text. Use suggestedActions instead.
+#
+# --- Cross-channel button strategy ---
+# For Teams: Action.Submit with msteams.imBack data INSIDE the card
+# For M365 Copilot: conversationStarters in agent config (not topics)
+# For test chat: Accept limitation — buttons won't work, users type
+# NEVER combine suggestedActions + AdaptiveCardTemplate on same activity
+#
+# --- Instruction text safety ---
+# NEVER use literal curly braces {} in instruction/topic text fields.
+# MCS parses {anything} as PowerFx expression references, causing runtime errors.
+# Use URL-encoded equivalents (%7B/%7D) or describe patterns in words.

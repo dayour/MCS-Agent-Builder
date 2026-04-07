@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-03-23
-sources: [MS Learn, MCS UI, community, MS Learn guidance/topic-authoring-best-practices, MS Learn guidance/implement-overview, MS Learn guidance/channels, MS Learn guidance/architecture-overview, MS Learn guidance/cux-principles, MS Learn whats-new, 2026 Wave 1 Release Plan, MS Learn batch-testing-prompts, WebSearch Mar 2026]
+last_verified: 2026-04-07
+sources: [MS Learn, MCS UI, community, MS Learn guidance/topic-authoring-best-practices, MS Learn guidance/implement-overview, MS Learn guidance/channels, MS Learn guidance/architecture-overview, MS Learn guidance/cux-principles, MS Learn whats-new, 2026 Wave 1 Release Plan, MS Learn batch-testing-prompts, WebSearch Mar 2026, WebSearch Apr 2026, MS Learn whats-new Apr 2026, 2026 Wave 1 planned features Apr 2026]
 confidence: high
 refresh_trigger: weekly
 -->
@@ -166,6 +166,14 @@ Systematic prompt validation through Copilot Studio, Power Apps, or Power Automa
 
 Connect any agent to any external data with custom MCP servers. Enables connecting to non-Microsoft MCP servers for dynamic, real-time content.
 
+## New: Accessibility Best Practices for Adaptive Cards (Mar 2026)
+
+MS Learn published guidance on adaptive card accessibility: supporting screen readers, keyboard navigation, and Teams-specific scenarios for inclusive agent experiences. Source: https://learn.microsoft.com/microsoft-copilot-studio/adaptive-card-accessibility-tips
+
+## New: Question and Reaction Analytics (GA Mar 2026)
+
+View and filter detailed lists of user questions and reactions from agent conversations. Use this data to identify gaps, create evaluation test sets, and export data for further analysis. Session-level CSAT values now included in transcript downloads.
+
 ## Generative Orchestration Guidance (MS Learn, Jan 2026)
 
 When using generative orchestration (default for modern agents):
@@ -204,9 +212,29 @@ Detect credential oversharing in agent configurations. Helps admins identify and
 
 Use code interpreter to analyze SharePoint-sourced data (Excel/CSV/PDF) directly in agent conversations.
 
-## Upcoming: Triggers with End-User Credentials (Preview Mar 2026, GA May 2026)
+## Upcoming: Triggers with End-User Credentials (Preview Apr 2026, GA Jun 2026)
 
-Configure autonomous agent triggers that run with end-user credentials instead of maker credentials.
+Configure autonomous agent triggers that run with end-user credentials instead of maker credentials. **(Updated: Timeline shifted from Mar/May to Apr/Jun per 2026 Wave 1 plan.)**
+
+## New: Bing Custom Search as Knowledge Source (GA Mar 2026)
+
+Add Bing Custom Search as a knowledge source to ground your agent's responses in a curated, scoped web index by using a Custom Configuration ID.
+
+## New: Agent Node in Agent Flows (GA Mar 2026)
+
+Use an agent node to call a Copilot Studio agent from an agent flow, enabling agent-to-agent orchestration within workflow contexts.
+
+## New: Reprompt Messages with Randomization (GA Mar 2026)
+
+Configure reprompt messages in Question nodes with randomization support to improve conversation recovery for retry prompts, entity recognition failures, and voice scenarios.
+
+## New: Post-Call Action Topics for Voice Agents (GA Mar 2026)
+
+Configure post-call action topics for voice-enabled agents to trigger backend actions automatically after a call ends, based on how the conversation concluded.
+
+## New: Prompt Assistant in Prompt Builder (GA Mar 2026)
+
+Use the Prompt assistant in Prompt builder to draft prompts faster with GPT model-powered suggestions. Reduces time to craft effective prompts.
 
 ## Removed/Deprioritized Features (Feb 2026 Change History)
 

@@ -499,6 +499,236 @@ function assembleContextFile(customer, results, timeRange, dedup) {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
+// Incremental context file merge
+// ───────────────────────────────────────────────────────────────────────────
+
+/** Known section headings emitted by assembleContextFile. */
+const KNOWN_SECTIONS = new Set([
+  "Document Version Map",
+  "Email History",
+  "Meetings & Transcripts",
+  "SharePoint SDR (CLSCMS)",
+  "Teams Conversations",
+  "Downloaded Documents",
+  "Pull History",
+]);
+
+/**
+ * Parse an existing workiq-context-*.md file into structured sections.
+ *
+ * @param {string} content  Raw markdown content
+ * @returns {{ header: string, sections: Map<string, string>, footer: string }}
+ */
+function parseContextFile(content) {
+  const lines = content.split("\n");
+  const sections = new Map();
+  let header = [];
+  let footer = "";
+  let currentSection = null;
+  let currentLines = [];
+  let inHeader = true;
+
+  for (const line of lines) {
+    const sectionMatch = line.match(/^## (.+)$/);
+    if (sectionMatch) {
+      // Save previous section
+      if (currentSection) {
+        sections.set(currentSection, currentLines.join("\n"));
+      }
+      inHeader = false;
+      currentSection = sectionMatch[1];
+      currentLines = [];
+    } else if (line.startsWith("---") && !inHeader && currentSection) {
+      // Footer marker — save current section first
+      sections.set(currentSection, currentLines.join("\n"));
+      currentSection = null;
+      currentLines = [];
+      footer = line;
+    } else if (currentSection) {
+      currentLines.push(line);
+    } else if (inHeader) {
+      header.push(line);
+    } else if (!currentSection) {
+      // After footer marker
+      footer += "\n" + line;
+    }
+  }
+
+  // Save last section if file ended without footer
+  if (currentSection) {
+    sections.set(currentSection, currentLines.join("\n"));
+  }
+
+  return {
+    header: header.join("\n"),
+    sections,
+    footer: footer.trim(),
+  };
+}
+
+/**
+ * Merge new query results into existing context sections.
+ * Successful new queries replace their section; failed queries preserve existing content.
+ *
+ * @param {Map<string, string>} existingSections  Parsed sections from existing file
+ * @param {Array<{id, label, content, error}>} newResults  New query results
+ * @param {string} timeRange  Time range label
+ * @param {{ map, annotations }} dedup  Dedup data from new results
+ * @returns {{ merged: Map<string, string>, preserved: string[], replaced: string[] }}
+ */
+function mergeContextSections(existingSections, newResults, timeRange, dedup) {
+  const merged = new Map(existingSections);
+  const preserved = [];
+  const replaced = [];
+  const now = new Date().toISOString().slice(0, 10);
+
+  // Regenerate Document Version Map from new dedup data
+  if (dedup.map.length > 0) {
+    const mapLines = [];
+    mapLines.push("");
+    mapLines.push("> Multiple versions of some documents exist across SharePoint and email.");
+    mapLines.push("> Use ONLY the latest version listed below.");
+    mapLines.push("");
+    mapLines.push("| Document | Latest Date | Source | Older versions found in |");
+    mapLines.push("|----------|------------|--------|------------------------|");
+    for (const entry of dedup.map) {
+      mapLines.push(
+        `| ${escapeMd(entry.name)} | ${escapeMd(entry.latestDate)} | ${escapeMd(entry.latestSource)} | ${escapeMd(entry.olderVersions.join(", "))} |`
+      );
+    }
+    mapLines.push("");
+    merged.set("Document Version Map", mapLines.join("\n"));
+  }
+
+  // Merge each query result section
+  const sorted = [...newResults].sort((a, b) => a.id - b.id);
+  for (const r of sorted) {
+    const heading = SECTION_MAP[r.id] || r.label;
+
+    if (r.error || !r.content) {
+      // Query failed — preserve existing section content
+      if (existingSections.has(heading)) {
+        preserved.push(heading);
+        const existing = existingSections.get(heading);
+        // Append preservation note if not already present
+        if (!existing.includes("Section preserved from previous pull")) {
+          merged.set(heading, existing + `\n\n> *Section preserved from previous pull (${now}). Latest query failed: ${r.error || "no data"}*`);
+        }
+      } else {
+        // No existing section either — write the error
+        merged.set(heading, `\n> Query failed: ${r.error || "no data returned"}\n`);
+      }
+    } else {
+      // Query succeeded — replace section
+      replaced.push(heading);
+      const sectionLines = [];
+      sectionLines.push("");
+      const anns = dedup.annotations.get(r.id);
+      if (anns && anns.length > 0) {
+        sectionLines.push("> **Deduplication notes:**");
+        for (const a of anns) sectionLines.push(`> - ${a}`);
+        sectionLines.push("");
+      }
+      sectionLines.push(r.content);
+      sectionLines.push("");
+      merged.set(heading, sectionLines.join("\n"));
+    }
+  }
+
+  // Update or create pull history
+  const trLabel = TIME_RANGE_LABELS[timeRange] || timeRange;
+  const successCount = newResults.filter((r) => !r.error && r.content).length;
+  const historyEntry = `| ${now} | ${trLabel} | ${successCount}/${newResults.length} | ${replaced.join(", ") || "none"} |`;
+  const existingHistory = merged.get("Pull History") || "";
+  if (existingHistory.includes("| Date |")) {
+    // Append to existing table
+    merged.set("Pull History", existingHistory.trimEnd() + "\n" + historyEntry + "\n");
+  } else {
+    // Create new history section
+    const historyLines = [
+      "",
+      "| Date | Time Range | Queries | Sections Updated |",
+      "|------|------------|---------|------------------|",
+      historyEntry,
+      "",
+    ];
+    merged.set("Pull History", historyLines.join("\n"));
+  }
+
+  return { merged, preserved, replaced };
+}
+
+/**
+ * Assemble a context file incrementally — merge new results into existing content.
+ * Falls back to full generation when existingContent is null.
+ *
+ * @param {string} customer
+ * @param {Array<{id, label, content, error}>} newResults
+ * @param {string} timeRange
+ * @param {{ map, annotations }} dedup
+ * @param {string|null} existingContent  Existing file content, or null for full generation
+ * @returns {{ content: string, preserved: string[], replaced: string[] }}
+ */
+function assembleContextFileIncremental(customer, newResults, timeRange, dedup, existingContent) {
+  if (!existingContent) {
+    return {
+      content: assembleContextFile(customer, newResults, timeRange, dedup),
+      preserved: [],
+      replaced: Object.values(SECTION_MAP),
+    };
+  }
+
+  const parsed = parseContextFile(existingContent);
+  const { merged, preserved, replaced } = mergeContextSections(
+    parsed.sections, newResults, timeRange, dedup
+  );
+
+  // Reassemble: header + sections in order + footer
+  const now = new Date().toISOString().slice(0, 10);
+  const trLabel = TIME_RANGE_LABELS[timeRange] || timeRange;
+  const successCount = newResults.filter((r) => !r.error && r.content).length;
+
+  const lines = [];
+  lines.push(`# Customer Context: ${customer}`);
+  lines.push("");
+  lines.push(`> Last updated on ${now} via WorkIQ M365 search`);
+  lines.push(`> Time range: ${trLabel} | Queries: ${successCount}/${newResults.length} successful`);
+  lines.push("");
+
+  // Emit sections in canonical order
+  const sectionOrder = [
+    "Document Version Map",
+    "Email History",
+    "Meetings & Transcripts",
+    "SharePoint SDR (CLSCMS)",
+    "Teams Conversations",
+    "Downloaded Documents",
+    "Pull History",
+  ];
+
+  for (const name of sectionOrder) {
+    if (merged.has(name)) {
+      lines.push(`## ${name}`);
+      lines.push(merged.get(name));
+    }
+  }
+
+  // Emit any extra sections not in canonical order
+  for (const [name, content] of merged) {
+    if (!sectionOrder.includes(name)) {
+      lines.push(`## ${name}`);
+      lines.push(content);
+    }
+  }
+
+  lines.push("---");
+  lines.push(`*Pulled from M365 via WorkIQ on ${now}. Re-run "Pull from M365" to refresh.*`);
+  lines.push("");
+
+  return { content: lines.join("\n"), preserved, replaced };
+}
+
+// ───────────────────────────────────────────────────────────────────────────
 // SharePoint URL extraction
 // ───────────────────────────────────────────────────────────────────────────
 
@@ -1112,6 +1342,8 @@ module.exports = {
   buildQueries,
   deduplicateDocuments,
   assembleContextFile,
+  assembleContextFileIncremental,
+  parseContextFile,
   extractSharePointUrls,
   downloadAndConvertFiles,
   escapeMd,
