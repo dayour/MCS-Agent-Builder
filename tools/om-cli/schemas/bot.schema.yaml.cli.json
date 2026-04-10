@@ -12607,7 +12607,7 @@
         },
         "dtmfSequence": {
           "title": "DTMF Sequence",
-          "description": "DTMF sequence to send during the External Phone Transfer",
+          "description": "DTMF sequence to send once an external transfer is connected. Digits 0–9, * and # are supported. Use a comma (,) for a pause of 2 seconds. Examples: 1234# | 1,2,3 | 9,,0#",
           "$role": "expression",
           "$ref": "#/definitions/StringExpression"
         }
@@ -18281,10 +18281,6 @@
           "const": 1050
         },
         {
-          "title": "Serbian_Latin",
-          "const": 2074
-        },
-        {
           "title": "Bulgarian",
           "const": 1026
         },
@@ -18295,10 +18291,6 @@
         {
           "title": "Catalan",
           "const": 1027
-        },
-        {
-          "title": "Serbian_Cyrillic",
-          "const": 3098
         },
         {
           "title": "Basque",

@@ -5348,10 +5348,6 @@
           "const": 1050
         },
         {
-          "title": "Serbian_Latin",
-          "const": 2074
-        },
-        {
           "title": "Bulgarian",
           "const": 1026
         },
@@ -5362,10 +5358,6 @@
         {
           "title": "Catalan",
           "const": 1027
-        },
-        {
-          "title": "Serbian_Cyrillic",
-          "const": 3098
         },
         {
           "title": "Basque",
