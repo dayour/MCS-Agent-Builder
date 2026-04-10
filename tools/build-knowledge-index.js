@@ -461,17 +461,18 @@ function buildScoringFramework() {
     ],
     buildPath: {
       rules: [
-        { path: "first-party-only", condition: "All capabilities matched by first-party agents" },
-        { path: "declarative-agent", condition: "Config-only (instructions + knowledge + tools), no custom topics, no storage, no custom auth, single-agent, hosted in M365 Copilot" },
-        { path: "custom-agent", condition: "Custom topics, storage, complex auth, multi-agent, or features DA can't handle" },
+        { path: "first-party-only", condition: "All capabilities matched by Tier 1-2 first-party agents (100% coverage)" },
+        { path: "custom-agent", condition: "Solution type score 4-5: strong conversational need, AI judgment, NL value" },
+        { path: "hybrid", condition: "Solution type score 3: CA for conversational + Power Automate for automation" },
+        { path: "flow", condition: "Solution type score 1-2: deterministic pipeline, limited conversation need" },
+        { path: "not-recommended", condition: "Solution type score 0: outside MCS capabilities" },
       ],
-      daDisqualifiers: [
-        "Requires persistent storage (Dataverse writes)",
-        "Requires custom OAuth/auth flow",
-        "Multi-agent architecture",
-        "Custom topic with complex branching",
-        "Event triggers (autonomous)",
-        "Channel other than M365 Copilot/Teams",
+      solutionTypeFactors: [
+        "conversationalNeed: users need dialogue vs data moved/displayed",
+        "interactionPattern: AI judgment needed vs deterministic flowchart",
+        "capabilityDistribution: 50%+ conversational (prompt/topic/knowledge) vs automation (flow/tool)",
+        "userValueOfNL: broad non-technical audience vs structured UI suffices",
+        "mcsFeasibility: fits MCS limits vs requires batch/sub-second/heavy compute",
       ],
     },
   };

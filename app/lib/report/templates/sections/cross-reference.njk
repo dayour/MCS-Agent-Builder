@@ -1,0 +1,39 @@
+{# Cross-reference analysis: capability -> integration mapping, orphan detection #}
+{# Uses pre-computed crossRef data from data.js #}
+
+<section id="cross-reference">
+  <div class="section-heading">
+    <h2>Cross-Reference Summary</h2>
+    <span class="toggle-icon">&#9662;</span>
+  </div>
+  <div class="section-body">
+    <div class="flex flex-wrap gap-2 mb-4">
+      <div class="metric-card" style="flex: 1; min-width: 150px;">
+        <div class="metric-value">{{ crossRef.linkedCapCount }}/{{ capabilities | length }}</div>
+        <div class="metric-label">Capabilities Linked</div>
+      </div>
+      <div class="metric-card" style="flex: 1; min-width: 150px;">
+        <div class="metric-value">{{ crossRef.linkedIntegrationCount }}/{{ integrations | length }}</div>
+        <div class="metric-label">Integrations Linked</div>
+      </div>
+    </div>
+
+    {% if crossRef.orphanCaps | length > 0 %}
+    <div class="callout" style="border-left-color: var(--amber);">
+      <strong>Unlinked capabilities:</strong> {{ crossRef.orphanCaps | join(", ") }}
+      <br><span class="text-muted" style="font-size: 0.82rem;">These capabilities have no topic implementing them.</span>
+    </div>
+    {% endif %}
+
+    {% if crossRef.orphanIntegrations | length > 0 %}
+    <div class="callout" style="border-left-color: var(--amber);">
+      <strong>Unlinked integrations:</strong> {{ crossRef.orphanIntegrations | join(", ") }}
+      <br><span class="text-muted" style="font-size: 0.82rem;">These integrations are not referenced by any topic.</span>
+    </div>
+    {% endif %}
+
+    {% if crossRef.orphanCaps | length == 0 and crossRef.orphanIntegrations | length == 0 %}
+    <p class="text-green" style="font-size: 0.85rem;">All capabilities and integrations are linked to conversation topics.</p>
+    {% endif %}
+  </div>
+</section>

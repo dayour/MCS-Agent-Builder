@@ -76,17 +76,36 @@ The second model is most valuable as an **adversary, oracle, and safety controll
 
 GPT fires on **everything** — the only valid skip reason is GPT being unavailable (exit code 3), in which case proceed with Claude alone. There are no task-size exceptions. Fire GPT as a background agent so it never blocks the response.
 
-## Hook Enforcement (3 Layers)
+## Hook Enforcement (3 Layers + Burst Mode)
 
 GPT co-generation is mechanically enforced — forgetting is not possible:
 
 1. **UserPromptSubmit hook** (`.claude/hooks/gpt-reminder.js`): Injects a `[GPT CO-GEN REQUIRED]` reminder into every user prompt AND writes a **per-interaction pending marker** (`$TMPDIR/claude-gpt-attestations/pending-<sessionId>.json`) with the prompt timestamp. This marker is the clock that the Stop hook reads.
 
-2. **Stop hook** (`.claude/hooks/check-gpt-attestation.js`): After every response, reads the pending marker timestamp and checks if ANY GPT attestation exists AFTER that timestamp. This is **per-interaction enforcement** — a GPT call from a previous interaction does not satisfy the current one. Falls back to 5-minute window if no pending marker exists (grace period for first run).
+2. **Stop hook** (`.claude/hooks/check-gpt-attestation.js`): Two enforcement modes:
+   - **Per-interaction** (default): Checks if any GPT attestation exists after the pending marker timestamp
+   - **Burst mode**: After a high-value GPT call, subsequent interactions within 10 minutes pass automatically
 
 3. **Attestation file** (`$TMPDIR/claude-gpt-attestations/<session-id>.json`): Written by `multi-model-review.js` on every successful call (or attempted call with exit 3). Contains session ID, command, status, and timestamp array. Per-session isolation prevents cross-session spoofing.
 
 **Per-interaction flow:** UserPromptSubmit writes marker → Claude works → Claude calls GPT (writes attestation) → Stop hook checks attestation timestamp > marker timestamp → pass/block.
+
+### Burst Mode
+
+During rapid implementation phases, firing a meaningful GPT call per interaction is wasteful and leads to compliance-only `ask` calls with throwaway prompts. Burst mode fixes this:
+
+**High-value commands** (open a 10-minute burst window):
+`challenge`, `diagnose`, `review-code`, `review-components`, `review-flow`, `review-merged`, `generate-instructions`, `generate-evals`, `generate-topics`, `generate-components`, `generate-flow`, `generate-fix`
+
+**Low-value commands** (`ask`, `score`, `learn`):
+Satisfy the current interaction only — do NOT open a burst window.
+
+**How it works:** The stop hook checks for any high-value GPT call within the last 10 minutes. If found, the interaction passes without a new GPT call. This means:
+- Fire `challenge` before implementing → code for 10 minutes without compliance fires
+- Fire `review-code` after a big code block → iterate for 10 minutes without compliance fires
+- The burst window is session-scoped (attestation files are per-session)
+
+**Anti-pattern to avoid:** Don't fire empty `ask -q "acknowledging completion"` calls during implementation. Instead, fire one meaningful `challenge` or `review-code` per implementation phase and let burst mode handle the rest.
 
 **Break-glass:** GPT unavailable (exit 3) writes `status: "unavailable"` attestation, satisfying the Stop hook. No manual bypass path — if GPT is reachable, it must be called.
 

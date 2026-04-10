@@ -298,12 +298,12 @@ function buildQueries(customer, timeRange, aliases) {
     {
       id: 2,
       label: "Meetings",
-      question: `Find all meetings about ${name} or with ${name} participants ${tr}. For meetings that have transcripts available, include verbatim quotes from key discussions — speaker name and what they said about decisions, requirements, blockers, and action items. For all meetings: summarize outcomes, decisions, action items, attendees, and any documents or files shared.`,
+      question: `Find all meetings about ${name} or with ${name} participants ${tr}. For each meeting with a transcript available, extract the COMPLETE content: every decision made, every action item with owner, every requirement discussed, every architecture or technical detail mentioned, and every follow-up agreed. Include speaker attribution and verbatim quotes for key decisions. For meetings without transcripts, summarize from invite content and any meeting chat messages. Include attendees, duration, and files shared.`,
     },
     {
       id: 3,
       label: "SharePoint SDR",
-      question: `Find all Solution Discovery Reports and customer documents for ${name} in the SharePoint site teams/CLSCMS/account. For each document list: exact file name, last modified date, modified by, version number if available, and a brief content summary. Sort by most recently modified first.`,
+      question: `Find all Solution Discovery Reports and customer documents for ${name} in the SharePoint site teams/CLSCMS/account that were created or modified ${tr}. For each document list: exact file name, last modified date, modified by, version number if available, and a brief content summary. Sort by most recently modified first.`,
     },
     {
       id: 4,
@@ -474,6 +474,8 @@ function assembleContextFile(customer, results, timeRange, dedup) {
   for (const r of sorted) {
     const heading = SECTION_MAP[r.id] || r.label;
     lines.push(`## ${heading}`);
+    lines.push("");
+    lines.push(`> Source: WorkIQ ${r.label.toLowerCase()} query | Date: ${now} | Confidence: ${r.error ? "failed" : r.content ? "high" : "no-data"}`);
     lines.push("");
 
     if (r.error) {

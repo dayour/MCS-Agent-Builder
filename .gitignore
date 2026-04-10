@@ -16,6 +16,7 @@
 # -----------------------------------------------------------------------------
 dashboard-data.js
 .mcs-agent-builder.lock
+app/.scheduler-state.json
 *.tgz
 kickStartTemplate*.json
 

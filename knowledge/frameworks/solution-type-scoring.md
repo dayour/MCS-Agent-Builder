@@ -16,10 +16,12 @@
 
 | Score | Solution Type | Action |
 |-------|--------------|--------|
-| **4-5** | `agent` | Proceed with full research (Phases B + C). Current workflow unchanged. |
-| **3** | Borderline | Create `solution-type` decision with `agent`, `hybrid`, and/or `flow` options. Pre-apply `hybrid` as default. |
-| **1-2** | `flow` | Write simplified brief with recommendation. Skip Phases B + C (no instructions, eval sets, or architecture scoring). |
+| **4-5** | `agent` → **Custom Agent (CA)** | Proceed with full research (Phases B + C). Build in Copilot Studio. |
+| **3** | `hybrid` → **CA + Power Automate** | Create `solution-type` decision with `agent`, `hybrid`, and/or `flow` options. Pre-apply `hybrid` as default. CA handles conversational parts, Power Automate handles automation. |
+| **1-2** | `flow` → **Power Automate** | Write simplified brief with flow recommendation. Skip Phases B + C (no instructions, eval sets, or architecture scoring). |
 | **0** | `not-recommended` | Write minimal brief with alternative recommendation. Skip all deep research. |
+
+> **Note:** Declarative Agent (DA) is NOT a build path. CA has all DA capabilities plus more (custom topics, multi-step workflows, adaptive cards, model selection, external channels, triggers). DA is only mentioned as informational context in the `declarative-agents.md` cache.
 
 ## How to Score
 

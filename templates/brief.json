@@ -180,7 +180,7 @@
     "solutionTypeReason": "2-4 sentence explanation of why this solution type was selected",
     "solutionTypeOverride": false,
     "alternativeRecommendation": "If not agent: what to build instead + high-level approach",
-    "buildPath": "custom-agent | declarative-agent | first-party-only — set during Phase A step 6. 'custom-agent' = build in Copilot Studio (default). 'declarative-agent' = recommend DA with guide, skip build. 'first-party-only' = recommend existing Microsoft agents, skip build.",
+    "buildPath": "custom-agent | hybrid | flow | not-recommended | first-party-only — set by solution type scoring (5 factors). 'custom-agent' (score 4-5) = build CA in Copilot Studio. 'hybrid' (score 3) = CA + Power Automate. 'flow' (score 1-2) = Power Automate only. 'not-recommended' (score 0) = outside MCS. 'first-party-only' = existing Microsoft agents cover all capabilities.",
     "buildPathReason": "2-4 sentence explanation of why this build path was selected, including explicit 'why not' for rejected paths",
     "frontierAgentMatch": [
       {

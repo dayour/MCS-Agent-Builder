@@ -12,6 +12,11 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
+// Skip in headless mode (spawned PTY for skill execution)
+if (process.env.CLAUDE_HEADLESS === '1') {
+  process.exit(0);
+}
+
 // Read stdin for hook input (contains session_id)
 let raw = '';
 process.stdin.setEncoding('utf8');

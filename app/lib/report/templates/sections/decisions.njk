@@ -1,0 +1,56 @@
+{% from "macros/cards.njk" import status_pill %}
+
+<section id="decisions">
+  <div class="section-heading">
+    <h2>Decisions</h2>
+    <span class="subtitle">{{ metrics.pendingDecisions }} pending</span>
+    <span class="toggle-icon">&#9662;</span>
+  </div>
+  <div class="section-body">
+    {% if decisions | length > 0 %}
+    {% if metrics.pendingDecisions > 0 %}
+    <div class="callout" style="border-left-color: var(--amber);">
+      <strong>{{ metrics.pendingDecisions }} pending decision{{ "s" if metrics.pendingDecisions > 1 }}</strong> require resolution before build.
+    </div>
+    {% endif %}
+
+    {% for d in decisions %}
+    <div class="card accent-left {% if d.status == 'pending' %}accent-amber{% elif d.status == 'overridden' %}accent-primary{% else %}accent-green{% endif %} mb-2">
+      <div class="flex items-center gap-2 mb-2">
+        {{ status_pill(d.status) }}
+        <strong style="font-size: 0.95rem;">{{ d.title }}</strong>
+        {% if d.category %}
+        <span class="text-muted" style="font-size: 0.78rem;">{{ d.category }}</span>
+        {% endif %}
+      </div>
+      {% if d.context %}
+      <p class="text-muted" style="font-size: 0.85rem; margin-bottom: 8px;">{{ d.context }}</p>
+      {% endif %}
+
+      <div class="decision-options">
+        {% for o in d.options %}
+        <div class="decision-option {% if o.id == d.selectedOptionId %}selected{% endif %}">
+          <div class="option-label">
+            {{ o.label }}
+            {% if o.id == d.recommendedOptionId %}<span class="text-muted" style="font-size: 0.75rem;">(Recommended)</span>{% endif %}
+            {% if o.id == d.selectedOptionId %}<span class="text-primary" style="font-size: 0.75rem; font-weight: 700;"> &#10003; Selected</span>{% endif %}
+          </div>
+          <div class="option-meta">{{ o.summary }}</div>
+          {% if o.id == d.selectedOptionId %}
+          {% if o.pros | length > 0 %}
+          <div class="text-muted" style="font-size: 0.78rem; margin-top: 4px;"><strong>Pros:</strong> {{ o.pros | join(" &middot; ") }}</div>
+          {% endif %}
+          {% if o.cons | length > 0 %}
+          <div class="text-muted" style="font-size: 0.78rem;"><strong>Cons:</strong> {{ o.cons | join(" &middot; ") }}</div>
+          {% endif %}
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <p class="text-muted" style="font-size: 0.85rem; font-style: italic;">No decisions recorded.</p>
+    {% endif %}
+  </div>
+</section>

@@ -1,0 +1,57 @@
+{# ── Reusable card/metric/pill macros ─────────────────────── #}
+
+{% macro metric_card(value, label, suffix) %}
+<div class="metric-card">
+  <div class="metric-value">{{ value }}{% if suffix %}{{ suffix }}{% endif %}</div>
+  <div class="metric-label">{{ label }}</div>
+</div>
+{% endmacro %}
+
+{% macro status_pill(label) %}
+<span class="pill {{ label | status_class }}">{{ label }}</span>
+{% endmacro %}
+
+{% macro phase_pill(phase) %}
+<span class="pill {{ phase | phase_class }}">{{ phase }}</span>
+{% endmacro %}
+
+{% macro callout(text) %}
+<div class="callout">{{ text }}</div>
+{% endmacro %}
+
+{% macro kv(label, value) %}
+<div class="kv-row">
+  <span class="kv-label">{{ label }}</span>
+  <span class="kv-value">{{ value | safe_val }}</span>
+</div>
+{% endmacro %}
+
+{% macro card(accent) %}
+<div class="card{% if accent %} accent-left accent-{{ accent }}{% endif %}">
+  {{ caller() }}
+</div>
+{% endmacro %}
+
+{% macro progress_bar(value, color) %}
+{% set pct = [0, [100, value] | min] | max %}
+{% set fill_class = color if color else ('fill-green' if pct >= 80 else ('fill-amber' if pct >= 50 else 'fill-red')) %}
+<div class="progress-bar">
+  <div class="progress-bar-fill {{ fill_class }}" style="width: {{ pct }}%"></div>
+</div>
+{% endmacro %}
+
+{% macro bullet_list(items) %}
+{% if items and items | length > 0 %}
+<ul class="bullet-list">
+  {% for item in items %}
+  <li>{{ item }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% endmacro %}
+
+{% macro chart(svg_content) %}
+<div class="chart-container">
+  {{ svg_content | safe }}
+</div>
+{% endmacro %}

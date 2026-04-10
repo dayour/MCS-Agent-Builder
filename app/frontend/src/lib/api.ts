@@ -38,23 +38,6 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 // ─── Config (runtime ports) ───────────────────────────────────────
 
-let _terminalWsUrl: string | null = null;
-
-export async function getTerminalWsUrl(): Promise<string> {
-  if (_terminalWsUrl) return _terminalWsUrl;
-  try {
-    const res = await fetch("/api/config");
-    if (res.ok) {
-      const data = await res.json();
-      _terminalWsUrl = data.terminalWsUrl;
-      return _terminalWsUrl!;
-    }
-  } catch { /* fallback */ }
-  // Derive from current page: same host + port, /ws path
-  const port = window.location.port || "8000";
-  _terminalWsUrl = `ws://localhost:${port}/ws`;
-  return _terminalWsUrl;
-}
 
 // ─── Projects ─────────────────────────────────────────────────────
 
@@ -405,10 +388,11 @@ export async function startEnrichment(
 export async function startDeltaEnrichment(
   projectId: string,
   agentId: string,
+  forceRefresh = false,
 ): Promise<{ jobId: string | null; status: string; deltaFiles?: string[]; message?: string }> {
   return request("/enrichment/delta", {
     method: "POST",
-    body: JSON.stringify({ projectId, agentId }),
+    body: JSON.stringify({ projectId, agentId, forceRefresh }),
   });
 }
 
@@ -540,7 +524,7 @@ export async function fetchBuildLog(jobId: string): Promise<string> {
 
 // ─── Skill Runner — Generalized headless skill execution ─────────
 
-export type SkillType = "research" | "eval" | "fix" | "build";
+export type SkillType = "research" | "eval" | "fix" | "build" | "preview" | "package";
 
 export interface SkillStep {
   id: string;
@@ -606,96 +590,113 @@ export async function fetchSkillLog(jobId: string): Promise<string> {
   return res.text();
 }
 
-// ─── Meeting Co-Pilot ─────────────────────────────────────────────
+// ─── Pipeline Events (settling, auto-chain, eval-complete) ──────
 
-export interface MeetingPrepareResult {
+export type PipelineEvent =
+  | { type: "docs-settled"; projectId: string; docCount: number }
+  | { type: "auto-chain"; from: SkillType; to: SkillType; agentId: string; jobId: string }
+  | { type: "auto-chain-skipped"; from: string; to: string; reason: string }
+  | { type: "eval-complete"; agentId: string; passRates: Record<string, number>; meetsThreshold: boolean };
+
+export async function subscribePipelineEvents(
+  projectId: string,
+  onEvent: (event: PipelineEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  const res = await fetch(`${BASE}/pipeline/events/${projectId}`, { signal });
+  if (!res.ok) {
+    const text = await res.text().catch(() => res.statusText);
+    throw new Error(text);
+  }
+  await consumeSSE<PipelineEvent>(res, onEvent, signal);
+}
+
+export async function startPackage(
+  projectId: string,
+  agentId: string,
+): Promise<{ jobId: string; status: string }> {
+  return request(`/projects/${projectId}/agents/${agentId}/package`, {
+    method: "POST",
+  });
+}
+
+export interface PackageStatusEvent {
+  type: "state" | "step" | "done";
+  steps?: Record<string, { status: string; label: string; detail?: string }>;
+  status?: string;
+  errors?: string[];
+  step?: string;
+  detail?: string;
+  result?: { sharePointUploaded: boolean; zipPath: string | null };
+}
+
+export async function watchPackageStatus(
+  jobId: string,
+  onEvent: (event: PackageStatusEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  const res = await fetch(`${BASE}/package/status/${jobId}`, { signal });
+  if (!res.ok) throw new Error(await res.text());
+  await consumeSSE<PackageStatusEvent>(res, onEvent, signal);
+}
+
+// ─── Helper Chatbot ──────────────────────────────────────────────
+
+export interface HelperInitResult {
   sessionId: string;
-  state: string;
-  briefingTokens: number;
-  message: string;
+  contextTokens: number;
+  sources: string[];
+  cached: boolean;
 }
 
-export interface MeetingTranscriptEntry {
-  id?: string;
-  speaker: "kim" | "customer";
-  text: string;
-  timestamp: number;
-  duration: number;
-  processingTime?: number;
-}
-
-export interface MeetingEvent {
+export interface HelperEvent {
   type: string;
   timestamp: number;
   [key: string]: unknown;
 }
 
-export interface MeetingStats {
-  session: { id: string; state: string; durationMs: number };
-  audio: { systemBytes: number; micBytes: number; framesReceived: number };
-  transcription: { chunksProcessed: number; silenceSkipped: number; totalDurationMs: number };
-  questions: { questions: number; requirements: number; skipped: number; llmCalls: number };
-  answers: { answers: number; totalTokens: number; totalCost: number; avgResponseMs: number; avgTTFT: number };
-}
-
-export async function prepareMeeting(
+export async function initHelper(
   projectId: string,
-  options?: { agentName?: string; answerModel?: string; transcriptionModel?: string }
-): Promise<MeetingPrepareResult> {
-  return request(`/meeting/prepare/${projectId}`, {
+  options?: { agentName?: string; model?: string }
+): Promise<HelperInitResult> {
+  return request(`/helper/init/${projectId}`, {
     method: "POST",
     body: JSON.stringify(options || {}),
   });
 }
 
-export async function startMeeting(sessionId: string): Promise<{ sessionId: string; state: string; startedAt: number }> {
-  return request(`/meeting/${sessionId}/start`, { method: "POST" });
-}
-
-export async function stopMeeting(sessionId: string): Promise<unknown> {
-  return request(`/meeting/${sessionId}/stop`, { method: "POST" });
-}
-
-export function subscribeMeetingStream(
+export async function sendHelperMessage(
   sessionId: string,
-  onEvent: (event: MeetingEvent) => void,
+  message: string
+): Promise<{ messageId: string; status: string }> {
+  return request(`/helper/${sessionId}/message`, {
+    method: "POST",
+    body: JSON.stringify({ message }),
+  });
+}
+
+export function subscribeHelperStream(
+  sessionId: string,
+  onEvent: (event: HelperEvent) => void,
   onError?: (err: Error) => void
 ): () => void {
-  const es = new EventSource(`${BASE}/meeting/${sessionId}/stream`);
+  const es = new EventSource(`${BASE}/helper/${sessionId}/stream`);
   es.onmessage = (e) => {
     try {
-      const event = JSON.parse(e.data) as MeetingEvent;
-      onEvent(event);
+      onEvent(JSON.parse(e.data));
     } catch { /* ignore parse errors */ }
   };
   let errored = false;
   es.onerror = () => {
-    if (errored) return; // Prevent repeated callbacks from EventSource auto-reconnect
+    if (errored) return;
     errored = true;
     es.close();
-    if (onError) onError(new Error("Meeting SSE connection lost"));
+    if (onError) onError(new Error("Helper SSE connection lost"));
   };
   return () => es.close();
 }
 
-
-export async function setMeetingModel(
-  sessionId: string,
-  model: string
-): Promise<{ model: string; message: string }> {
-  return request(`/meeting/${sessionId}/model`, {
-    method: "PATCH",
-    body: JSON.stringify({ model }),
-  });
-}
-
-export async function setMeetingMic(
-  sessionId: string,
-  disabled: boolean
-): Promise<{ micDisabled: boolean }> {
-  return request(`/meeting/${sessionId}/mic`, {
-    method: "PATCH",
-    body: JSON.stringify({ disabled }),
-  });
+export async function closeHelper(sessionId: string): Promise<void> {
+  return request(`/helper/${sessionId}`, { method: "DELETE" });
 }
 

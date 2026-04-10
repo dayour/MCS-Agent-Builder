@@ -1,0 +1,35 @@
+{% from "macros/cards.njk" import kv, callout, bullet_list %}
+
+<section id="overview">
+  <div class="section-heading">
+    <h2>Overview</h2>
+    <span class="toggle-icon">&#9662;</span>
+  </div>
+  <div class="section-body">
+    {% if overview.problemStatement %}
+    {{ callout(overview.problemStatement) }}
+    {% endif %}
+
+    {% if overview.persona %}
+    {{ kv("Persona", overview.persona) }}
+    {% endif %}
+    {% if overview.responseFormat %}
+    {{ kv("Response Format", overview.responseFormat) }}
+    {% endif %}
+
+    {% if overview.targetUsers | length > 0 %}
+    <h3 class="font-semibold mt-4 mb-2" style="font-size: 0.95rem;">Target Users</h3>
+    {{ bullet_list(overview.targetUsers) }}
+    {% endif %}
+
+    {% if overview.challenges | length > 0 %}
+    <h3 class="font-semibold mt-4 mb-2" style="font-size: 0.95rem;">Key Challenges</h3>
+    {{ bullet_list(overview.challenges) }}
+    {% endif %}
+
+    {% if overview.benefits | length > 0 %}
+    <h3 class="font-semibold mt-4 mb-2" style="font-size: 0.95rem;">Expected Benefits</h3>
+    {{ bullet_list(overview.benefits) }}
+    {% endif %}
+  </div>
+</section>

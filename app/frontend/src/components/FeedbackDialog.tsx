@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { editKeyHandler } from "@/lib/editKeys";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { useTerminalStore } from "@/stores/terminalStore";
+import { toast } from "sonner";
 import { useProjectStore } from "@/stores/projectStore";
 import { useBriefStore } from "@/stores/briefStore";
 
@@ -27,7 +27,6 @@ interface FeedbackDialogProps {
 export default function FeedbackDialog({ type, open, onOpenChange }: FeedbackDialogProps) {
   const [description, setDescription] = useState("");
   const location = useLocation();
-  const { openOrCreate, sendCommand, sessions, activeSessionId } = useTerminalStore();
   const { projectId, projectName } = useProjectStore();
   const { agentId, agentName, buildStatus, evalPassRate } = useBriefStore();
 
@@ -69,12 +68,11 @@ export default function FeedbackDialog({ type, open, onOpenChange }: FeedbackDia
     const type = isBug ? "bug" : "suggest";
     const command = `/feedback ${type} ${contextString}`;
 
-    // Open terminal and send command (queued if WS not open yet)
-    openOrCreate();
-    const sessionId = useTerminalStore.getState().activeSessionId;
-    if (sessionId) {
-      sendCommand(sessionId, command);
-    }
+    // Copy feedback command to clipboard for manual submission
+    navigator.clipboard.writeText(command).then(
+      () => toast.success("Feedback copied to clipboard — paste in a terminal to submit via gh"),
+      () => toast.info(`Feedback: ${command}`)
+    );
 
     // Reset and close
     setDescription("");

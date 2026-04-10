@@ -1,5 +1,5 @@
 import { useParams, useNavigate, useSearchParams, useBlocker } from "react-router";
-import { useState, useEffect, useMemo, useCallback, useTransition } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Briefcase, Bot, FileText, Zap, Plug, Database,
   MessageSquare, Shield, Network, TestTube, HelpCircle,
@@ -20,9 +20,8 @@ import ReadinessRing from "@/components/ReadinessRing";
 import { BRIEF_SECTIONS } from "@/config/briefSections";
 import { useBriefStore } from "@/stores/briefStore";
 import { useProjectStore } from "@/stores/projectStore";
-import { useTerminalStore } from "@/stores/terminalStore";
-import { getTerminalWsUrl } from "@/lib/api";
-import type { TerminalSession } from "@/types";
+import { useSkillJobStore, getSkillJobKey } from "@/stores/skillJobStore";
+import SkillProgressPanel from "@/components/build/SkillProgressPanel";
 import {
   Select,
   SelectContent,
@@ -80,8 +79,32 @@ const BriefEditor = () => {
   } = useBriefStore();
 
   const [activeSection, setActiveSection] = useState(BRIEF_SECTIONS[0].id);
-  const [pdfLoading, startPdfExport] = useTransition();
-  const [pdfError, setPdfError] = useState<string | null>(null);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
+  const [reportType, setReportType] = useState("brief");
+
+  // Track active skill jobs for this agent
+  const skillJobs = useSkillJobStore((s) => s.jobs);
+  const clearJob = useSkillJobStore((s) => s.clearJob);
+  const previewKey = projectId && agentId ? getSkillJobKey(projectId, agentId, "preview") : "";
+  const researchKey = projectId && agentId ? getSkillJobKey(projectId, agentId, "research") : "";
+  const buildKey = projectId && agentId ? getSkillJobKey(projectId, agentId, "build") : "";
+  const evalKey = projectId && agentId ? getSkillJobKey(projectId, agentId, "eval") : "";
+  const fixKey = projectId && agentId ? getSkillJobKey(projectId, agentId, "fix") : "";
+  const isGenerating = !!(previewKey && skillJobs[previewKey] && (skillJobs[previewKey].phase === "starting" || skillJobs[previewKey].phase === "running"));
+  const isResearching = !!(researchKey && skillJobs[researchKey] && (skillJobs[researchKey].phase === "starting" || skillJobs[researchKey].phase === "running"));
+  const isBuilding = !!(buildKey && skillJobs[buildKey] && (skillJobs[buildKey].phase === "starting" || skillJobs[buildKey].phase === "running"));
+  const isEvaluating = !!(evalKey && skillJobs[evalKey] && (skillJobs[evalKey].phase === "starting" || skillJobs[evalKey].phase === "running"));
+  const isFixing = !!(fixKey && skillJobs[fixKey] && (skillJobs[fixKey].phase === "starting" || skillJobs[fixKey].phase === "running"));
+  const activeJobKeys = [previewKey, researchKey, buildKey, evalKey, fixKey].filter((k) => k && skillJobs[k]);
+
+  // Derive agent status from the agents list
+  const currentAgent = agents.find((a) => a.id === agentId);
+  const agentStatus = currentAgent?.status ?? "draft";
+  const evalPassRate = currentAgent?.evalPassRate ?? null;
+  const docsChanged = useProjectStore((s) => s.documents).some(
+    (d) => d.changeStatus === "new" || d.changeStatus === "modified",
+  );
 
   // Warn before navigating away with unsaved changes
   const blocker = useBlocker(dirty && !saving);
@@ -107,36 +130,11 @@ const BriefEditor = () => {
     updateSection(sectionId, newData);
   };
 
-  /** Send a command to the agent's terminal — auto-executes (presses Enter). */
-  const runCommand = async (command: string, type: "build" | "research" = "build") => {
-    if (!projectId || !agentId) return;
-    const store = useTerminalStore.getState();
-
-    const existingId = store.findSession(projectId);
-    if (existingId) {
-      store.setActiveSession(existingId);
-      store.setPanelOpen(true);
-      store.sendCommand(existingId, command);
-      return;
-    }
-
-    const wsUrl = await getTerminalWsUrl();
-    const session: TerminalSession = {
-      id: `${projectId}-${Date.now()}`,
-      label: projectName || projectId,
-      type,
-      projectId,
-      agentName: agentName || agentId,
-      status: "connecting",
-      wsUrl,
-      command, // Auto-executed after Claude Code is ready
-    };
-    store.addSession(session);
-  };
+  const launchSkill = useSkillJobStore((s) => s.launchSkill);
 
   const handleGeneratePreview = () => {
     if (!projectId || !agentId) return;
-    runCommand(`/mcs-research ${projectId} ${agentId} --fast`, "research");
+    launchSkill("preview", projectId, agentId);
   };
 
   const handleNavigateToDecisions = () => {
@@ -147,21 +145,39 @@ const BriefEditor = () => {
     confirmDecisions();
   };
 
-  /** Confirm preview + open terminal with /mcs-research in one click. */
   const handleRunResearch = () => {
     if (!projectId || !agentId) return;
     confirmPreview();
-    runCommand(`/mcs-research ${projectId} ${agentId}`, "research");
+    launchSkill("research", projectId, agentId);
   };
 
   const handleNavigateToSection = (sectionId: string) => {
     setActiveSection(sectionId);
   };
 
-  /** Launch /mcs-build in the terminal. */
   const handleBuild = () => {
     if (!projectId || !agentId) return;
-    runCommand(`/mcs-build ${projectId} ${agentId}`, "build");
+    launchSkill("build", projectId, agentId);
+  };
+
+  const handleEvaluate = () => {
+    if (!projectId || !agentId) return;
+    launchSkill("eval", projectId, agentId);
+  };
+
+  const handleFix = () => {
+    if (!projectId || !agentId) return;
+    launchSkill("fix", projectId, agentId);
+  };
+
+  const handlePackage = async () => {
+    if (!projectId || !agentId) return;
+    const { startPackage } = await import("@/lib/api");
+    startPackage(projectId, agentId);
+  };
+
+  const handleBackToProject = () => {
+    navigate(`/project/${projectId}`);
   };
 
   const handleEnrichmentComplete = useCallback(() => {
@@ -294,37 +310,63 @@ const BriefEditor = () => {
               <Download className="h-3.5 w-3.5" />
               Export Markdown
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full gap-2 text-xs"
-              disabled={pdfLoading}
-              onMouseEnter={() => { import("@/lib/pdf"); }}
-              onClick={() => {
-                if (!data || pdfLoading) return;
-                startPdfExport(async () => {
+            <div className="flex gap-1.5">
+              <Select value={reportType} onValueChange={setReportType}>
+                <SelectTrigger className="h-8 text-xs flex-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="brief">Brief</SelectItem>
+                  <SelectItem value="build">Build</SelectItem>
+                  <SelectItem value="customer">Customer</SelectItem>
+                  <SelectItem value="deployment">Deployment</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 text-xs whitespace-nowrap"
+                disabled={reportLoading}
+                onClick={async () => {
+                  if (!data || reportLoading) return;
+                  setReportLoading(true);
+                  setReportError(null);
                   try {
-                    const { generateBriefPDF } = await import("@/lib/pdf");
-                    await generateBriefPDF(agentForReport, data as unknown as Record<string, any>);
+                    const res = await fetch(
+                      `/api/projects/${projectId}/agents/${agentId}/report?type=${reportType}`
+                    );
+                    if (!res.ok) {
+                      const errText = await res.text();
+                      throw new Error(errText);
+                    }
+                    const blob = await res.blob();
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `${agentName.replace(/\s+/g, "_")}_${reportType}.html`;
+                    a.click();
+                    URL.revokeObjectURL(url);
                   } catch (err) {
-                    console.error("PDF generation failed:", err);
-                    setPdfError(`PDF export failed: ${err instanceof Error ? err.message : "Unknown error"}.`);
+                    console.error("Report export failed:", err);
+                    setReportError(`Report export failed: ${err instanceof Error ? err.message : "Unknown error"}`);
+                  } finally {
+                    setReportLoading(false);
                   }
-                });
-              }}
-            >
-              {pdfLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />}
-              {pdfLoading ? "Generating..." : "Export PDF"}
-            </Button>
+                }}
+              >
+                {reportLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />}
+                {reportLoading ? "..." : "HTML"}
+              </Button>
+            </div>
           </div>
         </aside>
 
         {/* Content — container query context for responsive brief sections */}
         <div className="flex-1 overflow-y-auto p-6 @container/brief">
           <div className="mx-auto max-w-4xl @[80rem]/brief:max-w-none animate-fade-in">
-            {(error || pdfError) && (
+            {(error || reportError) && (
               <div className="mb-4 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                {error || pdfError}
+                {error || reportError}
               </div>
             )}
             {/* Enrichment Progress */}
@@ -335,15 +377,41 @@ const BriefEditor = () => {
             {data?.workflow && (
               <WorkflowPhaseBanner
                 phase={data.workflow.phase}
+                agentStatus={agentStatus}
+                evalPassRate={evalPassRate}
+                docsChanged={docsChanged}
+                pendingDecisionCount={(data.decisions?.items ?? []).filter((d) => d.status === "pending").length}
                 previewGeneratedAt={data.workflow.previewGeneratedAt}
                 researchCompletedAt={data.workflow.researchCompletedAt}
-                pendingDecisionCount={(data.decisions?.items ?? []).filter((d) => d.status === "pending").length}
+                isGenerating={isGenerating}
+                isResearching={isResearching}
+                isAnalyzing={isGenerating || isResearching}
+                isBuilding={isBuilding}
+                isEvaluating={isEvaluating}
+                isFixing={isFixing}
+                onAnalyze={handleRunResearch}
                 onGeneratePreview={handleGeneratePreview}
                 onRunResearch={handleRunResearch}
                 onReviewDecisions={handleNavigateToDecisions}
                 onApproveAndBuild={handleApproveAndBuild}
                 onBuild={handleBuild}
+                onEvaluate={handleEvaluate}
+                onFix={handleFix}
+                onPackage={handlePackage}
+                onBackToProject={handleBackToProject}
               />
+            )}
+            {/* Active skill jobs */}
+            {activeJobKeys.length > 0 && (
+              <div className="mb-4 space-y-3">
+                {activeJobKeys.map((key) => (
+                  <SkillProgressPanel
+                    key={key}
+                    jobKey={key}
+                    onClose={() => clearJob(key)}
+                  />
+                ))}
+              </div>
             )}
             {decisionImpact.needsReResearch && (
               <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-700 px-4 py-3 flex items-start gap-3">

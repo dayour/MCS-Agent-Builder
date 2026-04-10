@@ -1,0 +1,97 @@
+{% from "macros/cards.njk" import kv, callout, status_pill %}
+{% from "macros/tables.njk" import data_table %}
+
+<section id="architecture">
+  <div class="section-heading">
+    <h2>Architecture</h2>
+    <span class="subtitle">{{ architecture.pattern }}</span>
+    <span class="toggle-icon">&#9662;</span>
+  </div>
+  <div class="section-body">
+    {{ kv("Solution Type", architecture.solutionType ~ " (" ~ architecture.solutionTypeScore ~ "/5)") }}
+    {% if architecture.solutionTypeReason %}
+    {{ callout(architecture.solutionTypeReason) }}
+    {% endif %}
+    {% if architecture.alternativeRecommendation %}
+    {{ kv("Recommendation", architecture.alternativeRecommendation) }}
+    {% endif %}
+
+    {{ kv("Pattern", architecture.pattern) }}
+    {% if architecture.patternReasoning %}
+    {{ callout(architecture.patternReasoning) }}
+    {% endif %}
+
+    {% if architecture.buildPath %}
+    {{ kv("Build Path", architecture.buildPath) }}
+    {% if architecture.buildPathReason %}
+    <p class="text-muted" style="font-size: 0.85rem; margin: 4px 0 12px 140px;">{{ architecture.buildPathReason }}</p>
+    {% endif %}
+    {% endif %}
+
+    {# Triggers #}
+    {% if architecture.triggers | length > 0 %}
+    <h3 class="font-semibold mt-4 mb-2" style="font-size: 0.95rem;">Triggers</h3>
+    {{ data_table(
+      ["Type", "Description"],
+      architecture.triggers | map_rows(["type", "description"])
+    ) }}
+    {% endif %}
+
+    {# Channels #}
+    {% if architecture.channels | length > 0 %}
+    <h3 class="font-semibold mt-4 mb-2" style="font-size: 0.95rem;">Channels</h3>
+    {{ data_table(
+      ["Channel", "Reason"],
+      architecture.channels | map_rows(["name", "reason"])
+    ) }}
+    {% endif %}
+
+    {# Child Agents #}
+    {% if architecture.childAgents | length > 0 %}
+    <h3 class="font-semibold mt-4 mb-2" style="font-size: 0.95rem;">Child Agents</h3>
+    {{ data_table(
+      ["Agent", "Role", "Routing Rule"],
+      architecture.childAgents | map_rows(["name", "role", "routingRule"])
+    ) }}
+    {% endif %}
+
+    {# Architecture Scoring #}
+    {% if architecture.scoring | length > 0 %}
+    {% set total = architecture.scoring | sum_field("score") %}
+    <h3 class="font-semibold mt-4 mb-2" style="font-size: 0.95rem;">Architecture Score ({{ total }}/6)</h3>
+    <table class="data-table">
+      <thead><tr><th>Factor</th><th>Score</th><th>Notes</th></tr></thead>
+      <tbody>
+        {% for f in architecture.scoring %}
+        <tr>
+          <td>{{ f.factor }}</td>
+          <td>{% if f.score %}Yes{% else %}No{% endif %}</td>
+          <td class="cell-muted">{{ f.notes | safe_val }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+
+    {# Frontier Agent Matches #}
+    {% if architecture.frontierAgentMatch | length > 0 %}
+    <h3 class="font-semibold mt-4 mb-2" style="font-size: 0.95rem;">First-Party Agent Matches</h3>
+    {% for m in architecture.frontierAgentMatch %}
+    <div class="card accent-left accent-primary mb-2">
+      <div class="font-semibold">{{ m.agentName }}</div>
+      <div class="text-muted" style="font-size: 0.85rem;">
+        Coverage: {{ m.coverage }} | Recommendation: {{ m.recommendation }}
+      </div>
+      {% if m.matchedCapabilities | length > 0 %}
+      <div class="text-muted" style="font-size: 0.82rem; margin-top: 4px;">
+        Matched: {{ m.matchedCapabilities | join(", ") }}
+      </div>
+      {% endif %}
+      {% if m.notes %}
+      <div class="text-muted" style="font-size: 0.82rem; margin-top: 4px;">{{ m.notes }}</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+    {% endif %}
+  </div>
+</section>

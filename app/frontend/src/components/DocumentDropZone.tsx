@@ -384,7 +384,14 @@ const DocumentDropZone = ({ projectId }: DocumentDropZoneProps) => {
   const agents = useProjectStore((s) => s.agents);
   const loadProject = useProjectStore((s) => s.loadProject);
 
-  const handleDeltaEnrich = async () => {
+  // Hide manual "process into brief" when pipeline auto-analysis is handling it
+  const docSettled = useProjectStore((s) => s.docSettled);
+
+  const hasContextUpdate = newAndModified.some(
+    (d) => d.name?.startsWith("workiq-context-")
+  );
+
+  const handleDeltaEnrich = async (forceRefresh = false) => {
     if (!agents.length) {
       toast.error("No agents found — create an agent first via the wizard");
       return;
@@ -392,16 +399,19 @@ const DocumentDropZone = ({ projectId }: DocumentDropZoneProps) => {
     setEnriching(true);
     try {
       const agentId = agents[0].id;
-      const result = await startDeltaEnrichment(projectId, agentId);
+      const result = await startDeltaEnrichment(projectId, agentId, forceRefresh);
       if (!result.jobId) {
         toast.info(result.message || "No new documents to process");
         return;
       }
-      toast.info(`Processing ${result.deltaFiles?.length || 0} document(s)...`);
+      const label = forceRefresh ? "Refreshing brief from context" : "Processing";
+      toast.info(`${label}: ${result.deltaFiles?.length || 0} document(s)...`);
       await watchEnrichment(result.jobId, (event) => {
         if (event.type === "done") {
           if (event.status === "completed") {
-            toast.success("Documents processed and brief updated");
+            toast.success(forceRefresh
+              ? "Brief refreshed from latest context"
+              : "Documents processed and brief updated");
           } else {
             toast.warning(`Enrichment finished with status: ${event.status}`);
           }
@@ -422,14 +432,23 @@ const DocumentDropZone = ({ projectId }: DocumentDropZoneProps) => {
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h2 className="text-sm font-semibold text-foreground">Documents ({documents.length})</h2>
-          {newAndModified.length > 0 && (
+          {newAndModified.length > 0 && !docSettled && (
             <button
-              onClick={handleDeltaEnrich}
+              onClick={() => handleDeltaEnrich(hasContextUpdate)}
               disabled={enriching || !agents.length}
               className="text-[11px] text-info font-medium hover:underline disabled:opacity-50 disabled:no-underline cursor-pointer"
             >
-              {enriching ? "Processing..." : `${newAndModified.length} new — process into brief`}
+              {enriching
+                ? "Processing..."
+                : hasContextUpdate
+                  ? `${newAndModified.length} new — refresh brief from context`
+                  : `${newAndModified.length} new — process into brief`}
             </button>
+          )}
+          {newAndModified.length > 0 && docSettled && (
+            <span className="text-[11px] text-muted-foreground font-medium">
+              Auto-analyzing {newAndModified.length} new document{newAndModified.length > 1 ? "s" : ""}...
+            </span>
           )}
         </div>
         <div className="flex gap-1">

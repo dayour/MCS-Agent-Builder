@@ -1,0 +1,32 @@
+{% from "macros/cards.njk" import status_pill %}
+
+<section id="open-questions">
+  <div class="section-heading">
+    <h2>Open Questions</h2>
+    <span class="subtitle">{{ metrics.openQuestionCount }} open</span>
+    <span class="toggle-icon">&#9662;</span>
+  </div>
+  <div class="section-body">
+    {% if openQuestions | length > 0 %}
+    {% for q in openQuestions %}
+    <div class="card mb-2" style="display: flex; gap: 8px; align-items: flex-start;">
+      {{ status_pill(q.status) }}
+      <div style="flex: 1;">
+        <div style="font-size: 0.9rem;">{{ q.question }}</div>
+        {% if q.notes %}
+        <div class="text-muted" style="font-size: 0.82rem; margin-top: 2px;">{{ q.notes }}</div>
+        {% endif %}
+        {% if q.resolution %}
+        <div class="text-green" style="font-size: 0.82rem; margin-top: 2px; font-style: italic;">{{ q.resolution }}</div>
+        {% endif %}
+        {% if q.impact %}
+        <div class="text-muted" style="font-size: 0.78rem; margin-top: 2px;">Impact: {{ q.impact }}{% if q.section %} &middot; Section: {{ q.section }}{% endif %}</div>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <p class="text-muted" style="font-size: 0.85rem; font-style: italic;">No open questions.</p>
+    {% endif %}
+  </div>
+</section>

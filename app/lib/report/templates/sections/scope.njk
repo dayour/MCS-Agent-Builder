@@ -1,0 +1,48 @@
+{% from "macros/cards.njk" import bullet_list %}
+
+<section id="scope">
+  <div class="section-heading">
+    <h2>Scope &amp; Boundaries</h2>
+    <span class="toggle-icon">&#9662;</span>
+  </div>
+  <div class="section-body">
+    {% if scope.handles | length > 0 %}
+    <h3 class="font-semibold mb-2" style="font-size: 0.95rem; color: var(--green);">Handles</h3>
+    {{ bullet_list(scope.handles) }}
+    {% endif %}
+
+    {% if scope.declines | length > 0 %}
+    <h3 class="font-semibold mt-4 mb-2" style="font-size: 0.95rem; color: var(--amber);">Politely Declines</h3>
+    <table class="data-table">
+      <thead><tr><th>Topic</th><th>Redirect</th></tr></thead>
+      <tbody>
+        {% for d in scope.declines %}
+        <tr>
+          <td>{{ d.topic }}</td>
+          <td class="cell-muted">{{ d.redirect | safe_val }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+
+    {% if scope.refuses | length > 0 %}
+    <h3 class="font-semibold mt-4 mb-2" style="font-size: 0.95rem; color: var(--red);">Hard Refuses</h3>
+    <table class="data-table">
+      <thead><tr><th>Topic</th><th>Reason</th></tr></thead>
+      <tbody>
+        {% for r in scope.refuses %}
+        <tr>
+          <td>{{ r.topic }}</td>
+          <td class="cell-muted">{{ r.reason | safe_val }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+
+    {% if scope.handles | length == 0 and scope.declines | length == 0 and scope.refuses | length == 0 %}
+    <p class="text-muted" style="font-size: 0.85rem; font-style: italic;">No boundaries defined yet.</p>
+    {% endif %}
+  </div>
+</section>

@@ -1,0 +1,13 @@
+<section id="instructions">
+  <div class="section-heading">
+    <h2>Instructions</h2>
+    <span class="toggle-icon">&#9662;</span>
+  </div>
+  <div class="section-body">
+    {% if instructions %}
+    <pre class="code-block">{{ instructions }}</pre>
+    {% else %}
+    <p class="text-muted" style="font-size: 0.85rem; font-style: italic;">No instructions defined yet.</p>
+    {% endif %}
+  </div>
+</section>

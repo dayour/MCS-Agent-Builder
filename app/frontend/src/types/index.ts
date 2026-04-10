@@ -74,23 +74,6 @@ export interface BriefSection {
   subtitle?: string;
 }
 
-// ─── Terminal ───────────────────────────────────────────────────────
-
-export type TerminalSessionType = "system" | "research" | "build" | "evaluate" | "library";
-export type TerminalSessionStatus = "connecting" | "running" | "stopped" | "error";
-
-export interface TerminalSession {
-  id: string;
-  label: string;
-  type: TerminalSessionType;
-  projectId: string;
-  agentName: string;
-  status: TerminalSessionStatus;
-  wsUrl: string;
-  /** Optional command to send to Claude Code after it's ready. */
-  command?: string;
-}
-
 // ─── Workflow ───────────────────────────────────────────────────────
 
 export type WorkflowPhase = "preview" | "research" | "decisions" | "ready_to_build";
@@ -375,7 +358,7 @@ export interface SolutionTypeFactor {
   notes: string;
 }
 
-export type BuildPath = 'custom-agent' | 'declarative-agent' | 'first-party-only';
+export type BuildPath = 'custom-agent' | 'hybrid' | 'flow' | 'not-recommended' | 'first-party-only';
 
 export type LicenseStatus = 'yes' | 'no' | 'unknown';
 export type DynamicsLicense = 'none' | 'sales' | 'service' | 'finance' | 'other';

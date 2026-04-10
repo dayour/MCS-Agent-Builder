@@ -10,15 +10,21 @@ Generate reports from brief.json at any project stage, for any audience. Read-on
 ## Input
 
 ```
-/mcs-report {projectId} {agentId}                   # Default: "brief" type
+/mcs-report {projectId} {agentId}                   # Default: "brief" type, both formats
 /mcs-report {projectId} {agentId} --type brief       # Current design state
 /mcs-report {projectId} {agentId} --type build       # Build status + deviations
 /mcs-report {projectId} {agentId} --type customer    # Simplified for stakeholders
 /mcs-report {projectId} {agentId} --type deployment  # Checklist + instructions
+/mcs-report {projectId} {agentId} --format html      # HTML only (skip markdown)
+/mcs-report {projectId} {agentId} --format md        # Markdown only (skip HTML)
 ```
 
 Reads from: `Build-Guides/{projectId}/agents/{agentId}/brief.json` — **read-only, never modifies**
-Writes to: `Build-Guides/{projectId}/agents/{agentId}/{type}-report.md`
+Writes to:
+- `Build-Guides/{projectId}/agents/{agentId}/{type}-report.md` (markdown — Claude-generated)
+- `Build-Guides/{projectId}/agents/{agentId}/{type}-report.html` (HTML — server-rendered from brief.json)
+
+**Default:** Both formats are generated. Use `--format` to produce only one.
 
 ## Step 1: Load and Validate brief.json
 
@@ -84,6 +90,31 @@ node tools/multi-model-review.js review-code --file "Build-Guides/{projectId}/ag
 
 3. Apply GPT fixes to the report file. If GPT is unavailable, proceed without it.
 
+## Step 4: Generate HTML Report
+
+**Skip this step if `--format md` was specified.**
+
+Generate the self-contained HTML report by calling the server-side renderer:
+
+```bash
+node -e "
+const path = require('path');
+const { renderReport } = require('./app/lib/report');
+const briefPath = path.resolve('Build-Guides/{projectId}/agents/{agentId}/brief.json');
+const outPath = path.resolve('Build-Guides/{projectId}/agents/{agentId}/{type}-report.html');
+renderReport(briefPath, '{type}').then(html => {
+  require('fs').writeFileSync(outPath, html);
+  console.log('HTML report written:', outPath, '(' + (html.length / 1024).toFixed(1) + ' KB)');
+}).catch(err => console.error('HTML generation failed:', err.message));
+"
+```
+
+The HTML report is an independent render from brief.json — it does not depend on the markdown output. It produces a single self-contained .html file with all CSS, JS, and SVG charts inlined. Works offline, prints cleanly via Ctrl+P.
+
+**If `--format html` was specified:** Skip Steps 2-3 (markdown + GPT review) and run only this step.
+
+**If HTML generation fails:** Warn the user but do not fail the skill. The markdown report is still valid.
+
 ## Gotchas
 
 - **Validate inputs** — `{projectId}`, `{agentId}`, `{type}` are interpolated into file paths. Reject values containing `..`, `/`, `\`, or special characters before constructing paths.
@@ -97,4 +128,4 @@ node tools/multi-model-review.js review-code --file "Build-Guides/{projectId}/ag
 - **No teammates needed** — lightweight lead-only generation
 - **Always write the report file** — mark incomplete sections as "N/A" or "Not yet available"
 - **Customer report must follow jargon rules** — these reports go to non-technical stakeholders
-- **Report file naming:** `{type}-report.md` (brief-report.md, build-report.md, customer-report.md, deployment-report.md)
+- **Report file naming:** `{type}-report.md` and `{type}-report.html` (e.g. brief-report.md, brief-report.html)

@@ -2,7 +2,7 @@
 name: qa-challenger
 description: Quality assurance and adversarial reviewer for MCS agent builds. Use after any teammate produces output (instructions, YAML, cards, architecture decisions). Challenges every claim, tests against scenarios, validates cross-references, and finds gaps. The agent that asks "are you sure?" and "prove it works."
 model: opus
-tools: Read, Glob, Grep, Write, Edit, WebSearch, WebFetch, Bash, mcp__microsoft-learn__microsoft_docs_search, mcp__microsoft-learn__microsoft_docs_fetch
+tools: Read, Glob, Grep, Write, Edit, WebSearch, WebFetch, Bash, mcp__microsoft-learn__microsoft_docs_search, mcp__microsoft-learn__microsoft_code_sample_search, mcp__microsoft-learn__microsoft_docs_fetch, mcp__plugin_context7_context7__resolve-library-id, mcp__plugin_context7_context7__query-docs
 ---
 
 # QA Challenger — Adversarial Reviewer & Gap Finder

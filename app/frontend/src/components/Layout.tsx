@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Link } from "react-router";
-import { ChevronRight, Bug, Lightbulb, Terminal, Headphones } from "lucide-react";
+import { ChevronRight, Bug, Lightbulb, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useTerminalStore } from "@/stores/terminalStore";
-import { useMeetingStore } from "@/stores/meetingStore";
+import { usePanelStore } from "@/components/terminal/RightPanel";
+import { useHelperStore } from "@/stores/helperStore";
 import FeedbackDialog from "@/components/FeedbackDialog";
 import ThemeToggle from "@/components/ThemeToggle";
 
@@ -13,8 +13,8 @@ interface LayoutProps {
 }
 
 const Layout = ({ children, breadcrumbs }: LayoutProps) => {
-  const { panelOpen, setPanelOpen, setActiveTab, activeTab, sessions } = useTerminalStore();
-  const meetingPhase = useMeetingStore((s) => s.phase);
+  const { panelOpen, togglePanel } = usePanelStore();
+  const helperPhase = useHelperStore((s) => s.phase);
   const [feedbackType, setFeedbackType] = useState<"bug" | "suggestion">("bug");
   const [feedbackOpen, setFeedbackOpen] = useState(false);
 
@@ -22,7 +22,6 @@ const Layout = ({ children, breadcrumbs }: LayoutProps) => {
     <div className="flex flex-col h-full bg-background overflow-hidden">
       <header className="shrink-0 z-50 border-b border-border bg-background/80 backdrop-blur-sm">
         <div className="flex h-12 items-center px-5">
-          {/* Breadcrumbs (site nav moved to NavigationRail) */}
           {breadcrumbs && breadcrumbs.length > 0 && (
             <nav className="flex items-center gap-1.5 text-sm">
               {breadcrumbs.map((crumb) => (
@@ -58,35 +57,18 @@ const Layout = ({ children, breadcrumbs }: LayoutProps) => {
               <Lightbulb className="h-3.5 w-3.5" /> Suggest
             </Button>
             <Button
-              variant={panelOpen && activeTab === "console" ? "secondary" : "ghost"}
+              variant={panelOpen ? "secondary" : "ghost"}
               size="sm"
               className="h-8 gap-1.5 text-xs"
-              onClick={() => {
-                if (panelOpen && activeTab === "console") { setPanelOpen(false); }
-                else { setActiveTab("console"); }
-              }}
+              onClick={togglePanel}
             >
-              <Terminal className="h-3.5 w-3.5" />
-              Console
-              {sessions.length > 0 && (
-                <span className="ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-primary/15 text-[10px] font-medium text-primary">
-                  {sessions.length}
-                </span>
+              <MessageCircle className="h-3.5 w-3.5" />
+              Helper
+              {helperPhase === "ready" && (
+                <span className="ml-0.5 w-2 h-2 rounded-full bg-emerald-500" />
               )}
-            </Button>
-            <Button
-              variant={panelOpen && activeTab === "meeting" ? "secondary" : "ghost"}
-              size="sm"
-              className="h-8 gap-1.5 text-xs"
-              onClick={() => {
-                if (panelOpen && activeTab === "meeting") { setPanelOpen(false); }
-                else { setActiveTab("meeting"); }
-              }}
-            >
-              <Headphones className="h-3.5 w-3.5" />
-              Meeting
-              {meetingPhase === "active" && (
-                <span className="ml-0.5 w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+              {helperPhase === "streaming" && (
+                <span className="ml-0.5 w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
               )}
             </Button>
             <div className="mx-1 h-4 w-px bg-border" />

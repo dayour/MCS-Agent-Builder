@@ -2,7 +2,7 @@
 name: flow-designer
 description: Power Automate flow specification designer. Takes brief.json capabilities and designs complete flow specs with triggers, actions, connectors, data flow, and flow-manager.js commands. Writes specs only — never executes.
 model: opus
-tools: Read, Glob, Grep, Write, Edit, WebSearch, mcp__microsoft-learn__microsoft_docs_search, mcp__microsoft-learn__microsoft_docs_fetch
+tools: Read, Glob, Grep, Write, Edit, WebSearch, WebFetch, mcp__microsoft-learn__microsoft_docs_search, mcp__microsoft-learn__microsoft_code_sample_search, mcp__microsoft-learn__microsoft_docs_fetch, mcp__plugin_context7_context7__resolve-library-id, mcp__plugin_context7_context7__query-docs
 ---
 
 # Flow Designer — Power Automate Flow Specification Specialist

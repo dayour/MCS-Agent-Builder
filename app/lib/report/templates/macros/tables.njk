@@ -1,0 +1,26 @@
+{# ── Data table macro ─────────────────────────────────────── #}
+
+{% macro data_table(columns, rows) %}
+{% if rows and rows | length > 0 %}
+<table class="data-table">
+  <thead>
+    <tr>
+      {% for col in columns %}
+      <th>{{ col }}</th>
+      {% endfor %}
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in rows %}
+    <tr>
+      {% for cell in row %}
+      <td>{{ cell | safe_val }}</td>
+      {% endfor %}
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="text-muted" style="font-size: 0.85rem; font-style: italic; padding: 8px 0;">No data available.</p>
+{% endif %}
+{% endmacro %}

@@ -469,13 +469,45 @@ if (isGitRepo) {
     if (fs.existsSync(distIndex)) fs.unlinkSync(distIndex);
   }
 
-  if (fs.existsSync(path.join(frontendDir, "package.json")) && !fs.existsSync(distIndex)) {
-    log("Frontend not built — building...");
-    try {
-      execSync("npm run build", { stdio: "inherit", cwd: frontendDir, timeout: 120000 });
-      log("Frontend build complete");
-    } catch {
-      warn("Frontend build failed — dashboard may show placeholder page");
+  if (fs.existsSync(path.join(frontendDir, "package.json"))) {
+    let needsBuild = !fs.existsSync(distIndex);
+
+    // Check if source files are newer than the built output
+    if (!needsBuild) {
+      try {
+        const distTime = fs.statSync(distIndex).mtimeMs;
+        const srcDirs = ["src", "index.html", "vite.config.ts", "tailwind.config.js", "postcss.config.js"]
+          .map((f) => path.join(frontendDir, f));
+        const newestSrc = (function findNewest(entries) {
+          let max = 0;
+          for (const entry of entries) {
+            try {
+              const st = fs.statSync(entry);
+              if (st.isDirectory()) {
+                const children = fs.readdirSync(entry).map((c) => path.join(entry, c));
+                max = Math.max(max, findNewest(children));
+              } else {
+                max = Math.max(max, st.mtimeMs);
+              }
+            } catch {}
+          }
+          return max;
+        })(srcDirs);
+        if (newestSrc > distTime) {
+          needsBuild = true;
+          log("Frontend source changed since last build — rebuilding...");
+        }
+      } catch {}
+    }
+
+    if (needsBuild) {
+      if (!fs.existsSync(distIndex)) log("Frontend not built — building...");
+      try {
+        execSync("npm run build", { stdio: "inherit", cwd: frontendDir, timeout: 120000 });
+        log("Frontend build complete");
+      } catch {
+        warn("Frontend build failed — dashboard may show placeholder page");
+      }
     }
   }
 } else {
@@ -526,24 +558,6 @@ checkSingleInstance();
     process.exit(code || 0);
   });
 
-  // Launch audio capture service (for meeting co-pilot)
-  let audioCapture = null;
-  const audioCaptureExe = path.join(__dirname, "tools", "audio-capture", "bin", "audio-capture.exe");
-  if (fs.existsSync(audioCaptureExe)) {
-    audioCapture = spawn(audioCaptureExe, ["--idle"], {
-      cwd: path.join(__dirname, "tools", "audio-capture"),
-      stdio: "pipe", // Don't clutter console — runs idle until meeting starts
-    });
-    audioCapture.on("error", () => {
-      warn("Audio capture service unavailable — meeting co-pilot will not have live audio");
-    });
-    audioCapture.on("exit", () => { audioCapture = null; });
-    log("Audio capture service started (idle, waiting for meeting)");
-  } else {
-    log("Audio capture service not built — meeting co-pilot will work without live audio");
-    log("  Build with: cd tools/audio-capture && dotnet publish -c Release -o bin");
-  }
-
   // Wait for dashboard to respond, then open browser
   waitForReady(URL)
     .then(() => {
@@ -563,7 +577,6 @@ checkSingleInstance();
     console.log("\n\x1b[90m  Shutting down...\x1b[0m");
     removeLockfile();
     try { server.kill("SIGTERM"); } catch {}
-    try { if (audioCapture) audioCapture.kill(); } catch {}
     // Wait for server to exit gracefully, force after 3s
     const forceTimer = setTimeout(() => {
       try { server.kill("SIGKILL"); } catch {}

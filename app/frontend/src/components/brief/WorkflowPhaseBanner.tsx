@@ -1,151 +1,278 @@
-import { Check, Loader2, Eye, Microscope, ListChecks, Hammer } from "lucide-react";
+/**
+ * NextStepCard — Passive progress track + single context-appropriate CTA.
+ *
+ * Replaces the old multi-button WorkflowPhaseBanner with a state-driven
+ * card that shows one primary action based on the agent's current state.
+ */
+import { Check, Loader2, Eye, Microscope, ListChecks, Hammer, FlaskConical, Wrench, Package, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { WorkflowPhase } from "@/types";
 
 interface Props {
+  // State inputs
   phase: WorkflowPhase;
-  previewGeneratedAt: string | null;
-  researchCompletedAt: string | null;
+  agentStatus: "draft" | "researched" | "ready" | "built";
+  evalPassRate: number | null;
+  docsChanged: boolean;
+  pendingDecisionCount: number;
+
+  // Running state
+  isAnalyzing?: boolean;
+  isBuilding?: boolean;
+  isEvaluating?: boolean;
+  isFixing?: boolean;
+
+  // Compat props (still passed by BriefEditor — used for progress track)
+  previewGeneratedAt?: string | null;
+  researchCompletedAt?: string | null;
   isGenerating?: boolean;
   isResearching?: boolean;
-  pendingDecisionCount: number;
-  onGeneratePreview?: () => void;
-  onRunResearch?: () => void;
+
+  // Actions
+  onAnalyze?: () => void;
   onReviewDecisions?: () => void;
   onApproveAndBuild?: () => void;
   onBuild?: () => void;
+  onEvaluate?: () => void;
+  onFix?: () => void;
+  onPackage?: () => void;
+  onBackToProject?: () => void;
+
+  // Legacy (unused but prevents TS errors during migration)
+  onGeneratePreview?: () => void;
+  onRunResearch?: () => void;
 }
 
-// Consistent with ProjectPage PIPELINE_COLORS
-const STEPS = [
-  { key: "preview", label: "Preview", icon: Eye, color: "violet" },
-  { key: "research", label: "Research", icon: Microscope, color: "blue" },
-  { key: "decisions", label: "Decisions", icon: ListChecks, color: "blue" },
-  { key: "ready_to_build", label: "Build", icon: Hammer, color: "amber" },
+// ─── Progress Track ──────────────────────────────────────────────
+
+const TRACK_STEPS = [
+  { key: "analyze", label: "Analyze", icon: Eye },
+  { key: "review", label: "Review", icon: ListChecks },
+  { key: "build", label: "Build", icon: Hammer },
 ] as const;
 
-const STEP_STYLES: Record<string, { active: string; done: string }> = {
-  violet: { active: "bg-violet-500/10 text-violet-600 dark:text-violet-400", done: "text-violet-500 dark:text-violet-400" },
-  blue:   { active: "bg-blue-500/10 text-blue-600 dark:text-blue-400", done: "text-blue-500 dark:text-blue-400" },
-  amber:  { active: "bg-amber-500/10 text-amber-600 dark:text-amber-400", done: "text-amber-500 dark:text-amber-400" },
+function getTrackIndex(phase: WorkflowPhase, agentStatus: string): number {
+  if (agentStatus === "built") return 3; // past build
+  if (phase === "ready_to_build") return 2;
+  if (phase === "decisions") return 1;
+  if (phase === "research") return 0;
+  return 0; // preview or no phase
+}
+
+// ─── Next Step Logic ─────────────────────────────────────────────
+
+interface NextStep {
+  text: string;
+  cta: string | null;
+  action?: () => void;
+  variant: "blue" | "amber" | "emerald" | "red" | "muted";
+  icon?: React.ReactNode;
+}
+
+function getNextStep(props: Props): NextStep {
+  const analyzing = props.isAnalyzing || props.isGenerating || props.isResearching;
+
+  // Docs changed takes priority
+  if (props.docsChanged) {
+    return {
+      text: "Source documents changed since last analysis",
+      cta: "Refresh Analysis",
+      action: props.onAnalyze,
+      variant: "amber",
+      icon: <Microscope className="h-3.5 w-3.5" />,
+    };
+  }
+
+  // Not yet analyzed
+  if ((!props.phase || props.phase === "preview") && props.agentStatus === "draft" && !analyzing) {
+    if (!props.previewGeneratedAt) {
+      return {
+        text: "Upload docs on the project page to get started",
+        cta: "Back to project",
+        action: props.onBackToProject,
+        variant: "muted",
+        icon: <ArrowLeft className="h-3.5 w-3.5" />,
+      };
+    }
+    return {
+      text: "Preview complete — run research to design this agent",
+      cta: "Run Research",
+      action: props.onAnalyze,
+      variant: "blue",
+      icon: <Microscope className="h-3.5 w-3.5" />,
+    };
+  }
+
+  // Analyzing
+  if (analyzing) {
+    return {
+      text: "Analyzing documents and researching components...",
+      cta: null,
+      variant: "blue",
+      icon: <Loader2 className="h-3.5 w-3.5 animate-spin" />,
+    };
+  }
+
+  // Needs decisions
+  if (props.pendingDecisionCount > 0) {
+    return {
+      text: `${props.pendingDecisionCount} decision${props.pendingDecisionCount > 1 ? "s" : ""} need${props.pendingDecisionCount === 1 ? "s" : ""} your confirmation`,
+      cta: "Review Decisions",
+      action: props.onReviewDecisions,
+      variant: "blue",
+      icon: <ListChecks className="h-3.5 w-3.5" />,
+    };
+  }
+
+  // Ready to build
+  if (props.phase === "ready_to_build" || (props.phase === "decisions" && props.pendingDecisionCount === 0)) {
+    return {
+      text: "Analysis complete — all decisions confirmed",
+      cta: "Build Agent",
+      action: props.onBuild || props.onApproveAndBuild,
+      variant: "amber",
+      icon: <Hammer className="h-3.5 w-3.5" />,
+    };
+  }
+
+  // Building
+  if (props.isBuilding) {
+    return {
+      text: "Building agent in Copilot Studio...",
+      cta: null,
+      variant: "amber",
+      icon: <Loader2 className="h-3.5 w-3.5 animate-spin" />,
+    };
+  }
+
+  // Built, no eval
+  if (props.agentStatus === "built" && props.evalPassRate === null) {
+    return {
+      text: "Agent is live — run quality checks",
+      cta: "Evaluate",
+      action: props.onEvaluate,
+      variant: "emerald",
+      icon: <FlaskConical className="h-3.5 w-3.5" />,
+    };
+  }
+
+  // Evaluating
+  if (props.isEvaluating) {
+    return {
+      text: "Evaluating agent quality...",
+      cta: null,
+      variant: "emerald",
+      icon: <Loader2 className="h-3.5 w-3.5 animate-spin" />,
+    };
+  }
+
+  // Eval passing
+  if (props.evalPassRate !== null && props.evalPassRate >= 85) {
+    return {
+      text: `All tests passing (${props.evalPassRate}%)`,
+      cta: "Package & Upload",
+      action: props.onPackage,
+      variant: "emerald",
+      icon: <Package className="h-3.5 w-3.5" />,
+    };
+  }
+
+  // Eval failing
+  if (props.evalPassRate !== null && props.evalPassRate < 85) {
+    return {
+      text: `Tests failing (${props.evalPassRate}% pass rate)`,
+      cta: "Fix Failures",
+      action: props.onFix,
+      variant: "red",
+      icon: <Wrench className="h-3.5 w-3.5" />,
+    };
+  }
+
+  // Fixing
+  if (props.isFixing) {
+    return {
+      text: "Fixing failures...",
+      cta: null,
+      variant: "red",
+      icon: <Loader2 className="h-3.5 w-3.5 animate-spin" />,
+    };
+  }
+
+  // Research complete but not yet at decisions
+  if (props.researchCompletedAt && props.phase === "research") {
+    return {
+      text: "Research complete — review your agent plan",
+      cta: "Review Decisions",
+      action: props.onReviewDecisions,
+      variant: "blue",
+      icon: <ListChecks className="h-3.5 w-3.5" />,
+    };
+  }
+
+  // Fallback
+  return { text: "Ready", cta: null, variant: "muted" };
+}
+
+// ─── Variant Styles ──────────────────────────────────────────────
+
+const VARIANT_STYLES: Record<string, { card: string; btn: string; dot: string }> = {
+  blue: {
+    card: "border-blue-500/30 bg-blue-500/5",
+    btn: "bg-blue-600 hover:bg-blue-700 text-white",
+    dot: "bg-blue-500",
+  },
+  amber: {
+    card: "border-amber-500/30 bg-amber-500/5",
+    btn: "bg-amber-600 hover:bg-amber-700 text-white",
+    dot: "bg-amber-500",
+  },
+  emerald: {
+    card: "border-emerald-500/30 bg-emerald-500/5",
+    btn: "bg-emerald-600 hover:bg-emerald-700 text-white",
+    dot: "bg-emerald-500",
+  },
+  red: {
+    card: "border-red-500/30 bg-red-500/5",
+    btn: "bg-red-600 hover:bg-red-700 text-white",
+    dot: "bg-red-500",
+  },
+  muted: {
+    card: "border-border bg-surface-1",
+    btn: "bg-muted text-foreground hover:bg-muted/80",
+    dot: "bg-muted-foreground/30",
+  },
 };
 
-const phaseIndex = (phase: WorkflowPhase): number =>
-  STEPS.findIndex((s) => s.key === phase);
+// ─── Component ───────────────────────────────────────────────────
 
-const WorkflowPhaseBanner = ({
-  phase,
-  previewGeneratedAt,
-  researchCompletedAt,
-  isGenerating,
-  isResearching,
-  pendingDecisionCount,
-  onGeneratePreview,
-  onRunResearch,
-  onReviewDecisions,
-  onApproveAndBuild,
-  onBuild,
-}: Props) => {
-  const currentIdx = phaseIndex(phase);
-
-  let bannerText = "";
-  let bannerCta: React.ReactNode = null;
-
-  if (phase === "preview") {
-    if (isGenerating) {
-      bannerText = "Scanning your docs...";
-      bannerCta = <Loader2 className="h-4 w-4 animate-spin text-violet-500" />;
-    } else if (!previewGeneratedAt) {
-      bannerText = "Let's define what this agent should do";
-      bannerCta = (
-        <Button size="sm" className="h-7 text-xs gap-1.5 bg-violet-600 hover:bg-violet-700 text-white" onClick={onGeneratePreview}>
-          <Eye className="h-3.5 w-3.5" />
-          Generate Preview
-        </Button>
-      );
-    } else {
-      bannerText = "Review your agent summary, then run research when ready";
-      bannerCta = (
-        <Button size="sm" className="h-7 text-xs gap-1.5 bg-blue-600 hover:bg-blue-700 text-white" onClick={onRunResearch}>
-          <Microscope className="h-3.5 w-3.5" />
-          Run Research
-        </Button>
-      );
-    }
-  } else if (phase === "research") {
-    if (isResearching) {
-      bannerText = "Designing the best approach...";
-      bannerCta = <Loader2 className="h-4 w-4 animate-spin text-blue-500" />;
-    } else if (researchCompletedAt) {
-      bannerText = "Your agent plan is ready";
-      bannerCta = (
-        <Button size="sm" className="h-7 text-xs gap-1.5 bg-blue-600 hover:bg-blue-700 text-white" onClick={onReviewDecisions}>
-          <ListChecks className="h-3.5 w-3.5" />
-          Review decisions
-        </Button>
-      );
-    } else {
-      bannerText = "Ready for deep research";
-      bannerCta = (
-        <Button size="sm" className="h-7 text-xs gap-1.5 bg-blue-600 hover:bg-blue-700 text-white" onClick={onRunResearch}>
-          <Microscope className="h-3.5 w-3.5" />
-          Run Research
-        </Button>
-      );
-    }
-  } else if (phase === "decisions") {
-    bannerText = pendingDecisionCount > 0
-      ? `${pendingDecisionCount} decision${pendingDecisionCount > 1 ? "s" : ""} to make`
-      : "All decisions confirmed";
-    bannerCta = (
-      <Button
-        size="sm"
-        className="h-7 text-xs gap-1.5 bg-amber-600 hover:bg-amber-700 text-white"
-        onClick={onApproveAndBuild}
-        disabled={pendingDecisionCount > 0}
-      >
-        <Check className="h-3.5 w-3.5" />
-        Approve and build
-      </Button>
-    );
-  } else if (phase === "ready_to_build") {
-    bannerText = "Ready to build";
-    bannerCta = (
-      <Button size="sm" className="h-7 text-xs gap-1.5 bg-amber-600 hover:bg-amber-700 text-white" onClick={onBuild}>
-        <Hammer className="h-3.5 w-3.5" />
-        Build
-      </Button>
-    );
-  }
+const WorkflowPhaseBanner = (props: Props) => {
+  const trackIdx = getTrackIndex(props.phase, props.agentStatus);
+  const nextStep = getNextStep(props);
+  const styles = VARIANT_STYLES[nextStep.variant];
 
   return (
     <div className="mb-4">
-      {/* Step indicator */}
+      {/* Passive progress track */}
       <div className="flex items-center gap-1 mb-3">
-        {STEPS.map((step, i) => {
+        {TRACK_STEPS.map((step, i) => {
           const StepIcon = step.icon;
-          const isCompleted = i < currentIdx;
-          const isCurrent = i === currentIdx;
-          const styles = STEP_STYLES[step.color];
+          const isCompleted = i < trackIdx;
+          const isCurrent = i === trackIdx && trackIdx < 3;
           return (
             <div key={step.key} className="flex items-center gap-1">
               {i > 0 && (
-                <div className={`h-px w-6 ${isCompleted ? "bg-current opacity-30" : "bg-border"}`} style={isCompleted ? { color: "inherit" } : undefined} />
+                <div className={`h-px w-6 ${isCompleted ? "bg-emerald-500/40" : "bg-border"}`} />
               )}
               <div
                 className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
                   isCurrent
-                    ? styles.active
+                    ? `${styles.card} text-foreground`
                     : isCompleted
-                    ? styles.done
+                    ? "text-emerald-500 dark:text-emerald-400"
                     : "bg-surface-2 text-muted-foreground/40"
                 }`}
               >
-                {isCompleted ? (
-                  <Check className="h-3 w-3" />
-                ) : (
-                  <StepIcon className="h-3 w-3" />
-                )}
+                {isCompleted ? <Check className="h-3 w-3" /> : <StepIcon className="h-3 w-3" />}
                 {step.label}
               </div>
             </div>
@@ -153,12 +280,24 @@ const WorkflowPhaseBanner = ({
         })}
       </div>
 
-      {bannerText && (
-        <div className="flex items-center justify-between rounded-lg border border-border bg-surface-1 px-4 py-2.5">
-          <p className="text-sm text-foreground">{bannerText}</p>
-          <div>{bannerCta}</div>
+      {/* Next Step Card */}
+      <div className={`flex items-center justify-between rounded-lg border px-4 py-2.5 ${styles.card}`}>
+        <div className="flex items-center gap-2.5">
+          {nextStep.icon && <span className="text-foreground">{nextStep.icon}</span>}
+          <p className="text-sm text-foreground">{nextStep.text}</p>
         </div>
-      )}
+        <div>
+          {nextStep.cta && nextStep.action && (
+            <Button
+              size="sm"
+              className={`h-7 text-xs gap-1.5 ${styles.btn}`}
+              onClick={nextStep.action}
+            >
+              {nextStep.cta}
+            </Button>
+          )}
+        </div>
+      </div>
     </div>
   );
 };

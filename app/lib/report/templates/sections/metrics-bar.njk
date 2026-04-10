@@ -1,0 +1,17 @@
+{% from "macros/cards.njk" import metric_card, chart %}
+
+<div class="metrics-bar">
+  {{ metric_card(metrics.capabilityCount, "Capabilities") }}
+  {{ metric_card(metrics.integrationCount, "Integrations") }}
+  {{ metric_card(metrics.knowledgeCount, "Knowledge") }}
+  {{ metric_card(metrics.totalTests, "Eval Tests") }}
+  {% if metrics.overallPassRate is not none %}
+  {{ metric_card(metrics.overallPassRate, "Pass Rate", "%") }}
+  {% endif %}
+</div>
+
+{% if charts.readiness_gauge %}
+<div class="flex items-center gap-2 mb-4" style="justify-content: center;">
+  {{ chart(charts.readiness_gauge) }}
+</div>
+{% endif %}

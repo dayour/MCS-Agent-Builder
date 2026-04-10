@@ -310,10 +310,10 @@ async function chatCompletion(messages, options = {}) {
     const useCache = options.cache !== false;
 
     // --- Auto-scale max_output_tokens based on reasoning effort ---
-    // Reasoning tokens eat into the output budget. With 'high' effort and 4096 max,
-    // the model can spend all tokens thinking and return empty content.
-    const EFFORT_MAX_TOKENS = { none: 8192, low: 12288, medium: 16384, high: 16384, xhigh: 32768 };
-    const maxTokens = options.maxTokens ?? EFFORT_MAX_TOKENS[reasoningEffort] ?? 8192;
+    // Reasoning tokens eat into the output budget. Model supports 128K output.
+    // Be generous — cost is not a concern, empty/truncated responses are.
+    const EFFORT_MAX_TOKENS = { none: 16384, low: 32768, medium: 32768, high: 65536, xhigh: 100000 };
+    const maxTokens = options.maxTokens ?? EFFORT_MAX_TOKENS[reasoningEffort] ?? 16384;
 
     // --- Response Cache Check ---
     const cacheKeyVal = useCache ? _cacheKey(messages, model, reasoningEffort, maxTokens) : null;
@@ -322,9 +322,11 @@ async function chatCompletion(messages, options = {}) {
         if (cached) return { ...cached, cached: true };
     }
 
-    // Scale timeout based on reasoning effort — high/xhigh need more time
-    const EFFORT_TIMEOUTS = { none: 30000, low: 45000, medium: 60000, high: 120000, xhigh: 300000 };
-    const defaultTimeout = EFFORT_TIMEOUTS[reasoningEffort] ?? 60000;
+    // Scale timeout based on reasoning effort — high/xhigh need much more time.
+    // GPT-5.4 with high reasoning on large context can take 60-180s.
+    // Previous 120s timeout caused cascading retry failures.
+    const EFFORT_TIMEOUTS = { none: 60000, low: 90000, medium: 120000, high: 300000, xhigh: 600000 };
+    const defaultTimeout = EFFORT_TIMEOUTS[reasoningEffort] ?? 90000;
     const timeout = options.timeout ?? defaultTimeout;
     const retries = options.retries ?? 3;
 
@@ -358,6 +360,11 @@ async function chatCompletion(messages, options = {}) {
         const usage = normalizeUsage(res.data);
         const cost = estimateCost(usage);
 
+        // Detect truncation: Responses API sets status="incomplete" when output hits max_output_tokens
+        const responseStatus = res.data?.status || 'completed';
+        const incompleteReason = res.data?.incomplete_details?.reason || null;
+        const truncated = responseStatus === 'incomplete' || incompleteReason === 'max_output_tokens';
+
         // Track usage
         _usage.calls++;
         _usage.inputTokens += usage.prompt_tokens;
@@ -370,7 +377,7 @@ async function chatCompletion(messages, options = {}) {
 
         // Extract response ID for conversation threading
         const responseId = res.data?.id || null;
-        const result = { content, usage, cost, cached: false, responseId };
+        const result = { content, usage, cost, cached: false, responseId, truncated, incompleteReason };
 
         // Cache the result
         if (cacheKeyVal) {
@@ -419,9 +426,9 @@ async function* streamCompletion(messages, options = {}) {
     const reasoningEffort = options.reasoningEffort ?? null;
 
     // Auto-scale max_output_tokens based on reasoning effort (same as chatCompletion)
-    const EFFORT_MAX_TOKENS = { none: 8192, low: 12288, medium: 16384, high: 16384, xhigh: 32768 };
-    const EFFORT_TIMEOUTS = { none: 30000, low: 45000, medium: 60000, high: 120000, xhigh: 300000 };
-    const defaultTimeout = EFFORT_TIMEOUTS[reasoningEffort] ?? 60000;
+    const EFFORT_MAX_TOKENS = { none: 16384, low: 32768, medium: 32768, high: 65536, xhigh: 100000 };
+    const EFFORT_TIMEOUTS = { none: 60000, low: 90000, medium: 120000, high: 300000, xhigh: 600000 };
+    const defaultTimeout = EFFORT_TIMEOUTS[reasoningEffort] ?? 90000;
     const maxTokens = options.maxTokens ?? EFFORT_MAX_TOKENS[reasoningEffort] ?? 8192;
     const timeout = options.timeout ?? defaultTimeout;
     const signal = options.signal || null;
@@ -574,10 +581,53 @@ async function* streamCompletion(messages, options = {}) {
     }
 }
 
+/**
+ * Streaming-backed completion that returns the same shape as chatCompletion.
+ * Uses SSE streaming internally to avoid timeout issues on long-running requests.
+ * The stream keeps the connection alive with incremental data, preventing
+ * the read-timeout kills that plague non-streaming mode on high-effort requests.
+ *
+ * @param {Array<{role: string, content: string}>} messages
+ * @param {object} [options] — same options as chatCompletion (except cache)
+ * @returns {Promise<{content: string, usage: object, cost: number, cached: boolean, truncated: boolean}>}
+ */
+async function streamToString(messages, options = {}) {
+    const chunks = [];
+    let finalUsage = null;
+    let finalCost = 0;
+
+    const stream = streamCompletion(messages, options);
+    for await (const event of stream) {
+        if (event.type === 'text') {
+            chunks.push(event.text);
+        } else if (event.type === 'done') {
+            finalUsage = event.usage || null;
+            finalCost = event.cost || 0;
+        } else if (event.type === 'aborted') {
+            break;
+        }
+    }
+
+    const content = chunks.join('');
+
+    // Detect truncation: if usage shows output_tokens near max_output_tokens, likely truncated
+    // (Streaming doesn't get the response.status field directly, so infer from content)
+    const truncated = content.length === 0 && finalUsage && finalUsage.completion_tokens > 0;
+
+    return {
+        content,
+        usage: finalUsage || { prompt_tokens: 0, completion_tokens: 0, reasoning_tokens: 0, total_tokens: 0 },
+        cost: finalCost,
+        cached: false,
+        truncated,
+    };
+}
+
 module.exports = {
     isConfigured,
     chatCompletion,
     streamCompletion,
+    streamToString,
     estimateTokens,
     estimateCost,
     getUsageSummary,

@@ -1,0 +1,29 @@
+{% from "macros/cards.njk" import phase_pill %}
+
+<section id="knowledge">
+  <div class="section-heading">
+    <h2>Knowledge Sources</h2>
+    <span class="subtitle">{{ knowledgeSources | length }} total</span>
+    <span class="toggle-icon">&#9662;</span>
+  </div>
+  <div class="section-body">
+    {% if knowledgeSources | length > 0 %}
+    <table class="data-table">
+      <thead><tr><th>Source</th><th>Type</th><th>Purpose</th><th>Location</th><th>Phase</th></tr></thead>
+      <tbody>
+        {% for k in knowledgeSources %}
+        <tr>
+          <td>{{ k.name }}</td>
+          <td class="cell-muted">{{ k.type }}</td>
+          <td>{{ k.purpose }}</td>
+          <td class="cell-muted">{{ k.location | safe_val }}</td>
+          <td>{{ phase_pill(k.phase) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="text-muted" style="font-size: 0.85rem; font-style: italic;">No knowledge sources defined yet.</p>
+    {% endif %}
+  </div>
+</section>

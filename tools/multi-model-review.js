@@ -49,7 +49,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { isConfigured, chatCompletion: _rawChat, estimateTokens, getUsageSummary, getActiveMethod } = require('./lib/openai');
+const { isConfigured, chatCompletion: _rawChat, streamToString: _rawStream, estimateTokens, getUsageSummary, getActiveMethod } = require('./lib/openai');
 
 // --- Reasoning Effort Tiers ---
 // Not everything needs 'high' reasoning. High effort burns reasoning tokens that eat into
@@ -112,16 +112,71 @@ function updateThread(sessionId, responseId) {
 }
 
 /**
- * Command-aware chat completion. Automatically applies the right reasoning effort
- * based on the current command type, unless explicitly overridden.
+ * Reliable chat completion with automatic streaming fallback.
+ *
+ * Strategy:
+ * 1. Try non-streaming chatCompletion (faster, supports caching)
+ * 2. On timeout or network error, retry with streaming (SSE keeps connection alive)
+ * 3. On empty content, retry once with 2x max_output_tokens
+ * 4. On truncation (finish_reason=length), warn but return what we have
  *
  * Note: Conversation threading via previous_response_id is supported in openai.js
  * but NOT by the GitHub Copilot Responses API (returns 400). Threading is disabled
  * until Copilot adds support. The thread read/write functions remain for future use.
  */
-const chatCompletion = (messages, options = {}) => {
+const chatCompletion = async (messages, options = {}) => {
     const effort = options.reasoningEffort || EFFORT_TIERS[_currentCommand] || 'medium';
-    return _rawChat(messages, { reasoningEffort: effort, ...options });
+    const mergedOptions = { reasoningEffort: effort, ...options };
+
+    // --- Attempt 1: Non-streaming ---
+    try {
+        const result = await _rawChat(messages, mergedOptions);
+
+        // Empty content check: reasoning consumed entire output budget
+        if (!result.content || result.content.trim().length === 0) {
+            console.error('  [Reliability] Empty response from non-streaming call. Retrying with streaming + 2x tokens...');
+            const streamResult = await _rawStream(messages, {
+                ...mergedOptions,
+                maxTokens: (mergedOptions.maxTokens || 65536) * 2,
+            });
+            if (!streamResult.content || streamResult.content.trim().length === 0) {
+                console.error('  [Reliability] Empty response from streaming retry too. Returning error.');
+                return { ...streamResult, content: '{"_error":"empty_response","_reason":"GPT returned empty content after streaming retry. Reasoning tokens may have consumed entire output budget."}' };
+            }
+            return streamResult;
+        }
+
+        // Truncation warning
+        if (result.truncated) {
+            console.error(`  [Reliability] Response truncated (reason: ${result.incompleteReason || 'max_output_tokens'}). Output may be incomplete.`);
+        }
+
+        return result;
+    } catch (err) {
+        const isTimeout = err.message && (err.message.includes('timeout') || err.message.includes('Timeout'));
+        const isNetwork = err.message && (err.message.includes('ECONNRESET') || err.message.includes('ECONNREFUSED') || err.message.includes('socket hang up'));
+
+        if (isTimeout || isNetwork) {
+            // --- Attempt 2: Streaming fallback (SSE keeps connection alive) ---
+            console.error(`  [Reliability] Non-streaming failed (${isTimeout ? 'timeout' : 'network'}). Falling back to streaming...`);
+            try {
+                const streamResult = await _rawStream(messages, mergedOptions);
+
+                if (!streamResult.content || streamResult.content.trim().length === 0) {
+                    return { ...streamResult, content: '{"_error":"empty_response","_reason":"GPT returned empty content via streaming fallback."}' };
+                }
+
+                return streamResult;
+            } catch (streamErr) {
+                // Both methods failed
+                console.error(`  [Reliability] Streaming fallback also failed: ${streamErr.message}`);
+                throw streamErr;
+            }
+        }
+
+        // Non-timeout error — don't retry, just throw
+        throw err;
+    }
 };
 
 // --- Knowledge file mapping per command ---
@@ -867,15 +922,71 @@ Setup:    gh auth login && gh auth refresh --scopes copilot`);
 }
 
 /**
- * Parse JSON from GPT response, handling markdown code fences.
+ * Parse JSON from GPT response with robust extraction.
+ *
+ * Handles: markdown fences, prose before/after JSON, whitespace variants,
+ * BOM characters, and multiple fence styles. Does NOT repair truncated JSON —
+ * truncated output is a real error that should be retried, not silently corrupted.
+ *
+ * @param {string} content - Raw GPT response text
+ * @returns {object} Parsed JSON object
+ * @throws {Error} With descriptive message on parse failure
  */
 function parseGptJson(content) {
-    // Strip markdown code fences if present
-    let cleaned = content.trim();
-    if (cleaned.startsWith('```')) {
-        cleaned = cleaned.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '');
+    if (!content || content.trim().length === 0) {
+        throw new Error('GPT returned empty content — no JSON to parse');
     }
-    return JSON.parse(cleaned);
+
+    let cleaned = content.trim();
+
+    // Strip BOM if present
+    if (cleaned.charCodeAt(0) === 0xFEFF) cleaned = cleaned.slice(1);
+
+    // Check for embedded error objects from reliability layer
+    try {
+        const quick = JSON.parse(cleaned);
+        if (quick._error) return quick; // Pass through error objects
+        return quick;
+    } catch { /* continue with extraction */ }
+
+    // Strategy 1: Strip markdown code fences (multiple patterns)
+    const fencePatterns = [
+        /^```json\s*\n([\s\S]*?)\n```\s*$/,    // ```json ... ```
+        /^```\s*\n([\s\S]*?)\n```\s*$/,          // ``` ... ```
+        /^```json\s*\n([\s\S]*?)```\s*$/,         // no trailing newline
+        /^```\s*\n([\s\S]*?)```\s*$/,             // no trailing newline, no lang
+    ];
+    for (const pattern of fencePatterns) {
+        const match = cleaned.match(pattern);
+        if (match) {
+            try { return JSON.parse(match[1].trim()); } catch { /* try next */ }
+        }
+    }
+
+    // Strategy 2: Find the outermost { ... } in the content
+    // This handles prose before/after the JSON object
+    const firstBrace = cleaned.indexOf('{');
+    const lastBrace = cleaned.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace > firstBrace) {
+        const extracted = cleaned.slice(firstBrace, lastBrace + 1);
+        try { return JSON.parse(extracted); } catch { /* fall through */ }
+    }
+
+    // Strategy 3: Find outermost [ ... ] (some commands return arrays)
+    const firstBracket = cleaned.indexOf('[');
+    const lastBracket = cleaned.lastIndexOf(']');
+    if (firstBracket !== -1 && lastBracket > firstBracket) {
+        const extracted = cleaned.slice(firstBracket, lastBracket + 1);
+        try { return JSON.parse(extracted); } catch { /* fall through */ }
+    }
+
+    // All strategies failed — provide helpful error
+    const preview = cleaned.substring(0, 300).replace(/\n/g, '\\n');
+    const endsWithBrace = cleaned.trimEnd().endsWith('}') || cleaned.trimEnd().endsWith(']');
+    const hint = !endsWithBrace
+        ? ' (content does not end with } or ] — likely truncated)'
+        : ' (content has matching braces but JSON is malformed)';
+    throw new Error(`Failed to parse GPT JSON response${hint}. Preview: ${preview}`);
 }
 
 // --- Command Handlers ---
@@ -1041,7 +1152,7 @@ async function scoreResponse(config) {
     const result = await chatCompletion([
         { role: 'system', content: PROMPTS[promptKey] + '\n\n' + context },
         { role: 'user', content: userContent }
-    ], { maxTokens: 16384 });
+    ]);
 
     const parsed = parseGptJson(result.content);
     parsed._usage = result.usage;
@@ -1096,7 +1207,7 @@ ${topics.map(t => `- **${t.name}** [trigger: ${t.triggerType || 'unknown'}, type
     const result = await chatCompletion([
         { role: 'system', content: PROMPTS['generate-instructions'] + '\n\n' + context },
         { role: 'user', content: userContent }
-    ], { maxTokens: 16384 });
+    ]);
 
     const parsed = parseGptJson(result.content);
     parsed._usage = result.usage;
@@ -1159,7 +1270,7 @@ ${topics.map(t => `- **${t.name}** [trigger: ${t.triggerType || 'unknown'}]`).jo
     const result = await chatCompletion([
         { role: 'system', content: PROMPTS['generate-evals'] + '\n\n' + context },
         { role: 'user', content: userContent }
-    ], { maxTokens: 16384 });
+    ]);
 
     const parsed = parseGptJson(result.content);
     parsed._usage = result.usage;
@@ -1197,7 +1308,7 @@ ${briefContext}`;
     const result = await chatCompletion([
         { role: 'system', content: PROMPTS['generate-topics'] + '\n\n' + context },
         { role: 'user', content: userContent }
-    ], { maxTokens: 16384 });
+    ]);
 
     const parsed = parseGptJson(result.content);
     parsed._usage = result.usage;
@@ -1254,7 +1365,7 @@ ${topics.map(t => `- **${t.name}** [type: ${t.topicType || 'custom'}]`).join('\n
     const result = await chatCompletion([
         { role: 'system', content: PROMPTS['generate-components'] + '\n\n' + context },
         { role: 'user', content: userContent }
-    ], { maxTokens: 16384 });
+    ]);
 
     const parsed = parseGptJson(result.content);
     parsed._usage = result.usage;
@@ -1305,7 +1416,7 @@ ${capabilities.map(c => `- **${c.name}** [type: ${c.implementationType || 'promp
     const result = await chatCompletion([
         { role: 'system', content: PROMPTS['generate-flow'] + '\n\n' + context },
         { role: 'user', content: userContent }
-    ], { maxTokens: 16384 });
+    ]);
 
     const parsed = parseGptJson(result.content);
     parsed._usage = result.usage;
@@ -1392,7 +1503,7 @@ ${failures.map((f, i) => `
     const result = await chatCompletion([
         { role: 'system', content: PROMPTS['generate-fix'] + '\n\n' + context },
         { role: 'user', content: userContent }
-    ], { maxTokens: 16384 });
+    ]);
 
     const parsed = parseGptJson(result.content);
     parsed._usage = result.usage;
@@ -1567,7 +1678,7 @@ async function reviewMerged(config) {
     const evalSets = brief.evalSets || [];
     for (const es of evalSets) {
         const tests = es.tests || [];
-        artifacts.push(`## Eval Set: ${es.name} (${tests.length} tests, threshold: ${es.threshold}%)\n${tests.map(t => `- Q: ${t.question} | E: ${t.expected}`).join('\n')}`);
+        artifacts.push(`## Eval Set: ${es.name} (${tests.length} tests, threshold: ${es.passThreshold ?? es.threshold}%)\n${tests.map(t => `- Q: ${t.question} | E: ${t.expected}`).join('\n')}`);
     }
 
     // Topic YAML files if they exist
@@ -1591,7 +1702,7 @@ async function reviewMerged(config) {
     const result = await chatCompletion([
         { role: 'system', content: PROMPTS['review-merged'] + '\n\n' + context },
         { role: 'user', content: userContent }
-    ], { maxTokens: 16384 });
+    ]);
 
     const parsed = parseGptJson(result.content);
     parsed._usage = result.usage;
@@ -1686,7 +1797,7 @@ ${contextNote}${checklistSection}${memorySection}${importContextSection}${withFi
     const result = await chatCompletion([
         { role: 'system', content: PROMPTS['review-code'] + '\n\n' + context },
         { role: 'user', content: userContent }
-    ], { maxTokens: 16384 });
+    ]);
 
     const parsed = parseGptJson(result.content);
     parsed._usage = result.usage;
@@ -2124,11 +2235,32 @@ async function main() {
     } catch (err) {
         if (err.code === 'NOT_CONFIGURED') {
             console.error(JSON.stringify({ error: err.message }));
-            // Write unavailable attestation so Stop hook knows GPT was attempted
             writeAttestation(config.command, 'unavailable');
             process.exit(3);
         }
-        console.error(JSON.stringify({ error: err.message }));
+
+        // Classify the error for better diagnostics
+        const msg = err.message || '';
+        let errorClass = 'unknown';
+        if (msg.includes('timeout') || msg.includes('Timeout')) errorClass = 'timeout';
+        else if (msg.includes('ECONNRESET') || msg.includes('socket hang up')) errorClass = 'network';
+        else if (msg.includes('429')) errorClass = 'rate_limit';
+        else if (msg.includes('empty content') || msg.includes('Empty')) errorClass = 'empty_response';
+        else if (msg.includes('truncated') || msg.includes('does not end with')) errorClass = 'truncated';
+        else if (msg.includes('parse') || msg.includes('JSON') || msg.includes('Unexpected token')) errorClass = 'json_parse';
+        else if (msg.includes('API returned')) errorClass = 'api_error';
+
+        console.error(JSON.stringify({
+            error: msg,
+            errorClass,
+            command: config.command,
+            effort: EFFORT_TIERS[config.command] || 'medium',
+            hint: errorClass === 'timeout' ? 'GPT took too long. The streaming fallback should have caught this — check network.'
+                : errorClass === 'json_parse' ? 'GPT returned non-JSON output. Response may have been truncated by max_output_tokens.'
+                : errorClass === 'empty_response' ? 'GPT reasoning consumed entire output token budget.'
+                : errorClass === 'rate_limit' ? 'GitHub Copilot API rate limit. Wait and retry.'
+                : 'Unexpected error. Check API status and auth.'
+        }));
         process.exit(1);
     }
 }
@@ -2136,6 +2268,7 @@ async function main() {
 /**
  * Write attestation file proving GPT was invoked this session.
  * The Stop hook reads this to enforce dual-model co-generation.
+ * Also cleans up stale attestation/pending files older than 24h.
  */
 function writeAttestation(command, status = 'success') {
     try {
@@ -2163,6 +2296,21 @@ function writeAttestation(command, status = 'success') {
         });
         record.lastUpdated = new Date().toISOString();
         fs.writeFileSync(attestPath, JSON.stringify(record, null, 2));
+
+        // --- Garbage collect stale files (>24h) on every write ---
+        // Prevents unbounded accumulation of attestation/pending files from dead sessions
+        try {
+            const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+            for (const name of fs.readdirSync(attestDir)) {
+                if (name === 'current-session.json') continue;
+                if (name === `${sessionId}.json`) continue; // don't gc current session
+                const filePath = path.join(attestDir, name);
+                const stat = fs.statSync(filePath);
+                if (stat.mtimeMs < cutoff) {
+                    fs.unlinkSync(filePath);
+                }
+            }
+        } catch { /* gc is best-effort */ }
     } catch {
         // Attestation is best-effort — never block the actual tool
     }

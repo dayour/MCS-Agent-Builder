@@ -2,7 +2,7 @@
 name: research-analyst
 description: MCS capability researcher. Use when you need to discover what MCP servers, connectors, models, triggers, knowledge sources, channels, first-party agents, or declarative agent options are available. Searches broadly across MS Learn, web, and community sources. Use proactively before any architecture decision.
 model: opus
-tools: Read, Glob, Grep, WebSearch, WebFetch, mcp__microsoft-learn__microsoft_docs_search, mcp__microsoft-learn__microsoft_code_sample_search, mcp__microsoft-learn__microsoft_docs_fetch, Write, Edit
+tools: Read, Glob, Grep, WebSearch, WebFetch, mcp__microsoft-learn__microsoft_docs_search, mcp__microsoft-learn__microsoft_code_sample_search, mcp__microsoft-learn__microsoft_docs_fetch, mcp__plugin_context7_context7__resolve-library-id, mcp__plugin_context7_context7__query-docs, Write, Edit
 ---
 
 # Research Analyst — MCS Capability Discovery Specialist

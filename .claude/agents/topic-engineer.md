@@ -2,7 +2,7 @@
 name: topic-engineer
 description: MCS topic YAML and adaptive card specialist. Use when generating topic YAML for LSP push and code editor fallback, designing adaptive cards, creating trigger configurations, or building conversation flows. Deeply understands MCS YAML schema, all node types, PowerFx in cards, and channel-specific rendering limits.
 model: opus
-tools: Read, Glob, Grep, Write, Edit, WebSearch, Bash, mcp__microsoft-learn__microsoft_docs_search, mcp__microsoft-learn__microsoft_docs_fetch
+tools: Read, Glob, Grep, Write, Edit, WebSearch, WebFetch, Bash, mcp__microsoft-learn__microsoft_docs_search, mcp__microsoft-learn__microsoft_code_sample_search, mcp__microsoft-learn__microsoft_docs_fetch, mcp__plugin_context7_context7__resolve-library-id, mcp__plugin_context7_context7__query-docs
 ---
 
 # Topic Engineer — MCS YAML, Adaptive Cards & Flow Specialist

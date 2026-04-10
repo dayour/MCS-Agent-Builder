@@ -518,14 +518,15 @@ function doctor() {
     return { ok: false, detail: "not built", fix: "npm run frontend:build" };
   });
 
-  // 12. node-pty prebuilt
-  check("Terminal (node-pty)", () => {
+  // 12. Claude API (via Copilot passthrough)
+  check("Claude API (Copilot)", () => {
     try {
-      const pty = require("@homebridge/node-pty-prebuilt-multiarch");
-      if (typeof pty.spawn === "function") return { ok: true, detail: "prebuilt binaries loaded" };
-      return { ok: false, detail: "module loaded but spawn missing", fix: "npm install" };
+      const api = require("../tools/lib/anthropic");
+      const method = api.getActiveMethod();
+      if (method) return { ok: true, detail: `${method} — all models available` };
+      return { ok: false, detail: "not configured", fix: "gh auth login && gh auth refresh --scopes copilot" };
     } catch (e) {
-      return { ok: false, detail: e.message.split("\n")[0], fix: "npm install" };
+      return { ok: false, detail: e.message.split("\n")[0], fix: "check tools/lib/anthropic.js" };
     }
   });
 

@@ -9,7 +9,9 @@ paths:
 
 # Agent Teams (Experimental)
 
-Agent Teams enables bidirectional communication between specialist teammates who challenge each other's work. The lead orchestrates, teammates do the reasoning and generation, and the lead handles MCS execution (LSP Wrapper, Island Gateway API, PAC CLI, Dataverse) because MCP access in teammates is unreliable.
+Agent Teams enables bidirectional communication between specialist teammates who challenge each other's work. The lead orchestrates, teammates do the reasoning and generation, and the lead handles MCS execution (LSP Wrapper, Island Gateway API, PAC CLI, Dataverse).
+
+All teammates (except Repo Auditor) have context7 MCP for non-Microsoft library docs and full Microsoft Learn MCP (search + code samples + fetch). Repo Auditor stays lean — local file analysis only. No agent has Skill tool access — the lead invokes plugins on their behalf when needed.
 
 Enabled via: `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` in `.claude/settings.json`
 

@@ -122,6 +122,12 @@ function setProvenance(brief, fieldName, setBy, sourceFiles) {
   };
 }
 
+/** Build patch metadata for context-refresh mode. */
+function refreshMeta(job) {
+  if (!job?.forceRefresh) return {};
+  return { _forceRefresh: true, _source: "context-refresh" };
+}
+
 /** Merge enrichment results into existing brief (read-modify-write). */
 async function mergeToBrief(agentDir, patch) {
   const lock = getWriteLock(agentDir).then(() => {
@@ -129,12 +135,13 @@ async function mergeToBrief(agentDir, patch) {
     const brief = JSON.parse(fs.readFileSync(briefPath, "utf-8"));
     const patchSource = patch._source || "enrichment";
     const patchSourceFiles = patch._sourceFiles || [];
+    const forceRefresh = patch._forceRefresh || false;
 
     // Apply patch fields
     for (const [key, value] of Object.entries(patch)) {
       if (value === undefined) continue;
       // Skip internal patch metadata
-      if (key === "_source" || key === "_sourceFiles" || key === "_jobId") continue;
+      if (key === "_source" || key === "_sourceFiles" || key === "_jobId" || key === "_forceRefresh") continue;
 
       if (key === "_enrichment") {
         // Merge enrichment metadata, don't overwrite (multiple workers write subfields)
@@ -154,7 +161,7 @@ async function mergeToBrief(agentDir, patch) {
         brief.workflow = brief.workflow || {};
         Object.assign(brief.workflow, value);
       } else if (key === "evalSets" && Array.isArray(value)) {
-        if (isUserEdited(brief, "evalSets")) {
+        if (isUserEdited(brief, "evalSets") && !forceRefresh) {
           // Preserve user-edited/added tests, append new enrichment tests
           const existingTests = new Set();
           for (const es of brief.evalSets || []) {
@@ -183,7 +190,7 @@ async function mergeToBrief(agentDir, patch) {
           setProvenance(brief, "evalSets", patchSource, patchSourceFiles);
         }
       } else if (key === "instructions" && typeof value === "string") {
-        if (isUserEdited(brief, "instructions")) {
+        if (isUserEdited(brief, "instructions") && !forceRefresh) {
           console.log("[enrichment] Skipping instructions — user-edited");
         } else {
           brief.instructions = value;
@@ -366,28 +373,50 @@ async function enrichScoring(job) {
 
     // Run resolver on all capabilities
     const resolvedCaps = knowledgeResolver.resolveCapabilities(caps);
-    knowledgeResolver.resolveIntegrations(integ); // Validates integrations (results used in research worker)
-    knowledgeResolver.resolveKnowledge(brief.knowledge || []); // Validates knowledge (results used in research worker)
-    const fpMatches = knowledgeResolver.matchFirstPartyAgents(caps);
-    const buildPath = knowledgeResolver.suggestBuildPath({
-      capabilities: caps,
-      integrations: integ,
-      architecture: brief.architecture,
-    });
+    knowledgeResolver.resolveIntegrations(integ);
+    knowledgeResolver.resolveKnowledge(brief.knowledge || []);
 
-    // Merge resolved data back
+    // Enrich capabilities with resolved implementation types BEFORE scoring
     const enrichedCaps = caps.map((c, i) => ({
       ...c,
       implementationType: resolvedCaps[i]?.suggestedType || c.implementationType,
       _patternMatch: resolvedCaps[i]?.matchedPattern?.id || c._patternMatch,
     }));
 
+    // Solution type scoring (CA vs Flow) — uses enriched capabilities
+    const buildPath = knowledgeResolver.suggestBuildPath({
+      capabilities: enrichedCaps,
+      integrations: integ,
+      architecture: brief.architecture,
+      agent: brief.agent,
+      identity: brief.identity,
+    });
+
+    // Architecture scoring (single vs multi-agent) — only if agent or hybrid
+    let archResult = null;
+    if (buildPath.solutionType === "agent" || buildPath.solutionType === "hybrid") {
+      const archFactors = {
+        domain: false,
+        dataSources: false,
+        teamOwnership: false,
+        reusability: false,
+        instructionSize: enrichedCaps.length > 12,
+        knowledgeIsolation: false,
+      };
+      archResult = knowledgeResolver.scoreArchitecture(archFactors);
+    }
+
     await mergeToBrief(job.projectPath, {
+      ...refreshMeta(job),
       capabilities: enrichedCaps,
       architecture: {
         buildPath: buildPath.buildPath,
         buildPathReason: buildPath.reason,
-        frontierAgentMatch: fpMatches.map((m) => ({
+        solutionType: buildPath.solutionType,
+        solutionTypeScore: buildPath.score,
+        solutionTypeFactors: buildPath.factors,
+        ...(archResult ? { type: archResult.type, archScore: archResult.score, archReason: archResult.reason } : {}),
+        frontierAgentMatch: (buildPath.fpMatches || []).map((m) => ({
           agentName: m.agentName,
           tier: m.tier,
           matchedCapabilities: m.matchedCapabilities,
@@ -399,13 +428,15 @@ async function enrichScoring(job) {
           completedAt: new Date().toISOString(),
           resolvedCapabilities: resolvedCaps.length,
           resolvedIntegrations: integ.length,
-          fpMatches: fpMatches.length,
+          fpMatches: (buildPath.fpMatches || []).length,
           buildPath: buildPath.buildPath,
+          solutionTypeScore: buildPath.score,
+          archScore: archResult?.score ?? null,
         },
       },
     });
 
-    updateStep(job, "scoring", "completed", `${resolvedCaps.length} capabilities resolved`);
+    updateStep(job, "scoring", "completed", `${buildPath.buildPath} (score ${buildPath.score}/5)`);
   } catch (err) {
     job.errors.push(`scoring: ${err.message}`);
     updateStep(job, "scoring", "failed", err.message);
@@ -464,7 +495,7 @@ Response format: ${brief.agent?.responseFormat || "Not specified"}`;
 
     const instructions = await callClaude(systemPrompt, userMsg);
 
-    await mergeToBrief(job.projectPath, { instructions });
+    await mergeToBrief(job.projectPath, { ...refreshMeta(job), instructions });
     updateStep(job, "instructions", "completed", `${instructions.length} chars generated`);
   } catch (err) {
     job.errors.push(`instructions: ${err.message}`);
@@ -565,6 +596,7 @@ Relevant scenario categories: ${relevantScenarios.map((s) => s.id).join(", ") ||
     });
 
     await mergeToBrief(job.projectPath, {
+      ...refreshMeta(job),
       evalSets: normalizedSets,
       workflow: { evalStubsGeneratedAt: new Date().toISOString() },
     });
@@ -674,7 +706,7 @@ async function enrichResearch(job) {
         workiqAdded.push("Work IQ User");
       }
       if (workiqAdded.length > 0) {
-        await mergeToBrief(job.projectPath, { integrations });
+        await mergeToBrief(job.projectPath, { ...refreshMeta(job), integrations });
         notifyListeners(job, { type: "info", message: `Auto-added ${workiqAdded.join(" + ")} for M365 data access` });
       }
     }
@@ -693,6 +725,7 @@ async function enrichResearch(job) {
     }
 
     await mergeToBrief(job.projectPath, {
+      ...refreshMeta(job),
       recommendations: [
         ...(brief.recommendations || []),
         ...needsResearch.map((i) => ({
@@ -831,7 +864,7 @@ Output format:
     }
 
     if (Object.keys(patch).length > 0) {
-      await mergeToBrief(job.projectPath, patch);
+      await mergeToBrief(job.projectPath, { ...refreshMeta(job), ...patch });
     }
 
     const summary = [
@@ -869,8 +902,9 @@ Output format:
  */
 function startEnrichment(agentDir, options = {}) {
   const job = createJob(agentDir);
-  const { deltaFiles, projectDir, onComplete } = options;
+  const { deltaFiles, projectDir, onComplete, forceRefresh } = options;
   const isDelta = Array.isArray(deltaFiles) && deltaFiles.length > 0 && projectDir;
+  if (forceRefresh) job.forceRefresh = true;
 
   // Add docExtract step to job if delta mode
   if (isDelta) {
@@ -888,7 +922,7 @@ function startEnrichment(agentDir, options = {}) {
 
         // Run remaining workers (scoring always, others conditionally)
         const brief = readBrief(agentDir);
-        const skipInstructions = brief?._provenance?.instructions?.lastSetBy === "user";
+        const skipInstructions = brief?._provenance?.instructions?.lastSetBy === "user" && !forceRefresh;
 
         const workers = [enrichScoring(job), enrichResearch(job)];
         if (!skipInstructions) workers.push(enrichInstructions(job));

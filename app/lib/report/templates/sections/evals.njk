@@ -1,0 +1,59 @@
+{% from "macros/cards.njk" import status_pill, chart %}
+
+<section id="evals">
+  <div class="section-heading">
+    <h2>Evaluation Sets</h2>
+    <span class="subtitle">{{ metrics.totalTests }} tests{% if metrics.overallPassRate is not none %} &middot; {{ metrics.overallPassRate }}% pass{% endif %}</span>
+    <span class="toggle-icon">&#9662;</span>
+  </div>
+  <div class="section-body">
+    {% if charts.eval_pass_rate %}
+    {{ chart(charts.eval_pass_rate) }}
+    {% endif %}
+
+    {% for set in evalSets %}
+    {% if set.tests | length > 0 %}
+    <div class="card mb-2">
+      <div class="flex items-center gap-2 mb-2">
+        <strong style="font-size: 0.95rem; text-transform: capitalize;">{{ set.name }}</strong>
+        <span class="text-muted" style="font-size: 0.8rem;">target: {{ set.passThreshold }}%</span>
+        {% if set.passRate is not none %}
+        <span class="pill {% if set.passRate >= set.passThreshold %}status-confirmed{% else %}status-failing{% endif %}">
+          {{ set.passRate }}%
+        </span>
+        {% endif %}
+      </div>
+      {% if set.description %}
+      <p class="text-muted" style="font-size: 0.82rem; margin-bottom: 8px;">{{ set.description }}</p>
+      {% endif %}
+
+      <table class="data-table">
+        <thead><tr><th>Question</th><th>Expected</th><th>Capability</th><th>Result</th></tr></thead>
+        <tbody>
+          {% for t in set.tests %}
+          <tr>
+            <td>{{ t.question }}</td>
+            <td class="cell-muted">{{ t.expected | safe_val }}</td>
+            <td class="cell-muted">{{ t.capability | safe_val }}</td>
+            <td>
+              {% if not t.lastResult %}
+              <span class="text-subtle">&mdash;</span>
+              {% elif t.lastResult.pass %}
+              <span class="text-green font-semibold">Pass</span>
+              {% else %}
+              <span class="text-red font-semibold">Fail</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+    {% endfor %}
+
+    {% if evalSets | length == 0 or metrics.totalTests == 0 %}
+    <p class="text-muted" style="font-size: 0.85rem; font-style: italic;">No eval tests defined yet.</p>
+    {% endif %}
+  </div>
+</section>

@@ -2,12 +2,15 @@
 /**
  * MCS Agent Builder — Express.js Server
  *
- * Port of server.py — single process serving:
+ * Serves:
  *   - REST API for project/agent/document CRUD
  *   - Pre-built React SPA (app/dist/)
- *   - WebSocket terminal (node-pty) on /ws path
+ *   - API-direct skill pipelines (research, build, eval, fix)
+ *   - Helper chatbot API
  *
- * No Python dependency. No separate terminal sidecar.
+ * All AI operations use direct API calls via GitHub Copilot passthrough
+ * (tools/lib/anthropic.js for Claude Opus, tools/lib/openai.js for GPT-5.4).
+ * No CLI dependency, no PTY, no node-pty.
  *
  * Usage: node app/server.js
  *   env PORT=8000 (default)
@@ -16,7 +19,6 @@
 
 const express = require("express");
 const http = require("http");
-const { WebSocketServer } = require("ws");
 const cors = require("cors");
 const multer = require("multer");
 const { execFileSync, exec } = require("child_process");
@@ -26,14 +28,6 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 
-let attachTerminal;
-try {
-  ({ attachTerminal } = require("./lib/terminal"));
-} catch (e) {
-  console.warn("[server] Terminal unavailable (node-pty not installed). Dashboard will work but terminal sessions will fail.");
-  console.warn("[server] Fix: npm install @homebridge/node-pty-prebuilt-multiarch");
-  attachTerminal = () => {}; // no-op — WebSocket connections will be accepted but no PTY spawned
-}
 const { migrateBrief } = require("./lib/brief-migrate");
 const { convertDocument, extractContent, NEEDS_CONVERSION } = require("./lib/documents");
 const { isWorkIQAvailable, checkWorkIQAuth, runQueriesBatched, buildQueries, deduplicateDocuments, assembleContextFileIncremental, extractSharePointUrls, downloadAndConvertFiles, escapeMd } = require("./lib/workiq");
@@ -42,12 +36,14 @@ const {
   listProjects,
   getProject,
   getDocStatus,
+  loadManifest,
   markDocsProcessed,
   humanizeName,
 } = require("./lib/projects");
 const { handleWizardChat, handleWizardSave, handleWizardPrefetch } = require("./lib/wizard");
 const { startEnrichment, getJob } = require("./lib/enrichment");
-const buildRunner = require("./lib/build-runner");
+const pipeline = require("./lib/pipeline");
+const scheduler = require("./lib/scheduler");
 
 // ---------------------------------------------------------------------------
 // Paths
@@ -107,13 +103,6 @@ const upload = multer({
 });
 
 // ---------------------------------------------------------------------------
-// WebSocket terminal — same port, /ws path
-// ---------------------------------------------------------------------------
-
-const wss = new WebSocketServer({ server, path: "/ws" });
-attachTerminal(wss, BASE_DIR);
-
-// ---------------------------------------------------------------------------
 // Helpers — path safety
 // ---------------------------------------------------------------------------
 
@@ -134,15 +123,10 @@ function assertWithin(base, target) {
 
 // Health check
 app.get("/health", (req, res) => {
-  res.json({ status: "ok", terminal: wss.clients.size > 0 });
+  res.json({ status: "ok" });
 });
 app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", terminal: wss.clients.size > 0 });
-});
-
-// Config — terminal WS is now same port
-app.get("/api/config", (req, res) => {
-  res.json({ terminalWsUrl: `ws://localhost:${PORT}/ws` });
+  res.json({ status: "ok" });
 });
 
 // --- Projects ---
@@ -361,6 +345,35 @@ app.post("/api/projects/:projectId/agents/:agentId/scaffold-children", (req, res
   res.json({ created, message: `Created ${created.length} agent folder(s)` });
 });
 
+// --- HTML Report Export ---
+
+app.get("/api/projects/:projectId/agents/:agentId/report", async (req, res) => {
+  const projectId = safeSlug(req.params.projectId);
+  const agentId = safeSlug(req.params.agentId);
+  const type = (req.query.type || "brief").toLowerCase();
+
+  const { renderReport, VALID_TYPES } = require("./lib/report");
+  if (!VALID_TYPES.includes(type)) {
+    return res.status(400).json({ detail: `Invalid report type '${type}'. Must be one of: ${VALID_TYPES.join(", ")}` });
+  }
+
+  const briefFile = path.join(BUILD_GUIDES, projectId, "agents", agentId, "brief.json");
+  if (!assertWithin(BUILD_GUIDES, briefFile) || !fs.existsSync(briefFile)) {
+    return res.status(404).json({ detail: `Brief not found for agent '${agentId}'` });
+  }
+
+  try {
+    const html = await renderReport(briefFile, type, { agentName: agentId, projectId, agentId });
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Content-Disposition", `attachment; filename="${agentId}-${type}-report.html"`);
+    res.send(html);
+  } catch (err) {
+    console.error("[server] Report generation failed:", err);
+    res.status(500).json({ detail: `Report generation failed: ${err.message}` });
+  }
+});
+
 app.delete("/api/projects/:projectId/agents/:agentId", (req, res) => {
   const projectId = safeSlug(req.params.projectId);
   const agentId = safeSlug(req.params.agentId);
@@ -428,6 +441,9 @@ app.post("/api/projects/:projectId/upload", upload.single("file"), async (req, r
     path: `Build-Guides/${req.params.projectId}/docs/${finalName}`,
     briefOutdated,
   });
+
+  // Notify pipeline settling window (auto-triggers analyze after 5s quiet)
+  pipeline.notifyDocChange(req.params.projectId);
 });
 
 app.post("/api/projects/:projectId/paste", (req, res) => {
@@ -463,6 +479,9 @@ app.post("/api/projects/:projectId/paste", (req, res) => {
     size: text.length,
     path: `Build-Guides/${req.params.projectId}/docs/${mdName}`,
   });
+
+  // Notify pipeline settling window
+  pipeline.notifyDocChange(req.params.projectId);
 });
 
 app.get("/api/projects/:projectId/doc-status", (req, res) => {
@@ -727,7 +746,110 @@ app.post("/api/projects/:projectId/pull-m365", async (req, res) => {
     sendSSE({ type: "error", detail: `Unexpected error: ${e.message}` });
   }
 
+  // Notify pipeline settling window after M365 pull completes (files landed in docs/)
+  pipeline.notifyDocChange(req.params.projectId);
+
   res.end();
+});
+
+// ---------------------------------------------------------------------------
+// Pipeline Events SSE — docs-settled, auto-chain, eval-complete
+// ---------------------------------------------------------------------------
+
+app.get("/api/pipeline/events/:projectId", (req, res) => {
+  const { projectId } = req.params;
+  if (!/^[\w-]+$/.test(projectId)) {
+    return res.status(400).json({ error: "Invalid projectId format" });
+  }
+
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no",
+  });
+
+  // Send keepalive comment immediately
+  res.write(": connected\n\n");
+
+  const unsub = pipeline.subscribePipelineEvents(projectId, (event) => {
+    try {
+      res.write(`data: ${JSON.stringify(event)}\n\n`);
+    } catch { /* client disconnected */ }
+  });
+
+  req.on("close", unsub);
+});
+
+// ---------------------------------------------------------------------------
+// Package Endpoint — export solution + upload to SharePoint
+// ---------------------------------------------------------------------------
+
+app.post("/api/projects/:projectId/agents/:agentId/package", (req, res) => {
+  const { projectId, agentId } = req.params;
+  if (!/^[\w-]+$/.test(projectId) || !/^[\w-]+$/.test(agentId)) {
+    return res.status(400).json({ error: "Invalid projectId or agentId format" });
+  }
+
+  const agentDir = path.join(BUILD_GUIDES, projectId, "agents", agentId);
+  if (!fs.existsSync(agentDir)) {
+    return res.status(404).json({ error: `Agent '${agentId}' not found in project '${projectId}'` });
+  }
+
+  try {
+    const job = pipeline.packageAgent(projectId, agentId);
+    res.json({ jobId: job.id, status: job.status });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/package/status/:jobId", (req, res) => {
+  const job = pipeline.getPackageJob(req.params.jobId);
+  if (!job) {
+    return res.status(404).json({ error: "Package job not found" });
+  }
+
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no",
+  });
+
+  // Send current state
+  res.write(`data: ${JSON.stringify({
+    type: "state",
+    steps: job.steps,
+    status: job.status,
+    errors: job.errors,
+  })}\n\n`);
+
+  // If already done, close
+  if (job.status !== "running") {
+    res.write(`data: ${JSON.stringify({
+      type: "done",
+      status: job.status,
+      errors: job.errors,
+      steps: job.steps,
+      result: job.result,
+    })}\n\n`);
+    return res.end();
+  }
+
+  // Subscribe to live updates
+  const listener = (event) => {
+    try {
+      res.write(`data: ${JSON.stringify(event)}\n\n`);
+      if (event.type === "done") res.end();
+    } catch { /* client disconnected */ }
+  };
+  job.listeners.push(listener);
+
+  req.on("close", () => {
+    const idx = job.listeners.indexOf(listener);
+    if (idx >= 0) job.listeners.splice(idx, 1);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -1307,8 +1429,9 @@ app.post("/api/enrichment/start", (req, res) => {
 });
 
 // Delta enrichment — process only new/changed documents
+// Pass forceRefresh: true to bypass user-edit protection (context-refresh mode)
 app.post("/api/enrichment/delta", (req, res) => {
-  const { projectId, agentId } = req.body || {};
+  const { projectId, agentId, forceRefresh } = req.body || {};
   if (!projectId || !agentId) {
     return res.status(400).json({ error: "projectId and agentId required" });
   }
@@ -1328,24 +1451,45 @@ app.post("/api/enrichment/delta", (req, res) => {
     return res.json({ jobId: null, status: "no_delta", message: "No new or changed documents to process" });
   }
 
-  // Start delta enrichment with manifest update on completion
-  const job = startEnrichment(agentDir, {
-    deltaFiles,
-    projectDir,
-    onComplete: () => {
-      try {
-        markDocsProcessed(projectDir, deltaFiles, {
-          source: "enrichment",
-          matchedAgents: [agentId],
-        });
-        console.log(`[enrichment] Marked ${deltaFiles.length} docs as processed`);
-      } catch (e) {
-        console.error(`[enrichment] Failed to update manifest: ${e.message}`);
+  // When forceRefresh + context file changed, enrich ALL mapped agents
+  const contextFile = forceRefresh && deltaFiles.find((f) => f.startsWith("workiq-context-"));
+  let targetAgentIds = [agentId];
+  if (contextFile) {
+    try {
+      const manifest = loadManifest(projectDir);
+      const mapped = manifest?.docs?.[contextFile]?.agents;
+      if (Array.isArray(mapped) && mapped.length > 0) {
+        targetAgentIds = [...new Set([agentId, ...mapped])];
       }
-    },
-  });
+    } catch { /* use single agent fallback */ }
+  }
 
-  res.json({ jobId: job.id, status: job.status, deltaFiles });
+  // Start delta enrichment with manifest update on completion
+  const jobs = [];
+  for (const aid of targetAgentIds) {
+    const dir = path.join(projectDir, "agents", aid);
+    if (!fs.existsSync(path.join(dir, "brief.json"))) continue;
+    const job = startEnrichment(dir, {
+      deltaFiles,
+      projectDir,
+      forceRefresh: forceRefresh || false,
+      onComplete: () => {
+        try {
+          markDocsProcessed(projectDir, deltaFiles, {
+            source: forceRefresh ? "context-refresh" : "enrichment",
+            matchedAgents: [aid],
+          });
+          console.log(`[enrichment] Marked ${deltaFiles.length} docs as processed for ${aid}`);
+        } catch (e) {
+          console.error(`[enrichment] Failed to update manifest: ${e.message}`);
+        }
+      },
+    });
+    jobs.push({ agentId: aid, jobId: job.id, status: job.status });
+  }
+
+  const primaryJob = jobs[0] || { jobId: null, status: "no_agents" };
+  res.json({ ...primaryJob, deltaFiles, agents: jobs.map((j) => j.agentId) });
 });
 
 app.get("/api/enrichment/status/:jobId", (req, res) => {
@@ -1459,100 +1603,9 @@ app.post("/api/enrichment/reconcile", (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// Build Runner — Headless agent build with progress tracking
+// Build Runner — TODO: API-direct build pipeline (build-pipeline.js)
+// Build endpoints temporarily route through skill-runner stub
 // ---------------------------------------------------------------------------
-
-app.post("/api/build/start", (req, res) => {
-  const { projectId, agentId } = req.body || {};
-  if (!projectId || !agentId) {
-    return res.status(400).json({ error: "projectId and agentId required" });
-  }
-
-  // Validate inputs are safe path segments
-  if (!/^[\w-]+$/.test(projectId) || !/^[\w-]+$/.test(agentId)) {
-    return res.status(400).json({ error: "Invalid projectId or agentId format" });
-  }
-
-  const briefPath = path.join(BUILD_GUIDES, projectId, "agents", agentId, "brief.json");
-  if (!fs.existsSync(briefPath)) {
-    return res.status(404).json({ error: "brief.json not found" });
-  }
-
-  const baseDir = path.resolve(path.join(__dirname, ".."));
-  const job = buildRunner.startBuild(projectId, agentId, baseDir);
-  res.json({ jobId: job.id, status: job.status });
-});
-
-app.get("/api/build/status/:jobId", (req, res) => {
-  const job = buildRunner.getJob(req.params.jobId);
-  if (!job) {
-    return res.status(404).json({ error: "Build job not found" });
-  }
-
-  // SSE stream
-  res.writeHead(200, {
-    "Content-Type": "text/event-stream",
-    "Cache-Control": "no-cache",
-    Connection: "keep-alive",
-    "X-Accel-Buffering": "no",
-  });
-
-  // Send current state immediately
-  res.write(`data: ${JSON.stringify({
-    type: "state",
-    steps: job.steps,
-    status: job.status,
-    errors: job.errors,
-    authPrompt: job.authPrompt,
-  })}\n\n`);
-
-  // If already done, close
-  if (job.status === "completed" || job.status === "failed") {
-    res.write(`data: ${JSON.stringify({
-      type: "done",
-      status: job.status,
-      errors: job.errors,
-      steps: job.steps,
-    })}\n\n`);
-    return res.end();
-  }
-
-  // Subscribe to live updates
-  const listener = (event) => {
-    try {
-      res.write(`data: ${JSON.stringify(event)}\n\n`);
-      if (event.type === "done") {
-        res.end();
-      }
-    } catch { /* client disconnected */ }
-  };
-  job.listeners.push(listener);
-
-  req.on("close", () => {
-    const idx = job.listeners.indexOf(listener);
-    if (idx >= 0) job.listeners.splice(idx, 1);
-  });
-});
-
-app.post("/api/build/:jobId/auth-complete", (req, res) => {
-  const result = buildRunner.resumeAfterAuth(req.params.jobId);
-  if (result.error) {
-    return res.status(400).json({ error: result.error });
-  }
-  res.json(result);
-});
-
-app.get("/api/build/log/:jobId", (req, res) => {
-  const log = buildRunner.getJobLog(req.params.jobId);
-  if (log === null) {
-    return res.status(404).json({ error: "Build job not found" });
-  }
-  res.type("text/plain").send(log);
-});
-
-app.get("/api/build/jobs", (req, res) => {
-  res.json({ jobs: buildRunner.getAllJobs() });
-});
 
 // ---------------------------------------------------------------------------
 // Skill Runner — Generalized headless skill execution (research/eval/fix/build)
@@ -1560,15 +1613,29 @@ app.get("/api/build/jobs", (req, res) => {
 
 const skillRunner = require("./lib/skill-runner");
 
-/** Map skill type to slash command. agentId may be empty for project-level commands. */
-function buildSkillCommand(skillType, projectId, agentId) {
-  switch (skillType) {
-    case "research": return agentId ? `/mcs-research ${projectId} ${agentId}` : `/mcs-research ${projectId}`;
-    case "eval": return `/mcs-eval ${projectId} ${agentId}`;
-    case "fix": return `/mcs-fix ${projectId} ${agentId}`;
-    case "build": return `/mcs-build ${projectId} ${agentId}`;
-    default: return null;
+// ---------------------------------------------------------------------------
+// Pipeline Job Lookup — checks all API-direct pipelines
+// ---------------------------------------------------------------------------
+
+const _pipelines = [
+  () => require("./lib/research-pipeline"),
+  () => require("./lib/build-pipeline"),
+  () => require("./lib/eval-pipeline"),
+  () => require("./lib/fix-pipeline"),
+];
+
+function findJob(jobId) {
+  for (const getPipeline of _pipelines) {
+    try { const j = getPipeline().getJob(jobId); if (j) return j; } catch { /* */ }
   }
+  return skillRunner.getJob(jobId); // fallback stub
+}
+
+function findJobLog(jobId) {
+  for (const getPipeline of _pipelines) {
+    try { const l = getPipeline().getJobLog(jobId); if (l !== null) return l; } catch { /* */ }
+  }
+  return skillRunner.getJobLog(jobId);
 }
 
 app.post("/api/skill/start", (req, res) => {
@@ -1577,7 +1644,7 @@ app.post("/api/skill/start", (req, res) => {
     return res.status(400).json({ error: "skillType and projectId required" });
   }
 
-  const VALID_TYPES = ["research", "eval", "fix", "build"];
+  const VALID_TYPES = ["research", "eval", "fix", "build", "preview"];
   if (!VALID_TYPES.includes(skillType)) {
     return res.status(400).json({ error: `Invalid skillType. Must be one of: ${VALID_TYPES.join(", ")}` });
   }
@@ -1591,23 +1658,42 @@ app.post("/api/skill/start", (req, res) => {
     return res.status(400).json({ error: `agentId required for ${skillType}` });
   }
 
-  const command = buildSkillCommand(skillType, projectId, agentId || "");
-  if (!command) {
-    return res.status(400).json({ error: "Could not construct command" });
-  }
-
   const baseDir = path.resolve(path.join(__dirname, ".."));
 
+  // Research and preview use the API-direct pipeline (3-8 min vs 20-30 min PTY)
+  if (skillType === "research" || skillType === "preview") {
+    try {
+      const researchPipeline = require("./lib/research-pipeline");
+      const job = researchPipeline.startResearchPipeline(skillType, projectId, agentId || "", baseDir);
+      return res.json({ jobId: job.id, status: job.status, skillType });
+    } catch (err) {
+      return res.status(400).json({ error: err.message });
+    }
+  }
+
+  // Build, eval, fix — API-direct pipelines
   try {
-    const job = skillRunner.startSkill(skillType, command, projectId, agentId || "", baseDir);
-    res.json({ jobId: job.id, status: job.status, skillType: job.skillType });
+    let job;
+    if (skillType === "build") {
+      const buildPipeline = require("./lib/build-pipeline");
+      job = buildPipeline.startBuildPipeline(projectId, agentId, baseDir);
+    } else if (skillType === "eval") {
+      const evalPipeline = require("./lib/eval-pipeline");
+      job = evalPipeline.startEvalPipeline(projectId, agentId, baseDir);
+    } else if (skillType === "fix") {
+      const fixPipeline = require("./lib/fix-pipeline");
+      job = fixPipeline.startFixPipeline(projectId, agentId, baseDir);
+    } else {
+      return res.status(400).json({ error: `Unknown skillType: ${skillType}` });
+    }
+    res.json({ jobId: job.id, status: job.status, skillType });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
 
 app.get("/api/skill/status/:jobId", (req, res) => {
-  const job = skillRunner.getJob(req.params.jobId);
+  const job = findJob(req.params.jobId);
   if (!job) {
     return res.status(404).json({ error: "Skill job not found" });
   }
@@ -1667,7 +1753,7 @@ app.post("/api/skill/:jobId/auth-complete", (req, res) => {
 });
 
 app.get("/api/skill/log/:jobId", (req, res) => {
-  const log = skillRunner.getJobLog(req.params.jobId);
+  const log = findJobLog(req.params.jobId);
   if (log === null) {
     return res.status(404).json({ error: "Skill job not found" });
   }
@@ -1680,173 +1766,146 @@ app.get("/api/skill/jobs", (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// Meeting Co-Pilot API
+// Helper Chatbot API
 // ---------------------------------------------------------------------------
 
-const { MeetingSession } = require("./lib/meeting/meeting-session");
-const { analyzeMeeting } = require("./lib/meeting/post-meeting");
+const { loadContext, estimateTokenCount } = require("./lib/helper/context-loader");
+const { ChatEngine } = require("./lib/helper/chat-engine");
 
-// Active meeting sessions (keyed by session ID)
-const meetingSessions = new Map();
+// Active helper sessions (keyed by session ID)
+const helperSessions = new Map();
 
-// Prepare a meeting briefing (pre-meeting step)
-app.post("/api/meeting/prepare/:projectId", async (req, res) => {
+// Initialize a helper session (loads project context)
+app.post("/api/helper/init/:projectId", async (req, res) => {
   try {
     const projectDir = path.join(BUILD_GUIDES, req.params.projectId);
     if (!fs.existsSync(projectDir)) {
       return res.status(404).json({ detail: "Project not found" });
     }
 
-    const session = new MeetingSession({
+    const engine = new ChatEngine({
+      model: req.body?.model || "gpt-5.4"
+    });
+
+    const result = await loadContext({
+      projectDir,
+      agentName: req.body?.agentName
+    });
+
+    engine.loadContext(result.context);
+
+    const sessionId = `helper_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    helperSessions.set(sessionId, {
+      engine,
       projectId: req.params.projectId,
       projectDir,
       agentName: req.body?.agentName,
-      answerModel: req.body?.answerModel || "gpt-5.4",
-      transcriptionModel: req.body?.transcriptionModel || "tiny.en"
+      createdAt: Date.now()
     });
 
-    meetingSessions.set(session.id, session);
-
-    const result = await session.prepare();
     res.json({
-      sessionId: session.id,
-      state: session.state,
-      briefingTokens: result.tokens,
-      message: "Meeting prepared. Connect to /api/meeting/:id/stream for real-time events, then POST /api/meeting/:id/start."
+      sessionId,
+      contextTokens: result.tokens,
+      sources: result.sources,
+      cached: result.cached
     });
   } catch (err) {
-    console.error("[meeting] Prepare failed:", err.message);
+    console.error("[helper] Init failed:", err.message);
     res.status(500).json({ detail: err.message });
   }
 });
 
-// Start a meeting session (begins audio capture + transcription)
-app.post("/api/meeting/:id/start", async (req, res) => {
-  const session = meetingSessions.get(req.params.id);
+// Send a message (starts async streaming via SSE)
+app.post("/api/helper/:id/message", async (req, res) => {
+  const session = helperSessions.get(req.params.id);
   if (!session) return res.status(404).json({ detail: "Session not found" });
 
-  try {
-    await session.start();
-    res.json({ sessionId: session.id, state: session.state, startedAt: session.startedAt });
-  } catch (err) {
-    console.error("[meeting] Start failed:", err.message);
-    res.status(500).json({ detail: err.message });
-  }
+  const message = req.body?.message;
+  if (!message) return res.status(400).json({ detail: "message is required" });
+
+  // Start streaming in background — response delivered via SSE
+  session.engine.sendMessage(message).catch(err => {
+    console.error("[helper] Message failed:", err.message);
+  });
+
+  res.json({ messageId: `pending`, status: "streaming" });
 });
 
-// Stop a meeting session — stops capture, then triggers post-meeting analysis
-app.post("/api/meeting/:id/stop", async (req, res) => {
-  const session = meetingSessions.get(req.params.id);
+// SSE stream for real-time helper events
+app.get("/api/helper/:id/stream", (req, res) => {
+  const session = helperSessions.get(req.params.id);
   if (!session) return res.status(404).json({ detail: "Session not found" });
 
-  try {
-    const summary = await session.stop();
-
-    // Return immediately with stats so the UI can transition to "stopped"
-    // Then run analysis async and push result via SSE
-    res.json(summary);
-
-    // Fire post-meeting analysis in background (non-blocking)
-    if (session.transcript.length > 0) {
-      analyzeMeeting({
-        id: session.id,
-        projectId: session.projectId,
-        projectDir: session.projectDir,
-        startedAt: session.startedAt,
-        stoppedAt: session.stoppedAt,
-        transcript: session.transcript,
-        suggestions: session.suggestions,
-        briefing: session.answerEngine?.briefing
-      }, (progress) => {
-        session.emit('event', { type: 'analysis_progress', ...progress });
-      }).then((result) => {
-        session.emit('event', { type: 'analysis_complete', report: result.report, briefUpdates: result.briefUpdates, savedTo: result.savedTo });
-      }).catch((err) => {
-        console.error("[meeting] Post-meeting analysis failed:", err.message);
-        session.emit('event', { type: 'analysis_error', error: err.message });
-      });
-    }
-  } catch (err) {
-    console.error("[meeting] Stop failed:", err.message);
-    res.status(500).json({ detail: err.message });
-  }
-});
-
-// SSE stream for real-time meeting events (transcript + suggestions)
-app.get("/api/meeting/:id/stream", (req, res) => {
-  const session = meetingSessions.get(req.params.id);
-  if (!session) return res.status(404).json({ detail: "Session not found" });
-
-  // Set up SSE
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache",
     Connection: "keep-alive"
   });
 
-  // Send current state
-  res.write(`data: ${JSON.stringify({ type: "state", state: session.state })}\n\n`);
+  res.write(`data: ${JSON.stringify({ type: "ready", model: session.engine.model })}\n\n`);
 
-  // Forward all session events to SSE
-  const handler = (event) => {
-    res.write(`data: ${JSON.stringify(event)}\n\n`);
+  const handler = (eventName) => (data) => {
+    res.write(`data: ${JSON.stringify({ type: eventName, ...data })}\n\n`);
   };
-  session.on("event", handler);
 
-  // Cleanup on disconnect
+  const events = ['message_start', 'message_delta', 'message_ttft', 'message_complete', 'message_error', 'message_cancelled', 'status'];
+  const handlers = {};
+  for (const evt of events) {
+    handlers[evt] = handler(evt);
+    session.engine.on(evt, handlers[evt]);
+  }
+
   req.on("close", () => {
-    session.off("event", handler);
+    for (const evt of events) {
+      session.engine.off(evt, handlers[evt]);
+    }
   });
 });
 
-// Get full transcript for a meeting
-app.get("/api/meeting/:id/transcript", (req, res) => {
-  const session = meetingSessions.get(req.params.id);
+// Close a helper session
+app.delete("/api/helper/:id", (req, res) => {
+  const session = helperSessions.get(req.params.id);
   if (!session) return res.status(404).json({ detail: "Session not found" });
-  res.json({ transcript: session.getTranscript(), stats: session.getStats() });
+
+  session.engine.cancelMessage();
+  session.engine.removeAllListeners();
+  helperSessions.delete(req.params.id);
+  res.json({ closed: true });
 });
 
-// Get meeting stats
-app.get("/api/meeting/:id/stats", (req, res) => {
-  const session = meetingSessions.get(req.params.id);
-  if (!session) return res.status(404).json({ detail: "Session not found" });
-  res.json(session.getStats());
-});
-
-// Update answer model at runtime
-app.patch("/api/meeting/:id/model", (req, res) => {
-  const session = meetingSessions.get(req.params.id);
-  if (!session) return res.status(404).json({ detail: "Session not found" });
-  const model = req.body?.model;
-  if (!model) return res.status(400).json({ detail: "model is required" });
-  session.setAnswerModel(model);
-  res.json({ model, message: "Model updated" });
-});
-
-// Toggle mic capture (disabled = no mic processing at all; enabled = silent context for AI)
-app.patch("/api/meeting/:id/mic", (req, res) => {
-  const session = meetingSessions.get(req.params.id);
-  if (!session) return res.status(404).json({ detail: "Session not found" });
-  const disabled = req.body?.disabled;
-  if (disabled === undefined) return res.status(400).json({ detail: "disabled (boolean) is required" });
-  session.setMicDisabled(disabled);
-  res.json({ micDisabled: session.micDisabled });
-});
-
-// List active meeting sessions
-app.get("/api/meeting/sessions", (req, res) => {
+// List active helper sessions
+app.get("/api/helper/sessions", (req, res) => {
   const sessions = [];
-  for (const [id, session] of meetingSessions) {
+  for (const [id, session] of helperSessions) {
     sessions.push({
       id,
       projectId: session.projectId,
-      state: session.state,
-      startedAt: session.startedAt,
-      transcriptLength: session.transcript.length,
-      suggestionsCount: session.suggestions.length
+      agentName: session.agentName,
+      messageCount: session.engine.stats.messages,
+      contextTokens: session.engine.contextTokens,
+      model: session.engine.model,
+      createdAt: session.createdAt
     });
   }
   res.json(sessions);
+});
+
+// ---------------------------------------------------------------------------
+// Scheduler — recurring automation (cache refresh, upstream checks, etc.)
+// ---------------------------------------------------------------------------
+
+app.get("/api/scheduler/status", (req, res) => {
+  res.json(scheduler.getStatus());
+});
+
+app.post("/api/scheduler/trigger/:jobName", async (req, res) => {
+  const { jobName } = req.params;
+  try {
+    const result = await scheduler.triggerJob(jobName);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ detail: err.message });
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -1937,7 +1996,14 @@ if (require.main === module) {
     console.log(`MCS Agent Builder — http://localhost:${PORT}`);
     console.log(`  Base dir: ${BASE_DIR}`);
     console.log(`  Projects: ${BUILD_GUIDES}`);
-    console.log(`  Terminal: ws://localhost:${PORT}/ws`);
+
+    // Initialize recurring scheduler (cache refresh, upstream checks, etc.)
+    try {
+      scheduler.initScheduler();
+      console.log(`  Scheduler: 6 recurring jobs initialized`);
+    } catch (err) {
+      console.warn(`  Scheduler: failed to initialize — ${err.message}`);
+    }
 
     // Probe AI model access in background (non-blocking)
     try {
@@ -1968,10 +2034,6 @@ function gracefulShutdown(signal) {
   server.close(() => {
     console.log("[server] All connections drained. Exiting.");
     process.exit(0);
-  });
-  // Close all WebSocket connections
-  wss.clients.forEach((ws) => {
-    try { ws.close(1001, "Server shutting down"); } catch {}
   });
   // Force exit after 2.5s if connections don't drain
   setTimeout(() => process.exit(0), 2500).unref();

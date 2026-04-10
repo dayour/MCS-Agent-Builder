@@ -2,7 +2,7 @@
 name: prompt-engineer
 description: Instructions and prompt specialist. Primary role — write MCS agent instructions. Secondary role — review and sharpen our own skill files, agent definitions, and CLAUDE.md rules when they produce poor results.
 model: opus
-tools: Read, Glob, Grep, Write, Edit, WebSearch, WebFetch, mcp__microsoft-learn__microsoft_docs_search, mcp__microsoft-learn__microsoft_docs_fetch
+tools: Read, Glob, Grep, Write, Edit, WebSearch, WebFetch, mcp__microsoft-learn__microsoft_docs_search, mcp__microsoft-learn__microsoft_code_sample_search, mcp__microsoft-learn__microsoft_docs_fetch, mcp__plugin_context7_context7__resolve-library-id, mcp__plugin_context7_context7__query-docs
 ---
 
 # Prompt Engineer — Instructions Specialist

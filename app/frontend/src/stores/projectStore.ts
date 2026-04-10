@@ -16,8 +16,9 @@ import {
   deleteDocument as apiDeleteDoc,
   deleteAgent as apiDeleteAgent,
   pullFromM365 as apiPullFromM365,
+  subscribePipelineEvents,
 } from "@/lib/api";
-import type { PullM365Progress } from "@/lib/api";
+import type { PullM365Progress, PipelineEvent } from "@/lib/api";
 
 interface ProjectStore {
   projectId: string | null;
@@ -27,6 +28,10 @@ interface ProjectStore {
   docContent: Record<string, string>;
   loading: boolean;
   error: string | null;
+  /** True when docs have settled after upload/pull — triggers auto-analyze */
+  docSettled: boolean;
+  /** Latest pipeline event for components to react to */
+  lastPipelineEvent: PipelineEvent | null;
   loadProject: (id: string) => Promise<void>;
   refresh: () => Promise<void>;
   /** Lazy-load a single doc's content on demand (fetched when user opens preview). */
@@ -41,6 +46,10 @@ interface ProjectStore {
     aliases: string,
     onProgress: (event: PullM365Progress) => void,
   ) => Promise<void>;
+  /** Subscribe to pipeline events (settling, auto-chain). Returns unsubscribe fn. */
+  subscribeToPipeline: (projectId: string) => () => void;
+  /** Reset docSettled flag after auto-trigger has consumed it */
+  clearDocSettled: () => void;
 }
 
 function apiAgentToAgent(a: ApiAgentSummary): Agent {
@@ -96,6 +105,9 @@ function apiDocToDocument(d: ApiDoc): Document {
   };
 }
 
+/** Active pipeline SSE abort controller — cleaned up on unsubscribe or project switch */
+let _pipelineAbort: AbortController | null = null;
+
 export const useProjectStore = create<ProjectStore>()(devtools((set, get) => ({
   projectId: null,
   projectName: "",
@@ -104,6 +116,8 @@ export const useProjectStore = create<ProjectStore>()(devtools((set, get) => ({
   docContent: {},
   loading: false,
   error: null,
+  docSettled: false,
+  lastPipelineEvent: null,
 
   loadProject: async (id: string) => {
     set({ loading: true, error: null, projectId: id });
@@ -195,4 +209,38 @@ export const useProjectStore = create<ProjectStore>()(devtools((set, get) => ({
     await apiPullFromM365(id, customer, timeRange, aliases, onProgress);
     await get().refresh();
   },
+
+  subscribeToPipeline: (projectId: string) => {
+    // Clean up any previous subscription
+    if (_pipelineAbort) {
+      _pipelineAbort.abort();
+      _pipelineAbort = null;
+    }
+
+    const controller = new AbortController();
+    _pipelineAbort = controller;
+
+    subscribePipelineEvents(
+      projectId,
+      (event) => {
+        set({ lastPipelineEvent: event });
+
+        if (event.type === "docs-settled") {
+          set({ docSettled: true });
+          // Refresh doc list to pick up new/modified status
+          get().refresh();
+        }
+      },
+      controller.signal,
+    ).catch(() => {
+      // SSE disconnected — normal on navigation away
+    });
+
+    return () => {
+      controller.abort();
+      if (_pipelineAbort === controller) _pipelineAbort = null;
+    };
+  },
+
+  clearDocSettled: () => set({ docSettled: false }),
 }), { name: "ProjectStore" }));

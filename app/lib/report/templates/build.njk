@@ -1,0 +1,24 @@
+{# ── Build Report — Customer, project team ──────────────────── #}
+{% extends "base.njk" %}
+
+{% block toc %}
+  <a href="#build-status">Build Status</a>
+  <a href="#evals">Evaluation Results</a>
+  <a href="#capabilities">Capabilities</a>
+  <a href="#integrations">Integrations</a>
+  <a href="#decisions">Decisions</a>
+  <a href="#open-questions">Open Questions</a>
+{% endblock %}
+
+{% block metrics %}
+  {% include "sections/metrics-bar.njk" %}
+{% endblock %}
+
+{% block content %}
+  {% include "sections/build-status.njk" %}
+  {% include "sections/evals.njk" %}
+  {% include "sections/capabilities.njk" %}
+  {% include "sections/integrations.njk" %}
+  {% include "sections/decisions.njk" %}
+  {% include "sections/open-questions.njk" %}
+{% endblock %}

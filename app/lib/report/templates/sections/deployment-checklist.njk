@@ -1,0 +1,103 @@
+{# Deployment checklists — used in deployment report #}
+
+<section id="pre-deployment">
+  <div class="section-heading">
+    <h2>Pre-Deployment Checklist</h2>
+    <span class="toggle-icon">&#9662;</span>
+  </div>
+  <div class="section-body">
+    <ul class="checklist">
+      <li><span class="check-icon">&#9744;</span><span>All eval sets meet pass thresholds</span></li>
+      <li><span class="check-icon">&#9744;</span><span>All decisions resolved (no pending)</span></li>
+      <li><span class="check-icon">&#9744;</span><span>All open questions answered</span></li>
+      <li><span class="check-icon">&#9744;</span><span>Connection credentials provisioned</span></li>
+      <li><span class="check-icon">&#9744;</span><span>Target environment confirmed</span></li>
+      <li><span class="check-icon">&#9744;</span><span>Stakeholder sign-off received</span></li>
+      <li><span class="check-icon">&#9744;</span><span>Rollback plan documented</span></li>
+    </ul>
+  </div>
+</section>
+
+<section id="connection-mapping">
+  <div class="section-heading">
+    <h2>Connection Mapping</h2>
+    <span class="toggle-icon">&#9662;</span>
+  </div>
+  <div class="section-body">
+    {% if integrations | length > 0 %}
+    <table class="data-table">
+      <thead><tr><th>Integration</th><th>Auth Method</th><th>Credentials Needed</th></tr></thead>
+      <tbody>
+        {% for i in integrations %}
+        <tr>
+          <td>{{ i.name }}</td>
+          <td class="cell-muted">{{ i.auth | safe_val }}</td>
+          <td class="cell-muted">
+            {% if i.auth == "OAuth" or i.auth == "oauth" %}Client ID, Secret, Redirect URI
+            {% elif i.auth == "API Key" or i.auth == "api-key" %}API Key
+            {% elif i.auth == "Service Principal" %}App Registration, Certificate/Secret
+            {% elif i.auth == "Managed Identity" %}System/User Assigned MI
+            {% else %}See integration docs{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="text-muted" style="font-size: 0.85rem; font-style: italic;">No integrations to configure.</p>
+    {% endif %}
+  </div>
+</section>
+
+<section id="deployment-steps">
+  <div class="section-heading">
+    <h2>Deployment Steps</h2>
+    <span class="toggle-icon">&#9662;</span>
+  </div>
+  <div class="section-body">
+    <ol style="padding-left: 20px; font-size: 0.9rem; line-height: 1.8;">
+      <li>Export solution from dev environment</li>
+      <li>Import solution to target environment</li>
+      <li>Configure connection references with production credentials</li>
+      <li>Configure channel deployments (Teams, M365 Copilot, etc.)</li>
+      <li>Run smoke tests in target environment</li>
+    </ol>
+  </div>
+</section>
+
+<section id="channels">
+  <div class="section-heading">
+    <h2>Channel Configuration</h2>
+    <span class="toggle-icon">&#9662;</span>
+  </div>
+  <div class="section-body">
+    {% if architecture.channels | length > 0 %}
+    {% for ch in architecture.channels %}
+    <div class="card mb-2">
+      <div class="font-semibold" style="font-size: 0.9rem;">{{ ch.name }}</div>
+      {% if ch.reason %}
+      <div class="text-muted" style="font-size: 0.82rem;">{{ ch.reason }}</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+    {% else %}
+    <p class="text-muted" style="font-size: 0.85rem; font-style: italic;">No channels configured.</p>
+    {% endif %}
+  </div>
+</section>
+
+<section id="post-deployment">
+  <div class="section-heading">
+    <h2>Post-Deployment Checklist</h2>
+    <span class="toggle-icon">&#9662;</span>
+  </div>
+  <div class="section-body">
+    <ul class="checklist">
+      <li><span class="check-icon">&#9744;</span><span>Agent accessible in all configured channels</span></li>
+      <li><span class="check-icon">&#9744;</span><span>All connections authenticated and working</span></li>
+      <li><span class="check-icon">&#9744;</span><span>Eval tests passing in production environment</span></li>
+      <li><span class="check-icon">&#9744;</span><span>Monitoring/alerts configured</span></li>
+      <li><span class="check-icon">&#9744;</span><span>End-user communication sent</span></li>
+    </ul>
+  </div>
+</section>

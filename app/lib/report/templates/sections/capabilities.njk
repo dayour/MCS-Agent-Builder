@@ -1,0 +1,32 @@
+{% from "macros/cards.njk" import phase_pill, chart %}
+
+<section id="capabilities">
+  <div class="section-heading">
+    <h2>Capabilities</h2>
+    <span class="subtitle">{{ capabilities | length }} total</span>
+    <span class="toggle-icon">&#9662;</span>
+  </div>
+  <div class="section-body">
+    {% if charts.capabilities_phase %}
+    {{ chart(charts.capabilities_phase) }}
+    {% endif %}
+
+    {% if capabilities | length > 0 %}
+    <table class="data-table">
+      <thead><tr><th>Capability</th><th>Description</th><th>Type</th><th>Phase</th></tr></thead>
+      <tbody>
+        {% for c in capabilities %}
+        <tr>
+          <td>{{ c.name }}</td>
+          <td>{{ c.description }}</td>
+          <td class="cell-muted">{{ c.implementationType }}</td>
+          <td>{{ phase_pill(c.phase) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="text-muted" style="font-size: 0.85rem; font-style: italic;">No capabilities defined yet.</p>
+    {% endif %}
+  </div>
+</section>

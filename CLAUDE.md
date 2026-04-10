@@ -37,6 +37,33 @@ Each skill has detailed instructions in its own `.claude/skills/*/SKILL.md`.
 
 ---
 
+## Installed Plugins (Auto-Routing Rules)
+
+8 plugins installed from `claude-plugins-official`. MCS skills remain primary — plugins handle tooling, code quality, and developer experience.
+
+**Auto-firing (no manual invocation needed):**
+
+| Plugin | Triggers When | What It Does |
+|--------|---------------|-------------|
+| `context7` | Claude needs non-Microsoft library docs (React, Vite, Zustand, etc.) | MCP server provides up-to-date library documentation. Complements `microsoft-learn` MCP. |
+| `typescript-lsp` | Any `.ts`/`.tsx`/`.js`/`.jsx` file is edited | Background LSP for type checking, go-to-definition, error detection. |
+| `frontend-design` | Frontend/UI work requested ("build a component", "redesign the dashboard") | Distinctive, production-grade UI generation with bold aesthetics. |
+| `skill-creator` | User asks to create, improve, or eval a skill | Skill authoring framework with built-in eval benchmarking. |
+| `claude-md-management` | User mentions CLAUDE.md quality, audit, or maintenance | Audits CLAUDE.md against codebase state, scores quality. |
+
+**Routed by Claude (invoke automatically at these moments):**
+
+| Plugin | When to Auto-Invoke | Slash Command |
+|--------|-------------------|---------------|
+| `code-review` | After creating a PR via `/commit-push-pr` or `gh pr create` — run automatically on the PR | `/code-review` |
+| `commit-commands` | When user says "commit", "push", "create PR", or after completing a coding task and user approves | `/commit`, `/commit-push-pr` |
+| `session-report` | When user asks about token usage, costs, or session efficiency; or at end of long sessions | `/session-report` |
+| `claude-md-management` | At end of sessions that revealed missing CLAUDE.md context or after significant codebase changes | `/revise-claude-md` |
+
+**Routing priority:** MCS skills (`/mcs-*`) always take precedence over plugins. Plugins handle code-level work; MCS skills handle platform-level work.
+
+---
+
 ## Dual Model Co-Generation (Hook-Enforced)
 
 Fire GPT-5.4 on **every interaction** — not just "non-trivial" tasks, **everything**. Enforced by three layers:
@@ -86,10 +113,10 @@ bin/
 ├── cli.js (mcs start/stop/health/doctor/update), postinstall.js
 
 .claude/
-├── settings.json, skills/ (9 skills), agents/ (6 teammates), rules/ (path-scoped)
+├── settings.json, skills/ (9 skills), agents/ (6 teammates), rules/ (path-scoped), plugins (8 installed)
 
 app/
-├── server.js, lib/ (terminal, documents, projects, workiq, readiness, brief-migrate, enrichment, wizard, build-runner, skill-runner, knowledge-resolver, meeting/), frontend/ (React + Vite + shadcn/ui)
+├── server.js, lib/ (terminal, documents, projects, workiq, readiness, brief-migrate, enrichment, wizard, build-runner, skill-runner, knowledge-resolver, helper/), frontend/ (React + Vite + shadcn/ui)
 
 knowledge/
 ├── cache/ (24 cheat sheets), patterns/ (YAML, Dataverse, topic, flow templates)
@@ -103,7 +130,6 @@ tools/
 ├── copilotstudio-test.js, powercat-test.js, upstream-check.js
 ├── pac-mcp-wrapper.js (PAC CLI MCP server adapter)
 ├── om-cli/ (YAML validation, 357 types), lib/ (http, openai, anthropic, graph-sharepoint, flow-composer, connector-schema)
-├── audio-capture/ (C# WASAPI capture service), whisper-models/ (model manager + local models)
 ├── gen-constraints.py, drift-detect.py, semantic-gates.py
 ├── git-hooks/ (pre-commit, pre-push), update-om-cli.ps1
 

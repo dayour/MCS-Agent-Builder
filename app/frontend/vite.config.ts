@@ -15,10 +15,6 @@ export default defineConfig({
         target: "http://localhost:8000",
         changeOrigin: true,
       },
-      "/ws": {
-        target: "ws://localhost:8000",
-        ws: true,
-      },
     },
   },
   build: {
@@ -31,8 +27,7 @@ export default defineConfig({
         manualChunks(id: string) {
           if (id.includes("@radix-ui/")) return "radix";
           if (id.includes("@react-pdf/")) return "pdf";
-          if (id.includes("@xterm/")) return "xterm";
-          if (id.includes("/marked/") || id.includes("/dompurify/")) return "markdown";
+if (id.includes("/marked/") || id.includes("/dompurify/")) return "markdown";
         },
       },
     },

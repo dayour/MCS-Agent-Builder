@@ -404,67 +404,141 @@ function matchFirstPartyAgents(capabilities) {
 }
 
 /**
- * Suggest build path (first-party-only, declarative-agent, custom-agent).
+ * Suggest build path: custom-agent vs flow vs hybrid vs first-party-only.
+ *
+ * Routing is driven by solution type scoring (5 factors). DA (Declarative Agent)
+ * is not a build target — CA has all DA capabilities plus more.
+ *
  * @param {object} draft - Wizard draft with capabilities, integrations, architecture, etc.
- * @returns {{buildPath: string, reason: string, confidence: number}}
+ * @returns {{buildPath: string, solutionType: string, score: number, reason: string, confidence: number, fpMatches?: Array}}
  */
 function suggestBuildPath(draft) {
-  if (!_index) return { buildPath: "custom-agent", reason: "Index unavailable — defaulting to custom agent", confidence: 0, fallback: true };
+  if (!_index) return { buildPath: "custom-agent", solutionType: "agent", score: 0, reason: "Index unavailable — defaulting to custom agent", confidence: 0, fallback: true };
 
-  // Check DA disqualifiers via structural checks (not raw text search)
-  const hitDisqualifiers = [];
   const draftCaps = draft.capabilities || [];
-  const arch = draft.architecture || {};
-  const capText = draftCaps.map((c) => `${c.name} ${c.description || ""}`).join(" ").toLowerCase();
 
-  if (capText.includes("storage") || capText.includes("dataverse write") || capText.includes("persistent"))
-    hitDisqualifiers.push("Requires persistent storage (Dataverse writes)");
-  if (capText.includes("custom auth") || capText.includes("oauth") || capText.includes("certificate"))
-    hitDisqualifiers.push("Requires custom OAuth/auth flow");
-  if (arch.type === "multi-agent" || (arch.score && arch.score >= 3))
-    hitDisqualifiers.push("Multi-agent architecture");
-  if (capText.includes("complex branching") || capText.includes("custom topic"))
-    hitDisqualifiers.push("Custom topic with complex branching");
-  if (capText.includes("event trigger") || capText.includes("autonomous") || capText.includes("scheduled"))
-    hitDisqualifiers.push("Event triggers (autonomous)");
-  if (arch.channels && arch.channels.some((ch) => {
-    const name = (typeof ch === "string" ? ch : ch.name || "").toLowerCase();
-    return name && !name.includes("teams") && !name.includes("m365");
-  }))
-    hitDisqualifiers.push("Channel other than M365 Copilot/Teams");
+  // Step 1: Compute solution type factors from capability analysis
+  const factors = computeSolutionTypeFactors(draftCaps, draft);
+  const { score, solutionType, reason: stReason } = scoreSolutionType(factors);
 
-  // Check first-party match coverage (unique capabilities covered)
-  const caps = draftCaps;
-  const fpMatches = matchFirstPartyAgents(caps);
+  // Step 2: Check first-party agent coverage (informational + routing gate)
+  // Only Tier 1-2 agents count for "first-party-only" routing — Tier 3 agents
+  // (coaches, general-purpose) are too broad and match nearly everything.
+  const fpMatches = matchFirstPartyAgents(draftCaps);
+  const fpSpecific = fpMatches.filter((m) => m.tier <= 2);
   const coveredCaps = new Set();
-  for (const m of fpMatches) { for (const c of m.matchedCapabilities) coveredCaps.add(c); }
-  const coverageRatio = caps.length > 0 ? coveredCaps.size / caps.length : 0;
+  for (const m of fpSpecific) { for (const c of m.matchedCapabilities) coveredCaps.add(c); }
+  const coverageRatio = draftCaps.length > 0 ? coveredCaps.size / draftCaps.length : 0;
 
-  if (coverageRatio >= 0.7 && fpMatches.length > 0) {
+  // First-party-only when ALL capabilities are covered by Tier 1-2 agents.
+  // If 3+ agents claim full coverage, matching is too loose — skip this gate.
+  const fullCoverageAgents = fpSpecific.filter((m) => m.confidence >= 1.0);
+  if (coverageRatio >= 1.0 && fpSpecific.length > 0 && fullCoverageAgents.length <= 2 && solutionType === "agent") {
     return {
       buildPath: "first-party-only",
-      reason: `${Math.round(coverageRatio * 100)}% of capabilities matched by first-party agents (${fpMatches.map((m) => m.agentName).join(", ")}). Recommend using existing agents.`,
-      confidence: coverageRatio,
+      solutionType,
+      score,
+      reason: `All ${draftCaps.length} capabilities matched by first-party agents (${fpSpecific.map((m) => m.agentName).join(", ")}). Recommend using existing agents instead of building.`,
+      confidence: 0.85,
       fpMatches,
+      factors,
     };
   }
 
-  if (hitDisqualifiers.length === 0 && (draft.architecture?.type || "single-agent") === "single-agent") {
+  // Step 3: Route based on solution type score
+  if (score >= 4) {
     return {
-      buildPath: "declarative-agent",
-      reason: "No DA disqualifiers found and single-agent architecture. Config-only declarative agent is viable.",
+      buildPath: "custom-agent",
+      solutionType,
+      score,
+      reason: stReason,
+      confidence: 0.8,
+      fpMatches: fpMatches.length > 0 ? fpMatches : undefined,
+      factors,
+    };
+  }
+
+  if (score === 3) {
+    return {
+      buildPath: "hybrid",
+      solutionType,
+      score,
+      reason: `${stReason} Build a CA for conversational capabilities and Power Automate flow(s) for automation.`,
       confidence: 0.6,
+      fpMatches: fpMatches.length > 0 ? fpMatches : undefined,
+      factors,
+    };
+  }
+
+  if (score >= 1) {
+    return {
+      buildPath: "flow",
+      solutionType,
+      score,
+      reason: stReason,
+      confidence: 0.75,
+      factors,
     };
   }
 
   return {
-    buildPath: "custom-agent",
-    reason: hitDisqualifiers.length > 0
-      ? `Custom agent needed: ${hitDisqualifiers.slice(0, 2).join(", ")}`
-      : "Custom agent needed for full MCS capabilities.",
+    buildPath: "not-recommended",
+    solutionType,
+    score,
+    reason: stReason,
     confidence: 0.7,
-    hitDisqualifiers,
+    factors,
   };
+}
+
+/**
+ * Compute solution type factors from capabilities and draft context.
+ * Returns the 5 factor scores (0 or 1 each) for scoreSolutionType.
+ */
+function computeSolutionTypeFactors(capabilities, draft) {
+  const caps = capabilities || [];
+  if (caps.length === 0) return { conversationalNeed: 0, interactionPattern: 0, capabilityDistribution: 0, userValueOfNL: 0, mcsFeasibility: 1 };
+
+  // Factor 1: Conversational Need — are capabilities conversational in nature?
+  // Ties favor conversational (if half the capabilities need conversation, removing chat loses value)
+  const conversationalKeywords = /\b(answer|ask|explain|chat|convers|discuss|advise|recommend|guide|help|assist|clarify|interpret|summarize|analyze)\b/i;
+  const automationKeywords = /\b(create|update|delete|send|trigger|schedule|batch|notify|alert|sync|move|copy|transform|extract|load|import|export|migrate|process)\b/i;
+  const capTexts = caps.map((c) => `${c.name} ${c.description || ""}`);
+  const conversationalCount = capTexts.filter((t) => conversationalKeywords.test(t)).length;
+  const automationCount = capTexts.filter((t) => automationKeywords.test(t)).length;
+  const conversationalNeed = conversationalCount >= automationCount && conversationalCount > 0 ? 1 : 0;
+
+  // Factor 2: Interaction Pattern — do capabilities need AI judgment?
+  // Only true AI reasoning keywords — not conversational keywords like "answer" or "explain"
+  const aiJudgmentKeywords = /\b(classify|triage|interpret|reason|decide|assess|evaluate|diagnose|prioritize|sentiment|intent|context|recommend|advise|analyze)\b/i;
+  const deterministicKeywords = /\b(pipeline|workflow|sequence|step|rule|condition|filter|map|reduce|loop|iterate|cron|recurrence|monitor|extract|sync|create|update|send|notify)\b/i;
+  const aiCount = capTexts.filter((t) => aiJudgmentKeywords.test(t)).length;
+  const detCount = capTexts.filter((t) => deterministicKeywords.test(t)).length;
+  const interactionPattern = (aiCount / caps.length) >= 0.4 ? 1 : (detCount > aiCount ? 0 : (aiCount > 0 ? 1 : 0));
+
+  // Factor 3: Capability Distribution — count conversational vs automation implementation types
+  const convTypes = ["prompt", "topic", "knowledge"];
+  const autoTypes = ["flow", "tool"];
+  let convCount = 0, autoCount = 0;
+  for (const c of caps) {
+    const t = (c.implementationType || "prompt").toLowerCase();
+    if (convTypes.includes(t)) convCount++;
+    else if (autoTypes.includes(t)) autoCount++;
+  }
+  const capabilityDistribution = convCount >= autoCount ? 1 : 0;
+
+  // Factor 4: User Value of NL — broad audience or ambiguous queries?
+  // Only scores 1 when audience description explicitly signals NL value
+  const audience = (draft.agent?.primaryUsers || draft.identity?.primaryUsers || "").toLowerCase();
+  const nlValueSignals = /\b(non.?technical|broad|everyone|all employees|ambiguous|freeform|open.?ended|multi.?domain)\b/i;
+  const userValueOfNL = nlValueSignals.test(audience) ? 1 : 0;
+
+  // Factor 5: MCS Feasibility — can MCS handle this?
+  const infeasibleKeywords = /\b(sub.?second|real.?time streaming|batch processing|thousands of records|bulk|heavy compute|transaction|multi.?system atomic)\b/i;
+  const allCapText = capTexts.join(" ");
+  const mcsFeasibility = infeasibleKeywords.test(allCapText) ? 0 : 1;
+
+  return { conversationalNeed, interactionPattern, capabilityDistribution, userValueOfNL, mcsFeasibility };
 }
 
 /**
@@ -551,6 +625,7 @@ function resolveDraft(draft) {
     knowledge: resolveKnowledge(draft.knowledge || []),
     fpMatches: matchFirstPartyAgents(draft.capabilities || []),
     channelSuggestions: suggestChannels(draft.identity?.primaryUsers || ""),
+    buildPath: (draft.capabilities || []).length > 0 ? suggestBuildPath(draft) : null,
     patternWarnings: [],
   };
 
@@ -584,6 +659,7 @@ module.exports = {
   scoreArchitecture,
   matchFirstPartyAgents,
   suggestBuildPath,
+  computeSolutionTypeFactors,
   suggestChannels,
   getCheatSheet,
   getRelevantEvalScenarios,

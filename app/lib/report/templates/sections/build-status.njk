@@ -1,0 +1,32 @@
+{# Build status section — used in build and deployment reports #}
+
+<section id="build-status">
+  <div class="section-heading">
+    <h2>Build Status</h2>
+    <span class="toggle-icon">&#9662;</span>
+  </div>
+  <div class="section-body">
+    {% if buildStatus %}
+    {% set steps = [
+      { "label": "Agent Created", "key": "created" },
+      { "label": "Instructions Set", "key": "instructions" },
+      { "label": "Knowledge Configured", "key": "knowledge" },
+      { "label": "Tools Connected", "key": "tools" },
+      { "label": "Model Selected", "key": "model" },
+      { "label": "Topics Created", "key": "topics" },
+      { "label": "Published", "key": "published" }
+    ] %}
+    <ul class="checklist">
+      {% for step in steps %}
+      {% set done = buildStatus[step.key] %}
+      <li>
+        <span class="check-icon {% if done %}done{% endif %}">{% if done %}&#10003;{% else %}&#9744;{% endif %}</span>
+        <span>{{ step.label }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="text-muted" style="font-size: 0.85rem; font-style: italic;">Build has not started yet.</p>
+    {% endif %}
+  </div>
+</section>

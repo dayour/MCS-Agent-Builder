@@ -14,7 +14,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import RightPanel from "./components/terminal/RightPanel";
 import NavigationRail from "./components/nav/NavigationRail";
-import { useTerminalStore } from "./stores/terminalStore";
+import { usePanelStore } from "./components/terminal/RightPanel";
 import { fetchProjects, fetchProject, fetchAgent, fetchSolutions } from "@/lib/api";
 
 // ---------------------------------------------------------------------------
@@ -120,8 +120,8 @@ function NavigationProgress() {
 }
 
 function AppShell() {
-  const panelOpen = useTerminalStore((s) => s.panelOpen);
-  const panelWidth = useTerminalStore((s) => s.panelWidth);
+  const panelOpen = usePanelStore((s) => s.panelOpen);
+  const panelWidth = usePanelStore((s) => s.panelWidth);
   const location = useLocation();
   const revalidator = useRevalidator();
 
@@ -151,7 +151,7 @@ function AppShell() {
           <Outlet />
         </ErrorBoundary>
       </div>
-      {/* Right: Terminal / Meeting panel */}
+      {/* Right: Terminal / Helper panel */}
       <ErrorBoundary>
         <RightPanel />
       </ErrorBoundary>

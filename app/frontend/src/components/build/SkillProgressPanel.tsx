@@ -4,15 +4,11 @@
  * Generic version of BuildProgressPanel that works with any skill type
  * (research, eval, fix, build) via the skillJobStore.
  */
-import { useState } from "react";
 import {
   CheckCircle2,
   XCircle,
   Loader2,
   Circle,
-  ChevronDown,
-  ChevronRight,
-  Terminal,
   AlertTriangle,
   Sparkles,
   SkipForward,
@@ -43,10 +39,12 @@ function StepIcon({ status }: { status: string }) {
 // ---------------------------------------------------------------------------
 
 const SKILL_LABELS: Record<string, { running: string; complete: string; failed: string }> = {
+  preview: { running: "Previewing...", complete: "Preview Complete", failed: "Preview Failed" },
   research: { running: "Researching...", complete: "Research Complete", failed: "Research Failed" },
   eval: { running: "Evaluating...", complete: "Evaluation Complete", failed: "Evaluation Failed" },
   fix: { running: "Fixing...", complete: "Fix Complete", failed: "Fix Failed" },
   build: { running: "Building...", complete: "Build Complete", failed: "Build Failed" },
+  package: { running: "Packaging...", complete: "Package Complete", failed: "Package Failed" },
 };
 
 // ---------------------------------------------------------------------------
@@ -60,7 +58,6 @@ interface SkillProgressPanelProps {
 
 export default function SkillProgressPanel({ jobKey, onClose }: SkillProgressPanelProps) {
   const job = useSkillJobStore((s) => s.jobs[jobKey]) as SkillJob | undefined;
-  const [showLog, setShowLog] = useState(false);
 
   if (!job) return null;
 
@@ -92,7 +89,14 @@ export default function SkillProgressPanel({ jobKey, onClose }: SkillProgressPan
       <div className="flex items-center gap-3">
         {headerIcon}
         <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-semibold">{headerText}</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-semibold">{headerText}</h3>
+            {job.autoChained && (
+              <span className="text-[10px] font-medium text-blue-500 bg-blue-500/10 px-1.5 py-0.5 rounded">
+                auto
+              </span>
+            )}
+          </div>
           {totalSteps > 0 && (
             <p className="text-xs text-muted-foreground">
               {completedCount} of {totalSteps} steps complete
@@ -177,26 +181,6 @@ export default function SkillProgressPanel({ jobKey, onClose }: SkillProgressPan
         </div>
       )}
 
-      {/* Debug log toggle */}
-      <div>
-        <button
-          type="button"
-          onClick={() => setShowLog(!showLog)}
-          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <Terminal className="h-3 w-3" />
-          {showLog ? (
-            <><ChevronDown className="h-3 w-3" /> Hide Console</>
-          ) : (
-            <><ChevronRight className="h-3 w-3" /> Show Console</>
-          )}
-        </button>
-        {showLog && (
-          <pre className="mt-2 max-h-60 overflow-auto rounded-md bg-zinc-950 text-zinc-300 p-3 text-[11px] font-mono leading-relaxed whitespace-pre-wrap break-all">
-            {job.rawLog || "No output yet..."}
-          </pre>
-        )}
-      </div>
     </div>
   );
 }

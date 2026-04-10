@@ -199,18 +199,14 @@ Only escalate to live research when the agent has Priority 5-6 integrations (ext
    - For each MVP capability, check `knowledge/cache/first-party-agents.md` capability match patterns
    - If a first-party agent covers 70%+ of the capability, record in `architecture.frontierAgentMatch[]`
    - All license prerequisites are assumed met — recommend all matching first-party agents without license gating
-7. **Build path routing** (if solutionType is `agent` or `hybrid`):
-   - Check `knowledge/cache/declarative-agents.md` hard disqualifiers
-   - If NO disqualifiers apply AND all capabilities are simple info retrieval → set `architecture.buildPath = "declarative-agent"`, generate DA recommendation with guide template
-   - If ANY disqualifier applies → set `architecture.buildPath = "custom-agent"`, continue to Phase B+C as normal
-   - If first-party agents cover ALL capabilities AND solutionType is `agent` (not `hybrid`) → set `architecture.buildPath = "first-party-only"`, generate recommendation report, skip build
-   - Record `architecture.buildPathReason` with structured "why not" for ALL paths:
-     ```
-     Selected: {path}. Reason: {1-2 sentences}.
-     Why not declarative-agent: {specific disqualifier or "N/A — this is the selected path"}.
-     Why not custom-agent: {reason or "N/A"}.
-     Why not first-party-only: {reason or "N/A"}.
-     ```
+7. **Build path routing** — driven by solution type score, NOT DA disqualifiers (DA is not a build target):
+   - Score 4-5 → `architecture.buildPath = "custom-agent"`, proceed to Phase B+C
+   - Score 3 → `architecture.buildPath = "hybrid"`, CA for conversational + Power Automate for automation
+   - Score 1-2 → `architecture.buildPath = "flow"`, recommend Power Automate, skip Phases B+C
+   - Score 0 → `architecture.buildPath = "not-recommended"`, skip all deep research
+   - If first-party agents cover ALL capabilities AND solutionType is `agent` → set `architecture.buildPath = "first-party-only"`, generate recommendation report, skip build
+   - The knowledge resolver (`suggestBuildPath`) computes this automatically from capability analysis
+   - Record `architecture.buildPathReason`, `architecture.solutionTypeScore`, and `architecture.solutionTypeFactors`
 8. Extract per-agent data and generate informed open questions (cross-referenced against cache)
 9. Create brief.json stubs, confirm with user, write document manifest
 
