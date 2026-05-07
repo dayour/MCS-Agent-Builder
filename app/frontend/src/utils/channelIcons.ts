@@ -1,0 +1,20 @@
+/** Shared channel → SVG icon path map used by InstructionPill and PillConfigPanel. */
+export const CHANNEL_ICONS: Record<string, string> = {
+  website: '/component-icons/Website16.svg',
+  webchat: '/component-icons/Website16.svg',
+  web: '/component-icons/Website16.svg',
+  teams: '/component-icons/Teams16.svg',
+  m365: '/component-icons/Microsoft36516.svg',
+  'microsoft 365': '/component-icons/Microsoft36516.svg',
+  slack: '/component-icons/Slack16.svg',
+  email: '/component-icons/Outlook16.svg',
+  outlook: '/component-icons/Outlook16.svg',
+  servicenow: '/component-icons/ServiceNow16.svg',
+  sharepoint: '/component-icons/SharePoint16.svg',
+  onedrive: '/component-icons/OneDrive16.svg',
+  excel: '/component-icons/Excel16.svg',
+  word: '/component-icons/Word16.svg',
+  powerpoint: '/component-icons/PowerPoint16.svg',
+  dataverse: '/component-icons/Dataverse16.svg',
+  whatsapp: '/component-icons/WhatsApp16.svg',
+};

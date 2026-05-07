@@ -59,7 +59,7 @@ Connected agents are external agents (e.g., Microsoft Fabric Data Agent, other M
 
 ### Connected agent prerequisites (external agent owner or IT admin):
 
-For each entry in `brief.json.connectedAgents[]`, verify:
+For each entry in `agentspec.json.connectedAgents[]`, verify:
 - The external agent exists and is published (e.g., Fabric Data Agent published in Fabric workspace)
 - Required infrastructure is ready (e.g., Fabric Lakehouse populated, Copy Job running)
 - Tenant settings allow agent connections (e.g., "Fabric Data Agent for Microsoft 365 Copilot" enabled)

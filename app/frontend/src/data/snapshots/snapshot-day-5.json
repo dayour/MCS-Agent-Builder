@@ -1,0 +1,90 @@
+{
+  "notes": "",
+  "id": "snapshot-day-5",
+  "name": "Customer Support Day 5",
+  "description": "Mid-build agent. Core instructions and guidelines are defined, key knowledge sources are connected, and the agent is ready for initial testing.",
+  "tags": ["in-progress", "partial", "draft"],
+  "lifecycleStage": "in-progress",
+  "isBuiltIn": true,
+  "generateOnLoad": false,
+  "createdAt": "2026-01-05T00:00:00.000Z",
+  "toggleState": {
+    "isEvalMode": false,
+    "isEvalsV2": false,
+    "isSkillsEnabled": true,
+    "isDexter": false
+  },
+  "agentConfig": {
+    "type": "agent",
+    "name": "Customer Support Agent",
+    "icon": "💬",
+    "gradientKey": "cerulean",
+    "description": "Handles customer inquiries about orders, products, and returns for an e-commerce store.",
+    "purpose": "Answer customer questions about orders, products, shipping, and returns in a friendly and efficient way. Escalate billing disputes and account security issues to human agents.",
+    "audience": "customers",
+    "guidelines": [
+      "Always greet the customer warmly by name if available",
+      "Keep responses clear and concise — avoid jargon",
+      "Provide step-by-step guidance for complex processes like returns",
+      "Escalate payment disputes and account security issues to a human agent",
+      "Never promise specific refund timelines without confirming with the portal"
+    ],
+    "skills": [
+      "Order status lookup",
+      "Product FAQ",
+      "Return policy guidance"
+    ],
+    "model": "sonnet-4.5",
+    "knowledge": {
+      "files": [],
+      "webSearch": true,
+      "specificSources": false,
+      "referenceOrgChart": false,
+      "customAPIs": []
+    },
+    "instructions": "You are a Customer Support Agent for an e-commerce store.\n\n## Your Role\nHelp customers with questions about their orders, products, shipping, and returns.\n\n## Tone\nFriendly, helpful, and concise. Use plain language and avoid technical jargon.\n\n## Handling Order Inquiries\nAsk for the order number if not provided. Look up the current status and give a clear summary with next steps if there's a delay.\n\n## Returns and Refunds\nWalk customers through the standard return process:\n- Items can be returned within 30 days of delivery\n- Items must be unused and in original packaging\n- Direct customers to the returns portal or assist them step-by-step here\n\n## Escalation\nTransfer to a human agent when:\n- There is a payment dispute or suspected fraud\n- The customer's account has a security issue\n- The customer has contacted support multiple times for the same issue\n\n(Note: Shipping time estimates and product availability details still need to be added before this agent goes live.)",
+    "capabilities": [
+      { "name": "Order Status Lookup", "type": "knowledge" },
+      { "name": "Product FAQ", "type": "knowledge" }
+    ],
+    "published": false
+  },
+  "helperMessages": [
+    {
+      "id": "day5-h1",
+      "role": "user",
+      "content": "I want to build a customer support agent for my e-commerce store.",
+      "timestamp": "2026-01-01T09:00:00.000Z"
+    },
+    {
+      "id": "day5-h2",
+      "role": "assistant",
+      "content": "Great idea! A customer support agent can handle common inquiries so your team can focus on complex issues.\n\nTo get started, a few questions:\n1. Who are your customers?\n2. What types of questions come up most often?\n3. Do you want the agent to look up orders or just answer general questions?",
+      "timestamp": "2026-01-01T09:00:10.000Z"
+    },
+    {
+      "id": "day5-h3",
+      "role": "user",
+      "content": "Our customers are general consumers buying home goods online. Most questions are about order status, returns, and shipping delays. I'd love for it to look up orders.",
+      "timestamp": "2026-01-01T09:02:00.000Z"
+    },
+    {
+      "id": "day5-h4",
+      "role": "assistant",
+      "content": "Perfect — that gives me a clear picture. Here's what I've set up:\n\n- **Instructions**: I've written a draft covering order inquiries, return guidance, and escalation rules\n- **Guidelines**: 5 behavior rules including tone, escalation triggers, and what not to promise\n- **Knowledge sources**: Order Status Lookup and Product FAQ connected\n\nA few things still to do before going live:\n- Add specific shipping SLA details\n- Connect your returns portal as an action (not just knowledge)\n- Decide whether to enable web search for product availability\n\nWant to do a test conversation first, or refine the instructions more?",
+      "timestamp": "2026-01-01T09:03:30.000Z"
+    },
+    {
+      "id": "day5-h5",
+      "role": "user",
+      "content": "Let's test it first and see how it handles a typical order status question.",
+      "timestamp": "2026-01-01T09:04:00.000Z"
+    },
+    {
+      "id": "day5-h6",
+      "role": "assistant",
+      "content": "Good call. I've switched you to the Preview tab — try asking something like *\"Where's my order #12345?\"* and see how it responds. Come back here and I can help you refine based on what you see.",
+      "timestamp": "2026-01-01T09:04:15.000Z"
+    }
+  ]
+}

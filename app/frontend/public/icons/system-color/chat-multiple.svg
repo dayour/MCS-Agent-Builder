@@ -1,0 +1,19 @@
+<svg viewBox="12.0 13.0 24.0 22.003" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg x="19" y="18" width="15" height="15.003" viewBox="0 0 15 15.0034" fill="none">
+<path id="Color 03" fill-rule="evenodd" clip-rule="evenodd" d="M15 7.5C15 3.35786 11.6421 0 7.5 0C3.35791 0 0 3.35786 0 7.5C0 11.6421 3.35791 15 7.5 15C8.59973 15 9.64587 14.7628 10.5886 14.3363C11.8468 14.6267 13.2018 14.8765 13.8251 14.9875C14.5127 15.1099 15.1116 14.5063 14.9783 13.8173C14.8605 13.2085 14.5988 11.9 14.2966 10.6749C14.748 9.70995 15 8.63348 15 7.5ZM7.51709 12H7.48267C7.4884 12.0001 7.49414 12.0001 7.49988 12.0001C7.50562 12.0001 7.51135 12.0001 7.51709 12Z" fill="url(#paint0_radial_488_1274)"/>
+<defs>
+<radialGradient id="paint0_radial_488_1274" cx="0" cy="0" r="1" gradientTransform="matrix(6.90275 8.00937 -8.05321 6.86517 4.02661 4.00468)" gradientUnits="userSpaceOnUse">
+<stop offset="0.63" stop-color="#3D35B1"/>
+<stop offset="0.85" stop-color="#6553C9"/>
+<stop offset="1" stop-color="#7660D3"/>
+</radialGradient>
+</defs></svg>
+<svg x="14" y="15" width="15" height="15.003" viewBox="0 0 15 15.0034" fill="none">
+<path id="Color 01" fill-rule="evenodd" clip-rule="evenodd" d="M0 7.5C0 3.35786 3.35791 0 7.5 0C11.6421 0 15 3.35786 15 7.5C15 11.6421 11.6421 15 7.5 15C6.40027 15 5.35413 14.7628 4.41138 14.3363C3.1532 14.6267 1.79822 14.8765 1.17493 14.9875C0.487305 15.1099 -0.111572 14.5063 0.0217285 13.8173C0.139526 13.2085 0.401245 11.9 0.703369 10.6749C0.251953 9.70995 0 8.63348 0 7.5ZM7.48291 12H7.51733C7.5116 12.0001 7.50586 12.0001 7.50012 12.0001C7.49438 12.0001 7.48865 12.0001 7.48291 12Z" fill="url(#paint0_linear_488_1288)"/>
+<defs>
+<linearGradient id="paint0_linear_488_1288" x1="0" y1="0" x2="15.0034" y2="15" gradientUnits="userSpaceOnUse">
+<stop stop-color="#0FAFFF"/>
+<stop offset="1" stop-color="#2764E7"/>
+</linearGradient>
+</defs></svg>
+</svg>

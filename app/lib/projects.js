@@ -15,7 +15,7 @@ const {
   determineStage,
   SKIP_FOLDERS,
 } = require("./readiness");
-const { migrateBrief } = require("./brief-migrate");
+const { migrateSpec } = require("./spec-migrate");
 
 // File types shown in the dashboard document list
 const DOC_EXTENSIONS = new Set([
@@ -153,8 +153,18 @@ function scanDocs(folder) {
   const manifest = loadManifest(folder);
   const manifestEntries = {};
   if (manifest) {
-    for (const entry of manifest.docsProcessed || []) {
-      manifestEntries[entry.filename] = entry;
+    if (Array.isArray(manifest.docsProcessed)) {
+      // New format: { docsProcessed: [{ filename, matchedAgents, ... }] }
+      for (const entry of manifest.docsProcessed) {
+        manifestEntries[entry.filename] = entry;
+      }
+    } else {
+      // Old flat format: { "filename.md": { hash, processedAt } }
+      for (const [filename, entry] of Object.entries(manifest)) {
+        if (typeof entry === "object" && entry !== null) {
+          manifestEntries[filename] = entry;
+        }
+      }
     }
   }
 
@@ -169,11 +179,13 @@ function scanDocs(folder) {
       const stat = fs.statSync(fp);
       let isNew = true;
       let isModified = false;
+      let matchedAgents = [];
 
       if (manifest !== null) {
         const known = manifestEntries[name];
         if (known) {
           isNew = false;
+          matchedAgents = known.matchedAgents || [];
           const knownSize = known.size;
           const knownMtime = known.mtime;
           if (knownSize != null && knownMtime != null) {
@@ -193,6 +205,7 @@ function scanDocs(folder) {
         mtime: stat.mtimeMs,
         isNew,
         isModified,
+        matchedAgents,
       });
     }
   }
@@ -215,11 +228,14 @@ function scanAgents(folder) {
     const agentDir = path.join(agentsDir, name);
     if (!fs.statSync(agentDir).isDirectory() || name.startsWith(".")) continue;
 
-    const briefFile = path.join(agentDir, "brief.json");
+    // Resolve spec file: agentspec.json preferred, brief.json fallback
+    const specFile = fs.existsSync(path.join(agentDir, "agentspec.json"))
+      ? path.join(agentDir, "agentspec.json")
+      : path.join(agentDir, "brief.json");
     let brief = null;
-    if (fs.existsSync(briefFile)) {
+    if (fs.existsSync(specFile)) {
       try {
-        const raw = fs.readFileSync(briefFile, "utf-8").replace(/^\uFEFF/, "");
+        const raw = fs.readFileSync(specFile, "utf-8").replace(/^\uFEFF/, "");
         brief = JSON.parse(raw);
       } catch {
         // ignore
@@ -303,6 +319,13 @@ function scanAgents(folder) {
       }
     }
 
+    // Eval-gate projection — surface the minimum required for the frontend's
+    // EvalGateBadge without leaking spec internals. evalGate is passed
+    // through filterEvalGateForViewer at the listProjects / getProject
+    // boundary so viewer role gets honored.
+    const buildStatusRaw = brief?.buildStatus?.status || null;
+    const evalGateRaw = brief?.evalGate || null;
+
     agents.push({
       id: name,
       name: agentName,
@@ -318,6 +341,8 @@ function scanAgents(folder) {
       architecture_type: archType,
       architecture_children: archChildren,
       workflow_phase: workflowPhase,
+      buildStatusRaw,
+      evalGate: evalGateRaw,  // unfiltered here; filtered at the API boundary
       _brief: brief,
     });
   }
@@ -351,8 +376,13 @@ function listProjects(buildGuidesDir) {
     const agents = scanAgents(itemPath);
     const stage = determineStage(agents);
 
-    // Strip _brief before sending to client
-    for (const a of agents) delete a._brief;
+    // Strip _brief + filter evalGate for viewer role before sending to client
+    const { filterEvalGateForViewer } = require("./eval-gate-flags");
+    const viewerRole = (listProjects.__viewerRole) || "maker";
+    for (const a of agents) {
+      delete a._brief;
+      if (a.evalGate) a.evalGate = filterEvalGateForViewer(a.evalGate, viewerRole);
+    }
 
     // Lightweight doc count
     const docsDir = path.join(itemPath, "docs");
@@ -401,7 +431,12 @@ function getProject(buildGuidesDir, projectId) {
   const agents = scanAgents(folder);
   const stage = determineStage(agents);
 
-  for (const a of agents) delete a._brief;
+  const { filterEvalGateForViewer } = require("./eval-gate-flags");
+  const viewerRole = (getProject.__viewerRole) || "maker";
+  for (const a of agents) {
+    delete a._brief;
+    if (a.evalGate) a.evalGate = filterEvalGateForViewer(a.evalGate, viewerRole);
+  }
 
   return {
     id: path.basename(folder),
@@ -495,7 +530,6 @@ module.exports = {
   listProjects,
   getProject,
   getDocStatus,
-  migrateBrief,
   humanizeName,
   calcReadiness,
   isBuildReady,

@@ -1,0 +1,98 @@
+# Pattern: MCP Tool Invocation (Generative Orchestration)
+# Trigger: By agent (generative orchestration selects MCP tool automatically)
+# Shows: How MCP tools are configured and invoked in MCS agents
+# Common in: agents with Work IQ, Process Mining, Dataverse MCP, custom MCP servers
+#
+# Based on: ObjectModel InvokeMcpToolAction schema + MS Learn MCP guidance
+# https://learn.microsoft.com/en-us/microsoft-copilot-studio/agent-extend-action-mcp
+#
+# IMPORTANT:
+# - MCP tools are invoked via GENERATIVE ORCHESTRATION, not direct topic nodes
+# - You don't write topic YAML to call MCP tools — the orchestrator routes automatically
+# - InvokeMcpToolAction exists in the schema but is used internally by the orchestrator
+# - Your role: configure the MCP server, write good descriptions, let orchestrator handle routing
+# - Preview (Apr 2026): MCP tools can also be used in agent workflows (deterministic)
+
+# --- MCP Server Configuration (what you DO configure) ---
+# MCP servers are added as tools, not topics. Two methods:
+#
+# Method 1: Via MCS UI (Overview page or Tools menu)
+# - Overview page adds Work IQ Copilot + Work IQ User (dedicated connectors)
+# - Tools menu adds individual MCP servers (unified connector)
+#
+# Method 2: Headless via add-tool.js
+# - node tools/add-tool.js discover-connections → lists available MCP servers
+# - Generates YAML for LSP push
+
+# --- MCP Server Component YAML (for LSP push) ---
+# This is what gets pushed to configure an MCP server as a tool:
+#
+# kind: McpServerComponent
+# schemaName: mcp_{{SERVER_NAME}}
+# metadata:
+#   displayName: "{{DISPLAY_NAME}}"
+#   description: "{{DESCRIPTION}}"
+# connectionReference:
+#   schemaName: "{{CONNECTION_REFERENCE_SCHEMA}}"
+# tools:
+#   - kind: McpToolDefinition
+#     name: "{{TOOL_NAME}}"
+#     description: "{{TOOL_DESCRIPTION}}"
+#     inputSchema:
+#       properties:
+#         {{PARAM_NAME}}:
+#           type: String
+#           description: "{{PARAM_DESC}}"
+#     outputSchema:
+#       properties:
+#         {{OUTPUT_NAME}}:
+#           type: String
+#           description: "{{OUTPUT_DESC}}"
+# approvalMode:
+#   kind: NeverRequireMCPApproval  # or AlwaysRequireMCPApproval with tools: []
+
+# --- ObjectModel Schema Reference ---
+# InvokeMcpToolAction:
+#   kind: InvokeMcpToolAction
+#   id: invokeMcpTool_1
+#   serverSchemaName: "mcp_{{SERVER_NAME}}"  # required
+#   toolName: "{{TOOL_NAME}}"                # required
+#   # input/output bindings inherited from ExternalAction base
+#
+# McpToolDefinition:
+#   kind: McpToolDefinition
+#   name: "tool_name"           # from MCP tools/list
+#   description: "Tool desc"    # from MCP tools/list
+#   inputSchema: { properties: ... }   # RecordDataType
+#   outputSchema: { properties: ... }  # DataType
+#
+# McpServerApprovalMode:
+#   - AlwaysRequireMCPApproval (with optional tools[] for per-tool approval)
+#   - NeverRequireMCPApproval (with optional tools[] for per-tool skip)
+
+# --- MCP in Agent Workflows (Preview Apr 2026, GA Oct 2026) ---
+# Agent workflows can now discover and invoke MCP tools as workflow steps.
+# Previously MCP was generative-orchestration-only.
+# This means deterministic agent flows can include MCP tool calls.
+
+# --- Routing Tips ---
+# MCP tool routing is driven by tool descriptions (priority 1) and names (priority 2).
+# Write descriptions that are specific about:
+# 1. What the tool does
+# 2. What input it needs
+# 3. What output it returns
+# 4. What it does NOT do (prevents misrouting)
+#
+# Example:
+#   description: "Searches emails, calendar events, Teams messages, and SharePoint
+#     files across Microsoft 365. Input: natural language query. Output: relevant
+#     results with titles and snippets. Does NOT send emails or create events."
+
+# --- Available MCP Servers (as of Apr 2026) ---
+# See knowledge/cache/mcp-servers.md for the full inventory.
+# Key servers:
+# - Work IQ Copilot (cross-M365 search, read-only)
+# - Work IQ User (people, org chart)
+# - Dataverse MCP (CRUD on Dataverse tables)
+# - Process Mining MCP (9 tools, process analytics) — NEW
+# - Power Apps MCP (3 tools, data entry + HITL) — NEW (Preview)

@@ -1,0 +1,63 @@
+{
+  "_description": "Sanitized HAR extract for bot-create success path. Minimal valid payload with all required discriminators. Real captures include tenant-specific categories/channels which are dropped as non-contractual.",
+  "request": {
+    "method": "POST",
+    "url": "/api/data/v9.2/bots?$select=botid",
+    "headers": {
+      "content-type": "application/json",
+      "odata-maxversion": "4.0",
+      "odata-version": "4.0"
+    },
+    "body": {
+      "name": "<agentName>",
+      "iconbase64": "<base64-png-placeholder>",
+      "configuration": {
+        "$kind": "BotConfiguration",
+        "categories": [],
+        "channels": [],
+        "diagnostics": [],
+        "isAgentConnectable": true,
+        "settings": {
+          "GenerativeActionsEnabled": true,
+          "default-2.1.0": {
+            "spec": { "connectors": [] },
+            "content": {
+              "displayName": "<agentName>",
+              "description": "<agentDescription>",
+              "instructions": "<instructions or empty>",
+              "conversationStarters": [],
+              "capabilities": {
+                "$kind": "GptCapabilities",
+                "diagnostics": [],
+                "webBrowsing": true
+              }
+            }
+          }
+        },
+        "aISettings": {
+          "$kind": "AISettings",
+          "diagnostics": [],
+          "useModelKnowledge": true,
+          "isSemanticSearchEnabled": true,
+          "isFileAnalysisEnabled": true,
+          "optInUseLatestModels": false
+        }
+      }
+    }
+  },
+  "response": {
+    "status": 201,
+    "headers": { "content-type": "application/json" },
+    "body": { "botid": "<guid>" }
+  },
+  "errorCase": {
+    "_description": "Example 500 when configuration.settings.default-2.1.0.content is missing (common mistake — creates bot but without GptComponent)",
+    "request": {
+      "body": {
+        "name": "Broken Agent",
+        "configuration": { "$kind": "BotConfiguration" }
+      }
+    },
+    "response": { "status": 201, "body": { "botid": "<guid>" }, "_note": "201 on create, but no orchestrator — UI shows empty agent" }
+  }
+}

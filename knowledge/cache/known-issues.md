@@ -215,9 +215,11 @@ card: |
 **Issue:** When an agent has "Authenticate with Microsoft" enabled, the first bot response is an OAuthCard attachment with no text. `direct-line-test.js` previously timed out with no explanation.
 **Mitigation:** `direct-line-test.js` now detects OAuthCard and SigninCard attachments during polling. Returns `[SIGN_IN_REQUIRED]` with card type and connection name. Stops the test run early since all tests will fail for the same reason.
 
-### CopilotStudio Client SDK requires Entra ID app registration
-**Issue:** `copilotstudio-test.js` (SDK transport) needs an app registration with `CopilotStudio.Copilots.Invoke` delegated permission. Direct Line (`direct-line-test.js`) only needs a token endpoint URL.
-**Mitigation:** Use Direct Line for quick testing. Use CopilotStudio SDK for production-grade testing that mirrors real user auth flows. SDK setup: create app reg, add API permission, configure .env with `COPILOT_STUDIO_*` variables.
+### ~~CopilotStudio Client SDK requires Entra ID app registration~~ (historical — tool removed 2026-05-05)
+The `copilotstudio-test.js` SDK runner was removed in cleanup PR #21. Direct Line
+(`tools/direct-line-test.js`) is the supported runner — it only needs a token
+endpoint URL, no app registration required. Restore the SDK runner from git
+history (commit `b60da346`) if production-grade auth-flow testing is needed.
 
 ---
 

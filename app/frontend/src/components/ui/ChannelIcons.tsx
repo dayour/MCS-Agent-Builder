@@ -1,0 +1,170 @@
+import React from 'react';
+
+export const M365Icon: React.FC<{ className?: string; size?: number }> = ({ className, size = 20 }) => (
+  <svg width={size} height={size} viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <path d="M14.1441 3.34932C13.9105 2.54966 13.1773 2 12.3443 2L11.7431 2C10.847 2 10.0762 2.634 9.90333 3.51321L8.85388 8.85006L9.15131 7.89102C9.39467 7.1063 10.1206 6.57143 10.9421 6.57143L14.2355 6.57143L15.6356 7.74347L16.8822 6.57143H16.4908C15.6578 6.57143 14.9246 6.02177 14.6911 5.22211L14.1441 3.34932Z" fill="url(#paint0_radial_7501_12284)"/>
+    <path d="M6.0492 16.6432C6.28017 17.4467 7.01519 18.0002 7.85121 18.0002H9.07497C10.0844 18.0002 10.9126 17.2011 10.9488 16.1923L11.1295 11.1431L10.842 12.0956C10.6031 12.8872 9.87385 13.4288 9.04701 13.4288L5.73383 13.4288L4.34959 12.5436L3.32812 13.4288H3.71324C4.54926 13.4288 5.28427 13.9823 5.51524 14.7858L6.0492 16.6432Z" fill="url(#paint1_radial_7501_12284)"/>
+    <path d="M12.25 2H5.6876C3.81262 2 2.68763 4.39748 1.93763 6.79497C1.04909 9.63537 -0.113598 13.4342 3.25012 13.4342H6.11121C6.94326 13.4342 7.67523 12.8878 7.911 12.0899C8.40441 10.4199 9.26469 7.52162 9.94085 5.31373C10.2855 4.18837 10.5726 3.22188 11.0131 2.62001C11.2601 2.28258 11.6718 2 12.25 2Z" fill="url(#paint2_radial_7501_12284)"/>
+    <path d="M12.25 2H5.6876C3.81262 2 2.68763 4.39748 1.93763 6.79497C1.04909 9.63537 -0.113598 13.4342 3.25012 13.4342H6.11121C6.94326 13.4342 7.67523 12.8878 7.911 12.0899C8.40441 10.4199 9.26469 7.52162 9.94085 5.31373C10.2855 4.18837 10.5726 3.22188 11.0131 2.62001C11.2601 2.28258 11.6718 2 12.25 2Z" fill="url(#paint3_linear_7501_12284)"/>
+    <path d="M7.74872 18.0001H14.3112C16.1861 18.0001 17.3111 15.6035 18.0611 13.2068C18.9497 10.3673 20.1124 6.56982 16.7486 6.56982H13.8874C13.0554 6.56982 12.3235 7.11608 12.0877 7.91395C11.5943 9.58337 10.734 12.4805 10.0579 14.6875C9.71328 15.8125 9.4262 16.7787 8.98563 17.3803C8.73862 17.7177 8.32695 18.0001 7.74872 18.0001Z" fill="url(#paint4_radial_7501_12284)"/>
+    <path d="M7.74872 18.0001H14.3112C16.1861 18.0001 17.3111 15.6035 18.0611 13.2068C18.9497 10.3673 20.1124 6.56982 16.7486 6.56982H13.8874C13.0554 6.56982 12.3235 7.11608 12.0877 7.91395C11.5943 9.58337 10.734 12.4805 10.0579 14.6875C9.71328 15.8125 9.4262 16.7787 8.98563 17.3803C8.73862 17.7177 8.32695 18.0001 7.74872 18.0001Z" fill="url(#paint5_linear_7501_12284)"/>
+    <defs>
+      <radialGradient id="paint0_radial_7501_12284" cx="0" cy="0" r="1" gradientTransform="matrix(-4.54964 -5.59008 -4.91213 4.68878 15.7132 8.89484)" gradientUnits="userSpaceOnUse">
+        <stop offset="0.0955758" stopColor="#00AEFF"/>
+        <stop offset="0.773185" stopColor="#2253CE"/>
+        <stop offset="1" stopColor="#0736C4"/>
+      </radialGradient>
+      <radialGradient id="paint1_radial_7501_12284" cx="0" cy="0" r="1" gradientTransform="matrix(4.0792 5.17125 4.81539 -4.22088 4.74347 13.401)" gradientUnits="userSpaceOnUse">
+        <stop stopColor="#FFB657"/>
+        <stop offset="0.633728" stopColor="#FF5F3D"/>
+        <stop offset="0.923392" stopColor="#C02B3C"/>
+      </radialGradient>
+      <radialGradient id="paint2_radial_7501_12284" cx="0" cy="0" r="1" gradientTransform="matrix(-0.594541 -10.1312 58.8167 -3.23085 5.52497 13.4301)" gradientUnits="userSpaceOnUse">
+        <stop offset="0.03" stopColor="#FFC800"/>
+        <stop offset="0.31" stopColor="#98BD42"/>
+        <stop offset="0.49" stopColor="#52B471"/>
+        <stop offset="0.843838" stopColor="#0D91E1"/>
+      </radialGradient>
+      <linearGradient id="paint3_linear_7501_12284" x1="6.11312" y1="2" x2="6.59177" y2="13.4355" gradientUnits="userSpaceOnUse">
+        <stop stopColor="#3DCBFF"/>
+        <stop offset="0.246674" stopColor="#0588F7" stopOpacity="0"/>
+      </linearGradient>
+      <radialGradient id="paint4_radial_7501_12284" cx="0" cy="0" r="1" gradientTransform="matrix(-5.18438 14.3365 -17.6444 -6.32742 17.0857 5.45071)" gradientUnits="userSpaceOnUse">
+        <stop offset="0.0661714" stopColor="#8C48FF"/>
+        <stop offset="0.5" stopColor="#F2598A"/>
+        <stop offset="0.895833" stopColor="#FFB152"/>
+      </radialGradient>
+      <linearGradient id="paint5_linear_7501_12284" x1="17.6042" y1="5.87198" x2="17.5979" y2="8.98519" gradientUnits="userSpaceOnUse">
+        <stop offset="0.0581535" stopColor="#F8ADFA"/>
+        <stop offset="0.708063" stopColor="#A86EDD" stopOpacity="0"/>
+      </linearGradient>
+    </defs>
+  </svg>
+);
+
+export const SlackIcon: React.FC<{ className?: string; size?: number }> = ({ className, size = 20 }) => (
+  <svg width={size} height={size} viewBox="0 0 127 127" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <path d="M27.2 80c0 7.3-5.9 13.2-13.2 13.2S.8 87.3.8 80c0-7.3 5.9-13.2 13.2-13.2h13.2V80zm6.6 0c0-7.3 5.9-13.2 13.2-13.2s13.2 5.9 13.2 13.2v33c0 7.3-5.9 13.2-13.2 13.2s-13.2-5.9-13.2-13.2V80z" fill="#E01E5A"/>
+    <path d="M47 27c-7.3 0-13.2-5.9-13.2-13.2S39.7.6 47 .6s13.2 5.9 13.2 13.2V27H47zm0 6.7c7.3 0 13.2 5.9 13.2 13.2s-5.9 13.2-13.2 13.2H13.9C6.6 60.1.7 54.2.7 46.9s5.9-13.2 13.2-13.2H47z" fill="#36C5F0"/>
+    <path d="M99.9 46.9c0-7.3 5.9-13.2 13.2-13.2s13.2 5.9 13.2 13.2-5.9 13.2-13.2 13.2H99.9V46.9zm-6.6 0c0 7.3-5.9 13.2-13.2 13.2s-13.2-5.9-13.2-13.2V13.8C66.9 6.5 72.8.6 80.1.6s13.2 5.9 13.2 13.2v33.1z" fill="#2EB67D"/>
+    <path d="M80.1 99.8c7.3 0 13.2 5.9 13.2 13.2s-5.9 13.2-13.2 13.2-13.2-5.9-13.2-13.2V99.8h13.2zm0-6.6c-7.3 0-13.2-5.9-13.2-13.2s5.9-13.2 13.2-13.2h33.1c7.3 0 13.2 5.9 13.2 13.2s-5.9 13.2-13.2 13.2H80.1z" fill="#ECB22E"/>
+  </svg>
+);
+
+export const SharePointIcon: React.FC<{ className?: string; size?: number }> = ({ className, size = 20 }) => (
+  <svg width={size} height={size} viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <path d="M10 13C13.3137 13 16 10.3137 16 7C16 3.68629 13.3137 1 10 1C6.68629 1 4 3.68629 4 7C4 10.3137 6.68629 13 10 13Z" fill="url(#paint0_linear_914_38863)"/>
+    <path d="M10 13C13.3137 13 16 10.3137 16 7C16 3.68629 13.3137 1 10 1C6.68629 1 4 3.68629 4 7C4 10.3137 6.68629 13 10 13Z" fill="url(#paint1_radial_914_38863)" fillOpacity="0.2"/>
+    <path d="M10 13C13.3137 13 16 10.3137 16 7C16 3.68629 13.3137 1 10 1C6.68629 1 4 3.68629 4 7C4 10.3137 6.68629 13 10 13Z" fill="url(#paint2_radial_914_38863)" fillOpacity="0.31"/>
+    <path d="M10 13C13.3137 13 16 10.3137 16 7C16 3.68629 13.3137 1 10 1C6.68629 1 4 3.68629 4 7C4 10.3137 6.68629 13 10 13Z" fill="url(#paint3_radial_914_38863)" fillOpacity="0.7"/>
+    <path d="M14.5 16C16.9853 16 19 13.9853 19 11.5C19 9.01472 16.9853 7 14.5 7C12.0147 7 10 9.01472 10 11.5C10 13.9853 12.0147 16 14.5 16Z" fill="url(#paint4_linear_914_38863)"/>
+    <path d="M14.5 16C16.9853 16 19 13.9853 19 11.5C19 9.01472 16.9853 7 14.5 7C12.0147 7 10 9.01472 10 11.5C10 13.9853 12.0147 16 14.5 16Z" fill="url(#paint5_radial_914_38863)" fillOpacity="0.5"/>
+    <path d="M14.5 16C16.9853 16 19 13.9853 19 11.5C19 9.01472 16.9853 7 14.5 7C12.0147 7 10 9.01472 10 11.5C10 13.9853 12.0147 16 14.5 16Z" fill="url(#paint6_radial_914_38863)" fillOpacity="0.7"/>
+    <path d="M10 19C12.2091 19 14 17.2091 14 15C14 12.7909 12.2091 11 10 11C7.79086 11 6 12.7909 6 15C6 17.2091 7.79086 19 10 19Z" fill="url(#paint7_linear_914_38863)"/>
+    <path d="M10 19C12.2091 19 14 17.2091 14 15C14 12.7909 12.2091 11 10 11C7.79086 11 6 12.7909 6 15C6 17.2091 7.79086 19 10 19Z" fill="url(#paint8_linear_914_38863)" fillOpacity="0.32"/>
+    <rect x="2" y="7" width="9" height="9" rx="2" fill="url(#paint9_radial_914_38863)"/>
+    <rect x="2" y="7" width="9" height="9" rx="2" fill="url(#paint10_radial_914_38863)" fillOpacity="0.6"/>
+    <path d="M4.61523 13.0169L5.56352 12.5219C5.67043 12.738 5.80988 12.8972 5.98187 12.9995C6.15619 13.1017 6.34678 13.1529 6.55363 13.1529C6.78373 13.1529 6.95921 13.1064 7.08007 13.0134C7.20093 12.9181 7.26136 12.7752 7.26136 12.5846C7.26136 12.4359 7.20325 12.3104 7.08704 12.2081C6.97083 12.1035 6.76514 12.0245 6.46996 11.971C5.9075 11.8687 5.49844 11.6898 5.24277 11.4341C4.98943 11.1785 4.86276 10.86 4.86276 10.4789C4.86276 10.0047 5.03011 9.62588 5.36479 9.34232C5.69948 9.05877 6.14108 8.91699 6.6896 8.91699C7.05915 8.91699 7.38454 8.99253 7.66577 9.1436C7.947 9.29468 8.17013 9.51083 8.33515 9.79206L7.40778 10.2697C7.30552 10.1116 7.19512 9.99775 7.07658 9.92803C6.95805 9.85598 6.8093 9.81995 6.63033 9.81995C6.4165 9.81995 6.25381 9.86644 6.14225 9.9594C6.03301 10.0524 5.97839 10.1732 5.97839 10.322C5.97839 10.4498 6.03068 10.5625 6.13527 10.6602C6.24219 10.7554 6.45602 10.8333 6.77676 10.8937C7.31598 10.996 7.71807 11.1819 7.98303 11.4516C8.25031 11.7188 8.38396 12.057 8.38396 12.4661C8.38396 12.9635 8.22475 13.3574 7.90633 13.6479C7.58791 13.9385 7.13353 14.0837 6.54317 14.0837C6.11552 14.0837 5.7297 13.9908 5.38571 13.8048C5.04405 13.6166 4.78723 13.3539 4.61523 13.0169Z" fill="white"/>
+    <defs>
+      <linearGradient id="paint0_linear_914_38863" x1="5.5" y1="2.5" x2="13.5" y2="13" gradientUnits="userSpaceOnUse">
+        <stop stopColor="#00E3DF"/>
+        <stop offset="0.410156" stopColor="#0097A8"/>
+        <stop offset="1" stopColor="#007791"/>
+      </linearGradient>
+      <radialGradient id="paint1_radial_914_38863" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(11.8359 14.6599) rotate(-112.448) scale(9.21304 16.5645)">
+        <stop offset="0.28573" stopColor="#003B5D"/>
+        <stop offset="0.612265" stopColor="#004A6C" stopOpacity="0.688298"/>
+        <stop offset="0.968041" stopColor="#006F94" stopOpacity="0"/>
+      </radialGradient>
+      <radialGradient id="paint2_radial_914_38863" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(12.0477 12.0127) rotate(-112.063) scale(7.77595 13.9636)">
+        <stop offset="0.259744" stopColor="#002A42"/>
+        <stop offset="0.612265" stopColor="#004261" stopOpacity="0.688298"/>
+        <stop offset="0.968041" stopColor="#006F94" stopOpacity="0"/>
+      </radialGradient>
+      <radialGradient id="paint3_radial_914_38863" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(13.4243 1.63535) rotate(124.447) scale(6.50536)">
+        <stop stopColor="#78EDFF"/>
+        <stop offset="1" stopColor="#2CCFCA" stopOpacity="0"/>
+      </radialGradient>
+      <linearGradient id="paint4_linear_914_38863" x1="11.125" y1="8.125" x2="17.125" y2="16" gradientUnits="userSpaceOnUse">
+        <stop stopColor="#00E0D9"/>
+        <stop offset="0.476427" stopColor="#009FB8"/>
+        <stop offset="0.945063" stopColor="#056475"/>
+      </linearGradient>
+      <radialGradient id="paint5_radial_914_38863" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(11.9219 15.25) rotate(-70.8012) scale(5.55919 10.0164)">
+        <stop stopColor="#004A5D"/>
+        <stop offset="0.492035" stopColor="#00556C" stopOpacity="0.688298"/>
+        <stop offset="0.968041" stopColor="#007A86" stopOpacity="0"/>
+      </radialGradient>
+      <radialGradient id="paint6_radial_914_38863" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(17.0682 7.47651) rotate(124.447) scale(4.87902)">
+        <stop stopColor="#78EDFF"/>
+        <stop offset="1" stopColor="#2CCFCA" stopOpacity="0"/>
+      </radialGradient>
+      <linearGradient id="paint7_linear_914_38863" x1="7.2" y1="11.4" x2="11.2" y2="19.4" gradientUnits="userSpaceOnUse">
+        <stop offset="0.0534989" stopColor="#75FFF6"/>
+        <stop offset="0.51144" stopColor="#00C7D1"/>
+        <stop offset="0.96002" stopColor="#0096AD"/>
+      </linearGradient>
+      <linearGradient id="paint8_linear_914_38863" x1="13.9816" y1="19.0004" x2="11.8441" y2="16.0004" gradientUnits="userSpaceOnUse">
+        <stop offset="0.259744" stopColor="#0E5A5D"/>
+        <stop offset="0.535716" stopColor="#126C6B" stopOpacity="0.688298"/>
+        <stop offset="0.968041" stopColor="#1C948A" stopOpacity="0"/>
+      </linearGradient>
+      <radialGradient id="paint9_radial_914_38863" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(2 7) rotate(45) scale(12.7279)">
+        <stop offset="0.0625" stopColor="#00B6BD"/>
+        <stop offset="0.890131" stopColor="#00495C"/>
+      </radialGradient>
+      <radialGradient id="paint10_radial_914_38863" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(6.5 12.4) rotate(90) scale(6.3 7.17187)">
+        <stop offset="0.566964" stopColor="#1E8581" stopOpacity="0"/>
+        <stop offset="0.973806" stopColor="#1ECBE6"/>
+      </radialGradient>
+    </defs>
+  </svg>
+);
+
+export const WhatsAppIcon: React.FC<{ className?: string; size?: number }> = ({ className, size = 20 }) => (
+  <svg width={size} height={size} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <path d="M16 0C7.164 0 0 7.164 0 16c0 2.828.738 5.584 2.152 8.032L0 32l8.192-2.112A15.938 15.938 0 0016 32c8.836 0 16-7.164 16-16S24.836 0 16 0z" fill="#25D366"/>
+    <path d="M25.232 22.624c-.368 1.04-2.176 2.016-2.984 2.144-.808.128-1.488.368-5.024-.992-4.528-1.744-7.44-6.256-7.664-6.544-.224-.288-1.824-2.424-1.824-4.624 0-2.2 1.152-3.28 1.56-3.728.408-.448.888-.56 1.184-.56.296 0 .592 0 .848.016.272.016.64-.104.992.752.368.888 1.232 3.024 1.344 3.248.112.224.184.488.04.776-.144.288-.216.464-.432.712-.216.248-.456.552-.648.744-.216.216-.44.448-.192.872.248.424 1.104 1.824 2.368 2.96 1.632 1.456 3 1.912 3.424 2.128.424.216.672.184.92-.112.248-.296.992-1.168 1.272-1.576.28-.408.552-.344.928-.216.376.128 2.384 1.128 2.792 1.336.408.216.68.312.776.488.096.176.096.992-.272 2.032z" fill="#FFF"/>
+  </svg>
+);
+
+// ─── Channel helpers ──────────────────────────────────────────────────────────
+
+export interface ChannelInfo {
+  name: string;
+  previewLabel: string;
+}
+
+export function getChannelInfo(channel?: string): ChannelInfo {
+  switch (channel) {
+    case 'slack':      return { name: 'Slack',                 previewLabel: 'Slack preview' };
+    case 'sharepoint': return { name: 'SharePoint',            previewLabel: 'SharePoint preview' };
+    case 'whatsapp':   return { name: 'WhatsApp',              previewLabel: 'WhatsApp preview' };
+    case 'website':    return { name: 'Web',                   previewLabel: 'Web preview' };
+    default:           return { name: 'Microsoft 365 Copilot', previewLabel: 'Microsoft 365 Copilot preview' };
+  }
+}
+
+/** Renders the channel logo at a given pixel size (default 20). */
+export const ChannelIcon: React.FC<{ channel?: string; size?: number; className?: string }> = ({ channel, size = 20, className }) => {
+  switch (channel) {
+    case 'slack':
+      return <SlackIcon className={className} size={size} />;
+    case 'sharepoint':
+      return <SharePointIcon className={className} size={size} />;
+    case 'whatsapp':
+      return <WhatsAppIcon className={className} size={size} />;
+    case 'website':
+      return (
+        <svg width={size} height={size} viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+          <circle cx="10" cy="10" r="8.5" stroke="#616161" strokeWidth="1.5"/>
+          <ellipse cx="10" cy="10" rx="3.5" ry="8.5" stroke="#616161" strokeWidth="1.5"/>
+          <path d="M1.5 10h17" stroke="#616161" strokeWidth="1.5" strokeLinecap="round"/>
+          <path d="M2.5 6.5h15M2.5 13.5h15" stroke="#616161" strokeWidth="1.5" strokeLinecap="round"/>
+        </svg>
+      );
+    default:
+      // Microsoft 365 Copilot (teams / default)
+      return <img src="/copilot-icon.svg" alt="Microsoft 365 Copilot" width={size} height={size} className={className} />;
+  }
+};

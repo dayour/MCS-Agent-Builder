@@ -23,13 +23,41 @@
     "CHANGELOG.md"
   ],
   "scripts": {
-    "start": "node start.js",
+    "start": "node scripts/dev.js",
     "postinstall": "node bin/postinstall.js",
     "prepublishOnly": "npm run frontend:build",
     "test": "echo \"Run 'mcs doctor' to check prerequisites, or 'node tools/direct-line-test.js' for integration tests\" && exit 0",
+    "test:unit": "node --test \"app/lib/__tests__/**/*.test.js\" && node --experimental-strip-types --test \"app/frontend/src/utils/__tests__/**/*.test.ts\" && npm --prefix app/frontend run test:components",
     "test:integration": "node tools/direct-line-test.js",
-    "frontend:dev": "npm --prefix app/frontend install && npm --prefix app/frontend run dev",
-    "frontend:build": "npm --prefix app/frontend install && npm --prefix app/frontend run build"
+    "dev": "node scripts/dev.js",
+    "frontend:dev": "npm --prefix app/frontend install --legacy-peer-deps && npm --prefix app/frontend run dev",
+    "frontend:build": "npm --prefix app/frontend install --legacy-peer-deps && npm --prefix app/frontend run build",
+    "validate:mgmt-spec": "node tools/upstream-specs/validate.js",
+    "convert:mgmt-spec": "swagger2openapi tools/upstream-specs/botmanagement-2022-01-15.json --outfile tools/generated/botmanagement-openapi3.json --resolve --patch",
+    "regen:mgmt-types": "npm run validate:mgmt-spec && npm run convert:mgmt-spec && openapi-typescript tools/generated/botmanagement-openapi3.json -o tools/generated/mgmt-types.ts",
+    "typecheck:tools": "tsc --noEmit -p tsconfig.tools.json",
+    "assert:regen-clean": "node tools/upstream-specs/assert-regen-clean.js",
+    "auth:ado-npm": "node tools/upstream-specs/auth-ado-npm.js",
+    "contracts:check": "node tools/contract-parity.js --check-coverage && node tools/contract-parity.js",
+    "contracts:list": "node tools/contract-parity.js --list",
+    "smoke:eval-gate": "node tools/live-smoke-eval-gate.js",
+    "smoke:eval-gate:preflight": "node tools/live-smoke-eval-gate.js --preflight-only",
+    "smoke:eval-gate:via-gate": "node tools/live-smoke-eval-gate.js --via-gate",
+    "gate:diagnose-direct-line": "node tools/diagnose-direct-line.js",
+    "gate:har-capture": "node tools/har-capture.js",
+    "gate:backfill": "node tools/backfill-published-status.js",
+    "gate:audit-verify": "node -e \"const { verifyAuditChain, LOG_PATH } = require('./app/lib/eval-gate-audit'); const r = verifyAuditChain(); console.log(JSON.stringify({ logPath: LOG_PATH, ...r }, null, 2)); process.exit(r.ok ? 0 : 1);\"",
+    "smoke:eval-gate:batch": "node tools/batch-smoke-eval-gate.js",
+    "sync": "node tools/sync-orchestrator.js",
+    "sync:detect": "node tools/sync-orchestrator.js detect",
+    "sync:review": "node tools/sync-orchestrator.js review",
+    "sync:verify-views": "node tools/sync-orchestrator.js verify-views",
+    "pipeline:run": "node tools/pipeline-test-loop.js run",
+    "pipeline:status": "node tools/pipeline-test-loop.js status",
+    "pipeline:failures": "node tools/pipeline-test-loop.js failures",
+    "pipeline:reset": "node tools/pipeline-test-loop.js reset",
+    "lint": "npm --prefix app/frontend run lint",
+    "audit:repo": "knip --no-exit-code"
   },
   "dependencies": {
     "@observablehq/plot": "^0.6.17",
@@ -37,13 +65,19 @@
     "express": "^5.1.0",
     "jsdom": "^29.0.2",
     "mammoth": "^1.11.0",
+    "microsoft-agents-objectmodel": "^2026.3.2-1",
     "multer": "^2.1.1",
     "node-cron": "^4.2.1",
     "nunjucks": "^3.2.4",
     "turndown": "^7.2.0",
     "xlsx": "^0.18.5"
   },
-  "optionalDependencies": {},
+  "devDependencies": {
+    "knip": "^6.11.0",
+    "openapi-typescript": "7.13.0",
+    "swagger2openapi": "7.0.8",
+    "typescript": "6.0.3"
+  },
   "engines": {
     "node": ">=20.0.0"
   }

@@ -1,17 +1,17 @@
 # Phase 0: Smart Research Routing (Unified)
 
-**Goal:** Determine the optimal processing path for any invocation — project or agent level. Detects new/changed docs, brief edits, and manually created agents.
+**Goal:** Determine the optimal processing path for any invocation — project or agent level. Detects new/changed docs, spec edits, and manually created agents.
 
-This phase runs for all invocations because accurate routing prevents wasted work (re-reading unchanged docs) and missed updates (brief edits without new docs).
+This phase runs for all invocations because accurate routing prevents wasted work (re-reading unchanged docs) and missed updates (spec edits without new docs).
 
 ## Step 0.1: Determine Scope
 
 - `/mcs-research {projectId}` -> `scope = "project"`
 - `/mcs-research {projectId} {agentId}` -> `scope = "agent"`
 
-## Step 0.2: Check Preconditions (Manifest + Brief)
+## Step 0.2: Check Preconditions (Manifest + Spec)
 
-| Scope | Manifest? | Brief? | Result |
+| Scope | Manifest? | Spec? | Result |
 |-------|-----------|--------|--------|
 | project | No | -- | `processingPath = "full"` (first run) |
 | project | Yes | -- | Proceed to Step 0.3 (diff docs) |
@@ -19,9 +19,9 @@ This phase runs for all invocations because accurate routing prevents wasted wor
 | agent | -- | Yes + enriched | Proceed to Step 0.3 (diff docs) |
 
 Read `Build-Guides/{projectId}/doc-manifest.json` for manifest check.
-Read `Build-Guides/{projectId}/agents/{agentId}/brief.json` for brief check (agent scope only).
+Read `Build-Guides/{projectId}/agents/{agentId}/agentspec.json` for spec check (agent scope only).
 
-"Empty stub" = brief.json exists but `instructions` is empty AND `capabilities` is empty (never been through research).
+"Empty stub" = agentspec.json exists but `instructions` is empty AND `capabilities` is empty (never been through research).
 
 ## Step 0.3: Diff Documents Against Manifest
 
@@ -37,15 +37,15 @@ Read `Build-Guides/{projectId}/agents/{agentId}/brief.json` for brief check (age
 4. **Agent-scoped filtering:**
    - If `scope = "project"`: diff all docs (current behavior)
    - If `scope = "agent"`: diff docs where `matchedAgents` includes this agentId, plus any new docs (not yet in manifest)
-   - If no manifest exists (agent scope, brief exists): treat all project docs as candidates, filter by relevance in Step 0.4
+   - If no manifest exists (agent scope, spec exists): treat all project docs as candidates, filter by relevance in Step 0.4
 5. If changes exist -> proceed to Step 0.4
-6. If no changes -> proceed to Step 0.5 (check brief modifications)
+6. If no changes -> proceed to Step 0.5 (check spec modifications)
 
 ## Step 0.4: Document-to-Agent Mapping (when new/changed docs exist)
 
 For each new/changed doc, determine which agent(s) it belongs to:
 
-1. Read each doc content, score relevance against every agent's `brief.json`:
+1. Read each doc content, score relevance against every agent's `agentspec.json`:
    - Systems mentioned -> match `integrations[]`
    - Domain keywords -> match `business.problemStatement`
    - Capabilities -> match `capabilities[].name`
@@ -66,12 +66,12 @@ Output the mapping:
 
 Then proceed to Step 0.6 (drastic change detection).
 
-## Step 0.5: Check for Brief Modifications (when no doc changes detected)
+## Step 0.5: Check for Spec Modifications (when no doc changes detected)
 
 **For agent scope only** -- if no doc changes were detected for this agent:
-- Compare brief.json file modification time vs `manifest.lastResearchAt`
-- If brief is newer -> set `processingPath = "re-enrich"` (brief was edited, re-run Phase B->C)
-- If brief is not newer -> set `processingPath = "none"` (truly nothing to do)
+- Compare agentspec.json file modification time vs `manifest.lastResearchAt`
+- If spec is newer -> set `processingPath = "re-enrich"` (spec was edited, re-run Phase B->C)
+- If spec is not newer -> set `processingPath = "none"` (truly nothing to do)
 
 **For project scope** -- if no doc changes at all:
 - Output: `No document changes since last research ({manifest.lastResearchAt}). Nothing new to process.`
@@ -87,7 +87,7 @@ Read new/changed docs and check 5 thresholds. Any one triggers a fallback to ful
 |-----------|--------------|-------|
 | New agent described | Content describes an agent not in `Build-Guides/{projectId}/agents/` | Project only |
 | Architecture change | Content implies single <-> multi-agent switch | Project only |
-| >4 brief sections affected | Map content to brief sections; count > 4 | Both |
+| >4 spec sections affected | Map content to spec sections; count > 4 | Both |
 | Problem statement shift | Content fundamentally changes `business.problemStatement` | Both |
 | Volume ratio >2x | Total bytes of new/changed docs > 2x total bytes of existing processed docs | Both |
 
@@ -98,9 +98,9 @@ At agent scope, skip "new agent described" and "architecture change" thresholds 
 | Condition | `processingPath` | Phases |
 |-----------|-----------------|--------|
 | First project run (no manifest) | `full` | A -> B -> C (all docs, deep research) |
-| First agent run (empty brief) | `full-agent` | A -> B -> C (scoped to agent, reads all project docs for relevance) |
-| No changes, brief not edited | `none` | Exit with message |
-| Brief edited, no new docs | `re-enrich` | B -> C (skip A, re-enrich with current brief context) |
+| First agent run (empty spec) | `full-agent` | A -> B -> C (scoped to agent, reads all project docs for relevance) |
+| No changes, spec not edited | `none` | Exit with message |
+| Spec edited, no new docs | `re-enrich` | B -> C (skip A, re-enrich with current spec context) |
 | Changes exist, not drastic | `incremental` | A-inc -> B-inc -> C-inc |
 | Changes exist, drastic | `full` | Warning -> A -> B -> C |
 

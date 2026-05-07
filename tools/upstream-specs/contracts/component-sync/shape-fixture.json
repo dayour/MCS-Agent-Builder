@@ -1,0 +1,53 @@
+{
+  "_description": "Sanitized fixture for component-sync PUT. Shape of the delta envelope + the GptComponent kind commonly updated. Component content is minimal (non-contractual per contract.json).",
+  "request": {
+    "method": "PUT",
+    "url": "/api/botmanagement/v1/environments/<envId>/bots/<botId>/content/botcomponents",
+    "headers": {
+      "content-type": "application/json",
+      "x-ms-environment-id": "<envId>",
+      "x-ms-bot-id": "<botId>"
+    },
+    "body": {
+      "componentDeltaToken": "<opaque-token-or-null>",
+      "componentDelta": {
+        "<componentGuid>": {
+          "componentKind": "GptComponent",
+          "schemaName": "<schemaName>",
+          "state": "Active",
+          "content": "<opaque-component-payload>"
+        }
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": { "content-type": "application/json" },
+    "body": {
+      "componentDeltaToken": "<new-opaque-token>",
+      "components": [
+        {
+          "componentId": "<guid>",
+          "componentKind": "GptComponent",
+          "schemaName": "<schemaName>",
+          "state": "Active"
+        }
+      ]
+    }
+  },
+  "errorCase": {
+    "_description": "409 ConcurrencyVersionMismatch — stale token",
+    "request": {
+      "body": { "componentDeltaToken": "<stale-token>", "componentDelta": {} }
+    },
+    "response": {
+      "status": 409,
+      "body": {
+        "error": {
+          "code": "ConcurrencyVersionMismatch",
+          "message": "The row version is out of date. Pull the latest state before writing."
+        }
+      }
+    }
+  }
+}

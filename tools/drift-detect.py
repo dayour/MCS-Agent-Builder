@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
-Drift detection: compare brief.json topic specs vs actual topic YAML files.
+Drift detection: compare agent spec topic definitions vs actual topic YAML files.
+
+Supports agentspec.json (preferred) with brief.json fallback for backward compat.
 
 Detects:
   - Topics in spec but not built (missing)
@@ -11,9 +13,9 @@ Detects:
   - YAML validation errors (via om-cli)
 
 Usage:
-    python tools/drift-detect.py <brief.json>
-    python tools/drift-detect.py <brief.json> --topics-dir <path>
-    python tools/drift-detect.py <brief.json> --validate
+    python tools/drift-detect.py <agentspec.json>
+    python tools/drift-detect.py <agentspec.json> --topics-dir <path>
+    python tools/drift-detect.py <agentspec.json> --validate
 """
 
 import json
@@ -39,15 +41,23 @@ TRIGGER_MAP = {
 }
 
 
+def _resolve_spec_path(p: str) -> str:
+    """Resolve agentspec.json with brief.json fallback."""
+    d = os.path.dirname(p) or "."
+    spec = os.path.join(d, "agentspec.json")
+    return spec if os.path.exists(spec) and os.path.basename(p) == "brief.json" else p
+
+
 def load_brief(path: str) -> dict:
-    with open(path) as f:
+    resolved = _resolve_spec_path(path)
+    with open(resolved) as f:
         return json.load(f)
 
 
 def find_topics_dir(brief_path: str, override: str | None) -> Path | None:
     if override:
         return Path(override)
-    # Default: same directory as brief.json, under topics/
+    # Default: same directory as agent spec, under topics/
     brief_dir = Path(brief_path).parent
     topics_dir = brief_dir / "topics"
     if topics_dir.exists():
@@ -318,12 +328,14 @@ def format_report(report: dict) -> str:
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python tools/drift-detect.py <brief.json> [--topics-dir <path>] [--validate] [--json]")
+        print("Usage: python tools/drift-detect.py <agentspec.json> [--topics-dir <path>] [--validate] [--json]")
         sys.exit(1)
 
     brief_path = sys.argv[1]
-    if not os.path.exists(brief_path):
-        print(f"Error: Brief file not found: {brief_path}", file=sys.stderr)
+    # Backward compat: resolve agentspec.json if brief.json was passed
+    resolved = _resolve_spec_path(brief_path)
+    if not os.path.exists(resolved):
+        print(f"Error: Agent spec file not found: {resolved}", file=sys.stderr)
         sys.exit(1)
     topics_dir = None
     do_validate = "--validate" in sys.argv
@@ -333,7 +345,7 @@ def main():
         if arg == "--topics-dir" and i + 1 < len(sys.argv):
             topics_dir = sys.argv[i + 1]
 
-    report = detect_drift(brief_path, topics_dir, do_validate)
+    report = detect_drift(resolved, topics_dir, do_validate)
 
     if output_json:
         print(json.dumps(report, indent=2))

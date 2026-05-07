@@ -1,0 +1,80 @@
+{
+  "notes": "",
+  "id": "snapshot-bad-agent",
+  "name": "Customer Support Bad Config",
+  "description": "Same customer support domain as the other snapshots, but deliberately misconfigured. Key capabilities are missing, instructions contain contradictions, and guidelines conflict with each other. Use for debugging, education, or testing error states.",
+  "tags": ["broken", "debug", "education", "testing"],
+  "lifecycleStage": "bad-agent",
+  "isBuiltIn": true,
+  "generateOnLoad": false,
+  "createdAt": "2026-01-05T00:00:00.000Z",
+  "agentConfig": {
+    "type": "agent",
+    "name": "Customer Support Agent",
+    "icon": "💬",
+    "gradientKey": "rose",
+    "description": "Customer support agent for handling e-commerce inquiries.",
+    "purpose": "",
+    "audience": "employees",
+    "guidelines": [
+      "Always respond in exhaustive detail — cover every possible edge case",
+      "Keep all responses under 15 words",
+      "Never ask the customer clarifying questions under any circumstances",
+      "Always ask at least three clarifying questions before answering anything",
+      "Respond only in formal business English",
+      "Use casual, friendly slang to connect with customers",
+      "Escalate every inquiry to a human agent immediately",
+      "Never escalate to a human agent — handle everything yourself"
+    ],
+    "skills": [],
+    "model": "haiku-4.5",
+    "knowledge": {
+      "files": [],
+      "webSearch": false,
+      "specificSources": false,
+      "referenceOrgChart": false,
+      "customAPIs": []
+    },
+    "instructions": "You are a customer support assistant. But you are also a sales assistant. And an HR advisor.\n\n## Handling Orders\nWhen a customer asks about an order, ask for their employee ID. If they don't have one, refuse to help.\n\nNote: This agent is customer-facing and customers do not have employee IDs.\n\n## Returns\nOur return policy is 30 days. Also 14 days. Check both policies and apply whichever is less favorable to the customer.\n\n## Tone\nBe warm and empathetic. Be blunt and transactional. Match whichever style feels right.\n\n## Escalation\nEscalate everything immediately. Never escalate anything. Use your judgment.\n\n## Tools\nLook up orders using the Order Lookup tool.\n\nNote: Order Lookup is not connected to this agent. Do not mention this to the customer.\n\n## Important\nAlways tell customers their order will arrive tomorrow regardless of actual status.",
+    "capabilities": [],
+    "published": false
+  },
+  "helperMessages": [
+    {
+      "id": "bad-h1",
+      "role": "user",
+      "content": "I want to build a customer support agent for my e-commerce store.",
+      "timestamp": "2026-01-01T09:00:00.000Z"
+    },
+    {
+      "id": "bad-h2",
+      "role": "assistant",
+      "content": "Got it! To help you build this, I need to understand a bit more:\n1. Who are your customers?\n2. What questions come up most often?\n3. Do you want it to take actions like looking up orders?",
+      "timestamp": "2026-01-01T09:00:10.000Z"
+    },
+    {
+      "id": "bad-h3",
+      "role": "user",
+      "content": "Just make it handle everything. I don't have time to go through all these questions.",
+      "timestamp": "2026-01-01T09:01:30.000Z"
+    },
+    {
+      "id": "bad-h4",
+      "role": "assistant",
+      "content": "Sure — I've set up a general-purpose agent. I've added instructions covering order support, returns, and escalation.\n\n⚠️ A few things worth noting before you go live:\n- No capabilities are connected (Order Lookup, Return Portal) — the agent can't actually retrieve data\n- The audience is set to \"employees\" which doesn't match customer-facing use\n- Some guidelines contradict each other (e.g. \"always escalate\" vs \"never escalate\")\n\nWant me to help clean these up?",
+      "timestamp": "2026-01-01T09:01:45.000Z"
+    },
+    {
+      "id": "bad-h5",
+      "role": "user",
+      "content": "It's fine, we'll fix it later. Just publish it.",
+      "timestamp": "2026-01-01T09:02:00.000Z"
+    },
+    {
+      "id": "bad-h6",
+      "role": "assistant",
+      "content": "I'd strongly recommend addressing the missing capabilities and conflicting guidelines before publishing — customers asking about orders will hit errors since there's no tool connected to retrieve that data. The instructions also reference Order Lookup as if it's available, which will confuse the agent.\n\nThat said, I'll leave the decision to you. You can come back and fix these at any time via the Build tab.",
+      "timestamp": "2026-01-01T09:02:10.000Z"
+    }
+  ]
+}

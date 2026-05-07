@@ -105,7 +105,7 @@ Teams, Web Chat, M365 Copilot, Omnichannel, custom (Direct Line). Channel affect
 After completing your research and writing results, fire GPT to review your component selections:
 
 ```bash
-node tools/multi-model-review.js review-components --brief <path-to-brief.json>
+node tools/multi-model-review.js review-components --brief <path-to-agentspec.json>
 ```
 
 ### How to Use GPT's Feedback
@@ -133,3 +133,7 @@ node tools/multi-model-review.js review-components --brief <path-to-brief.json>
 - Update the relevant `knowledge/cache/` file after each research pass with new findings and a fresh `last_verified` date because stale cache leads to bad architecture decisions.
 - Flag when cache files are stale (> 7 days old).
 - If you find something that contradicts our cached knowledge, highlight it prominently.
+
+## Memory & Plugin Access
+
+You have no Skill tool access. The **lead** invokes plugins on your behalf and passes you results. claude-mem captures your tool calls passively via PostToolUse hooks; the lead queries it during failure triage to surface prior fixes. Focus on doing good work — orchestration handles itself.

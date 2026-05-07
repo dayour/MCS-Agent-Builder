@@ -1,6 +1,11 @@
 # Power-CAT Copilot Studio Kit — Integration Analysis
 
 > **Date:** 2026-03-18
+> **Status (2026-05-05):** HISTORICAL — `tools/powercat-test.js` referenced
+> throughout this document was removed in cleanup PR #21 (Kit integration
+> deferred per `feedback_kit_decision`). This analysis is preserved as the
+> rationale record for the deferral decision. Restore the tool from commit
+> `b60da346` if Kit integration is reactivated.
 > **Sources:** Kit GitHub repo (full tree + 25 docs), MS Learn (30 pages fetched), GPT-5.4 review, 3 research agents, AppSource, Power CAT blog, community blogs
 > **Recommendation:** Strategy B (AUGMENT with CLI wrappers) — Claude + GPT converge
 > **Latest Kit version:** March 2026 (released 2026-03-13, 5 days ago)
@@ -31,7 +36,7 @@ The Power-CAT Copilot Studio Kit is a free, MIT-licensed Power Platform solution
 | Cross-env deploy | replicate-agent.js | None | Agent replication across environments |
 | GPT co-generation | multi-model-review.js (14 commands) | None | Dual-model review on every non-trivial task |
 | YAML validation | om-cli (357 types) | None | Offline schema validation |
-| Brief-driven build | brief.json as source of truth | None | Single spec drives all tools, dashboard, reports |
+| Spec-driven build | agentspec.json as source of truth | None | Single spec drives all tools, dashboard, reports |
 | Solution library | solution-library.js (SharePoint) | Component Library (5 components) | Broader scope, team SharePoint integration |
 
 ### Where the Kit Is Stronger
@@ -68,7 +73,7 @@ The Power-CAT Copilot Studio Kit is a free, MIT-licensed Power Platform solution
 | Aspect | Assessment |
 |--------|-----------|
 | **Pros** | Single platform, standard Microsoft-supported, great for non-technical users |
-| **Cons** | Lose CLI-first workflow, brief.json, 7 eval methods, GPT scoring, headless ops, multi-model co-gen, YAML validation, cross-env replication |
+| **Cons** | Lose CLI-first workflow, agentspec.json, 7 eval methods, GPT scoring, headless ops, multi-model co-gen, YAML validation, cross-env replication |
 | **Risk** | HIGH — 6-12 month delivery slowdown, regression in test depth and developer ergonomics |
 | **Cost** | HIGHEST — full rewrite, retraining, change management |
 | **Verdict** | **REJECTED** — loses core differentiators that make our system valuable |
@@ -79,7 +84,7 @@ The Power-CAT Copilot Studio Kit is a free, MIT-licensed Power Platform solution
 |--------|-----------|
 | **Pros** | Preserves investment, fastest time to value, serves both audiences (CLI engineers + stakeholders), phased adoption |
 | **Cons** | Two operating surfaces, requires sync layer, some metadata duplication |
-| **Risk** | LOW — integration drift manageable with clear ownership (brief.json = authoritative, Kit = observational/governance) |
+| **Risk** | LOW — integration drift manageable with clear ownership (agentspec.json = authoritative, Kit = observational/governance) |
 | **Cost** | MEDIUM — integration adapters, schema mapping, dashboard setup |
 | **Verdict** | **RECOMMENDED** — union of capabilities, best ROI |
 
@@ -115,7 +120,7 @@ The Power-CAT Copilot Studio Kit is a free, MIT-licensed Power Platform solution
 
 4. **Agent Inventory** — query Kit's agent catalog in our dashboard
    - Read cat_copilotconfigurations + bots entity
-   - Display in app/ React dashboard alongside brief.json agents
+   - Display in app/ React dashboard alongside agentspec.json agents
    - Brief.json `buildStatus.kitAgentId` links to Kit inventory
 
 5. **Compliance Hub** — enable governance policies
@@ -125,7 +130,7 @@ The Power-CAT Copilot Studio Kit is a free, MIT-licensed Power Platform solution
 
 6. **Conversation KPIs** — enable production metrics
    - Kit tracks conversation volume, resolution rates, escalation rates
-   - Read into brief.json `productionMetrics` for our reports
+   - Read into agentspec.json `productionMetrics` for our reports
 
 ### Phase 3: Deep Integration (Week 4-6)
 
@@ -142,11 +147,11 @@ The Power-CAT Copilot Studio Kit is a free, MIT-licensed Power Platform solution
 9. **App Insights integration**
    - Configure App Insights enrichment for test runs
    - Kit enriches test results with: latency, error traces, conversation flow
-   - Read enriched data back into brief.json eval results
+   - Read enriched data back into agentspec.json eval results
 
 10. **Prompt Advisor** — AI-driven optimization
     - Run Kit's Prompt Advisor on agent instructions
-    - Feed recommendations back into brief.json instructions
+    - Feed recommendations back into agentspec.json instructions
     - Requires AI Builder credits (120/iteration)
 
 ### Phase 4: Sync Layer (Week 7-8)
@@ -157,8 +162,8 @@ The Power-CAT Copilot Studio Kit is a free, MIT-licensed Power Platform solution
     - Sync eval set structure to Kit test sets
 
 12. **Kit → Brief.json sync** (read direction)
-    - Read compliance status into brief.json `compliance` section
-    - Read KPI data into brief.json `productionMetrics`
+    - Read compliance status into agentspec.json `compliance` section
+    - Read KPI data into agentspec.json `productionMetrics`
     - Read inventory data for agent catalog
 
 13. **Dashboard integration**
@@ -171,7 +176,7 @@ The Power-CAT Copilot Studio Kit is a free, MIT-licensed Power Platform solution
 ## Architecture After Integration
 
 ```
-brief.json (Source of Truth)
+agentspec.json (Source of Truth)
     ├── Build Engine (Our CLI)
     │   ├── mcs-lsp.js (component sync)
     │   ├── island-client.js (Gateway API)
@@ -200,9 +205,9 @@ brief.json (Source of Truth)
 ```
 
 **Data flow:**
-- `brief.json` → CLI tools → Kit Dataverse (eval results, agent config)
-- Kit Dataverse → `brief.json` (compliance, KPIs, inventory)
-- CLI users: `brief.json` + app/ dashboard
+- `agentspec.json` → CLI tools → Kit Dataverse (eval results, agent config)
+- Kit Dataverse → `agentspec.json` (compliance, KPIs, inventory)
+- CLI users: `agentspec.json` + app/ dashboard
 - Non-CLI stakeholders: Kit model-driven app
 
 ---
@@ -234,4 +239,4 @@ brief.json (Source of Truth)
 
 ## GPT-5.4 Assessment (Verbatim)
 
-> **Choose B: AUGMENT.** Use the CLI for execution and innovation, and the Kit for enterprise governance and stakeholder transparency. Architecturally: keep brief.json as canonical, use CLI tools as producers, and sync selected artifacts/results into Kit Dataverse entities for testing, compliance, review, KPIs, and ROI. This gives the best balance of speed, control, adoption, and enterprise readiness.
+> **Choose B: AUGMENT.** Use the CLI for execution and innovation, and the Kit for enterprise governance and stakeholder transparency. Architecturally: keep agentspec.json as canonical, use CLI tools as producers, and sync selected artifacts/results into Kit Dataverse entities for testing, compliance, review, KPIs, and ROI. This gives the best balance of speed, control, adoption, and enterprise readiness.

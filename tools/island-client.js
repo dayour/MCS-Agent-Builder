@@ -28,6 +28,27 @@ const fs = require('fs');
 const path = require('path');
 const { httpRequest, httpRequestWithRetry, getToken, getTenantId } = require('./lib/http');
 
+/**
+ * Types vendored from the upstream Copilot Studio Management API OpenAPI spec
+ * (tools/upstream-specs/botmanagement-2022-01-15.json, commit dcef79e4).
+ *
+ * Generated via `npm run regen:mgmt-types`. Do not hand-edit tools/generated/mgmt-types.ts.
+ *
+ * @typedef {import('./generated/mgmt-types').operations} MgmtOperations
+ * @typedef {import('./generated/mgmt-types').components} MgmtComponents
+ * @typedef {MgmtComponents['schemas']['PagedQueryResponseOfDialog']} PagedDialogsResponse
+ * @typedef {MgmtComponents['schemas']['Dialog']} Dialog
+ * @typedef {MgmtComponents['schemas']['Dialog2']} Dialog2
+ * @typedef {MgmtComponents['schemas']['Intent2']} Intent2
+ *
+ * MakerEvaluation types are hand-derived because the endpoints aren't in the
+ * 2022-01-15 spec snapshot. See tools/generated/maker-eval-types.ts.
+ *
+ * @typedef {import('./generated/maker-eval-types').MakerEvalEnabledResponse} MakerEvalEnabledResponse
+ * @typedef {import('./generated/maker-eval-types').MakerEvalSupportedKnowledgeFile} MakerEvalSupportedKnowledgeFile
+ * @typedef {import('./generated/maker-eval-types').MakerEvalTestSet} MakerEvalTestSet
+ */
+
 // --- Build Headers ---
 
 function buildHeaders(token, tenantId, envId, botId) {
@@ -248,6 +269,542 @@ async function listTopics(gatewayUrl, envId, botId, headers) {
         });
 }
 
+class RoutingMisconfiguredError extends Error {
+    constructor(message, { url, status, contentType, bodyPreview } = {}) {
+        super(message);
+        this.name = 'RoutingMisconfiguredError';
+        this.url = url;
+        this.status = status;
+        this.contentType = contentType;
+        this.bodyPreview = bodyPreview;
+    }
+}
+
+const ALLOWED_GATEWAY_HOST_SUFFIX = '.gateway.prod.island.powerapps.com';
+
+function assertAllowedGateway(gatewayUrl) {
+    let parsed;
+    try {
+        parsed = new URL(gatewayUrl);
+    } catch (err) {
+        throw new RoutingMisconfiguredError(
+            `Gateway URL is not parseable: '${gatewayUrl}' — ${err.message}`,
+            { url: gatewayUrl }
+        );
+    }
+    if (parsed.protocol !== 'https:') {
+        throw new RoutingMisconfiguredError(
+            `Gateway URL must use https:// (got ${parsed.protocol}). ` +
+            `Plaintext would leak the bearer token.`,
+            { url: gatewayUrl }
+        );
+    }
+    if (!parsed.hostname.endsWith(ALLOWED_GATEWAY_HOST_SUFFIX)) {
+        throw new RoutingMisconfiguredError(
+            `Gateway hostname '${parsed.hostname}' is not an allowed Island Gateway. ` +
+            `Expected suffix: ${ALLOWED_GATEWAY_HOST_SUFFIX}`,
+            { url: gatewayUrl }
+        );
+    }
+}
+
+function isPagedDialogsShape(data) {
+    if (!data || typeof data !== 'object') return false;
+    if (Array.isArray(data)) return false;
+    // MUST have a dialog collection array — pagination metadata alone is not enough.
+    const hasItems = Array.isArray(data.items) || Array.isArray(data.value);
+    return hasItems;
+}
+
+/**
+ * True when data is a bare array of objects. Used by endpoints that return
+ * T[] directly rather than a PagedQueryResponse envelope, including:
+ *   - Dialogs_GetSystemDialogs -> Dialog2[]
+ *   - Intent_GetSystemIntents  -> Intent2[]
+ *
+ * Does not strictly validate every field; presence of an object-shaped first
+ * element is enough to distinguish from HTML/error bodies and primitive arrays.
+ *
+ * Exported as both isDialogArrayShape (name retained for Phase 1c tests) and
+ * isBareObjectArrayShape (clearer generic name).
+ */
+function isBareObjectArrayShape(data) {
+    if (!Array.isArray(data)) return false;
+    if (data.length === 0) return true;
+    const first = data[0];
+    return !!first && typeof first === 'object' && !Array.isArray(first);
+}
+const isDialogArrayShape = isBareObjectArrayShape;
+
+/**
+ * True when data is a single (non-null, non-array) object with at least one
+ * own property. Used by detail endpoints like Dialogs_GetById -> Dialog2.
+ * Distinguishes from: null, arrays, primitives, empty objects (often error envelopes).
+ */
+function isNonEmptyObjectShape(data) {
+    if (!data || typeof data !== 'object') return false;
+    if (Array.isArray(data)) return false;
+    return Object.keys(data).length > 0;
+}
+
+/**
+ * True when data is a JSON boolean. Used by feature-flag endpoints like
+ * MakerEvaluation /enabled.
+ */
+function isBooleanShape(data) {
+    return typeof data === 'boolean';
+}
+
+/**
+ * True when data is the { testComponents: [...] } envelope returned by
+ * MakerEvaluation GET /testsets. Live smoke on 2026-04-16 confirmed the
+ * wire shape is this object (not a bare array) despite the controller method
+ * being GetAllTestSetsAsync.
+ */
+function isTestSetsEnvelopeShape(data) {
+    return !!data && typeof data === 'object' && !Array.isArray(data) && Array.isArray(data.testComponents);
+}
+
+/**
+ * True when data is the MakerEvalUpdateTestComponentsResponse shape.
+ * addedComponentsIdsBySchemaName is optional — empty or missing is valid for
+ * Update/Delete-only requests.
+ */
+function isUpdateTestComponentsResponseShape(data) {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) return false;
+    if (!('addedComponentsIdsBySchemaName' in data)) return true;
+    const val = data.addedComponentsIdsBySchemaName;
+    return val === null || (typeof val === 'object' && !Array.isArray(val));
+}
+
+function getBodyPreview(data, maxLen = 200) {
+    if (typeof data === 'string') return data.slice(0, maxLen);
+    try {
+        return JSON.stringify(data).slice(0, maxLen);
+    } catch {
+        return '(unserializable body)';
+    }
+}
+
+/**
+ * Shared typed-GET helper for upstream Management API endpoints routed through
+ * the Island Gateway. Enforces the full fail-fast policy: hostname allowlist,
+ * 200 status, JSON content-type, and shape validation. Every adapter built from
+ * the generated mgmt-types should route through here so the policy stays
+ * consistent across endpoints.
+ *
+ * @param {object} spec
+ * @param {string} spec.gatewayUrl - base Island Gateway URL
+ * @param {string[]} spec.pathSegments - path segments joined after gateway (e.g. ['api/botauthoring/v1/dialogs'])
+ * @param {Record<string,string|number|undefined>} [spec.query] - query params (undefined values omitted)
+ * @param {object} spec.headers - auth / routing headers (from buildHeaders)
+ * @param {(data: unknown) => boolean} spec.isValidShape - response body validator
+ * @param {string} spec.label - human-readable operation name for errors (e.g. 'listDialogs')
+ * @returns {Promise<any>} the response body once all guards pass
+ * @throws {RoutingMisconfiguredError} when any guard fails
+ */
+/**
+ * Shared typed-POST helper. Same fail-fast policy as typedGetFromGateway
+ * but accepts a JSON body. Required for WRITE endpoints (like
+ * /makerevaluations/testcomponent).
+ *
+ * Callers are responsible for idempotency. This helper does NOT retry on
+ * ambiguous failures (timeout-after-send) because retry could create
+ * duplicate records. A failed POST surfaces as RoutingMisconfiguredError
+ * with status + body preview so the caller can decide to re-issue or not.
+ *
+ * @param {object} spec
+ * @param {string} spec.gatewayUrl
+ * @param {string[]} spec.pathSegments
+ * @param {Record<string, string|number|boolean|undefined>} [spec.query]
+ * @param {object|string} spec.body - request body (objects are JSON-stringified)
+ * @param {object} spec.headers
+ * @param {(data: unknown) => boolean} spec.isValidShape
+ * @param {string} spec.label
+ * @returns {Promise<any>}
+ * @throws {RoutingMisconfiguredError}
+ */
+async function typedPostToGateway({ gatewayUrl, pathSegments, query, body, headers, isValidShape, label }) {
+    assertAllowedGateway(gatewayUrl);
+
+    const qs = new URLSearchParams();
+    if (query) {
+        for (const [k, v] of Object.entries(query)) {
+            if (v != null) qs.set(k, String(v));
+        }
+    }
+    const qstr = qs.toString();
+    const url = buildGatewayUrl(gatewayUrl, ...pathSegments) + (qstr ? `?${qstr}` : '');
+
+    // NOTE: httpRequest (not httpRequestWithRetry). Retries on POST can create duplicates.
+    const res = await httpRequest('POST', url, headers, body);
+
+    const statusOk = res.status === 200 || res.status === 201;
+    if (!statusOk) {
+        throw new RoutingMisconfiguredError(
+            `${label}: HTTP ${res.status} from Gateway on POST. Expected 200/201.`,
+            { url, status: res.status, bodyPreview: getBodyPreview(res.data) }
+        );
+    }
+
+    const contentType = res.headers?.['content-type'] || '';
+    if (!contentType.includes('application/json')) {
+        throw new RoutingMisconfiguredError(
+            `${label}: Gateway POST returned content-type '${contentType}'. Expected application/json.`,
+            { url, status: res.status, contentType, bodyPreview: getBodyPreview(res.data) }
+        );
+    }
+
+    if (!isValidShape(res.data)) {
+        throw new RoutingMisconfiguredError(
+            `${label}: response body shape did not match the expected contract.`,
+            { url, status: res.status, contentType, bodyPreview: getBodyPreview(res.data) }
+        );
+    }
+
+    return res.data;
+}
+
+async function typedGetFromGateway({ gatewayUrl, pathSegments, query, headers, isValidShape, label }) {
+    assertAllowedGateway(gatewayUrl);
+
+    const qs = new URLSearchParams();
+    if (query) {
+        for (const [k, v] of Object.entries(query)) {
+            if (v != null) qs.set(k, String(v));
+        }
+    }
+    const qstr = qs.toString();
+    const url = buildGatewayUrl(gatewayUrl, ...pathSegments) + (qstr ? `?${qstr}` : '');
+
+    const res = await httpRequestWithRetry('GET', url, headers);
+
+    if (res.status !== 200) {
+        throw new RoutingMisconfiguredError(
+            `${label}: HTTP ${res.status} from Gateway. Expected 200.`,
+            { url, status: res.status, bodyPreview: getBodyPreview(res.data) }
+        );
+    }
+
+    const contentType = res.headers?.['content-type'] || '';
+    if (!contentType.includes('application/json')) {
+        throw new RoutingMisconfiguredError(
+            `${label}: Gateway returned content-type '${contentType}'. Expected application/json. ` +
+            `Likely hitting a proxy error page or login redirect instead of the typed endpoint.`,
+            { url, status: res.status, contentType, bodyPreview: getBodyPreview(res.data) }
+        );
+    }
+
+    if (!isValidShape(res.data)) {
+        throw new RoutingMisconfiguredError(
+            `${label}: response body shape did not match the expected contract.`,
+            { url, status: res.status, contentType, bodyPreview: getBodyPreview(res.data) }
+        );
+    }
+
+    return res.data;
+}
+
+/**
+ * List dialogs (topics) for a bot via the typed Management API.
+ *
+ * Phase 1b adapter — uses types generated from upstream botmanagement-2022-01-15 swagger.
+ * Calls /api/botauthoring/v1/dialogs routed through the existing Island Gateway,
+ * reusing getToken + buildHeaders for auth + headers.
+ *
+ * Bot + environment are passed via the `x-cci-bapenvironmentid` and `x-cci-cdsbotid`
+ * headers (set by buildHeaders). Swagger documents optional `_X-CCI-Routing-BotId` and
+ * `_x-ms-solution-unique-name` headers but marks them "[Unused] auto-generated"; the
+ * existing x-cci-* headers are what the Gateway actually consumes.
+ *
+ * Returns ONE PAGE. Callers needing full enumeration should iterate on skip/count.
+ *
+ * @param {string} gatewayUrl - Island Gateway base URL (allowlisted)
+ * @param {string} envId - BAP environment ID (GUID)
+ * @param {string} botId - CDS bot ID (GUID)
+ * @param {object} headers - Headers from buildHeaders()
+ * @param {object} [opts]
+ * @param {number} [opts.skip=0]
+ * @param {number} [opts.count]
+ * @param {'Regular'|'System'} [opts.filter]
+ * @param {1|2|3|4} [opts.orderBy]
+ * @returns {Promise<PagedDialogsResponse>}
+ * @throws {RoutingMisconfiguredError} when Gateway hostname, status, content-type, or body shape is unexpected
+ */
+async function listDialogs(gatewayUrl, envId, botId, headers, opts = {}) {
+    const data = await typedGetFromGateway({
+        gatewayUrl,
+        pathSegments: ['api/botauthoring/v1/dialogs'],
+        query: { skip: opts.skip, count: opts.count, filter: opts.filter, orderBy: opts.orderBy },
+        headers,
+        isValidShape: isPagedDialogsShape,
+        label: 'listDialogs'
+    });
+    return /** @type {PagedDialogsResponse} */ (data);
+}
+
+/**
+ * Get the list of system dialogs (built-in topics like Greeting, Escalate, Start Over, etc.)
+ * for a bot via the typed Management API.
+ *
+ * Phase 1c adapter. Parallel to listDialogs but uses Dialogs_GetSystemDialogs which
+ * returns a BARE ARRAY (Dialog2[]) rather than a PagedQueryResponseOfDialog. This was
+ * the first proof that endpoints in the same family can have materially different
+ * response shapes, so we validate with isDialogArrayShape instead of isPagedDialogsShape.
+ *
+ * System dialogs are non-sensitive, environment-static metadata. Picked specifically
+ * as the Phase 1c target for minimum blast radius.
+ *
+ * @param {string} gatewayUrl
+ * @param {string} envId
+ * @param {string} botId
+ * @param {object} headers
+ * @returns {Promise<Dialog2[]>}
+ * @throws {RoutingMisconfiguredError} on hostname/status/content-type/shape mismatch
+ */
+async function getSystemDialogs(gatewayUrl, envId, botId, headers) {
+    const data = await typedGetFromGateway({
+        gatewayUrl,
+        pathSegments: ['api/botauthoring/v1/dialogs/systemDialogs'],
+        headers,
+        isValidShape: isBareObjectArrayShape,
+        label: 'getSystemDialogs'
+    });
+    return /** @type {Dialog2[]} */ (data);
+}
+
+/**
+ * Get the list of system intents (built-in intents like escalate, start-over)
+ * for a bot via the typed Management API.
+ *
+ * Phase 1d adapter. Same shape as getSystemDialogs — returns Intent2[] directly.
+ * Reuses isBareObjectArrayShape validator.
+ *
+ * @param {string} gatewayUrl
+ * @param {string} envId
+ * @param {string} botId
+ * @param {object} headers
+ * @returns {Promise<Intent2[]>}
+ * @throws {RoutingMisconfiguredError} on hostname/status/content-type/shape mismatch
+ */
+async function getSystemIntents(gatewayUrl, envId, botId, headers) {
+    const data = await typedGetFromGateway({
+        gatewayUrl,
+        pathSegments: ['api/botauthoring/v1/intents/systemIntents'],
+        headers,
+        isValidShape: isBareObjectArrayShape,
+        label: 'getSystemIntents'
+    });
+    return /** @type {Intent2[]} */ (data);
+}
+
+/**
+ * Get a single dialog by ID via the typed Management API.
+ *
+ * Phase 1e adapter — first detail endpoint. Tests path-parameter URL construction
+ * and single-object response shape (vs. paged list or bare array we've built before).
+ *
+ * @param {string} gatewayUrl
+ * @param {string} envId
+ * @param {string} botId
+ * @param {string} dialogId - dialog component ID (GUID or schemaName, depending on caller)
+ * @param {object} headers
+ * @param {object} [opts]
+ * @param {string} [opts.versionNumber]
+ * @returns {Promise<Dialog2>}
+ * @throws {RoutingMisconfiguredError} on hostname/status/content-type/shape mismatch
+ */
+// --- MakerEvaluation (hand-derived types — not in vendored swagger) ---
+// Controller route: [ManagementBotOperationRoute("makerevaluations/v2", LegacyV2Version,
+//   "environments/{environmentId}/bots/{cdsBotId:guid}/makerevaluations")]
+// LegacyV2Version routes the controller under /api/botmanagement/v2/.
+const MAKER_EVAL_ROUTE = 'api/botmanagement/v2/environments';
+
+function makerEvalPath(envId, botId, ...rest) {
+    return [MAKER_EVAL_ROUTE, envId, 'bots', botId, 'makerevaluations', ...rest];
+}
+
+/**
+ * Is the MakerEvaluation feature enabled for this bot + environment?
+ *
+ * @returns {Promise<boolean>}
+ * @throws {RoutingMisconfiguredError}
+ */
+async function makerEvalIsEnabled(gatewayUrl, envId, botId, headers) {
+    return /** @type {boolean} */ (await typedGetFromGateway({
+        gatewayUrl,
+        pathSegments: makerEvalPath(envId, botId, 'enabled'),
+        headers,
+        isValidShape: isBooleanShape,
+        label: 'makerEvalIsEnabled'
+    }));
+}
+
+/**
+ * Get the list of file types supported as knowledge sources for eval.
+ *
+ * @returns {Promise<MakerEvalSupportedKnowledgeFile[]>}
+ * @throws {RoutingMisconfiguredError}
+ */
+async function makerEvalGetSupportedKnowledgeSources(gatewayUrl, envId, botId, headers) {
+    return /** @type {MakerEvalSupportedKnowledgeFile[]} */ (await typedGetFromGateway({
+        gatewayUrl,
+        pathSegments: makerEvalPath(envId, botId, 'supportedKnowledgeSources'),
+        headers,
+        isValidShape: isBareObjectArrayShape,
+        label: 'makerEvalGetSupportedKnowledgeSources'
+    }));
+}
+
+/**
+ * List all test sets (saved sets of evaluation queries) for this bot.
+ *
+ * @param {object} [opts]
+ * @param {boolean} [opts.applyV2Migration=true]
+ * @returns {Promise<MakerEvalTestSet[]>}
+ * @throws {RoutingMisconfiguredError}
+ */
+async function makerEvalListTestSets(gatewayUrl, envId, botId, headers, opts = {}) {
+    const envelope = /** @type {{testComponents: MakerEvalTestSet[]}} */ (await typedGetFromGateway({
+        gatewayUrl,
+        pathSegments: makerEvalPath(envId, botId, 'testsets'),
+        query: { applyV2Migration: opts.applyV2Migration },
+        headers,
+        isValidShape: isTestSetsEnvelopeShape,
+        label: 'makerEvalListTestSets'
+    }));
+    return envelope.testComponents;
+}
+
+/**
+ * Add / Update / Delete MakerEvaluation test components (test sets + test cases).
+ *
+ * WRITE endpoint. Callers are responsible for idempotency — this adapter does NOT
+ * retry on ambiguous failures because duplicate POSTs create duplicate records.
+ *
+ * Recommended pattern:
+ *   1. Call makerEvalListTestSets to see what already exists.
+ *   2. Build a request with explicit Add/Update/Delete operationType per component.
+ *   3. Use a unique schemaName per test component (upstream keys response map by schemaName).
+ *   4. On timeout/ambiguous response, call listTestSets to read back before retrying.
+ *
+ * @param {string} gatewayUrl
+ * @param {string} envId
+ * @param {string} botId
+ * @param {object} headers
+ * @param {object} request
+ * @param {Array<{component: unknown, operationType: 'Add'|'Update'|'Delete'}>} request.testComponents
+ * @param {object} [opts]
+ * @param {boolean} [opts.applyV2Migration=true]
+ * @returns {Promise<{addedComponentsIdsBySchemaName?: Record<string,string>}>}
+ * @throws {RoutingMisconfiguredError}
+ */
+// --- Tenant / environment-level reads (no bot ID required) ---
+
+/**
+ * List all bots in the current environment.
+ * @returns {Promise<Array<object>>}
+ */
+async function listBots(gatewayUrl, headers) {
+    return /** @type {Array<object>} */ (await typedGetFromGateway({
+        gatewayUrl,
+        pathSegments: ['api/botmanagement/v1/bots'],
+        headers,
+        isValidShape: isBareObjectArrayShape,
+        label: 'listBots'
+    }));
+}
+
+/**
+ * List CDS regions available to the current tenant.
+ * @returns {Promise<Array<object>>}
+ */
+async function listAvailableRegions(gatewayUrl, headers) {
+    return /** @type {Array<object>} */ (await typedGetFromGateway({
+        gatewayUrl,
+        pathSegments: ['api/botmanagement/v1/bots/cdsregions'],
+        headers,
+        isValidShape: isBareObjectArrayShape,
+        label: 'listAvailableRegions'
+    }));
+}
+
+/**
+ * List solutions visible to a specific bot (uses the x-cci-cdsbotid header).
+ * @returns {Promise<Array<object>>}
+ */
+async function listSolutions(gatewayUrl, envId, botId, headers) {
+    return /** @type {Array<object>} */ (await typedGetFromGateway({
+        gatewayUrl,
+        pathSegments: ['api/botmanagement/v1/solutions'],
+        headers,
+        isValidShape: isBareObjectArrayShape,
+        label: 'listSolutions'
+    }));
+}
+
+async function makerEvalUpdateTestComponents(gatewayUrl, envId, botId, headers, request, opts = {}) {
+    if (!request || !Array.isArray(request.testComponents) || request.testComponents.length === 0) {
+        throw new RoutingMisconfiguredError(
+            `makerEvalUpdateTestComponents: request.testComponents must be a non-empty array.`,
+            { url: '(not built)' }
+        );
+    }
+    // Auto-inject the polymorphic-deserializer discriminators observed in HAR
+    // (MakerEvaluationUpdateTestComponent wrapper on each item + TestCaseComponent
+    // on each component). Caller can still pass them explicitly — we don't overwrite.
+    const wrappedItems = request.testComponents.map((item) => {
+        if (!item || typeof item !== 'object') {
+            throw new RoutingMisconfiguredError(
+                `makerEvalUpdateTestComponents: each testComponents item must be an object.`,
+                { url: '(not built)' }
+            );
+        }
+        if (!['Add', 'Update', 'Delete'].includes(item.operationType)) {
+            throw new RoutingMisconfiguredError(
+                `makerEvalUpdateTestComponents: invalid operationType '${item.operationType}' — must be Add, Update, or Delete.`,
+                { url: '(not built)' }
+            );
+        }
+        const withKind = { $kind: 'MakerEvaluationUpdateTestComponent', ...item };
+        if (withKind.component && typeof withKind.component === 'object' && !withKind.component.$kind) {
+            withKind.component = { $kind: 'TestCaseComponent', ...withKind.component };
+        }
+        return withKind;
+    });
+
+    // ASP.NET is case-insensitive on query params but HAR shows the UI sends
+    // ApplyV2Migration (Pascal). Preserve that to match the first-party client exactly.
+    return /** @type {{addedComponentsIdsBySchemaName?: Record<string,string>}} */ (await typedPostToGateway({
+        gatewayUrl,
+        pathSegments: makerEvalPath(envId, botId, 'testcomponent'),
+        query: { ApplyV2Migration: opts.applyV2Migration },
+        body: { testComponents: wrappedItems },
+        headers,
+        isValidShape: isUpdateTestComponentsResponseShape,
+        label: 'makerEvalUpdateTestComponents'
+    }));
+}
+
+async function getDialogById(gatewayUrl, envId, botId, dialogId, headers, opts = {}) {
+    if (!dialogId || typeof dialogId !== 'string') {
+        throw new RoutingMisconfiguredError(
+            `getDialogById: dialogId is required and must be a string (got ${typeof dialogId}).`,
+            { url: '(not built)' }
+        );
+    }
+
+    const data = await typedGetFromGateway({
+        gatewayUrl,
+        pathSegments: ['api/botauthoring/v1/dialogs', encodeURIComponent(dialogId)],
+        query: { versionNumber: opts.versionNumber },
+        headers,
+        isValidShape: isNonEmptyObjectShape,
+        label: 'getDialogById'
+    });
+    return /** @type {Dialog2} */ (data);
+}
+
 // --- Component CRUD ---
 
 /**
@@ -383,7 +940,14 @@ async function setInstructions(gatewayUrl, envId, botId, headers, text) {
 
     const comp = gpt.component;
     if (!comp.metadata) comp.metadata = { '$kind': 'GptComponentMetadata' };
-    comp.metadata.instructions = text;
+    // Instructions must be in ObjectModel TemplateLine format, not a plain string.
+    // The Gateway API expects { $kind: "TemplateLine", segments: [...], diagnostics: [] }
+    // Using a plain string causes HTTP 500: "Expected StartObject but found: String"
+    comp.metadata.instructions = {
+        $kind: 'TemplateLine',
+        segments: [{ $kind: 'TextSegment', value: text }],
+        diagnostics: []
+    };
 
     const changeSet = {
         botComponentChanges: [{
@@ -426,10 +990,16 @@ function parseArgs() {
             case '--text': config.text = args[++i]; break;
             case '--gateway': config.gatewayUrl = args[++i]; break;
             case '--json': config.json = true; break;
-            case '--brief': config.briefPath = args[++i]; break;
+            case '--brief': case '--spec': config.briefPath = args[++i]; break;
             case '--topic-file': config.topicFile = args[++i]; break;
             case '--set-id': config.setId = args[++i]; break;
             case '--name': config.runName = args[++i]; break;
+            case '--skip': config.skip = args[++i]; break;
+            case '--count': config.count = args[++i]; break;
+            case '--filter': config.filter = args[++i]; break;
+            case '--order-by': config.orderBy = args[++i]; break;
+            case '--dialog-id': config.dialogId = args[++i]; break;
+            case '--version-number': config.versionNumber = args[++i]; break;
             case '--help': printUsage(); process.exit(0);
         }
     }
@@ -453,6 +1023,13 @@ Commands:
   get-publish-status Get publish operation status (running/completed/failed)
   check-dlp          Check DLP violations — blocked connectors and policy issues
   list-topics        List topics with trigger info (filtered from components)
+  list-dialogs       Typed: list dialogs via /api/botauthoring/v1/dialogs (uses generated types)
+  get-system-dialogs Typed: list system dialogs via /api/botauthoring/v1/dialogs/systemDialogs
+  get-system-intents Typed: list system intents via /api/botauthoring/v1/intents/systemIntents
+  get-dialog         Typed: get one dialog by ID via /api/botauthoring/v1/dialogs/{id}
+  maker-eval-enabled         MakerEval feature flag check (bool response)
+  maker-eval-knowledge-sources List supported eval knowledge file types
+  maker-eval-testsets          List bot's MakerEvaluation test sets
   create-topic       Create a new topic via Gateway API BotComponentInsert (renders in MCS canvas)
   list-environments  List Power Platform environments via BAP API (no --env/--bot needed)
   get-environment    Get detailed info for a specific environment via BAP API
@@ -482,7 +1059,7 @@ Topics:
   node island-client.js create-topic --env Default-xxx --bot fec3b192-xxx --topic-file topic-def.json
 
 Evaluation:
-  node island-client.js upload-evals --env Default-xxx --bot fec3b192-xxx --brief path/to/brief.json
+  node island-client.js upload-evals --env Default-xxx --bot fec3b192-xxx --brief path/to/agentspec.json
   node island-client.js run-eval --env Default-xxx --bot fec3b192-xxx --set-id <evalSetId> --name "Run 1"
 
 Environment Discovery (BAP API — no --env/--bot needed):
@@ -562,6 +1139,202 @@ async function main() {
                 }
                 const settings = await getBotSettings(gatewayUrl, config.envId, config.botId, headers);
                 console.log(JSON.stringify(settings, null, 2));
+                break;
+            }
+
+            case 'list-bots':
+            case 'list-regions':
+            case 'list-solutions': {
+                try {
+                    let result;
+                    if (config.command === 'list-bots') result = await listBots(gatewayUrl, headers);
+                    else if (config.command === 'list-regions') result = await listAvailableRegions(gatewayUrl, headers);
+                    else result = await listSolutions(gatewayUrl, config.envId, config.botId, headers);
+
+                    if (config.json) console.log(JSON.stringify(result, null, 2));
+                    else {
+                        console.log(`${config.command}: ${result.length}`);
+                        for (const r of result.slice(0, 20)) {
+                            console.log(`  ${r.displayName || r.name || r.id || JSON.stringify(r).slice(0, 80)}`);
+                        }
+                    }
+                } catch (err) {
+                    if (err instanceof RoutingMisconfiguredError) {
+                        console.error('Routing / auth misconfigured:');
+                        console.error(`  url:          ${err.url}`);
+                        console.error(`  status:       ${err.status}`);
+                        console.error(`  content-type: ${err.contentType || '(unset)'}`);
+                        console.error(`  body preview: ${err.bodyPreview || '(empty)'}`);
+                        process.exit(3);
+                    }
+                    throw err;
+                }
+                break;
+            }
+
+            case 'maker-eval-enabled':
+            case 'maker-eval-knowledge-sources':
+            case 'maker-eval-testsets': {
+                if (!config.envId || !config.botId) {
+                    console.error(`Error: --env and --bot are required for ${config.command}`);
+                    process.exit(2);
+                }
+                try {
+                    let result;
+                    if (config.command === 'maker-eval-enabled') {
+                        result = await makerEvalIsEnabled(gatewayUrl, config.envId, config.botId, headers);
+                        console.log(config.json ? JSON.stringify(result) : `MakerEvaluation enabled: ${result}`);
+                    } else if (config.command === 'maker-eval-knowledge-sources') {
+                        result = await makerEvalGetSupportedKnowledgeSources(gatewayUrl, config.envId, config.botId, headers);
+                        if (config.json) console.log(JSON.stringify(result, null, 2));
+                        else {
+                            console.log(`Supported knowledge sources: ${result.length}`);
+                            for (const f of result) console.log(`  ${f.id || f.displayName || '(unknown)'}`);
+                        }
+                    } else {
+                        result = await makerEvalListTestSets(gatewayUrl, config.envId, config.botId, headers);
+                        if (config.json) console.log(JSON.stringify(result, null, 2));
+                        else {
+                            console.log(`Test sets: ${result.length}`);
+                            for (const ts of result) console.log(`  ${ts.displayName || ts.testSetId || '(unnamed)'}`);
+                        }
+                    }
+                } catch (err) {
+                    if (err instanceof RoutingMisconfiguredError) {
+                        console.error('Routing / auth misconfigured:');
+                        console.error(`  url:          ${err.url}`);
+                        console.error(`  status:       ${err.status}`);
+                        console.error(`  content-type: ${err.contentType || '(unset)'}`);
+                        console.error(`  body preview: ${err.bodyPreview || '(empty)'}`);
+                        process.exit(3);
+                    }
+                    throw err;
+                }
+                break;
+            }
+
+            case 'get-dialog': {
+                if (!config.envId || !config.botId || !config.dialogId) {
+                    console.error('Error: --env, --bot, and --dialog-id are required for get-dialog');
+                    process.exit(2);
+                }
+                try {
+                    const dialog = await getDialogById(gatewayUrl, config.envId, config.botId, config.dialogId, headers, {
+                        versionNumber: config.versionNumber
+                    });
+                    if (config.json) {
+                        console.log(JSON.stringify(dialog, null, 2));
+                    } else {
+                        console.log(`Dialog: ${dialog.displayName || dialog.name || dialog.id}`);
+                        console.log(`  id:         ${dialog.id || ''}`);
+                        console.log(`  schemaName: ${dialog.schemaName || ''}`);
+                        console.log(`  kind:       ${dialog.$kind || dialog.type || ''}`);
+                    }
+                } catch (err) {
+                    if (err instanceof RoutingMisconfiguredError) {
+                        console.error('Routing / auth misconfigured:');
+                        console.error(`  url:          ${err.url}`);
+                        console.error(`  status:       ${err.status}`);
+                        console.error(`  content-type: ${err.contentType || '(unset)'}`);
+                        console.error(`  body preview: ${err.bodyPreview || '(empty)'}`);
+                        process.exit(3);
+                    }
+                    throw err;
+                }
+                break;
+            }
+
+            case 'get-system-intents': {
+                if (!config.envId || !config.botId) {
+                    console.error('Error: --env and --bot are required for get-system-intents');
+                    process.exit(2);
+                }
+                try {
+                    const intents = await getSystemIntents(gatewayUrl, config.envId, config.botId, headers);
+                    if (config.json) {
+                        console.log(JSON.stringify(intents, null, 2));
+                    } else {
+                        console.log(`System Intents: ${intents.length}\n`);
+                        for (const it of intents) {
+                            console.log(`  ${it.displayName || it.name || it.id || '(unnamed)'}`);
+                        }
+                    }
+                } catch (err) {
+                    if (err instanceof RoutingMisconfiguredError) {
+                        console.error('Routing / auth misconfigured:');
+                        console.error(`  url:          ${err.url}`);
+                        console.error(`  status:       ${err.status}`);
+                        console.error(`  content-type: ${err.contentType || '(unset)'}`);
+                        console.error(`  body preview: ${err.bodyPreview || '(empty)'}`);
+                        process.exit(3);
+                    }
+                    throw err;
+                }
+                break;
+            }
+
+            case 'get-system-dialogs': {
+                if (!config.envId || !config.botId) {
+                    console.error('Error: --env and --bot are required for get-system-dialogs');
+                    process.exit(2);
+                }
+                try {
+                    const dialogs = await getSystemDialogs(gatewayUrl, config.envId, config.botId, headers);
+                    if (config.json) {
+                        console.log(JSON.stringify(dialogs, null, 2));
+                    } else {
+                        console.log(`System Dialogs: ${dialogs.length}\n`);
+                        for (const d of dialogs) {
+                            console.log(`  ${d.displayName || d.name || d.id || '(unnamed)'}  [${d.type || d.$kind || '?'}]`);
+                        }
+                    }
+                } catch (err) {
+                    if (err instanceof RoutingMisconfiguredError) {
+                        console.error('Routing / auth misconfigured:');
+                        console.error(`  url:          ${err.url}`);
+                        console.error(`  status:       ${err.status}`);
+                        console.error(`  content-type: ${err.contentType || '(unset)'}`);
+                        console.error(`  body preview: ${err.bodyPreview || '(empty)'}`);
+                        process.exit(3);
+                    }
+                    throw err;
+                }
+                break;
+            }
+
+            case 'list-dialogs': {
+                if (!config.envId || !config.botId) {
+                    console.error('Error: --env and --bot are required for list-dialogs');
+                    process.exit(2);
+                }
+                try {
+                    const page = await listDialogs(gatewayUrl, config.envId, config.botId, headers, {
+                        skip: config.skip != null ? Number(config.skip) : undefined,
+                        count: config.count != null ? Number(config.count) : undefined,
+                        filter: config.filter,
+                        orderBy: config.orderBy != null ? Number(config.orderBy) : undefined
+                    });
+                    if (config.json) {
+                        console.log(JSON.stringify(page, null, 2));
+                    } else {
+                        const items = page.items || page.value || [];
+                        console.log(`Dialogs: ${items.length} on this page\n`);
+                        for (const d of items) {
+                            console.log(`  [${d.type || d.$kind || '?'}] ${d.displayName || d.name || d.id || 'unnamed'}  (${d.state || ''})`);
+                        }
+                        if (page.hasMoreResults) console.log(`\n(more results available — use --skip ${items.length})`);
+                    }
+                } catch (err) {
+                    if (err instanceof RoutingMisconfiguredError) {
+                        console.error('Routing / auth misconfigured:');
+                        console.error(`  url:          ${err.url}`);
+                        console.error(`  status:       ${err.status}`);
+                        console.error(`  content-type: ${err.contentType || '(unset)'}`);
+                        console.error(`  body preview: ${err.bodyPreview || '(empty)'}`);
+                        process.exit(3);
+                    }
+                    throw err;
+                }
                 break;
             }
 
@@ -726,13 +1499,20 @@ async function main() {
 
             case 'upload-evals': {
                 if (!config.briefPath) {
-                    console.error('Error: --brief <path> required (path to brief.json)');
+                    console.error('Error: --brief/--spec <path> required (path to agentspec.json or brief.json)');
                     process.exit(2);
                 }
-                const brief = JSON.parse(fs.readFileSync(config.briefPath, 'utf8'));
+                // Backward compat: prefer agentspec.json in same dir
+                let resolvedBriefPath = config.briefPath;
+                const briefDir = path.dirname(config.briefPath);
+                const briefBase = path.basename(config.briefPath);
+                if (briefBase === 'brief.json' && fs.existsSync(path.join(briefDir, 'agentspec.json'))) {
+                    resolvedBriefPath = path.join(briefDir, 'agentspec.json');
+                }
+                const brief = JSON.parse(fs.readFileSync(resolvedBriefPath, 'utf8'));
                 const evalSets = brief.evalSets || [];
                 if (evalSets.length === 0) {
-                    console.error('No evalSets found in brief.json');
+                    console.error('No evalSets found in agent spec');
                     process.exit(1);
                 }
 
@@ -972,6 +1752,117 @@ async function runEval(gatewayUrl, envId, botId, headers, testSetId, runName) {
 // Need crypto for UUID generation
 const crypto = require('crypto');
 
+// --- GptComponent Create/Update ---
+
+/**
+ * Create or update the GptComponent for an agent.
+ * This is what MCS Studio reads for instructions, description, and display name.
+ *
+ * If a GptComponent already exists, updates it. Otherwise, creates one via BotComponentInsert.
+ *
+ * @param {string} gatewayUrl
+ * @param {string} envId
+ * @param {string} botId
+ * @param {object} headers - Auth headers from buildHeaders()
+ * @param {object} config - { instructions: string, description: string, displayName: string }
+ * @returns {object} { created: boolean, component: object }
+ */
+async function configureGptComponent(gatewayUrl, envId, botId, headers, config) {
+    const readResult = await readComponents(gatewayUrl, envId, botId, headers);
+    const changeToken = readResult.changeToken;
+    const gpt = findGptComponent(readResult);
+
+    const instructionsObj = {
+        $kind: 'TemplateLine',
+        segments: [{ $kind: 'TextSegment', value: config.instructions || '' }],
+        diagnostics: []
+    };
+
+    if (gpt) {
+        // UPDATE existing GptComponent
+        const comp = gpt.component;
+        if (!comp.metadata) comp.metadata = { $kind: 'GptComponentMetadata' };
+        comp.metadata.instructions = instructionsObj;
+        comp.metadata.displayName = config.displayName || comp.metadata.displayName;
+        comp.metadata.description = config.description || comp.metadata.description;
+        comp.description = config.description || comp.description;
+
+        const changeSet = {
+            botComponentChanges: [{ $kind: 'BotComponentUpdate', component: comp }],
+            cloudFlowDefinitionChanges: [],
+            connectorDefinitionChanges: [],
+            environmentVariableChanges: [],
+            connectionReferenceChanges: [],
+            aIPluginOperationChanges: [],
+            componentCollectionChanges: [],
+            dataverseTableSearchChanges: [],
+            connectedAgentDefinitionChanges: [],
+            changeToken
+        };
+
+        const result = await writeComponents(gatewayUrl, envId, botId, headers, changeSet);
+        return { created: false, component: comp, result };
+    }
+
+    // Derive schemaName from existing components (e.g. "new_bot_xxx.topic.Escalate" → "new_bot_xxx.gpt.default")
+    const changes = readResult.botComponentChanges || [];
+    let schemaBase = null;
+    for (const c of changes) {
+        const sn = c.component?.schemaName || '';
+        const match = sn.match(/^(.+)\.(topic|gpt)\./);
+        if (match) { schemaBase = match[1]; break; }
+    }
+    if (!schemaBase) {
+        // Fallback: derive from botId
+        schemaBase = 'new_bot_' + botId.replace(/-/g, '');
+    }
+    const gptSchemaName = schemaBase + '.gpt.default';
+
+    // CREATE new GptComponent via BotComponentInsert
+    const component = {
+        $kind: 'GptComponent',
+        id: '00000000-0000-0000-0000-000000000000', // server assigns real ID
+        displayName: 'default',
+        parentBotId: botId,
+        description: config.description || '',
+        schemaName: gptSchemaName,
+        state: 'Active',
+        status: 'Active',
+        metadata: {
+            $kind: 'GptComponentMetadata',
+            displayName: config.displayName || 'Agent',
+            description: config.description || '',
+            instructions: instructionsObj,
+            'mcs.metadata': { componentName: 'default' }
+        }
+    };
+
+    const changeSet = {
+        botComponentChanges: [{ $kind: 'BotComponentInsert', component }],
+        cloudFlowDefinitionChanges: [],
+        connectorDefinitionChanges: [],
+        environmentVariableChanges: [],
+        connectionReferenceChanges: [],
+        aIPluginOperationChanges: [],
+        componentCollectionChanges: [],
+        dataverseTableSearchChanges: [],
+        connectedAgentDefinitionChanges: [],
+        changeToken
+    };
+
+    const result = await writeComponents(gatewayUrl, envId, botId, headers, changeSet);
+
+    // Find the created component in the response
+    const inserts = (result.botComponentChanges || []).filter(c => c.$kind === 'BotComponentInsert');
+    const created = inserts.find(c => c.component?.$kind === 'GptComponent');
+
+    return {
+        created: true,
+        component: created?.component || component,
+        result
+    };
+}
+
 // --- Topic Creation via Gateway API (BotComponentInsert) ---
 
 /**
@@ -1111,6 +2002,30 @@ module.exports = {
     getPublishStatus,
     checkDlp,
     listTopics,
+    listDialogs,
+    getSystemDialogs,
+    getSystemIntents,
+    getDialogById,
+    listBots,
+    listAvailableRegions,
+    listSolutions,
+    makerEvalIsEnabled,
+    makerEvalGetSupportedKnowledgeSources,
+    makerEvalListTestSets,
+    makerEvalUpdateTestComponents,
+    RoutingMisconfiguredError,
+    // Internal — exported for tests
+    _internal: {
+        assertAllowedGateway,
+        isPagedDialogsShape,
+        isDialogArrayShape,
+        isBareObjectArrayShape,
+        isNonEmptyObjectShape,
+        isBooleanShape,
+        isTestSetsEnvelopeShape,
+        isUpdateTestComponentsResponseShape,
+        ALLOWED_GATEWAY_HOST_SUFFIX
+    },
     // Component CRUD
     readComponents,
     writeComponents,
@@ -1118,6 +2033,7 @@ module.exports = {
     setModel,
     getInstructions,
     setInstructions,
+    configureGptComponent,
     // Eval
     createEvalSet,
     runEval,

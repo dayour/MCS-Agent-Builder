@@ -39,7 +39,7 @@ pandoc "file.docx" -t gfm -o "file.md"
 Note: pandoc is typically at `%LOCALAPPDATA%\Pandoc\pandoc.exe` — resolve via `where pandoc` or `gcm pandoc`.
 
 **Path B: No SDR files, start from scratch**
-No template needed — `/mcs-research` will create brief.json during Phase A (agent identification).
+No template needed — `/mcs-research` will create agentspec.json during Phase A (agent identification).
 Guide the user to describe the agent or upload docs, then run research.
 
 ### Step 3: Guide User
@@ -55,7 +55,7 @@ Guide the user to describe the agent or upload docs, then run research.
 
 **Workflow:**
 1. (Optional) Run `/mcs-context [CustomerName]` → Pull M365 history via WorkIQ
-2. Click **Research** or run `/mcs-research [ProjectName]` → Read docs, identify agents, research components, enrich brief.json + generate evals
+2. Click **Research** or run `/mcs-research [ProjectName]` → Read docs, identify agents, research components, enrich agentspec.json + generate evals
 3. Click **Build** or run `/mcs-build [ProjectName] [agentId]` → Build in MCS
 4. Click **Evaluate** or run `/mcs-eval [ProjectName] [agentId]` → Run tests
 ```
@@ -67,11 +67,11 @@ Guide the user to describe the agent or upload docs, then run research.
 **Location:** Build-Guides/[ProjectName]/
 
 **Files Created:**
-- (brief.json will be created when you run /mcs-research)
+- (agentspec.json will be created when you run /mcs-research)
 
 **Workflow:**
 1. (Recommended) Run `/mcs-context [CustomerName]` → Pull M365 history via WorkIQ
-2. Click **Research** or run `/mcs-research [ProjectName]` → Read docs, identify agents, research components, enrich brief.json + generate evals
+2. Click **Research** or run `/mcs-research [ProjectName]` → Read docs, identify agents, research components, enrich agentspec.json + generate evals
 3. Click **Build** or run `/mcs-build [ProjectName] [agentId]` → Build in MCS
 4. Click **Evaluate** or run `/mcs-eval [ProjectName] [agentId]` → Run tests
 ```

@@ -1,0 +1,548 @@
+{
+  "_schema": "2.0",
+  "_description": "Single source of truth for agent design, build, and customer reporting. Sections follow the customer meeting flow. Every dropdown has a mapped purpose.",
+  "workflow": {
+    "phase": "preview",
+    "previewConfirmed": false,
+    "decisionsConfirmed": false,
+    "previewGeneratedAt": null,
+    "researchCompletedAt": null,
+    "evalStubsGeneratedAt": null
+  },
+  "business": {
+    "_meeting": "Section 1 — 'Why are we building this?'",
+    "useCase": "",
+    "problemStatement": "",
+    "challenges": [
+      {
+        "challenge": "Description of the business challenge",
+        "impact": "high | medium | low"
+      }
+    ],
+    "benefits": [
+      {
+        "benefit": "Expected benefit or outcome",
+        "type": "efficiency | quality | cost | experience"
+      }
+    ],
+    "successCriteria": [
+      {
+        "metric": "Measurable outcome (e.g., first-contact resolution rate)",
+        "target": "Target value (e.g., >80%)",
+        "measurement": "How this will be measured"
+      }
+    ],
+    "stakeholders": {
+      "sponsor": "Executive sponsor / champion",
+      "owner": "Day-to-day agent owner",
+      "users": "Primary user group description"
+    },
+    "licensing": {
+      "_description": "Assume best licensing available unless customer explicitly states otherwise. All fields default to 'yes' — never ask licensing questions during research.",
+      "m365Copilot": "yes",
+      "copilotStudio": "yes",
+      "frontierProgram": "yes",
+      "anthropicSubprocessor": "yes",
+      "powerPlatformPremium": "yes",
+      "dynamicsLicense": "other",
+      "notes": "Assumed max licensing. Override only if customer explicitly states a limitation."
+    }
+  },
+  "agent": {
+    "_meeting": "Section 2 — 'What is this agent?'",
+    "name": "",
+    "description": "",
+    "persona": "",
+    "responseFormat": "",
+    "primaryUsers": "",
+    "secondaryUsers": ""
+  },
+  "capabilities": [
+    {
+      "_meeting": "Section 3 — 'What should it do?' (each flagged MVP or Future)",
+      "name": "Capability name (e.g., Look up order status)",
+      "phase": "mvp | future",
+      "implementationType": "prompt | topic | tool | knowledge | flow — what's required to implement this capability. 'prompt' = behavior encoded in instructions only (zero-cost, no separate tooling needed). 'topic' = requires custom YAML topic. 'tool' = requires a tool/connector/MCP. 'knowledge' = requires a knowledge source. 'flow' = requires a Power Automate flow. HYBRID RULE: when a capability is primarily a custom topic that calls a flow internally (e.g., escalation topic with InvokeFlowTaskAction for email send), use 'topic' — the topic is the user-facing component that drives routing. Use 'flow' only when the capability is primarily a headless Power Automate flow (e.g., scheduled batch processing, event-triggered automation with no conversational UI).",
+      "reason": "Why MVP or why deferred — shown next to Future items (e.g., pending security approval)",
+      "description": "Optional detail for the build — PE uses this for instruction writing",
+      "source": "from-docs | inferred | user-added — how this capability was identified",
+      "dataSources": [
+        "Systems this capability reads from or writes to"
+      ],
+      "status": "not_started | building | passing | failing"
+    }
+  ],
+  "integrations": [
+    {
+      "_meeting": "Section 4 — 'What systems does it connect to?'",
+      "name": "Tool or integration name (e.g., SAP, SharePoint/OneDrive)",
+      "type": "mcp | connector | flow | ai-tool | custom-connector | setting — 'setting' is for agent-level toggles like Bing Web Search grounding, General Knowledge, Content Moderation. These are NOT tools — they're configured via Settings > Generative AI or LSP push.",
+      "purpose": "What data/actions this provides to the agent",
+      "dataProvided": "Specific data fields: order number, status, ETA, tracking number",
+      "authMethod": "OAuth 2.0 | API Key | Service Principal | User delegated | None",
+      "status": "available | needs-setup | needs-custom | blocked",
+      "phase": "mvp | future",
+      "notes": "Config details, scoping, constraints"
+    }
+  ],
+  "knowledge": [
+    {
+      "_meeting": "Section 5 — 'What does it need to know?'",
+      "name": "Source name or URL",
+      "type": "SharePoint | Uploaded files | Dataverse | Public websites | Graph connectors",
+      "purpose": "What questions this knowledge source answers",
+      "scope": "URL, site, or filter criteria",
+      "status": "available | needs-setup | needs-scoping | blocked",
+      "phase": "mvp | future"
+    }
+  ],
+  "flows": [
+    {
+      "_meeting": "Section 4b — 'What Power Automate flows back this agent?' Modern agents use two flow kinds: ai-tool (category=7) wraps an MCP connector or other declarative tool descriptor; agent-flow (category=5, modernflowtype=1) is a Logic Apps WDL flow triggered manually, on schedule, or by event, that may call AI flows and other agents.",
+      "_description": "Single source of truth for every flow this agent owns. Build pipeline reads this in dependency order: ai-tool flows first, then agent-flows that reference them. Cross-references use `name` (intra-spec) — `id` is populated after the Dataverse POST returns.",
+      "name": "Unique kebab-case slug used for cross-references within this spec (e.g., work-iq-tool, daily-briefing-flow)",
+      "displayName": "User-facing label shown in MCS maker UI",
+      "kind": "ai-tool | agent-flow",
+      "phase": "mvp | future",
+      "status": "draft | created | published | failed",
+      "id": "Dataverse workflowid GUID — populated after build; null until then",
+      "agentInvokable": "(optional bool) When kind=agent-flow: true forces agent-side InvokeFlowTaskAction registration via auto-generated topic YAML; false suppresses it. Default heuristic: true for trigger type 'manual'/'http'/'skills', false for 'recurrence'/'event' (non-conversational flows).",
+      "description": "What this flow does",
+      "implements": [
+        "Capability names from capabilities[].name this flow implements"
+      ],
+      "connectionRefs": {
+        "_description": "Map of connector apiName → Dataverse connection reference logical name. Agent flows use runtimeSource='invoker' (caller identity threads); other connectors default to 'embedded'. Logical names are populated when connections are created in MCS — left blank during research.",
+        "shared_aisteps": "Logical name of an existing aisteps connection ref (or null until provisioned)",
+        "shared_agentnode": "Logical name of an existing agentnode connection ref (or null)"
+      },
+      "aiToolSpec": {
+        "_description": "Required when kind=ai-tool. Compiled by composer.composeAIFlow; written to Dataverse via flowManager.createAIFlow with category=7, primaryentity='workflow', no modernflowtype.",
+        "plan": "Natural-language plan for the AI flow (often '' for MCP-tool wrappers)",
+        "connectors": [
+          {
+            "apiName": "Connector API name (e.g., shared_a365copilotchatmcp)",
+            "operationId": "Operation id exposed by the connector (e.g., mcp_m365copilot)",
+            "displayName": "User-facing label for the wrapped tool",
+            "isSuggested": false,
+            "connectionReference": "Key from this flow's connectionRefs map (typically same as apiName)"
+          }
+        ],
+        "outputSchema": {
+          "_description": "JSON Schema describing the AI flow's structured output. Becomes the Dataverse 'outputs' column ({ schema: <thisObject> } stringified). Callers (agent flows) bind to these fields.",
+          "type": "object",
+          "properties": {}
+        }
+      },
+      "agentFlowSpec": {
+        "_description": "Required when kind=agent-flow. Compiled by composer.composeFlow; written via flowManager.createFlow with category=5, modernflowtype=1, primaryentity='none'. Build pipeline auto-derives environment.name from the target Dataverse org.",
+        "trigger": {
+          "_description": "One trigger per flow. Recurrence/skills/event/http/manual. For 'manual' (Button/Request) used as agent-callable tool, leave inputs.schema as {type:object, properties:{}}.",
+          "type": "manual | recurrence | http | skills | event",
+          "config": {}
+        },
+        "actions": [
+          {
+            "_description": "Composer action spec — types: connector | runAnAgent | runAIFlow | response | compose | parseJson | http | initVariable | setVariable | terminate | condition | foreach | until | switch | scope. Cross-refs: aiFlowRef → flows[].name where kind=ai-tool (resolved to flows[].id at build time). agentLogicalName uses Dataverse logical-name format 'new_bot_<32hex>' (NOT the bot GUID with hyphens).",
+            "type": "runAIFlow",
+            "name": "Action name (unique within this flow's actions)",
+            "aiFlowRef": "Cross-ref to flows[].name where kind=ai-tool. Build resolves to flows[].id.",
+            "metadataOverride": {
+              "_description": "Only when wrapping an MCP/connector via RunAIFlow. Sets operationInfoForMetadataOverride so the designer renders the original connector's icon/tags rather than the generic 'Run AI Flow' tile.",
+              "connectorId": "/providers/Microsoft.PowerApps/apis/<apiName>",
+              "operationId": "underlying operation id",
+              "type": "OpenApiConnection",
+              "tags": ["Action", "Premium", "Agentic"]
+            }
+          }
+        ]
+      },
+      "lastSyncedAt": null,
+      "lastBuildError": null
+    }
+  ],
+  "conversations": {
+    "_meeting": "Section 6 — 'How does it interact?'",
+    "topics": [
+      {
+        "name": "Topic name (e.g., Order Lookup)",
+        "schemaName": "MCS schema name (e.g., cr_orderlookup) — generated during build",
+        "description": "What this conversation flow does (used by 'agent chooses' trigger matching)",
+        "triggerType": "agent-chooses | phrases | fallback | redirect | escalation | event | auto-start | inactivity",
+        "triggerPhrases": [
+          "Trigger phrases (only for triggerType: phrases)"
+        ],
+        "topicType": "generative | custom | system",
+        "phase": "mvp | future",
+        "implements": [
+          "Capability names this topic implements (links to capabilities[].name)"
+        ],
+        "variables": [
+          {
+            "name": "Variable name (e.g., orderNumber)",
+            "type": "string | number | boolean | choice | date | entity",
+            "prompt": "Question to ask the user (e.g., What's your order number?)",
+            "required": true
+          }
+        ],
+        "connectedIntegrations": [
+          "Integration names this topic calls (links to integrations[].name)"
+        ],
+        "outputFormat": "text | adaptive-card | knowledge | redirect | escalate",
+        "yaml": null
+      }
+    ]
+  },
+  "boundaries": {
+    "_meeting": "Section 7 — 'What should it NOT do?'",
+    "handle": [
+      {
+        "text": "Topics the agent should answer confidently",
+        "source": "from-docs | inferred | user-added"
+      }
+    ],
+    "decline": [
+      {
+        "topic": "Request type to politely redirect",
+        "redirect": "Where to redirect (e.g., Transfer to billing team via ServiceNow)",
+        "source": "from-docs | inferred | user-added"
+      }
+    ],
+    "refuse": [
+      {
+        "topic": "Hard stop — agent must never do this",
+        "reason": "Why this is refused (e.g., GDPR compliance)",
+        "source": "from-docs | inferred | user-added"
+      }
+    ]
+  },
+  "architecture": {
+    "_meeting": "Section 8 — 'How is it built?' Walk through 6 factors with the customer.",
+    "solutionType": "agent | flow | hybrid | not-recommended",
+    "solutionTypeScore": 0,
+    "solutionTypeFactors": {
+      "conversationalNeed": {
+        "value": false,
+        "reasoning": ""
+      },
+      "interactionPattern": {
+        "value": false,
+        "reasoning": ""
+      },
+      "capabilityDistribution": {
+        "value": false,
+        "reasoning": ""
+      },
+      "userValueOfNL": {
+        "value": false,
+        "reasoning": ""
+      },
+      "mcsFeasibility": {
+        "value": false,
+        "reasoning": ""
+      }
+    },
+    "solutionTypeReason": "2-4 sentence explanation of why this solution type was selected",
+    "solutionTypeOverride": false,
+    "alternativeRecommendation": "If not agent: what to build instead + high-level approach",
+    "buildPath": "custom-agent | hybrid | flow | not-recommended | first-party-only — set by solution type scoring (5 factors). 'custom-agent' (score 4-5) = build CA in Copilot Studio. 'hybrid' (score 3) = CA + Power Automate. 'flow' (score 1-2) = Power Automate only. 'not-recommended' (score 0) = outside MCS. 'first-party-only' = existing Microsoft agents cover all capabilities.",
+    "buildPathReason": "2-4 sentence explanation of why this build path was selected, including explicit 'why not' for rejected paths",
+    "frontierAgentMatch": [
+      {
+        "_description": "Records when a first-party Microsoft agent covers a customer capability. Populated during Phase A step 5 by matching against knowledge/cache/first-party-agents.md.",
+        "agentName": "First-party agent name (e.g., Researcher, Analyst, Facilitator)",
+        "matchedCapabilities": [
+          "Capability names from capabilities[] that this agent covers"
+        ],
+        "coverage": "full | partial | none",
+        "recommendation": "use-as-is | augment-with-ca | not-applicable",
+        "licenseRequired": "License needed (e.g., M365 Copilot, Frontier program)",
+        "notes": "Why this match was made, any caveats"
+      }
+    ],
+    "type": "single-agent | single-agent-with-connected-agents | multi-agent",
+    "reason": "2-4 sentence explanation of WHY this architecture type was selected. single-agent = standalone, no child or connected agents. single-agent-with-connected-agents = one main agent + external agents (Fabric Data Agent, other MCS agents). multi-agent = parent orchestrator + child agents built in MCS. Reference the score, key factors, and why other types were ruled out.",
+    "factors": {
+      "_description": "6-factor scoring — check each with the customer. 0-2 checked = Single Agent, 3+ = Multi-Agent. Each factor must include a 'value' (true/false) and 'reasoning' (1-2 sentences explaining why).",
+      "domainSeparation": {
+        "value": false,
+        "reasoning": "Why single domain or truly separate domains"
+      },
+      "dataIsolation": {
+        "value": false,
+        "reasoning": "Why shared data or isolated data per capability"
+      },
+      "teamOwnership": {
+        "value": false,
+        "reasoning": "Why same team or different teams own parts"
+      },
+      "reusability": {
+        "value": false,
+        "reasoning": "Why one-off or reusable by other orchestrators"
+      },
+      "instructionSize": {
+        "value": false,
+        "reasoning": "Why fits in 8000 chars or would exceed"
+      },
+      "knowledgeIsolation": {
+        "value": false,
+        "reasoning": "Why shared KB or each needs own deep KB"
+      }
+    },
+    "score": 0,
+    "triggers": [
+      {
+        "type": "Conversational | Scheduled | Event-driven | Autonomous",
+        "description": "When and why this trigger fires"
+      }
+    ],
+    "channels": [
+      {
+        "name": "Microsoft Teams | M365 Copilot | Web chat | Direct Line | Slack | Mobile app",
+        "reason": "Why this channel was chosen"
+      }
+    ],
+    "children": [
+      {
+        "name": "Child agent name (for multi-agent only)",
+        "role": "What this specialist handles",
+        "routingRule": "When to route to this specialist"
+      }
+    ]
+  },
+
+  "connectedAgents": [
+    {
+      "_description": "External agents the main agent can route to. These are NOT child agents built in MCS — they are external agents (Fabric Data Agent, another MCS agent, Copilot agent) that the main agent invokes via connected agent routing. Top-level section because connected agents need full specs: instructions, data sources, pipeline config, setup steps, and fallback plans.",
+      "name": "Connected agent display name in MCS",
+      "source": "Microsoft Fabric Data Agent | Another MCS Agent | Copilot Agent",
+      "phase": "mvp | future",
+      "status": "available | needs-setup",
+      "role": "What this connected agent handles",
+      "routingDescription": "Description used by MCS orchestrator for routing — when to invoke this agent",
+      "instructions": "Instructions for the connected agent itself (e.g., Fabric Data Agent instruction field). Field descriptions, query patterns, response format.",
+      "description": "MCS-facing description for orchestrator routing (max 1024 chars, third-person)",
+      "dataPipeline": {
+        "source": "Where data comes from (e.g., Salesforce Account object)",
+        "ingestion": "How data gets into the connected agent (e.g., Fabric Copy Job)",
+        "destination": "Where data lands (e.g., Fabric Lakehouse)",
+        "refreshCadence": "How often data refreshes and what is authoritative",
+        "authoritative": "Which source is authoritative when data conflicts"
+      },
+      "dataSource": {
+        "type": "Fabric Lakehouse | Fabric Warehouse | Fabric Semantic Model",
+        "tables": ["Table names"],
+        "keyColumns": [
+          { "name": "ColumnName", "type": "data type", "description": "Business meaning" }
+        ]
+      },
+      "prerequisites": ["Prerequisite 1", "Prerequisite 2"],
+      "setupSteps": ["Step 1", "Step 2"],
+      "fallback": {
+        "trigger": "When to use fallback (e.g., connected agent unavailable)",
+        "approach": "What to do instead",
+        "soqlFallback": "(If applicable) Constrained SOQL query for fallback"
+      }
+    }
+  ],
+
+  "decisions": [
+    {
+      "_description": "Structured choice points where research found multiple valid approaches. Each decision stores ranked options with pros/cons/requirements. The recommended option's briefPatch is pre-applied to brief fields as a default. User confirms or selects a different option, which re-applies that option's briefPatch. Only created when 2+ genuinely viable options exist — one clear winner is auto-applied with no decision entry. openQuestions[] remains for freeform unknowns; decisions[] are structured choices.",
+      "id": "d-001",
+      "category": "integration | architecture | model | infrastructure | topic-implementation | solution-type",
+      "title": "Short customer-readable title (e.g., How should we extract web content?)",
+      "context": "Why this decision exists — the problem, why multiple paths are valid. Written for the customer.",
+      "targetField": "integrations[name=X] | architecture.type | agent.recommendedModel",
+      "capability": "Links to capabilities[].name (optional — omit for cross-cutting decisions)",
+      "status": "pending | confirmed | overridden",
+      "selectedOptionId": null,
+      "recommendedOptionId": "opt-1",
+      "resolvedAt": null,
+      "resolvedBy": "user | research | auto",
+      "options": [
+        {
+          "id": "opt-1",
+          "label": "Option display name (e.g., Azure Function + Readability)",
+          "summary": "One-line description of this approach",
+          "pros": [
+            "Advantage 1",
+            "Advantage 2"
+          ],
+          "cons": [
+            "Disadvantage 1"
+          ],
+          "requirements": [
+            "What the customer needs for this option (e.g., Azure subscription)"
+          ],
+          "cost": "Estimated cost (e.g., ~$0/mo, ~$16/mo)",
+          "effort": "Setup effort (e.g., Low, Medium — one-time ~2hr, High)",
+          "confidence": "high | medium | low",
+          "source": "Where this option came from: solution-pattern:sp-001:tier-1 | research-analyst | cache:connectors | learnings:connectors",
+          "briefPatch": {
+            "_description": "Fields to write to brief.json when this option is selected. Keys match brief.json top-level fields. Array values are merged, scalar values are replaced."
+          }
+        }
+      ]
+    }
+  ],
+  "evalSets": [
+    {
+      "_description": "3 default sets (boundaries, quality, edge-cases) + custom. Aligned with microsoft/ai-agent-eval-scenario-library quality dimensions. Old names (safety/functional/resilience) are auto-migrated at read time.",
+      "name": "boundaries | quality | edge-cases | <custom>",
+      "description": "What this eval set verifies — written in plain English for customers",
+      "methods": [
+        {
+          "type": "General quality | Compare meaning | Keyword match | Text similarity | Exact match | Tool use | Plan validation",
+          "score": "0-100 threshold (for Compare meaning, Text similarity)",
+          "mode": "any | all (for Keyword match only)"
+        }
+      ],
+      "passThreshold": 100,
+      "runWhen": "every-iteration | after-knowledge | per-capability | after-tools | after-functional | final | custom",
+      "tests": [
+        {
+          "question": "Test question to ask the agent (or test label for multi-turn)",
+          "expected": "What the response should contain or convey",
+          "keywords": "Comma-separated keywords for Keyword match method (e.g. 'policy, refund, 30 days'). When set, KeywordMatch uses this instead of expected.",
+          "capability": "Which capability this tests (links to capabilities[].name, optional)",
+          "methods": null,
+          "source": "preview-stub | user-edited | user-added | research-generated | research-enriched — tracks test origin for merge protection during deep research. preview-stub = auto-generated from capabilities/boundaries during fast preview. user-edited = customer modified a preview-stub. user-added = customer added manually. research-generated = created by QA Challenger during deep research. research-enriched = preview-stub upgraded with research detail.",
+          "readiness": "ready | template — 'ready' = runs as-is without customer data (boundary, scope tests). 'template' = needs customer-specific values plugged in (knowledge answers, tool outputs, routing targets).",
+          "scenarioId": "Optional — eval scenario library ID (e.g., 'BP-IR-01')",
+          "scenarioCategory": "Optional — scenario category name",
+          "coverageTag": null,
+          "turns": null,
+          "expectedTools": null,
+          "toolThreshold": null,
+          "lastResult": null
+        }
+      ]
+    }
+  ],
+  "evalConfig": {
+    "_description": "Controls how the eval gate (build-pipeline.stepEvalGate) decides published-internal → published-uat promotion.",
+    "mode": "reference-templates",
+    "verdictModel": "eval-guide",
+    "riskProfile": "medium-risk-customer-facing",
+    "riskTier": "internal",
+    "_riskTier_options": "demo (safety:80,quality:50,overall:50,minPerCategory:2) | internal (90/60/60/3) | production (95/80/75/5). Picks DEFAULT_THRESHOLDS preset; explicit thresholds below override.",
+    "thresholds": {
+      "safety": 90,
+      "quality": 60,
+      "overall": 60,
+      "minPerCategory": 3
+    },
+    "skipGate": false,
+    "skipGateApprovedBy": null,
+    "skipGateReason": null,
+    "skipGateTicketRef": null,
+    "_skipGate_warning": "skipGate=true bypasses the eval gate (auto-promote to published-uat). ALL THREE approval fields are REQUIRED — override is rejected otherwise. Every approved override is appended to knowledge/learnings/eval-gate-overrides.jsonl with a hash chain and the spec hash at approval time. See app/lib/eval-gate-audit.js. NOT RBAC — approvedBy is a free-form string; the audit log is the detective control.",
+    "_skipGateApprovedBy": "Full name or identity of the approver — min 2 chars. Logged immutably.",
+    "_skipGateReason": "Why the gate is being bypassed — min 10 chars. Must be specific.",
+    "_skipGateTicketRef": "Issue / ticket ID tying this override to a tracked decision — min 3 chars (e.g. 'gh-issue-123').",
+    "lastVerdict": null,
+    "lastVerdictAt": null
+  },
+  "mvpSummary": {
+    "_description": "Computed summary of all phase-flagged items. Generated by /mcs-research, used by /mcs-build as a quick checklist.",
+    "now": [
+      "MVP items to build this sprint (names from capabilities, integrations, topics)"
+    ],
+    "future": [
+      "Deferred items with reasons"
+    ],
+    "blockers": [
+      "What blocks future items (e.g., pending security approval)"
+    ]
+  },
+  "openQuestions": [
+    {
+      "question": "Unresolved question that needs customer/stakeholder input",
+      "impact": "What this blocks or affects if unanswered",
+      "section": "Which brief section this affects (e.g., integrations, capabilities)",
+      "suggestedDefault": "Our best guess if the customer doesn't answer",
+      "answer": "",
+      "source": "from-docs | inferred | user-added",
+      "agentName": "agent-slug-name (required for multi-agent)"
+    }
+  ],
+  "instructions": "",
+  "buildStatus": {
+    "_status_description": "STATE MACHINE: not_started → in_progress → published-internal → published-uat. 'published-internal' = deployed to MCS but NOT user-visible (eval gate pending). 'published-uat' = eval verdict = SHIP, agent visible to UAT users. Old 'published' value preserved for backward-compat read; new builds always emit -internal/-uat. 'failed' = pipeline error, see lastError.",
+    "status": "not_started | in_progress | published-internal | published-uat | failed",
+    "lastBuild": "ISO timestamp of last build attempt",
+    "mcsAgentId": "MCS bot ID after creation",
+    "botSchemaName": "publisher_agentname — for PAC CLI commands that need schema name",
+    "gptComponentId": "botcomponent GUID (componenttype=15) — for Dataverse PATCH on description/instructions/starters",
+    "environment": "MCS environment name",
+    "environmentId": "environment GUID — for Island Gateway + add-tool.js --env arg",
+    "dataverseUrl": "https://orgXXX.crm.dynamics.com — for all Dataverse API curl calls",
+    "gatewayUrl": "Island Gateway URL — for island-client.js --gateway and add-tool.js --gateway args",
+    "account": "Account used for build",
+    "accountId": "session-config account id (e.g. admin-m365) — used for PAC CLI profile lookup",
+    "azTenantId": "Azure AD tenant GUID",
+    "workspacePath": "path to agent subfolder with .mcs/conn.json (NOT parent dir)",
+    "publishedAt": "ISO timestamp of last successful publish",
+    "completedSteps": [
+      "created",
+      "instructions",
+      "knowledge",
+      "tools",
+      "model",
+      "topics",
+      "published"
+    ],
+    "lastCompletedStep": "Last step that succeeded (e.g. tools) — used for resume",
+    "lastError": "Optional — what failed on last attempt, cleared on next successful step"
+  },
+  "evalGate": {
+    "_description": "Set by build-pipeline stepEvalGate. Controls promotion published-internal → published-uat. Read by frontend to show 'failed eval' badge.",
+    "override": false,
+    "overrideReason": null,
+    "overrideAt": null,
+    "verdict": "SHIP | ITERATE | BLOCK",
+    "reason": "Human-readable reason from computeVerdict",
+    "overallRate": 0,
+    "perSet": [{"name": "boundaries|safety", "rate": 0, "total": 0}],
+    "thresholds": {"safety": 90, "quality": 60, "overall": 60, "minPerCategory": 3},
+    "evaluatedAt": "ISO timestamp",
+    "evalJobId": "job ID from eval-pipeline for traceability",
+    "promotedTo": "published-uat | null",
+    "blockedAt": "ISO timestamp (set when promotedTo=null)"
+  },
+  "deployStatus": {
+    "status": "not_deployed",
+    "mode": null,
+    "targetEnvironment": "",
+    "targetAccountId": "",
+    "targetBotId": "",
+    "targetDataverseUrl": "",
+    "deployedAt": null,
+    "smokeTestResult": null,
+    "connectionsMapped": false,
+    "lastDeployError": null
+  },
+  "evalCoverage": null,
+  "recommendations": [
+    {
+      "category": "instructions-design | knowledge-grounding | connectors-mcp | evaluation-testing | deployment-operations | multi-agent | channels | security-compliance | <custom>",
+      "text": "Recommendation text — generic MCS best practices or agent-specific tailored advice",
+      "source": "generic | tailored"
+    }
+  ],
+  "notes": {
+    "_description": "Flexible key-value store for anything that doesn't fit above. Keys are freeform.",
+    "fixHistory": [
+      {
+        "date": "ISO timestamp of fix run",
+        "beforePassRate": "60%",
+        "afterPassRate": "85%",
+        "fixesApplied": [
+          "description of each fix applied"
+        ]
+      }
+    ]
+  },
+  "_updateFlags": []
+}

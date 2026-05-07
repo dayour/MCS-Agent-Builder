@@ -30,15 +30,17 @@ Check cache freshness before architecture decisions because stale data leads to 
 
 ## Tiered Cache Refresh
 
-- **Tier 1 (build-critical):** triggers, models, mcp-servers, connectors, knowledge-sources, channels, first-party-agents, declarative-agents -- auto-refreshed at session start if older than 3 days
-- **Tier 2 (build-phase):** api-capabilities, island-gateway-api, instructions-authoring, generative-orchestration, adaptive-cards, ai-tools-computer-use, power-automate-integration -- refreshed before `/mcs-build` if stale
-- **Tier 3 (reference):** eval-methods, security-auth, agent-lifecycle, limits-licensing, powerfx-variables, conversation-design -- refreshed on demand via `/mcs-refresh`
+All cache refresh flows through `/mcs-sync`. The `knowledge-cache` and `docs-manifest` sync adapters detect drift and surface it as TAKE / REJECT triage cards. Nothing auto-applies — taking a card prints the impacted cache files and writes an action plan; the user makes the edits manually. The `/mcs-build` Check 0 staleness guard refuses builds with >14-day-stale Tier 1 cache unless explicitly overridden.
+
+- **Tier 1 (build-critical):** triggers, models, mcp-servers, connectors, knowledge-sources, channels, first-party-agents, declarative-agents -- surfaced by `/mcs-sync` `knowledge-cache` source; `/mcs-build` Check 0 blocks at >14 days
+- **Tier 2 (build-phase):** api-capabilities, island-gateway-api, instructions-authoring, generative-orchestration, adaptive-cards, ai-tools-computer-use, power-automate-integration -- surfaced by the same source on demand
+- **Tier 3 (reference):** eval-methods, security-auth, agent-lifecycle, limits-licensing, powerfx-variables, conversation-design -- surfaced by the same source on demand
 
 ### Freshness Rules
 
-- Less than 3 days old: use as-is
-- 3-14 days old: Tier 1 auto-refreshes; Tier 2-3 flagged, refresh on demand
-- Over 14 days old: refresh immediately regardless of tier
+- Less than 3 days old: fresh (use as-is)
+- 3-14 days old: stale (warn; run `/mcs-sync` when convenient)
+- Over 14 days old: critical (blocks `/mcs-build` unless `--allow-stale` override)
 
 After live research, update the cache file with findings and a new `last_verified` date because future sessions rely on cache accuracy.
 

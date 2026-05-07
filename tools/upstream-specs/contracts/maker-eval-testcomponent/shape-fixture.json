@@ -1,0 +1,53 @@
+{
+  "_description": "Sanitized HAR extract for maker-eval-testcomponent Add operation. All identifiers replaced with placeholders. Captured 2026-04-17.",
+  "request": {
+    "method": "POST",
+    "url": "/api/botmanagement/v2/environments/<envId>/bots/<botId>/makerevaluations/testcomponent?ApplyV2Migration=true",
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "testComponents": [
+        {
+          "$kind": "MakerEvaluationUpdateTestComponent",
+          "operationType": "Add",
+          "component": {
+            "$kind": "TestCaseComponent",
+            "schemaName": "<schemaName>",
+            "displayName": "<displayName>",
+            "category": "Testing",
+            "state": "Active",
+            "definition": {
+              "$kind": "EvaluationSet",
+              "graders": [
+                {
+                  "$kind": "PromptedGrader",
+                  "graderName": "<graderName>",
+                  "prompt": "<grader prompt text>"
+                }
+              ],
+              "testCases": [
+                {
+                  "$kind": "TestCase",
+                  "input": "<test input>",
+                  "expectedOutput": "<expected output>"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "addedComponentsIdsBySchemaName": {
+        "<schemaName>": "<componentGuid>"
+      }
+    }
+  }
+}

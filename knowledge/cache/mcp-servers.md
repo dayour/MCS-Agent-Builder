@@ -1,10 +1,11 @@
 <!-- CACHE METADATA
-last_verified: 2026-04-06
-sources: [MS Learn Built-in MCP catalog (fetched 2026-03-23), Agent 365 tooling overview (fetched 2026-03-23), WebSearch, Dynamics 365 MCP docs, Agent 365 server references, Power Apps MCP docs, Work IQ docs, 2026 Wave 1 release plan, Copilot Studio What's New (fetched 2026-03-23), community blogs]
+last_verified: 2026-04-27
+sources: [MS Learn Built-in MCP catalog (fetched 2026-04-22), Agent 365 tooling overview (fetched 2026-04-22), WebSearch, Dynamics 365 MCP docs, Agent 365 server references, Power Apps MCP Server docs (fetched 2026-04-22), Work IQ docs, 2026 Wave 1 release plan + change history (fetched 2026-04-22), Copilot Studio What's New [last-mod 2026-04-23], M365 Copilot Federated connectors overview (fetched 2026-04-22), MS Graph MCP Server for Enterprise docs, community blogs]
 confidence: high
 refresh_trigger: before_architecture
 catalog_url: https://learn.microsoft.com/en-us/microsoft-copilot-studio/mcp-microsoft-mcp-servers
 agent365_url: https://learn.microsoft.com/en-us/microsoft-agent-365/tooling-servers-overview
+apr_2026_update: "Federated Copilot Connectors GA (9 servers, LSEG/Moody's in, S&P Global out). MCP-in-flows Preview slipped Apr→May 2026. Power Apps MCP Server agent-feed cutover May 1 2026. SharePoint Lists MCP merged into Work IQ SharePoint; M365 Admin Center MCP no longer highlighted. Claude Opus 4.7 experimental for MCS agents Apr 16. Apr 27 re-verify: whats-new (Apr 23) reaffirmed Mar 2026 Work IQ tools preview. No new servers added to built-in catalog since Apr 22."
 -->
 # MCS Built-in MCP Servers
 
@@ -20,12 +21,13 @@ MCP went GA in Copilot Studio in May 2025. MCP resources support added in public
 |---------|---------|
 | Status | **Public preview Mar 2026, GA Apr 2026** |
 | Transport | **Streamable HTTP only** (SSE deprecated after Aug 2025) |
-| Auth | API key or OAuth 2.0 |
+| Auth | API key or OAuth 2.0 (Manual, Dynamic, or Dynamic Discovery) |
 | Capabilities | Tools + Resources (prompts NOT yet supported) |
 | Requirement | **Generative Orchestration must be enabled** |
 | Limitation | **Topics cannot call MCP servers directly** -- only orchestrator can route to MCP tools |
 | Clone support | Clone existing Microsoft-authored or hosted MCP servers (e.g., Dataverse MCP) and tailor them |
 | DLP | Enforce Data Loss Prevention policies at MCP server and individual tool level |
+| Managed Identity | Custom connectors can use managed identity auth with federated credentials (no secret rotation) |
 
 **2026 Wave 1 upcoming:** "Use MCP-compliant tools in agent workflows" -- preview Apr 2026, GA Oct 2026. Agent workflows (flows) will be able to discover and invoke MCP tools as workflow steps with structured I/O. Source: https://learn.microsoft.com/en-us/power-platform/release-plan/2026wave1/microsoft-copilot-studio/use-mcp-compliant-tools-agent-workflows
 
@@ -51,7 +53,7 @@ The catalog now contains **36 MCP servers on the catalog page + 9 Work IQ server
 | **Dynamics 365 ERP Analytics MCP** | `d365erpmcpserver` | Dynamic framework for F&O apps -- data operations + business logic. Adaptive tools, analytics-ready. Replaces older 13-static-tool version. | Preview |
 | **Dynamics 365 Service MCP** | `d365customerservicemcpserver` | Case management, knowledge articles, omnichannel capabilities. Old D365 Service MCP is deprecated -- use new version. | Preview |
 | **D365 Contact Center Admin MCP** | `d365contactcenteradminmcpserver` | Omnichannel and supervisor capabilities for service operations. Admin-focused. | Preview |
-| **Dynamics 365 Business Central** | `dynamicssmbsaas` | Business Central connector with MCP capabilities. | GA |
+| **Dynamics 365 Business Central** | `dynamicssmbsaas` | Business Central connector with MCP capabilities. **Enhanced MCP server GA Apr 2026**: static validation, expanded host compatibility (VS Code, Copilot Studio, 3P clients via Entra ID), telemetry with Purview auditing, embedded resources for large datasets. Dedicated endpoint: `https://mcp.businesscentral.dynamics.com`. OAuth 2.1. | GA (enhanced Apr 2026) |
 | **Fin & Ops Apps (Dynamics 365)** | `dynamicsax` | Finance and operations apps connector. | GA |
 
 *Note: Dynamics 365 Commerce MCP Server launched preview early 2026 -- catalog, pricing, promotions, inventory, carts, orders, fulfillment. Accessible via ERP MCP framework.*
@@ -167,6 +169,12 @@ These are ISV-certified MCP servers now appearing in the Copilot Studio built-in
 | **S360 Breeze MCP** | Microsoft | Sustainability/compliance tooling. | GA |
 | **SuperMCP** | Supermetrics | Marketing analytics data. Premium. | Preview |
 | **Zapier MCP** | Zapier Inc | Connect to 7,000+ apps via Zapier. Premium. | Preview |
+
+### Category 15: Microsoft MCP Server for Enterprise (NEW -- Apr 2026)
+
+| MCP Server | Description | Status |
+|------------|-------------|--------|
+| **Microsoft MCP Server for Enterprise** | Enables AI agents to query Microsoft Entra tenant data via Microsoft Graph API using natural language. Read-only. Scenarios: IT helpdesk, admin reporting, API discovery, automation. Endpoint: `https://mcp.svc.cloud.microsoft/enterprise`. Connected to Copilot Studio via custom connector + MCP onboarding wizard (OAuth 2.0 Manual with federated credentials). Supports managed identity auth. Rate limit: 100 calls/min/user + Graph throttling. No additional license required (need appropriate licenses for accessed data). Public cloud only. Source: https://learn.microsoft.com/graph/mcp-server/overview | **Preview** |
 
 ### Also Available (Agent 365 Tooling Platform)
 
@@ -284,7 +292,7 @@ Source: https://learn.microsoft.com/en-us/microsoft-agent-365/tooling-servers-ov
 | **Jan 2026** | Agent 365 tooling servers overview published. Frontier program enrollment for full Agent 365 access. |
 | **Feb 2026** | Dynamics 365 Commerce MCP preview. Catalog at 25+ servers. ISV expansion begins (Celonis, Draup, Highspot, Enlyft, monday.com, etc.). |
 | **Mar 2026** | Custom MCP servers public preview. Work IQ rebranding of Agent 365 servers (officially Preview). Catalog now 36 servers + 9 Work IQ = 45+ total. Sentinel MCP, Zapier MCP, CData Connect AI, LSEG, Cronofy, and many more ISV servers added. OneDrive split into separate Work IQ server. Kusto Query removed from built-in catalog (use Azure MCP Server or Fabric RTI MCP instead). A2A (Agent-to-Agent) protocol support added. Service principal auth for MCP servers discovered (community). |
-| **Apr 2026** | Custom MCP servers GA (planned). "Use MCP-compliant tools in agent workflows" preview (planned). |
+| **Apr 2026** | Custom MCP servers GA (planned). "Use MCP-compliant tools in agent workflows" preview (planned). Microsoft MCP Server for Enterprise documented for Copilot Studio (custom connector pattern). D365 Business Central enhanced MCP server GA (static validation, expanded host compat, telemetry, embedded resources). MCP onboarding wizard now offers 3 OAuth 2.0 modes (Dynamic Discovery, Dynamic, Manual). Credential oversharing detection preview. |
 | **Oct 2026** | "Use MCP-compliant tools in agent workflows" GA (planned). |
 
 ## How to Add an MCP Server
@@ -292,11 +300,18 @@ Source: https://learn.microsoft.com/en-us/microsoft-agent-365/tooling-servers-ov
 ### Method 1: User-Guided Manual Step (first-time per connector per environment)
 When no connection reference exists for the MCP connector in the environment:
 1. User goes to Tools section in MCS UI -> "Add tool"
-2. Select "Model Context Protocol" filter
+2. Select "Model Context Protocol" filter (or "New tool" > "Model Context Protocol" for custom servers)
 3. Search for the MCP server name
 4. Select -> "Add to agent" or "Add and configure"
 5. Create connection if prompted (handle auth popup / OAuth consent)
 6. Connection reference + connection instance created automatically by MCS
+
+**OAuth 2.0 options in MCP onboarding wizard (Apr 2026):**
+- **Dynamic Discovery**: Server supports DCR with discovery -- simplest option, auto-discovers endpoints
+- **Dynamic**: Server supports DCR but not discovery -- you provide Authorization URL + Token URL
+- **Manual**: Full manual config -- Client ID, Client Secret, Authorization URL, Token URL, Refresh URL, Scopes
+- **API key**: Header-based or query-parameter-based API key auth
+- **None**: No auth required
 
 ### Method 2: Headless Reuse (when connection reference already exists)
 When a connection reference for the MCP connector already exists in the environment (from any agent):
@@ -388,6 +403,10 @@ Source: https://learn.microsoft.com/en-us/connectors/salesforce/ (Actions sectio
 - **Service principal auth for MCP servers** -- MCP servers can now use service principal (application) auth, not just user-delegated OAuth. Source: community blog (ashiqf.com, 2026-03-19)
 - Selective tool enabling: turn off individual MCP tools via "Allow all" toggle in agent settings
 - Component collections now support MCP connector types for export/import
+- **Microsoft MCP Server for Enterprise (Preview)** -- read-only Graph API access for Entra tenant data (users, groups, apps, devices). Connected to Copilot Studio via custom connector + MCP onboarding wizard. No additional license cost. Source: https://learn.microsoft.com/graph/mcp-server/overview
+- **D365 Business Central enhanced MCP server GA Apr 2026** -- static validation, expanded host compatibility, Purview auditing, embedded resources. Dedicated endpoint: `https://mcp.businesscentral.dynamics.com`
+- **MCP onboarding wizard OAuth 2.0 expansion** -- now supports Dynamic Discovery (auto-DCR), Dynamic (manual endpoints + DCR), and Manual (full config) modes in addition to API key and no-auth
+- **ChatGPT-5 GA globally** (Mar 2026) and **Claude Sonnet 4.5/4.6/Opus GA globally** (Mar 2026) -- available as orchestration models in agents that use MCP servers
 
 ## Refresh Notes
 

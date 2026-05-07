@@ -1,0 +1,30 @@
+{
+  "surfaceId": "bot-components-materialize",
+  "method": "POST",
+  "urlPattern": "{pvaBase}/powervirtualagents/bots/{botId}/api/botcomponents?api-version=2022-03-01-preview",
+  "auth": "PVA token (different from Dataverse bearer)",
+  "validationStrategy": "kind-filter-materialize",
+  "_strategyNote": "MUST be called after POST /bots to force MCS to materialize the GptComponent from the bot's configuration. Without this call, the bot exists but has no orchestrator (user sees empty agent).",
+  "kindDiscriminators": [],
+  "requiredFields": [
+    {"path": "$.Kind", "constraint": "array of component kinds to materialize (typically ['BotEntity'])"}
+  ],
+  "requestBody": "{ \"Kind\": [\"BotEntity\"] }",
+  "responseShape": "HTTP 200 (no body used by our code) — side effect is that subsequent component-sync reads will find the new components",
+  "lastVerified": "2026-04-15",
+  "lastVerifiedBy": "HAR capture; required step per knowledge/learnings/har-api-sequence-2026-04-15.md",
+  "typedAdapterRef": "app/lib/build-pipeline.js:stepCreate (materialize step)",
+  "knownQuirks": [
+    "If not called after POST /bots, the GptComponent is never materialized — agent is a shell. This is the #1 build-pipeline gotcha.",
+    "PVA token (different AAD resource than Dataverse) — build-pipeline must acquire both tokens.",
+    "api-version is required; 2022-03-01-preview has been stable since discovery."
+  ],
+  "nonContractualFields": [
+    "$.Kind[] values beyond 'BotEntity' (other kinds exist but we don't use them)"
+  ],
+  "errorCases": [
+    {"status": 400, "reason": "Missing or malformed Kind array"},
+    {"status": 401, "reason": "Wrong token audience — uses PVA not Dataverse"},
+    {"status": 404, "reason": "Bot GUID not found in PVA"}
+  ]
+}

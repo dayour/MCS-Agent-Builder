@@ -1,0 +1,22 @@
+<svg viewBox="6.0 2.0 36.0 44.0" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg x="6" y="2" width="36" height="44" viewBox="0 0 19.66 23.54" fill="none">
+<g id="Color 1">
+<path d="M7.43 2.83C7.6 2.33 8.07 2 8.6 2h6.46c.85 0 1.45.84 1.18 1.65L14.8 8h3.96c1.1 0 1.67 1.33.9 2.12L8.59 21.54c-1.06 1.08-2.88.1-2.55-1.38l1.27-5.66-1.56-.01c-1.21 0-2.05-1.2-1.65-2.34l3.33-9.32Z" fill="url(#paint0_radial_lightning_bolt)"/>
+<path d="M7.43 2.83C7.6 2.33 8.07 2 8.6 2h6.46c.85 0 1.45.84 1.18 1.65L14.8 8h3.96c1.1 0 1.67 1.33.9 2.12L8.59 21.54c-1.06 1.08-2.88.1-2.55-1.38l1.27-5.66-1.56-.01c-1.21 0-2.05-1.2-1.65-2.34l3.33-9.32Z" fill="url(#paint1_radial_lightning_bolt_depth)" fill-opacity="0.5"/>
+<path d="M7.43 2.83C7.6 2.33 8.07 2 8.6 2h6.46c.85 0 1.45.84 1.18 1.65L14.8 8h3.96c1.1 0 1.67 1.33.9 2.12L8.59 21.54c-1.06 1.08-2.88.1-2.55-1.38l1.27-5.66-1.56-.01c-1.21 0-2.05-1.2-1.65-2.34l3.33-9.32Z" fill="url(#paint2_linear_lightning_bolt_glow)" fill-opacity="0.3"/>
+</g>
+<defs>
+<radialGradient id="paint0_radial_lightning_bolt" cx="0" cy="0" r="1" gradientTransform="matrix(-15.06 -16.92 13.84 -20.26 19.66 19.54)" gradientUnits="userSpaceOnUse">
+<stop stop-color="#FF6F47"/>
+<stop offset="1" stop-color="#FFCD0F"/>
+</radialGradient>
+<radialGradient id="paint1_radial_lightning_bolt_depth" cx="0" cy="0" r="1" gradientTransform="translate(11.83 1.03) rotate(90) scale(7.21 5.92)" gradientUnits="userSpaceOnUse">
+<stop stop-color="#EB4824"/>
+<stop offset="1" stop-color="#EB4824" stop-opacity="0"/>
+</radialGradient>
+<linearGradient id="paint2_linear_lightning_bolt_glow" x1="5.75" y1="21.54" x2="17.56" y2="2.0" gradientUnits="userSpaceOnUse">
+<stop stop-color="#9C6CFE" stop-opacity="0.7"/>
+<stop offset="1" stop-color="#FFCD0F" stop-opacity="0"/>
+</linearGradient>
+</defs></svg>
+</svg>

@@ -1,0 +1,47 @@
+{
+  "request": {
+    "method": "POST",
+    "url": "/api/data/v9.2/botcomponents",
+    "headers": { "content-type": "application/json", "odata-maxversion": "4.0" },
+    "body": {
+      "name": "<componentName>",
+      "schemaname": "<publisher>_<componentname>",
+      "componenttype": 9,
+      "parentbotid@odata.bind": "/bots(<botId>)",
+      "data": "{\"topic-yaml-or-opaque-payload\"}"
+    }
+  },
+  "response": {
+    "status": 201,
+    "headers": {
+      "content-type": "application/json",
+      "location": "<dataverseUrl>/api/data/v9.2/botcomponents(<componentId>)"
+    },
+    "body": {
+      "@odata.context": "<dataverseUrl>/api/data/v9.2/$metadata#botcomponents/$entity",
+      "botcomponentid": "<componentId>",
+      "componenttype": 9,
+      "name": "<componentName>",
+      "schemaname": "<publisher>_<componentname>"
+    }
+  },
+  "errorCase": {
+    "request": {
+      "body": {
+        "name": "dup",
+        "schemaname": "<existing-schemaname>",
+        "componenttype": 9,
+        "parentbotid@odata.bind": "/bots(<botId>)"
+      }
+    },
+    "response": {
+      "status": 412,
+      "body": {
+        "error": {
+          "code": "0x80040237",
+          "message": "A record with the same schema name already exists."
+        }
+      }
+    }
+  }
+}

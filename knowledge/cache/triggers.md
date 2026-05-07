@@ -1,6 +1,6 @@
 <!-- CACHE METADATA
-last_verified: 2026-04-07
-sources: [MS Learn (authoring-triggers, authoring-triggers-about, planned-features, guidance/generative-orchestration, authoring-select-agent-model, release-plan/2026wave1), MCS UI snapshot, WebSearch Apr 2026, knowledge/patterns/topic-patterns/]
+last_verified: 2026-04-27
+sources: [MS Learn (authoring-triggers, authoring-triggers-about, planned-features, guidance/generative-orchestration, guidance/custom-knowledge-sources, agent-node-workflow, flows-overview, authoring-select-agent-model, release-plan/2026wave1, release-plan/2025wave2/change-history, release-plan/2026wave1/change-history, whats-new [last-modified 2026-04-23]), MCS UI snapshot, WebSearch Apr 2026, knowledge/patterns/topic-patterns/]
 confidence: high
 refresh_trigger: before_architecture
 -->
@@ -85,12 +85,24 @@ Event triggers enable autonomous agent behavior -- the agent acts without user i
 |---------|--------|---------|
 | **Trigger conditions with PowerFx** | GA | Add PowerFx conditions to any trigger -- filter when a topic fires based on variable values or expressions |
 | **Trigger priority** | GA | Explicit ordering -- set priority when multiple topics could match the same intent. Order: (1) An activity occurs, (2) A message is received / custom event / conversation changes / invoked, (3) The agent chooses / User says a phrase. Same-type: oldest first unless Priority property is set. |
-| **Configure triggers with end-user credentials** | **Preview** (Apr 2026), GA Jun 2026 | Triggers can run authenticated as the end user, enabling user-context-aware trigger logic. Makers can create, configure, test, update, and delete triggers directly in MCS. Enables sharing autonomous agents that run with end-user credentials. Updated timeline per [2026 Wave 1 planned features](https://learn.microsoft.com/en-us/power-platform/release-plan/2026wave1/microsoft-copilot-studio/planned-features): Preview Apr 2026, GA Jun 2026. |
-| **Simplify working with triggers and channels** | GA (Nov 2025) | Streamlined trigger/channel configuration UX |
+| **Configure triggers with end-user credentials** | **Preview** (Apr 2026), GA Jul 2026 | Triggers can run authenticated as the end user, enabling user-context-aware trigger logic. Makers can create, configure, test, update, and delete triggers directly in MCS (triggers are now a fully native capability -- full lifecycle management end-to-end without Power Automate). Enables sharing autonomous agents that run with end-user credentials. Updated timeline per [2026 Wave 1 planned features](https://learn.microsoft.com/en-us/power-platform/release-plan/2026wave1/microsoft-copilot-studio/planned-features): Preview Apr 2026, GA Jul 2026. |
+| **Simplify working with triggers and channels** | **DEPRIORITIZED** (Apr 16, 2026) | Removed from 2025 Wave 2 release plan — "Deprioritized and will not be delivered" per [2025w2 change-history](https://learn.microsoft.com/en-us/power-platform/release-plan/2025wave2/change-history#microsoft-copilot-studio). Prior "GA Nov 2025" claim was incorrect; feature was never delivered. |
 | **CUA (Computer Use Agent) tools** | GA May 2026 | Automate web and desktop apps via computer use. Preview since May 2025, GA target May 2026. Triggers agent actions that interact with UI elements. |
 | **Post-call action topics (voice)** | **GA** (Mar 2026) | Configure post-call action topics for voice-enabled agents to trigger backend actions automatically after a call ends, based on how the conversation concluded. |
-| **Agent evaluations GA** | **GA** (Mar 2026) | Agent evaluations now generally available -- validate agent performance using customizable test sets. Evaluation automation APIs also GA via Power Platform APIs and connectors for CI/CD integration. |
-| **MCP-compliant tools in agent workflows** | **Preview** (Apr 2026), GA Oct 2026 | Use MCP-compliant tools in agent workflows. Preview Apr 2026 per [2026 Wave 1 planned features](https://learn.microsoft.com/en-us/power-platform/release-plan/2026wave1/microsoft-copilot-studio/planned-features). |
+| **Reprompt messages with randomization (Question nodes)** | **GA** (Mar 2026) | Configure reprompt messages in Question nodes with randomization support. Improves conversation recovery for retry prompts, entity recognition failures, and voice scenarios. Source: [What's New Mar 2026](https://learn.microsoft.com/en-us/microsoft-copilot-studio/whats-new). |
+| **Adaptive Cards accessibility best practices** | **GA guidance** (Mar 2026) | Best-practice guidance for screen readers, keyboard navigation, and Teams-specific scenarios. Helps build more inclusive agent experiences. Affects Adaptive Card and Question nodes that use cards. Source: [What's New Mar 2026](https://learn.microsoft.com/en-us/microsoft-copilot-studio/whats-new) — see `knowledge/cache/channels.md` for accessibility recommendations. |
+| **Prompt assistant in Prompt builder** | **GA** (Mar 2026) | GPT model–powered suggestions in Prompt builder. Reduces time to craft effective prompts. Affects prompt-tool authoring (used inside topics with `kind: PromptInvocation`). |
+| **Agent evaluations GA** | **GA** (Mar 2026) | Agent evaluations now generally available -- validate agent performance using customizable test sets. Evaluation automation APIs also GA via Power Platform APIs and connectors for CI/CD integration. Multi-turn conversation tests now available (Mar 2026). |
+| **Analyze quality of generative AI responses** | **GA** (Apr 13, 2026) | Analyze quality of generative-AI responses. Use quality signals to identify weak responses + feed eval test sets. Per [2026 Wave 1 planned features](https://learn.microsoft.com/en-us/power-platform/release-plan/2026wave1/microsoft-copilot-studio/analyze-quality-responses-that-use-generative-ai). Preview since Jun 2025. |
+| **Give read-only analytics access to users** | **GA** (Apr 2026) | Grant read-only access to analytics for users who need visibility but not edit rights. Added to release plan Apr 18, 2026. |
+| **Analyze user sentiment from conversations** | **Preview** (Jan 15, 2026), GA May 2026 | Analyze sentiment in user queries within agent conversations. |
+| **See evaluation results in real time** | **Preview** (May 2026), GA May 2026 | Real-time visibility into evaluation results as tests run. |
+| **Define custom metrics for analytics** | **Preview** (Apr 15, 2026), GA Jun 2026 | **Delayed** — GA moved from May to Jun 2026 per 2026w1 change history. |
+| **Evaluate entirety of multi-turn conversations** | **Preview** (Mar 31, 2026), GA Jun 2026 | **GA delayed** from May to Jun 2026 per 2026w1 change history (Apr 19, 2026). |
+| **MCP-compliant tools in agent workflows** | **Preview May 2026** (delayed), GA Oct 2026 | Public preview moved from Apr to May 2026 per 2026w1 change history. Use MCP-compliant tools in agent workflows. |
+| **SharePoint lists as knowledge source** | **Preview May 2026** (delayed), GA May 2026 | Public preview moved from Apr to May 2026 per 2026w1 change history (Apr 15, 2026). |
+| **Enforce safe sharing (credential oversharing)** | **Preview Jul 2026** (delayed), GA Sep 2026 | Public preview moved from Apr to Jul 2026, GA from Jun to Sep 2026 per 2026w1 change history (Apr 16, 2026). |
+| **Unified errors/warnings/governance view** | **Preview May 2026** (delayed), GA Jun 2026 | Public preview moved from Apr to May 2026 per 2026w1 change history (Apr 16, 2026). |
 
 ## Key Patterns
 

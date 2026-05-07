@@ -11,22 +11,22 @@ The lead collects snapshot data during reconciliation (overview, tools tab, know
 
 Before spawning QA, run automated drift detection on all built topics:
 ```bash
-python tools/drift-detect.py Build-Guides/{projectId}/agents/{agentId}/brief.json --validate
+python tools/drift-detect.py Build-Guides/{projectId}/agents/{agentId}/agentspec.json --validate
 ```
 This catches missing/extra topics, trigger mismatches, and variable drift automatically. Include the drift report in QA's input data.
 
 ## QA Challenger Receives
 
-1. The full `brief.json` (spec — what should be configured)
+1. The full `agentspec.json` (spec — what should be configured)
 2. The reconciliation snapshot summaries (what is configured — collected by the lead)
 3. The drift detection report (from `drift-detect.py` above)
 4. The list of deferred `phase: "future"` items (so QA doesn't flag them as missing)
 
-## Check 1: Brief-vs-Actual Comparison
+## Check 1: Spec-vs-Actual Comparison
 
 Walk each MVP-scoped section and compare spec to actual:
 
-| Brief Section | What QA Checks |
+| Spec Section | What QA Checks |
 |---------------|---------------|
 | `agent.name` / `agent.description` | Match overview heading |
 | `instructions` | Text matches (or char-count delta if large) |
@@ -48,7 +48,7 @@ These catch issues that simple reconciliation misses:
 | Topics -> Integrations | Topic calls a connector action that wasn't added |
 | Capabilities -> Instructions | Instructions include sections for future-tagged capabilities, or MVP capabilities missing from instructions |
 | Adaptive Cards -> Channels | Card uses features unsupported on target channel |
-| Topics -> outputFormat | Brief says `outputFormat: "adaptive-card"` but built topic uses plain text `SendActivity` |
+| Topics -> outputFormat | Spec says `outputFormat: "adaptive-card"` but built topic uses plain text `SendActivity` |
 | Conversation Start -> Welcome Card | Agent has 2+ capabilities but Conversation Start uses default text greeting instead of adaptive card (bm-024) |
 | (Multi-agent) Routing rules -> Children | Instructions route to a child agent that isn't connected |
 
@@ -66,8 +66,8 @@ QA writes results to `Build-Guides/{projectId}/agents/{agentId}/qa-validation.md
 ```markdown
 # QA Build Validation: [Agent Name]
 
-## Brief-vs-Actual: {N}/{M} items match
-| Item | Brief Says | Agent Has | Status |
+## Spec-vs-Actual: {N}/{M} items match
+| Item | Spec Says | Agent Has | Status |
 |------|-----------|-----------|--------|
 | ... | ... | ... | Match / Mismatch / Missing |
 

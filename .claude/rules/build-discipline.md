@@ -22,7 +22,9 @@ Every build step must be verified before marking complete. These rules prevent s
    - CSV generated: read file back to confirm content
    - Eval uploaded: Dataverse query confirms test case count
 
-3. **Do not mark a step complete until it is verified.** If verification is not possible, tell the user "I did X but couldn't verify Y" because silently assuming success leads to cascading failures in later steps.
+   **Automation:** the `mcs-build-verify.js` PostToolUse hook fires `mcs-build-loop.js verify --workspace <path>` after every `mcs-lsp.js push` and `add-tool.js push`. Result lands in `tools/build-log.jsonl` with classification `identical | expected-divergence | partial | silent-failure | concurrency-mismatch | pull-error`. The Stop hook surfaces any non-clean classification. Disable with `CLAUDE_OFF_AUTO_BUILD_VERIFY=1`.
+
+3. **Do not mark a step complete until it is verified.** If verification is not possible, tell the user "I did X but couldn't verify Y" because silently assuming success leads to cascading failures in later steps. The auto-fire build-log gives you a record; check it before marking each step complete: `node tools/mcs-build-loop.js status`.
 
 4. **Writing a local file is not the same as deploying it.** File creation and MCS upload are separate tasks because a local file has no effect on the agent until it reaches the platform.
 
@@ -32,4 +34,4 @@ Every build step must be verified before marking complete. These rules prevent s
 
 7. **Attempt every MVP item.** Try every item tagged `phase: "mvp"` because a failed attempt with a clear error message is valuable diagnostic information, while a silently skipped item is a build gap that goes unnoticed. If an item fails, document what was tried, the specific error, and what is needed to unblock it.
 
-8. **Reconcile at end of build.** After all changes, walk the spec's build checklist and snapshot-verify every item against the actual agent state because drift between spec and reality compounds over the build. Every MVP item must show MATCH, PARTIAL, FAILED, or BLOCKED. Then spawn QA Challenger (Step 5.5) to validate brief-vs-actual, cross-references, and deviation impact. The QA verdict determines whether the build proceeds to the report or escalates issues.
+8. **Reconcile at end of build.** After all changes, walk the spec's build checklist and snapshot-verify every item against the actual agent state because drift between spec and reality compounds over the build. Every MVP item must show MATCH, PARTIAL, FAILED, or BLOCKED. Then spawn QA Challenger (Step 5.5) to validate spec-vs-actual, cross-references, and deviation impact. The QA verdict determines whether the build proceeds to the report or escalates issues.

@@ -1,6 +1,6 @@
 /**
  * Server-side data transformer for HTML reports.
- * Ports the field mapping logic from briefTransforms.ts:briefFromApi()
+ * Ports the field mapping logic from briefTransforms.ts:specFromApi()
  * and computes aggregate metrics for template rendering.
  */
 const fs = require("fs");
@@ -15,12 +15,12 @@ const EVAL_SET_NAME_MIGRATION = {
 
 // ── Main entry point ────────────────────────────────────────────
 
-function loadAndTransform(briefPath, type) {
+function loadAndTransform(briefPath) {
   const raw = JSON.parse(fs.readFileSync(briefPath, "utf-8"));
-  return transformBrief(raw, type);
+  return transformBrief(raw);
 }
 
-function transformBrief(raw, type) {
+function transformBrief(raw) {
   const biz = raw.business || {};
   const agent = raw.agent || {};
   const arch = raw.architecture || {};
@@ -200,8 +200,6 @@ function transformBrief(raw, type) {
 
   return {
     // Metadata
-    report_type: type,
-    report_type_label: TYPE_LABELS[type] || "Report",
     generated_date: new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
 
     // Overview
@@ -355,13 +353,6 @@ function computeCrossRef(capabilities, integrations, topics) {
 }
 
 // ── Helpers ─────────────────────────────────────────────────────
-
-const TYPE_LABELS = {
-  brief: "Agent Brief",
-  build: "Build Report",
-  customer: "Project Summary",
-  deployment: "Deployment Guide",
-};
 
 const FACTOR_LABELS = {
   domainSeparation: "Domain Separation",

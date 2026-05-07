@@ -418,27 +418,7 @@
         "title": "DialogBase",
         "type": "object",
         "x-base-ref": "#/definitions/LocalizableContentContainer",
-        "x-abstract": true,
-        "properties": {
-          "confirmation": {
-            "title": "Confirmation",
-            "description": "Provide a prompt that the user will see to confirm the dialog being executed.",
-            "$ref": "#/definitions/ResponseTemplate"
-          },
-          "response": {
-            "title": "Response",
-            "description": "Optional response template",
-            "$ref": "#/definitions/ResponseTemplate"
-          },
-          "inputs": {
-            "title": "Inputs",
-            "description": "Provide slot filling metadata for the dialog inputs.",
-            "type": "array",
-            "items": {
-              "$ref": "#/definitions/TaskInput"
-            }
-          }
-        }
+        "x-abstract": true
       },
       "oneOf": [
         {
@@ -2360,6 +2340,16 @@
       "properties": {
         "kind": {
           "const": "AdaptiveDialog"
+        },
+        "confirmation": {
+          "title": "Confirmation",
+          "description": "Provide a prompt that the user will see to confirm the dialog being executed.",
+          "$ref": "#/definitions/ResponseTemplate"
+        },
+        "response": {
+          "title": "Response",
+          "description": "Optional response template",
+          "$ref": "#/definitions/ResponseTemplate"
         },
         "modelDisplayName": {
           "title": "Model Display Name",
@@ -4392,6 +4382,21 @@
         }
       ]
     },
+    "DeclarativeSkillScope": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Agent",
+          "description": "Skill is scoped to the agent",
+          "const": "Agent"
+        },
+        {
+          "title": "Copilot",
+          "description": "Skill is exposed to Copilot",
+          "const": "Copilot"
+        }
+      ]
+    },
     "GraphConnectorItemType": {
       "type": "string",
       "oneOf": [
@@ -4545,6 +4550,32 @@
         {
           "title": "Environment",
           "const": "Environment"
+        }
+      ]
+    },
+    "BotComponentCollectionType": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "AgentComponents",
+          "const": "AgentComponents"
+        },
+        {
+          "title": "EvaluationArtifacts",
+          "const": "EvaluationArtifacts"
+        }
+      ]
+    },
+    "AgentOutputFormat": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Text",
+          "const": "Text"
+        },
+        {
+          "title": "JsonSchema",
+          "const": "JsonSchema"
         }
       ]
     },
@@ -5370,6 +5401,18 @@
         {
           "title": "Kazakh",
           "const": 1087
+        },
+        {
+          "title": "Serbian_Cyrillic",
+          "const": 3098
+        },
+        {
+          "title": "Serbian_Latin",
+          "const": 2074
+        },
+        {
+          "title": "Malaysian",
+          "const": 1086
         }
       ]
     },
@@ -5689,6 +5732,56 @@
         {
           "title": "Format with only numerals",
           "const": "NumberAsDigits"
+        }
+      ]
+    },
+    "RegionalDateFormat": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "US (MM/DD/YYYY)",
+          "description": "United States date format: month/day/year.",
+          "const": "US"
+        },
+        {
+          "title": "EU (DD/MM/YYYY)",
+          "description": "European date format: day/month/year.",
+          "const": "EU"
+        }
+      ]
+    },
+    "DateInputFormat": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "MM/DD/YYYY (or DD/MM/YYYY)",
+          "description": "All date components are required (default). Displays as DD/MM/YYYY when RegionalDateFormat is EU.",
+          "const": "FullDate"
+        },
+        {
+          "title": "DD (MM, YY optional)",
+          "description": "Only the day is required; month and year are optional.",
+          "const": "DayOnly"
+        },
+        {
+          "title": "MM (DD, YY optional)",
+          "description": "Only the month is required; day and year are optional.",
+          "const": "MonthOnly"
+        },
+        {
+          "title": "YY (DD, MM optional)",
+          "description": "Only the year is required; day and month are optional.",
+          "const": "YearOnly"
+        },
+        {
+          "title": "MM/DD (or DD/MM)",
+          "description": "Month and day are required; year is optional. Displays as DD/MM (YY optional) when RegionalDateFormat is EU.",
+          "const": "DayMonth"
+        },
+        {
+          "title": "MM/YY (DD optional)",
+          "description": "Month and year are required; day is optional.",
+          "const": "MonthYear"
         }
       ]
     },
@@ -6197,6 +6290,10 @@
           "const": "SignInRequiredWithManualAuthentication"
         },
         {
+          "title": "InvalidEvaluationCollectionSchemaName",
+          "const": "InvalidEvaluationCollectionSchemaName"
+        },
+        {
           "title": "SynonymsNotUnique",
           "const": "SynonymsNotUnique"
         },
@@ -6395,6 +6492,10 @@
         {
           "title": "TooManyAzureAISearchSources",
           "const": "TooManyAzureAISearchSources"
+        },
+        {
+          "title": "TooManyAzureFoundryIQSources",
+          "const": "TooManyAzureFoundryIQSources"
         },
         {
           "title": "FederatedStructuredSearchSourceNotConfigured",

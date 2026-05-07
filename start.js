@@ -13,7 +13,9 @@
  *   - Opening the browser once the dashboard responds
  *   - Graceful shutdown on Ctrl+C
  *
- * Usage: npm start  |  mcs start
+ * Usage: mcs start  (production — single port, pre-built frontend)
+ *
+ * For development with hot-reload: npm start  (runs scripts/dev.js)
  */
 
 const { spawn, execSync } = require("child_process");
@@ -242,27 +244,16 @@ function autoUpdate() {
 // ---------------------------------------------------------------------------
 
 function checkClaudeCode() {
-  // Reuse resolveClaude() from terminal module — single source of truth
+  // Probe whether `claude` is on PATH. Earlier versions delegated to
+  // resolveClaude() from app/lib/terminal.js, but that module was removed
+  // when the embedded terminal feature was retired; the where/which probe
+  // covers every supported scenario.
   try {
-    const { resolveClaude } = require("./app/lib/terminal");
-    const result = resolveClaude();
-    return result.mode !== "path" || (() => {
-      try {
-        execSync(os.platform() === "win32" ? "where claude" : "which claude", {
-          stdio: "ignore", timeout: 5000,
-        });
-        return true;
-      } catch { return false; }
-    })();
-  } catch {
-    // terminal module not loadable (node-pty missing) — fallback to basic check
-    try {
-      execSync(os.platform() === "win32" ? "where claude" : "which claude", {
-        stdio: "ignore", timeout: 5000,
-      });
-      return true;
-    } catch { return false; }
-  }
+    execSync(os.platform() === "win32" ? "where claude" : "which claude", {
+      stdio: "ignore", timeout: 5000,
+    });
+    return true;
+  } catch { return false; }
 }
 
 // ---------------------------------------------------------------------------
@@ -461,7 +452,7 @@ if (isGitRepo) {
   if (fs.existsSync(path.join(frontendDir, "package.json")) && depsStale(frontendDir)) {
     log("Frontend deps out of date — reinstalling...");
     try {
-      execSync("npm install", { stdio: "inherit", cwd: frontendDir, timeout: 120000 });
+      execSync("npm install --legacy-peer-deps", { stdio: "inherit", cwd: frontendDir, timeout: 120000 });
       writeDepsHash(frontendDir);
     } catch {
       warn("npm install failed in app/frontend — frontend may not work");

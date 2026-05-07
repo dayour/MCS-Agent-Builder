@@ -99,24 +99,28 @@ refresh_trigger: before_architecture | weekly | on_error
 
 | Tier | Files | Refresh |
 |------|-------|---------|
-| **1 (build-critical)** | triggers, models, mcp-servers, connectors, knowledge-sources, channels | Auto at session start if > 7 days |
-| **2 (build-phase)** | api-capabilities, instructions-authoring, generative-orchestration, adaptive-cards, ai-tools-computer-use, power-automate-integration | Before `/mcs-build` if stale |
-| **3 (reference)** | eval-methods, security-auth, agent-lifecycle, limits-licensing, powerfx-variables, conversation-design | On demand via `/mcs-refresh` |
+| **1 (build-critical)** | triggers, models, mcp-servers, connectors, knowledge-sources, channels | Surfaced by `/mcs-sync` `knowledge-cache` source; `/mcs-build` Check 0 blocks at >14 days |
+| **2 (build-phase)** | api-capabilities, instructions-authoring, generative-orchestration, adaptive-cards, ai-tools-computer-use, power-automate-integration | Surfaced by the same source on demand |
+| **3 (reference)** | eval-methods, security-auth, agent-lifecycle, limits-licensing, powerfx-variables, conversation-design | Surfaced by the same source on demand |
 
 ### Freshness Rules
 
 | Age | Action |
 |-----|--------|
-| < 7 days | Use as-is |
-| 7-30 days | Tier 1: auto-refresh. Tier 2-3: flag, refresh on demand |
-| > 30 days | Refresh immediately regardless of tier |
+| < 3 days | Use as-is |
+| 3–14 days | Stale (warn; run `/mcs-sync` when convenient) |
+| > 14 days | Critical (blocks `/mcs-build` unless `--allow-stale`) |
 
 ### Refresh Protocol
 
-Run `/mcs-refresh` to update cache files:
-- `/mcs-refresh` — refresh all stale files (> 7 days)
-- `/mcs-refresh triggers` — refresh just triggers.md
-- `/mcs-refresh all` — force refresh everything
+There is no `/mcs-refresh`. All cache refresh flows through `/mcs-sync`:
+
+1. Run `/mcs-sync` (or `npm run sync`) — the orchestrator probes all 8 sources and renders a triage view.
+2. For the `knowledge-cache` card (or specific cache file mentioned in a `docs-manifest` card), run `decide <changeId> take --reason "..." --confirm`.
+3. The action plan markdown lists which cache files to update — open each one, refresh content from MS Learn, bump `last_verified`, save.
+4. Re-run `/mcs-sync` to clear the card.
+
+Nothing auto-applies. The user owns every cache edit.
 
 Per-file refresh:
 1. Read current cache file

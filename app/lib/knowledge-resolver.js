@@ -13,9 +13,79 @@ const fs = require("fs");
 const path = require("path");
 
 const INDEX_PATH = path.join(__dirname, "..", "..", "knowledge", "index.json");
+const RESOLVER_MAPS_PATH = path.join(__dirname, "..", "..", "knowledge", "resolver-maps.json");
 
 let _index = null;
 let _healthy = false;
+
+// Resolver maps are loaded once at module load. Fallback to hardcoded defaults
+// if the JSON is missing — this preserves pre-extraction behavior.
+const FALLBACK_WORKIQ_MAP = {
+  mail: { server: "Work IQ Copilot", operationId: "mcp_M365Copilot" },
+  email: { server: "Work IQ Copilot", operationId: "mcp_M365Copilot" },
+  outlook: { server: "Work IQ Copilot", operationId: "mcp_M365Copilot" },
+  calendar: { server: "Work IQ Copilot", operationId: "mcp_M365Copilot" },
+  meeting: { server: "Work IQ Copilot", operationId: "mcp_M365Copilot" },
+  schedule: { server: "Work IQ Copilot", operationId: "mcp_M365Copilot" },
+  teams: { server: "Work IQ Copilot", operationId: "mcp_M365Copilot" },
+  chat: { server: "Work IQ Copilot", operationId: "mcp_M365Copilot" },
+  channel: { server: "Work IQ Copilot", operationId: "mcp_M365Copilot" },
+  sharepoint: { server: "Work IQ Copilot", operationId: "mcp_M365Copilot" },
+  onedrive: { server: "Work IQ Copilot", operationId: "mcp_M365Copilot" },
+  files: { server: "Work IQ Copilot", operationId: "mcp_M365Copilot" },
+  documents: { server: "Work IQ Copilot", operationId: "mcp_M365Copilot" },
+  word: { server: "Work IQ Copilot", operationId: "mcp_M365Copilot" },
+  "m365 search": { server: "Work IQ Copilot", operationId: "mcp_M365Copilot" },
+  copilot: { server: "Work IQ Copilot", operationId: "mcp_M365Copilot" },
+  user: { server: "Work IQ User", operationId: "mcp_MeServer" },
+  profile: { server: "Work IQ User", operationId: "mcp_MeServer" },
+  manager: { server: "Work IQ User", operationId: "mcp_MeServer" },
+  "direct reports": { server: "Work IQ User", operationId: "mcp_MeServer" },
+  "org chart": { server: "Work IQ User", operationId: "mcp_MeServer" },
+};
+
+const FALLBACK_CAPABILITY_PATTERNS = [
+  { type: "knowledge", regex: /\b(answer|explain|describe|faq|policy|knowledge|information|summarize)\b/, confidence: 0.6 },
+  { type: "flow",      regex: /\b(create|update|delete|submit|send|trigger|automate|schedule|batch|notify|alert|approve)\b/, confidence: 0.6 },
+  { type: "topic",     regex: /\b(route|triage|classify|hand.?off|escalate|transfer|assign)\b/, confidence: 0.6 },
+  { type: "tool",      regex: /\b(search|lookup|query|retrieve|fetch|get|find)\b/, confidence: 0.55 },
+];
+
+function loadResolverMaps() {
+  try {
+    if (!fs.existsSync(RESOLVER_MAPS_PATH)) {
+      return { workIqMap: FALLBACK_WORKIQ_MAP, capabilityPatterns: FALLBACK_CAPABILITY_PATTERNS, source: "fallback" };
+    }
+    const raw = JSON.parse(fs.readFileSync(RESOLVER_MAPS_PATH, "utf-8"));
+
+    // Expand workIqMap from compact form (server → [keywords]) into flat keyword lookup
+    const workIqMap = {};
+    const wiq = raw.workIqMap || {};
+    const copilotServer = wiq._copilotServer || { server: "Work IQ Copilot", operationId: "mcp_M365Copilot" };
+    const userServer = wiq._userServer || { server: "Work IQ User", operationId: "mcp_MeServer" };
+    for (const kw of wiq.copilot || []) workIqMap[kw] = copilotServer;
+    for (const kw of wiq.user || []) workIqMap[kw] = userServer;
+
+    // Compile regex patterns (order preserved — first match wins for confidence boost)
+    const capabilityPatterns = (raw.capabilityTypePatterns?.patterns || []).map((p) => ({
+      type: p.type,
+      regex: new RegExp(p.regex, "i"),
+      confidence: typeof p.confidence === "number" ? p.confidence : 0.55,
+    }));
+
+    if (Object.keys(workIqMap).length === 0 || capabilityPatterns.length === 0) {
+      console.warn("[knowledge-resolver] resolver-maps.json parsed but empty — using fallback");
+      return { workIqMap: FALLBACK_WORKIQ_MAP, capabilityPatterns: FALLBACK_CAPABILITY_PATTERNS, source: "fallback-empty" };
+    }
+    return { workIqMap, capabilityPatterns, source: "json" };
+  } catch (err) {
+    console.warn(`[knowledge-resolver] Failed to load resolver-maps.json: ${err.message} — using fallback`);
+    return { workIqMap: FALLBACK_WORKIQ_MAP, capabilityPatterns: FALLBACK_CAPABILITY_PATTERNS, source: "fallback-error" };
+  }
+}
+
+const { workIqMap: WORKIQ_MAP, capabilityPatterns: CAPABILITY_PATTERNS, source: _mapsSource } = loadResolverMaps();
+if (_mapsSource === "json") console.log(`[knowledge-resolver] Loaded resolver-maps.json (${Object.keys(WORKIQ_MAP).length} workIQ keys, ${CAPABILITY_PATTERNS.length} capability patterns)`);
 
 // ---------------------------------------------------------------------------
 // Initialization
@@ -121,19 +191,16 @@ function resolveCapabilities(capabilities) {
       }
     }
 
-    // Heuristic implementation type detection
-    if (text.match(/\b(answer|explain|describe|faq|policy|knowledge|information)\b/)) {
-      result.suggestedType = "knowledge";
-      result.confidence = Math.max(result.confidence, 0.6);
-    } else if (text.match(/\b(create|update|delete|submit|send|trigger|automate|schedule|batch|notify|alert)\b/)) {
-      result.suggestedType = "flow";
-      result.confidence = Math.max(result.confidence, 0.6);
-    } else if (text.match(/\b(route|triage|classify|hand.?off|escalate|transfer)\b/)) {
-      result.suggestedType = "topic";
-      result.confidence = Math.max(result.confidence, 0.6);
-    } else if (text.match(/\b(search|lookup|query|retrieve|fetch|get)\b/)) {
-      result.suggestedType = "tool";
-      result.confidence = Math.max(result.confidence, 0.55);
+    // Heuristic implementation type detection — patterns come from resolver-maps.json
+    // (first-match-wins; solution pattern match above takes precedence)
+    if (result.suggestedType === "prompt") {
+      for (const p of CAPABILITY_PATTERNS) {
+        if (p.regex.test(text)) {
+          result.suggestedType = p.type;
+          result.confidence = Math.max(result.confidence, p.confidence);
+          break;
+        }
+      }
     }
 
     return result;
@@ -148,35 +215,11 @@ function resolveCapabilities(capabilities) {
 function resolveIntegrations(integrations) {
   if (!_index || !integrations) return [];
 
-  // Work IQ: Adding from overview page gives 2 servers that cover everything:
-  // - Work IQ Copilot (mcp_M365Copilot): all M365 data (mail, calendar, teams, sharepoint, files, etc.)
-  // - Work IQ User (mcp_MeServer): people, org chart, manager, direct reports
-  // All M365 keywords resolve to these 2 servers. Individual servers (Mail, Calendar, etc.)
-  // are only needed for edge cases where Copilot doesn't cover a specific write operation.
-  const WORKIQ_MAP = {
-    mail: { server: "Work IQ Copilot", operationId: "mcp_M365Copilot" },
-    email: { server: "Work IQ Copilot", operationId: "mcp_M365Copilot" },
-    outlook: { server: "Work IQ Copilot", operationId: "mcp_M365Copilot" },
-    calendar: { server: "Work IQ Copilot", operationId: "mcp_M365Copilot" },
-    meeting: { server: "Work IQ Copilot", operationId: "mcp_M365Copilot" },
-    schedule: { server: "Work IQ Copilot", operationId: "mcp_M365Copilot" },
-    teams: { server: "Work IQ Copilot", operationId: "mcp_M365Copilot" },
-    chat: { server: "Work IQ Copilot", operationId: "mcp_M365Copilot" },
-    channel: { server: "Work IQ Copilot", operationId: "mcp_M365Copilot" },
-    sharepoint: { server: "Work IQ Copilot", operationId: "mcp_M365Copilot" },
-    onedrive: { server: "Work IQ Copilot", operationId: "mcp_M365Copilot" },
-    files: { server: "Work IQ Copilot", operationId: "mcp_M365Copilot" },
-    documents: { server: "Work IQ Copilot", operationId: "mcp_M365Copilot" },
-    word: { server: "Work IQ Copilot", operationId: "mcp_M365Copilot" },
-    "m365 search": { server: "Work IQ Copilot", operationId: "mcp_M365Copilot" },
-    copilot: { server: "Work IQ Copilot", operationId: "mcp_M365Copilot" },
-    user: { server: "Work IQ User", operationId: "mcp_MeServer" },
-    profile: { server: "Work IQ User", operationId: "mcp_MeServer" },
-    manager: { server: "Work IQ User", operationId: "mcp_MeServer" },
-    "direct reports": { server: "Work IQ User", operationId: "mcp_MeServer" },
-    "org chart": { server: "Work IQ User", operationId: "mcp_MeServer" },
-  };
-
+  // Work IQ map loaded from knowledge/resolver-maps.json at module load
+  // (fallback to hardcoded defaults — see FALLBACK_WORKIQ_MAP at top of file).
+  // Adding from MCS overview page gives 2 servers that cover everything:
+  //   Work IQ Copilot = all M365 data (mail, calendar, teams, sharepoint, files)
+  //   Work IQ User    = people, org chart, manager, direct reports
   return integrations.map((integration) => {
     const text = `${integration.name} ${integration.purpose || ""}`.toLowerCase();
     const matches = [];

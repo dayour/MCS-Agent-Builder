@@ -1,0 +1,18 @@
+<svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg x="0" y="0" width="20" height="20" viewBox="0 0 20 20" fill="none">
+<g id="Color 1">
+<path d="M10 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16ZM7.32 6.32a.75.75 0 0 0-1 1l1.5 3.26c.33.7.9 1.27 1.6 1.6l3.26 1.5a.75.75 0 0 0 1-1l-1.5-3.26a3.25 3.25 0 0 0-1.6-1.6l-3.26-1.5Z" fill="url(#paint0_radial_compass)"/>
+<path d="M10 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16ZM7.32 6.32a.75.75 0 0 0-1 1l1.5 3.26c.33.7.9 1.27 1.6 1.6l3.26 1.5a.75.75 0 0 0 1-1l-1.5-3.26a3.25 3.25 0 0 0-1.6-1.6l-3.26-1.5Z" fill="url(#paint1_radial_compass)" fill-opacity="0.4"/>
+</g>
+<defs>
+<radialGradient id="paint0_radial_compass" cx="0" cy="0" r="1" gradientTransform="matrix(12 16 -20.8 10.4 3 2)" gradientUnits="userSpaceOnUse">
+<stop stop-color="#2BDABE"/>
+<stop offset="0.5" stop-color="#0094F0"/>
+<stop offset="1" stop-color="#2052CB"/>
+</radialGradient>
+<radialGradient id="paint1_radial_compass" cx="0" cy="0" r="1" gradientTransform="translate(10 2) rotate(90) scale(6 8)" gradientUnits="userSpaceOnUse">
+<stop stop-color="#FDFDFD" stop-opacity="0.4"/>
+<stop offset="1" stop-color="#2052CB" stop-opacity="0"/>
+</radialGradient>
+</defs></svg>
+</svg>

@@ -6,6 +6,13 @@ refresh_trigger: on_error
 -->
 # Power-CAT Copilot Studio Kit — Quick Reference
 
+> **Note (2026-05-05):** References to `tools/powercat-test.js` describe
+> historical CLI integration. The tool was removed in cleanup PR #21 (Kit
+> integration deferred per `feedback_kit_decision`). Restore from commit
+> `b60da346` if Kit integration is reactivated. The Dataverse entity
+> mappings and Kit feature inventory below remain accurate.
+
+
 ## Overview
 
 Free, MIT-licensed Power Platform solution from Microsoft Power CAT team. Testing + governance + analytics for Copilot Studio agents. **Cannot create/modify/publish agents** — purely testing and governance.

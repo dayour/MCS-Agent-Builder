@@ -1,0 +1,31 @@
+{
+  "file": "botmanagement-2022-01-15.json",
+  "sha256": "cf53d1d5c332aa0b08feb0c0c69028ccab4b9907434e9bda7e7917a306e03262",
+  "source": {
+    "type": "azure-devops-git",
+    "url": "https://dev.azure.com/msazure/CCI/_git/BotDesigner",
+    "branch": "master",
+    "head_commit": "dcef79e417dd1d432e898ccb6ecb01137f920c0e",
+    "head_commit_subject": "Merged PR 15421262: Update InlineAgents offline evaluation test suites",
+    "path_in_repo": "src/BotDesigner.Management.Server/Swagger/2022-01-15/botmanagement.json"
+  },
+  "spec": {
+    "format": "swagger-2.0",
+    "generator": "NSwag v13.16.1.0 (NJsonSchema v10.7.2.0)",
+    "api_version": "2022-01-15",
+    "endpoint_count": 493,
+    "definition_count": 361,
+    "tag_count": 83
+  },
+  "fetched": {
+    "by": "Claude Code + user kimdennis@microsoft.com",
+    "timestamp_utc": "2026-04-16",
+    "method": "git clone --depth 1 of master",
+    "local_checkout": "/tmp/mcs-upstream/BotDesigner"
+  },
+  "usage": {
+    "purpose": "types-only generation for tools/generated/mgmt-types.ts",
+    "consumers": ["tools/island-client.js (via JSDoc)"],
+    "do_not_edit": "This vendored spec must not be hand-edited. Re-vendor from upstream if updates are needed."
+  }
+}

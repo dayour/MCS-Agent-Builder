@@ -9,7 +9,7 @@
  *   - Helper chatbot API
  *
  * All AI operations use direct API calls via GitHub Copilot passthrough
- * (tools/lib/anthropic.js for Claude Opus, tools/lib/openai.js for GPT-5.4).
+ * (tools/lib/anthropic.js for Claude Opus, tools/lib/openai.js for GPT-5.5).
  * No CLI dependency, no PTY, no node-pty.
  *
  * Usage: node app/server.js
@@ -28,7 +28,7 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 
-const { migrateBrief } = require("./lib/brief-migrate");
+const { migrateSpec } = require("./lib/spec-migrate");
 const { convertDocument, extractContent, NEEDS_CONVERSION } = require("./lib/documents");
 const { isWorkIQAvailable, checkWorkIQAuth, runQueriesBatched, buildQueries, deduplicateDocuments, assembleContextFileIncremental, extractSharePointUrls, downloadAndConvertFiles, escapeMd } = require("./lib/workiq");
 const {
@@ -40,10 +40,12 @@ const {
   markDocsProcessed,
   humanizeName,
 } = require("./lib/projects");
-const { handleWizardChat, handleWizardSave, handleWizardPrefetch } = require("./lib/wizard");
 const { startEnrichment, getJob } = require("./lib/enrichment");
 const pipeline = require("./lib/pipeline");
 const scheduler = require("./lib/scheduler");
+const chatRouter = require("./lib/chat/chat-router");
+const knowledgeRetriever = require("./lib/chat/knowledge-retriever");
+const chatSpecStore = require("./lib/chat/spec-store");
 
 // ---------------------------------------------------------------------------
 // Paths
@@ -75,6 +77,59 @@ function resolveBuildGuides() {
 const BUILD_GUIDES = resolveBuildGuides();
 
 // ---------------------------------------------------------------------------
+// Agent Spec file resolution (backward compat: agentspec.json > brief.json)
+// ---------------------------------------------------------------------------
+
+const SPEC_FILENAME = "agentspec.json";
+const LEGACY_SPEC_FILENAME = "brief.json";
+
+/** Resolve spec file path. Prefers agentspec.json, falls back to brief.json. */
+function resolveSpecFile(agentDir) {
+  const newPath = path.join(agentDir, SPEC_FILENAME);
+  if (fs.existsSync(newPath)) return newPath;
+  const legacyPath = path.join(agentDir, LEGACY_SPEC_FILENAME);
+  if (fs.existsSync(legacyPath)) return legacyPath;
+  return newPath; // default to new name for creation
+}
+
+/** Always write to agentspec.json — gradually migrates old projects. */
+function specWritePath(agentDir) {
+  return path.join(agentDir, SPEC_FILENAME);
+}
+
+/** Read + parse a spec file, auto-migrating v1→v2 and renaming to agentspec.json. */
+function readSpec(agentDir) {
+  const specFile = resolveSpecFile(agentDir);
+  if (!fs.existsSync(specFile)) return null;
+  try {
+    const raw = fs.readFileSync(specFile, "utf-8").replace(/^\uFEFF/, "");
+    let spec = JSON.parse(raw);
+    // Auto-migrate v1 → v2
+    if (spec && spec.step1 && !spec.agent) {
+      spec = migrateSpec(spec);
+      // Atomic write via shared spec-store (temp + rename, stamps updated_at)
+      chatSpecStore.writeSpec(agentDir, spec);
+      // Clean up legacy file if we wrote to the new name. The shared
+      // spec-store always writes to agentspec.json (canonical target);
+      // if the source file was the legacy brief.json, remove it now that
+      // the new file has been written. (Pre-existing ReferenceError for
+      // `writeTo` was exposed by qa-challenger 2026-05-05; the var was
+      // dropped in an earlier refactor and the cleanup branch was dead.)
+      const writeTo = path.join(agentDir, SPEC_FILENAME);
+      if (specFile !== writeTo && fs.existsSync(specFile)) {
+        fs.unlinkSync(specFile);
+      }
+    } else if (path.basename(specFile) === LEGACY_SPEC_FILENAME) {
+      // Migrate filename: rename brief.json → agentspec.json on read.
+      // Atomic write via shared spec-store.
+      chatSpecStore.writeSpec(agentDir, spec);
+      fs.unlinkSync(specFile);
+    }
+    return spec;
+  } catch { return null; }
+}
+
+// ---------------------------------------------------------------------------
 // Express app setup
 // ---------------------------------------------------------------------------
 
@@ -95,6 +150,10 @@ app.use(
 );
 
 app.use(express.json({ limit: "10mb" }));
+
+// Dev logger — request timing, frontend event collector, session JSONL
+const devLogger = require("./lib/dev-logger");
+devLogger.setup(app);
 
 // File upload via multer — disk storage, 50MB limit
 const upload = multer({
@@ -131,19 +190,38 @@ app.get("/api/health", (req, res) => {
 
 // --- Projects ---
 
+// Honor ?role= query param for eval-gate visibility filter. Not auth —
+// just a hint the frontend can pass so the filter module can reduce fields
+// for non-maker viewers. Default 'maker' for existing callers.
+function resolveViewerRole(req) {
+  const r = (req.query.role || "maker").toString().toLowerCase();
+  if (r === "anonymous" || r === "admin" || r === "maker") return r;
+  return "maker";
+}
+
 app.get("/api/projects", (req, res) => {
-  const projects = listProjects(BUILD_GUIDES);
-  res.json({
-    generated_at: new Date().toISOString(),
-    project_count: projects.length,
-    projects,
-  });
+  listProjects.__viewerRole = resolveViewerRole(req);
+  try {
+    const projects = listProjects(BUILD_GUIDES);
+    res.json({
+      generated_at: new Date().toISOString(),
+      project_count: projects.length,
+      projects,
+    });
+  } finally {
+    listProjects.__viewerRole = undefined;
+  }
 });
 
 app.get("/api/projects/:projectId", (req, res) => {
-  const project = getProject(BUILD_GUIDES, req.params.projectId);
-  if (!project) return res.status(404).json({ detail: `Project '${req.params.projectId}' not found` });
-  res.json(project);
+  getProject.__viewerRole = resolveViewerRole(req);
+  try {
+    const project = getProject(BUILD_GUIDES, req.params.projectId);
+    if (!project) return res.status(404).json({ detail: `Project '${req.params.projectId}' not found` });
+    res.json(project);
+  } finally {
+    getProject.__viewerRole = undefined;
+  }
 });
 
 app.post("/api/projects", (req, res) => {
@@ -183,6 +261,187 @@ app.delete("/api/projects/:projectId", (req, res) => {
   res.json({ deleted: true, project_id: projectId });
 });
 
+// ---------------------------------------------------------------------------
+// Spec session persistence — powers the unified home chat.
+// Keys off projectId (the Build-Guides folder). Stores chat messages and a
+// patch changelog alongside the existing docs/ + agents/default/agentspec.json.
+// The spec itself lives in agents/default/agentspec.json and is the source of
+// truth; the session file only carries conversation state + provenance.
+// ---------------------------------------------------------------------------
+
+const SESSION_FILENAME = "session.json";
+const CHANGELOG_FILENAME = "spec-changelog.jsonl";
+
+function sessionPaths(projectId) {
+  const slug = safeSlug(projectId);
+  const folder = path.join(BUILD_GUIDES, slug);
+  return {
+    slug,
+    folder,
+    sessionFile: path.join(folder, SESSION_FILENAME),
+    changelogFile: path.join(folder, CHANGELOG_FILENAME),
+    agentDir: path.join(folder, "agents", "default"),
+  };
+}
+
+function readSessionFile(sessionFile) {
+  if (!fs.existsSync(sessionFile)) return { messages: [], updatedAt: null };
+  try {
+    const data = JSON.parse(fs.readFileSync(sessionFile, "utf-8"));
+    return {
+      messages: Array.isArray(data.messages) ? data.messages : [],
+      updatedAt: data.updatedAt || null,
+    };
+  } catch (err) {
+    devLogger.warn("session", `corrupt session.json for ${sessionFile}: ${err.message}`);
+    return { messages: [], updatedAt: null };
+  }
+}
+
+function readChangelog(changelogFile) {
+  if (!fs.existsSync(changelogFile)) return [];
+  const raw = fs.readFileSync(changelogFile, "utf-8");
+  const entries = [];
+  for (const line of raw.split(/\r?\n/)) {
+    if (!line.trim()) continue;
+    try { entries.push(JSON.parse(line)); } catch { /* skip bad lines */ }
+  }
+  return entries;
+}
+
+function appendChangelog(changelogFile, entry) {
+  const withId = {
+    changeId: `ch-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    ts: new Date().toISOString(),
+    ...entry,
+  };
+  try {
+    fs.appendFileSync(changelogFile, JSON.stringify(withId) + "\n", "utf-8");
+  } catch (err) {
+    devLogger.warn("changelog", `append failed: ${err.message}`);
+  }
+  return withId;
+}
+
+function readSpecForProject(agentDir) {
+  if (!fs.existsSync(agentDir)) return null;
+  return readSpec(agentDir);
+}
+
+// GET /api/projects/:projectId/session — load messages + current spec + changelog tail
+app.get("/api/projects/:projectId/session", (req, res) => {
+  const p = sessionPaths(req.params.projectId);
+  if (!assertWithin(BUILD_GUIDES, p.folder) || !fs.existsSync(p.folder) || !fs.statSync(p.folder).isDirectory()) {
+    return res.status(404).json({ detail: `Project '${p.slug}' not found` });
+  }
+  const session = readSessionFile(p.sessionFile);
+  const spec = readSpecForProject(p.agentDir);
+  const changelog = readChangelog(p.changelogFile);
+  res.json({
+    projectId: p.slug,
+    messages: session.messages,
+    updatedAt: session.updatedAt,
+    specData: spec,
+    changelog: changelog.slice(-50),
+  });
+});
+
+// PUT /api/projects/:projectId/session — save messages (spec is saved via other paths)
+app.put("/api/projects/:projectId/session", (req, res) => {
+  const p = sessionPaths(req.params.projectId);
+  if (!assertWithin(BUILD_GUIDES, p.folder) || !fs.existsSync(p.folder) || !fs.statSync(p.folder).isDirectory()) {
+    return res.status(404).json({ detail: `Project '${p.slug}' not found` });
+  }
+  const incoming = req.body || {};
+  const messages = Array.isArray(incoming.messages) ? incoming.messages : [];
+  const payload = {
+    messages,
+    updatedAt: new Date().toISOString(),
+  };
+  try {
+    fs.writeFileSync(p.sessionFile, JSON.stringify(payload, null, 2), "utf-8");
+    res.json({ saved: true, updatedAt: payload.updatedAt });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Per-project spec-write mutex. Serializes patches so chat edits during an
+// analyze run queue behind each other instead of clobbering. Imported from
+// app/lib/chat/spec-store.js so /api/chat (chat-router) and /api/projects/
+// :id/spec (this file) share one map — without sharing, a chat spec_patch
+// and a /spec editor save can race within the same process.
+const withProjectSpecLock = chatSpecStore.withProjectSpecLock;
+
+// POST /api/projects/:projectId/spec — apply a patch to the spec, stamp changelog
+// Body: { patch: { sectionKey: {...} }, source: 'chat'|'analyze', summary?: string, turnId?: string }
+app.post("/api/projects/:projectId/spec", async (req, res) => {
+  const p = sessionPaths(req.params.projectId);
+  if (!assertWithin(BUILD_GUIDES, p.folder) || !fs.existsSync(p.folder) || !fs.statSync(p.folder).isDirectory()) {
+    return res.status(404).json({ detail: `Project '${p.slug}' not found` });
+  }
+  const body = req.body || {};
+  const patch = body.patch;
+  if (!patch || typeof patch !== "object") {
+    return res.status(400).json({ error: "patch object required" });
+  }
+
+  // Ensure agent dir exists
+  if (!fs.existsSync(p.agentDir)) fs.mkdirSync(p.agentDir, { recursive: true });
+
+  try {
+    const result = await withProjectSpecLock(p.slug, async () => {
+      // Re-read inside the lock so we merge onto the absolute latest spec —
+      // critical when analyze finishes writing a base revision while a chat
+      // patch was queued behind it.
+      const current = readSpec(p.agentDir) || {};
+      const merged = applySpecPatch(current, patch);
+      // Atomic write via shared spec-store (already inside withProjectSpecLock).
+      chatSpecStore.writeSpec(p.agentDir, merged);
+
+      const affectedPaths = Object.keys(patch);
+      const entry = appendChangelog(p.changelogFile, {
+        source: (body.source === "analyze" ? "analyze" : "chat"),
+        summary: (body.summary || "").slice(0, 240),
+        turnId: body.turnId || null,
+        affectedPaths,
+      });
+      return { merged, entry };
+    });
+    res.json({ saved: true, spec: result.merged, change: result.entry });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Deep-merge patch — mirrors the frontend specPatchUtils.applyPatch contract.
+// Arrays REPLACE, objects MERGE (except `conversations` which merges at the top).
+function applySpecPatch(spec, patch) {
+  const result = { ...(spec || {}) };
+  for (const [key, value] of Object.entries(patch)) {
+    if (key === "conversations" && value && typeof value === "object" && !Array.isArray(value)) {
+      result.conversations = { ...(result.conversations || {}), ...value };
+    } else if (Array.isArray(value)) {
+      result[key] = value;
+    } else if (value && typeof value === "object") {
+      result[key] = { ...(result[key] || {}), ...value };
+    } else {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
+// GET /api/projects/:projectId/changelog — full changelog (newest last)
+app.get("/api/projects/:projectId/changelog", (req, res) => {
+  const p = sessionPaths(req.params.projectId);
+  if (!assertWithin(BUILD_GUIDES, p.folder) || !fs.existsSync(p.folder)) {
+    return res.status(404).json({ detail: `Project '${p.slug}' not found` });
+  }
+  res.json({ changelog: readChangelog(p.changelogFile) });
+});
+
+
 // --- Agents ---
 
 app.get("/api/projects/:projectId/agents/:agentId", (req, res) => {
@@ -191,40 +450,30 @@ app.get("/api/projects/:projectId/agents/:agentId", (req, res) => {
     return res.status(404).json({ detail: `Agent '${req.params.agentId}' not found` });
   }
 
-  const briefFile = path.join(agentDir, "brief.json");
-  let brief = null;
-  if (fs.existsSync(briefFile)) {
-    try {
-      const raw = fs.readFileSync(briefFile, "utf-8").replace(/^\uFEFF/, "");
-      brief = JSON.parse(raw);
-      // Auto-migrate v1 → v2 on read
-      if (brief && brief.step1 && !brief.agent) {
-        brief = migrateBrief(brief);
-        fs.writeFileSync(briefFile, JSON.stringify(brief, null, 2), "utf-8");
-      }
-    } catch { /* ignore */ }
-  }
+  const spec = readSpec(agentDir);
 
   let name;
-  if (brief && (brief.agent || {}).name) {
-    name = brief.agent.name;
-  } else if (brief && (brief.step1 || {}).agentName) {
-    name = brief.step1.agentName;
+  if (spec && (spec.agent || {}).name) {
+    name = spec.agent.name;
+  } else if (spec && (spec.step1 || {}).agentName) {
+    name = spec.step1.agentName;
   } else {
     name = humanizeName(req.params.agentId);
   }
 
+  const specFile = resolveSpecFile(agentDir);
   let fileMtime = null;
-  if (fs.existsSync(briefFile)) {
-    fileMtime = new Date(fs.statSync(briefFile).mtimeMs).toISOString();
+  if (fs.existsSync(specFile)) {
+    fileMtime = new Date(fs.statSync(specFile).mtimeMs).toISOString();
   }
 
   res.json({
     id: req.params.agentId,
     name,
-    brief,
+    spec,
+    brief: spec, // backward compat alias
     _file_mtime: fileMtime,
-    has_instructions: brief ? !!brief.instructions : false,
+    has_instructions: spec ? !!spec.instructions : false,
     has_evals: fs.existsSync(path.join(agentDir, "evals.csv")),
     has_build_report: fs.existsSync(path.join(agentDir, "build-report.md")),
   });
@@ -239,20 +488,30 @@ app.put("/api/projects/:projectId/agents/:agentId/state", (req, res) => {
   const agentDir = path.join(folder, "agents", req.params.agentId);
   fs.mkdirSync(agentDir, { recursive: true });
 
-  const stateFile = path.join(agentDir, "brief.json");
+  // Read from whichever file exists, write to agentspec.json
+  const readFrom = resolveSpecFile(agentDir);
   let existing = {};
-  if (fs.existsSync(stateFile)) {
+  if (fs.existsSync(readFrom)) {
     try {
-      const raw = fs.readFileSync(stateFile, "utf-8").replace(/^\uFEFF/, "");
+      const raw = fs.readFileSync(readFrom, "utf-8").replace(/^\uFEFF/, "");
       existing = JSON.parse(raw);
     } catch { /* ignore */ }
   }
 
-  Object.assign(existing, req.body);
+  // Phase 1b: stamp user provenance on every top-level field the client
+  // actually changed. Strips any client-supplied _provenance and ignores
+  // no-op merges so badges on SpecPage reflect reality.
+  const { applyUserPatch } = require("./lib/provenance");
+  const result = applyUserPatch(existing, req.body || {});
   existing.updated_at = new Date().toISOString();
 
-  fs.writeFileSync(stateFile, JSON.stringify(existing, null, 2), "utf-8");
-  res.json({ saved: true });
+  const writeTo = specWritePath(agentDir);
+  fs.writeFileSync(writeTo, JSON.stringify(existing, null, 2), "utf-8");
+  // Clean up legacy file if it still exists
+  if (readFrom !== writeTo && fs.existsSync(readFrom)) {
+    try { fs.unlinkSync(readFrom); } catch { /* ignore */ }
+  }
+  res.json({ saved: true, changed: result.changed });
 });
 
 app.post("/api/projects/:projectId/agents/:agentId/scaffold-children", (req, res) => {
@@ -262,20 +521,20 @@ app.post("/api/projects/:projectId/agents/:agentId/scaffold-children", (req, res
   }
 
   const agentDir = path.join(folder, "agents", req.params.agentId);
-  const briefFile = path.join(agentDir, "brief.json");
-  if (!fs.existsSync(briefFile)) {
-    return res.status(404).json({ detail: `Agent '${req.params.agentId}' has no brief.json` });
+  const specFile = resolveSpecFile(agentDir);
+  if (!fs.existsSync(specFile)) {
+    return res.status(404).json({ detail: `Agent '${req.params.agentId}' has no agent spec` });
   }
 
-  let brief;
+  let spec;
   try {
-    const raw = fs.readFileSync(briefFile, "utf-8").replace(/^\uFEFF/, "");
-    brief = JSON.parse(raw);
+    const raw = fs.readFileSync(specFile, "utf-8").replace(/^\uFEFF/, "");
+    spec = JSON.parse(raw);
   } catch (e) {
-    return res.status(500).json({ detail: `Failed to read brief: ${e.message}` });
+    return res.status(500).json({ detail: `Failed to read agent spec: ${e.message}` });
   }
 
-  const children = ((brief.architecture || {}).children || []);
+  const children = ((spec.architecture || {}).children || []);
   if (!children.length) {
     return res.json({ created: [], message: "No children defined in architecture" });
   }
@@ -323,13 +582,13 @@ app.post("/api/projects/:projectId/agents/:agentId/scaffold-children", (req, res
       },
       architecture: {
         type: "single-agent",
-        reason: `Specialist agent — child of ${(brief.agent || {}).name || req.params.agentId}`,
+        reason: `Specialist agent — child of ${(spec.agent || {}).name || req.params.agentId}`,
       },
       updated_at: new Date().toISOString(),
     };
 
     fs.writeFileSync(
-      path.join(childDir, "brief.json"),
+      path.join(childDir, SPEC_FILENAME),
       JSON.stringify(childBrief, null, 2),
       "utf-8"
     );
@@ -338,39 +597,39 @@ app.post("/api/projects/:projectId/agents/:agentId/scaffold-children", (req, res
     created.push(folderName);
   }
 
-  // Save parent brief with updated agentFolderIds
-  brief.updated_at = new Date().toISOString();
-  fs.writeFileSync(briefFile, JSON.stringify(brief, null, 2), "utf-8");
+  // Save parent spec with updated agentFolderIds — atomic via shared spec-store.
+  chatSpecStore.writeSpec(agentDir, spec);
+  // Clean up legacy file
+  if (path.basename(specFile) === LEGACY_SPEC_FILENAME && fs.existsSync(specFile)) {
+    try { fs.unlinkSync(specFile); } catch { /* ignore */ }
+  }
 
   res.json({ created, message: `Created ${created.length} agent folder(s)` });
 });
 
-// --- HTML Report Export ---
+// --- HTML Export ---
 
-app.get("/api/projects/:projectId/agents/:agentId/report", async (req, res) => {
+app.get("/api/projects/:projectId/agents/:agentId/export", async (req, res) => {
   const projectId = safeSlug(req.params.projectId);
   const agentId = safeSlug(req.params.agentId);
-  const type = (req.query.type || "brief").toLowerCase();
 
-  const { renderReport, VALID_TYPES } = require("./lib/report");
-  if (!VALID_TYPES.includes(type)) {
-    return res.status(400).json({ detail: `Invalid report type '${type}'. Must be one of: ${VALID_TYPES.join(", ")}` });
-  }
+  const { renderReport } = require("./lib/report");
 
-  const briefFile = path.join(BUILD_GUIDES, projectId, "agents", agentId, "brief.json");
-  if (!assertWithin(BUILD_GUIDES, briefFile) || !fs.existsSync(briefFile)) {
+  const specDir = path.join(BUILD_GUIDES, projectId, "agents", agentId);
+  const specFile = resolveSpecFile(specDir);
+  if (!assertWithin(BUILD_GUIDES, specFile) || !fs.existsSync(specFile)) {
     return res.status(404).json({ detail: `Brief not found for agent '${agentId}'` });
   }
 
   try {
-    const html = await renderReport(briefFile, type, { agentName: agentId, projectId, agentId });
+    const html = await renderReport(specFile, { agentName: agentId, projectId, agentId });
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.setHeader("Cache-Control", "no-store");
-    res.setHeader("Content-Disposition", `attachment; filename="${agentId}-${type}-report.html"`);
+    res.setHeader("Content-Disposition", `attachment; filename="${agentId}-export.html"`);
     res.send(html);
   } catch (err) {
-    console.error("[server] Report generation failed:", err);
-    res.status(500).json({ detail: `Report generation failed: ${err.message}` });
+    devLogger.error("server", "Export failed", err.message || String(err));
+    res.status(500).json({ detail: `Export failed: ${err.message}` });
   }
 });
 
@@ -427,10 +686,10 @@ app.post("/api/projects/:projectId/upload", upload.single("file"), async (req, r
     }
   }
 
-  const briefOutdated = fs.existsSync(path.join(folder, "doc-manifest.json"));
-  const stat = fs.existsSync(path.join(docsDir, finalName))
-    ? fs.statSync(path.join(docsDir, finalName))
-    : null;
+  const finalPath = path.join(docsDir, finalName);
+
+  const specOutdated = fs.existsSync(path.join(folder, "doc-manifest.json"));
+  const stat = fs.existsSync(finalPath) ? fs.statSync(finalPath) : null;
 
   res.json({
     uploaded: true,
@@ -439,10 +698,11 @@ app.post("/api/projects/:projectId/upload", upload.single("file"), async (req, r
     size: stat ? stat.size : req.file.size,
     mtime: stat ? stat.mtimeMs : Date.now(),
     path: `Build-Guides/${req.params.projectId}/docs/${finalName}`,
-    briefOutdated,
+    specOutdated,
+    briefOutdated: specOutdated, // backward compat alias
   });
 
-  // Notify pipeline settling window (auto-triggers analyze after 5s quiet)
+  // Notify pipeline settling window
   pipeline.notifyDocChange(req.params.projectId);
 });
 
@@ -513,6 +773,100 @@ app.post("/api/projects/:projectId/mark-processed", (req, res) => {
   } catch (e) {
     res.status(500).json({ detail: `Failed to mark docs: ${e.message}` });
   }
+});
+
+// Classify docs → tag each doc to the agent(s) it relates to
+app.post("/api/projects/:projectId/classify-docs", (req, res) => {
+  const projectId = safeSlug(req.params.projectId);
+  const folder = path.join(BUILD_GUIDES, projectId);
+  if (!assertWithin(BUILD_GUIDES, folder) || !fs.existsSync(folder) || !fs.statSync(folder).isDirectory()) {
+    return res.status(404).json({ detail: `Project '${projectId}' not found` });
+  }
+
+  const project = getProject(BUILD_GUIDES, projectId);
+  if (!project) return res.status(404).json({ detail: "Project not found" });
+
+  const agents = project.agents || [];
+  const docs = project.docs || [];
+  if (agents.length === 0 || docs.length === 0) {
+    return res.json({ classified: 0, docs: [] });
+  }
+
+  // Build keyword sets for each agent from name, description, and spec capabilities
+  const agentKeywords = agents.map(a => {
+    const words = new Set();
+    // Agent name tokens
+    for (const w of (a.name || "").toLowerCase().split(/[\s_-]+/)) {
+      if (w.length > 2) words.add(w);
+    }
+    // Description tokens
+    for (const w of (a.description || "").toLowerCase().split(/[\s_-]+/)) {
+      if (w.length > 3) words.add(w);
+    }
+    return { id: a.id, name: a.name, words };
+  });
+
+  // Classify each doc by matching filename tokens against agent keywords
+  const results = docs.map(doc => {
+    const docTokens = doc.filename.toLowerCase().replace(/\.\w+$/, "").split(/[\s_-]+/);
+    const matched = [];
+
+    for (const agent of agentKeywords) {
+      let score = 0;
+      for (const token of docTokens) {
+        if (token.length < 3) continue;
+        if (agent.words.has(token)) score += 2;
+        // Partial match
+        for (const kw of agent.words) {
+          if (kw.includes(token) || token.includes(kw)) score += 1;
+        }
+      }
+      if (score >= 2) matched.push(agent.id);
+    }
+
+    // SDR and transcript docs that mention an agent name directly
+    if (matched.length === 0) {
+      const lower = doc.filename.toLowerCase();
+      for (const agent of agentKeywords) {
+        const agentSlug = agent.id.toLowerCase().replace(/[\s_-]+/g, "");
+        const fileSlug = lower.replace(/[\s_-]+/g, "");
+        if (fileSlug.includes(agentSlug) || agentSlug.includes(fileSlug.replace(/\.\w+$/, ""))) {
+          matched.push(agent.id);
+        }
+      }
+    }
+
+    // If no specific match, tag as shared (all agents)
+    const finalMatch = matched.length > 0 ? matched : agents.map(a => a.id);
+
+    return { filename: doc.filename, matchedAgents: finalMatch, isShared: matched.length === 0 };
+  });
+
+  // Write classifications to manifest
+  const manifestPath = path.join(folder, "doc-manifest.json");
+  let manifest = {};
+  try { manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8")); } catch {}
+
+  // Handle both old and new format — normalize to new format
+  const docsProcessed = [];
+  for (const r of results) {
+    const existing = manifest[r.filename] || (manifest.docsProcessed || []).find(e => e.filename === r.filename) || {};
+    docsProcessed.push({
+      filename: r.filename,
+      sha256: existing.sha256 || existing.hash || "",
+      size: docs.find(d => d.filename === r.filename)?.size || 0,
+      mtime: (docs.find(d => d.filename === r.filename)?.mtime || 0) / 1000,
+      processedAt: existing.processedAt || new Date().toISOString(),
+      source: existing.source || "classify",
+      matchedAgents: r.matchedAgents,
+      status: "processed",
+    });
+  }
+
+  const newManifest = { docsProcessed };
+  fs.writeFileSync(manifestPath, JSON.stringify(newManifest, null, 2));
+
+  res.json({ classified: results.length, docs: results });
 });
 
 app.get("/api/projects/:projectId/docs/:filename/raw", (req, res) => {
@@ -877,6 +1231,7 @@ async function gatherCredentials() {
   const results = {
     claude: false,
     az: false,
+    gh: false,
     dataverse: false,
     ready: false,
     details: {},
@@ -902,12 +1257,15 @@ async function gatherCredentials() {
     results.details.claude = "Run: claude auth login";
   }
 
-  // 2 + 3: Run az and pac in PARALLEL (non-blocking)
-  const [azResult, pacResult] = await Promise.allSettled([
+  // 2 + 3 + GitHub: Run az, pac, and gh in PARALLEL (non-blocking)
+  const [azResult, pacResult, ghResult] = await Promise.allSettled([
     // Azure CLI account info
     runCliAsync("az", ["account", "show", "--output", "json"], 10000),
     // PAC CLI auth profiles
     runCliAsync("pac", ["auth", "list"], 10000),
+    // GitHub CLI auth status (outputs to stderr, so capture both)
+    execAsync("gh auth status", { timeout: 10000, windowsHide: true, encoding: "utf-8" })
+      .then(({ stdout, stderr }) => (stderr || stdout || "")),
   ]);
 
   // Process Azure result
@@ -915,8 +1273,27 @@ async function gatherCredentials() {
     try {
       const account = JSON.parse(azResult.value);
       results.az = true;
+      // Try to get display name from Azure AD (Graph API)
+      let displayName = null;
+      try {
+        const { stdout } = await execAsync('az ad signed-in-user show --query displayName -o tsv', { timeout: 15000 });
+        displayName = stdout.trim() || null;
+      } catch {}
+      // Fallback: parse from email
+      if (!displayName) {
+        const name = account.user?.name || "";
+        if (name.includes("@")) {
+          const local = name.split("@")[0];
+          if (local.includes(".")) {
+            displayName = local.split(".").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+          }
+        } else if (name) {
+          displayName = name;
+        }
+      }
       results.azAccount = {
         user: account.user?.name || "unknown",
+        displayName,
         tenantId: account.tenantId,
         tenantName: account.tenantDisplayName || null,
         tenantDomain: account.tenantDefaultDomain || null,
@@ -927,6 +1304,22 @@ async function gatherCredentials() {
     }
   } else {
     results.details.az = "Run: az login";
+  }
+
+  // Process GitHub auth status result
+  if (ghResult.status === "fulfilled") {
+    // gh auth status outputs to stderr on success, but exits 0 when logged in
+    results.gh = true;
+    // Parse the account name from output (format: "Logged in to github.com account <user>")
+    const ghOut = ghResult.value || "";
+    const accountMatch = ghOut.match(/account\s+(\S+)/);
+    results.details.gh = accountMatch
+      ? `${accountMatch[1]} (github.com)`
+      : "Authenticated";
+  } else {
+    // gh auth status exits non-zero when not logged in
+    results.gh = false;
+    results.details.gh = "Run: gh auth login";
   }
 
   // Process PAC auth list result — column-position parser (output is fixed-width)
@@ -1094,7 +1487,7 @@ app.get("/api/readiness/credentials", async (req, res) => {
     _credCache = { data: results, ts: Date.now() };
     res.json(results);
   } catch (err) {
-    console.error("[credentials] Error:", err.message);
+    devLogger.error("credentials", "Error", err.message);
     res.status(500).json({ detail: err.message });
   }
 });
@@ -1130,14 +1523,33 @@ app.post("/api/auth/switch-profile", async (req, res) => {
     const activeLine = pacOut.split("\n").find((l) => l.includes("*"));
     const userMatch = activeLine?.match(/\S+@\S+/);
 
+    // Try to switch az tenant to match the PAC profile's tenant
+    let azSwitched = false;
+    const activeUser = userMatch?.[0] || "";
+    if (activeUser && activeUser.includes("@")) {
+      // Extract tenant domain from user email
+      const domain = activeUser.split("@")[1];
+      if (domain) {
+        try {
+          await execAsync(`az login --tenant ${domain} --allow-no-subscriptions`, { timeout: 120000 });
+          azSwitched = true;
+        } catch {
+          // az login may fail if token is stale — user may need to re-auth
+        }
+      }
+    }
+
     // Invalidate caches after profile switch
     _credCache = { data: null, ts: 0 };
     _platformAgentsCache = { data: null, ts: 0 };
 
     res.json({
       switched: true,
-      activeUser: userMatch?.[0] || "unknown",
-      message: `Switched to PAC profile [${profileIndex}]. Run 'az login --tenant <tenant>' in terminal if Azure tenant needs switching too.`,
+      activeUser: activeUser || "unknown",
+      azSwitched,
+      message: azSwitched
+        ? `Switched to PAC profile [${profileIndex}] and Azure tenant synced.`
+        : `Switched to PAC profile [${profileIndex}]. Azure tenant may need manual switch.`,
     });
   } catch (err) {
     res.status(500).json({ detail: `Failed to switch profile: ${err.message}` });
@@ -1196,11 +1608,40 @@ app.delete("/api/auth/profile/:index", async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// Wizard — Conversational Agent Brief Builder
+// Unified chat — replaces /api/project-chat/turn, /api/wizard/chat,
+// /api/copilot/chat. SSE stream with stable app-level events.
+// See app/lib/chat/event-protocol.js for the event envelope.
 // ---------------------------------------------------------------------------
+// Wrap async chat handlers with an error boundary so a thrown promise
+// surfaces as a clean 500 instead of an unhandled rejection. Express 5
+// handles thrown errors in async handlers natively, but we still catch
+// here for SSE — the emitter may have already sent headers, so we bail
+// out without trying to set a status.
+app.post("/api/chat", (req, res, next) => {
+  Promise.resolve(chatRouter.handleChat(req, res)).catch((err) => {
+    devLogger.error("chat-router", "unhandled", err.message || String(err));
+    if (!res.headersSent) {
+      try { res.status(500).json({ error: "chat_failed", message: err.message }); } catch { /* ignore */ }
+      return;
+    }
+    // Stream is already open — emit a protocol-compliant error event before
+    // closing so the client knows the failure was real, not a normal close.
+    try {
+      const payload = JSON.stringify({ type: "error", code: "chat_failed", message: err.message || String(err), ts: Date.now() });
+      res.write(`event: error\ndata: ${payload}\n\n`);
+      const donePayload = JSON.stringify({ type: "done", ts: Date.now() });
+      res.write(`event: done\ndata: ${donePayload}\n\n`);
+    } catch { /* ignore */ }
+    try { res.end(); } catch { /* ignore */ }
+  });
+});
+app.post("/api/chat/cancel", (req, res, next) => {
+  Promise.resolve(chatRouter.handleCancel(req, res)).catch(next);
+});
 
-app.post("/api/wizard/chat", (req, res) => handleWizardChat(req, res));
-app.post("/api/wizard/prefetch", (req, res) => handleWizardPrefetch(req, res));
+// Build the BM25 index lazily so server boot stays fast; first /api/chat
+// call triggers the build.
+app.get("/api/chat/index-info", (req, res) => res.json(knowledgeRetriever.getIndexInfo()));
 
 // ---------------------------------------------------------------------------
 // ─── Platform Agents (pac copilot list) ────────────────────────────
@@ -1246,7 +1687,7 @@ app.get("/api/platform/agents", async (req, res) => {
     res.json(result);
   } catch (err) {
     // PAC CLI not available or not connected — return empty, not error
-    console.warn("[platform/agents] pac copilot list failed:", err.message);
+    devLogger.warn("platform-agents", `pac copilot list failed: ${err.message}`);
     res.json({ agents: [], error: err.message });
   }
 });
@@ -1267,20 +1708,20 @@ app.post("/api/platform/agents/import", async (req, res) => {
     fs.mkdirSync(path.join(projectFolder, "agents", folderName), { recursive: true });
   }
 
-  // Write a stub brief.json with the agent name for the scaffold
+  // Write a stub agentspec.json with the agent name for the scaffold
   const agentFolder = path.join(projectFolder, "agents", folderName);
   if (!fs.existsSync(agentFolder)) fs.mkdirSync(agentFolder, { recursive: true });
 
-  const briefPath = path.join(agentFolder, "brief.json");
-  if (!fs.existsSync(briefPath)) {
-    const brief = {
+  const specPath = specWritePath(agentFolder);
+  if (!fs.existsSync(specPath) && !fs.existsSync(path.join(agentFolder, LEGACY_SPEC_FILENAME))) {
+    const stub = {
       agentName,
       schemaName: schemaName || "",
       importedFromPlatform: true,
       importedAt: new Date().toISOString(),
       business: { description: `Imported from Copilot Studio platform agent: ${agentName}` },
     };
-    fs.writeFileSync(briefPath, JSON.stringify(brief, null, 2));
+    chatSpecStore.writeSpec(agentFolder, stub);
   }
 
   res.json({
@@ -1319,13 +1760,13 @@ app.post("/api/solutions/deploy", async (req, res) => {
     }
   } catch { /* ignore */ }
 
-  // Write a stub brief.json with template reference
+  // Write a stub agentspec.json with template reference
   const agentFolder = path.join(projectFolder, "agents", folderName);
   if (!fs.existsSync(agentFolder)) fs.mkdirSync(agentFolder, { recursive: true });
 
-  const briefPath = path.join(agentFolder, "brief.json");
-  if (!fs.existsSync(briefPath)) {
-    const brief = {
+  const specPath = specWritePath(agentFolder);
+  if (!fs.existsSync(specPath) && !fs.existsSync(path.join(agentFolder, LEGACY_SPEC_FILENAME))) {
+    const stub = {
       agentName: solutionName,
       deployedFromTemplate: true,
       templateId: solutionId || "",
@@ -1334,7 +1775,7 @@ app.post("/api/solutions/deploy", async (req, res) => {
         description: `Created from solution template: ${solutionName}`,
       },
     };
-    fs.writeFileSync(briefPath, JSON.stringify(brief, null, 2));
+    chatSpecStore.writeSpec(agentFolder, stub);
   }
 
   res.json({
@@ -1365,7 +1806,7 @@ app.get("/api/solutions", (req, res) => {
     }));
     res.json({ solutions });
   } catch (err) {
-    console.error("[solutions] Error:", err.message);
+    devLogger.error("solutions", "Error", err.message);
     res.json({ solutions: [] });
   }
 });
@@ -1373,22 +1814,87 @@ app.get("/api/solutions", (req, res) => {
 app.get("/api/models", (req, res) => {
   const anthropic = require("../tools/lib/anthropic");
   const openai = require("../tools/lib/openai");
+  const resolved = anthropic.getResolvedCopilotIds();
+  const opusId = resolved.opus || anthropic.KNOWN_LATEST_COPILOT.opus;
+  const sonnetId = resolved.sonnet || anthropic.KNOWN_LATEST_COPILOT.sonnet;
+  const opusVer = (opusId.match(/(\d+\.\d+)$/) || [, ''])[1];
+  const sonnetVer = (sonnetId.match(/(\d+\.\d+)$/) || [, ''])[1];
+  // GPT id is resolved lazily by the openai client. Use whatever discovery has
+  // produced (or the env-pinned override) and fall back to the known-latest
+  // floor if discovery hasn't run yet — the next backend call will warm it.
+  const gptId = openai.getResolvedGptId() || openai.KNOWN_LATEST_GPT;
+  const gptVer = (gptId.match(/^gpt-([\d.]+)/) || [, ''])[1];
   res.json({
     models: [
-      { key: "opus", name: "Claude Opus 4.6", available: anthropic.isConfigured() },
-      { key: "sonnet", name: "Claude Sonnet 4.6", available: anthropic.isConfigured() },
-      { key: "gpt-5.4", name: "GPT-5.4", available: openai.isConfigured() },
+      { key: "opus", name: `Claude Opus ${opusVer}`, id: opusId, available: anthropic.isConfigured() },
+      { key: "sonnet", name: `Claude Sonnet ${sonnetVer}`, id: sonnetId, available: anthropic.isConfigured() },
+      { key: gptId, name: `GPT-${gptVer}`, id: gptId, available: openai.isConfigured() },
     ],
     default: "opus",
   });
 });
 
-app.post("/api/wizard/save", (req, res) =>
-  handleWizardSave(req, res, BUILD_GUIDES)
-);
+/**
+ * Live model catalog — returns the currently resolved Copilot model IDs
+ * (forward-probed for Claude, discovery-resolved for GPT) so frontend
+ * dropdowns can display whatever the backend just discovered. When
+ * claude-opus-4.8 or gpt-5.6 land, this endpoint returns them without any
+ * code changes.
+ *
+ * Response shape:
+ *   {
+ *     claude: {
+ *       resolved: { opus, sonnet, haiku },
+ *       knownLatest: { opus, sonnet, haiku },
+ *       skipDiscovery: bool
+ *     },
+ *     gpt: {
+ *       resolved: string|null,            // null until first discovery
+ *       knownLatest: string,              // floor
+ *       envOverride: string|null,         // GPT_MODEL_ID
+ *       skipDiscovery: bool,              // GPT_SKIP_DISCOVERY=1 or env override
+ *       available: bool                   // copilot reachable
+ *     },
+ *     copilotAvailable: bool
+ *   }
+ */
+app.get("/api/models/catalog", async (req, res) => {
+  try {
+    const anthropic = require("../tools/lib/anthropic");
+    const openai = require("../tools/lib/openai");
+    // Trigger resolution for any families not yet resolved (Claude + GPT in parallel).
+    await Promise.all([
+      anthropic.warmModelResolution(),
+      openai.warmGptModelResolution()
+    ]);
+    const claudeInfo = anthropic.getModelAccessInfo();
+    const gptInfo = openai.getGptModelInfo();
+    res.json({
+      claude: {
+        resolved: claudeInfo.resolvedCopilotIds,
+        knownLatest: claudeInfo.knownLatestCopilot,
+        skipDiscovery: claudeInfo.skipDiscovery
+      },
+      gpt: {
+        resolved: gptInfo.resolvedGptId,
+        knownLatest: gptInfo.knownLatestGpt,
+        envOverride: gptInfo.envOverride,
+        skipDiscovery: gptInfo.skipDiscovery,
+        available: gptInfo.copilotAvailable
+      },
+      copilotAvailable: claudeInfo.copilotAvailable,
+      // Legacy compatibility — older callers expected flat fields:
+      resolved: claudeInfo.resolvedCopilotIds,
+      knownLatest: claudeInfo.knownLatestCopilot,
+      skipDiscovery: claudeInfo.skipDiscovery
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // ---------------------------------------------------------------------------
-// Enrichment — Background brief enrichment after wizard save
+// Enrichment — Background spec enrichment (formerly post-wizard, now manual)
 // ---------------------------------------------------------------------------
 
 app.post("/api/enrichment/start", (req, res) => {
@@ -1398,9 +1904,8 @@ app.post("/api/enrichment/start", (req, res) => {
   }
 
   const agentDir = path.join(BUILD_GUIDES, projectId, "agents", agentId);
-  const briefPath = path.join(agentDir, "brief.json");
-  if (!fs.existsSync(briefPath)) {
-    return res.status(404).json({ error: "brief.json not found" });
+  if (!fs.existsSync(resolveSpecFile(agentDir))) {
+    return res.status(404).json({ error: "Agent spec not found" });
   }
 
   // startEnrichment returns immediately — workers run in background
@@ -1417,11 +1922,11 @@ app.post("/api/enrichment/start", (req, res) => {
           });
           if (allDocs.length > 0) {
             markDocsProcessed(projectDir, allDocs, { source: "enrichment", matchedAgents: [agentId] });
-            console.log(`[enrichment] Marked ${allDocs.length} docs as processed (full enrichment)`);
+            devLogger.info("enrichment", `Marked ${allDocs.length} docs as processed (full enrichment)`);
           }
         }
       } catch (e) {
-        console.error(`[enrichment] Failed to update manifest after full enrichment: ${e.message}`);
+        devLogger.error("enrichment", `Failed to update manifest after full enrichment: ${e.message}`);
       }
     },
   });
@@ -1438,9 +1943,8 @@ app.post("/api/enrichment/delta", (req, res) => {
 
   const projectDir = path.join(BUILD_GUIDES, projectId);
   const agentDir = path.join(projectDir, "agents", agentId);
-  const briefPath = path.join(agentDir, "brief.json");
-  if (!fs.existsSync(briefPath)) {
-    return res.status(404).json({ error: "brief.json not found" });
+  if (!fs.existsSync(resolveSpecFile(agentDir))) {
+    return res.status(404).json({ error: "Agent spec not found" });
   }
 
   // Find new/changed docs from manifest comparison
@@ -1468,7 +1972,7 @@ app.post("/api/enrichment/delta", (req, res) => {
   const jobs = [];
   for (const aid of targetAgentIds) {
     const dir = path.join(projectDir, "agents", aid);
-    if (!fs.existsSync(path.join(dir, "brief.json"))) continue;
+    if (!fs.existsSync(resolveSpecFile(dir))) continue;
     const job = startEnrichment(dir, {
       deltaFiles,
       projectDir,
@@ -1479,9 +1983,9 @@ app.post("/api/enrichment/delta", (req, res) => {
             source: forceRefresh ? "context-refresh" : "enrichment",
             matchedAgents: [aid],
           });
-          console.log(`[enrichment] Marked ${deltaFiles.length} docs as processed for ${aid}`);
+          devLogger.info("enrichment", `Marked ${deltaFiles.length} docs as processed for ${aid}`);
         } catch (e) {
-          console.error(`[enrichment] Failed to update manifest: ${e.message}`);
+          devLogger.error("enrichment", `Failed to update manifest: ${e.message}`);
         }
       },
     });
@@ -1531,80 +2035,25 @@ app.get("/api/enrichment/status/:jobId", (req, res) => {
   });
 });
 
-// Speculative enrichment — starts enrichment from draft before save
-app.post("/api/enrichment/speculative", (req, res) => {
-  const { draft, agentName } = req.body || {};
-  if (!draft) {
-    return res.status(400).json({ error: "draft required" });
-  }
+// ---------------------------------------------------------------------------
+// Removed endpoints (Gone) — 410 instead of generic 404 so legacy clients see
+// an actionable error. Removed in cleanup PR #27 (2026-05-05) after the
+// unified-chat refactor (commit 234c34b6) made them unreachable.
+// ---------------------------------------------------------------------------
 
-  try {
-    const { draftToBrief } = require("./lib/wizard");
-    const brief = draftToBrief(draft, agentName || "Speculative Agent");
-
-    // Create a temp directory with brief.json for the enrichment workers
-    const tmpDir = path.join(os.tmpdir(), `mcs-speculative-${Date.now()}`);
-    fs.mkdirSync(tmpDir, { recursive: true });
-    fs.writeFileSync(path.join(tmpDir, "brief.json"), JSON.stringify(brief, null, 2));
-
-    const job = startEnrichment(tmpDir);
-    // Tag the job as speculative so reconcile can find the temp dir
-    job._speculative = true;
-    job._tmpDir = tmpDir;
-
-    res.json({ jobId: job.id, status: job.status });
-  } catch (err) {
-    console.error("[enrichment] Speculative start error:", err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Reconcile speculative enrichment into a real agent's brief
-app.post("/api/enrichment/reconcile", (req, res) => {
-  const { speculativeJobId, projectId, agentId } = req.body || {};
-  if (!speculativeJobId || !projectId || !agentId) {
-    return res.status(400).json({ error: "speculativeJobId, projectId, and agentId required" });
-  }
-
-  const specJob = getJob(speculativeJobId);
-  if (!specJob || !specJob._speculative) {
-    return res.status(404).json({ error: "Speculative job not found" });
-  }
-
-  try {
-    const agentDir = path.join(BUILD_GUIDES, projectId, "agents", agentId);
-    const targetBrief = path.join(agentDir, "brief.json");
-    const specBrief = path.join(specJob._tmpDir, "brief.json");
-
-    if (!fs.existsSync(targetBrief) || !fs.existsSync(specBrief)) {
-      return res.status(404).json({ error: "Brief files not found" });
-    }
-
-    // Read both briefs and merge speculative enrichment results into the real one
-    const target = JSON.parse(fs.readFileSync(targetBrief, "utf8"));
-    const spec = JSON.parse(fs.readFileSync(specBrief, "utf8"));
-
-    // Merge enrichment-specific fields (instructions, evals, scores) — don't overwrite core brief
-    if (spec.instructions && !target.instructions) target.instructions = spec.instructions;
-    if (spec.evalSets && (!target.evalSets || target.evalSets.length === 0)) target.evalSets = spec.evalSets;
-    if (spec.scoring && !target.scoring) target.scoring = spec.scoring;
-    if (spec.research && !target.research) target.research = spec.research;
-
-    fs.writeFileSync(targetBrief, JSON.stringify(target, null, 2));
-
-    // Cleanup temp dir
-    fs.rmSync(specJob._tmpDir, { recursive: true, force: true });
-
-    res.json({ reconciled: true, enrichedFields: ["instructions", "evalSets", "scoring", "research"].filter((k) => spec[k]) });
-  } catch (err) {
-    console.error("[enrichment] Reconcile error:", err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
+const REMOVED_ENRICHMENT_ENDPOINTS = [
+  ["/api/enrichment/speculative", "Speculative enrichment was removed when the wizard endpoint was deleted; use /api/chat with action=spec_patch instead."],
+  ["/api/enrichment/reconcile",   "Speculative reconcile was removed; the unified chat router writes specs directly."],
+];
+for (const [routePath, message] of REMOVED_ENRICHMENT_ENDPOINTS) {
+  app.all(routePath, (_req, res) => {
+    res.status(410).json({ error: "endpoint removed", message });
+  });
+}
 
 // ---------------------------------------------------------------------------
-// Build Runner — TODO: API-direct build pipeline (build-pipeline.js)
-// Build endpoints temporarily route through skill-runner stub
+// Build Runner: API-direct build pipeline (build-pipeline.js)
+// Build endpoints route through skill-runner stub
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
@@ -1622,6 +2071,17 @@ const _pipelines = [
   () => require("./lib/build-pipeline"),
   () => require("./lib/eval-pipeline"),
   () => require("./lib/fix-pipeline"),
+  () => require("./lib/analyze-pipeline"),
+  // Hybrid pipelines — own their own _jobs registry via hybrid-orchestrator,
+  // but expose getJob/getJobLog so findJob() resolves their job IDs through
+  // the same /api/skill/status/:jobId SSE endpoint. NOTE: build/eval/fix
+  // hybrid all delegate to the shared `hybrid-orchestrator` Map, so any one
+  // of them resolving a jobId is sufficient. Listing each separately is
+  // safe and self-documenting; findJob's first-match-wins iteration finds
+  // the job on the first hit.
+  () => require("./lib/build-pipeline-hybrid"),
+  () => require("./lib/eval-pipeline-hybrid"),
+  () => require("./lib/fix-pipeline-hybrid"),
 ];
 
 function findJob(jobId) {
@@ -1644,7 +2104,14 @@ app.post("/api/skill/start", (req, res) => {
     return res.status(400).json({ error: "skillType and projectId required" });
   }
 
-  const VALID_TYPES = ["research", "eval", "fix", "build", "preview"];
+  // '*-hybrid' variants are opt-in; the matching env var (e.g. MCS_BUILD_HYBRID=1)
+  // also flips the plain skillType so existing callers can adopt without changing.
+  const VALID_TYPES = [
+    "research", "analyze",
+    "build", "build-hybrid",
+    "eval",  "eval-hybrid",
+    "fix",   "fix-hybrid",
+  ];
   if (!VALID_TYPES.includes(skillType)) {
     return res.status(400).json({ error: `Invalid skillType. Must be one of: ${VALID_TYPES.join(", ")}` });
   }
@@ -1653,36 +2120,75 @@ app.post("/api/skill/start", (req, res) => {
     return res.status(400).json({ error: "Invalid projectId or agentId format" });
   }
 
-  // eval and fix require agentId; research is optional; build requires it
-  if ((skillType === "eval" || skillType === "fix" || skillType === "build") && !agentId) {
+  // eval / fix / build (and their hybrid aliases) all require agentId.
+  // research and analyze treat agentId as optional ('default').
+  const REQUIRES_AGENT = ["eval", "eval-hybrid", "fix", "fix-hybrid", "build", "build-hybrid"];
+  if (REQUIRES_AGENT.includes(skillType) && !agentId) {
     return res.status(400).json({ error: `agentId required for ${skillType}` });
   }
 
   const baseDir = path.resolve(path.join(__dirname, ".."));
 
-  // Research and preview use the API-direct pipeline (3-8 min vs 20-30 min PTY)
-  if (skillType === "research" || skillType === "preview") {
+  // Research and analyze both run through the CLI-backed analyze pipeline.
+  // Decision (2026-05-05): converged on CLI-backed for both names so the
+  // chat tool, the legacy CTA button, and direct /api/skill/start callers
+  // all get the same agentic-mode behavior with access to skills, MCPs,
+  // and the knowledge cache. research-pipeline.js is preserved as a file
+  // for emergency rollback but no longer reachable through public routes.
+  // See knowledge/learnings/cli-vs-api-deep-research.md for the rationale
+  // and the deferred GPT-flagged risks (concurrency, prompt-injection
+  // sandboxing, observability) that still need follow-up work.
+  if (skillType === "research" || skillType === "analyze") {
     try {
-      const researchPipeline = require("./lib/research-pipeline");
-      const job = researchPipeline.startResearchPipeline(skillType, projectId, agentId || "", baseDir);
-      return res.json({ jobId: job.id, status: job.status, skillType });
+      const analyzePipeline = require("./lib/analyze-pipeline");
+      const job = analyzePipeline.startAnalyzePipeline(projectId, agentId || "", baseDir);
+      return res.json({ jobId: job.id, status: job.status, skillType: "analyze" });
     } catch (err) {
+      // Capacity errors deserve 429 + Retry-After so frontends can render
+      // a "wait a few minutes" state instead of a generic build failure.
+      if (err && err.code === "analyze_capacity_exceeded") {
+        res.set("Retry-After", "300"); // hint: 5 min
+        return res.status(429).json({
+          error: err.message,
+          code: "capacity_exceeded",
+          retryAfterSeconds: 300,
+        });
+      }
       return res.status(400).json({ error: err.message });
     }
   }
 
-  // Build, eval, fix — API-direct pipelines
+  // Build, eval, fix — API-direct pipelines (build optionally routed via
+  // the hybrid orchestrator when caller opts in or env flips the default).
   try {
     let job;
-    if (skillType === "build") {
-      const buildPipeline = require("./lib/build-pipeline");
-      job = buildPipeline.startBuildPipeline(projectId, agentId, baseDir);
-    } else if (skillType === "eval") {
-      const evalPipeline = require("./lib/eval-pipeline");
-      job = evalPipeline.startEvalPipeline(projectId, agentId, baseDir);
-    } else if (skillType === "fix") {
-      const fixPipeline = require("./lib/fix-pipeline");
-      job = fixPipeline.startFixPipeline(projectId, agentId, baseDir);
+    if (skillType === "build" || skillType === "build-hybrid") {
+      const useHybrid = skillType === "build-hybrid" || process.env.MCS_BUILD_HYBRID === "1";
+      if (useHybrid) {
+        const buildHybrid = require("./lib/build-pipeline-hybrid");
+        job = buildHybrid.startBuildHybridPipeline(projectId, agentId, baseDir);
+      } else {
+        const buildPipeline = require("./lib/build-pipeline");
+        job = buildPipeline.startBuildPipeline(projectId, agentId, baseDir);
+      }
+    } else if (skillType === "eval" || skillType === "eval-hybrid") {
+      const useHybrid = skillType === "eval-hybrid" || process.env.MCS_EVAL_HYBRID === "1";
+      if (useHybrid) {
+        const evalHybrid = require("./lib/eval-pipeline-hybrid");
+        job = evalHybrid.startEvalHybridPipeline(projectId, agentId, baseDir);
+      } else {
+        const evalPipeline = require("./lib/eval-pipeline");
+        job = evalPipeline.startEvalPipeline(projectId, agentId, baseDir);
+      }
+    } else if (skillType === "fix" || skillType === "fix-hybrid") {
+      const useHybrid = skillType === "fix-hybrid" || process.env.MCS_FIX_HYBRID === "1";
+      if (useHybrid) {
+        const fixHybrid = require("./lib/fix-pipeline-hybrid");
+        job = fixHybrid.startFixHybridPipeline(projectId, agentId, baseDir);
+      } else {
+        const fixPipeline = require("./lib/fix-pipeline");
+        job = fixPipeline.startFixPipeline(projectId, agentId, baseDir);
+      }
     } else {
       return res.status(400).json({ error: `Unknown skillType: ${skillType}` });
     }
@@ -1783,8 +2289,10 @@ app.post("/api/helper/init/:projectId", async (req, res) => {
       return res.status(404).json({ detail: "Project not found" });
     }
 
+    // model = explicit request body model, else family sentinel "gpt" so the
+    // ChatEngine resolves to the latest GPT id at send time.
     const engine = new ChatEngine({
-      model: req.body?.model || "gpt-5.4"
+      model: req.body?.model || "gpt"
     });
 
     const result = await loadContext({
@@ -1810,7 +2318,7 @@ app.post("/api/helper/init/:projectId", async (req, res) => {
       cached: result.cached
     });
   } catch (err) {
-    console.error("[helper] Init failed:", err.message);
+    devLogger.error("helper", "Init failed", err.message);
     res.status(500).json({ detail: err.message });
   }
 });
@@ -1825,7 +2333,7 @@ app.post("/api/helper/:id/message", async (req, res) => {
 
   // Start streaming in background — response delivered via SSE
   session.engine.sendMessage(message).catch(err => {
-    console.error("[helper] Message failed:", err.message);
+    devLogger.error("helper", "Message failed", err.message);
   });
 
   res.json({ messageId: `pending`, status: "streaming" });
@@ -1932,10 +2440,356 @@ app.get("/api/ai/status", async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// Elevate Compatibility — Adapter routes for the forked Elevate frontend
+// These routes bridge Elevate's expected API surface to our backend.
+// ---------------------------------------------------------------------------
+
+// Feedback (Elevate stores user feedback/ratings)
+app.get("/api/feedback", (_req, res) => {
+  // Return empty array — Elevate falls back to localStorage on error
+  res.json([]);
+});
+app.post("/api/feedback", (req, res) => {
+  // Accept and acknowledge feedback submissions
+  devLogger.info("elevate-compat", `Feedback submitted: ${JSON.stringify(req.body).slice(0, 200)}`);
+  res.json({ ok: true });
+});
+
+// Message feedback (per-message thumbs up/down)
+app.post("/api/message-feedback", (req, res) => {
+  devLogger.info("elevate-compat", `Message feedback: ${JSON.stringify(req.body).slice(0, 200)}`);
+  res.json({ ok: true });
+});
+
+// Evals (Elevate's eval system — bridge to our eval pipeline later)
+app.get("/api/evals", (_req, res) => {
+  res.json([]);
+});
+app.post("/api/evals", (req, res) => {
+  devLogger.info("elevate-compat", `Eval submitted: ${JSON.stringify(req.body).slice(0, 200)}`);
+  res.json({ ok: true });
+});
+app.get("/api/evals/export", (_req, res) => {
+  res.setHeader("Content-Type", "text/csv");
+  res.send("id,question,expected,actual,score\n");
+});
+
+// Eval results (dev-only endpoint Elevate checks)
+app.get("/api/eval-results/latest", (_req, res) => {
+  res.status(404).json({ detail: "No eval results yet" });
+});
+
+// ---------------------------------------------------------------------------
+// Auth management — sign out, add account, connect tool
+// ---------------------------------------------------------------------------
+
+// Helper: run shell command safely (handles .cmd shims on Windows)
+async function runShell(cmd, timeoutMs = 15000) {
+  try {
+    const { stdout, stderr } = await execAsync(cmd, { timeout: timeoutMs });
+    return { ok: true, stdout: stdout.trim(), stderr: stderr.trim() };
+  } catch (err) {
+    return { ok: false, error: err.stderr?.trim() || err.message };
+  }
+}
+
+// Sign out — clear all CLI auth sessions
+app.post("/api/auth/sign-out", async (_req, res) => {
+  const results = {};
+  const tasks = [
+    runShell("az logout").then(r => { results.az = r.ok ? "signed out" : r.error; }),
+    runShell("gh auth logout --hostname github.com -y").then(r => { results.gh = r.ok ? "signed out" : r.error; }),
+    runShell("pac auth clear").then(r => { results.pac = r.ok ? "signed out" : r.error; }),
+  ];
+  await Promise.allSettled(tasks);
+  // Invalidate caches
+  _credCache = { data: null, ts: 0 };
+  _platformAgentsCache = { data: null, ts: 0 };
+  devLogger.info("auth", "Sign out results", results);
+  res.json({ ok: true, results });
+});
+
+// Add account — spawn interactive login for a specific tool
+// The frontend shows a modal, user clicks a tool, we spawn interactive auth
+// The process opens a browser popup for auth, user completes it, we detect success
+app.post("/api/auth/add-account", async (req, res) => {
+  const { tool, tenant } = req.body || {};
+  const validTools = ["az", "gh", "pac", "all"];
+  if (!validTools.includes(tool)) {
+    return res.status(400).json({ detail: `tool must be one of: ${validTools.join(", ")}` });
+  }
+
+  const results = {};
+  const steps = [];
+
+  if (tool === "az" || tool === "all") {
+    const tenantArg = tenant ? ` --tenant ${tenant}` : "";
+    steps.push(
+      runShell(`az login${tenantArg}`, 120000)
+        .then(r => { results.az = r.ok ? "authenticated" : r.error; })
+    );
+  }
+
+  if (tool === "gh" || tool === "all") {
+    // gh auth login needs interactive terminal — use device flow
+    steps.push(
+      runShell("gh auth login --hostname github.com --git-protocol https --web", 120000)
+        .then(r => { results.gh = r.ok ? "authenticated" : r.error; })
+    );
+  }
+
+  if (tool === "pac" || tool === "all") {
+    steps.push(
+      runShell("pac auth create", 120000)
+        .then(r => { results.pac = r.ok ? "authenticated" : r.error; })
+    );
+  }
+
+  await Promise.allSettled(steps);
+
+  // Invalidate caches after auth change
+  _credCache = { data: null, ts: 0 };
+  _platformAgentsCache = { data: null, ts: 0 };
+
+  devLogger.info("auth", "Add account results", results);
+  res.json({ ok: true, results });
+});
+
+// Connect/reconnect a specific tool
+app.post("/api/auth/connect", async (req, res) => {
+  const { tool, tenant } = req.body || {};
+
+  try {
+    let result;
+    switch (tool) {
+      case "az": {
+        const tenantArg = tenant ? ` --tenant ${tenant}` : "";
+        result = await runShell(`az login${tenantArg}`, 120000);
+        break;
+      }
+      case "gh":
+        result = await runShell("gh auth login --hostname github.com --git-protocol https --web", 120000);
+        break;
+      case "pac":
+        result = await runShell("pac auth create", 120000);
+        break;
+      case "dataverse": {
+        // Verify Dataverse connectivity using current pac environment
+        result = await runShell("pac env who", 15000);
+        break;
+      }
+      default:
+        return res.status(400).json({ detail: "tool must be az, gh, pac, or dataverse" });
+    }
+
+    _credCache = { data: null, ts: 0 };
+    _platformAgentsCache = { data: null, ts: 0 };
+
+    res.json({ ok: result.ok, tool, detail: result.ok ? "Connected" : result.error });
+  } catch (err) {
+    res.status(500).json({ detail: err.message });
+  }
+});
+
+// ── MCS Knowledge Cache (lazy-loaded, memory-cached for copilot/chat enrichment) ──
+let _mcsKnowledgeCache = null;
+let _mcsKnowledgeMtime = 0;
+
+function loadMcsKnowledge() {
+  const cacheDir = path.join(__dirname, "..", "knowledge", "cache");
+  const frameworksDir = path.join(__dirname, "..", "knowledge", "frameworks");
+  const files = [
+    { dir: cacheDir, name: "connectors.md" },
+    { dir: cacheDir, name: "mcp-servers.md" },
+    { dir: cacheDir, name: "knowledge-sources.md" },
+    { dir: cacheDir, name: "triggers.md" },
+    { dir: cacheDir, name: "channels.md" },
+    { dir: cacheDir, name: "models.md" },
+    { dir: cacheDir, name: "first-party-agents.md" },
+    { dir: cacheDir, name: "limits-licensing.md" },
+    { dir: cacheDir, name: "declarative-agents.md" },
+    { dir: frameworksDir, name: "component-selection.md" },
+    { dir: frameworksDir, name: "architecture-scoring.md" },
+  ];
+
+  // Check staleness — reload if any source file changed
+  let latestMtime = 0;
+  for (const f of files) {
+    try {
+      const mt = fs.statSync(path.join(f.dir, f.name)).mtimeMs;
+      if (mt > latestMtime) latestMtime = mt;
+    } catch { /* skip missing */ }
+  }
+  if (_mcsKnowledgeCache && latestMtime <= _mcsKnowledgeMtime) {
+    return _mcsKnowledgeCache;
+  }
+
+  const sections = ["# MCS CONSULTANT KNOWLEDGE\n"];
+  for (const f of files) {
+    const fp = path.join(f.dir, f.name);
+    if (fs.existsSync(fp)) {
+      const label = f.name.replace(".md", "").replace(/-/g, " ").toUpperCase();
+      sections.push(`\n## ${label}\n${fs.readFileSync(fp, "utf-8")}\n`);
+    }
+  }
+  _mcsKnowledgeCache = sections.join("");
+  _mcsKnowledgeMtime = latestMtime;
+  return _mcsKnowledgeCache;
+}
+
+/**
+ * Map frontend model IDs to backend client + options.
+ * Frontend sends family-style IDs like claude-sonnet-4-6, claude-opus-4-7,
+ * claude-haiku-4-5, gpt-5.5, gpt-5, gpt-5-mini, etc. The specific version in
+ * the string doesn't matter — anthropic.js and openai.js resolve the actual
+ * current model ID via auto-discovery. This mapper only normalises to family
+ * shorthand (opus/sonnet/haiku) and routes GPT-anything to openai.js, which
+ * picks up the latest gpt-N.M without code changes here.
+ */
+function resolveModelClient(modelId) {
+  const openai = require("../tools/lib/openai");
+  const anthropic = require("../tools/lib/anthropic");
+  const id = (modelId || "").toLowerCase();
+
+  if (id.includes("gpt")) {
+    if (openai.isConfigured()) return { client: openai, opts: {} };
+    // GPT requested but unavailable — fall back to Claude
+    if (anthropic.isConfigured()) return { client: anthropic, opts: { model: "opus" } };
+  }
+
+  // Claude model — map to shorthand
+  let model = "opus";
+  if (id.includes("haiku")) model = "haiku";
+  else if (id.includes("sonnet")) model = "sonnet";
+
+  if (anthropic.isConfigured()) return { client: anthropic, opts: { model, cacheSystem: true } };
+  // Claude unavailable — fall back to GPT
+  if (openai.isConfigured()) return { client: openai, opts: {} };
+
+  return null;
+}
+
+// Copilot chat proxy — Elevate's primary LLM endpoint
+// Routes to the latest GPT-5.x or Claude via tools/lib/openai.js and tools/lib/anthropic.js.
+// Optional mcsKnowledge flag injects the full MCS knowledge cache into the system prompt.
+app.post("/api/copilot/chat", async (req, res) => {
+  try {
+    const { model, maxTokens, messages, system, temperature, mcsKnowledge } = req.body || {};
+
+    // Resolve which model client to use
+    const resolved = resolveModelClient(model);
+    if (!resolved) {
+      return res.status(503).json({
+        text: "No model configured. Run 'gh auth login' then 'gh auth refresh --scopes copilot'.",
+      });
+    }
+
+    // Build system prompt — optionally enriched with MCS knowledge
+    let enrichedSystem = system || "";
+    if (mcsKnowledge) {
+      const knowledge = loadMcsKnowledge();
+      if (knowledge) {
+        enrichedSystem = knowledge + "\n\n---\n\n" + enrichedSystem;
+      }
+    }
+
+    // Assemble messages array for the model client
+    const fullMessages = [];
+    if (enrichedSystem) {
+      fullMessages.push({ role: "system", content: enrichedSystem });
+    }
+    for (const msg of (messages || [])) {
+      fullMessages.push({ role: msg.role, content: msg.content });
+    }
+
+    const result = await resolved.client.chatCompletion(fullMessages, {
+      ...resolved.opts,
+      maxTokens: maxTokens || 4096,
+    });
+
+    res.json({ text: result.content });
+  } catch (err) {
+    devLogger.error("copilot-chat", "Error", err.message);
+    const status = err.code === "NOT_CONFIGURED" ? 503 : 500;
+    res.status(status).json({ text: "Model call failed: " + err.message });
+  }
+});
+
+// Model proxy (SWA/COLIN alternative endpoint — OpenAI-compatible format)
+app.post("/api/model", async (req, res) => {
+  try {
+    const { model, max_tokens, messages: rawMessages } = req.body || {};
+
+    const resolved = resolveModelClient(model);
+    if (!resolved) {
+      return res.status(503).json({
+        choices: [{ message: { content: "No model configured." } }],
+      });
+    }
+
+    // OpenAI format: system prompt is a message with role "system", content may be blocks
+    const messages = (rawMessages || []).map((m) => ({
+      role: m.role,
+      content: typeof m.content === "string"
+        ? m.content
+        : (m.content || []).filter((b) => b.type === "text").map((b) => b.text).join("\n"),
+    }));
+
+    const result = await resolved.client.chatCompletion(messages, {
+      ...resolved.opts,
+      maxTokens: max_tokens || 4096,
+    });
+
+    res.json({
+      choices: [{ message: { content: result.content } }],
+    });
+  } catch (err) {
+    devLogger.error("model", "Error", err.message);
+    res.status(500).json({
+      choices: [{ message: { content: "Model call failed: " + err.message } }],
+    });
+  }
+});
+
+// Capture endpoints (Playwright/screenshot — stub)
+app.get("/api/capture/cdp-status", (_req, res) => {
+  res.json({ available: false });
+});
+app.get("/api/capture/flows", (_req, res) => {
+  res.json({ flows: [] });
+});
+app.post("/api/capture/screenshot", (_req, res) => {
+  res.json({ error: "Screenshot capture not available in MCS Agent Builder" });
+});
+app.post("/api/capture/run-flow", (_req, res) => {
+  res.json({ error: "Flow capture not available in MCS Agent Builder" });
+});
+
+// Figma plugin (stub — not needed in our setup)
+app.get("/api/figma/plugin-status", (_req, res) => {
+  res.json({ connected: false });
+});
+app.get("/api/figma/pages", (_req, res) => {
+  res.json({ pages: [] });
+});
+app.post("/api/figma/upload", (_req, res) => {
+  res.json({ sentToPlugin: false, error: "Figma plugin not available" });
+});
+app.post("/api/figma/save-local", (_req, res) => {
+  res.json({ error: "Figma save not available" });
+});
+
+// ---------------------------------------------------------------------------
 // Static file serving — SPA with catch-all (must be after all API routes)
 // ---------------------------------------------------------------------------
 
-if (fs.existsSync(path.join(DIST_DIR, "assets"))) {
+// Dev mode: redirect non-API browser requests to the Vite dev server.
+// Prevents users from accidentally viewing the stale production build on :8000
+// when they should be on :8080 (Vite HMR).
+const VITE_DEV_URL = process.env.VITE_DEV_URL;
+const IS_DEV_MODE = process.env.MCS_DEV_MODE === "1";
+
+if (!IS_DEV_MODE && fs.existsSync(path.join(DIST_DIR, "assets"))) {
   app.use("/assets", express.static(path.join(DIST_DIR, "assets")));
 }
 
@@ -1944,6 +2798,11 @@ app.get("/{*splat}", (req, res) => {
   // Skip API routes that weren't matched
   if (req.path.startsWith("/api/")) {
     return res.status(404).json({ detail: "Not found" });
+  }
+
+  // Dev mode: redirect to Vite dev server (prevents stale-build confusion)
+  if (IS_DEV_MODE && VITE_DEV_URL) {
+    return res.redirect(302, VITE_DEV_URL + (req.path === "/" ? "" : req.path));
   }
 
   // Try serving a static file from dist/
@@ -1977,7 +2836,7 @@ app.use((err, req, res, next) => {
   if (err.code === "LIMIT_FILE_SIZE") {
     return res.status(413).json({ detail: "File too large (max 50 MB)" });
   }
-  console.error("[server]", err.message || err);
+  devLogger.error("server", "uncaught", err.message || String(err));
   res.status(500).json({ detail: err.message || "Internal server error" });
 });
 
@@ -2012,13 +2871,25 @@ if (require.main === module) {
         anthropicApi.probeModelAccess().then(access => {
           const info = anthropicApi.getModelAccessInfo();
           const directModels = Object.entries(info.access).filter(([k,v]) => v && k !== '_copilotAvailable' && k !== '_primaryRoute').map(([k]) => k);
-          const primary = info.copilotAvailable ? 'copilot' : 'direct';
           if (info.copilotAvailable) {
             console.log(`  AI: copilot=[all models] (default: ${info.effectiveDefault}) — direct API fallback: [${directModels.join(',')}]`);
           } else {
             console.log(`  AI: direct=[${directModels.join(',')}] (default: ${info.effectiveDefault}) — no Copilot available`);
           }
         });
+        // Pre-warm forward-probe discovery so the first chat request doesn't
+        // pay the 2-3s probe cost. Fires in background — prints the resolved
+        // model IDs once done so we can see whether 4.8/5.0 was auto-picked.
+        anthropicApi.warmModelResolution().then(resolved => {
+          const entries = Object.entries(resolved).map(([k, v]) => `${k}=${v}`).join(', ');
+          if (entries) console.log(`  AI: resolved Copilot IDs — ${entries}`);
+        }).catch(() => { /* non-critical */ });
+        // Pre-warm GPT discovery alongside Claude so /api/models returns the
+        // resolved id immediately on first call.
+        const openaiApi = require("../tools/lib/openai");
+        openaiApi.warmGptModelResolution().then(resolved => {
+          if (resolved) console.log(`  AI: resolved GPT ID — ${resolved}`);
+        }).catch(() => { /* non-critical */ });
       }
     } catch { /* non-critical */ }
   });

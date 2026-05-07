@@ -4,7 +4,7 @@ Reusable YAML patterns for Copilot Studio topic authoring via the built-in code 
 
 ## Usage
 
-1. Build skills generate topic YAML from brief.json (conversations.topics[]) using these patterns
+1. Build skills generate topic YAML from agentspec.json (conversations.topics[]) using these patterns
 2. Generated YAML is written to the LSP workspace `topics/` directory as `.mcs.yml` files
 3. Pushed to MCS via `node tools/mcs-lsp.js push --workspace <path>`
 4. Fallback: Island Gateway API `PUT content/botcomponents` with DialogComponent payload

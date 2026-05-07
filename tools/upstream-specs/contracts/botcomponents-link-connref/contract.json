@@ -1,0 +1,26 @@
+{
+  "surfaceId": "botcomponents-link-connref",
+  "method": "PUT",
+  "urlPattern": "{dataverseUrl}/api/data/v9.2/botcomponents({compId})/botcomponent_connectionreference/$ref",
+  "auth": "Dataverse bearer token",
+  "validationStrategy": "odata-n-m-association",
+  "_strategyNote": "M:M associate a botcomponent with a connection reference via the botcomponent_connectionreference relationship. Required for connector-based components to function.",
+  "kindDiscriminators": [],
+  "requiredFields": [
+    {"path": "$['@odata.id']", "constraint": "full URL to the connectionreferences row being associated"}
+  ],
+  "responseShape": "HTTP 204 No Content on success",
+  "lastVerified": "2026-04-16",
+  "lastVerifiedBy": "build-pipeline uses this to link tool components to connection references",
+  "typedAdapterRef": "app/lib/build-pipeline.js:stepComponents (associate step)",
+  "knownQuirks": [
+    "Must use PUT (not POST) to add an association to an M:M navigation property",
+    "The @odata.id value must be a full absolute URL, not just the GUID",
+    "Missing this association is bm-037: 'Dataverse MCS added via raw POST requires botcomponent_connectionreference M:M association' — documented learning"
+  ],
+  "nonContractualFields": [],
+  "errorCases": [
+    {"status": 400, "reason": "Malformed @odata.id URL"},
+    {"status": 404, "reason": "Either botcomponent or connectionreference GUID not found"}
+  ]
+}

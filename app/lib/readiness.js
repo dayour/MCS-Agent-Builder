@@ -18,7 +18,8 @@ const PROJECT_FILE_MAP = {
 };
 
 const AGENT_FILE_MAP = {
-  brief: "brief.json",
+  brief: "agentspec.json",
+  brief_legacy: "brief.json",
   evals_csv: "evals.csv",
   evals_results: "evals-results.json",
   build_report: "build-report.md",
@@ -46,6 +47,15 @@ function humanizeName(folderName) {
 
 function isV2(brief) {
   return brief._schema === "2.0" || "agent" in brief;
+}
+
+/**
+ * Treats published, published-internal, and published-uat as "published" for
+ * stage/readiness purposes. Build pipeline now emits -internal/-uat exclusively
+ * but legacy briefs may still have bare "published".
+ */
+function isPublishedStatus(status) {
+  return status === "published" || status === "published-internal" || status === "published-uat";
 }
 
 // ---------------------------------------------------------------------------
@@ -127,7 +137,7 @@ function calcReadiness(brief) {
         typeof c === "object" ? c.name : c
       ).length > 0,
       unanswered.length === 0,
-      buildStatus.status === "published",
+      isPublishedStatus(buildStatus.status),
       hasEvalResults(brief),
       blockingPending.length === 0,
     ];
@@ -231,7 +241,7 @@ function determineStage(agents) {
     if (hasResults) {
       agentStage = "eval";
     } else if (
-      (brief.buildStatus || {}).status === "published" ||
+      isPublishedStatus((brief.buildStatus || {}).status) ||
       (brief.buildStatus || {}).status === "in_progress"
     ) {
       agentStage = "build";
@@ -312,10 +322,12 @@ function scanAgents(projectFolder) {
     if (!fs.statSync(agentDir).isDirectory() || name.startsWith(".")) continue;
 
     let brief = null;
-    const briefFile = path.join(agentDir, "brief.json");
-    if (fs.existsSync(briefFile)) {
+    const specFile = fs.existsSync(path.join(agentDir, "agentspec.json"))
+      ? path.join(agentDir, "agentspec.json")
+      : path.join(agentDir, "brief.json");
+    if (fs.existsSync(specFile)) {
       try {
-        const raw = fs.readFileSync(briefFile, "utf-8").replace(/^\uFEFF/, "");
+        const raw = fs.readFileSync(specFile, "utf-8").replace(/^\uFEFF/, "");
         brief = JSON.parse(raw);
       } catch {
         // ignore parse errors

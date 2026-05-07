@@ -1,0 +1,102 @@
+# Pattern: Agent Skill Component (Inline Skill Creation)
+# Type: AgentSkillComponent (discriminator 21)
+# Shows: Programmatic creation of maker-authored skills with code and resources
+# Common in: agent builders, code interpreter alternatives, custom analysis skills
+#
+# Based on: ObjectModel AgentSkillComponent + AgentSkillMetadata + SkillResource
+# Source: tools/om-cli/schemas/bot.schema.yaml.cli.json
+#
+# IMPORTANT:
+# - AgentSkillComponent is a new component type (discriminator 21)
+# - Skills contain code (SKILL.md body) + resources (SkillResource[])
+# - Skills are materialized as files in a sandbox during agentic execution
+# - Two source types: inline (body in YAML) or referenced (external skill entity)
+# - Skills can be invoked via InvokeSkillAction in topics
+
+# --- AgentSkillComponent YAML Structure ---
+# This is the component definition pushed via LSP or Dataverse:
+
+# kind: AgentSkillComponent
+# schemaName: "{{SKILL_SCHEMA_NAME}}"
+# metadata:
+#   kind: AgentSkillMetadata
+#   sourceType:
+#     kind: InlineSkillSource  # or ExternalSkillReference
+#   body: |
+#     # {{SKILL_NAME}}
+#
+#     ## Purpose
+#     {{SKILL_PURPOSE}}
+#
+#     ## Instructions
+#     {{SKILL_INSTRUCTIONS}}
+#
+#     ## Inputs
+#     - {{INPUT_1}}: {{INPUT_DESC}}
+#
+#     ## Outputs
+#     - {{OUTPUT_1}}: {{OUTPUT_DESC}}
+#   resources:
+#     - kind: SkillResource
+#       path: "helper.py"
+#       contentType: "application/x-python"
+#       contentBase64: "{{BASE64_ENCODED_FILE}}"
+#     - kind: SkillResource
+#       path: "utils/parser.py"
+#       contentType: "application/x-python"
+#       contentBase64: "{{BASE64_ENCODED_FILE}}"
+
+# --- Invoking a Skill from a Topic ---
+# Use InvokeSkillAction to call a skill from within a topic:
+#
+# - kind: InvokeSkillAction
+#   id: invokeSkill_1
+#   skillId: "{{SKILL_SCHEMA_NAME}}"
+#   actionId: "{{ACTION_ID}}"
+#   input:
+#     binding:
+#       inputParam: =Topic.inputData
+#   output:
+#     binding:
+#       outputParam: Topic.skillResult
+#   interruptionPolicy:
+#     allowInterruption: false
+
+# --- SkillActionDefinition (what actions a skill exposes) ---
+# Each skill can define multiple callable actions:
+#
+# kind: SkillActionDefinition
+# actionId: "analyze_data"
+# title: "Analyze Data"
+# activityType: "invoke"
+# inputType:
+#   properties:
+#     data:
+#       type: String
+#       description: "JSON data to analyze"
+# outputType:
+#   properties:
+#     result:
+#       type: String
+#       description: "Analysis results in markdown"
+
+# --- FabricAISkillSource (alternative) ---
+# Skills can also reference Microsoft Fabric AI Skills:
+#
+# sourceType:
+#   kind: FabricAISkillSource
+#   aISkillId: "{{FABRIC_AI_SKILL_ID}}"
+#   workspaceId: "{{FABRIC_WORKSPACE_ID}}"
+
+# --- Build automation ---
+# 1. Generate skill body (SKILL.md content) from agentspec.json capability
+# 2. Encode resource files as base64
+# 3. Create AgentSkillComponent YAML
+# 4. Validate with om-cli: tools/om-cli/om-cli.exe validate -f skill.yaml
+# 5. Push via LSP or create via Dataverse POST to botcomponents (componenttype=21)
+
+# --- Current limitations ---
+# - Skills execute in a sandboxed environment (restricted network, no external APIs)
+# - Resource files are limited in size (check current limits in MCS docs)
+# - Python and JavaScript are the primary supported languages
+# - Skills require generative orchestration or explicit InvokeSkillAction

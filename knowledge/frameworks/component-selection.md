@@ -71,7 +71,7 @@ Check each category in Microsoft-first order:
 | Computer Use Tool | — | Does this task lack an API? Could a human do it in a GUI? (Priority 6) |
 | Custom Code | — | Is a custom connector or HTTP endpoint the only option? (Priority 6) |
 | Custom MCP Servers | — | Does a community MCP server exist? (Priority 6) |
-| **Agent Settings (toggles)** | `knowledge/cache/ai-tools-computer-use.md` § "Generative AI Settings" | Bing Web Search, General Knowledge, Moderation — these are `type: "setting"` in brief.json, NOT tools. Configured via Settings > Generative AI or LSP push. |
+| **Agent Settings (toggles)** | `knowledge/cache/ai-tools-computer-use.md` § "Generative AI Settings" | Bing Web Search, General Knowledge, Moderation — these are `type: "setting"` in agentspec.json, NOT tools. Configured via Settings > Generative AI or LSP push. |
 | Agent Auth & Access | — | What auth mode, access control? |
 
 ## Selection Output

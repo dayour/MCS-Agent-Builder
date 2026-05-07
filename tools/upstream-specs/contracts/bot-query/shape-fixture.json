@@ -1,0 +1,21 @@
+{
+  "request": {
+    "method": "GET",
+    "url": "/api/data/v9.2/bots?$filter=schemaname eq '<schemaName>'&$select=botid,name,statuscode",
+    "headers": { "odata-maxversion": "4.0", "odata-version": "4.0" }
+  },
+  "response": {
+    "status": 200,
+    "headers": { "content-type": "application/json; odata.metadata=minimal" },
+    "body": {
+      "@odata.context": "<dataverseUrl>/api/data/v9.2/$metadata#bots(botid,name,statuscode)",
+      "value": [
+        { "@odata.etag": "<etag>", "botid": "<botId>", "name": "<agentName>", "statuscode": 1 }
+      ]
+    }
+  },
+  "emptyCase": {
+    "request": { "method": "GET", "url": "/api/data/v9.2/bots?$filter=schemaname eq 'nonexistent'&$select=botid" },
+    "response": { "status": 200, "body": { "value": [] } }
+  }
+}

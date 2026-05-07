@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 /**
- * Multi-Model Review CLI — GPT-5.4 "Fresh Eyes" for MCS Agent Builds
+ * Multi-Model Review CLI — GPT-5.5 "Fresh Eyes" for MCS Agent Builds
  *
- * Calls GPT-5.4 via GitHub Copilot Responses API to provide a second-model
+ * Calls GPT-5.5 via GitHub Copilot Responses API to provide a second-model
  * perspective on agent instructions, topics, briefs, and eval scoring.
  * Fully optional — exits with code 3 when not configured (skip silently).
  * Setup: gh auth login && gh auth refresh --scopes copilot
  *
  * Usage:
  *   Review:
- *   node tools/multi-model-review.js review-instructions --brief <path>
+ *   node tools/multi-model-review.js review-instructions --brief <path>  (--brief/--spec accepted, resolves agentspec.json with brief.json fallback)
  *   node tools/multi-model-review.js review-topics --file <path> [--brief <path>]
  *   node tools/multi-model-review.js review-brief --brief <path>
  *   node tools/multi-model-review.js review-flow --file <path> [--brief <path>]
@@ -146,9 +146,30 @@ const chatCompletion = async (messages, options = {}) => {
             return streamResult;
         }
 
-        // Truncation warning
-        if (result.truncated) {
-            console.error(`  [Reliability] Response truncated (reason: ${result.incompleteReason || 'max_output_tokens'}). Output may be incomplete.`);
+        // Truncation retry: reasoning ate too much of the output budget.
+        // Retry with 2x maxTokens AND downgrade reasoning effort one tier so text gets room.
+        if (result.truncated && !options._truncationRetry) {
+            const effortDowngrade = { xhigh: 'high', high: 'medium', medium: 'low', low: 'none', none: 'none' };
+            const retryEffort = effortDowngrade[mergedOptions.reasoningEffort] || 'medium';
+            const currentMax = mergedOptions.maxTokens || 65536;
+            console.error(`  [Reliability] Response truncated (reason: ${result.incompleteReason || 'max_output_tokens'}). Retrying with 2x tokens (${currentMax * 2}) + effort=${retryEffort}...`);
+            try {
+                const retryResult = await _rawChat(messages, {
+                    ...mergedOptions,
+                    reasoningEffort: retryEffort,
+                    maxTokens: currentMax * 2,
+                    _truncationRetry: true,
+                });
+                if (retryResult.content && retryResult.content.trim().length > 0 && !retryResult.truncated) {
+                    return retryResult;
+                }
+                // If retry also truncated or empty, return it anyway with flag intact so caller can surface
+                console.error(`  [Reliability] Truncation retry ${retryResult.truncated ? 'still truncated' : 'succeeded'}. Returning retry result.`);
+                return retryResult;
+            } catch (retryErr) {
+                console.error(`  [Reliability] Truncation retry failed: ${retryErr.message}. Returning original truncated result.`);
+                return result;
+            }
         }
 
         return result;
@@ -322,7 +343,7 @@ const FILE_TYPE_CHECKS = [
         label: 'Type Definitions',
         checks: [
             'Optional field consistency: fields that can be absent use `?:` (not `| undefined`)',
-            'Union type completeness: check that union types cover all valid values from brief.json schema',
+            'Union type completeness: check that union types cover all valid values from agent spec schema',
             'Dual file sync: types/index.ts (UI shapes) and types/api.ts (raw API shapes) must stay in sync for shared concepts',
             'BriefData keys must match section IDs in briefSections.ts'
         ]
@@ -341,7 +362,7 @@ const FILE_TYPE_CHECKS = [
         pattern: /\.py$/,
         label: 'Python Backend',
         checks: [
-            'New brief fields: if brief.json schema changed, check readiness_calc.py section weights and field access',
+            'New brief fields: if agent spec schema changed, check readiness_calc.py section weights and field access',
             'Workflow phases: determine_stage() must handle all WorkflowPhase values',
             '_brief stripping: server must strip internal fields (like _brief) before returning responses',
             'File mtime: agent detail endpoint must include _file_mtime for poll-based change detection'
@@ -396,7 +417,7 @@ function buildContext(command) {
     const effort = EFFORT_TIERS[command] || 'medium';
     const totalBudget = CONTEXT_TOKEN_BUDGETS[effort] || 6000;
 
-    const primerPath = path.resolve(KNOWLEDGE_DIR, 'cache/mcs-primer-gpt.md');
+    const primerPath = path.resolve(KNOWLEDGE_DIR, 'frameworks/mcs-primer-gpt.md');
     let primer = '';
     try {
         primer = fs.readFileSync(primerPath, 'utf8');
@@ -472,7 +493,7 @@ Output valid JSON:
 
     'review-brief': `You are an expert reviewer of Microsoft Copilot Studio agent design briefs. You understand MCS architecture (single vs multi-agent), component selection, eval design, and the build lifecycle.
 
-Review the brief.json below for completeness:
+Review the agent spec below for completeness:
 1. **Missing sections** — Are all key fields populated (capabilities, integrations, knowledge, boundaries, instructions, model, evalSets)?
 2. **Capability-integration gaps** — Capabilities that reference tools not in integrations[]
 3. **MVP delineation** — Is phase: "mvp" vs "future" clearly assigned?
@@ -791,13 +812,13 @@ Output valid JSON:
   "flowQuality": <1-10 score>
 }`,
 
-    'review-merged': `You are a senior quality gate reviewer for Microsoft Copilot Studio agent builds. You are reviewing the FINAL merged output from a multi-model build process where Claude Opus and GPT-5.4 both contributed independently, and their outputs were merged.
+    'review-merged': `You are a senior quality gate reviewer for Microsoft Copilot Studio agent builds. You are reviewing the FINAL merged output from a multi-model build process where Claude Opus and GPT-5.5 both contributed independently, and their outputs were merged.
 
 Your job is to catch anything BOTH models missed — the gaps that survive dual-model review. Be adversarial.
 
 Review ALL artifacts together as a coherent whole:
 1. **Cross-artifact consistency** — Do instructions reference topics that exist? Do evals test capabilities in the brief? Do topic triggers match instruction routing guidance?
-2. **Brief-to-build alignment** — Every MVP capability in brief.json must map to either instructions, a topic, a tool, or a flow. Flag orphans.
+2. **Brief-to-build alignment** — Every MVP capability in the agent spec must map to either instructions, a topic, a tool, or a flow. Flag orphans.
 3. **Eval completeness** — Are boundaries at 100% coverage? Are there negative tests? Multi-turn tests? Tool-use tests for every integration?
 4. **Instruction-topic overlap** — Content that appears in both instructions AND topics wastes tokens and risks contradiction. Flag duplicates.
 5. **Build feasibility** — Are there components referenced that don't exist in MCS? Preview features without fallbacks? Connectors that need OAuth setup?
@@ -858,7 +879,7 @@ function parseArgs() {
 
     if (args.length === 0 || args[0] === '--help') {
         console.log(`Usage:
-  Review commands:
+  Review commands (--brief and --spec are aliases; resolves agentspec.json with brief.json fallback):
   node multi-model-review.js review-instructions --brief <path>
   node multi-model-review.js review-topics --file <path> [--brief <path>]
   node multi-model-review.js review-brief --brief <path>
@@ -898,23 +919,43 @@ Setup:    gh auth login && gh auth refresh --scopes copilot`);
         process.exit(0);
     }
 
-    config.command = args[0];
+    // Strip any leading/interspersed --session-id flag before identifying the command,
+    // so it can appear before or after the subcommand (e.g. "multi-model-review.js --session-id X ask -q ...").
+    const filteredArgs = [];
+    for (let i = 0; i < args.length; i++) {
+        if (args[i] === '--session-id') {
+            process.env.CLAUDE_SESSION_ID = args[++i];
+        } else {
+            filteredArgs.push(args[i]);
+        }
+    }
+
+    config.command = filteredArgs[0];
     config.withFiles = [];
 
-    for (let i = 1; i < args.length; i++) {
-        switch (args[i]) {
-            case '--brief': config.briefPath = args[++i]; break;
-            case '--file': config.filePath = args[++i]; break;
-            case '--topic-spec': config.topicSpecPath = args[++i]; break;
-            case '--context': config.contextDesc = args[++i]; break;
-            case '--actual': config.actual = args[++i]; break;
-            case '--expected': config.expected = args[++i]; break;
-            case '--method': config.method = args[++i]; break;
-            case '--with': config.withFiles.push(args[++i]); break;
-            case '--question': case '-q': config.question = args[++i]; break;
-            case '--pattern': config.pattern = args[++i]; break;
-            case '--severity': config.severity = args[++i]; break;
+    for (let i = 1; i < filteredArgs.length; i++) {
+        switch (filteredArgs[i]) {
+            case '--brief': case '--spec': config.briefPath = filteredArgs[++i]; break;
+            case '--file': config.filePath = filteredArgs[++i]; break;
+            case '--topic-spec': config.topicSpecPath = filteredArgs[++i]; break;
+            case '--context': config.contextDesc = filteredArgs[++i]; break;
+            case '--actual': config.actual = filteredArgs[++i]; break;
+            case '--expected': config.expected = filteredArgs[++i]; break;
+            case '--method': config.method = filteredArgs[++i]; break;
+            case '--with': config.withFiles.push(filteredArgs[++i]); break;
+            case '--question': case '-q': config.question = filteredArgs[++i]; break;
+            case '--pattern': config.pattern = filteredArgs[++i]; break;
+            case '--severity': config.severity = filteredArgs[++i]; break;
             case '--verbose': config.verbose = true; break;
+        }
+    }
+
+    // Resolve --brief/--spec: prefer agentspec.json, fall back to brief.json
+    if (config.briefPath) {
+        const dir = path.dirname(config.briefPath);
+        const base = path.basename(config.briefPath);
+        if (base === 'brief.json' && fs.existsSync(path.join(dir, 'agentspec.json'))) {
+            config.briefPath = path.join(dir, 'agentspec.json');
         }
     }
 
@@ -993,7 +1034,7 @@ function parseGptJson(content) {
 
 async function reviewInstructions(config) {
     if (!config.briefPath) {
-        console.error('Error: --brief <path> is required for review-instructions');
+        console.error('Error: --brief/--spec <path> is required for review-instructions');
         process.exit(1);
     }
 
@@ -1005,7 +1046,7 @@ async function reviewInstructions(config) {
     const topics = (brief.conversations && brief.conversations.topics) || [];
 
     if (!instructions) {
-        console.error('Error: brief.json has no instructions field');
+        console.error('Error: agent spec has no instructions field');
         process.exit(1);
     }
 
@@ -1041,6 +1082,7 @@ ${topics.map(t => `- ${t.name} [trigger: ${t.triggerType || 'unknown'}]`).join('
     const parsed = parseGptJson(result.content);
     parsed._usage = result.usage;
     parsed._cost = `$${result.cost.toFixed(4)}`;
+    if (result.truncated) { parsed._truncated = true; parsed._incompleteReason = result.incompleteReason || 'max_output_tokens'; }
     console.log(JSON.stringify(parsed, null, 2));
 }
 
@@ -1078,12 +1120,13 @@ ${briefContext}`;
     const parsed = parseGptJson(result.content);
     parsed._usage = result.usage;
     parsed._cost = `$${result.cost.toFixed(4)}`;
+    if (result.truncated) { parsed._truncated = true; parsed._incompleteReason = result.incompleteReason || 'max_output_tokens'; }
     console.log(JSON.stringify(parsed, null, 2));
 }
 
 async function reviewBrief(config) {
     if (!config.briefPath) {
-        console.error('Error: --brief <path> is required for review-brief');
+        console.error('Error: --brief/--spec <path> is required for review-brief');
         process.exit(1);
     }
 
@@ -1131,6 +1174,7 @@ async function reviewBrief(config) {
     const parsed = parseGptJson(result.content);
     parsed._usage = result.usage;
     parsed._cost = `$${result.cost.toFixed(4)}`;
+    if (result.truncated) { parsed._truncated = true; parsed._incompleteReason = result.incompleteReason || 'max_output_tokens'; }
     console.log(JSON.stringify(parsed, null, 2));
 }
 
@@ -1157,6 +1201,7 @@ async function scoreResponse(config) {
     const parsed = parseGptJson(result.content);
     parsed._usage = result.usage;
     parsed._cost = `$${result.cost.toFixed(4)}`;
+    if (result.truncated) { parsed._truncated = true; parsed._incompleteReason = result.incompleteReason || 'max_output_tokens'; }
     console.log(JSON.stringify(parsed, null, 2));
 }
 
@@ -1164,7 +1209,7 @@ async function scoreResponse(config) {
 
 async function generateInstructions(config) {
     if (!config.briefPath) {
-        console.error('Error: --brief <path> is required for generate-instructions');
+        console.error('Error: --brief/--spec <path> is required for generate-instructions');
         process.exit(1);
     }
 
@@ -1212,12 +1257,13 @@ ${topics.map(t => `- **${t.name}** [trigger: ${t.triggerType || 'unknown'}, type
     const parsed = parseGptJson(result.content);
     parsed._usage = result.usage;
     parsed._cost = `$${result.cost.toFixed(4)}`;
+    if (result.truncated) { parsed._truncated = true; parsed._incompleteReason = result.incompleteReason || 'max_output_tokens'; }
     console.log(JSON.stringify(parsed, null, 2));
 }
 
 async function generateEvals(config) {
     if (!config.briefPath) {
-        console.error('Error: --brief <path> is required for generate-evals');
+        console.error('Error: --brief/--spec <path> is required for generate-evals');
         process.exit(1);
     }
 
@@ -1275,6 +1321,7 @@ ${topics.map(t => `- **${t.name}** [trigger: ${t.triggerType || 'unknown'}]`).jo
     const parsed = parseGptJson(result.content);
     parsed._usage = result.usage;
     parsed._cost = `$${result.cost.toFixed(4)}`;
+    if (result.truncated) { parsed._truncated = true; parsed._incompleteReason = result.incompleteReason || 'max_output_tokens'; }
     console.log(JSON.stringify(parsed, null, 2));
 }
 
@@ -1313,12 +1360,13 @@ ${briefContext}`;
     const parsed = parseGptJson(result.content);
     parsed._usage = result.usage;
     parsed._cost = `$${result.cost.toFixed(4)}`;
+    if (result.truncated) { parsed._truncated = true; parsed._incompleteReason = result.incompleteReason || 'max_output_tokens'; }
     console.log(JSON.stringify(parsed, null, 2));
 }
 
 async function generateComponents(config) {
     if (!config.briefPath) {
-        console.error('Error: --brief <path> is required for generate-components');
+        console.error('Error: --brief/--spec <path> is required for generate-components');
         process.exit(1);
     }
 
@@ -1370,12 +1418,13 @@ ${topics.map(t => `- **${t.name}** [type: ${t.topicType || 'custom'}]`).join('\n
     const parsed = parseGptJson(result.content);
     parsed._usage = result.usage;
     parsed._cost = `$${result.cost.toFixed(4)}`;
+    if (result.truncated) { parsed._truncated = true; parsed._incompleteReason = result.incompleteReason || 'max_output_tokens'; }
     console.log(JSON.stringify(parsed, null, 2));
 }
 
 async function generateFlow(config) {
     if (!config.briefPath) {
-        console.error('Error: --brief <path> is required for generate-flow');
+        console.error('Error: --brief/--spec <path> is required for generate-flow');
         process.exit(1);
     }
 
@@ -1421,12 +1470,13 @@ ${capabilities.map(c => `- **${c.name}** [type: ${c.implementationType || 'promp
     const parsed = parseGptJson(result.content);
     parsed._usage = result.usage;
     parsed._cost = `$${result.cost.toFixed(4)}`;
+    if (result.truncated) { parsed._truncated = true; parsed._incompleteReason = result.incompleteReason || 'max_output_tokens'; }
     console.log(JSON.stringify(parsed, null, 2));
 }
 
 async function generateFix(config) {
     if (!config.briefPath) {
-        console.error('Error: --brief <path> is required for generate-fix');
+        console.error('Error: --brief/--spec <path> is required for generate-fix');
         process.exit(1);
     }
 
@@ -1508,6 +1558,7 @@ ${failures.map((f, i) => `
     const parsed = parseGptJson(result.content);
     parsed._usage = result.usage;
     parsed._cost = `$${result.cost.toFixed(4)}`;
+    if (result.truncated) { parsed._truncated = true; parsed._incompleteReason = result.incompleteReason || 'max_output_tokens'; }
     console.log(JSON.stringify(parsed, null, 2));
 }
 
@@ -1543,6 +1594,7 @@ ${briefContext}`;
     const parsed = parseGptJson(result.content);
     parsed._usage = result.usage;
     parsed._cost = `$${result.cost.toFixed(4)}`;
+    if (result.truncated) { parsed._truncated = true; parsed._incompleteReason = result.incompleteReason || 'max_output_tokens'; }
     console.log(JSON.stringify(parsed, null, 2));
 }
 
@@ -1638,7 +1690,7 @@ function getFileTypeChecks(filePath) {
 
 async function reviewMerged(config) {
     if (!config.briefPath) {
-        console.error('Error: --brief <path> is required for review-merged');
+        console.error('Error: --brief/--spec <path> is required for review-merged');
         process.exit(1);
     }
 
@@ -1707,6 +1759,7 @@ async function reviewMerged(config) {
     const parsed = parseGptJson(result.content);
     parsed._usage = result.usage;
     parsed._cost = `$${result.cost.toFixed(4)}`;
+    if (result.truncated) { parsed._truncated = true; parsed._incompleteReason = result.incompleteReason || 'max_output_tokens'; }
     console.log(JSON.stringify(parsed, null, 2));
 }
 
@@ -1802,6 +1855,7 @@ ${contextNote}${checklistSection}${memorySection}${importContextSection}${withFi
     const parsed = parseGptJson(result.content);
     parsed._usage = result.usage;
     parsed._cost = `$${result.cost.toFixed(4)}`;
+    if (result.truncated) { parsed._truncated = true; parsed._incompleteReason = result.incompleteReason || 'max_output_tokens'; }
     parsed._contextStats = {
         fileTypeChecks: fileTypeMatches.map(m => m.label),
         autoResolvedImports: resolvedImports.size,
@@ -1814,7 +1868,7 @@ ${contextNote}${checklistSection}${memorySection}${importContextSection}${withFi
 
 async function reviewComponents(config) {
     if (!config.briefPath) {
-        console.error('Error: --brief <path> is required for review-components');
+        console.error('Error: --brief/--spec <path> is required for review-components');
         process.exit(1);
     }
 
@@ -1841,6 +1895,7 @@ async function reviewComponents(config) {
     const parsed = parseGptJson(result.content);
     parsed._usage = result.usage;
     parsed._cost = `$${result.cost.toFixed(4)}`;
+    if (result.truncated) { parsed._truncated = true; parsed._incompleteReason = result.incompleteReason || 'max_output_tokens'; }
     console.log(JSON.stringify(parsed, null, 2));
 }
 
@@ -1873,8 +1928,23 @@ async function showModels() {
             maxOutput: m.capabilities?.limits?.max_output_tokens
         }))
         .sort((a, b) => (b.id || '').localeCompare(a.id || ''));
-    const current = 'gpt-5.4';
-    console.log(`Current default: ${current}\n`);
+    // Pull current resolved id from openai.js so we always reflect what's
+    // actually being sent to the API (env override / discovered / floor).
+    const openai = require('./lib/openai');
+    let current = openai.getResolvedGptId();
+    if (!current) {
+        try { current = await openai.warmGptModelResolution(); } catch { /* ignore */ }
+    }
+    if (!current) current = openai.KNOWN_LATEST_GPT;
+    const info = openai.getGptModelInfo();
+    const source = info.envOverride
+        ? 'env override (GPT_MODEL_ID)'
+        : info.skipDiscovery
+            ? 'floor (discovery skipped)'
+            : info.resolvedGptId
+                ? 'discovered'
+                : 'floor (discovery pending)';
+    console.log(`Current default: ${current}  [${source}]\n`);
     console.log('GPT-5.x models available:');
     for (const m of models) {
         const marker = m.id === current ? ' ← current' : '';
@@ -1882,7 +1952,9 @@ async function showModels() {
     }
     if (models.length > 0 && models[0].id !== current) {
         console.log(`\nNewer model available: ${models[0].id}`);
-        console.log(`Update COPILOT_DEFAULT_MODEL in tools/lib/openai.js to use it.`);
+        console.log('Discovery should pick this up automatically on the next process start.');
+        console.log('To force a specific id: set GPT_MODEL_ID env var.');
+        console.log('To bump the fallback floor: edit KNOWN_LATEST_GPT in tools/lib/openai.js.');
     } else {
         console.log('\nYou are on the latest model.');
     }
@@ -1963,7 +2035,7 @@ async function askGpt(config) {
     const messages = [
         {
             role: 'system',
-            content: 'You are GPT-5.4, a senior software engineer providing a second opinion. Be concise, direct, and specific. If you disagree with something, say so clearly and explain why. Return your response as JSON: { "answer": "<your response>", "files_reviewed": [<list of files if any>] }'
+            content: 'You are GPT-5.5, a senior software engineer providing a second opinion. Be concise, direct, and specific. If you disagree with something, say so clearly and explain why. Return your response as JSON: { "answer": "<your response>", "files_reviewed": [<list of files if any>] }'
         }
     ];
 
@@ -1997,6 +2069,7 @@ async function askGpt(config) {
     }
     if (!parsed.files_reviewed) parsed.files_reviewed = files;
     parsed._usage = result.usage;
+    if (result.truncated) { parsed._truncated = true; parsed._incompleteReason = result.incompleteReason || 'max_output_tokens'; }
 
     console.log(JSON.stringify(parsed, null, 2));
 }
@@ -2015,7 +2088,7 @@ async function challengePlan(config) {
     const messages = [
         {
             role: 'system',
-            content: `You are GPT-5.4, acting as an adversarial product owner, security reviewer, and QA lead. Your job is to BREAK the proposed plan before any code is written. Be ruthless but constructive.
+            content: `You are GPT-5.5, acting as an adversarial product owner, security reviewer, and QA lead. Your job is to BREAK the proposed plan before any code is written. Be ruthless but constructive.
 
 For every plan, produce a JSON response:
 {
@@ -2049,7 +2122,7 @@ For every plan, produce a JSON response:
 
     messages.push({ role: 'user', content: userMsg });
 
-    const result = await chatCompletion(messages, { maxTokens: 16384 });
+    const result = await chatCompletion(messages);
     let parsed;
     try {
         parsed = parseGptJson(result.content);
@@ -2057,6 +2130,7 @@ For every plan, produce a JSON response:
         parsed = { answer: result.content, verdict: 'unknown' };
     }
     parsed._usage = result.usage;
+    if (result.truncated) { parsed._truncated = true; parsed._incompleteReason = result.incompleteReason || 'max_output_tokens'; }
     console.log(JSON.stringify(parsed, null, 2));
 }
 
@@ -2073,7 +2147,7 @@ async function diagnoseFailure(config) {
     const messages = [
         {
             role: 'system',
-            content: `You are GPT-5.4, diagnosing a failure independently. You have NOT seen any other diagnosis — produce your own fresh hypotheses. Be concrete and actionable.
+            content: `You are GPT-5.5, diagnosing a failure independently. You have NOT seen any other diagnosis — produce your own fresh hypotheses. Be concrete and actionable.
 
 Return JSON:
 {
@@ -2109,7 +2183,7 @@ Return JSON:
 
     messages.push({ role: 'user', content: userMsg });
 
-    const result = await chatCompletion(messages, { maxTokens: 16384 });
+    const result = await chatCompletion(messages);
     let parsed;
     try {
         parsed = parseGptJson(result.content);
@@ -2117,14 +2191,17 @@ Return JSON:
         parsed = { answer: result.content };
     }
     parsed._usage = result.usage;
+    if (result.truncated) { parsed._truncated = true; parsed._incompleteReason = result.incompleteReason || 'max_output_tokens'; }
     console.log(JSON.stringify(parsed, null, 2));
 }
 
 function showUsage() {
     const summary = getUsageSummary();
     const method = getActiveMethod();
+    const openai = require('./lib/openai');
+    const resolvedGpt = openai.getResolvedGptId() || openai.KNOWN_LATEST_GPT;
     const METHOD_LABELS = {
-        'copilot-api': 'GitHub Copilot API — GPT-5.4'
+        'copilot-api': `GitHub Copilot API — ${resolvedGpt}`
     };
     console.log(JSON.stringify({
         configured: isConfigured(),
@@ -2266,21 +2343,93 @@ async function main() {
 }
 
 /**
- * Write attestation file proving GPT was invoked this session.
- * The Stop hook reads this to enforce dual-model co-generation.
+ * Resolve the current session's (sessionId, turnId, promptHash).
+ *
+ * Resolution order (most robust first):
+ *   1. CLAUDE_SESSION_ID env var + its pending marker
+ *   2. Newest pending marker whose bridgePath matches THIS process's cwd
+ *      (handles concurrent sessions in the same project)
+ *   3. Per-project bridge file as last-resort fallback
+ *
+ * Pending markers are authoritative for turnId/promptHash because they are
+ * per-session (pending-<sessionId>.json) and can't be overwritten by
+ * another session's UserPromptSubmit. The bridge file is a convenience
+ * cache; the marker is ground truth.
+ */
+function resolveCurrentTurn() {
+    const attestDir = path.join(os.tmpdir(), 'claude-gpt-attestations');
+    const myBridge = path.resolve(path.join(process.cwd(), '.claude', '.gpt-session.json'));
+
+    function readMarkerFor(sessionId) {
+        try {
+            const markerPath = path.join(attestDir, `pending-${sessionId}.json`);
+            if (!fs.existsSync(markerPath)) return null;
+            return JSON.parse(fs.readFileSync(markerPath, 'utf8'));
+        } catch { return null; }
+    }
+
+    // 1. CLAUDE_SESSION_ID env var (future-proof; Claude Code may set this)
+    const envSessionId = process.env.CLAUDE_SESSION_ID;
+    if (envSessionId) {
+        const m = readMarkerFor(envSessionId);
+        return {
+            sessionId: envSessionId,
+            turnId: m && typeof m.turnId === 'number' ? m.turnId : null,
+            promptHash: m ? m.promptHash || null : null,
+        };
+    }
+
+    // 2. Newest pending marker matching THIS cwd (via bridgePath field in marker)
+    try {
+        if (fs.existsSync(attestDir)) {
+            let best = null;
+            let bestTs = 0;
+            for (const name of fs.readdirSync(attestDir)) {
+                if (!name.startsWith('pending-') || !name.endsWith('.json')) continue;
+                try {
+                    const data = JSON.parse(fs.readFileSync(path.join(attestDir, name), 'utf8'));
+                    if (!data.bridgePath) continue;
+                    if (path.resolve(data.bridgePath) !== myBridge) continue;
+                    const ts = Date.parse(data.promptTimestamp || '') || 0;
+                    if (ts > bestTs) { bestTs = ts; best = data; }
+                } catch { /* skip corrupt */ }
+            }
+            if (best) {
+                return {
+                    sessionId: best.sessionId || 'unknown',
+                    turnId: typeof best.turnId === 'number' ? best.turnId : null,
+                    promptHash: best.promptHash || null,
+                };
+            }
+        }
+    } catch { /* fall through */ }
+
+    // 3. Per-project bridge (last resort — may be stale if multiple sessions race)
+    try {
+        if (fs.existsSync(myBridge)) {
+            const data = JSON.parse(fs.readFileSync(myBridge, 'utf8'));
+            return {
+                sessionId: data.sessionId || 'unknown',
+                turnId: typeof data.turnId === 'number' ? data.turnId : null,
+                promptHash: data.promptHash || null,
+            };
+        }
+    } catch { /* ignore */ }
+
+    return { sessionId: 'unknown', turnId: null, promptHash: null };
+}
+
+/**
+ * Write attestation file proving GPT was invoked this turn.
+ * Tags each invocation with (sessionId, turnId, promptHash) so the Stop
+ * hook can bind the attestation to the specific prompt that requested it.
  * Also cleans up stale attestation/pending files older than 24h.
  */
 function writeAttestation(command, status = 'success') {
     try {
         const attestDir = path.join(os.tmpdir(), 'claude-gpt-attestations');
-        // Read session ID from bridge file written by gpt-reminder.js hook
-        let sessionId = process.env.CLAUDE_SESSION_ID || 'unknown';
-        if (sessionId === 'unknown') {
-            try {
-                const bridge = JSON.parse(fs.readFileSync(path.join(attestDir, 'current-session.json'), 'utf8'));
-                if (bridge.sessionId) sessionId = bridge.sessionId;
-            } catch { /* no bridge file — use unknown */ }
-        }
+        const { sessionId, turnId, promptHash } = resolveCurrentTurn();
+
         if (!fs.existsSync(attestDir)) fs.mkdirSync(attestDir, { recursive: true });
         const attestPath = path.join(attestDir, `${sessionId}.json`);
 
@@ -2292,23 +2441,33 @@ function writeAttestation(command, status = 'success') {
         record.invocations.push({
             command,
             status,
+            turnId,
+            promptHash,
             timestamp: new Date().toISOString(),
         });
+        // Cap at last 200 invocations to prevent unbounded growth
+        if (record.invocations.length > 200) {
+            record.invocations = record.invocations.slice(-200);
+        }
         record.lastUpdated = new Date().toISOString();
-        fs.writeFileSync(attestPath, JSON.stringify(record, null, 2));
 
-        // --- Garbage collect stale files (>24h) on every write ---
-        // Prevents unbounded accumulation of attestation/pending files from dead sessions
+        // Atomic write (tmp + rename) so readers never see a partial file
+        const tmp = attestPath + '.tmp';
+        fs.writeFileSync(tmp, JSON.stringify(record, null, 2));
+        fs.renameSync(tmp, attestPath);
+
+        // Garbage collect stale files (>24h) on every write
         try {
             const cutoff = Date.now() - 24 * 60 * 60 * 1000;
             for (const name of fs.readdirSync(attestDir)) {
                 if (name === 'current-session.json') continue;
-                if (name === `${sessionId}.json`) continue; // don't gc current session
+                if (name === `${sessionId}.json`) continue;
+                if (name === `pending-${sessionId}.json`) continue;
                 const filePath = path.join(attestDir, name);
-                const stat = fs.statSync(filePath);
-                if (stat.mtimeMs < cutoff) {
-                    fs.unlinkSync(filePath);
-                }
+                try {
+                    const stat = fs.statSync(filePath);
+                    if (stat.mtimeMs < cutoff) fs.unlinkSync(filePath);
+                } catch { /* skip */ }
             }
         } catch { /* gc is best-effort */ }
     } catch {

@@ -15,7 +15,7 @@ Generate correct, validated YAML for topics and adaptive cards. Every YAML you p
 
 ## Check outputFormat and cardDesign Before Generating
 
-When generating a topic definition from brief.json, always check the topic entry for `outputFormat` and `cardDesign`. If `outputFormat` is `"adaptive-card"`, generate `SendMessage` with `AdaptiveCardTemplate` — not plain text `SendActivity` — because skipping cards was a confirmed build gap (bm-029).
+When generating a topic definition from agentspec.json, always check the topic entry for `outputFormat` and `cardDesign`. If `outputFormat` is `"adaptive-card"`, generate `SendMessage` with `AdaptiveCardTemplate` — not plain text `SendActivity` — because skipping cards was a confirmed build gap (bm-029).
 
 For the two-step creation process (Gateway API creates with text placeholder, LSP push updates with card): generate both a plain-text topic definition JSON for `island-client.js createTopic` and the full YAML with `SendMessage` + `AdaptiveCardTemplate` for LSP push. Card schema version: use `1.5` for Teams. See `knowledge/patterns/topic-patterns/adaptive-card.yaml`.
 
@@ -121,7 +121,7 @@ Common triggers: `OnRecognizedIntent` (AI match), `OnConversationStart`, `OnUnkn
 ## Validation Checklist
 
 1. **Schema (automated):** `tools/om-cli/om-cli.exe validate -f <file.yaml>` — must pass
-2. **Semantic gates (automated):** `python tools/semantic-gates.py <file.yaml> --brief <brief.json>` — 5 gates: PowerFx validity, cross-refs, variable flow, channel compat, connector refs
+2. **Semantic gates (automated):** `python tools/semantic-gates.py <file.yaml> --brief <agentspec.json>` — 5 gates: PowerFx validity, cross-refs, variable flow, channel compat, connector refs
 3. **Structural (manual):** Root is `AdaptiveDialog`; unique `id`s; correct trigger `kind`; `Topic.varName` scope; `init:` on first use; array `activity.text`; `=` on inputs not outputs; `aIModelId` after bindings; valid card JSON; descriptive topic description; specific entity types
 
 ## Gen Orchestration Topic Rules
@@ -171,7 +171,7 @@ Microsoft warns that designing complex topics entirely in the code editor isn't 
 For complex topics (3+ nodes) during `/mcs-build` Step 4 or `/mcs-fix`:
 
 1. Generate and validate using constrained generation workflow
-2. Fire GPT: `node tools/multi-model-review.js generate-topics --topic-spec <spec.json> --brief <brief.json>`
+2. Fire GPT: `node tools/multi-model-review.js generate-topics --topic-spec <spec.json> --brief <agentspec.json>`
 3. Validate GPT YAML with om-cli
 4. Merge: both pass -> merge node-by-node (prefer Claude's structure because you have deeper om-cli context); only one passes -> use valid one; neither -> fix yours first
 5. Report: node counts, validation results, GPT contributions
@@ -199,3 +199,7 @@ Do NOT generate topics that reference individual M365 MCP servers (Mail, Calenda
 - Challenge the Research Analyst if they recommend unverifiable trigger types.
 - Flag adaptive card designs that won't work on the target channel.
 - Prefer simpler topic structures over clever complex ones.
+
+## Memory & Plugin Access
+
+You have no Skill tool access. The **lead** invokes plugins on your behalf and passes you results. claude-mem captures your tool calls passively via PostToolUse hooks; the lead queries it during failure triage to surface prior fixes. Focus on doing good work — orchestration handles itself.

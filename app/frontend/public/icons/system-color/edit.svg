@@ -1,0 +1,34 @@
+<svg viewBox="2.0 2.0 43.998000000000005 44.003" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg x="4" y="4" width="39.997" height="39.998" viewBox="0 0 39.9971 39.9977" fill="none">
+<path id="Shape" d="M37.9741 2.02297C35.2767 -0.674439 30.9033 -0.674306 28.2061 2.02327L4.03755 26.1947C3.27584 26.9565 2.73303 27.9091 2.46599 28.9528L0.0390406 38.4378C-0.0703958 38.8655 0.0538945 39.3192 0.366025 39.6314C0.678156 39.9436 1.13183 40.0681 1.55956 39.9587L11.0458 37.5342C12.0904 37.2672 13.0439 36.724 13.8062 35.9616L37.9744 11.7904C40.6714 9.09309 40.6713 4.72015 37.9741 2.02297Z" fill="url(#paint0_linear_488_2176)"/>
+<defs>
+<linearGradient id="paint0_linear_488_2176" x1="23.2523" y1="10.8264" x2="28.9692" y2="25.9945" gradientUnits="userSpaceOnUse">
+<stop stop-color="#FFA43D"/>
+<stop offset="1" stop-color="#FB5937"/>
+</linearGradient>
+</defs></svg>
+<svg x="27.32" y="4" width="16.678" height="16.429" viewBox="0 0 16.6775 16.4287" fill="none">
+<path id="Intersect" d="M4.88672 2.02343C7.58385 -0.674025 11.9569 -0.674601 14.6543 2.02245C17.3514 4.71957 17.3521 9.09267 14.6553 11.79L10.0156 16.4287C7.74665 15.9669 5.42291 14.7403 3.48047 12.7978C1.72268 11.0401 0.549674 8.97012 0 6.91112L4.88672 2.02343Z" fill="url(#paint0_linear_488_2168)"/>
+<defs>
+<linearGradient id="paint0_linear_488_2168" x1="13.1596" y1="3.38999" x2="7.14387" y2="9.22609" gradientUnits="userSpaceOnUse">
+<stop stop-color="#F97DBD"/>
+<stop offset="1" stop-color="#DD3CE2"/>
+</linearGradient>
+</defs></svg>
+<svg x="25.94" y="8.29" width="13.785" height="13.749" viewBox="0 0 13.7852 13.749" fill="none">
+<path id="Subtract" d="M4 0C4.78425 2.02034 6.0937 4.04976 7.88574 5.8418C9.69494 7.65088 11.7457 8.96753 13.7852 9.74902L9.78613 13.749C7.74642 12.9676 5.69515 11.6511 3.88574 9.8418C2.09343 8.04949 0.784205 6.01967 0 3.99902L4 0Z" fill="url(#paint0_linear_488_2190)"/>
+<defs>
+<linearGradient id="paint0_linear_488_2190" x1="5.66916" y1="11.102" x2="-4.79232" y2="6.65165" gradientUnits="userSpaceOnUse">
+<stop stop-color="#FF921F"/>
+<stop offset="1" stop-color="#FFE994"/>
+</linearGradient>
+</defs></svg>
+<svg x="4" y="30.3" width="13.724" height="13.703" viewBox="0 0 13.7235 13.703" fill="none">
+<path id="Subtract" d="M3.94229 0C4.72675 2.01875 6.03547 4.0463 7.82608 5.83691C9.63469 7.64542 11.6847 8.96158 13.7235 9.74316C12.975 10.4643 12.054 10.9815 11.0458 11.2393L1.55948 13.6641C1.13182 13.7734 0.678248 13.649 0.366122 13.3369C0.0540394 13.0247 -0.0703737 12.5712 0.0389735 12.1436L2.46573 2.6582C2.72138 1.65911 3.2311 0.74469 3.94229 0Z" fill="url(#paint0_linear_488_2172)"/>
+<defs>
+<linearGradient id="paint0_linear_488_2172" x1="-2.67728" y1="4.02233" x2="7.67247" y2="14.1865" gradientUnits="userSpaceOnUse">
+<stop offset="0.255" stop-color="#FFD394"/>
+<stop offset="1" stop-color="#FF921F"/>
+</linearGradient>
+</defs></svg>
+</svg>

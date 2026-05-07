@@ -10,7 +10,7 @@ Two-step selection: Account then Environment. Confirm the environment explicitly
 
 ### Step A: Account + Environment Selection
 
-1. **Read brief.json** — check `buildStatus.account`, `buildStatus.environment`, `buildStatus.accountId`
+1. **Read agentspec.json** — check `buildStatus.account`, `buildStatus.environment`, `buildStatus.accountId`
 2. **Read `tools/session-config.json`** — get all accounts and their environments
 3. **Build the confirmation question:**
    - If `buildStatus` has account + environment (previous build): pre-fill from buildStatus
@@ -24,7 +24,7 @@ Two-step selection: Account then Environment. Confirm the environment explicitly
    - **Two questions required:** If the pre-filled account has 2+ environments, ask Q2 separately because the last-used environment may not be the right one.
 
 5. **Persist the selection** to both locations:
-   - `brief.json.buildStatus` — set `account`, `environment`, `accountId`
+   - `agentspec.json.buildStatus` — set `account`, `environment`, `accountId`
    - `session-config.json.sessionDefaults` — set `lastAccount`, `lastEnvironment`, `lastUpdated`
 
 ### Step B: Three-Layer Verification

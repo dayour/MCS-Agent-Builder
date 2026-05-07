@@ -218,6 +218,177 @@ async function extractContent(filePath) {
   return { content: "", error: null };
 }
 
+// ---------------------------------------------------------------------------
+// Transcript Summarization — runs at upload time, replaces raw with digest
+// ---------------------------------------------------------------------------
+
+const TRANSCRIPT_SUMMARIZE_THRESHOLD = 50_000; // Only summarize transcripts > 50K chars
+
+// Global queue — only one transcript summarization at a time to avoid rate limits
+let _summarizeQueue = Promise.resolve();
+
+/**
+ * Summarize a transcript file into a structured digest.
+ * Replaces the file in-place. If summarization fails, keeps the original.
+ *
+ * @param {string} filePath - Path to the transcript file in docs/
+ * @returns {{ summarized: boolean, error: string|null, originalSize: number, digestSize: number }}
+ */
+async function summarizeTranscript(filePath) {
+  // Serialize — only one transcript at a time to respect rate limits
+  const result = await new Promise((resolve) => {
+    _summarizeQueue = _summarizeQueue.then(() => _doSummarizeTranscript(filePath)).then(resolve, resolve);
+  });
+  return result;
+}
+
+async function _doSummarizeTranscript(filePath) {
+  const content = fs.readFileSync(filePath, "utf-8");
+  const originalSize = content.length;
+
+  if (originalSize < TRANSCRIPT_SUMMARIZE_THRESHOLD) {
+    return { summarized: false, error: null, originalSize, digestSize: originalSize };
+  }
+
+  // Lazy-load anthropic API (avoid circular deps at module level)
+  let anthropicApi;
+  try {
+    anthropicApi = require("../../tools/lib/anthropic");
+  } catch {
+    return { summarized: false, error: "Anthropic API not available", originalSize, digestSize: originalSize };
+  }
+
+  if (!anthropicApi.isConfigured()) {
+    return { summarized: false, error: "Claude API not configured", originalSize, digestSize: originalSize };
+  }
+
+  const systemPrompt = `You are an expert at extracting structured, actionable information from meeting transcripts for Microsoft Copilot Studio agent design.
+
+Your job: transform a raw meeting transcript into a structured digest that captures EVERY piece of useful information while removing all noise (greetings, small talk, filler words, repetition, off-topic tangents, "um/uh", screen-sharing narration).
+
+Output format — use these exact markdown sections. Include ALL items found, not just highlights:
+
+# Transcript Digest
+**Meeting:** [topic/title if mentioned]
+**Participants:** [names/roles if identifiable]
+**Date:** [if mentioned]
+
+## Decisions Made
+- [DECIDED] statement — Speaker: name (if known)
+
+## Capability Requests
+- "verbatim or near-verbatim quote of what they want the agent to do" — Speaker, timestamp if available
+- Include implicit requests (pain points that imply a capability)
+
+## Requirements
+- Explicit requirement or constraint mentioned
+- Include compliance, security, process, approval requirements
+
+## Integration & System Mentions
+- System name — what role it plays, how it connects
+- Include APIs, databases, existing tools, manual processes to replace
+
+## Boundaries & Scope
+- What the agent should handle
+- What it should NOT handle (explicit exclusions)
+- Handoff points (agent → human)
+
+## Pain Points & Motivations
+- "quote or paraphrase of the problem" — Speaker
+- Include time/cost impact if mentioned
+
+## Open Questions & Ambiguities
+- Question or unresolved point — context
+- Include disagreements between participants
+
+## Action Items
+- Action — Owner (if assigned), deadline (if mentioned)
+
+Rules:
+- Be EXHAUSTIVE — every decision, requirement, capability request, system mention matters
+- Preserve speaker attribution where possible
+- Preserve approximate timestamps or sequence ("early in call", "after demo")
+- If something is uncertain or disputed, note it in Open Questions
+- Do NOT invent information not in the transcript
+- Do NOT summarize into high-level bullet points — keep the detail
+- Output should be 2000-6000 words depending on transcript richness`;
+
+  // For very large transcripts, chunk and process sequentially
+  // Copilot passthrough has strict TPM limits — keep chunks small and pace requests
+  const MAX_CHUNK = 200_000; // ~50K tokens per chunk — safe for Copilot rate limits
+  const DELAY_BETWEEN_CHUNKS_MS = 5000; // 5s cooldown between calls
+  const chunks = [];
+  for (let i = 0; i < content.length; i += MAX_CHUNK) {
+    chunks.push(content.slice(i, i + MAX_CHUNK));
+  }
+
+  console.log(`[transcript] ${(content.length / 1024).toFixed(0)}KB → ${chunks.length} chunk(s) of ~${(MAX_CHUNK / 1024).toFixed(0)}KB`);
+
+  // Retry wrapper with long backoff for rate limits (Copilot TPM is strict)
+  async function callWithRetry(msgs, attempt = 0) {
+    const MAX_RETRIES = 4;
+    const BACKOFF = [15_000, 30_000, 60_000, 90_000]; // 15s, 30s, 60s, 90s
+    try {
+      return await anthropicApi.chatCompletion(msgs, { model: "opus", maxTokens: 16384, timeout: 300_000, cacheSystem: true });
+    } catch (err) {
+      if (attempt < MAX_RETRIES && (err.message?.includes("429") || err.message?.includes("rate_limit"))) {
+        const delay = BACKOFF[attempt];
+        console.log(`[transcript] Rate limited — waiting ${delay / 1000}s before retry ${attempt + 1}/${MAX_RETRIES}...`);
+        await new Promise(r => setTimeout(r, delay));
+        return callWithRetry(msgs, attempt + 1);
+      }
+      throw err;
+    }
+  }
+
+  try {
+    let digest;
+    if (chunks.length === 1) {
+      // Single pass
+      const result = await callWithRetry([
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `Summarize this meeting transcript into a structured digest:\n\n${chunks[0]}` },
+      ]);
+      digest = result.content;
+    } else {
+      // Multi-pass — sequential with cooldown, then merge
+      const chunkDigests = [];
+
+      for (let i = 0; i < chunks.length; i++) {
+        console.log(`[transcript] Processing chunk ${i + 1}/${chunks.length}...`);
+        if (i > 0) await new Promise(r => setTimeout(r, DELAY_BETWEEN_CHUNKS_MS));
+
+        const result = await callWithRetry([
+          { role: "system", content: systemPrompt },
+          { role: "user", content: `Summarize this section (part ${i + 1}/${chunks.length}) of a meeting transcript:\n\n${chunks[i]}` },
+        ]);
+        chunkDigests.push(result.content);
+      }
+
+      console.log(`[transcript] All ${chunks.length} chunks done — merging...`);
+
+      // Merge pass
+      const mergeResult = await callWithRetry([
+        { role: "system", content: `You are merging multiple partial transcript digests into one cohesive structured digest. Deduplicate items, resolve contradictions, maintain chronological order. Use the same output format (Decisions, Capability Requests, Requirements, etc.). Be exhaustive — include everything from all parts.` },
+        { role: "user", content: `Merge these ${chunkDigests.length} partial digests into one:\n\n${chunkDigests.join("\n\n---\n\n")}` },
+      ]);
+      digest = mergeResult.content;
+    }
+
+    if (!digest || digest.length < 500) {
+      return { summarized: false, error: "Digest too short — keeping original", originalSize, digestSize: originalSize };
+    }
+
+    // Add provenance header
+    const header = `<!-- Structured digest generated from raw transcript (${(originalSize / 1024).toFixed(0)}KB → ${(digest.length / 1024).toFixed(0)}KB) -->\n<!-- Generated: ${new Date().toISOString()} | Chunks: ${chunks.length} -->\n\n`;
+
+    fs.writeFileSync(filePath, header + digest, "utf-8");
+    return { summarized: true, error: null, originalSize, digestSize: digest.length };
+  } catch (err) {
+    return { summarized: false, error: `Summarization failed: ${err.message}`, originalSize, digestSize: originalSize };
+  }
+}
+
 module.exports = {
   NEEDS_CONVERSION,
   isZipFile,
@@ -226,4 +397,5 @@ module.exports = {
   extractContent,
   docxToMarkdown,
   excelToCsv,
+  summarizeTranscript,
 };

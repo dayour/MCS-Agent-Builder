@@ -10,10 +10,10 @@ Five gates that catch errors om-cli's structural validation misses:
   5. Connector references — InvokeConnectorAction vs configured tools
 
 Usage:
-    python tools/semantic-gates.py <file.yaml>                          # Gates 1,3 (single file)
-    python tools/semantic-gates.py <file.yaml> --brief <brief.json>     # All 5 gates
-    python tools/semantic-gates.py --dir <topics/> --brief <brief.json> # All files + cross-refs
-    python tools/semantic-gates.py <file.yaml> --gates 1,3,4            # Specific gates only
+    python tools/semantic-gates.py <file.yaml>                                    # Gates 1,3 (single file)
+    python tools/semantic-gates.py <file.yaml> --brief <agentspec.json>            # All 5 gates (--brief/--spec accepted)
+    python tools/semantic-gates.py --dir <topics/> --brief <agentspec.json>        # All files + cross-refs
+    python tools/semantic-gates.py <file.yaml> --gates 1,3,4                       # Specific gates only
 """
 
 import json
@@ -300,9 +300,17 @@ def gate5_connector_refs(text: str, configured_tools: set[str] | None = None) ->
     return issues
 
 
+def _resolve_spec_path(brief_path: str) -> str:
+    """Resolve agentspec.json with brief.json fallback."""
+    d = os.path.dirname(brief_path)
+    spec = os.path.join(d, "agentspec.json")
+    return spec if os.path.exists(spec) and os.path.basename(brief_path) == "brief.json" else brief_path
+
+
 def load_brief_context(brief_path: str) -> dict:
-    """Extract semantic gate context from brief.json."""
-    with open(brief_path) as f:
+    """Extract semantic gate context from agent spec (agentspec.json or brief.json)."""
+    resolved = _resolve_spec_path(brief_path)
+    with open(resolved) as f:
         brief = json.load(f)
 
     context = {
@@ -417,7 +425,7 @@ def suggest_fix(issue: dict) -> str | None:
         return "Simplify the card: reduce body elements, split into multiple cards, or use a carousel."
 
     if t == "unknown_connector":
-        return "Check the connector name in MCS Tools tab. It may differ from brief.json (e.g., 'Jira' vs 'Atlassian Jira Cloud')."
+        return "Check the connector name in MCS Tools tab. It may differ from agent spec (e.g., 'Jira' vs 'Atlassian Jira Cloud')."
 
     if t == "unverified_flow":
         return "Verify the flow exists in Power Automate and is shared with the agent."
@@ -466,7 +474,7 @@ def format_report(filepath: str, issues: list[dict], show_fixes: bool = False) -
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python tools/semantic-gates.py <file.yaml> [--brief <brief.json>] [--dir <topics/>] [--gates 1,3,4] [--fix] [--json]")
+        print("Usage: python tools/semantic-gates.py <file.yaml> [--brief <agentspec.json>] [--dir <topics/>] [--gates 1,3,4] [--fix] [--json]")
         sys.exit(1)
 
     # Parse args
@@ -480,7 +488,7 @@ def main():
     i = 1
     while i < len(sys.argv):
         arg = sys.argv[i]
-        if arg == "--brief" and i + 1 < len(sys.argv):
+        if arg in ("--brief", "--spec") and i + 1 < len(sys.argv):
             brief_path = sys.argv[i + 1]
             i += 2
         elif arg == "--dir" and i + 1 < len(sys.argv):

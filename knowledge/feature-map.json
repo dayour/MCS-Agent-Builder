@@ -1,0 +1,269 @@
+{
+  "$schema": "Feature dependency registry for agentic test expansion",
+  "$doc": "Maps feature keywords to related features, routes, components, stores, and test tags. Used by tools/agentic-test-loop.js --feature to expand narrow fix requests into comprehensive test coverage.",
+  "$version": 2,
+  "$mcp_check_schema": {
+    "action": "one of: navigate | snapshot | verify_text | console | click (allowlisted, non-destructive by default)",
+    "route": "hash route path, required for navigate/snapshot/verify_text/console",
+    "text": "expected substring (verify_text only)",
+    "selector": "Playwright selector (click only — must match /^[\\[\\]a-zA-Z0-9_\\-=:'\" .#>,\\*]+$/ for safety)",
+    "expect": "optional selector to verify after click (click only)",
+    "expectText": "optional text to verify after click (click only)",
+    "consoleAllow": "array of regex strings for console messages to ignore (console only)",
+    "description": "human-readable purpose",
+    "timeoutMs": "per-step timeout (default 10000)",
+    "optional": "boolean — if true, failure does not fail the probe (default false)"
+  },
+  "features": {
+    "auth": {
+      "aliases": ["login", "sign in", "authenticate", "app login", "account", "credentials"],
+      "description": "Authentication, account display, MSAL integration",
+      "routes": ["/", "/mystuff"],
+      "components": ["DexterMsalBridge", "DexterAuthGuard", "AuthFetchInjector", "NavAccountRow", "NavigationRail"],
+      "stores": ["DWContext"],
+      "apis": ["/api/readiness/credentials"],
+      "related": ["account-switching", "environment", "profile", "navigation"],
+      "tags": ["auth", "navigation"],
+      "mcp_checks": [
+        {"action": "verify_text", "route": "/", "text": "nav", "description": "Nav rail renders with auth state"},
+        {"action": "snapshot", "route": "/", "description": "Check account avatar and user name in nav"},
+        {"action": "console", "route": "/", "consoleAllow": ["502", "Bad Gateway", "Failed to load resource"], "description": "No auth-related console errors (502 from missing backend is tolerated)"}
+      ]
+    },
+    "account-switching": {
+      "aliases": ["switch account", "change account", "pac profile", "account menu"],
+      "description": "Switching between PAC profiles and accounts",
+      "routes": ["/", "/settings"],
+      "components": ["NavAccountRow", "NavEnvPicker", "NavigationRail"],
+      "stores": ["DWContext"],
+      "apis": ["/api/readiness/credentials"],
+      "related": ["auth", "environment", "navigation"],
+      "tags": ["auth", "navigation"],
+      "mcp_checks": [
+        {"action": "snapshot", "route": "/", "description": "Account menu accessible in nav"},
+        {"action": "click", "route": "/", "selector": "button[aria-label^='Account menu']", "description": "Account menu button click", "optional": true}
+      ]
+    },
+    "environment": {
+      "aliases": ["env", "environment selector", "env picker", "pac environment", "switch environment"],
+      "description": "Environment selection for PAC CLI operations",
+      "routes": ["/", "/settings"],
+      "components": ["NavEnvPicker", "EnvironmentSelector", "NavigationRail"],
+      "stores": ["envStore"],
+      "apis": ["/api/readiness/credentials"],
+      "related": ["auth", "account-switching", "navigation"],
+      "tags": ["auth", "navigation"],
+      "mcp_checks": [
+        {"action": "snapshot", "route": "/", "description": "Environment picker visible in nav"}
+      ]
+    },
+    "profile": {
+      "aliases": ["user profile", "avatar", "user name", "display name"],
+      "description": "User profile display in nav and account areas",
+      "routes": ["/"],
+      "components": ["NavAccountRow", "NavigationRail", "DexterWorkerProfileContext"],
+      "stores": ["DWContext"],
+      "apis": ["/api/readiness/credentials"],
+      "related": ["auth", "navigation"],
+      "tags": ["auth", "navigation"],
+      "mcp_checks": [
+        {"action": "snapshot", "route": "/", "description": "User name and avatar render in nav rail"}
+      ]
+    },
+    "navigation": {
+      "aliases": ["nav", "nav rail", "sidebar", "left sidebar", "menu"],
+      "description": "Navigation rail, agent list, route navigation",
+      "routes": ["/", "/mystuff", "/discover", "/build"],
+      "components": ["NavigationRail", "NavAgentList", "NavAccountRow", "NavEnvPicker", "Layout"],
+      "stores": ["AgentContext", "FeatureToggleContext"],
+      "apis": ["/api/readiness/credentials"],
+      "related": ["auth", "agent-management", "environment"],
+      "tags": ["navigation"],
+      "mcp_checks": [
+        {"action": "verify_text", "route": "/", "text": "nav", "description": "Nav rail is visible"},
+        {"action": "click", "route": "/", "selector": "nav button:nth-child(2)", "description": "Clicking 2nd nav button navigates", "optional": true},
+        {"action": "snapshot", "route": "/mystuff", "description": "Nav highlights active route"}
+      ]
+    },
+    "agent-management": {
+      "aliases": ["agents", "agent list", "create agent", "delete agent", "my stuff", "my agents", "my projects"],
+      "description": "Agent CRUD operations, agent list, switching agents",
+      "routes": ["/", "/mystuff", "/build"],
+      "components": ["NavAgentList", "HomePage", "MyStuffPage", "AgentContext"],
+      "stores": ["AgentContext"],
+      "apis": [],
+      "related": ["navigation", "build", "agent-config"],
+      "tags": ["agent-management", "navigation"],
+      "mcp_checks": [
+        {"action": "verify_text", "route": "/mystuff", "text": "My Projects", "description": "My Stuff page loads"},
+        {"action": "snapshot", "route": "/mystuff", "description": "Agent cards render correctly"},
+        {"action": "snapshot", "route": "/", "description": "Agent list in nav shows agents"}
+      ]
+    },
+    "agent-config": {
+      "aliases": ["agent settings", "agent instructions", "agent name", "agent icon"],
+      "description": "Agent configuration editing (instructions, name, icon, model)",
+      "routes": ["/build", "/settings"],
+      "components": ["AgentBuildPage", "InstructionsEditor", "AgentSettingsPage"],
+      "stores": ["AgentContext", "WorkflowContext"],
+      "apis": [],
+      "related": ["agent-management", "build", "save"],
+      "tags": ["build", "agent-management"],
+      "mcp_checks": [
+        {"action": "snapshot", "route": "/build", "description": "Build page renders agent editor"},
+        {"action": "snapshot", "route": "/settings", "description": "Settings page renders agent config"}
+      ]
+    },
+    "build": {
+      "aliases": ["build page", "agent build", "editor", "build experience"],
+      "description": "Core agent building experience",
+      "routes": ["/build"],
+      "components": ["BuildPageDispatcher", "AgentBuildPage", "InstructionsEditor", "ComponentsPanel", "ChecklistPane"],
+      "stores": ["AgentContext", "WorkflowContext", "FeatureToggleContext"],
+      "apis": [],
+      "related": ["agent-config", "save", "preview", "navigation"],
+      "tags": ["build"],
+      "mcp_checks": [
+        {"action": "snapshot", "route": "/build", "description": "Build page loads without crash"}
+      ]
+    },
+    "save": {
+      "aliases": ["auto save", "save indicator", "undo", "redo"],
+      "description": "Auto-save, undo/redo, save indicator",
+      "routes": ["/build"],
+      "components": ["SaveIndicator", "AgentContext"],
+      "stores": ["AgentContext"],
+      "apis": [],
+      "related": ["agent-config", "build", "snapshots"],
+      "tags": ["build"],
+      "mcp_checks": []
+    },
+    "preview": {
+      "aliases": ["test agent", "preview agent", "try agent", "chat preview", "agent preview"],
+      "description": "Agent preview/testing with chain-of-thought visualization",
+      "routes": ["/preview"],
+      "components": ["PreviewPage", "WorkflowCanvas"],
+      "stores": ["AgentContext", "WorkflowContext"],
+      "apis": [],
+      "related": ["build", "evaluation"],
+      "tags": ["preview", "evaluation"],
+      "mcp_checks": [
+        {"action": "verify_text", "route": "/preview", "text": "Preview your agent", "description": "Preview page loads"}
+      ]
+    },
+    "evaluation": {
+      "aliases": ["eval", "evaluate", "test cases", "run eval", "eval results"],
+      "description": "Agent evaluation with test cases and results",
+      "routes": ["/evaluate"],
+      "components": ["EvaluatePage", "AgentEvaluatePage", "TriggerLabPage"],
+      "stores": ["AgentContext", "WorkflowContext", "FeatureToggleContext"],
+      "apis": [],
+      "related": ["preview", "build"],
+      "tags": ["evaluation"],
+      "mcp_checks": [
+        {"action": "verify_text", "route": "/evaluate", "text": "Data type", "description": "Evaluate page loads"}
+      ]
+    },
+    "distribution": {
+      "aliases": ["distribute", "publish", "channels", "deploy agent"],
+      "description": "Agent publishing and distribution channels",
+      "routes": ["/distribute", "/mystuff"],
+      "components": ["DistributePage", "PublishConfirmDialog", "UpdateConfirmDialog"],
+      "stores": ["AgentContext"],
+      "apis": [],
+      "related": ["agent-management"],
+      "tags": ["distribution"],
+      "mcp_checks": [
+        {"action": "verify_text", "route": "/distribute", "text": "Distribute", "description": "Distribute page loads"}
+      ]
+    },
+    "snapshots": {
+      "aliases": ["snapshot", "version history", "restore", "versions"],
+      "description": "Agent snapshots and version history",
+      "routes": ["/snapshots"],
+      "components": ["SnapshotsPage", "SnapshotBrowserDialog", "VersionHistorySheet"],
+      "stores": ["AgentContext"],
+      "apis": [],
+      "related": ["save", "agent-management"],
+      "tags": ["snapshots"],
+      "mcp_checks": [
+        {"action": "verify_text", "route": "/snapshots", "text": "Snapshots", "description": "Snapshots page loads"}
+      ]
+    },
+    "discover": {
+      "aliases": ["gallery", "browse agents", "discover agents", "agent gallery"],
+      "description": "Browse and discover shared agents",
+      "routes": ["/discover"],
+      "components": ["DiscoverPage", "AgentsGallery"],
+      "stores": ["AgentContext"],
+      "apis": [],
+      "related": ["agent-management"],
+      "tags": ["discover"],
+      "mcp_checks": [
+        {"action": "verify_text", "route": "/discover", "text": "Discover", "description": "Discover page loads"}
+      ]
+    },
+    "helper": {
+      "aliases": ["helper panel", "assistant", "helper agent", "chat assistant", "helper chatbot"],
+      "description": "Helper agent panel in layout sidebar",
+      "routes": ["/"],
+      "components": ["HelperPanel", "HelperHeader", "HelperInput", "HelperMessages"],
+      "stores": ["helperStore"],
+      "apis": ["/api/helper/chat"],
+      "related": ["navigation", "build"],
+      "tags": ["helper"],
+      "mcp_checks": [
+        {"action": "snapshot", "route": "/", "description": "Helper panel toggle accessible"}
+      ]
+    },
+    "feature-flags": {
+      "aliases": ["feature toggles", "flags", "experiments"],
+      "description": "Feature flag system affecting 90+ UI behaviors",
+      "routes": ["/", "/settings"],
+      "components": ["FeatureToggleContext", "NavFeatureFlagsPanel"],
+      "stores": ["FeatureToggleContext"],
+      "apis": [],
+      "related": ["navigation", "build", "evaluation"],
+      "tags": ["feature-flags"],
+      "mcp_checks": []
+    },
+    "components-showcase": {
+      "aliases": ["components", "component library", "ui components"],
+      "description": "Component showcase/library page",
+      "routes": ["/components"],
+      "components": ["ComponentShowcaseWeb"],
+      "stores": [],
+      "apis": [],
+      "related": [],
+      "tags": ["components"],
+      "mcp_checks": [
+        {"action": "verify_text", "route": "/components", "text": "Components", "description": "Components page loads"}
+      ]
+    },
+    "wizard": {
+      "aliases": ["wizard", "chat wizard", "onboarding", "setup wizard"],
+      "description": "Guided wizard for agent creation and research",
+      "routes": ["/"],
+      "components": ["WizardLayout", "ChatPanel", "ChatComposer", "BriefPreviewPanel", "DocumentBar"],
+      "stores": ["wizardStore"],
+      "apis": ["/api/wizard/chat"],
+      "related": ["agent-management", "helper"],
+      "tags": ["wizard"],
+      "mcp_checks": []
+    },
+    "app-health": {
+      "aliases": ["health", "app health", "boot", "startup"],
+      "description": "App boot, React error boundaries, API proxy",
+      "routes": ["/"],
+      "components": ["App", "Layout"],
+      "stores": [],
+      "apis": ["/api/health"],
+      "related": ["navigation", "auth"],
+      "tags": ["health"],
+      "mcp_checks": [
+        {"action": "verify_text", "route": "/", "text": "nav", "description": "App boots without error boundary"},
+        {"action": "console", "route": "/", "description": "No critical console errors on boot"}
+      ]
+    }
+  }
+}

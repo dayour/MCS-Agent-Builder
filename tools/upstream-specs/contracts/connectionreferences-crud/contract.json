@@ -1,0 +1,31 @@
+{
+  "surfaceId": "connectionreferences-crud",
+  "method": "GET|POST",
+  "urlPattern": "{dataverseUrl}/api/data/v9.2/connectionreferences",
+  "auth": "Dataverse bearer token",
+  "validationStrategy": "odata-collection-or-row",
+  "_strategyNote": "Covers GET (query by filter) + POST (create). Same URL, different methods. Connection references tie botcomponents to connector OAuth flows.",
+  "kindDiscriminators": [],
+  "requiredFields": [
+    {"path": "POST $.connectionreferencelogicalname", "constraint": "unique logical name (e.g. 'publisher.shared_office365users_xxx')"},
+    {"path": "POST $.connectorid", "constraint": "connector API name (e.g. '/providers/Microsoft.PowerApps/apis/shared_office365users')"}
+  ],
+  "responseShape": "GET → { value: ConnectionReference[] }; POST → 201 { connectionreferenceid }",
+  "lastVerified": "2026-04-16",
+  "lastVerifiedBy": "Used by build-pipeline.stepComponents to resolve connections for connector-based components",
+  "typedAdapterRef": "app/lib/build-pipeline.js:stepComponents (resolveConnectionRef)",
+  "knownQuirks": [
+    "connectionreferencelogicalname must be globally unique per env — collisions require either finding the existing record via GET first or suffixing with a random token",
+    "connectorid format varies: some connectors use '/providers/Microsoft.PowerApps/apis/<name>' path, others use just the API name",
+    "Creating a connection reference does NOT create the underlying Connection — the Connection is provisioned when the user first authenticates",
+    "Until a Connection exists, attempts to use the reference return 400 with 'connection is not configured'"
+  ],
+  "nonContractualFields": [
+    "$.versionnumber, createdon, modifiedon",
+    "$.connectionreferencedisplayname (user-facing label)"
+  ],
+  "errorCases": [
+    {"status": 412, "reason": "Duplicate connectionreferencelogicalname"},
+    {"status": 400, "reason": "Unknown connectorid"}
+  ]
+}

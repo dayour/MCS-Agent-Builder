@@ -2,7 +2,7 @@
  * Upstream Repository Change Checker
  *
  * Checks tracked GitHub repos for changes since last check using `gh api`.
- * Designed to run on a 3-day schedule (session start or /mcs-refresh).
+ * Designed to run weekly via /mcs-sync (the upstream-repos adapter wraps this).
  *
  * Usage:
  *   node tools/upstream-check.js                    Check all repos
@@ -50,7 +50,7 @@ Options:
   --repo <name>  Check a specific repo (e.g., "microsoft/skills-for-copilot-studio")
 
 Checks GitHub repos listed in knowledge/upstream-repos.json for new commits
-since the last check date. Run every 3 days or via /mcs-refresh.`);
+since the last check date. Wrapped by /mcs-sync; run --update from action plans.`);
                 process.exit(0);
         }
     }
@@ -284,7 +284,7 @@ function main() {
 
         if (anyChanges) {
             console.log('\nAction needed: Review changed repos and integrate relevant updates.');
-            console.log('Run /mcs-refresh to also update knowledge cache files.');
+            console.log('Run /mcs-sync to surface knowledge-cache drift as triage cards.');
         }
     }
 

@@ -428,14 +428,20 @@ function parseCSV(content) {
 }
 
 /**
- * Parse evalSets from brief.json into a flat test list with set metadata.
+ * Parse evalSets from agentspec.json (or brief.json) into a flat test list with set metadata.
  *
- * @param {string} briefPath - Path to brief.json
+ * @param {string} briefPath - Path to agent spec file (agentspec.json or brief.json)
  * @param {string[]} [filterSets] - Optional set names to include (null = all)
  * @returns {{ tests: Array, evalConfig: object, agentName: string }}
  */
 function parseEvalSets(briefPath, filterSets) {
-    const brief = JSON.parse(fs.readFileSync(briefPath, 'utf8'));
+    // Backward compat: if given a directory, resolve agentspec.json with brief.json fallback
+    const resolvedPath = fs.statSync(briefPath, { throwIfNoEntry: false })?.isDirectory()
+        ? (fs.existsSync(path.join(briefPath, 'agentspec.json'))
+            ? path.join(briefPath, 'agentspec.json')
+            : path.join(briefPath, 'brief.json'))
+        : briefPath;
+    const brief = JSON.parse(fs.readFileSync(resolvedPath, 'utf8'));
     const evalSets = brief.evalSets || [];
     const evalConfig = brief.evalConfig || {
         targetPassRate: 70,
@@ -482,13 +488,19 @@ function parseEvalSets(briefPath, filterSets) {
 }
 
 /**
- * Write per-test lastResult back to brief.json.
+ * Write per-test lastResult back to agentspec.json (or brief.json).
  *
- * @param {string} briefPath - Path to brief.json
+ * @param {string} briefPath - Path to agent spec file (agentspec.json or brief.json)
  * @param {Array<{setName: string, setIndex: number, testIndex: number, pass: boolean, actual: string, score: number}>} results
  */
 function writeResultsToBrief(briefPath, results) {
-    const brief = JSON.parse(fs.readFileSync(briefPath, 'utf8'));
+    // Backward compat: if given a directory, resolve agentspec.json with brief.json fallback
+    const resolvedPath = fs.statSync(briefPath, { throwIfNoEntry: false })?.isDirectory()
+        ? (fs.existsSync(path.join(briefPath, 'agentspec.json'))
+            ? path.join(briefPath, 'agentspec.json')
+            : path.join(briefPath, 'brief.json'))
+        : briefPath;
+    const brief = JSON.parse(fs.readFileSync(resolvedPath, 'utf8'));
     const timestamp = new Date().toISOString();
 
     for (const r of results) {
@@ -506,7 +518,7 @@ function writeResultsToBrief(briefPath, results) {
         };
     }
 
-    fs.writeFileSync(briefPath, JSON.stringify(brief, null, 2));
+    fs.writeFileSync(resolvedPath, JSON.stringify(brief, null, 2));
 }
 
 // --- Async GPT-Enhanced Scoring (optional — falls back to heuristics) ---

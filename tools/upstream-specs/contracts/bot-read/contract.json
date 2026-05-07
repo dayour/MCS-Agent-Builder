@@ -1,0 +1,35 @@
+{
+  "surfaceId": "bot-read",
+  "method": "GET",
+  "urlPattern": "{dataverseUrl}/api/data/v9.2/bots({botId})",
+  "auth": "Dataverse bearer token",
+  "validationStrategy": "envelope-shape (bot row columns)",
+  "_strategyNote": "The bot row has many columns; contract asserts the ones we actually consume (botid, name, configuration). Others are tenant-specific and non-contractual.",
+  "kindDiscriminators": [],
+  "requiredFields": [
+    {"path": "$.botid", "constraint": "GUID string"},
+    {"path": "$.name", "constraint": "string"},
+    {"path": "$.configuration", "constraint": "string (JSON-encoded BotConfiguration) OR object"}
+  ],
+  "responseShape": "{ botid, name, configuration, ...plus many non-contractual columns }",
+  "lastVerified": "2026-04-17",
+  "lastVerifiedBy": "Live via diagnose-direct-line.js on bot 6d143a89... (E2E-Test/it-ops-assistant)",
+  "typedAdapterRef": "app/lib/build-pipeline.js:stepVerify / app/lib/eval-pipeline.js:getDirectLineToken",
+  "knownQuirks": [
+    "configuration is returned as a JSON STRING in some tenants and a JSON OBJECT in others. Parse defensively: typeof resp.data.configuration === 'string' ? JSON.parse(...) : resp.data.configuration.",
+    "Request with $select parameter containing unknown columns returns 400 '0x80060888' with 'Could not find a property named X'. Omit $select or only select known columns.",
+    "additionaltokenendpointurl column does NOT exist on bot entity (discovered 2026-04-17). Do not include in $select."
+  ],
+  "nonContractualFields": [
+    "$.statuscode / statecode (tenant-specific enum)",
+    "$.owninguser / owninguseridmname (tenant-specific)",
+    "$.createdon / modifiedon (timestamps, always present)",
+    "$.versionnumber (opaque concurrency token)",
+    "$.description, $.iconbase64 (optional)"
+  ],
+  "errorCases": [
+    {"status": 400, "reason": "Unknown column in $select — 0x80060888"},
+    {"status": 401, "reason": "Invalid bearer"},
+    {"status": 404, "reason": "Bot GUID not found"}
+  ]
+}

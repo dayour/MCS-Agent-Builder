@@ -18,7 +18,9 @@ paths:
 
 # Dual Model Co-Generation and Review
 
-Fire GPT-5.4 on **every interaction** — no size threshold, no "trivial" exception, everything. This is hook-enforced: the Stop hook blocks if no GPT attestation exists for the session. GPT serves as both a **co-generator** (produces content independently for merging) and a **reviewer** (validates content after generation). This applies to all work: MCS builds, code writing, reviews, cleanup, app updates, architecture decisions, documentation, and even simple greetings (use `ask -q`).
+Fire GPT-5.5 **selectively** on the 5 value patterns below — not on every interaction. This was changed on 2026-04-27 after data showed that universal firing produced ~50% low-value `ask` calls; GPT itself rated routine repo-specific Q&A as noise because Claude has full repo context that GPT lacks via tightly-framed prompts. Hard enforcement (Stop hook) was removed. The UserPromptSubmit reminder remains as a soft suggestion. The tool (`multi-model-review.js`) and all merge protocols are unchanged — only the trigger policy is.
+
+GPT serves as **adversary, oracle, and safety controller** — not a post-hoc reviewer on every turn. Use it where two models genuinely disagree productively (architecture decisions, risky actions, hard diagnoses, non-trivial diffs). Skip it for routine Q&A, formatting, simple edits, conversational turns, and repo-specific questions where Claude's context advantage dominates.
 
 ## 5 GPT Value Patterns (Ordered by Impact)
 
@@ -74,42 +76,64 @@ The second model is most valuable as an **adversary, oracle, and safety controll
 
 ## When to Skip GPT
 
-GPT fires on **everything** — the only valid skip reason is GPT being unavailable (exit code 3), in which case proceed with Claude alone. There are no task-size exceptions. Fire GPT as a background agent so it never blocks the response.
+Skip for routine Q&A, simple edits, formatting/renames, mechanical changes, conversational turns, and project-specific questions where the context Claude already has would be lost in a tightly-framed GPT prompt. GPT-unavailable (exit 3) is also a no-op — proceed with Claude alone. Fire GPT as a background agent (`run_in_background: true`) so it never blocks the response when you do invoke it.
 
-## Hook Enforcement (3 Layers + Burst Mode)
+## Hook Enforcement (Soft — Reminder Only, Not Blocked)
 
-GPT co-generation is mechanically enforced — forgetting is not possible:
+As of 2026-04-27, the Stop hook that mechanically enforced per-turn GPT calls has been **removed from `.claude/settings.json`**. The script (`.claude/hooks/check-gpt-attestation.js`) is still present in the repo for easy revert, but unwired. What remains:
 
-1. **UserPromptSubmit hook** (`.claude/hooks/gpt-reminder.js`): Injects a `[GPT CO-GEN REQUIRED]` reminder into every user prompt AND writes a **per-interaction pending marker** (`$TMPDIR/claude-gpt-attestations/pending-<sessionId>.json`) with the prompt timestamp. This marker is the clock that the Stop hook reads.
+1. **UserPromptSubmit hook** (`.claude/hooks/gpt-reminder.js`) — injects a soft `[GPT available, not required]` reminder describing the 5 value patterns and skip criteria. Still computes `turnId`, `promptHash`, and writes the pending marker so that any voluntary `multi-model-review.js` call still produces a properly-tagged attestation entry. The reminder is informational; Claude exercises judgment.
 
-2. **Stop hook** (`.claude/hooks/check-gpt-attestation.js`): Two enforcement modes:
-   - **Per-interaction** (default): Checks if any GPT attestation exists after the pending marker timestamp
-   - **Burst mode**: After a high-value GPT call, subsequent interactions within 10 minutes pass automatically
+2. **Tool** (`tools/multi-model-review.js`) — unchanged. Still reads the pending marker and writes attestation entries tagged with `{command, turnId, promptHash, timestamp}`. Attestations now serve as a usage log, not a compliance gate.
 
-3. **Attestation file** (`$TMPDIR/claude-gpt-attestations/<session-id>.json`): Written by `multi-model-review.js` on every successful call (or attempted call with exit 3). Contains session ID, command, status, and timestamp array. Per-session isolation prevents cross-session spoofing.
+3. **Bridge state** (`<cwd>/.claude/.gpt-session.json`) — gitignored, harmless to leave between sessions. Stores monotonic turnId only.
 
-**Per-interaction flow:** UserPromptSubmit writes marker → Claude works → Claude calls GPT (writes attestation) → Stop hook checks attestation timestamp > marker timestamp → pass/block.
+### How to revert (if selective firing turns out worse)
 
-### Burst Mode
+Restore the Stop hook entry in `.claude/settings.json`:
 
-During rapid implementation phases, firing a meaningful GPT call per interaction is wasteful and leads to compliance-only `ask` calls with throwaway prompts. Burst mode fixes this:
+```json
+"Stop": [
+  {
+    "hooks": [
+      {
+        "type": "command",
+        "command": "node \"C:/Copilot 2/.claude/hooks/check-gpt-attestation.js\"",
+        "timeout": 10,
+        "statusMessage": "Checking GPT co-generation compliance..."
+      }
+    ]
+  }
+]
+```
 
-**High-value commands** (open a 10-minute burst window):
-`challenge`, `diagnose`, `review-code`, `review-components`, `review-flow`, `review-merged`, `generate-instructions`, `generate-evals`, `generate-topics`, `generate-components`, `generate-flow`, `generate-fix`
+Then update the wording in `gpt-reminder.js` and the top of this file back to the "every interaction" language. The script logic and attestation format are unchanged, so revert is a config-only change.
 
-**Low-value commands** (`ask`, `score`, `learn`):
-Satisfy the current interaction only — do NOT open a burst window.
+### Always pass `--session-id` when you do fire
 
-**How it works:** The stop hook checks for any high-value GPT call within the last 10 minutes. If found, the interaction passes without a new GPT call. This means:
-- Fire `challenge` before implementing → code for 10 minutes without compliance fires
-- Fire `review-code` after a big code block → iterate for 10 minutes without compliance fires
-- The burst window is session-scoped (attestation files are per-session)
+Even though attestation is no longer gated, pass `--session-id` so the entry binds correctly under multi-instance use:
 
-**Anti-pattern to avoid:** Don't fire empty `ask -q "acknowledging completion"` calls during implementation. Instead, fire one meaningful `challenge` or `review-code` per implementation phase and let burst mode handle the rest.
+```bash
+node tools/multi-model-review.js --session-id <sid> challenge -q "..."
+```
 
-**Break-glass:** GPT unavailable (exit 3) writes `status: "unavailable"` attestation, satisfying the Stop hook. No manual bypass path — if GPT is reachable, it must be called.
+If omitted, the tool falls back to the newest pending marker whose `bridgePath` matches `cwd` — fine for single-session use.
 
-**Known limitation:** Background agents spawned via the Agent tool do not trigger hooks and therefore bypass GPT enforcement. The lead agent (main conversation) must fire GPT — subagents are exempt.
+### Bypass conditions (still honored by the reminder hook)
+
+The UserPromptSubmit hook exits early in these cases (no reminder injected):
+
+- **`CLAUDE_HEADLESS=1`** — spawned PTY for skill execution.
+- **`CLAUDE_GPT_HOOK_DEPTH >= 2`** — recursion guard.
+
+### Truncation handling
+
+The tool detects truncation (`status=incomplete` or `incomplete_details.reason=max_output_tokens`) and:
+
+1. Retries automatically with 2x `max_output_tokens` and reasoning effort downgraded one tier (`high`→`medium`) to reclaim token budget for completion text. Retry flagged with `_truncationRetry=true` to prevent infinite loops.
+2. Always surfaces `_truncated: true` and `_incompleteReason` in stdout JSON so Claude sees the flag and can decide to re-fire or split the task.
+
+The `maxTokens: 16384` overrides on `challenge` and `diagnose` were removed — both commands now use the effort-tier default (65K for `high`), giving enough budget for reasoning + completion.
 
 ## Effort Tiers
 
@@ -172,11 +196,11 @@ Co-generation produces two independent outputs that must be merged. Each content
 After the lead merges all agent team outputs (instructions, topics, evals, components, flows), fire the final GPT pass:
 
 ```bash
-node tools/multi-model-review.js review-merged --brief <path-to-brief.json>
+node tools/multi-model-review.js review-merged --brief <path-to-agentspec.json>
 ```
 
 This catches cross-artifact issues that individual reviews miss: orphaned capabilities, instruction-topic duplication, eval gaps, build feasibility blockers. Run this before any publish step. If `readyToPublish: false`, fix critical blockers first.
 
 ## How It Works
 
-GPT-5.4 runs via the GitHub Copilot Responses API (`tools/lib/openai.js`). Auth is automatic via `gh auth token` with `copilot` scope. For structured reviews and co-generation, use `tools/multi-model-review.js` (20 commands: 6 co-generation + 7 review + 1 scoring + 1 challenge + 1 diagnose + 1 ask + 1 learn + 2 utility). For ad-hoc reviews, call `chatCompletion()` directly from a temp script via Bash.
+GPT-5.5 runs via the GitHub Copilot Responses API (`tools/lib/openai.js`). Auth is automatic via `gh auth token` with `copilot` scope. For structured reviews and co-generation, use `tools/multi-model-review.js` (20 commands: 6 co-generation + 7 review + 1 scoring + 1 challenge + 1 diagnose + 1 ask + 1 learn + 2 utility). For ad-hoc reviews, call `chatCompletion()` directly from a temp script via Bash.

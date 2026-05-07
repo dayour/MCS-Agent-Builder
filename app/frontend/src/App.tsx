@@ -1,252 +1,129 @@
-import { Component, type ReactNode, type ErrorInfo, useEffect } from "react";
-import {
-  createBrowserRouter,
-  RouterProvider,
-  Outlet,
-  useRouteError,
-  useLocation,
-  useNavigation,
-  useRevalidator,
-  isRouteErrorResponse,
-  Link,
-} from "react-router";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import RightPanel from "./components/terminal/RightPanel";
-import NavigationRail from "./components/nav/NavigationRail";
-import { usePanelStore } from "./components/terminal/RightPanel";
-import { fetchProjects, fetchProject, fetchAgent, fetchSolutions } from "@/lib/api";
+import React from 'react';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { createLightTheme, BrandVariants } from '@fluentui/react-components';
+import { CopilotProvider, CopilotTheme } from '@fluentui-copilot/react-copilot';
+import { AgentProvider } from './context/AgentContext';
+import { FeatureToggleProvider, useFeatureToggles } from './context/FeatureToggleContext';
+import { DWProvider } from './domains/dw/context/DWContext';
+import { WorkflowProvider } from './context/WorkflowContext';
+import { DexterMsalBridge } from './auth/DexterMsalBridge';
+import { DexterWorkerProfileProvider } from './context/DexterWorkerProfileContext';
+import { Layout } from './components/Layout';
+import { ToastProvider } from './context/ToastContext';
+import { ToastContainer } from './components/ui/CopilotToast';
+import { PipelineActivityProvider } from './context/PipelineActivityContext';
+import { SpecSessionProvider } from './context/SpecSessionContext';
 
-// ---------------------------------------------------------------------------
-// Error Boundary — catches render errors with retry support
-// ---------------------------------------------------------------------------
+// ── Lazy-loaded pages (code-split per route) ────────────────────────────────
+const HomePage = React.lazy(() => import('./pages/HomePage').then(m => ({ default: m.HomePage })));
+const BuildPageDispatcher = React.lazy(() => import('./pages/BuildPageDispatcher').then(m => ({ default: m.BuildPageDispatcher })));
+const PreviewPage = React.lazy(() => import('./pages/PreviewPage').then(m => ({ default: m.PreviewPage })));
+const EvaluatePage = React.lazy(() => import('./pages/EvaluatePage').then(m => ({ default: m.EvaluatePage })));
+const DistributePage = React.lazy(() => import('./pages/DistributePage').then(m => ({ default: m.DistributePage })));
+const ComponentShowcaseWeb = React.lazy(() => import('./pages/ComponentShowcaseWeb').then(m => ({ default: m.ComponentShowcaseWeb })));
+const SnapshotsPage = React.lazy(() => import('./pages/SnapshotsPage').then(m => ({ default: m.SnapshotsPage })));
+const MyStuffPage = React.lazy(() => import('./pages/MyStuffPage').then(m => ({ default: m.MyStuffPage })));
+const DiscoverPage = React.lazy(() => import('./pages/DiscoverPage').then(m => ({ default: m.DiscoverPage })));
+const ScrollTestPage = React.lazy(() => import('./pages/ScrollTestPage').then(m => ({ default: m.ScrollTestPage })));
 
-class ErrorBoundary extends Component<
-  { children: ReactNode; fallback?: ReactNode },
-  { error: Error | null }
-> {
-  state = { error: null as Error | null };
+const ToolsPage = React.lazy(() => import('./pages/ToolsPage').then(m => ({ default: m.ToolsPage })));
+const FlowsPage = React.lazy(() => import('./pages/FlowsPage').then(m => ({ default: m.FlowsPage })));
+const AgentSettingsPageSimplified = React.lazy(() => import('./pages/AgentSettingsPageSimplified').then(m => ({ default: m.AgentSettingsPageSimplified })));
+const MonitorPage = React.lazy(() => import('./pages/MonitorPage').then(m => ({ default: m.MonitorPage })));
+const DexterMachinesPage = React.lazy(() => import('./domains/dw/pages/dexter/DexterMachinesPage').then(m => ({ default: m.DexterMachinesPage })));
+const DexterWorkerDetailPage = React.lazy(() => import('./domains/dw/pages/dexter/DexterWorkerDetailPage').then(m => ({ default: m.DexterWorkerDetailPage })));
+const TeamsPreviewPage = React.lazy(() => import('./pages/TeamsPreviewPage').then(m => ({ default: m.TeamsPreviewPage })));
+const SpecPage = React.lazy(() => import('./pages/SpecPage').then(m => ({ default: m.SpecPage })));
 
-  static getDerivedStateFromError(error: Error) {
-    return { error };
-  }
+// Custom brand color #464FEB
+const customBrand: BrandVariants = {
+  10: "#020207",
+  20: "#0A0B1A",
+  30: "#12142A",
+  40: "#1A1D3A",
+  50: "#22264A",
+  60: "#2A2F5A",
+  70: "#32386A",
+  80: "#464FEB",  // Primary interactive color
+  90: "#5A62EF",
+  100: "#6E75F2",
+  110: "#8289F5",
+  120: "#969CF8",
+  130: "#AAB0FA",
+  140: "#BEC3FC",
+  150: "#D2D5FD",
+  160: "#E6E8FE"
+};
 
-  componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error("[ErrorBoundary]", error, info.componentStack);
-  }
+const customTheme = createLightTheme(customBrand);
 
-  render() {
-    if (this.state.error) {
-      return (
-        this.props.fallback || (
-          <div className="flex h-full items-center justify-center p-8">
-            <div className="text-center max-w-md">
-              <h2 className="text-lg font-semibold mb-2">Something went wrong</h2>
-              <p className="text-sm text-muted-foreground mb-4">{this.state.error.message}</p>
-              <button
-                onClick={() => this.setState({ error: null })}
-                className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm hover:bg-primary/90"
-              >
-                Try again
-              </button>
-            </div>
-          </div>
-        )
-      );
-    }
-    return this.props.children;
-  }
-}
+const SettingsRoute: React.FC = () => {
+  return <AgentSettingsPageSimplified />;
+};
 
-// ---------------------------------------------------------------------------
-// Loading fallback
-// ---------------------------------------------------------------------------
+const L1NavGate: React.FC<{ element: React.ReactElement }> = ({ element }) => {
+  const { isL1NavJuneProposal } = useFeatureToggles();
+  return isL1NavJuneProposal ? element : <Navigate to="/" replace />;
+};
 
-function LoadingFallback() {
+
+function App() {
   return (
-    <div className="flex h-full items-center justify-center text-muted-foreground text-sm">
-      <div className="flex items-center gap-2">
-        <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-        Loading...
-      </div>
-    </div>
+    <CopilotProvider theme={customTheme} {...CopilotTheme}>
+      <FeatureToggleProvider>
+      <AgentProvider>
+      <DWProvider>
+      <WorkflowProvider>
+        <DexterMsalBridge>
+        <ToastProvider>
+        <ToastContainer />
+        <PipelineActivityProvider>
+        <HashRouter>
+          <SpecSessionProvider>
+          <React.Suspense fallback={null}>
+          <Routes>
+            <Route path="/" element={<DexterWorkerProfileProvider><Layout /></DexterWorkerProfileProvider>}>
+              <Route index element={<HomePage />} />
+              <Route path="mystuff" element={<MyStuffPage />} />
+              <Route path="discover" element={<DiscoverPage />} />
+              <Route path="build" element={<BuildPageDispatcher />} />
+              <Route path="preview" element={<PreviewPage />} />
+              <Route path="triggerlab" element={<Navigate to="/preview" replace />} />
+              <Route path="evaluate" element={<EvaluatePage />} />
+              <Route path="monitor" element={<MonitorPage />} />
+              <Route path="distribute" element={<DistributePage />} />
+              <Route path="project" element={<Navigate to="/" replace />} />
+              <Route path="settings" element={<SettingsRoute />} />
+              <Route path="components" element={<ComponentShowcaseWeb />} />
+              <Route path="snapshots" element={<SnapshotsPage />} />
+              <Route path="tools" element={<L1NavGate element={<ToolsPage />} />} />
+              <Route path="flows" element={<L1NavGate element={<FlowsPage />} />} />
+              <Route path="spec" element={<SpecPage />} />
+            </Route>
+            {/* Standalone admin pages — intentionally outside Layout (no nav chrome) */}
+            <Route path="dexter-machines">
+              <Route index element={<DexterMachinesPage />} />
+              <Route path=":workerId" element={<DexterWorkerDetailPage />} />
+            </Route>
+            {/* Teams chat shell — standalone page, no Layout chrome */}
+            <Route path="teams-chat/:workerId" element={<TeamsPreviewPage />} />
+            {process.env.NODE_ENV === 'development' && (
+              <Route path="scrolltest" element={<ScrollTestPage />} />
+            )}
+          </Routes>
+          </React.Suspense>
+          </SpecSessionProvider>
+        </HashRouter>
+        </PipelineActivityProvider>
+        </ToastProvider>
+
+        </DexterMsalBridge>
+      </WorkflowProvider>
+      </DWProvider>
+      </AgentProvider>
+      </FeatureToggleProvider>
+    </CopilotProvider>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Route error element — catches loader/action errors
-// ---------------------------------------------------------------------------
-
-function RouteError() {
-  const error = useRouteError();
-  const is404 = isRouteErrorResponse(error) && error.status === 404;
-
-  return (
-    <div className="flex h-full items-center justify-center p-8">
-      <div className="text-center max-w-md">
-        <h2 className="text-lg font-semibold mb-2">
-          {is404 ? "Page not found" : "Something went wrong"}
-        </h2>
-        <p className="text-sm text-muted-foreground mb-4">
-          {is404
-            ? "The page you're looking for doesn't exist."
-            : error instanceof Error
-              ? error.message
-              : "An unexpected error occurred."}
-        </p>
-        <Link
-          to="/"
-          className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm hover:bg-primary/90 inline-block"
-        >
-          Go home
-        </Link>
-      </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// App Shell — layout wrapper with right panel
-// ---------------------------------------------------------------------------
-
-function NavigationProgress() {
-  const navigation = useNavigation();
-  if (navigation.state === "idle") return null;
-  return (
-    <div className="fixed top-0 left-0 right-0 z-[100] h-0.5 bg-primary/20">
-      <div className="h-full bg-primary animate-progress-bar" />
-    </div>
-  );
-}
-
-function AppShell() {
-  const panelOpen = usePanelStore((s) => s.panelOpen);
-  const panelWidth = usePanelStore((s) => s.panelWidth);
-  const location = useLocation();
-  const revalidator = useRevalidator();
-
-  // Re-run route loaders when the tab regains focus (stale-while-revalidate)
-  useEffect(() => {
-    const onVisible = () => {
-      if (document.visibilityState === "visible" && revalidator.state === "idle") {
-        revalidator.revalidate();
-      }
-    };
-    document.addEventListener("visibilitychange", onVisible);
-    return () => document.removeEventListener("visibilitychange", onVisible);
-  }, [revalidator]);
-
-  return (
-    <div className="flex h-screen w-screen overflow-hidden">
-      <NavigationProgress />
-      {/* Left: Navigation rail */}
-      <NavigationRail />
-      {/* Center: Main content area */}
-      <div
-        className="flex-1 min-w-0 flex flex-col overflow-hidden"
-        style={{ marginRight: panelOpen ? panelWidth : 0, transition: "margin-right 200ms ease" }}
-      >
-        {/* Key by pathname resets ErrorBoundary on navigation */}
-        <ErrorBoundary key={location.pathname}>
-          <Outlet />
-        </ErrorBoundary>
-      </div>
-      {/* Right: Terminal / Helper panel */}
-      <ErrorBoundary>
-        <RightPanel />
-      </ErrorBoundary>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Router with data loaders — fetches start before component code downloads
-// ---------------------------------------------------------------------------
-
-const router = createBrowserRouter([
-  {
-    element: <AppShell />,
-    errorElement: <RouteError />,
-    children: [
-      {
-        index: true,
-        lazy: async () => {
-          const { default: Component } = await import("./pages/Index");
-          return { Component };
-        },
-        loader: () => fetchProjects(),
-      },
-      {
-        path: "create",
-        lazy: async () => {
-          const { default: Component } = await import("./pages/WizardPage");
-          return { Component };
-        },
-      },
-      {
-        path: "agents",
-        lazy: async () => {
-          const { default: Component } = await import("./pages/AgentsGallery");
-          return { Component };
-        },
-        loader: () => fetchProjects(),
-      },
-      {
-        path: "discover",
-        lazy: async () => {
-          const { default: Component } = await import("./pages/DiscoverPage");
-          return { Component };
-        },
-        loader: () => fetchSolutions(),
-      },
-      {
-        path: "project/:id",
-        lazy: async () => {
-          const { default: Component } = await import("./pages/ProjectPage");
-          return { Component };
-        },
-        loader: ({ params }) => fetchProject(params.id!),
-      },
-      {
-        path: "project/:projectId/agent/:agentId",
-        lazy: async () => {
-          const { default: Component } = await import("./pages/BriefEditor");
-          return { Component };
-        },
-        loader: ({ params }) =>
-          Promise.all([
-            fetchProject(params.projectId!),
-            fetchAgent(params.projectId!, params.agentId!),
-          ]),
-      },
-      {
-        path: "project/:projectId/doc/:docId",
-        lazy: async () => {
-          const { default: Component } = await import("./pages/DocumentViewer");
-          return { Component };
-        },
-        loader: ({ params }) => fetchProject(params.projectId!),
-      },
-      {
-        path: "*",
-        lazy: async () => {
-          const { default: Component } = await import("./pages/NotFound");
-          return { Component };
-        },
-      },
-    ],
-  },
-]);
-
-// ---------------------------------------------------------------------------
-// App
-// ---------------------------------------------------------------------------
-
-export default function App() {
-  return (
-    <TooltipProvider>
-      <Sonner />
-      <RouterProvider router={router} fallbackElement={<LoadingFallback />} />
-    </TooltipProvider>
-  );
-}
+export default App;

@@ -1,0 +1,33 @@
+<svg width="24" height="24" viewBox="5 3 90 94" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Top band: deep blue → medium purple -->
+    <linearGradient id="d365-g1" x1="8" y1="10" x2="82" y2="56" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1535C4"/>
+      <stop offset="50%" stop-color="#4B52C8"/>
+      <stop offset="100%" stop-color="#7060C4"/>
+    </linearGradient>
+    <!-- Bottom band: medium blue → light periwinkle -->
+    <linearGradient id="d365-g2" x1="18" y1="50" x2="92" y2="94" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#5060D0"/>
+      <stop offset="100%" stop-color="#9898EC"/>
+    </linearGradient>
+    <!-- Hole mask: white everywhere, black where the D counter is -->
+    <mask id="d365-hole">
+      <rect x="-50" y="-50" width="200" height="200" fill="white"/>
+      <!-- D counter: a rotated rounded rect in the center -->
+      <path d="M -9 -16 L 9 -16 Q 13 -16 13 -12 L 13 12 Q 13 16 9 16 L -9 16 Q -13 16 -13 12 L -13 -12 Q -13 -16 -9 -16 Z"
+        transform="translate(58, 51) rotate(-18)" fill="black"/>
+    </mask>
+  </defs>
+
+  <!-- Top band: wide rounded rect, rotated -18°, cut by hole mask -->
+  <!-- Rect centered at (42, 36), half-w=39, half-h=17, rx=9 -->
+  <path d="M -30 -17 L 30 -17 Q 39 -17 39 -8 L 39 8 Q 39 17 30 17 L -30 17 Q -39 17 -39 8 L -39 -8 Q -39 -17 -30 -17 Z"
+    transform="translate(42, 36) rotate(-18)"
+    fill="url(#d365-g1)" mask="url(#d365-hole)"/>
+
+  <!-- Bottom band: same shape, shifted right+down, lighter gradient, slight transparency for fold effect -->
+  <path d="M -30 -17 L 30 -17 Q 39 -17 39 -8 L 39 8 Q 39 17 30 17 L -30 17 Q -39 17 -39 8 L -39 -8 Q -39 -17 -30 -17 Z"
+    transform="translate(58, 67) rotate(-18)"
+    fill="url(#d365-g2)" mask="url(#d365-hole)" opacity="0.95"/>
+</svg>

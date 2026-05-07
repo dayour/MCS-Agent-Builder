@@ -1,0 +1,60 @@
+<svg width="20" height="20" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Shape 1 (blue chat bubble, top-right) -->
+  <svg x="7.023" y="1.004" width="7.094" height="6.133" viewBox="0 0 7.09359 6.13282" preserveAspectRatio="none" overflow="visible">
+    <path d="M4.64517 0.989724C4.44456 0.398066 3.88926 0 3.26452 0L2.36398 0C1.66288 1.74224e-10 1.06107 0.499046 0.931308 1.18803L0 6.13282L0.46302 4.54883C0.644723 3.92722 1.21471 3.5 1.86233 3.5L4.7411 3.5L5.9856 5.12858L7.09359 3.5L6.5414 3.5C5.91666 3.5 5.36136 3.10193 5.16075 2.51027L4.64517 0.989724Z" fill="url(#s1)"/>
+    <defs>
+      <radialGradient id="s1" cx="0" cy="0" r="1" gradientTransform="matrix(-4.01994 -5.00476 -4.34022 4.19783 6.06067 6.1729)" gradientUnits="userSpaceOnUse">
+        <stop offset="0.0955758" stop-color="#00AEFF"/>
+        <stop offset="0.773185" stop-color="#2253CE"/>
+        <stop offset="1" stop-color="#0736C4"/>
+      </radialGradient>
+    </defs>
+  </svg>
+
+  <!-- Shape 2 (orange-red chat bubble, bottom-left) -->
+  <svg x="2.074" y="9.138" width="6.813" height="5.865" viewBox="0 0 6.8127 5.86523" preserveAspectRatio="none" overflow="visible">
+    <path d="M2.43277 4.86887C2.63136 5.46393 3.18834 5.86523 3.81567 5.86523H5.2819C6.07767 5.86523 6.72643 5.2271 6.73956 4.43143L6.8127 0L6.42736 1.31681C6.24552 1.93821 5.67564 2.36523 5.02818 2.36523L2.13826 2.36523L0.90791 1.27989L0 2.36523H0.546876C1.1742 2.36523 1.73118 2.76654 1.92977 3.3616L2.43277 4.86887Z" fill="url(#s2)"/>
+    <defs>
+      <radialGradient id="s2" cx="0" cy="0" r="1" gradientTransform="matrix(3.56222 4.42321 4.20512 -3.61031 1.23597 1.93129)" gradientUnits="userSpaceOnUse">
+        <stop stop-color="#FFB657"/>
+        <stop offset="0.633728" stop-color="#FF5F3D"/>
+        <stop offset="0.923392" stop-color="#C02B3C"/>
+      </radialGradient>
+    </defs>
+  </svg>
+
+  <!-- Shape 3 (yellow-green-blue left arc) -->
+  <svg x="0" y="0.998" width="10" height="10.504" viewBox="0 0 10.0004 10.5035" preserveAspectRatio="none" overflow="visible">
+    <path d="M10.0004 0H4.16755C2.50102 0 1.50109 2.20235 0.834479 4.40471C0.044714 7.01392 -0.988711 10.5035 2.00105 10.5035H4.69024C5.34194 10.5035 5.91403 10.0727 6.09306 9.44608C6.52129 7.94725 7.32308 5.15282 7.94795 3.04403C8.25428 2.01026 8.50944 1.12243 8.90103 0.569545C9.12058 0.259577 9.48649 0 10.0004 0Z" fill="url(#s3r)"/>
+    <path d="M10.0004 0H4.16755C2.50102 0 1.50109 2.20235 0.834479 4.40471C0.044714 7.01392 -0.988711 10.5035 2.00105 10.5035H4.69024C5.34194 10.5035 5.91403 10.0727 6.09306 9.44608C6.52129 7.94725 7.32308 5.15282 7.94795 3.04403C8.25428 2.01026 8.50944 1.12243 8.90103 0.569545C9.12058 0.259577 9.48649 0 10.0004 0Z" fill="url(#s3l)"/>
+    <defs>
+      <radialGradient id="s3r" cx="0" cy="0" r="1" gradientTransform="matrix(-0.528444 -9.30665 52.2779 -2.96789 4.023 10.4998)" gradientUnits="userSpaceOnUse">
+        <stop offset="0.03" stop-color="#FFC800"/>
+        <stop offset="0.31" stop-color="#98BD42"/>
+        <stop offset="0.49" stop-color="#52B471"/>
+        <stop offset="0.843838" stop-color="#0D91E1"/>
+      </radialGradient>
+      <linearGradient id="s3l" x1="4.54577" y1="0" x2="5.00014" y2="10.5035" gradientUnits="userSpaceOnUse">
+        <stop stop-color="#3DCBFF"/>
+        <stop offset="0.246674" stop-color="#0588F7" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+  </svg>
+
+  <!-- Shape 4 (purple-pink-orange right arc) -->
+  <svg x="6" y="4.499" width="10" height="10.502" viewBox="0 0 10.0004 10.5023" preserveAspectRatio="none" overflow="visible">
+    <path d="M0 10.5023H5.83288C7.49941 10.5023 8.49934 8.30024 9.16595 6.09814C9.95572 3.48921 10.9891 0 7.99938 0H5.31016C4.65848 0 4.08639 0.4308 3.90735 1.0574C3.47911 2.55609 2.67734 5.35014 2.05248 7.45866C1.74615 8.49232 1.49099 9.38005 1.0994 9.93287C0.879853 10.2428 0.513946 10.5023 0 10.5023Z" fill="url(#s4r)"/>
+    <path d="M0 10.5023H5.83288C7.49941 10.5023 8.49934 8.30024 9.16595 6.09814C9.95572 3.48921 10.9891 0 7.99938 0H5.31016C4.65848 0 4.08639 0.4308 3.90735 1.0574C3.47911 2.55609 2.67734 5.35014 2.05248 7.45866C1.74615 8.49232 1.49099 9.38005 1.0994 9.93287C0.879853 10.2428 0.513946 10.5023 0 10.5023Z" fill="url(#s4l)"/>
+    <defs>
+      <radialGradient id="s4r" cx="0" cy="0" r="1" gradientTransform="matrix(-4.60802 13.1726 -15.6828 -5.81373 8.299 -1.02826)" gradientUnits="userSpaceOnUse">
+        <stop offset="0.0661714" stop-color="#8C48FF"/>
+        <stop offset="0.5" stop-color="#F2598A"/>
+        <stop offset="0.895833" stop-color="#FFB152"/>
+      </radialGradient>
+      <linearGradient id="s4l" x1="8.75981" y1="-0.641192" x2="8.75387" y2="2.21928" gradientUnits="userSpaceOnUse">
+        <stop offset="0.0581535" stop-color="#F8ADFA"/>
+        <stop offset="0.708063" stop-color="#A86EDD" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+  </svg>
+</svg>

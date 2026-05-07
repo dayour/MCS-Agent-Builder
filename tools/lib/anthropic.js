@@ -42,18 +42,58 @@ const COPILOT_HEADERS = {
   'Copilot-Integration-Id': 'vscode-chat',
   'Editor-Version': 'vscode/1.96.0'
 };
-// Copilot uses different model IDs (dots instead of dashes for version)
-const COPILOT_MODEL_MAP = {
-  haiku: 'claude-haiku-4.5',
-  sonnet: 'claude-sonnet-4.6',
-  opus: 'claude-opus-4.6'
+
+// --- Known-latest model IDs ---
+// Bump these when a new family version is confirmed stable. Auto-discovery
+// probes FORWARD_CANDIDATES on top of this floor to pick up newer releases
+// automatically.
+// Copilot uses dots for minor version (claude-opus-4.7); direct Anthropic
+// API uses dashes (claude-opus-4-7).
+const KNOWN_LATEST_COPILOT = {
+  haiku: process.env.CLAUDE_HAIKU_ID || 'claude-haiku-4.5',
+  sonnet: process.env.CLAUDE_SONNET_ID || 'claude-sonnet-4.6',
+  opus: process.env.CLAUDE_OPUS_ID || 'claude-opus-4.7'
 };
 
-// --- Available models ---
+// --- Forward-probe candidates (newest-first) ---
+// Probed lazily on first use. If the API accepts a newer version than
+// KNOWN_LATEST, the resolver caches it for the session and all subsequent
+// calls use the discovered newer ID. Falls back to KNOWN_LATEST if nothing
+// newer is accepted.
+// Generated from KNOWN_LATEST: probes next major (.0, .1) and current major
+// forward 3 minors. When 4.8 ships, it's picked up without code changes.
+function buildForwardCandidates(knownLatestId) {
+  // Parse "claude-opus-4.7" → base="claude-opus", major=4, minor=7
+  const m = knownLatestId.match(/^(claude-[a-z]+)-(\d+)\.(\d+)$/);
+  if (!m) return [];
+  const [, base, majorStr, minorStr] = m;
+  const major = parseInt(majorStr, 10);
+  const minor = parseInt(minorStr, 10);
+  const out = [];
+  // Next major: 5.0, 5.1 (conservative — 2 forward minors)
+  for (let n = 0; n <= 1; n++) out.push(`${base}-${major + 1}.${n}`);
+  // Current major: probe minor+3 down to minor+1 (not including known-latest)
+  for (let n = 3; n >= 1; n--) out.push(`${base}-${major}.${minor + n}`);
+  return out;
+}
+
+// --- Probe gate ---
+// Set CLAUDE_SKIP_DISCOVERY=1 to disable forward-probing (use KNOWN_LATEST
+// directly). Useful for offline/CI or when probes are slow. Env overrides
+// (CLAUDE_OPUS_ID, etc.) implicitly skip probing for that family.
+const SKIP_DISCOVERY = process.env.CLAUDE_SKIP_DISCOVERY === '1';
+const PROBE_TIMEOUT_MS = parseInt(process.env.CLAUDE_PROBE_TIMEOUT_MS || '5000', 10);
+
+// --- Resolved ID cache (session-scoped, per-family) ---
+let _resolvedCopilotIds = {};      // { opus: 'claude-opus-4.8', ... } once discovered
+let _resolvingPromises = {};       // in-flight probe dedup
+
+// --- Direct Anthropic API model IDs (dashes) ---
+// Pricing lives here. Bump the id strings when a new family ships.
 const MODELS = {
   haiku: { id: 'claude-haiku-4-5-20251001', name: 'Haiku 4.5', inputPer1M: 1.00, outputPer1M: 5.00, cachePer1M: 0.10 },
   sonnet: { id: 'claude-sonnet-4-6', name: 'Sonnet 4.6', inputPer1M: 3.00, outputPer1M: 15.00, cachePer1M: 0.30 },
-  opus: { id: 'claude-opus-4-6', name: 'Opus 4.6', inputPer1M: 5.00, outputPer1M: 25.00, cachePer1M: 0.50 }
+  opus: { id: 'claude-opus-4-7', name: 'Opus 4.7', inputPer1M: 5.00, outputPer1M: 25.00, cachePer1M: 0.50 }
 };
 
 const DEFAULT_MODEL = 'opus';
@@ -244,7 +284,7 @@ async function probeModelAccess() {
           }
         })
       );
-      _effectiveDefault = FALLBACK_CHAIN.find(k => _modelAccess[k]) || 'haiku';
+      _effectiveDefault = FALLBACK_CHAIN.find(k => _modelAccess[k]) || 'opus';
     }
 
     _accessProbed = true;
@@ -283,7 +323,7 @@ function resolveAccessibleModel(requested) {
       if (_modelAccess[FALLBACK_CHAIN[i]]) return FALLBACK_CHAIN[i];
     }
   }
-  return _effectiveDefault || 'haiku';
+  return _effectiveDefault || 'opus';
 }
 
 /**
@@ -296,7 +336,10 @@ function getModelAccessInfo() {
     access: { ..._modelAccess },
     copilotAvailable: hasCopilotAccess(),
     effectiveDefault: _effectiveDefault || DEFAULT_MODEL,
-    requestedDefault: DEFAULT_MODEL
+    requestedDefault: DEFAULT_MODEL,
+    knownLatestCopilot: { ...KNOWN_LATEST_COPILOT },
+    resolvedCopilotIds: { ..._resolvedCopilotIds },
+    skipDiscovery: SKIP_DISCOVERY
   };
 }
 
@@ -406,10 +449,157 @@ function toCopilotMessages(messages) {
 }
 
 /**
- * Resolve model shorthand to Copilot model ID.
+ * Probe a specific Copilot model ID to see if the API accepts it.
+ * Sends a minimal 1-token request with a short timeout.
+ *
+ * Returns a verdict string so the resolver can distinguish:
+ *   'accepted'   — 200, the candidate works
+ *   'rejected'   — 400/404, the candidate is definitively unavailable
+ *                  (wrong name or not entitled); move to next candidate
+ *   'transient'  — 429/5xx/timeout/network error; do NOT cache a negative
+ *                  result from this probe — caller should return the
+ *                  KNOWN_LATEST floor uncached and re-probe next call
  */
-function copilotModelId(model) {
-  return COPILOT_MODEL_MAP[model] || COPILOT_MODEL_MAP[DEFAULT_MODEL];
+async function probeCopilotModelId(modelId) {
+  const token = getCopilotToken();
+  if (!token) return 'transient';
+  try {
+    const res = await httpRequestWithRetry('POST', COPILOT_CHAT_URL, {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      ...COPILOT_HEADERS
+    }, {
+      model: modelId,
+      messages: [{ role: 'user', content: 'hi' }],
+      max_tokens: 1
+    }, 0, PROBE_TIMEOUT_MS);
+    if (res.status === 200) return 'accepted';
+    // 400/404 and the text looks model-related → definitive rejection
+    if (res.status === 400 || res.status === 404) {
+      const raw = typeof res.data === 'object' ? JSON.stringify(res.data) : String(res.data || '');
+      if (/model|unknown|not.?found|unsupported/i.test(raw)) return 'rejected';
+      // 400 for some other reason (malformed body, etc.) — treat as transient
+      return 'transient';
+    }
+    // 403 entitlement could be partial-rollout; treat as transient so next
+    // session re-probes. Same for 429/5xx.
+    return 'transient';
+  } catch {
+    return 'transient';
+  }
+}
+
+/**
+ * Resolve the best Copilot model ID for this family, probing forward
+ * candidates (e.g. 4.8, 4.9, 5.0) if auto-discovery is enabled. Caches the
+ * result per-family for the session.
+ *
+ * Priority order:
+ *   1. Env override (CLAUDE_<FAMILY>_ID) — skips probing
+ *   2. Cached resolved ID from a prior call
+ *   3. Forward probe (unless CLAUDE_SKIP_DISCOVERY=1)
+ *   4. KNOWN_LATEST_COPILOT floor
+ *
+ * Concurrent callers share a single in-flight probe via promise dedup.
+ *
+ * @param {string} family - 'opus' | 'sonnet' | 'haiku'
+ * @returns {Promise<string>} Resolved Copilot model ID (e.g. 'claude-opus-4.8')
+ */
+async function resolveCopilotModelId(family) {
+  family = family || DEFAULT_MODEL;
+
+  // Env override — highest priority, no probe.
+  const envVar = `CLAUDE_${family.toUpperCase()}_ID`;
+  if (process.env[envVar]) {
+    _resolvedCopilotIds[family] = process.env[envVar];
+    return process.env[envVar];
+  }
+
+  // Session cache hit.
+  if (_resolvedCopilotIds[family]) return _resolvedCopilotIds[family];
+
+  // Skip discovery — use known-latest directly.
+  if (SKIP_DISCOVERY || !hasCopilotAccess()) {
+    _resolvedCopilotIds[family] = KNOWN_LATEST_COPILOT[family];
+    return _resolvedCopilotIds[family];
+  }
+
+  // Probe dedup — multiple concurrent first-calls share one probe.
+  if (_resolvingPromises[family]) return _resolvingPromises[family];
+
+  _resolvingPromises[family] = (async () => {
+    const known = KNOWN_LATEST_COPILOT[family];
+    const forwards = buildForwardCandidates(known);
+    let sawTransient = false;
+
+    for (const candidateId of forwards) {
+      const verdict = await probeCopilotModelId(candidateId);
+      if (verdict === 'accepted') {
+        _resolvedCopilotIds[family] = candidateId;
+        console.error(`  [anthropic] Auto-discovered newer model: ${candidateId} (floor was ${known})`);
+        return candidateId;
+      }
+      if (verdict === 'transient') {
+        // Network blip, rate limit, 5xx, or partial-rollout 403.
+        // Bail out of the probe chain — we cannot trust that later rejections
+        // mean the model doesn't exist. Use KNOWN_LATEST without caching so
+        // the next call re-probes.
+        sawTransient = true;
+        break;
+      }
+      // 'rejected' — this specific ID is definitively unavailable; try next.
+    }
+
+    const floor = known;
+    if (sawTransient) {
+      // Do not poison the cache — next call re-probes.
+      return floor;
+    }
+    // All candidates definitively rejected → safe to cache the floor.
+    _resolvedCopilotIds[family] = floor;
+    return floor;
+  })();
+
+  try {
+    return await _resolvingPromises[family];
+  } finally {
+    delete _resolvingPromises[family];
+  }
+}
+
+/**
+ * Get the current resolved Copilot model IDs (post-discovery).
+ * Returns the cache snapshot — families not yet probed appear only if
+ * overridden via env.
+ */
+function getResolvedCopilotIds() {
+  return { ..._resolvedCopilotIds };
+}
+
+/**
+ * Pre-warm model resolution off the user-request hot path. Fires forward-
+ * probes for all three families in parallel and caches the results. Call
+ * this at server/CLI boot to avoid paying the 2-3s probe cost on the first
+ * chat request. Safe to call when Copilot is unavailable (no-op).
+ *
+ * @param {string[]} [families] - Which families to warm. Defaults to all.
+ * @returns {Promise<object>} Resolved IDs per family.
+ */
+async function warmModelResolution(families) {
+  if (!hasCopilotAccess()) return {};
+  const fams = families || Object.keys(KNOWN_LATEST_COPILOT);
+  await Promise.all(fams.map(f => resolveCopilotModelId(f).catch(() => {})));
+  return getResolvedCopilotIds();
+}
+
+/**
+ * Reset the resolution cache. Next call to resolveCopilotModelId() will
+ * re-probe. Useful for tests or when you want to pick up a new version
+ * without restarting the process.
+ */
+function resetModelResolution() {
+  _resolvedCopilotIds = {};
+  _resolvingPromises = {};
 }
 
 /**
@@ -419,13 +609,14 @@ async function copilotChatCompletion(messages, options = {}) {
   const maxTokens = options.maxTokens ?? 4096;
   const timeout = options.timeout ?? 60000;
   const modelKey = options.model || DEFAULT_MODEL;
+  const resolvedId = await resolveCopilotModelId(modelKey);
 
   const res = await httpRequestWithRetry('POST', COPILOT_CHAT_URL, {
     'Authorization': `Bearer ${getCopilotToken()}`,
     'Content-Type': 'application/json',
     ...COPILOT_HEADERS
   }, {
-    model: copilotModelId(modelKey),
+    model: resolvedId,
     messages: toCopilotMessages(messages),
     max_tokens: maxTokens
   }, 2, timeout);
@@ -436,6 +627,8 @@ async function copilotChatCompletion(messages, options = {}) {
   }
 
   const content = res.data.choices?.[0]?.message?.content || '';
+  const finishReason = res.data.choices?.[0]?.finish_reason || 'stop';
+  const truncated = finishReason === 'length';
   const rawUsage = res.data.usage || {};
   // Normalize to Anthropic usage format for consistent tracking
   const usage = {
@@ -445,7 +638,11 @@ async function copilotChatCompletion(messages, options = {}) {
   const cost = estimateCost(usage, modelKey);
   trackUsage(usage, modelKey);
 
-  return { content, usage, cost, model: res.data.model || copilotModelId(modelKey), route: 'copilot' };
+  if (truncated) {
+    console.error(`  [anthropic] Response truncated (finish_reason=length, ${usage.output_tokens} output tokens). Consider increasing maxTokens.`);
+  }
+
+  return { content, usage, cost, model: res.data.model || resolvedId, route: 'copilot', truncated };
 }
 
 /**
@@ -456,9 +653,10 @@ async function* copilotStreamCompletion(messages, options = {}) {
   const maxTokens = options.maxTokens ?? 4096;
   const timeout = options.timeout ?? 120000;
   const modelKey = options.model || DEFAULT_MODEL;
+  const resolvedId = await resolveCopilotModelId(modelKey);
 
   const body = JSON.stringify({
-    model: copilotModelId(modelKey),
+    model: resolvedId,
     messages: toCopilotMessages(messages),
     max_tokens: maxTokens,
     stream: true
@@ -491,7 +689,7 @@ async function* copilotStreamCompletion(messages, options = {}) {
     throw new Error(`Copilot Claude API returned ${response.statusCode}: ${errorData.substring(0, 300)}`);
   }
 
-  yield { type: 'route', route: 'copilot', model: copilotModelId(modelKey) };
+  yield { type: 'route', route: 'copilot', model: resolvedId };
 
   let buffer = '';
   let fullText = '';
@@ -565,17 +763,36 @@ async function chatCompletion(messages, options = {}) {
     throw new Error('chatCompletion: messages must be a non-empty array');
   }
 
+  // Honor caller-supplied AbortSignal. We can't cleanly cancel a request
+  // already in flight without modifying the shared http.js wrapper, but we
+  // CAN refuse to start a new one and skip the Copilot→direct fallback when
+  // the caller has already given up.
+  const signal = options.signal;
+  const checkAborted = () => {
+    if (signal?.aborted) {
+      const err = new Error('aborted');
+      err.name = 'AbortError';
+      err.code = 'ABORTED';
+      throw err;
+    }
+  };
+  checkAborted();
+
   const requestedModel = options.model || DEFAULT_MODEL;
 
   // PRIMARY: GitHub Copilot — all models available
-  if (hasCopilotAccess() && COPILOT_MODEL_MAP[requestedModel]) {
+  if (hasCopilotAccess() && KNOWN_LATEST_COPILOT[requestedModel]) {
     try {
       return await copilotChatCompletion(messages, options);
     } catch (copilotErr) {
-      // Copilot failed — fall through to direct API
+      // Copilot failed — fall through to direct API. But if the abort fired
+      // while the Copilot call was in flight, surface it as a clean abort
+      // instead of attempting another network round-trip.
+      checkAborted();
       if (!getApiKey()) throw copilotErr; // No fallback available
     }
   }
+  checkAborted();
 
   // FALLBACK: Direct Anthropic API
   const timeout = options.timeout ?? 60000;
@@ -588,10 +805,11 @@ async function chatCompletion(messages, options = {}) {
   // If 400 and model access denial, fall down the chain
   if (res.status === 400 && isModelAccessError(res.data) && MODELS[requestedModel] && requestedModel !== 'haiku') {
     _modelAccess[requestedModel] = false;
-    _effectiveDefault = FALLBACK_CHAIN.find(k => _modelAccess[k]) || 'haiku';
+    _effectiveDefault = FALLBACK_CHAIN.find(k => _modelAccess[k]) || 'opus';
 
     const fallback = FALLBACK_CHAIN.find(k => k !== requestedModel && _modelAccess[k] !== false);
     if (fallback) {
+      checkAborted();
       const fbBody = buildRequestBody(messages, { ...options, model: fallback });
       const fbRes = await httpRequestWithRetry('POST', ANTHROPIC_API_URL, buildHeaders(), fbBody, 2, timeout);
       if (fbRes.status === 200) {
@@ -617,11 +835,18 @@ async function chatCompletion(messages, options = {}) {
     .map(c => c.text)
     .join('');
 
+  const stopReason = res.data.stop_reason || 'end_turn';
+  const truncated = stopReason === 'max_tokens';
+
   const usage = res.data.usage || {};
   const cost = estimateCost(usage, effectiveModel);
   trackUsage(usage, effectiveModel);
 
-  const result = { content, usage, cost, model: res.data.model };
+  if (truncated) {
+    console.error(`  [anthropic] Response truncated (stop_reason=max_tokens, ${usage.output_tokens || 0} output tokens). Consider increasing maxTokens.`);
+  }
+
+  const result = { content, usage, cost, model: res.data.model, truncated };
   if (effectiveModel !== requestedModel) result.fallback = `${requestedModel}→${effectiveModel}`;
   return result;
 }
@@ -634,7 +859,7 @@ async function chatCompletion(messages, options = {}) {
  * @param {object} [options]
  * @param {number} [options.maxTokens=4096] - Max output tokens
  * @param {number} [options.timeout=120000] - Request timeout in ms (longer for streaming)
- * @param {string} [options.model='haiku'] - Model shorthand or full ID
+ * @param {string} [options.model='opus'] - Model shorthand or full ID. Default is DEFAULT_MODEL ('opus' family sentinel — auto-resolves to the latest Opus snapshot).
  * @param {boolean} [options.cacheSystem=true] - Enable prompt caching on system prompt
  * @returns {AsyncGenerator<{type: string, text?: string, usage?: object, cost?: number}>}
  */
@@ -655,7 +880,7 @@ async function* streamCompletion(messages, options = {}) {
   const requestedModel = options.model || DEFAULT_MODEL;
 
   // PRIMARY: GitHub Copilot — all models available
-  if (hasCopilotAccess() && COPILOT_MODEL_MAP[requestedModel]) {
+  if (hasCopilotAccess() && KNOWN_LATEST_COPILOT[requestedModel]) {
     yield* copilotStreamCompletion(messages, options);
     return;
   }
@@ -703,7 +928,7 @@ async function* streamCompletion(messages, options = {}) {
       throw new Error(`Anthropic API returned 400: ${errorBody.substring(0, 300)}`);
     }
     _modelAccess[requestedModel] = false;
-    _effectiveDefault = FALLBACK_CHAIN.find(k => _modelAccess[k]) || 'haiku';
+    _effectiveDefault = FALLBACK_CHAIN.find(k => _modelAccess[k]) || 'opus';
 
     const fallback = FALLBACK_CHAIN.find(k => k !== requestedModel && _modelAccess[k] !== false);
     if (fallback) {
@@ -841,6 +1066,11 @@ module.exports = {
   getActiveMethod,
   probeModelAccess,
   getModelAccessInfo,
+  resolveCopilotModelId,
+  getResolvedCopilotIds,
+  resetModelResolution,
+  warmModelResolution,
   MODELS,
-  DEFAULT_MODEL
+  DEFAULT_MODEL,
+  KNOWN_LATEST_COPILOT
 };

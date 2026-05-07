@@ -123,9 +123,12 @@ function buildHeaders(token) {
  * @param {string} copilotParam - Copilot parameter value (e.g. "copilots_header_8b375")
  * @param {string} connRefLogicalName - Connection reference logical name
  * @param {string} message - Payload message text
+ * @param {object} [opts] - { envGuid, displayName } — optional metadata that the maker UI
+ *   sets on every saved flow. Omitting envGuid produces a flow that exists in Dataverse
+ *   but may not render correctly in the maker UI.
  * @returns {string} Serialized clientdata JSON
  */
-function buildRecurrenceClientdata(schedule, copilotParam, connRefLogicalName, message) {
+function buildRecurrenceClientdata(schedule, copilotParam, connRefLogicalName, message, opts = {}) {
     const recurrence = {
         type: 'Recurrence',
         recurrence: {
@@ -197,6 +200,13 @@ function buildRecurrenceClientdata(schedule, copilotParam, connRefLogicalName, m
         schemaVersion: '1.0.0.0'
     };
 
+    if (opts.envGuid) {
+        clientdata.properties.environment = { name: opts.envGuid };
+    }
+    if (opts.displayName !== undefined) {
+        clientdata.properties.displayName = opts.displayName;
+    }
+
     return JSON.stringify(clientdata);
 }
 
@@ -236,8 +246,11 @@ async function listFlows(orgUrl, token, options = {}) {
  * @param {string} flowId - Workflow GUID
  * @returns {Promise<{record: object, definition: object|null}>}
  */
-async function getFlow(orgUrl, token, flowId) {
-    const url = buildApiUrl(orgUrl, 'workflows', flowId, '$select=name,workflowid,statecode,category,clientdata,description,createdon,modifiedon');
+async function getFlow(orgUrl, token, flowId, options = {}) {
+    const cols = options.full
+        ? 'name,workflowid,statecode,statuscode,componentstate,category,modernflowtype,primaryentity,type,clientdata,outputs,inputs,description,createdon,modifiedon,scope,solutionid,ismanaged'
+        : 'name,workflowid,statecode,category,clientdata,description,createdon,modifiedon';
+    const url = buildApiUrl(orgUrl, 'workflows', flowId, `$select=${cols}`);
     const headers = buildHeaders(token);
 
     const res = await httpRequestWithRetry('GET', url, headers);
@@ -266,13 +279,20 @@ async function getFlow(orgUrl, token, flowId) {
  */
 async function createTriggerFlow(orgUrl, token, params) {
     const { name, schedule, copilotParam, connRefLogicalName, message, description } = params;
-    const clientdata = buildRecurrenceClientdata(schedule, copilotParam, connRefLogicalName, message);
+    // Derive env GUID — match the maker UI's clientdata shape (properties.environment.name).
+    // Best-effort; if derivation fails, the field is omitted and the flow still works at runtime.
+    const envGuid = params.envGuid || await deriveEnvironmentId(orgUrl, token);
+    const clientdata = buildRecurrenceClientdata(schedule, copilotParam, connRefLogicalName, message, {
+        envGuid,
+        displayName: params.displayName,
+    });
 
     const body = {
         category: 5,
         name: name || `Trigger - ${schedule.frequency} - ${new Date().toISOString().split('T')[0]}`,
         type: 1,
         primaryentity: 'none',
+        modernflowtype: 1,
         description: description || `Recurrence trigger for MCS agent (${schedule.frequency} every ${schedule.interval})`,
         clientdata: clientdata
     };
@@ -323,7 +343,10 @@ async function updateSchedule(orgUrl, token, flowId, schedule) {
     }
 
     const url = buildApiUrl(orgUrl, 'workflows', flowId);
-    const headers = { ...buildHeaders(token), 'If-Match': '*' };
+    // mscrm.AsUnpublished:true tells Dataverse this is a draft edit (the maker UI default).
+    // Without it, the PATCH is treated as a published edit, blurring the draft/published
+    // boundary and making the subsequent PublishComponent call a no-op.
+    const headers = { ...buildHeaders(token), 'If-Match': '*', 'mscrm.AsUnpublished': 'true' };
 
     const res = await httpRequestWithRetry('PATCH', url, headers, {
         clientdata: JSON.stringify(definition)
@@ -369,7 +392,7 @@ async function updateMessage(orgUrl, token, flowId, message) {
     }
 
     const url = buildApiUrl(orgUrl, 'workflows', flowId);
-    const headers = { ...buildHeaders(token), 'If-Match': '*' };
+    const headers = { ...buildHeaders(token), 'If-Match': '*', 'mscrm.AsUnpublished': 'true' };
 
     const res = await httpRequestWithRetry('PATCH', url, headers, {
         clientdata: JSON.stringify(definition)
@@ -381,7 +404,45 @@ async function updateMessage(orgUrl, token, flowId, message) {
 }
 
 /**
- * Activate a flow (statecode=1 means activated/on).
+ * Publish a flow via the Dataverse PublishComponent bound action.
+ *
+ * This is the canonical "save and turn on" operation that the MCS maker UI uses.
+ * It both:
+ *   - Transitions componentstate from 1 (Unpublished) → 0 (Published) — required for
+ *     the flow to be visible in maker UI as Published and for solution-export to capture it
+ *   - Activates the runtime (statecode 0 → 1) when ActivateFlowOnPublish=true
+ *
+ * Was previously implemented as PATCH {statecode:1}, which only flips runtime activation
+ * without going through the component publish lifecycle — flows would run but appear as
+ * Draft in the maker UI and break solution round-trips.
+ *
+ * @param {string} orgUrl
+ * @param {string} token
+ * @param {string} flowId
+ * @param {object} [options] - { activate: boolean (default true) }
+ * @returns {Promise<void>}
+ */
+async function publishFlow(orgUrl, token, flowId, options = {}) {
+    const activate = options.activate !== false;
+    const base = orgUrl.replace(/\/$/, '');
+    const url = `${base}/api/data/${API_VERSION}/PublishComponent?ActivateFlowOnPublish=${activate}`;
+    const headers = {
+        ...buildHeaders(token),
+        'Prefer': 'odata.include-annotations="*"',
+    };
+    const body = { Target: `/workflows(${flowId})` };
+
+    const res = await httpRequestWithRetry('POST', url, headers, body);
+    if (res.status !== 200 && res.status !== 204) {
+        throw new Error(`publishFlow failed: HTTP ${res.status} — ${JSON.stringify(res.data).substring(0, 500)}`);
+    }
+}
+
+/**
+ * Activate a flow.
+ *
+ * @deprecated Use publishFlow() — it both publishes and activates in one bound action.
+ * Retained for backwards compatibility; routes through publishFlow.
  *
  * @param {string} orgUrl
  * @param {string} token
@@ -389,13 +450,7 @@ async function updateMessage(orgUrl, token, flowId, message) {
  * @returns {Promise<void>}
  */
 async function activateFlow(orgUrl, token, flowId) {
-    const url = buildApiUrl(orgUrl, 'workflows', flowId);
-    const headers = { ...buildHeaders(token), 'If-Match': '*' };
-
-    const res = await httpRequestWithRetry('PATCH', url, headers, { statecode: 1 });
-    if (res.status !== 200 && res.status !== 204) {
-        throw new Error(`activateFlow failed: HTTP ${res.status} — ${JSON.stringify(res.data).substring(0, 500)}`);
-    }
+    return publishFlow(orgUrl, token, flowId, { activate: true });
 }
 
 /**
@@ -538,20 +593,88 @@ async function discover(orgUrl, token, botId) {
  * @param {object} params - { name, description, clientdata?, definition?, activate? }
  * @returns {Promise<object>} Created workflow record
  */
+/**
+ * Pure helper — wrap an agent-flow definition into the maker-UI's clientdata shape.
+ *
+ * Accepts three input shapes (auto-normalized):
+ *   1. Full envelope:   { properties: {...}, schemaVersion }
+ *   2. Composer output: { connectionReferences, definition: <WDL>, templateName }
+ *   3. Raw Logic Apps WDL: { $schema, contentVersion, triggers, actions, ... }
+ *
+ * @param {object} definition - One of the three shapes above
+ * @param {object} [opts] - { envGuid, displayName }
+ * @returns {object} { properties: {...}, schemaVersion: '1.0.0.0' } — ready to JSON.stringify into clientdata
+ */
+function wrapAgentFlowClientdata(definition, opts = {}) {
+    const def = definition;
+    let inner;
+    if (def.properties && def.schemaVersion) {
+        inner = def.properties;
+    } else if (def.$schema || (def.contentVersion && (def.triggers || def.actions))) {
+        inner = { connectionReferences: {}, definition: def, templateName: '' };
+    } else {
+        inner = def;
+    }
+    const wrapper = {
+        properties: { ...inner },
+        schemaVersion: '1.0.0.0',
+    };
+    if (opts.envGuid && !wrapper.properties.environment) wrapper.properties.environment = { name: opts.envGuid };
+    if (opts.displayName !== undefined) wrapper.properties.displayName = opts.displayName;
+    return wrapper;
+}
+
+/**
+ * Save (PATCH) the workflow row's clientdata. Used for drift-driven re-saves of
+ * already-existing flows. Sends mscrm.AsUnpublished:true so the change stays as
+ * a draft — caller invokes publishFlow afterward to actually publish.
+ *
+ * Works for both agent flows (category=5) and AI flows (category=7) — the same
+ * Dataverse row endpoint serves both.
+ *
+ * @param {string} orgUrl
+ * @param {string} token
+ * @param {string} flowId
+ * @param {string|object} clientdata - Pre-built clientdata; stringified if object
+ * @param {object} [options] - { outputs (object|string), name, description }
+ * @returns {Promise<void>}
+ */
+async function saveFlow(orgUrl, token, flowId, clientdata, options = {}) {
+    const cd = typeof clientdata === 'string' ? clientdata : JSON.stringify(clientdata);
+    const url = buildApiUrl(orgUrl, 'workflows', flowId);
+    const headers = { ...buildHeaders(token), 'If-Match': '*', 'mscrm.AsUnpublished': 'true' };
+    const body = { clientdata: cd };
+    if (options.name !== undefined) body.name = options.name;
+    if (options.description !== undefined) body.description = options.description;
+    if (options.outputs !== undefined) {
+        body.outputs = typeof options.outputs === 'string' ? options.outputs : JSON.stringify(options.outputs);
+    }
+    const res = await httpRequestWithRetry('PATCH', url, headers, body);
+    if (res.status !== 200 && res.status !== 204) {
+        throw new Error(`saveFlow failed: HTTP ${res.status} — ${JSON.stringify(res.data).substring(0, 500)}`);
+    }
+}
+
 async function createFlow(orgUrl, token, params) {
     let clientdata;
 
+    // Derive env GUID lazily for the wrap path (skip if caller already wrapped clientdata
+    // or explicitly passed envGuid). Best-effort — flow still creates without it.
+    const envGuid = params.envGuid !== undefined
+        ? params.envGuid
+        : (params.clientdata ? null : await deriveEnvironmentId(orgUrl, token));
+
     if (params.clientdata) {
-        // Already-wrapped clientdata (string or object)
+        // Already-wrapped clientdata (string or object) — caller is responsible for env/displayName
         clientdata = typeof params.clientdata === 'string'
             ? params.clientdata
             : JSON.stringify(params.clientdata);
     } else if (params.definition) {
-        // Raw definition — wrap in clientdata envelope
-        const properties = params.definition.properties
-            ? params.definition
-            : { properties: params.definition, schemaVersion: '1.0.0.0' };
-        clientdata = JSON.stringify(properties);
+        const wrapper = wrapAgentFlowClientdata(params.definition, {
+            envGuid,
+            displayName: params.displayName,
+        });
+        clientdata = JSON.stringify(wrapper);
     } else {
         throw new Error('Either clientdata or definition is required');
     }
@@ -567,7 +690,12 @@ async function createFlow(orgUrl, token, params) {
     };
 
     const url = buildApiUrl(orgUrl, 'workflows');
-    const headers = buildHeaders(token);
+    // mscrm.AsUnpublished:true creates the workflow as a draft, matching how the
+    // maker UI creates flows. Without it, Dataverse may reject category=5/7 creates
+    // with "Cannot create a generative action in a published state" because the
+    // default state for new workflows is treated as published-on-create.
+    // Use publishFlow() to transition the flow to published+activated.
+    const headers = { ...buildHeaders(token), 'mscrm.AsUnpublished': 'true' };
 
     const res = await httpRequestWithRetry('POST', url, headers, body);
     if (res.status !== 200 && res.status !== 201) {
@@ -577,6 +705,75 @@ async function createFlow(orgUrl, token, params) {
     // Activate if requested
     if (params.activate && res.data.workflowid) {
         await activateFlow(orgUrl, token, res.data.workflowid);
+    }
+
+    return res.data;
+}
+
+/**
+ * Create a category=7 "AI flow" (a tool flow that wraps an MCP connector or other
+ * declarative tool descriptor for use as an action inside an agent flow).
+ *
+ * Distinct from agent flows (category=5) in three ways:
+ *   - Dataverse columns: category=7, primaryentity="workflow", no modernflowtype
+ *   - clientdata is NOT Logic Apps WDL — it's { definition: { plan, actions: { connectors: [] } }, connectionReferences }
+ *   - Has an `outputs` column declaring the AI flow's output schema (so the agent flow knows what to bind)
+ *
+ * @param {string} orgUrl
+ * @param {string} token
+ * @param {object} params
+ * @param {string} params.name - Flow display name (typically the user-facing tool label)
+ * @param {string} [params.description]
+ * @param {string|object} [params.clientdata] - Pre-built clientdata. If provided, params.connectors/plan are ignored.
+ * @param {string} [params.plan=''] - Natural-language plan
+ * @param {Array}  [params.connectors] - [{ apiName, operationId, displayName?, isSuggested?, connectionReference? }]
+ * @param {object} [params.connectionReferences] - Connection references map
+ * @param {object} [params.outputSchema] - JSON Schema for the AI flow's output (becomes outputs column)
+ * @param {object|string} [params.inputs] - Inputs spec (typically '{}' for tool flows)
+ * @param {boolean} [params.publish=false] - If true, publish + activate after create
+ * @returns {Promise<object>} Created workflow record
+ */
+async function createAIFlow(orgUrl, token, params) {
+    let clientdata;
+    if (params.clientdata) {
+        clientdata = typeof params.clientdata === 'string' ? params.clientdata : JSON.stringify(params.clientdata);
+    } else {
+        const composed = composer.composeAIFlow({
+            plan: params.plan || '',
+            connectors: params.connectors || [],
+            connectionReferences: params.connectionReferences || {}
+        });
+        clientdata = JSON.stringify(composed);
+    }
+
+    const body = {
+        category: 7,
+        primaryentity: 'workflow',
+        type: 1,
+        name: params.name || `AI Flow - ${new Date().toISOString().split('T')[0]}`,
+        clientdata
+    };
+    if (params.description !== undefined) body.description = params.description;
+    if (params.outputSchema !== undefined) {
+        body.outputs = JSON.stringify({ schema: params.outputSchema });
+    }
+    if (params.inputs !== undefined) {
+        body.inputs = typeof params.inputs === 'string' ? params.inputs : JSON.stringify(params.inputs);
+    }
+
+    const url = buildApiUrl(orgUrl, 'workflows');
+    // AI flows ALWAYS need AsUnpublished:true on create — without it, Dataverse rejects
+    // with "Cannot create a generative action in a published state" (0x80048d0b).
+    // Use publishFlow() to transition to published+activated.
+    const headers = { ...buildHeaders(token), 'mscrm.AsUnpublished': 'true' };
+
+    const res = await httpRequestWithRetry('POST', url, headers, body);
+    if (res.status !== 200 && res.status !== 201) {
+        throw new Error(`createAIFlow failed: HTTP ${res.status} — ${JSON.stringify(res.data).substring(0, 500)}`);
+    }
+
+    if (params.publish && res.data.workflowid) {
+        await publishFlow(orgUrl, token, res.data.workflowid);
     }
 
     return res.data;
@@ -693,24 +890,95 @@ function composeFlowFromSpec(spec) {
 }
 
 /**
+ * Derive the Power Platform environment GUID from a Dataverse org URL.
+ * Queries the organizations entity for environmentid.
+ *
+ * @param {string} orgUrl
+ * @param {string} token
+ * @returns {Promise<string|null>} Environment GUID (hyphenated) or null
+ */
+async function deriveEnvironmentId(orgUrl, token) {
+    // Note: do NOT use $select=environmentid — Dataverse returns 0 rows on certain
+    // entities when $select is applied. Query the full organizations row.
+    try {
+        const url = buildApiUrl(orgUrl, 'organizations');
+        const headers = buildHeaders(token);
+        const res = await httpRequest('GET', url, headers);
+        if (res.status === 200 && res.data.value?.[0]?.environmentid) {
+            return res.data.value[0].environmentid;
+        }
+        // Surface why we couldn't derive — caller may have already authed but the
+        // query shape is wrong. Stays in a try/catch so callers that don't care
+        // (legacy validateFlow path) just get null.
+        const err = new Error(`deriveEnvironmentId: HTTP ${res.status}, no environmentid in response (rows: ${res.data?.value?.length ?? 0})`);
+        err._dvResponse = res.data;
+        throw err;
+    } catch (e) {
+        if (process.env.FLOW_BUILD_DEBUG) {
+            console.error(`[deriveEnvironmentId] ${e.message}`);
+        }
+    }
+    return null;
+}
+
+/**
  * Derive the Power Platform environment URL from a Dataverse org URL.
- * Queries the environment metadata to find the environment ID.
  *
  * @param {string} orgUrl
  * @param {string} token
  * @returns {Promise<string|null>} Environment URL or null
  */
 async function deriveEnvironmentUrl(orgUrl, token) {
-    try {
-        const url = buildApiUrl(orgUrl, 'organizations', null, '$select=environmentid');
-        const headers = buildHeaders(token);
-        const res = await httpRequest('GET', url, headers);
-        if (res.status === 200 && res.data.value?.[0]?.environmentid) {
-            const envId = res.data.value[0].environmentid;
-            return `https://${envId}.environment.api.powerplatform.com`;
-        }
-    } catch { /* fall through */ }
-    return null;
+    const envId = await deriveEnvironmentId(orgUrl, token);
+    if (!envId) return null;
+    return `https://${envId}.environment.api.powerplatform.com`;
+}
+
+/**
+ * Derive the Power Platform Environment API URL in the format actually used by
+ * the maker UI: {first-30-chars-no-hyphens}.{last-2}.environment.api.powerplatform.com
+ *
+ * Per HAR capture, env GUID f9a0cae4-a7e5-e91a-b358-9b848e12071c becomes
+ * f9a0cae4a7e5e91ab3589b848e1207.1c.environment.api.powerplatform.com
+ *
+ * Used by /copilotflows/* and /powerautomate/* endpoints (verifyPlan, checkFlowErrors,
+ * mcp tool discovery, etc).
+ *
+ * @param {string} orgUrl
+ * @param {string} token
+ * @returns {Promise<string|null>}
+ */
+async function derivePowerPlatformUrl(orgUrl, token) {
+    const envId = await deriveEnvironmentId(orgUrl, token);
+    if (!envId) return null;
+    const noHyphens = envId.replace(/-/g, '');
+    if (noHyphens.length !== 32) return null;
+    const prefix = noHyphens.slice(0, 30);
+    const region = noHyphens.slice(30);
+    return `https://${prefix}.${region}.environment.api.powerplatform.com`;
+}
+
+/**
+ * Verify the natural-language plan of a category=7 (AI) flow before publishing.
+ * Required by Dataverse — without it, publishFlow returns:
+ *   "Cannot publish a generative action without verifying the plan first" (0x80048d0b)
+ *
+ * @param {string} envUrl - Power Platform Environment API URL (from derivePowerPlatformUrl)
+ * @param {string} pvaToken - Power Platform service token (audience 96ff4394-9197-43aa-b393-6a41652e21f8)
+ * @param {string} flowId - AI flow's Dataverse workflowid
+ * @returns {Promise<object>} verifyPlan response (typically empty/lint info)
+ */
+async function verifyPlan(envUrl, pvaToken, flowId) {
+    const url = `${envUrl}/copilotflows/flows/${flowId}/verifyPlan?api-version=1`;
+    const headers = {
+        Authorization: `Bearer ${pvaToken}`,
+        'Content-Type': 'application/json',
+    };
+    const res = await httpRequest('POST', url, headers, {});
+    if (res.status !== 200 && res.status !== 204) {
+        throw new Error(`verifyPlan failed: HTTP ${res.status} — ${JSON.stringify(res.data).substring(0, 500)}`);
+    }
+    return res.data;
 }
 
 // --- CLI ---
@@ -1544,17 +1812,25 @@ module.exports = {
     getFlow,
     createTriggerFlow,
     createFlow,
+    createAIFlow,
+    saveFlow,
+    wrapAgentFlowClientdata,
     validateFlow,
     discoverOperations,
     composeFlowFromSpec,
     updateSchedule,
     updateMessage,
+    publishFlow,
     activateFlow,
     deactivateFlow,
     deleteFlow,
     discoverConnectionRef,
     discoverCopilotParam,
     discover,
+    deriveEnvironmentId,
+    deriveEnvironmentUrl,
+    derivePowerPlatformUrl,
+    verifyPlan,
     composer,
     connectorSchema
 };

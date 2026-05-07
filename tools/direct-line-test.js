@@ -2,11 +2,11 @@
  * Direct Line API Test Runner for Copilot Studio Agents
  *
  * Sends test messages to an MCS agent via Direct Line API and compares
- * responses against expected results from evals.csv or brief.json evalSets.
+ * responses against expected results from evals.csv or agentspec.json/brief.json evalSets.
  *
  * Usage:
  *   node tools/direct-line-test.js --token-endpoint <URL> --csv <path/to/evals.csv>
- *   node tools/direct-line-test.js --token-endpoint <URL> --brief <path/to/brief.json> [--set safety,functional]
+ *   node tools/direct-line-test.js --token-endpoint <URL> --brief <path/to/agentspec.json> [--set safety,functional]
  *   node tools/direct-line-test.js --token <DL_TOKEN> --csv <path/to/evals.csv>
  *
  * Token acquisition (in priority order):
@@ -19,7 +19,7 @@
  *
  * Input formats:
  *   --csv <path>   CSV format: "Question","Expected response","Testing method","Keywords"
- *   --brief <path> brief.json evalSets (supports multi-turn tests + plan validation)
+ *   --brief <path> agent spec evalSets (supports multi-turn tests + plan validation)
  *
  * Exit codes:
  *   0 = all tests passed
@@ -48,7 +48,7 @@ function parseArgs() {
             case '--token': config.token = args[++i]; break;
             case '--token-endpoint': config.tokenEndpoint = args[++i]; break;
             case '--csv': config.csvPath = args[++i]; break;
-            case '--brief': config.briefPath = args[++i]; break;
+            case '--brief': case '--spec': config.briefPath = args[++i]; break;
             case '--set': config.filterSets = args[++i].split(',').map(s => s.trim()); break;
             case '--endpoint': config.endpoint = args[++i]; break;
             case '--timeout': config.timeout = parseInt(args[++i]) || DEFAULT_TIMEOUT_MS; break;
@@ -65,7 +65,7 @@ Token (one required):
 
 Test input (one required):
   --csv <path>               Path to evals.csv file
-  --brief <path>             Path to brief.json (supports multi-turn + plan validation)
+  --brief <path>             Path to agent spec (agentspec.json or brief.json; supports multi-turn + plan validation)
   --set <names>              Comma-separated eval set filter (with --brief only)
 
 Options:
@@ -77,8 +77,8 @@ Options:
 
 Examples:
   node direct-line-test.js --token-endpoint "https://..." --csv evals.csv
-  node direct-line-test.js --token-endpoint "https://..." --brief brief.json --set safety,functional
-  node direct-line-test.js --token "abc123" --brief brief.json --verbose`);
+  node direct-line-test.js --token-endpoint "https://..." --brief agentspec.json --set safety,functional
+  node direct-line-test.js --token "abc123" --brief agentspec.json --verbose`);
                 process.exit(0);
         }
     }
@@ -558,19 +558,25 @@ function writeResults(config, results, testCases, status, failedAtIndex) {
 async function runTests() {
     const config = parseArgs();
 
-    // Load test cases from CSV or brief.json
+    // Load test cases from CSV or agent spec
     let testCases;
     let inputSource;
 
     if (config.briefPath) {
-        const { tests, agentName } = parseEvalSets(config.briefPath, config.filterSets);
+        // Backward compat: prefer agentspec.json in same dir
+        const bDir = require('path').dirname(config.briefPath);
+        const bBase = require('path').basename(config.briefPath);
+        const resolvedBriefPath = (bBase === 'brief.json' && fs.existsSync(require('path').join(bDir, 'agentspec.json')))
+            ? require('path').join(bDir, 'agentspec.json')
+            : config.briefPath;
+        const { tests, agentName } = parseEvalSets(resolvedBriefPath, config.filterSets);
         testCases = tests.map(t => ({
             ...t,
             expectedResponse: t.expected || '',
             testMethodType: t.methods && t.methods[0] ? t.methods[0].type : 'GeneralQuality',
             passingScore: t.methods && t.methods[0] && t.methods[0].score ? t.methods[0].score : 70
         }));
-        inputSource = `brief.json (${agentName})`;
+        inputSource = `agent spec (${agentName})`;
         if (config.filterSets) inputSource += ` [sets: ${config.filterSets.join(', ')}]`;
     } else {
         const csvContent = fs.readFileSync(config.csvPath, 'utf8');

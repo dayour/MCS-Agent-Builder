@@ -1,0 +1,18 @@
+{
+  "request": {
+    "method": "GET",
+    "url": "/api/botmanagement/v1/environments/<envId>/bots/<botId>/settings",
+    "headers": {
+      "x-ms-environment-id": "<envId>",
+      "x-ms-bot-id": "<botId>"
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": { "content-type": "application/json" },
+    "body": {
+      "makerEvaluationEnabled": true,
+      "otherSettings": "<tenant-specific-values-non-contractual>"
+    }
+  }
+}

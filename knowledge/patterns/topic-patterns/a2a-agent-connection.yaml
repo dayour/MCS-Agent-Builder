@@ -1,0 +1,75 @@
+# Pattern: A2A (Agent-to-Agent) Protocol Connection
+# Trigger: By agent (generative orchestration routes to this)
+# Shows: How to configure and invoke an external A2A-compliant agent
+# Common in: multi-agent systems, external Python/Java/.NET agents, cross-platform orchestration
+#
+# Based on: MS Learn "Connect an agent over A2A protocol" (GA Apr 2026)
+# https://learn.microsoft.com/en-us/microsoft-copilot-studio/add-agent-agent-to-agent
+#
+# Schema: Standard MCS agent configuration (not topic YAML)
+# A2A agents are added as connected agents, not as topics.
+#
+# IMPORTANT:
+# - A2A is an open protocol for agent-to-agent communication
+# - The external agent must implement the A2A protocol (agent card at /.well-known/agent.json)
+# - Authentication options: None, API Key, OAuth 2.0
+# - Multi-turn support via contextId for conversation continuity
+# - Uses custom connector infrastructure (works on-prem, VNet)
+# - Sample: github.com/microsoft/CopilotStudioSamples/extensibility/a2a/
+
+# --- Step 1: Configure A2A Connection in MCS ---
+# 1. Go to agent Settings > Connected agents
+# 2. Add agent > A2A protocol
+# 3. Enter the A2A agent's URL (must serve /.well-known/agent.json)
+# 4. Configure authentication:
+#    - None: for public/internal agents
+#    - API Key: add header name + key
+#    - OAuth 2.0: configure client ID, secret, token URL, scope
+# 5. Review the agent card (name, description, capabilities)
+# 6. Save — the A2A agent appears as a connected agent
+
+# --- Step 2: Agent routing ---
+# The generative orchestrator routes to A2A agents based on:
+# 1. Agent description (from the agent card)
+# 2. Agent name
+# 3. Parent agent instructions
+#
+# Write clear descriptions in the A2A agent card:
+#   "Handles complex data analysis tasks including statistical modeling,
+#    trend forecasting, and anomaly detection. Does NOT handle data entry
+#    or simple lookups."
+
+# --- Step 3: Conversation flow ---
+# 1. User sends message to parent agent
+# 2. Orchestrator determines A2A agent is best handler
+# 3. Parent sends task to A2A agent (with chat history metadata)
+# 4. A2A agent processes and responds
+# 5. Parent presents response to user
+# 6. Multi-turn: contextId maintains conversation state
+
+# --- agentspec.json integration ---
+# In agentspec.json, represent A2A connections in integrations[]:
+#
+# {
+#   "integrations": [{
+#     "name": "DataAnalysisAgent",
+#     "type": "a2a",
+#     "endpoint": "https://analysis-agent.example.com",
+#     "authType": "oauth2",
+#     "description": "Statistical analysis and trend forecasting agent",
+#     "capabilities": ["data_analysis", "trend_forecast", "anomaly_detection"]
+#   }]
+# }
+
+# --- Build automation ---
+# A2A agent connections currently require manual setup in MCS UI.
+# Headless path: Not yet available via LSP push or Dataverse API.
+# Manual step: Guide user to Settings > Connected agents > Add > A2A.
+# The agent card URL and auth config must be provided by the customer.
+
+# --- A2A vs Connected Agent vs Inline Agent ---
+# | Type | Protocol | Hosts | Best For |
+# |------|----------|-------|----------|
+# | A2A agent | A2A (open) | Any A2A-compliant | External agents (Python, Java, .NET) |
+# | Connected agent | MCS-native | MCS agents only | Other Copilot Studio agents |
+# | Inline agent | N/A (same bot) | Same agent | Topics as reusable subroutines |

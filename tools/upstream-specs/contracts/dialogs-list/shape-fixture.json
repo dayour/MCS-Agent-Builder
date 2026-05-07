@@ -1,0 +1,22 @@
+{
+  "_description": "Sanitized shape for the curated dialogs-list endpoint. The response is paged; the value array typically holds Dialog objects. This fixture covers two cases: empty (which is what the typed endpoint commonly returns when the bot has no published Regular/System dialogs) and a single-entry shape derived from a known msdyn schema name.",
+  "request": {
+    "method": "GET",
+    "url": "/api/botauthoring/v1/environments/<envId>/bots/<botId>/dialogs",
+    "headers": {}
+  },
+  "response": {
+    "status": 200,
+    "headers": { "content-type": "application/json" },
+    "body": {
+      "value": [
+        {
+          "schemaName": "msdyn_searchknowledgearticleprivatetopic",
+          "displayName": "<displayName>",
+          "kind": "Dialog",
+          "type": "System"
+        }
+      ]
+    }
+  }
+}

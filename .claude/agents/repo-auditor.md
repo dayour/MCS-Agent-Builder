@@ -187,3 +187,7 @@ node tools/multi-model-review.js review-code --file <path> --context "Dead file 
 - When you find zero issues, say "All checks passed" — do not invent problems.
 - Classify optimization findings with estimated impact (lines saved, KB saved).
 - Always provide a total estimated savings at the end.
+
+## Memory & Plugin Access
+
+You have no Skill tool access. The **lead** invokes plugins on your behalf and passes you results. claude-mem captures your tool calls passively via PostToolUse hooks; the lead queries it during failure triage to surface prior fixes. Focus on doing good work — orchestration handles itself.

@@ -1,10 +1,11 @@
 {
   "_meta": {
     "version": "1.0",
-    "builtAt": "2026-04-07T21:26:42.783Z",
+    "builtAt": "2026-04-27T15:29:34.960Z",
     "sourceFiles": [
       "knowledge/cache/adaptive-cards.md",
       "knowledge/cache/agent-lifecycle.md",
+      "knowledge/cache/agent-settings.md",
       "knowledge/cache/ai-tools-computer-use.md",
       "knowledge/cache/api-capabilities.md",
       "knowledge/cache/channels.md",
@@ -21,7 +22,7 @@
       "knowledge/cache/known-issues.md",
       "knowledge/cache/limits-licensing.md",
       "knowledge/cache/mcp-servers.md",
-      "knowledge/cache/mcs-primer-gpt.md",
+      "knowledge/frameworks/mcs-primer-gpt.md",
       "knowledge/cache/models.md",
       "knowledge/cache/power-automate-integration.md",
       "knowledge/cache/powerfx-variables.md",
@@ -35,15 +36,22 @@
     ],
     "stats": {
       "triggers": 24,
-      "connectors": 36,
-      "mcpServers": 63,
-      "models": 21,
+      "connectors": 37,
+      "mcpServers": 64,
+      "models": 24,
       "channels": 21,
       "knowledgeSources": 34,
       "firstPartyAgents": 25,
       "patterns": 10,
-      "evalScenarios": 74
-    }
+      "evalScenarios": 0
+    },
+    "recentUpdates": [
+      "channels: \"No new channels added. Confirmed: Teams group/channel chats cannot use end-user-auth knowledge sources (1:1 only). M365 Copilot channel limitations surfaced (no OnConversationStart, no GIF/basic cards/video/file/speech, no Action.Execute adaptive cards, inactivity trigger fires but can't post, no reactions). Adaptive Cards: v1.6 schema in default Web Chat (no Action.Execute), v1.5 in Teams and Omnichannel. MC1282727: Teams classic agent creation retirement (scheduled Apr 1 2026) paused, timeline TBD. Apr 24, 2026 doc refresh: adaptive-cards-overview re-confirmed schema versions (no new versions). Mar 2026 accessibility best practices for Adaptive Cards live (screen readers, keyboard nav, Teams-specific scenarios).\"",
+      "declarative-agents: \"Embedded knowledge has TWO distinct paths (clarification): (1) ATK/v1.6 schema EmbeddedKnowledge = 10 files × 1MB, still 'not yet enabled'; (2) Agent Builder embedded file content = 20 files × 512MB, GA Feb 2026 via SharePoint Embedded (NOT supported in GCC Moderate). Schema v1.6 remains latest (no v1.7). Copilot Studio VS Code extension (GA Jan 2026) — clones CS agents locally; for CA not DA. MCP Apps announced Apr 7, 2026 — inline widgets + immersive workspace surface, works on existing v1.6 schema. Microsoft 365 Agents Toolkit Plugin (Preview) for Claude Code/skills. GPT-5.1 auto architecture for DAs (Feb 2026). Agent Builder: 20 embedded files × 512MB (not 10 as previously documented). Apr 27 re-verify: schema v1.6 still latest per learn.microsoft.com (verified 2026-04-27). No v1.7. EmbeddedKnowledge schema entry still flagged 'This feature is not yet available' on the live docs page. Apr 2026 governance addition: Agent Builder users can now submit agents for admin review before publishing to org Agent Store (appears in 'Built by your org' section after approval). Microsoft 365 Agents SDK orchestrates DAs alongside Copilot Studio agents (Apr 2026). Apr 21 release notes: agent sharing to Teams team via dialog with installation prompt.\"",
+      "first-party-agents: \"ESS mobile status now Available (Mar 2026). Planner Agent rollout completing early May 2026 + available in Frontier. Copilot Cowork (Frontier Preview Mar 30) is a STANDALONE autonomous agent using Anthropic models (NOT a Researcher 'multi-model critique' enhancement as previously described — correction). Agent Builder: natural-language agent creation + share to Teams + 20 embedded files × 512MB now GA. Copilot Policy Settings API (Preview). No new first-party agents announced. Apr 27 re-verify: confirmed no new first-party agents in Apr 2026 release notes. Apr 21 release added agent sharing to Teams team via dialog (Agent Builder-built agents can be shared with installation prompts). Researcher and Analyst remain operating within M365 commercial data processing boundary, NOT subject to agent-related governance settings (per [manage-copilot-agents-integrated-apps](https://learn.microsoft.com/microsoft-365/admin/manage/manage-copilot-agents-integrated-apps)). M365 Agents SDK: orchestrate Copilot Studio agents alongside Microsoft 365 experiences (Apr 2026). Agent Builder admin-review submission flow shipping Apr 2026 — agents appear in 'Built by your org' section of Agent Store after approval.\"",
+      "knowledge-sources: \"SharePoint lists as knowledge source Preview slipped Apr→May 2026, GA May 2026 (Apr 15). Multi-turn conversation eval GA slipped May→Jun 2026 (Apr 19). Credential oversharing detection Preview slipped to Jul 2026, GA Sep 2026 (Apr 16). Unified errors/warnings view Preview slipped to May 2026 (Apr 16). Core 5 knowledge source types + 'Allow ungrounded responses' behavior unchanged. 'Official sources' still incompatible with generative orchestration. Apr 27 re-verify: knowledge-copilot-studio + nlu-boost-conversations docs both refreshed Apr 24, 2026. Content unchanged from Apr 22 cache (5 supported sources, generative vs classic limits, web search, allow ungrounded, tenant graph grounding all confirmed).\"",
+      "mcp-servers: \"Federated Copilot Connectors GA (9 servers, LSEG/Moody's in, S&P Global out). MCP-in-flows Preview slipped Apr→May 2026. Power Apps MCP Server agent-feed cutover May 1 2026. SharePoint Lists MCP merged into Work IQ SharePoint; M365 Admin Center MCP no longer highlighted. Claude Opus 4.7 experimental for MCS agents Apr 16. Apr 27 re-verify: whats-new (Apr 23) reaffirmed Mar 2026 Work IQ tools preview. No new servers added to built-in catalog since Apr 22.\""
+    ]
   },
   "components": {
     "triggers": [
@@ -388,13 +396,13 @@
         "notes": "Premium; also Real-Time Knowledge (preview)"
       },
       {
-        "name": "Snowflake",
+        "name": "Snowflake v2 (Preview)",
         "category": "thirdParty",
         "tier": "premium",
         "keyActions": "Query data",
         "mcpAlternative": false,
         "mcpNote": "",
-        "notes": "Premium; also Real-Time Knowledge (preview)"
+        "notes": "Premium; also Real-Time Knowledge (preview). Original Snowflake connector deprecated May 2025 -- use v2."
       },
       {
         "name": "Oracle Database",
@@ -548,6 +556,15 @@
         "mcpAlternative": false,
         "mcpNote": "",
         "notes": "Retired Apr 1-14, 2026. Existing connections stop working. No new connections allowed."
+      },
+      {
+        "name": "Snowflake (original)",
+        "category": "thirdParty",
+        "tier": "standard",
+        "keyActions": "",
+        "mcpAlternative": false,
+        "mcpNote": "",
+        "notes": "Discontinued May 2025. Replace with [Snowflake v2 (Preview)](https://learn.microsoft.com/connectors/snowflakev2/) connector. Existing connections no longer function."
       }
     ],
     "mcpServers": [
@@ -593,8 +610,8 @@
       },
       {
         "name": "Dynamics 365 Business Central",
-        "description": "Business Central connector with MCP capabilities.",
-        "status": "GA",
+        "description": "Business Central connector with MCP capabilities. Enhanced MCP server GA Apr 2026: static validation, expanded host compatibility (VS Code, Copilot Studio, 3P clients via Entra ID), telemetry with Purview auditing, embedded resources for large datasets. Dedicated endpoint: `https://mcp.businesscentral.dynamics.com`. OAuth 2.1.",
+        "status": "GA (enhanced Apr 2026)",
         "category": "dynamics365",
         "connectorName": "`dynamicssmbsaas`",
         "oldName": ""
@@ -960,6 +977,14 @@
         "oldName": ""
       },
       {
+        "name": "Microsoft MCP Server for Enterprise",
+        "description": "Enables AI agents to query Microsoft Entra tenant data via Microsoft Graph API using natural language. Read-only. Scenarios: IT helpdesk, admin reporting, API discovery, automation. Endpoint: `https://mcp.svc.cloud.microsoft/enterprise`. Connected to Copilot Studio via custom connector + MCP onboarding wizard (OAuth 2.0 Manual with federated credentials). Supports managed identity auth. Rate limit: 100 calls/min/user + Graph throttling. No additional license required (need appropriate licenses for accessed data). Public cloud only. Source: https://learn.microsoft.com/graph/mcp-server/overview",
+        "status": "Preview",
+        "category": "thirdParty",
+        "connectorName": "",
+        "oldName": ""
+      },
+      {
         "name": "Microsoft MCP Management Server",
         "description": "Create, update, delete, and publish custom MCP servers programmatically. API-first -- no UI needed. Uses connectors, Graph APIs, REST, Dataverse custom APIs. Tools: CreateMCPServer, CreateToolWithConnector, UpdateTool, DeleteMCPServer, PublishMCPServer.",
         "status": "Preview",
@@ -1107,6 +1132,13 @@
         "notes": "Next-gen reasoning. Replaced GPT-5.2 Reasoning in model table."
       },
       {
+        "name": "GPT-5.5 Reasoning",
+        "category": "deep",
+        "status": "Experimental",
+        "availability": "US only (early access environment)",
+        "notes": "New as of Apr 25, 2026 doc refresh. Latest experimental reasoning model. Source: [authoring-select-agent-model](https://learn.microsoft.com/en-us/microsoft-copilot-studio/authoring-select-agent-model)."
+      },
+      {
         "name": "Claude Sonnet 4.5",
         "category": "general",
         "status": "GA (Global)",
@@ -1126,6 +1158,13 @@
         "status": "GA (Global)",
         "availability": "GA (cross-geo) all regions; GA natively in US",
         "notes": "Anthropic deep reasoning. GA globally since Mar 2026. Also available in prompt builder (Feb 2026)."
+      },
+      {
+        "name": "Claude Opus 4.7",
+        "category": "deep",
+        "status": "Experimental",
+        "availability": "Experimental (cross-geo) in all regions incl. US",
+        "notes": "Anthropic next-gen deep reasoning. Landed in MCS model selector Apr 16, 2026 (same day GitHub Copilot / M365 Copilot rollout). First Claude model with high-resolution image support. Improved long-horizon agentic work, knowledge tasks, vision, memory. Requires admin enablement (experimental + external models + cross-geo). NOT for production. Source: [authoring-select-agent-model](https://learn.microsoft.com/en-us/microsoft-copilot-studio/authoring-select-agent-model), [Anthropic blog](https://techcommunity.microsoft.com/blog/microsoft365copilotblog/available-today-anthropic-claude-opus-4-7-in-microsoft-365-copilot/4511666)."
       },
       {
         "name": "Grok 4.1 Fast",
@@ -1159,22 +1198,22 @@
         "name": "GPT-5 reasoning",
         "category": "deep",
         "status": "",
-        "availability": "GA",
-        "notes": "GA"
+        "availability": "GA (all regions via cross-geo)",
+        "notes": "GA (all regions via cross-geo)"
       },
       {
         "name": "GPT-5.2 chat",
         "category": "general",
         "status": "",
-        "availability": "Experimental",
-        "notes": "Experimental"
+        "availability": "Experimental (US only)",
+        "notes": "Experimental (US only)"
       },
       {
         "name": "GPT-5.2 reasoning",
         "category": "deep",
         "status": "",
-        "availability": "Experimental",
-        "notes": "Experimental"
+        "availability": "Experimental (US only)",
+        "notes": "Experimental (US only)"
       },
       {
         "name": "Claude Sonnet 4.5",
@@ -1193,12 +1232,19 @@
       {
         "name": "GPT-4o",
         "category": "general",
-        "status": "Default (GCC + GCC-H + DoD)",
-        "availability": "Still the only option for agent orchestration in government clouds",
-        "notes": "Still the only option for agent orchestration in government clouds"
+        "status": "Default (GCC)",
+        "availability": "Only option listed for agent orchestration in government clouds per [MS Learn agent model table](https://learn.microsoft.com/en-us/microsoft-copilot-studio/authoring-select-agent-model)",
+        "notes": "Only option listed for agent orchestration in government clouds per [MS Learn agent model table](https://learn.microsoft.com/en-us/microsoft-copilot-studio/authoring-select-agent-model)"
       },
       {
         "name": "GPT-4o mini",
+        "category": "general",
+        "status": "GA (GCC + GCC-H)",
+        "availability": "Available for prompt builder in gov clouds",
+        "notes": "Available for prompt builder in gov clouds"
+      },
+      {
+        "name": "GPT-4o",
         "category": "general",
         "status": "GA (GCC + GCC-H)",
         "availability": "Available for prompt builder in gov clouds",
@@ -2301,58 +2347,175 @@
       "rules": [
         {
           "path": "first-party-only",
-          "condition": "All capabilities matched by first-party agents"
-        },
-        {
-          "path": "declarative-agent",
-          "condition": "Config-only (instructions + knowledge + tools), no custom topics, no storage, no custom auth, single-agent, hosted in M365 Copilot"
+          "condition": "All capabilities matched by Tier 1-2 first-party agents (100% coverage)"
         },
         {
           "path": "custom-agent",
-          "condition": "Custom topics, storage, complex auth, multi-agent, or features DA can't handle"
+          "condition": "Solution type score 4-5: strong conversational need, AI judgment, NL value"
+        },
+        {
+          "path": "hybrid",
+          "condition": "Solution type score 3: CA for conversational + Power Automate for automation"
+        },
+        {
+          "path": "flow",
+          "condition": "Solution type score 1-2: deterministic pipeline, limited conversation need"
+        },
+        {
+          "path": "not-recommended",
+          "condition": "Solution type score 0: outside MCS capabilities"
         }
       ],
-      "daDisqualifiers": [
-        "Requires persistent storage (Dataverse writes)",
-        "Requires custom OAuth/auth flow",
-        "Multi-agent architecture",
-        "Custom topic with complex branching",
-        "Event triggers (autonomous)",
-        "Channel other than M365 Copilot/Teams"
+      "solutionTypeFactors": [
+        "conversationalNeed: users need dialogue vs data moved/displayed",
+        "interactionPattern: AI judgment needed vs deterministic flowchart",
+        "capabilityDistribution: 50%+ conversational (prompt/topic/knowledge) vs automation (flow/tool)",
+        "userValueOfNL: broad non-technical audience vs structured UI suffices",
+        "mcsFeasibility: fits MCS limits vs requires batch/sub-second/heavy compute"
       ]
     }
   },
   "evalScenarios": {
-    "version": "1.0",
-    "source": "https://github.com/serenaxxiee/copilot-studio-eval-scenario-library",
-    "description": "Copilot Studio Eval Scenario Library — 74 scenarios across 13 categories",
-    "coverageTargets": {
-      "core-business": {
-        "min": 30,
-        "max": 40,
-        "description": "Core business use case tests"
+    "version": "2.0",
+    "source": "microsoft/eval-guide (Claude Code plugin)",
+    "description": "Eval generation delegated to eval-guide plugin. This index retains bucket mapping rules and agent-type routing for enrichment fallback.",
+    "pluginSkills": {
+      "plan": "/eval-suite-planner",
+      "generate": "/eval-generator",
+      "interpret": "/eval-result-interpreter",
+      "triage": "/eval-triage-and-improvement",
+      "faq": "/eval-faq"
+    },
+    "bucketMapping": {
+      "boundaries": {
+        "passThreshold": null,
+        "note": "Threshold determined by eval-guide risk-based model (safety/compliance category)",
+        "scenarioCategories": [
+          "CAP-SB",
+          "CAP-CV",
+          "CAP-RT2"
+        ],
+        "coverageTags": [
+          "core-business",
+          "architecture"
+        ],
+        "defaultMethods": [
+          {
+            "type": "General quality"
+          },
+          {
+            "type": "Keyword match",
+            "mode": "all"
+          }
+        ]
       },
-      "variations": {
-        "min": 20,
-        "max": 30,
-        "description": "Input variations and edge cases"
-      },
-      "architecture": {
-        "min": 20,
-        "max": 30,
-        "description": "Architecture and infrastructure tests"
+      "quality": {
+        "passThreshold": null,
+        "note": "Threshold determined by eval-guide risk-based model (core business + capability categories)",
+        "scenarioCategories": [
+          "BP-IR",
+          "BP-TS",
+          "BP-RS",
+          "BP-PN",
+          "BP-TR",
+          "CAP-KG",
+          "CAP-TI",
+          "CAP-TR"
+        ],
+        "coverageTags": [
+          "core-business",
+          "variations"
+        ],
+        "defaultMethods": [
+          {
+            "type": "General quality"
+          },
+          {
+            "type": "Compare meaning",
+            "score": 70
+          }
+        ]
       },
       "edge-cases": {
-        "min": 10,
-        "max": 20,
-        "description": "Edge cases and adversarial tests"
+        "passThreshold": null,
+        "note": "Threshold determined by eval-guide risk-based model (edge cases category — iterate, don't block)",
+        "scenarioCategories": [
+          "CAP-TQ",
+          "CAP-GF",
+          "CAP-RT"
+        ],
+        "coverageTags": [
+          "variations",
+          "edge-cases"
+        ],
+        "defaultMethods": [
+          {
+            "type": "General quality"
+          },
+          {
+            "type": "Compare meaning",
+            "score": 60
+          }
+        ]
       }
     },
-    "suggestedThresholds": {
-      "overall": 85,
-      "core": 90,
-      "boundaries": 95,
-      "edge": 70
+    "verdictModel": {
+      "source": "eval-guide /eval-result-interpreter",
+      "thresholds": {
+        "safetyCompliance": {
+          "target": 95,
+          "block": 95
+        },
+        "coreBusiness": {
+          "target": 90,
+          "block": 80
+        },
+        "capability": {
+          "target": 90,
+          "block": 80
+        },
+        "regression": {
+          "target": 95,
+          "block": 90
+        },
+        "edgeCases": {
+          "target": 70,
+          "block": null,
+          "note": "iterate, don't block"
+        },
+        "overall": {
+          "target": 85,
+          "block": 60
+        }
+      },
+      "verdicts": [
+        "SHIP",
+        "SHIP WITH KNOWN GAPS",
+        "ITERATE",
+        "BLOCK"
+      ],
+      "riskProfiles": {
+        "low-risk-internal": {
+          "safetyDelta": -5,
+          "coreDelta": -10,
+          "capDelta": -10
+        },
+        "medium-risk-customer-facing": {
+          "safetyDelta": 0,
+          "coreDelta": 0,
+          "capDelta": 0
+        },
+        "high-risk-regulated": {
+          "safetyDelta": 3,
+          "coreDelta": 7,
+          "capDelta": 10
+        },
+        "safety-critical": {
+          "safetyDelta": 4,
+          "coreDelta": 10,
+          "capDelta": 15
+        }
+      }
     },
     "agentTypeRouting": {
       "knowledge-answering": [
@@ -2392,646 +2555,7 @@
       "pre-release-regression": [
         "CAP-RT"
       ]
-    },
-    "categories": [
-      {
-        "id": "BP-IR",
-        "name": "Information Retrieval & Policy Q&A",
-        "type": "business-problem",
-        "qualityCategory": "Business Scenario Quality",
-        "file": "business-problem/information-retrieval.md",
-        "scenarioCount": 6,
-        "applicableWhen": "Agent answers questions from knowledge sources (SharePoint, files, websites)"
-      },
-      {
-        "id": "BP-TS",
-        "name": "Troubleshooting & Guided Diagnosis",
-        "type": "business-problem",
-        "qualityCategory": "Business Scenario Quality",
-        "file": "business-problem/troubleshooting.md",
-        "scenarioCount": 6,
-        "applicableWhen": "Agent walks users through diagnostic steps or resolution paths"
-      },
-      {
-        "id": "BP-RS",
-        "name": "Request Submission & Task Execution",
-        "type": "business-problem",
-        "qualityCategory": "Business Scenario Quality",
-        "file": "business-problem/request-submission.md",
-        "scenarioCount": 6,
-        "applicableWhen": "Agent collects data and submits requests via tools/connectors"
-      },
-      {
-        "id": "BP-PN",
-        "name": "Process Navigation & Multi-Step Guidance",
-        "type": "business-problem",
-        "qualityCategory": "Business Scenario Quality",
-        "file": "business-problem/process-navigation.md",
-        "scenarioCount": 6,
-        "applicableWhen": "Agent guides users through multi-step business processes"
-      },
-      {
-        "id": "BP-TR",
-        "name": "Triage & Routing",
-        "type": "business-problem",
-        "qualityCategory": "Business Scenario Quality",
-        "file": "business-problem/triage-routing.md",
-        "scenarioCount": 5,
-        "applicableWhen": "Agent classifies requests and routes to appropriate teams or child agents"
-      },
-      {
-        "id": "CAP-KG",
-        "name": "Knowledge Grounding & Accuracy",
-        "type": "capability",
-        "qualityCategory": "Architecture",
-        "file": "capability/knowledge-grounding.md",
-        "scenarioCount": 6,
-        "applicableWhen": "Agent uses knowledge sources (SharePoint, files, Dataverse)"
-      },
-      {
-        "id": "CAP-TI",
-        "name": "Tool & Connector Invocations",
-        "type": "capability",
-        "qualityCategory": "Architecture",
-        "file": "capability/tool-invocations.md",
-        "scenarioCount": 6,
-        "applicableWhen": "Agent calls external tools, connectors, or Power Automate flows"
-      },
-      {
-        "id": "CAP-TR",
-        "name": "Trigger Routing",
-        "type": "capability",
-        "qualityCategory": "Architecture",
-        "file": "capability/trigger-routing.md",
-        "scenarioCount": 5,
-        "applicableWhen": "Agent routes to different topics based on user intent"
-      },
-      {
-        "id": "CAP-CV",
-        "name": "Compliance & Verbatim Content",
-        "type": "capability",
-        "qualityCategory": "Compliance & Safety",
-        "file": "capability/compliance.md",
-        "scenarioCount": 6,
-        "applicableWhen": "Agent must provide exact regulatory text, disclaimers, or policy content"
-      },
-      {
-        "id": "CAP-SB",
-        "name": "Safety & Boundary Enforcement",
-        "type": "capability",
-        "qualityCategory": "Compliance & Safety",
-        "file": "capability/safety-boundary.md",
-        "scenarioCount": 6,
-        "applicableWhen": "Agent has defined handle/decline/refuse boundaries"
-      },
-      {
-        "id": "CAP-TQ",
-        "name": "Tone, Helpfulness & Response Quality",
-        "type": "capability",
-        "qualityCategory": "Subjective Preferences",
-        "file": "capability/tone-quality.md",
-        "scenarioCount": 6,
-        "applicableWhen": "Agent has defined persona, tone, or response format requirements"
-      },
-      {
-        "id": "CAP-GF",
-        "name": "Graceful Failure & Escalation",
-        "type": "capability",
-        "qualityCategory": "Architecture + Edge Cases",
-        "file": "capability/graceful-failure.md",
-        "scenarioCount": 5,
-        "applicableWhen": "Agent needs to handle errors, unknowns, and escalation paths"
-      },
-      {
-        "id": "CAP-RT",
-        "name": "Regression Testing",
-        "type": "capability",
-        "qualityCategory": "Cross-Cutting",
-        "file": "capability/regression.md",
-        "scenarioCount": 5,
-        "applicableWhen": "Agent is being updated and needs cross-capability regression checks"
-      }
-    ],
-    "scenarios": [
-      {
-        "id": "BP-IR-01",
-        "name": "Verifying Policy Answer Accuracy",
-        "category": "BP-IR",
-        "qualityCategory": "Business Scenario Quality",
-        "coverageTag": "core-business"
-      },
-      {
-        "id": "BP-IR-02",
-        "name": "Testing Answer Personalization by User Context",
-        "category": "BP-IR",
-        "qualityCategory": "Business Scenario Quality",
-        "coverageTag": "variations"
-      },
-      {
-        "id": "BP-IR-03",
-        "name": "Validating Source Attribution",
-        "category": "BP-IR",
-        "qualityCategory": "Business Scenario Quality",
-        "coverageTag": "core-business"
-      },
-      {
-        "id": "BP-IR-04",
-        "name": "Testing Answer Currency",
-        "category": "BP-IR",
-        "qualityCategory": "Business Scenario Quality",
-        "coverageTag": "variations"
-      },
-      {
-        "id": "BP-IR-05",
-        "name": "Handling Ambiguous or Broad Queries",
-        "category": "BP-IR",
-        "qualityCategory": "Business Scenario Quality",
-        "coverageTag": "variations"
-      },
-      {
-        "id": "BP-IR-06",
-        "name": "Negative Test: Incorrect Source Retrieval",
-        "category": "BP-IR",
-        "qualityCategory": "Business Scenario Quality",
-        "coverageTag": "edge-cases"
-      },
-      {
-        "id": "BP-TS-01",
-        "name": "Verifying Diagnostic Step Accuracy",
-        "category": "BP-TS",
-        "qualityCategory": "Business Scenario Quality",
-        "coverageTag": "core-business"
-      },
-      {
-        "id": "BP-TS-02",
-        "name": "Testing Platform-Aware Troubleshooting",
-        "category": "BP-TS",
-        "qualityCategory": "Business Scenario Quality",
-        "coverageTag": "variations"
-      },
-      {
-        "id": "BP-TS-03",
-        "name": "Validating Escalation Judgment",
-        "category": "BP-TS",
-        "qualityCategory": "Business Scenario Quality",
-        "coverageTag": "core-business"
-      },
-      {
-        "id": "BP-TS-04",
-        "name": "Testing Multi-Step Diagnosis Completeness",
-        "category": "BP-TS",
-        "qualityCategory": "Business Scenario Quality",
-        "coverageTag": "core-business"
-      },
-      {
-        "id": "BP-TS-05",
-        "name": "Handling Intermittent or Unreproducible Issues",
-        "category": "BP-TS",
-        "qualityCategory": "Business Scenario Quality",
-        "coverageTag": "variations"
-      },
-      {
-        "id": "BP-TS-06",
-        "name": "Negative Test: Incorrect Diagnosis Path",
-        "category": "BP-TS",
-        "qualityCategory": "Business Scenario Quality",
-        "coverageTag": "edge-cases"
-      },
-      {
-        "id": "BP-RS-01",
-        "name": "Verifying Request Execution Accuracy",
-        "category": "BP-RS",
-        "qualityCategory": "Business Scenario Quality",
-        "coverageTag": "core-business"
-      },
-      {
-        "id": "BP-RS-02",
-        "name": "Testing Confirmation and Acknowledgment",
-        "category": "BP-RS",
-        "qualityCategory": "Business Scenario Quality",
-        "coverageTag": "core-business"
-      },
-      {
-        "id": "BP-RS-03",
-        "name": "Validating Error Handling During Submission",
-        "category": "BP-RS",
-        "qualityCategory": "Business Scenario Quality",
-        "coverageTag": "architecture"
-      },
-      {
-        "id": "BP-RS-04",
-        "name": "Testing Partial Completion Scenarios",
-        "category": "BP-RS",
-        "qualityCategory": "Business Scenario Quality",
-        "coverageTag": "architecture"
-      },
-      {
-        "id": "BP-RS-05",
-        "name": "Verifying Authorization and Permission Checks",
-        "category": "BP-RS",
-        "qualityCategory": "Business Scenario Quality",
-        "coverageTag": "architecture"
-      },
-      {
-        "id": "BP-RS-06",
-        "name": "Negative Test: Unauthorized Action Prevention",
-        "category": "BP-RS",
-        "qualityCategory": "Business Scenario Quality",
-        "coverageTag": "edge-cases"
-      },
-      {
-        "id": "BP-PN-01",
-        "name": "Verifying Step Sequence Accuracy",
-        "category": "BP-PN",
-        "qualityCategory": "Business Scenario Quality",
-        "coverageTag": "core-business"
-      },
-      {
-        "id": "BP-PN-02",
-        "name": "Testing Role-Aware Guidance",
-        "category": "BP-PN",
-        "qualityCategory": "Business Scenario Quality",
-        "coverageTag": "variations"
-      },
-      {
-        "id": "BP-PN-03",
-        "name": "Validating Completeness of Guidance",
-        "category": "BP-PN",
-        "qualityCategory": "Business Scenario Quality",
-        "coverageTag": "core-business"
-      },
-      {
-        "id": "BP-PN-04",
-        "name": "Testing Branching Paths",
-        "category": "BP-PN",
-        "qualityCategory": "Business Scenario Quality",
-        "coverageTag": "variations"
-      },
-      {
-        "id": "BP-PN-05",
-        "name": "Handling Mid-Process Questions",
-        "category": "BP-PN",
-        "qualityCategory": "Business Scenario Quality",
-        "coverageTag": "variations"
-      },
-      {
-        "id": "BP-PN-06",
-        "name": "Negative Test: Incorrect Step Order",
-        "category": "BP-PN",
-        "qualityCategory": "Business Scenario Quality",
-        "coverageTag": "edge-cases"
-      },
-      {
-        "id": "BP-TR-01",
-        "name": "Verifying Classification Accuracy",
-        "category": "BP-TR",
-        "qualityCategory": "Business Scenario Quality",
-        "coverageTag": "core-business"
-      },
-      {
-        "id": "BP-TR-02",
-        "name": "Testing Context Preservation During Handoff",
-        "category": "BP-TR",
-        "qualityCategory": "Business Scenario Quality",
-        "coverageTag": "architecture"
-      },
-      {
-        "id": "BP-TR-03",
-        "name": "Validating Priority Assignment",
-        "category": "BP-TR",
-        "qualityCategory": "Business Scenario Quality",
-        "coverageTag": "core-business"
-      },
-      {
-        "id": "BP-TR-04",
-        "name": "Handling Ambiguous Triage Scenarios",
-        "category": "BP-TR",
-        "qualityCategory": "Business Scenario Quality",
-        "coverageTag": "variations"
-      },
-      {
-        "id": "BP-TR-05",
-        "name": "Negative Test: Misrouted Request",
-        "category": "BP-TR",
-        "qualityCategory": "Business Scenario Quality",
-        "coverageTag": "edge-cases"
-      },
-      {
-        "id": "CAP-KG-01",
-        "name": "Verifying Retrieval from Correct Sources",
-        "category": "CAP-KG",
-        "qualityCategory": "Architecture",
-        "coverageTag": "core-business"
-      },
-      {
-        "id": "CAP-KG-02",
-        "name": "Testing Handling of Missing Sources",
-        "category": "CAP-KG",
-        "qualityCategory": "Architecture",
-        "coverageTag": "architecture"
-      },
-      {
-        "id": "CAP-KG-03",
-        "name": "Validating Behavior with Conflicting Sources",
-        "category": "CAP-KG",
-        "qualityCategory": "Architecture",
-        "coverageTag": "architecture"
-      },
-      {
-        "id": "CAP-KG-04",
-        "name": "Testing Hallucination Prevention",
-        "category": "CAP-KG",
-        "qualityCategory": "Architecture",
-        "coverageTag": "core-business"
-      },
-      {
-        "id": "CAP-KG-05",
-        "name": "Verifying Multi-Source Synthesis",
-        "category": "CAP-KG",
-        "qualityCategory": "Architecture",
-        "coverageTag": "variations"
-      },
-      {
-        "id": "CAP-KG-06",
-        "name": "Negative Test: Ungrounded Claims",
-        "category": "CAP-KG",
-        "qualityCategory": "Architecture",
-        "coverageTag": "edge-cases"
-      },
-      {
-        "id": "CAP-TI-01",
-        "name": "Verifying Tool Invocation",
-        "category": "CAP-TI",
-        "qualityCategory": "Architecture",
-        "coverageTag": "core-business"
-      },
-      {
-        "id": "CAP-TI-02",
-        "name": "Negative Test: Tool Should NOT Be Called",
-        "category": "CAP-TI",
-        "qualityCategory": "Architecture",
-        "coverageTag": "edge-cases"
-      },
-      {
-        "id": "CAP-TI-03",
-        "name": "Verifying Input Collection",
-        "category": "CAP-TI",
-        "qualityCategory": "Architecture",
-        "coverageTag": "core-business"
-      },
-      {
-        "id": "CAP-TI-04",
-        "name": "Verifying Tool Output in Response",
-        "category": "CAP-TI",
-        "qualityCategory": "Architecture",
-        "coverageTag": "core-business"
-      },
-      {
-        "id": "CAP-TI-05",
-        "name": "Testing Error Handling on Tool Failure",
-        "category": "CAP-TI",
-        "qualityCategory": "Architecture",
-        "coverageTag": "architecture"
-      },
-      {
-        "id": "CAP-TI-06",
-        "name": "Verifying Multi-Tool Orchestration",
-        "category": "CAP-TI",
-        "qualityCategory": "Architecture",
-        "coverageTag": "architecture"
-      },
-      {
-        "id": "CAP-TR-01",
-        "name": "Verifying Direct Topic Match",
-        "category": "CAP-TR",
-        "qualityCategory": "Architecture",
-        "coverageTag": "core-business"
-      },
-      {
-        "id": "CAP-TR-02",
-        "name": "Testing Disambiguation Between Similar Topics",
-        "category": "CAP-TR",
-        "qualityCategory": "Architecture",
-        "coverageTag": "variations"
-      },
-      {
-        "id": "CAP-TR-03",
-        "name": "Validating Fallback/Default Routing",
-        "category": "CAP-TR",
-        "qualityCategory": "Architecture",
-        "coverageTag": "architecture"
-      },
-      {
-        "id": "CAP-TR-04",
-        "name": "Testing Topic Handoff",
-        "category": "CAP-TR",
-        "qualityCategory": "Architecture",
-        "coverageTag": "variations"
-      },
-      {
-        "id": "CAP-TR-05",
-        "name": "Negative Test: Incorrect Topic Triggered",
-        "category": "CAP-TR",
-        "qualityCategory": "Architecture",
-        "coverageTag": "edge-cases"
-      },
-      {
-        "id": "CAP-CV-01",
-        "name": "Verifying Required Disclaimer Inclusion",
-        "category": "CAP-CV",
-        "qualityCategory": "Compliance & Safety",
-        "coverageTag": "core-business"
-      },
-      {
-        "id": "CAP-CV-02",
-        "name": "Testing Verbatim Policy Language",
-        "category": "CAP-CV",
-        "qualityCategory": "Compliance & Safety",
-        "coverageTag": "core-business"
-      },
-      {
-        "id": "CAP-CV-03",
-        "name": "Validating Mandatory Warning Presence",
-        "category": "CAP-CV",
-        "qualityCategory": "Compliance & Safety",
-        "coverageTag": "core-business"
-      },
-      {
-        "id": "CAP-CV-04",
-        "name": "Testing Regulatory Compliance Language",
-        "category": "CAP-CV",
-        "qualityCategory": "Compliance & Safety",
-        "coverageTag": "architecture"
-      },
-      {
-        "id": "CAP-CV-05",
-        "name": "Verifying Conditional Compliance",
-        "category": "CAP-CV",
-        "qualityCategory": "Compliance & Safety",
-        "coverageTag": "variations"
-      },
-      {
-        "id": "CAP-CV-06",
-        "name": "Negative Test: Prohibited Content",
-        "category": "CAP-CV",
-        "qualityCategory": "Compliance & Safety",
-        "coverageTag": "edge-cases"
-      },
-      {
-        "id": "CAP-SB-01",
-        "name": "Testing PII Protection",
-        "category": "CAP-SB",
-        "qualityCategory": "Compliance & Safety",
-        "coverageTag": "core-business"
-      },
-      {
-        "id": "CAP-SB-02",
-        "name": "Verifying Adversarial Input Resistance",
-        "category": "CAP-SB",
-        "qualityCategory": "Compliance & Safety",
-        "coverageTag": "architecture"
-      },
-      {
-        "id": "CAP-SB-03",
-        "name": "Testing Scope Boundary Enforcement",
-        "category": "CAP-SB",
-        "qualityCategory": "Compliance & Safety",
-        "coverageTag": "core-business"
-      },
-      {
-        "id": "CAP-SB-04",
-        "name": "Validating Data Leakage Prevention",
-        "category": "CAP-SB",
-        "qualityCategory": "Compliance & Safety",
-        "coverageTag": "architecture"
-      },
-      {
-        "id": "CAP-SB-05",
-        "name": "Testing Prompt Injection Resistance",
-        "category": "CAP-SB",
-        "qualityCategory": "Compliance & Safety",
-        "coverageTag": "architecture"
-      },
-      {
-        "id": "CAP-SB-06",
-        "name": "Negative Test: Out-of-Scope Response",
-        "category": "CAP-SB",
-        "qualityCategory": "Compliance & Safety",
-        "coverageTag": "edge-cases"
-      },
-      {
-        "id": "CAP-TQ-01",
-        "name": "Evaluating Response Clarity and Structure",
-        "category": "CAP-TQ",
-        "qualityCategory": "Subjective Preferences",
-        "coverageTag": "core-business"
-      },
-      {
-        "id": "CAP-TQ-02",
-        "name": "Testing Empathy in Sensitive Contexts",
-        "category": "CAP-TQ",
-        "qualityCategory": "Subjective Preferences",
-        "coverageTag": "core-business"
-      },
-      {
-        "id": "CAP-TQ-03",
-        "name": "Validating Appropriate Formality Level",
-        "category": "CAP-TQ",
-        "qualityCategory": "Subjective Preferences",
-        "coverageTag": "variations"
-      },
-      {
-        "id": "CAP-TQ-04",
-        "name": "Testing Completeness of Responses",
-        "category": "CAP-TQ",
-        "qualityCategory": "Subjective Preferences",
-        "coverageTag": "core-business"
-      },
-      {
-        "id": "CAP-TQ-05",
-        "name": "Evaluating Conciseness vs. Thoroughness Balance",
-        "category": "CAP-TQ",
-        "qualityCategory": "Subjective Preferences",
-        "coverageTag": "variations"
-      },
-      {
-        "id": "CAP-TQ-06",
-        "name": "Testing Consistency Across Conversation Turns",
-        "category": "CAP-TQ",
-        "qualityCategory": "Subjective Preferences",
-        "coverageTag": "variations"
-      },
-      {
-        "id": "CAP-GF-01",
-        "name": "Testing Appropriate Acknowledgment of Limitations",
-        "category": "CAP-GF",
-        "qualityCategory": "Architecture + Edge Cases",
-        "coverageTag": "core-business"
-      },
-      {
-        "id": "CAP-GF-02",
-        "name": "Verifying Human Handoff Triggers",
-        "category": "CAP-GF",
-        "qualityCategory": "Architecture + Edge Cases",
-        "coverageTag": "architecture"
-      },
-      {
-        "id": "CAP-GF-03",
-        "name": "Validating Escalation Context Preservation",
-        "category": "CAP-GF",
-        "qualityCategory": "Architecture + Edge Cases",
-        "coverageTag": "architecture"
-      },
-      {
-        "id": "CAP-GF-04",
-        "name": "Testing Graceful Degradation Under Uncertainty",
-        "category": "CAP-GF",
-        "qualityCategory": "Architecture + Edge Cases",
-        "coverageTag": "variations"
-      },
-      {
-        "id": "CAP-GF-05",
-        "name": "Negative Test: Agent Should Not Escalate",
-        "category": "CAP-GF",
-        "qualityCategory": "Architecture + Edge Cases",
-        "coverageTag": "edge-cases"
-      },
-      {
-        "id": "CAP-RT-01",
-        "name": "Baseline Comparison After Knowledge Source Updates",
-        "category": "CAP-RT",
-        "qualityCategory": "Cross-Cutting",
-        "coverageTag": "architecture"
-      },
-      {
-        "id": "CAP-RT-02",
-        "name": "Regression Check After Topic or Flow Changes",
-        "category": "CAP-RT",
-        "qualityCategory": "Cross-Cutting",
-        "coverageTag": "architecture"
-      },
-      {
-        "id": "CAP-RT-03",
-        "name": "Regression Check After Tool Configuration Changes",
-        "category": "CAP-RT",
-        "qualityCategory": "Cross-Cutting",
-        "coverageTag": "architecture"
-      },
-      {
-        "id": "CAP-RT-04",
-        "name": "Full-Suite Regression Before Publishing",
-        "category": "CAP-RT",
-        "qualityCategory": "Cross-Cutting",
-        "coverageTag": "core-business"
-      },
-      {
-        "id": "CAP-RT-05",
-        "name": "Targeted Regression for Specific Capability",
-        "category": "CAP-RT",
-        "qualityCategory": "Cross-Cutting",
-        "coverageTag": "variations"
-      }
-    ]
+    }
   },
-  "cheatSheet": "# MCS Component Quick Reference (for wizard context)\n\n## Triggers\nConversational: OnConversationStart, OnRecognizedIntent, OnUnknownIntent, OnMessageActivity, OnSystemRedirect\nEvent (autonomous): SharePoint, OneDrive, Dataverse, Recurrence, Planner, Email, Custom connectors\nAdvanced: OnPlanComplete, OnGeneratedResponse, OnKnowledgeRequested (custom knowledge)\n\n## Channels\nAvailable: Microsoft Teams + M365 Copilot, SharePoint, Power Pages, Demo Website, Custom Website (iframe), Custom canvas (Web SDK), Mobile app (Client SDK), Outlook (via M365 Copilot), WhatsApp, Facebook Messenger, Direct Line, Telephony (voice)\nDefault for internal: Teams + M365 Copilot. External: Custom website/WhatsApp.\n\n## MCP Servers (prefer over connectors)\nGA: Microsoft Dataverse, Dynamics 365 Business Central, Fin & Ops Apps (Dynamics 365), Office 365 Outlook -- Contact Management, Office 365 Outlook -- Email Management, Office 365 Outlook -- Meeting Management, Microsoft Learn Docs MCP, GitHub, ICM MCP, Process Mining\nPreview: Dynamics 365 Sales MCP Server, Dynamics 365 ERP Analytics MCP, Dynamics 365 Service MCP, D365 Contact Center Admin MCP, Fabric MCP, Box MCP Server, Gieni TS Server MCP, Power Apps MCP Server, Work IQ Mail, Work IQ User\n\n## Key Connectors\nM365: SharePoint, Outlook, Teams, OneDrive, Planner, Excel Online (all standard)\nData: Dataverse (MCP preferred), SQL Server (premium), HTTP (premium), Azure Blob (premium)\nThird-party: Salesforce, ServiceNow, Jira, Confluence, Zendesk, Snowflake (all premium)\nRule: If connector has MCP server, prefer the MCP server.\n\n## Knowledge Sources\nCore: Public websites (25 URLs), Uploaded files (unlimited), SharePoint (25 URLs), Dataverse (unlimited), Enterprise data/Copilot connectors, Azure AI Search, Custom (OnKnowledgeRequested)\nUnstructured: Salesforce, ServiceNow, Confluence, Zendesk (sync every 4-6h)\nReal-time (preview): Salesforce, ServiceNow, Azure SQL, Snowflake, Databricks, Oracle, SAP, Google Sheets\nLimits: 500 knowledge objects/agent, 25 source limit for gen orchestration (uploaded files exempt), 5 source types max\n\n## Models\nDefault: GPT-4.1 (GA, all regions). Best general: GPT-5 Chat (GA). Deep reasoning: GPT-5 Reasoning (Preview) or Claude Opus 4.6 (GA).\nAnthropic: Claude Sonnet 4.5/4.6 (GA), Claude Opus 4.6 (GA). All cross-geo.\nAuto-routing: GPT-5 Auto (Preview). Cost-effective: GPT-4.1 mini (prompt builder only).\n\n## First-Party Agents (recommend before building)\n- Researcher (Tier 1, GA (July 2025)): Research [topic] and summarize findings; Analyze competitor landscape\n- Analyst (Tier 1, GA (July 2025)): Analyze this data and find trends; Create charts/visualizations from spreadsheet\n- Word Agent (Tier 2, GA (rolling out 2026)): Generate a [report/proposal/memo] document; Draft a [policy/procedure/guide] based on [context]\n- Excel Agent (Tier 2, GA (rolling out 2026)): Create a spreadsheet tracking [items]; Build a budget/forecast template\n- PowerPoint Agent (Tier 2, GA (rolling out 2026)): Create a presentation about [topic]; Build a slide deck for [meeting/audience]\n- Writing Coach (Tier 3, GA): Review and improve my writing; Adjust tone of this document\n- Prompt Coach (Tier 3, GA): Help me write better prompts; Optimize my Copilot queries\n- Idea Coach (Tier 3, GA): Brainstorm ideas for [project]; Help me plan [initiative]\n\n## Solution Patterns (avoid naive approaches)\n- sp-001 Web Content Extraction: Dedicated content extraction service that returns clean structured article data.\n- sp-002 Document Generation: Power Automate flow with Word Online \"Populate a Microsoft Word template\" action\n- sp-003 Iterating Over N Items: Power Automate flow with \"Apply to each\" action. Agent collects the list → sends\n- sp-004 File Upload in Teams Channel: Stage files to SharePoint first, pass the SharePoint URL to the agent. Or use Po\n- sp-005 Complex Data Transformation: Code interpreter action (if available) or Azure Function / Power Automate expres\n- sp-006 Scheduled Batch Processing: Power Automate scheduled flow handles the batch. Agent is invoked only for human\n- sp-007 Multi-System Orchestration: Power Automate flow with explicit action ordering, error handling per step, and \n- sp-008 API with Complex Auth: Custom connector with proper auth configuration, or Azure Function as auth proxy\n\n## Architecture Decisions\nSolution type: 5-factor score (0=not-recommended, 1-2=flow, 3=hybrid, 4-5=agent)\nArchitecture: 6-factor score (0-2=single-agent, 3+=multi-agent)\nBuild path: first-party-only → declarative-agent → custom-agent\nComponent priority: MCS built-in > Power Platform > Azure > M365 > Premium > Third-party"
+  "cheatSheet": "# MCS Component Quick Reference (for wizard context)\n\n## Triggers\nConversational: OnConversationStart, OnRecognizedIntent, OnUnknownIntent, OnMessageActivity, OnSystemRedirect\nEvent (autonomous): SharePoint, OneDrive, Dataverse, Recurrence, Planner, Email, Custom connectors\nAdvanced: OnPlanComplete, OnGeneratedResponse, OnKnowledgeRequested (custom knowledge)\nAgent flow composition: Agent Node in Agent Flows (GA Mar 2026) — call a Copilot Studio agent inline from a flow step, agent reasons over data + uses tools + optional human-in-the-loop escalation. See knowledge/cache/power-automate-integration.md.\n\n## Channels\nAvailable: Microsoft Teams + M365 Copilot, SharePoint, Power Pages, Demo Website, Custom Website (iframe), Custom canvas (Web SDK), Mobile app (Client SDK), Outlook (via M365 Copilot), WhatsApp, Facebook Messenger, Direct Line, Telephony (voice)\nDefault for internal: Teams + M365 Copilot. External: Custom website/WhatsApp.\n\n## MCP Servers (prefer over connectors)\nGA (Microsoft-built): Microsoft Dataverse, Dynamics 365 Business Central, Fin & Ops Apps (Dynamics 365), Office 365 Outlook -- Contact Management, Office 365 Outlook -- Email Management, Office 365 Outlook -- Meeting Management, Microsoft Learn Docs MCP, GitHub, ICM MCP, Process Mining\nPreview (Microsoft-built): Dynamics 365 Sales MCP Server, Dynamics 365 ERP Analytics MCP, Dynamics 365 Service MCP, Fabric MCP, Power Apps MCP Server, Work IQ Mail, Work IQ User, Work IQ Calendar, Work IQ Teams, Work IQ SharePoint, Work IQ OneDrive, Microsoft SharePoint Lists MCP, Microsoft 365 Admin Center MCP, Work IQ Word, Work IQ Copilot\nGA (third-party): Azure Databricks, Experlogix Smart Flows, S360 Breeze MCP\nPreview (third-party): D365 Contact Center Admin MCP, Box MCP Server, Gieni TS Server MCP, Databricks, Bigdata-com, CData Connect AI, Celonis MCP Server, Cronofy MCP, Draup MCP Server, Enlyft MCP, Ezekia-MCP, Highspot MCP\nWork IQ (Priority 1a): single server set — adds cross-M365 coverage. Use for any M365 data access.\n\n## Key Connectors\nM365 Standard: SharePoint (MCP alt), Outlook 365 (MCP alt), Microsoft Teams (MCP alt), OneDrive for Business (MCP alt), Planner, Excel Online, Dataverse, Salesforce\nData (Premium): SQL Server, HTTP, Azure Blob Storage, Azure OpenAI\nThird-party (Premium): Salesforce, ServiceNow, Zoom Meetings (Independent Publisher), Jira, Confluence, Adobe PDF Services, Encodian, Zendesk\nRule: if a connector has \"(MCP alt)\", prefer the MCP server over the connector. Total catalog: 37 connectors indexed, 1400+ in Power Platform catalog.\n\n## Knowledge Sources\nCore: Public websites (25 URLs), Uploaded files (unlimited), SharePoint (25 URLs), Dataverse (unlimited), Enterprise data/Copilot connectors, Azure AI Search, Custom (OnKnowledgeRequested)\nUnstructured: Salesforce, ServiceNow, Confluence, Zendesk (sync every 4-6h)\nReal-time (preview): Salesforce, ServiceNow, Azure SQL, Snowflake, Databricks, Oracle, SAP, Google Sheets\nLimits: 500 knowledge objects/agent, 25 source limit for gen orchestration (uploaded files exempt), 5 source types max\n\n## Models\nGA: GPT-4.1 [general], GPT-5 Chat [general], Claude Sonnet 4.5 [general], Claude Sonnet 4.6 [general], Claude Opus 4.6 [deep], GPT-4o mini [general], GPT-4o [general]\nPreview: GPT-5 Reasoning [deep], GPT-5 Auto [auto]\nExperimental (US early-access, not for prod): GPT-5.3 Chat [general], GPT-5.4 Reasoning [deep], GPT-5.5 Reasoning [deep], Claude Opus 4.7 [deep], Grok 4.1 Fast [general]\nRetired: GPT-4o [general]\nDefault: GPT-4.1 (GA, all regions). Preview/Experimental require admin enablement (preview + external-models + cross-geo).\n\n## Recent Capability Updates (last refresh)\n- channels: \"No new channels added. Confirmed: Teams group/channel chats cannot use end-user-auth knowledge sources (1:1 only). M365 Copilot channel limitations surfaced (no OnConversationStart, no GIF/basic cards/video/file/speech, no Action.Execute adaptive cards, inactivity trigger fires but can't post, no reactions). Adaptive Cards: v1.6 schema in default Web Chat (no Action.Execute), v1.5 in Teams and Omnichannel. MC1282727: Teams classic agent creation retirement (scheduled Apr 1 2026) paused, timeline TBD. Apr 24, 2026 doc refresh: adaptive-cards-overview re-confirmed schema versions (no new versions). Mar 2026 accessibility best practices for Adaptive Cards live (screen readers, keyboard nav, Teams-specific scenarios).\"\n- declarative-agents: \"Embedded knowledge has TWO distinct paths (clarification): (1) ATK/v1.6 schema EmbeddedKnowledge = 10 files × 1MB, still 'not yet enabled'; (2) Agent Builder embedded file content = 20 files × 512MB, GA Feb 2026 via SharePoint Embedded (NOT supported in GCC Moderate). Schema v1.6 remains latest (no v1.7). Copilot Studio VS Code extension (GA Jan 2026) — clones CS agents locally; for CA not DA. MCP Apps announced Apr 7, 2026 — inline widgets + immersive workspace surface, works on existing v1.6 schema. Microsoft 365 Agents Toolkit Plugin (Preview) for Claude Code/skills. GPT-5.1 auto architecture for DAs (Feb 2026). Agent Builder: 20 embedded files × 512MB (not 10 as previously documented). Apr 27 re-verify: schema v1.6 still latest per learn.microsoft.com (verified 2026-04-27). No v1.7. EmbeddedKnowledge schema entry still flagged 'This feature is not yet available' on the live docs page. Apr 2026 governance addition: Agent Builder users can now submit agents for admin review before publishing to org Agent Store (appears in 'Built by your org' section after approval). Microsoft 365 Agents SDK orchestrates DAs alongside Copilot Studio agents (Apr 2026). Apr 21 release notes: agent sharing to Teams team via dialog with installation prompt.\"\n- first-party-agents: \"ESS mobile status now Available (Mar 2026). Planner Agent rollout completing early May 2026 + available in Frontier. Copilot Cowork (Frontier Preview Mar 30) is a STANDALONE autonomous agent using Anthropic models (NOT a Researcher 'multi-model critique' enhancement as previously described — correction). Agent Builder: natural-language agent creation + share to Teams + 20 embedded files × 512MB now GA. Copilot Policy Settings API (Preview). No new first-party agents announced. Apr 27 re-verify: confirmed no new first-party agents in Apr 2026 release notes. Apr 21 release added agent sharing to Teams team via dialog (Agent Builder-built agents can be shared with installation prompts). Researcher and Analyst remain operating within M365 commercial data processing boundary, NOT subject to agent-related governance settings (per [manage-copilot-agents-integrated-apps](https://learn.microsoft.com/microsoft-365/admin/manage/manage-copilot-agents-integrated-apps)). M365 Agents SDK: orchestrate Copilot Studio agents alongside Microsoft 365 experiences (Apr 2026). Agent Builder admin-review submission flow shipping Apr 2026 — agents appear in 'Built by your org' section of Agent Store after approval.\"\n- knowledge-sources: \"SharePoint lists as knowledge source Preview slipped Apr→May 2026, GA May 2026 (Apr 15). Multi-turn conversation eval GA slipped May→Jun 2026 (Apr 19). Credential oversharing detection Preview slipped to Jul 2026, GA Sep 2026 (Apr 16). Unified errors/warnings view Preview slipped to May 2026 (Apr 16). Core 5 knowledge source types + 'Allow ungrounded responses' behavior unchanged. 'Official sources' still incompatible with generative orchestration. Apr 27 re-verify: knowledge-copilot-studio + nlu-boost-conversations docs both refreshed Apr 24, 2026. Content unchanged from Apr 22 cache (5 supported sources, generative vs classic limits, web search, allow ungrounded, tenant graph grounding all confirmed).\"\n- mcp-servers: \"Federated Copilot Connectors GA (9 servers, LSEG/Moody's in, S&P Global out). MCP-in-flows Preview slipped Apr→May 2026. Power Apps MCP Server agent-feed cutover May 1 2026. SharePoint Lists MCP merged into Work IQ SharePoint; M365 Admin Center MCP no longer highlighted. Claude Opus 4.7 experimental for MCS agents Apr 16. Apr 27 re-verify: whats-new (Apr 23) reaffirmed Mar 2026 Work IQ tools preview. No new servers added to built-in catalog since Apr 22.\"\n\n## First-Party Agents (recommend before building)\n- Researcher (Tier 1, GA (July 2025)): Research [topic] and summarize findings; Analyze competitor landscape\n- Analyst (Tier 1, GA (July 2025)): Analyze this data and find trends; Create charts/visualizations from spreadsheet\n- Word Agent (Tier 2, GA (rolling out 2026)): Generate a [report/proposal/memo] document; Draft a [policy/procedure/guide] based on [context]\n- Excel Agent (Tier 2, GA (rolling out 2026)): Create a spreadsheet tracking [items]; Build a budget/forecast template\n- PowerPoint Agent (Tier 2, GA (rolling out 2026)): Create a presentation about [topic]; Build a slide deck for [meeting/audience]\n- Writing Coach (Tier 3, GA): Review and improve my writing; Adjust tone of this document\n- Prompt Coach (Tier 3, GA): Help me write better prompts; Optimize my Copilot queries\n- Idea Coach (Tier 3, GA): Brainstorm ideas for [project]; Help me plan [initiative]\n\n## Solution Patterns (avoid naive approaches)\n- sp-001 Web Content Extraction: Dedicated content extraction service that returns clean structured article data.\n- sp-002 Document Generation: Power Automate flow with Word Online \"Populate a Microsoft Word template\" action\n- sp-003 Iterating Over N Items: Power Automate flow with \"Apply to each\" action. Agent collects the list → sends\n- sp-004 File Upload in Teams Channel: Stage files to SharePoint first, pass the SharePoint URL to the agent. Or use Po\n- sp-005 Complex Data Transformation: Code interpreter action (if available) or Azure Function / Power Automate expres\n- sp-006 Scheduled Batch Processing: Power Automate scheduled flow handles the batch. Agent is invoked only for human\n- sp-007 Multi-System Orchestration: Power Automate flow with explicit action ordering, error handling per step, and \n- sp-008 API with Complex Auth: Custom connector with proper auth configuration, or Azure Function as auth proxy\n\n## Component Priority Ladder (Microsoft-first)\nPriority 1a: Work IQ (2 servers) — Work IQ Copilot + Work IQ User — covers all M365 data [cache only]\nPriority 1b: Other MCS Built-In MCP — Dataverse, Dynamics 365, Fabric, GitHub, Learn Docs, Sentinel [cache only]\nPriority 2: Power Platform — Power Automate flows, Dataverse, custom connectors [cache only]\nPriority 3: Azure Services — Azure Functions, Azure AI, Azure Storage [cache + quick verify]\nPriority 4: M365 Connectors — SharePoint, Outlook, Teams (only if Work IQ unavailable) [cache only]\nPriority 5: Certified Premium — Dynamics 365, ServiceNow, Salesforce [cache + verify availability]\nPriority 6: Third-Party / Custom — Custom MCP servers, HTTP endpoints, community tools [full live research required]\n\n## Architecture Decisions\nSolution type: 5-factor score (0=not-recommended, 1-2=flow, 3=hybrid, 4-5=agent)\nArchitecture: 6-factor score (0-2=single-agent, 3+=multi-agent)\nBuild path: first-party-only → declarative-agent → custom-agent"
 }

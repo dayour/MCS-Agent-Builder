@@ -64,21 +64,21 @@ When skipped entirely, report it: "Microsoft-native agent -- MCP catalog scan sk
 **Cache:** {K} servers cached | {new count} new since last scan
 
 **Available MCPs relevant to this agent:**
-| MCP Server | Why Relevant | Currently In Brief? |
+| MCP Server | Why Relevant | Currently In Spec? |
 |------------|-------------|-------------------|
 | {server} | {matches capability X / data source Y} | Yes / No |
 
-**Recommended additions:** {list of MCPs not in brief but relevant}
+**Recommended additions:** {list of MCPs not in spec but relevant}
 **No match:** {list of catalog MCPs not relevant to this agent}
 ```
 
-8. If relevant MCPs are missing from the brief's integrations, add them as recommendations (don't auto-add -- present for user decision). Flag with `source: "catalog-scan"` so the user knows this came from proactive discovery, not document extraction.
+8. If relevant MCPs are missing from the spec's integrations, add them as recommendations (don't auto-add -- present for user decision). Flag with `source: "catalog-scan"` so the user knows this came from proactive discovery, not document extraction.
 
 ## Incremental Path (processingPath == "incremental")
 
 When `processingPath == "incremental"`, Phase B is scoped to only what's new:
 
-1. Skip stable category resolution unless Phase A-inc found new architecture-relevant data (new channels, triggers, knowledge types not already in the brief). If all new content maps to existing categories, skip directly to Step 2.5.
+1. Skip stable category resolution unless Phase A-inc found new architecture-relevant data (new channels, triggers, knowledge types not already in the spec). If all new content maps to existing categories, skip directly to Step 2.5.
 2. Only research new external systems from the new docs that aren't already in `integrations[]`. If a doc mentions "Jira" and the agent already has Jira in integrations, skip it.
 3. Run Step 2.5 (Solution Pattern Reality Check) for all MVP capabilities -- patterns may have been added since initial research, and existing integrations may match newly documented anti-patterns.
 4. Check learnings (same as full -- quick read of relevant `knowledge/learnings/` files).
@@ -100,7 +100,7 @@ These categories are well-documented and change infrequently. Read the cache fil
 | **Triggers** | `knowledge/cache/triggers.md` | Read cache. Match trigger type to agent's activation needs from Phase A. |
 | **Knowledge sources** | `knowledge/cache/knowledge-sources.md` | Read cache. Match to data types from Phase A (SharePoint, files, websites). |
 
-Write these directly to `brief.json`:
+Write these directly to `agentspec.json`:
 - `architecture.channels` (each with `name` + `reason`)
 - `architecture.triggers` (each with `type` + `description`)
 - `knowledge[]` (each with `name`, `type`, `purpose`, `scope`, `phase`)
@@ -129,14 +129,14 @@ Skip live research if:
 
 **Goal:** Challenge every MVP capability's implementation approach -- both against known anti-patterns and from first principles. Don't trust the SDR doc's proposed solution just because the customer wrote it. The customer describes their problem well; their proposed *technical approach* may be naive.
 
-This matters because recommending something that doesn't work destroys credibility. If we tell a customer "use HTTP Request + AI Prompt to extract articles" and it returns garbage HTML in their first test, they lose trust in everything else we recommended. A brief that says "this needs an Azure Function" is honest and buildable. A brief that says "HTTP connector handles this" is a lie that wastes everyone's time.
+This matters because recommending something that doesn't work destroys credibility. If we tell a customer "use HTTP Request + AI Prompt to extract articles" and it returns garbage HTML in their first test, they lose trust in everything else we recommended. A spec that says "this needs an Azure Function" is honest and buildable. A spec that says "HTTP connector handles this" is a lie that wastes everyone's time.
 
 **Two-part check: Pattern Matching + First-Principles Feasibility.**
 
 #### Part A: Solution Pattern Matching
 
 1. Read `knowledge/patterns/solution-patterns.md` for the full pattern catalog
-2. For each MVP capability in the brief:
+2. For each MVP capability in the spec:
    a. Trace data flow: What is the input? What processing happens? What is the output?
    b. Check "When to match" conditions for each solution pattern (sp-001 through sp-010+)
    c. If a pattern matches: Recommend the proven alternative. Update `integrations[]` if the proven pattern requires a different tool (e.g., Power Automate flow instead of HTTP connector). Add a note to `conversations.topics[].notes` explaining why the naive approach was replaced.
@@ -152,7 +152,7 @@ For every MVP integration in `integrations[]`, ask these 5 questions:
 | **2. Does this solve the customer's problem or just move it?** | Compare the integration's actual output against what the capability needs. | Tool returns raw data that still needs the same cleanup the customer already struggles with. |
 | **3. What happens at realistic scale?** | Check limits, timeouts, token budgets, payload sizes. | 6-8 articles x 100KB HTML = 600-800KB through AI prompts with 5K char limits. |
 | **4. What fails silently?** | JS-rendered pages returning empty HTML, soft paywalls, rate limits, bot detection. | Tool "works" in testing but fails on real-world URLs. |
-| **5. Does this need something that doesn't exist yet?** | Custom deployment (Azure Function), customer infrastructure. Licensing is assumed max — do not flag licensing as a blocker. | Brief assumes a tool is "available" but it needs provisioning or deployment first. |
+| **5. Does this need something that doesn't exist yet?** | Custom deployment (Azure Function), customer infrastructure. Licensing is assumed max — do not flag licensing as a blocker. | Spec assumes a tool is "available" but it needs provisioning or deployment first. |
 
 For each integration that fails any question, mark it as `needsRework` and add to the reality check summary with:
 - Which question(s) it failed
@@ -186,11 +186,11 @@ Flag integrations that need rework for Step 4 (RA research) or user discussion. 
 
 When Step 2.5 finds a pattern match with 2+ viable implementation tiers, create a structured decision instead of auto-selecting one approach:
 
-1. **Check tier viability:** For each matched pattern, filter implementation tiers against known customer constraints (from brief.json, open questions, or Phase A extraction). Remove tiers the customer clearly can't use (e.g., "Azure Function" when customer has no Azure subscription and answered "no" to Azure access).
-2. **Decision threshold:** If 2+ tiers survive filtering -> create a `decisions[]` entry. If only 1 tier survives -> auto-apply that tier to brief fields, no decision entry needed.
+1. **Check tier viability:** For each matched pattern, filter implementation tiers against known customer constraints (from agentspec.json, open questions, or Phase A extraction). Remove tiers the customer clearly can't use (e.g., "Azure Function" when customer has no Azure subscription and answered "no" to Azure access).
+2. **Decision threshold:** If 2+ tiers survive filtering -> create a `decisions[]` entry. If only 1 tier survives -> auto-apply that tier to spec fields, no decision entry needed.
 3. **Map tiers to options:** Each surviving tier becomes an option in the decision. Use the pattern's tier data to populate `label`, `summary`, `pros`, `cons`, `requirements`, `cost`, `effort`. Set `confidence` based on the tier's track record (`confirmed` builds from the pattern).
 4. **Set recommended:** Default recommendation = highest-ranked surviving tier (Tier 1 unless disqualified). Set `recommendedOptionId` to that option's ID.
-5. **Pre-apply recommended:** Write the recommended option's `briefPatch` to the actual brief fields (integrations[], conversations.topics[].notes, etc.). This gives the brief a buildable default even if the user never reviews decisions.
+5. **Pre-apply recommended:** Write the recommended option's `briefPatch` to the actual spec fields (integrations[], conversations.topics[].notes, etc.). This gives the spec a buildable default even if the user never reviews decisions.
 6. **Set source:** `"solution-pattern:{patternId}:tier-{N}"` for each option.
 
 **Decision entry format:**
@@ -201,7 +201,7 @@ When Step 2.5 finds a pattern match with 2+ viable implementation tiers, create 
   "title": "How should we {capability description}?",
   "context": "The naive approach ({naive}) fails because {reason}. Multiple proven alternatives exist.",
   "targetField": "integrations[name={integration}]",
-  "capability": "{capability name from brief}",
+  "capability": "{capability name from spec}",
   "status": "pending",
   "selectedOptionId": null,
   "recommendedOptionId": "opt-1",
@@ -255,7 +255,7 @@ The RA should:
 Skip RA entirely when:
 - All integrations are M365-native (Priority 1-4) and Step 2.5 passed all integrations
 - All systems are in `connectors.md` or `mcp-servers.md` cache with `last_verified` < 7 days
-- processingPath == "re-enrich" (brief edits only, no new integrations)
+- processingPath == "re-enrich" (spec edits only, no new integrations)
 
 When skipped, report it: "Microsoft-native agent -- external connector research skipped."
 
@@ -267,7 +267,7 @@ When the Research Analyst returns results with 2+ viable approaches for a system
 2. **Decision threshold:** If 2+ approaches are genuinely viable (not just "possible" -- they need to actually work for the customer's use case) -> create a `decisions[]` entry. If 1 clear winner exists -> auto-apply, no decision entry.
 3. **Map RA findings to options:** Each viable approach becomes an option with `label`, `summary`, `pros`, `cons`, `requirements`, `cost`, `effort`, `confidence` (based on RA's source quality -- official docs = high, community blog = medium, untested = low).
 4. **Set source:** `"research-analyst"` for RA-discovered options, `"cache:connectors"` or `"cache:mcp-servers"` for cache-sourced options.
-5. **Pre-apply recommended:** Write the top-ranked option's `briefPatch` to brief fields as the buildable default.
+5. **Pre-apply recommended:** Write the top-ranked option's `briefPatch` to spec fields as the buildable default.
 
 What counts as "genuinely viable":
 - Tool/connector exists and is GA or public preview
@@ -286,7 +286,7 @@ What does not count:
 - **Present options**: For each need, recommend the best option but note alternatives
 - **Flag preview features**: Note GA vs preview status for each recommendation
 
-### Update brief.json
+### Update agentspec.json
 
 After research (live or cache-only), update:
 - `integrations[]` -- recommended tools with `type` (mcp/connector/flow/ai-tool), `purpose`, `dataProvided`, `authMethod`, `phase`

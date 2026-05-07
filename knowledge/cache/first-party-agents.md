@@ -1,8 +1,9 @@
 <!-- CACHE METADATA
-last_verified: 2026-04-07
-sources: [MS Learn (agents-overview, researcher-agent, wordexcelppt-agents, explore-prebuilt-agents training, agent-registry, learning-agent-overview, sales-research-agent, copilot-release-notes, whats-new), Microsoft 365 Blog (2025-03-25, 2025-06-02, 2025-11-18, 2026-03-09), adoption.microsoft.com/ai-agents, support.microsoft.com (researcher-computer-use, workflows-frontier), Dynamics 365 Blog (2026-03-09, 2026-03-18), TechCommunity (people-skills-expansion-4497646, ess-agent-ga-4469413, planner-agent-rename-MC1250279), WebSearch Apr 2026]
+last_verified: 2026-04-27
+sources: [MS Learn (agents-overview, researcher-agent, wordexcelppt-agents, explore-prebuilt-agents training, agent-registry, learning-agent-overview, sales-research-agent, copilot-release-notes Apr 7+21 2026, whats-new [last-mod 2026-04-23], employee-self-service, employee-self-service customize, employee-self-service known-issues-limitations, federated-connectors-overview, cowork overview+FAQ+admin-governance, copilotPolicySetting API), Microsoft 365 Blog (2025-03-25, 2025-06-02, 2025-11-18, 2026-03-09, 2026-03-30 Cowork in Frontier), adoption.microsoft.com/ai-agents, support.microsoft.com (researcher-computer-use, workflows-frontier), Dynamics 365 Blog (2026-03-09, 2026-03-18), TechCommunity (people-skills-expansion-4497646, ess-agent-ga-4469413, planner-agent-rename-MC1250279, planner-agent-blog-4511720, Claude-Opus-4-7-4511666), MC1256306 Planner in Frontier, MS Learn MCP refresh Apr 27 2026 (no new first-party agents), Partner Center 2026-april (M365 E7 + Agent 365 GA May 1 2026), Redmondmag 2026-04-23 (AI Agent Builder Certification announced)]
 confidence: high
 refresh_trigger: before_research
+apr_2026_update: "ESS mobile status now Available (Mar 2026). Planner Agent rollout completing early May 2026 + available in Frontier. Copilot Cowork (Frontier Preview Mar 30) is a STANDALONE autonomous agent using Anthropic models (NOT a Researcher 'multi-model critique' enhancement as previously described — correction). Agent Builder: natural-language agent creation + share to Teams + 20 embedded files × 512MB now GA. Copilot Policy Settings API (Preview). No new first-party agents announced. Apr 27 re-verify: confirmed no new first-party agents in Apr 2026 release notes. Apr 21 release added agent sharing to Teams team via dialog (Agent Builder-built agents can be shared with installation prompts). Researcher and Analyst remain operating within M365 commercial data processing boundary, NOT subject to agent-related governance settings (per [manage-copilot-agents-integrated-apps](https://learn.microsoft.com/microsoft-365/admin/manage/manage-copilot-agents-integrated-apps)). M365 Agents SDK: orchestrate Copilot Studio agents alongside Microsoft 365 experiences (Apr 2026). Agent Builder admin-review submission flow shipping Apr 2026 — agents appear in 'Built by your org' section of Agent Store after approval."
 -->
 # Microsoft First-Party Agents — Inventory
 
@@ -14,7 +15,7 @@ refresh_trigger: before_research
 1. During research, list each customer capability
 2. For each capability, check the **Capability Match Patterns** column below
 3. **Check license prerequisites** — verify the customer has the required license before recommending
-4. If a match is found, record it in `brief.json` → `architecture.frontierAgentMatch[]`
+4. If a match is found, record it in `agentspec.json` → `architecture.frontierAgentMatch[]`
 5. Recommend the first-party agent for matched capabilities; build custom agent (CA) only for gaps
 
 **Terminology:** DA = Declarative Agent (M365 Copilot-hosted, config-only). CA = Custom Agent (built in Copilot Studio with full orchestration).
@@ -213,7 +214,7 @@ Available at no extra cost with M365 Copilot Chat (free) or M365 Copilot.
 ### Employee Self-Service (ESS Agent)
 - **Status:** **GA** (announced at Ignite Nov 2025, rolling out in waves; GA confirmed per [TechCommunity](https://techcommunity.microsoft.com/blog/microsoft365copilotblog/announcing-general-availability-of-the-employee-self-service-agent-in-microsoft-/4469413))
 - **License:** M365 Copilot
-- **What it does:** Centralized HR/IT self-service (leave management, device requests, policy questions). Includes "accelerator packs" with Microsoft-built connectors, starter workflows, and inline agent handoff for common HR and IT scenarios. Configurable and extendable in Copilot Studio.
+- **What it does:** Centralized HR/IT self-service (leave management, device requests, policy questions). Includes "accelerator packs" with Microsoft-built connectors, starter workflows, and inline agent handoff for common HR and IT scenarios. Configurable and extendable in Copilot Studio. **Mar 2026:** Rich Landing Page now available (customizable landing experience, configurable in M365 Admin Center). Mobile support planned for 2026. Semantic indexing limited to ~200 pages of content. Personalization by profile data (location, role, company code) on roadmap for 2026 improvement.
 - **Capability match patterns:**
   - "HR self-service (leave, benefits, policies)"
   - "IT self-service (device requests, access)"
@@ -380,3 +381,5 @@ Require Frontier program enrollment.
 - [Planner Agent rename MC1250279](https://mc.merill.net/message/MC1250279)
 - [Copilot Cowork in Frontier](https://www.microsoft.com/en-us/microsoft-365/blog/2026/03/30/copilot-cowork-now-available-in-frontier/)
 - [Agent Evaluation GA](https://techcommunity.microsoft.com/blog/copilot-studio-blog/agent-evaluation-in-microsoft-copilot-studio-is-now-generally-available/4507392)
+- [Employee Self-Service Agent Known Issues and Limitations](https://learn.microsoft.com/microsoft-365/copilot/employee-self-service/known-issues-limitations)
+- [Federated Copilot Connectors Overview (early access preview)](https://learn.microsoft.com/microsoft-365/copilot/connectors/federated-connectors-overview)

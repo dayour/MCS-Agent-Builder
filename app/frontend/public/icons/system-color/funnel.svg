@@ -1,0 +1,55 @@
+<svg viewBox="4.0 2.0 40.0 44.0" fill="none" xmlns="http://www.w3.org/2000/svg">
+<!-- Layer 3 (back): Output tube — teal -->
+<svg x="20" y="28" width="8" height="16" viewBox="0 0 8 16" fill="none">
+<g id="Color 3">
+<path d="M0 0H8V12C8 14.2 6.2 16 4 16C1.8 16 0 14.2 0 12V0Z" fill="url(#paint0_linear_funnel_tube)"/>
+<path d="M0 0H8V12C8 14.2 6.2 16 4 16C1.8 16 0 14.2 0 12V0Z" fill="url(#paint1_radial_funnel_tube)" fill-opacity="0.4"/>
+</g>
+<defs>
+<linearGradient id="paint0_linear_funnel_tube" x1="0" y1="0" x2="8" y2="16" gradientUnits="userSpaceOnUse">
+<stop stop-color="#36DFF1"/>
+<stop offset="1" stop-color="#0078D4"/>
+</linearGradient>
+<radialGradient id="paint1_radial_funnel_tube" cx="0" cy="0" r="1" gradientTransform="translate(4 12) rotate(-90) scale(8 4)" gradientUnits="userSpaceOnUse">
+<stop stop-color="#163697"/>
+<stop offset="1" stop-color="#163697" stop-opacity="0"/>
+</radialGradient>
+</defs></svg>
+<!-- Layer 2: Main funnel body — cyan-blue with depth -->
+<svg x="4" y="4" width="40" height="28" viewBox="0 0 40 28" fill="none">
+<g id="Color 2">
+<path d="M3 0C1.34 0 0.1 1.47 0.28 3.1C0.58 5.7 1.5 9.5 4.5 13.5L16 28H24L35.5 13.5C38.5 9.5 39.42 5.7 39.72 3.1C39.9 1.47 38.66 0 37 0H3Z" fill="url(#paint0_linear_funnel_body)"/>
+<path d="M3 0C1.34 0 0.1 1.47 0.28 3.1C0.58 5.7 1.5 9.5 4.5 13.5L16 28H24L35.5 13.5C38.5 9.5 39.42 5.7 39.72 3.1C39.9 1.47 38.66 0 37 0H3Z" fill="url(#paint1_radial_funnel_body)" fill-opacity="0.45"/>
+<path d="M3 0C1.34 0 0.1 1.47 0.28 3.1C0.58 5.7 1.5 9.5 4.5 13.5L16 28H24L35.5 13.5C38.5 9.5 39.42 5.7 39.72 3.1C39.9 1.47 38.66 0 37 0H3Z" fill="url(#paint2_linear_funnel_body)" fill-opacity="0.3"/>
+</g>
+<defs>
+<linearGradient id="paint0_linear_funnel_body" x1="-4" y1="-3" x2="44" y2="32" gradientUnits="userSpaceOnUse">
+<stop stop-color="#6CE0FF"/>
+<stop offset="1" stop-color="#4894FE"/>
+</linearGradient>
+<radialGradient id="paint1_radial_funnel_body" cx="0" cy="0" r="1" gradientTransform="translate(20 24) rotate(-90) scale(18 16)" gradientUnits="userSpaceOnUse">
+<stop stop-color="#4A43CB"/>
+<stop offset="0.7" stop-color="#4A43CB" stop-opacity="0"/>
+</radialGradient>
+<linearGradient id="paint2_linear_funnel_body" x1="20" y1="0" x2="20" y2="10" gradientUnits="userSpaceOnUse">
+<stop stop-color="#9FF0F9"/>
+<stop offset="1" stop-color="#9FF0F9" stop-opacity="0"/>
+</linearGradient>
+</defs></svg>
+<!-- Layer 1 (front): Data dots entering the funnel — purple/pink accents -->
+<svg x="12" y="2" width="6" height="6" viewBox="0 0 6 6" fill="none">
+<path id="Color 1a" d="M3 0C1.34 0 0 1.34 0 3C0 4.66 1.34 6 3 6C4.66 6 6 4.66 6 3C6 1.34 4.66 0 3 0Z" fill="url(#paint0_linear_funnel_dot1)"/>
+<defs><linearGradient id="paint0_linear_funnel_dot1" x1="0" y1="0" x2="6" y2="6" gradientUnits="userSpaceOnUse">
+<stop stop-color="#EA71EF"/><stop offset="1" stop-color="#6D37CD"/>
+</linearGradient></defs></svg>
+<svg x="23" y="3" width="5" height="5" viewBox="0 0 5 5" fill="none">
+<path id="Color 1b" d="M2.5 0C1.12 0 0 1.12 0 2.5C0 3.88 1.12 5 2.5 5C3.88 5 5 3.88 5 2.5C5 1.12 3.88 0 2.5 0Z" fill="url(#paint0_linear_funnel_dot2)"/>
+<defs><linearGradient id="paint0_linear_funnel_dot2" x1="0" y1="0" x2="5" y2="5" gradientUnits="userSpaceOnUse">
+<stop stop-color="#E23CB4"/><stop offset="1" stop-color="#EA71EF"/>
+</linearGradient></defs></svg>
+<svg x="33" y="2.5" width="5.5" height="5.5" viewBox="0 0 5.5 5.5" fill="none">
+<path id="Color 1c" d="M2.75 0C1.23 0 0 1.23 0 2.75C0 4.27 1.23 5.5 2.75 5.5C4.27 5.5 5.5 4.27 5.5 2.75C5.5 1.23 4.27 0 2.75 0Z" fill="url(#paint0_linear_funnel_dot3)"/>
+<defs><linearGradient id="paint0_linear_funnel_dot3" x1="0" y1="0" x2="5.5" y2="5.5" gradientUnits="userSpaceOnUse">
+<stop stop-color="#6D37CD"/><stop offset="1" stop-color="#EA71EF"/>
+</linearGradient></defs></svg>
+</svg>

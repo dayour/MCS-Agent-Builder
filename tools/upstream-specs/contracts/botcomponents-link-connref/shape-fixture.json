@@ -1,0 +1,15 @@
+{
+  "request": {
+    "method": "PUT",
+    "url": "/api/data/v9.2/botcomponents(<compId>)/botcomponent_connectionreference/$ref",
+    "headers": { "content-type": "application/json", "odata-maxversion": "4.0" },
+    "body": {
+      "@odata.id": "<dataverseUrl>/api/data/v9.2/connectionreferences(<connrefId>)"
+    }
+  },
+  "response": {
+    "status": 204,
+    "headers": {},
+    "body": null
+  }
+}

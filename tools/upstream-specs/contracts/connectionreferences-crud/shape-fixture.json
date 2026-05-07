@@ -1,0 +1,37 @@
+{
+  "getRequest": {
+    "method": "GET",
+    "url": "/api/data/v9.2/connectionreferences?$filter=connectorid eq '/providers/Microsoft.PowerApps/apis/shared_office365users'",
+    "headers": { "odata-maxversion": "4.0" }
+  },
+  "getResponse": {
+    "status": 200,
+    "body": {
+      "value": [
+        {
+          "connectionreferenceid": "<connrefId>",
+          "connectionreferencelogicalname": "<publisher>.shared_office365users_xxx",
+          "connectorid": "/providers/Microsoft.PowerApps/apis/shared_office365users",
+          "statuscode": 1
+        }
+      ]
+    }
+  },
+  "createRequest": {
+    "method": "POST",
+    "url": "/api/data/v9.2/connectionreferences",
+    "headers": { "content-type": "application/json" },
+    "body": {
+      "connectionreferencelogicalname": "<publisher>.shared_office365users_xxx",
+      "connectorid": "/providers/Microsoft.PowerApps/apis/shared_office365users",
+      "connectionreferencedisplayname": "<displayName>"
+    }
+  },
+  "createResponse": {
+    "status": 201,
+    "body": {
+      "@odata.context": "<dataverseUrl>/api/data/v9.2/$metadata#connectionreferences/$entity",
+      "connectionreferenceid": "<connrefId>"
+    }
+  }
+}

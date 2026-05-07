@@ -1,0 +1,25 @@
+<svg viewBox="5.0 3.0 38.0 42.0" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg x="7" y="5" width="34" height="34" viewBox="0 0 34 34" fill="none">
+<g id="Color 2">
+<path d="M15.04 1.05c.68-.45 1.6-.38 2.2.22l7.7 7.71a14 14 0 0 1-8.19 23.91v4.36a1.5 1.5 0 1 1-3 0v-4.36A14 14 0 0 1 9.55 9L15.04 1.05Z" fill="url(#paint0_linear_leaf_2)"/>
+<path d="M15.04 1.05c.68-.45 1.6-.38 2.2.22l7.7 7.71a14 14 0 0 1-8.19 23.91v4.36a1.5 1.5 0 1 1-3 0v-4.36A14 14 0 0 1 9.55 9L15.04 1.05Z" fill="url(#paint1_radial_leaf_2)" fill-opacity="0.4"/>
+</g>
+<defs>
+<linearGradient id="paint0_linear_leaf_2" x1="0" y1="0.5" x2="34" y2="34" gradientUnits="userSpaceOnUse">
+<stop stop-color="#52D17C"/>
+<stop offset="1" stop-color="#22918B"/>
+</linearGradient>
+<radialGradient id="paint1_radial_leaf_2" cx="0" cy="0" r="1" gradientTransform="translate(17 34) rotate(-90) scale(12 17)" gradientUnits="userSpaceOnUse">
+<stop stop-color="#0A1852"/>
+<stop offset="1" stop-color="#0A1852" stop-opacity="0"/>
+</radialGradient>
+</defs></svg>
+<svg x="14" y="17" width="3" height="16" viewBox="0 0 3 16" fill="none">
+<path id="Color 1" d="M1.5 0A1.5 1.5 0 0 0 0 1.5V14.5A1.5 1.5 0 0 0 3 14.5V1.5A1.5 1.5 0 0 0 1.5 0Z" fill="url(#paint0_linear_leaf_1)"/>
+<defs>
+<linearGradient id="paint0_linear_leaf_1" x1="1.5" y1="0" x2="1.5" y2="16" gradientUnits="userSpaceOnUse">
+<stop stop-color="#FDFDFD"/>
+<stop offset="1" stop-color="#B3FFD9"/>
+</linearGradient>
+</defs></svg>
+</svg>

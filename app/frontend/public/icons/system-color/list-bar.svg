@@ -1,0 +1,18 @@
+<svg viewBox="10.0 10.0 28.0 28.0" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg x="18" y="12" width="18" height="24" viewBox="0 0 18 24" fill="none">
+<path id="Color 2" d="M1 24H15.5C16.8807 24 18 22.8807 18 21.5V19.5C18 18.1193 16.8807 17 15.5 17H1L0 20.5L1 24ZM1 15H15.5C16.8807 15 18 13.8807 18 12.5V11.5C18 10.1193 16.8807 9 15.5 9H1L0 12L1 15ZM1 7H15.5C16.8807 7 18 5.88071 18 4.5V2.5C18 1.11929 16.8807 0 15.5 0H1L0 3.5L1 7Z" fill="url(#paint0_linear_488_2888)"/>
+<defs>
+<linearGradient id="paint0_linear_488_2888" x1="-2.7" y1="-3.42857" x2="17.9193" y2="22.6401" gradientUnits="userSpaceOnUse">
+<stop stop-color="#36DFF1"/>
+<stop offset="1" stop-color="#0094F0"/>
+</linearGradient>
+</defs></svg>
+<svg x="12" y="12" width="7" height="24" viewBox="0 0 7 24" fill="none">
+<path id="Color 1" d="M7 9V15H2.5C1.11929 15 0 13.8807 0 12.5V11.5C0 10.1193 1.11929 9 2.5 9H7ZM7 0V7H2.5C1.11929 7 0 5.88071 0 4.5V2.5C0 1.11929 1.11929 0 2.5 0H7ZM7 17V24H2.5C1.11929 24 0 22.8807 0 21.5V19.5C0 18.1193 1.11929 17 2.5 17H7Z" fill="url(#paint0_linear_488_2880)"/>
+<defs>
+<linearGradient id="paint0_linear_488_2880" x1="1.66463" y1="3.19046" x2="12.0709" y2="8.03692" gradientUnits="userSpaceOnUse">
+<stop offset="0.125321" stop-color="#9C6CFE"/>
+<stop offset="1" stop-color="#7A41DC"/>
+</linearGradient>
+</defs></svg>
+</svg>

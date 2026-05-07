@@ -50,7 +50,7 @@ The library defines 70 scenarios across 13 areas:
 
 **Usage:** Select 6-12 scenarios per agent based on agent type. Generate 4-8 test cases per scenario. Every test gets an optional `scenarioId` linking to the library for traceability.
 
-### Eval Set Schema (in brief.json)
+### Eval Set Schema (in agentspec.json)
 
 ```json
 {
@@ -274,7 +274,7 @@ Question,Expected response,Testing method
    - Found in: Copilot Studio → Channels → Mobile app → Token Endpoint
    - Returns: `{ Token, Expires_in, ConversationId }`
    - Auto-refreshes when 80% of TTL elapsed
-2. **Cached token** — from `brief.json.buildStatus.directLineToken` (if < 30 min old)
+2. **Cached token** — from `agentspec.json.buildStatus.directLineToken` (if < 30 min old)
 3. **Dataverse bound action** — `PvaGetDirectLineEndpoint` via `tools/dataverse-helper.ps1`
 4. **Manual copy** — MCS → Settings → Security → Web channel security
 
@@ -308,7 +308,7 @@ For agents with MCP/user-delegated tools (Outlook, Calendar, Teams, etc.), Direc
 4. **User checks results** in MCS Evaluation tab, or tests manually in Test Chat (signed in with appropriate permissions)
 
 **When to use:**
-- Agent uses MCP or user-delegated tools (auto-detected by checking `brief.json.integrations[]`)
+- Agent uses MCP or user-delegated tools (auto-detected by checking `agentspec.json.integrations[]`)
 - Direct Line token acquisition fails entirely
 - User prefers MCS-native evaluation
 
@@ -321,12 +321,12 @@ Built-in MCS evaluation feature. Upload eval sets via Gateway API, trigger run, 
 **When to use:** For MCP agents (auto-detected), on user request (`--native` flag), or when Direct Line is unavailable.
 
 **Workflow:**
-1. Upload eval sets from brief.json via `island-client.js upload-evals` (Gateway API `makerevaluations/testcomponent`)
+1. Upload eval sets from agentspec.json via `island-client.js upload-evals` (Gateway API `makerevaluations/testcomponent`)
 2. Run evaluation via `island-client.js run-eval --set-id <id>` (Gateway API `makerevaluations`)
 3. Results appear in MCS Evaluation tab
 4. Return: "Run `/mcs-eval ... --check-results` to retrieve results, or check MCS Evaluation tab"
 
-**Note:** Per-set CSVs (`evals-boundaries.csv`, etc.) are still generated for dashboard download and reference, but are NOT used for upload — the Gateway API handles upload directly from brief.json.
+**Note:** Per-set CSVs (`evals-boundaries.csv`, etc.) are still generated for dashboard download and reference, but are NOT used for upload — the Gateway API handles upload directly from agentspec.json.
 
 ## Eval-Driven Build Loop
 
@@ -501,7 +501,7 @@ The [Power CAT Copilot Studio Kit](https://github.com/microsoft/Power-CAT-Copilo
 
 | Feature | Kit Approach | Our Approach |
 |---------|------------|-------------|
-| **Multi-turn** | Power Apps UI + cloud flows, stored in Dataverse `Test` entity | CLI-driven, brief.json `turns[]`, Direct Line API |
+| **Multi-turn** | Power Apps UI + cloud flows, stored in Dataverse `Test` entity | CLI-driven, agentspec.json `turns[]`, Direct Line API |
 | **Plan validation** | Reads `ConversationTranscript` Dataverse entity after test | Captures from Direct Line activity stream during test |
 | **Execution** | Cloud flow per test, sequential | Node.js CLI, parallel-capable |
 | **Scoring** | Custom Power Fx scoring + user-defined rubrics (new) | `eval-scoring.js` shared module (7 methods) |

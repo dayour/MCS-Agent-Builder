@@ -1,0 +1,50 @@
+<svg viewBox="10.0 4.0 28.0 40.0" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg x="18" y="36" width="12" height="8" viewBox="0 0 12 8" fill="none">
+<path id="Color 4" d="M0 0H12C11 4.5 8.5 8 6 8C3.5 8 1 4.5 0 0Z" fill="url(#paint0_radial_rocket_4)"/>
+<defs>
+<radialGradient id="paint0_radial_rocket_4" cx="0" cy="0" r="1" gradientTransform="matrix(7.2 10.4 -12.8 5.6 1.2 -2.4)" gradientUnits="userSpaceOnUse">
+<stop stop-color="#FFE06B"/>
+<stop offset="0.45" stop-color="#FFA43D"/>
+<stop offset="1" stop-color="#E67505"/>
+</radialGradient>
+</defs></svg>
+<svg x="10" y="26" width="28" height="12" viewBox="0 0 28 12" fill="none">
+<g id="Color 3">
+<path d="M8 0L0 10C0 11.1046 0.895431 12 2 12H8V0Z" fill="url(#paint0_linear_rocket_3)"/>
+<path d="M20 0L28 10C28 11.1046 27.1046 12 26 12H20V0Z" fill="url(#paint1_linear_rocket_3)"/>
+</g>
+<defs>
+<linearGradient id="paint0_linear_rocket_3" x1="0" y1="0" x2="8" y2="12" gradientUnits="userSpaceOnUse">
+<stop stop-color="#0094F0"/>
+<stop offset="1" stop-color="#163697"/>
+</linearGradient>
+<linearGradient id="paint1_linear_rocket_3" x1="28" y1="0" x2="20" y2="12" gradientUnits="userSpaceOnUse">
+<stop stop-color="#0094F0"/>
+<stop offset="1" stop-color="#163697"/>
+</linearGradient>
+</defs></svg>
+<svg x="16" y="4" width="16" height="34" viewBox="0 0 16 34" fill="none">
+<g id="Color 2">
+<path d="M8 0C4.5 0 0 6 0 14V31.75C0 32.9926 1.00736 34 2.25 34H13.75C14.9926 34 16 32.9926 16 31.75V14C16 6 11.5 0 8 0Z" fill="url(#paint0_radial_rocket_2)"/>
+<path d="M8 0C4.5 0 0 6 0 14V31.75C0 32.9926 1.00736 34 2.25 34H13.75C14.9926 34 16 32.9926 16 31.75V14C16 6 11.5 0 8 0Z" fill="url(#paint1_linear_rocket_2)"/>
+</g>
+<defs>
+<radialGradient id="paint0_radial_rocket_2" cx="0" cy="0" r="1" gradientTransform="matrix(5.26 37.4 -22.1 7.6 2.6 2.8)" gradientUnits="userSpaceOnUse">
+<stop stop-color="#3BD5FF"/>
+<stop offset="0.5" stop-color="#0094F0"/>
+<stop offset="1" stop-color="#2052CB"/>
+</radialGradient>
+<linearGradient id="paint1_linear_rocket_2" x1="8" y1="0" x2="8" y2="34" gradientUnits="userSpaceOnUse">
+<stop stop-color="#DCF8FF" stop-opacity="0.3"/>
+<stop offset="1" stop-color="#163697" stop-opacity="0"/>
+</linearGradient>
+</defs></svg>
+<svg x="21" y="16" width="6" height="6" viewBox="0 0 6 6" fill="none">
+<path id="Color 1" d="M3 0C1.34315 0 0 1.34315 0 3C0 4.65685 1.34315 6 3 6C4.65685 6 6 4.65685 6 3C6 1.34315 4.65685 0 3 0Z" fill="url(#paint0_linear_rocket_1)"/>
+<defs>
+<linearGradient id="paint0_linear_rocket_1" x1="1.5" y1="0.5" x2="5" y2="6" gradientUnits="userSpaceOnUse">
+<stop stop-color="#FDFDFD"/>
+<stop offset="1" stop-color="#B3E0FF"/>
+</linearGradient>
+</defs></svg>
+</svg>

@@ -1,0 +1,1625 @@
+{
+  "_meta": {
+    "generatedAt": "2026-04-27T15:30:11.958Z",
+    "libraryFileId": "DLSFFsesGJRdAEi1CWGIdE",
+    "libraryLastModified": "2026-04-24T20:18:10Z",
+    "fileMap": {
+      "library": "DLSFFsesGJRdAEi1CWGIdE",
+      "test-playground": "e4GtJkPZyA99waxAw19Kmj",
+      "post-march": "tztlPiawmj4iP4jfGCMG2O",
+      "homepage": "WewOn8XOrS3cegWTlxJjCK",
+      "my-stuff": "2cpIIHEdnSpYqG943cCBg1",
+      "capabilities": "KkSDnBxOOJ1eXxioUMumlY",
+      "skills": "ThhYyBQ3JR9RdDnIwEchTt",
+      "helper": "N49awrA7v9zTssYWcW8cDQ",
+      "workflows": "rVOKkBSr3q0p0ABUECD8vd"
+    }
+  },
+  "componentSets": {
+    "Headline": [
+      {
+        "name": "Headline [Deprecated]",
+        "key": "75fe46da6079587d4dd4dc044c7438ee3c704eaf",
+        "nodeId": "1630:10818",
+        "containingFrame": "Headline",
+        "description": ""
+      }
+    ],
+    "Component": [
+      {
+        "name": "Summary card/Activty",
+        "key": "438c316fd3797d365e378418f23c0363ec184d62",
+        "nodeId": "4661:11282",
+        "containingFrame": "Component",
+        "description": ""
+      },
+      {
+        "name": "Activity/DataGrid cell/Status",
+        "key": "1b3aaa2061384533636a4b9f490dba2499719db2",
+        "nodeId": "3140:25897",
+        "containingFrame": "Component",
+        "description": ""
+      },
+      {
+        "name": "Activity/DataGrid cell/Type",
+        "key": "c040e2fa4689c13ee8d9fa14b17b761498a13993",
+        "nodeId": "3140:25892",
+        "containingFrame": "Component",
+        "description": ""
+      },
+      {
+        "name": "Activity map/Node/Icon",
+        "key": "21baa6da60e4f5822aa6da42fa68140fd90cf9a0",
+        "nodeId": "3158:23982",
+        "containingFrame": "Component",
+        "description": ""
+      },
+      {
+        "name": "Activity/DataGrid cell/Last step/Icons",
+        "key": "08bfadd430fa810c1ca259d95907cf970aea1716",
+        "nodeId": "3140:25945",
+        "containingFrame": "Component",
+        "description": ""
+      },
+      {
+        "name": "Activity map/Details pane/Building blocks/Source",
+        "key": "db70974b2ae7dd3047d549c89cd93a1a079bf9e6",
+        "nodeId": "2955:91806",
+        "containingFrame": "Component",
+        "description": ""
+      },
+      {
+        "name": "Drawer",
+        "key": "cfd34a782645907d711eab448640149af024e02b",
+        "nodeId": "4238:19686",
+        "containingFrame": "Component",
+        "description": ""
+      },
+      {
+        "name": "Activity map/Details pane/Building blocks/Connector status",
+        "key": "5594f9f9633b3cf213dd48528f9668b69522cf08",
+        "nodeId": "2955:91776",
+        "containingFrame": "Component",
+        "description": ""
+      },
+      {
+        "name": "Activity/DataGrid cell/Last step",
+        "key": "f22d786a7e0876161536250388b064ac6b7c0fba",
+        "nodeId": "3140:25914",
+        "containingFrame": "Component",
+        "description": ""
+      },
+      {
+        "name": "Message response/ Connection",
+        "key": "10f395889c00ce8e81d7de61ca9e3130171f584d",
+        "nodeId": "1816:29241",
+        "containingFrame": "Component",
+        "description": ""
+      },
+      {
+        "name": "Activity map/Details pane/Building blocksSource/details",
+        "key": "7df7a86cb18b150412ef1f4e73b10cb4d7926bf5",
+        "nodeId": "2955:91847",
+        "containingFrame": "Component",
+        "description": ""
+      },
+      {
+        "name": "Activity map/Details pane/CoT type",
+        "key": "d7e51d7b7f4ab4bc2f0f79b80ec2ef38bb7e52a7",
+        "nodeId": "5076:26215",
+        "containingFrame": "Component",
+        "description": ""
+      },
+      {
+        "name": "Message response/ Doc links",
+        "key": "7c16be26ae9a3823504c4932a3e39f7aad38bf97",
+        "nodeId": "1816:29232",
+        "containingFrame": "Component",
+        "description": ""
+      },
+      {
+        "name": "Helper agent",
+        "key": "e743cd069dff032052054ae4a02ee0a1c44c09fd",
+        "nodeId": "2223:8412",
+        "containingFrame": "Component",
+        "description": ""
+      },
+      {
+        "name": "Message response/ Step",
+        "key": "615fa7765e649a1c92760c202c614e028dceb5bf",
+        "nodeId": "5210:1577",
+        "containingFrame": "Component",
+        "description": ""
+      }
+    ],
+    "Header": [
+      {
+        "name": "Tab title - Temporary for CEA reskin",
+        "key": "4b9ffa64004c59ff0116ed97c3d52165f925ba13",
+        "nodeId": "2221:19170",
+        "containingFrame": "Header",
+        "description": ""
+      },
+      {
+        "name": "Agent header",
+        "key": "e4e15a4519e5e9a1f9119092d97283aa3f8838aa",
+        "nodeId": "1537:8342",
+        "containingFrame": "Header",
+        "description": ""
+      },
+      {
+        "name": "Toggle.Element",
+        "key": "3ee6014968d751ef64650dd377c90d05909c05b2",
+        "nodeId": "1318:9485",
+        "containingFrame": "Header",
+        "description": ""
+      },
+      {
+        "name": "TestButton",
+        "key": "bc5e9668482d08c363f7cd238865cb89a0f32ad3",
+        "nodeId": "3584:19378",
+        "containingFrame": "Header",
+        "description": ""
+      },
+      {
+        "name": "Agent name group",
+        "key": "6c8a36d758349e52df3c624be7a97b807bb34bc6",
+        "nodeId": "5285:28921",
+        "containingFrame": "Header",
+        "description": ""
+      },
+      {
+        "name": "More menu",
+        "key": "d8eff0daee22c854a0a4289d446c8058e5ce9e78",
+        "nodeId": "1576:11463",
+        "containingFrame": "Header",
+        "description": ""
+      },
+      {
+        "name": "Status",
+        "key": "9170d8174322db8f5757319057bc2dd7b45d716f",
+        "nodeId": "2073:14135",
+        "containingFrame": "Header",
+        "description": ""
+      },
+      {
+        "name": "Publish button",
+        "key": "a90a0f992da75a1892ba154bbdba313a6ab5deee",
+        "nodeId": "2115:15769",
+        "containingFrame": "Header",
+        "description": ""
+      }
+    ],
+    "root": [
+      {
+        "name": "Cell action header",
+        "key": "f51ec01b7b372d7a41bfaf3dd34085a9e648e75d",
+        "nodeId": "2901:17960",
+        "containingFrame": "root",
+        "description": ""
+      },
+      {
+        "name": "DataGrid cell - Smaller",
+        "key": "03006b996bcbe1302454893e62dd81bacd0d9787",
+        "nodeId": "2901:17811",
+        "containingFrame": "root",
+        "description": ""
+      },
+      {
+        "name": "DataGrid cell - Small",
+        "key": "f37bd87e51df52feab28732a024291aae87d2a58",
+        "nodeId": "2901:17914",
+        "containingFrame": "root",
+        "description": ""
+      },
+      {
+        "name": "DataGrid cell - Large",
+        "key": "d42c8db2fde72bf361e01432a02df397379cc859",
+        "nodeId": "2901:17857",
+        "containingFrame": "root",
+        "description": ""
+      },
+      {
+        "name": "DataGrid cell - Medium",
+        "key": "6db13ae016fcdb820c33c2c1aeb4a8f0ad7af992",
+        "nodeId": "2901:17740",
+        "containingFrame": "root",
+        "description": ""
+      },
+      {
+        "name": "Content header",
+        "key": "b7a2408a88c95504f0dd8428d1aecdc0f64662ea",
+        "nodeId": "2901:17786",
+        "containingFrame": "root",
+        "description": ""
+      },
+      {
+        "name": "L1 navigation",
+        "key": "b2ba6c4efe7c72b92ac7140f32aeac8dbaa10899",
+        "nodeId": "5480:45783",
+        "containingFrame": "root",
+        "description": ""
+      }
+    ],
+    "Analytics": [
+      {
+        "name": "Analytics",
+        "key": "417192e19e2e72758eb13ba0a9e8411156ab3355",
+        "nodeId": "2929:24501",
+        "containingFrame": "Analytics",
+        "description": ""
+      }
+    ],
+    "Publish dialog": [
+      {
+        "name": "Dialog.Publish CEA",
+        "key": "088dc60aba823f9af41363af5a14da94c4865291",
+        "nodeId": "4777:30408",
+        "containingFrame": "Publish dialog",
+        "description": ""
+      },
+      {
+        "name": "Dialog.Publish DA",
+        "key": "d7a8529ded971c1e4b07f3abdd02c04ab81c8473",
+        "nodeId": "4777:30321",
+        "containingFrame": "Publish dialog",
+        "description": ""
+      }
+    ],
+    "Publish dialog.Error states": [
+      {
+        "name": "Dialog.RAI violation",
+        "key": "68b5decda2622b301b41daa8e2dcb80ae9a80536",
+        "nodeId": "4777:30467",
+        "containingFrame": "Publish dialog.Error states",
+        "description": ""
+      },
+      {
+        "name": "Content.RAI violations",
+        "key": "c35612ff09a83fb2c5c2d552ebe3afbb64634b37",
+        "nodeId": "4780:33926",
+        "containingFrame": "Publish dialog.Error states",
+        "description": ""
+      },
+      {
+        "name": "Content.Publish errors",
+        "key": "0987f276aad5ebd4865eaafd590b25f52a589589",
+        "nodeId": "4780:33911",
+        "containingFrame": "Publish dialog.Error states",
+        "description": ""
+      }
+    ],
+    "L1 navigation": [
+      {
+        "name": "L1 navigation",
+        "key": "1abf32723482205902965d95558839960159a174",
+        "nodeId": "377:9824",
+        "containingFrame": "L1 navigation",
+        "description": ""
+      },
+      {
+        "name": "Rail item [L1 nav]",
+        "key": "9e5f43ce352c8edc8c3eaf523a461e5a97c97b88",
+        "nodeId": "706:12078",
+        "containingFrame": "L1 navigation",
+        "description": ""
+      },
+      {
+        "name": "Nav sections",
+        "key": "df7c221bb0021998e84666a6d2e8a8159945864f",
+        "nodeId": "733:19378",
+        "containingFrame": "L1 navigation",
+        "description": ""
+      },
+      {
+        "name": "Contextual Actions Set",
+        "key": "db89cf9a3749327a7eb8f9d8e42d81d5e881b38e",
+        "nodeId": "733:17768",
+        "containingFrame": "L1 navigation",
+        "description": ""
+      },
+      {
+        "name": "Contextual actions items",
+        "key": "3fcf8412a6689abd3fa96276baa322096beec2a3",
+        "nodeId": "733:17610",
+        "containingFrame": "L1 navigation",
+        "description": ""
+      },
+      {
+        "name": "Full nav items [L1 nav]",
+        "key": "0fc5121a24ff7c482e19cc5205d9312e1fd708e1",
+        "nodeId": "733:18121",
+        "containingFrame": "L1 navigation",
+        "description": ""
+      }
+    ],
+    "Suggested prompts": [
+      {
+        "name": "Suggested prompts",
+        "key": "dabbac77aa26d2be066cadc2e6bd349e6dc29a5f",
+        "nodeId": "1955:23610",
+        "containingFrame": "Suggested prompts",
+        "description": ""
+      }
+    ],
+    "Search": [
+      {
+        "name": "Menu",
+        "key": "b0e5c94d9b5b47af4675e4ed8dfacc6ee9bff41a",
+        "nodeId": "1631:20212",
+        "containingFrame": "Search",
+        "description": ""
+      },
+      {
+        "name": "⏺️ SearchBox",
+        "key": "6d7fcc53c7ca36a755009f5bccd014dde0b45dd1",
+        "nodeId": "1631:20143",
+        "containingFrame": "Search",
+        "description": ""
+      },
+      {
+        "name": "KeyboardShortcut",
+        "key": "5925e3329e75bf7077a0d066298a3bc2ccbfcb5a",
+        "nodeId": "1631:20107",
+        "containingFrame": "Search",
+        "description": ""
+      }
+    ],
+    "Headline+Manual Save": [
+      {
+        "name": "Headline",
+        "key": "39df0f87111a0a8a6b114685f0f3df1db5d5017b",
+        "nodeId": "3170:27904",
+        "containingFrame": "Headline+Manual Save",
+        "description": ""
+      },
+      {
+        "name": "Agent icon",
+        "key": "8a73111f167fee211edf78f8b9f5ab8d6fc9d58a",
+        "nodeId": "1630:11102",
+        "containingFrame": "Headline+Manual Save",
+        "description": ""
+      },
+      {
+        "name": "Agent icons",
+        "key": "0ed9b40c7492042913727837cbde94c1688fdfb6",
+        "nodeId": "2174:8160",
+        "containingFrame": "Headline+Manual Save",
+        "description": ""
+      }
+    ],
+    "Knowledge": [
+      {
+        "name": "Knowledge / DA",
+        "key": "5e6a60ceec19bc3a43d022c189911bebe82cdf00",
+        "nodeId": "1925:16016",
+        "containingFrame": "Knowledge",
+        "description": ""
+      }
+    ],
+    "Instructions + Components": [
+      {
+        "name": "Component",
+        "key": "ce5812b0d2772f84e07def9d1dc18386b84075bb",
+        "nodeId": "5061:44818",
+        "containingFrame": "Instructions + Components",
+        "description": ""
+      },
+      {
+        "name": "Instructions + Components",
+        "key": "4213f736249627577147015210e88ca2910ccc6e",
+        "nodeId": "5118:38676",
+        "containingFrame": "Instructions + Components",
+        "description": ""
+      },
+      {
+        "name": "Content/DA.Components",
+        "key": "416d8f6caa2bffd603c5e2d063bb16579fb9f829",
+        "nodeId": "5281:22648",
+        "containingFrame": "Instructions + Components",
+        "description": ""
+      },
+      {
+        "name": "Content/CEA.Components",
+        "key": "658a4ffe9b066a9d88529ef233467c9d06a6f6a9",
+        "nodeId": "5281:34405",
+        "containingFrame": "Instructions + Components",
+        "description": ""
+      },
+      {
+        "name": "Component pill",
+        "key": "810fbe56bed0105231d99c67b806099eeadd51b2",
+        "nodeId": "5756:20621",
+        "containingFrame": "Instructions + Components",
+        "description": ""
+      }
+    ],
+    "Topics": [
+      {
+        "name": "Topics",
+        "key": "0f80ebe122e96f419b5fd30ba9ae33bde0b137d8",
+        "nodeId": "2777:25461",
+        "containingFrame": "Topics",
+        "description": ""
+      }
+    ],
+    "Page": [
+      {
+        "name": "Build content",
+        "key": "aeea7289815142bf55888c9bd5b32689bab55e50",
+        "nodeId": "1660:22409",
+        "containingFrame": "Page",
+        "description": ""
+      },
+      {
+        "name": "Page title",
+        "key": "8f21c337d42dbc73ffb0cd131c5fd61dbbb7efc1",
+        "nodeId": "2353:18097",
+        "containingFrame": "Page",
+        "description": ""
+      }
+    ],
+    "Shell": [
+      {
+        "name": "Copilot Studio shell",
+        "key": "2183fdcbf6477ca8d65d0ec9b16e9260367ca9ea",
+        "nodeId": "1587:11744",
+        "containingFrame": "Shell",
+        "description": ""
+      }
+    ],
+    "Instructions+Manual Save": [
+      {
+        "name": "Instruction type",
+        "key": "a9bdfa0ca928f2f2106c26d0ca1041bc7d632837",
+        "nodeId": "1913:13543",
+        "containingFrame": "Instructions+Manual Save",
+        "description": ""
+      },
+      {
+        "name": "Instructions",
+        "key": "48e5c05293c3fa5d8b3d51bd0dac3b622278c430",
+        "nodeId": "3159:26234",
+        "containingFrame": "Instructions+Manual Save",
+        "description": ""
+      }
+    ],
+    "Core screens": [
+      {
+        "name": "Response Footer/Response",
+        "key": "327310773192220b4e18192e77280ffaa1c2a11c",
+        "nodeId": "5578:9561",
+        "containingFrame": "Core screens",
+        "description": ""
+      },
+      {
+        "name": "Response Footer",
+        "key": "d44ab2f3d28d3e75198f85a9985cdd6a63bdf4b2",
+        "nodeId": "5578:9598",
+        "containingFrame": "Core screens",
+        "description": ""
+      },
+      {
+        "name": "Activity map/Tool bar",
+        "key": "f9ffede368a2de256b5abc4841c877f572b3d77b",
+        "nodeId": "4176:20614",
+        "containingFrame": "Core screens",
+        "description": ""
+      }
+    ],
+    "Instructions": [
+      {
+        "name": "Instructions",
+        "key": "4b1660a974f4815eed7f728d7bdafb4c0a8a0514",
+        "nodeId": "1955:23551",
+        "containingFrame": "Instructions",
+        "description": ""
+      }
+    ],
+    "Component list": [
+      {
+        "name": "COMPONENTS",
+        "key": "227b16b6a67132f669c214743301fa2333704711",
+        "nodeId": "6248:18337",
+        "containingFrame": "Component list",
+        "description": ""
+      }
+    ]
+  },
+  "styles": [
+    {
+      "name": "Agent icon/Fuchsia",
+      "type": "FILL",
+      "key": "d1b7c65a19b21e625f2914010cc2bff031c2cda7",
+      "nodeId": "5480:45443",
+      "description": ""
+    },
+    {
+      "name": "Agent icon/Cerulean",
+      "type": "FILL",
+      "key": "3780450b96d6929889e65d278e48f3f619b6e605",
+      "nodeId": "5480:45445",
+      "description": ""
+    },
+    {
+      "name": "Agent icon/Rose",
+      "type": "FILL",
+      "key": "032094564dd9ef564a54d8a7662f0dadec57a2f8",
+      "nodeId": "5480:45441",
+      "description": ""
+    },
+    {
+      "name": "Agent icon/Fern",
+      "type": "FILL",
+      "key": "8af5380a36a745d459e7e5646cc44170983f1a89",
+      "nodeId": "5480:45442",
+      "description": ""
+    },
+    {
+      "name": "Agent icon/Lavendar",
+      "type": "FILL",
+      "key": "561d8fc2a272f41299bc47cc912ff5280fc4e659",
+      "nodeId": "5480:45444",
+      "description": ""
+    },
+    {
+      "name": "Icons/Topic",
+      "type": "FILL",
+      "key": "b425b1188827409c4a9ade556c5e19f195ae1c5f",
+      "nodeId": "5116:36709",
+      "description": ""
+    },
+    {
+      "name": "Icons/Topic ALT",
+      "type": "FILL",
+      "key": "38f1cf80efe4618be3a9b07bb61016f18f01aeed",
+      "nodeId": "5281:27307",
+      "description": ""
+    },
+    {
+      "name": "Icons/Skills",
+      "type": "FILL",
+      "key": "f4fb2dd6559cd29cecff4e2330be98d355241ffd",
+      "nodeId": "5281:27309",
+      "description": ""
+    },
+    {
+      "name": "Left nav/Icon",
+      "type": "FILL",
+      "key": "bb7167f5fc3f57b472b35457f6073dd867eb4491",
+      "nodeId": "5386:54582",
+      "description": ""
+    },
+    {
+      "name": "Deleted Flair",
+      "type": "FILL",
+      "key": "e44140cb2af5980ad2fb8bbf409a81291f305657",
+      "nodeId": "6184:26056",
+      "description": ""
+    }
+  ],
+  "libraryPages": [
+    {
+      "name": "Cover",
+      "id": "0:1",
+      "frameCount": 1,
+      "frames": [
+        {
+          "name": "Cover",
+          "type": "FRAME",
+          "id": "2:589"
+        }
+      ]
+    },
+    {
+      "name": "Design Language",
+      "id": "2709:21017",
+      "frameCount": 0,
+      "frames": []
+    },
+    {
+      "name": "↳ 🟡 Layout",
+      "id": "2:716",
+      "frameCount": 14,
+      "frames": [
+        {
+          "name": "Layout 1",
+          "type": "FRAME",
+          "id": "2616:18662"
+        },
+        {
+          "name": "Layout 10",
+          "type": "FRAME",
+          "id": "2726:35636"
+        },
+        {
+          "name": "Layout 3",
+          "type": "FRAME",
+          "id": "2616:18669"
+        },
+        {
+          "name": "Layout 12",
+          "type": "FRAME",
+          "id": "3686:24511"
+        },
+        {
+          "name": "Layout 13",
+          "type": "FRAME",
+          "id": "3686:36327"
+        },
+        {
+          "name": "Layout 14",
+          "type": "FRAME",
+          "id": "3866:25608"
+        },
+        {
+          "name": "Layout 2",
+          "type": "FRAME",
+          "id": "2628:24029"
+        },
+        {
+          "name": "Layout 11",
+          "type": "FRAME",
+          "id": "3686:24473"
+        },
+        {
+          "name": "Layout 4",
+          "type": "FRAME",
+          "id": "2628:23233"
+        },
+        {
+          "name": "Layout 5",
+          "type": "FRAME",
+          "id": "2628:37100"
+        },
+        {
+          "name": "Layout 6",
+          "type": "FRAME",
+          "id": "2628:37889"
+        },
+        {
+          "name": "Layout 7",
+          "type": "FRAME",
+          "id": "2628:38678"
+        },
+        {
+          "name": "Layout 8",
+          "type": "FRAME",
+          "id": "2628:58157"
+        },
+        {
+          "name": "Layout 9",
+          "type": "FRAME",
+          "id": "2726:35463"
+        }
+      ]
+    },
+    {
+      "name": "↳ 🔴 Motion",
+      "id": "2709:21018",
+      "frameCount": 3,
+      "frames": [
+        {
+          "name": "1",
+          "type": "FRAME",
+          "id": "2709:21021"
+        },
+        {
+          "name": "2",
+          "type": "FRAME",
+          "id": "2709:21048"
+        },
+        {
+          "name": "3",
+          "type": "FRAME",
+          "id": "2709:25306"
+        }
+      ]
+    },
+    {
+      "name": "↳ 🔴 Color",
+      "id": "2709:23162",
+      "frameCount": 3,
+      "frames": [
+        {
+          "name": "1",
+          "type": "FRAME",
+          "id": "2709:23165"
+        },
+        {
+          "name": "2",
+          "type": "FRAME",
+          "id": "2709:23192"
+        },
+        {
+          "name": "3",
+          "type": "FRAME",
+          "id": "2709:25342"
+        }
+      ]
+    },
+    {
+      "name": "𝗖𝗢𝗠𝗣𝗢𝗡𝗘𝗡𝗧𝗦",
+      "id": "2616:18369",
+      "frameCount": 3,
+      "frames": [
+        {
+          "name": "Core screens",
+          "type": "FRAME",
+          "id": "2616:18370"
+        },
+        {
+          "name": "Component",
+          "type": "FRAME",
+          "id": "2616:18389"
+        },
+        {
+          "name": "Templates",
+          "type": "TEXT",
+          "id": "2616:18407"
+        }
+      ]
+    },
+    {
+      "name": "↳ 🟢 Core & Shell",
+      "id": "2:723",
+      "frameCount": 14,
+      "frames": [
+        {
+          "name": "Header",
+          "type": "FRAME",
+          "id": "1300:9312"
+        },
+        {
+          "name": "Core screens",
+          "type": "FRAME",
+          "id": "1649:11502"
+        },
+        {
+          "name": "Shell",
+          "type": "FRAME",
+          "id": "1660:12477"
+        },
+        {
+          "name": "Rectangle 346603721",
+          "type": "RECTANGLE",
+          "id": "4737:22952"
+        },
+        {
+          "name": "L1 navigation",
+          "type": "FRAME",
+          "id": "1631:21024"
+        },
+        {
+          "name": "Search",
+          "type": "FRAME",
+          "id": "1631:19451"
+        },
+        {
+          "name": "Anatomy / Details",
+          "type": "INSTANCE",
+          "id": "841:19181"
+        },
+        {
+          "name": "Anatomy / Details",
+          "type": "INSTANCE",
+          "id": "907:95120"
+        },
+        {
+          "name": "Anatomy / Details",
+          "type": "INSTANCE",
+          "id": "907:95136"
+        },
+        {
+          "name": "Sticky notes",
+          "type": "INSTANCE",
+          "id": "907:95144"
+        },
+        {
+          "name": "Sample Pages & Components",
+          "type": "TEXT",
+          "id": "1520:9910"
+        },
+        {
+          "name": "Ai disclaimer",
+          "type": "FRAME",
+          "id": "1660:31558"
+        },
+        {
+          "name": "Copilot Studio shell",
+          "type": "FRAME",
+          "id": "3105:29347"
+        },
+        {
+          "name": "Components - Side navigation",
+          "type": "FRAME",
+          "id": "4188:18559"
+        }
+      ]
+    },
+    {
+      "name": "↳ 🟡 Build ",
+      "id": "2:717",
+      "frameCount": 25,
+      "frames": [
+        {
+          "name": "Page",
+          "type": "FRAME",
+          "id": "1658:35307"
+        },
+        {
+          "name": "Page title",
+          "type": "INSTANCE",
+          "id": "6001:37918"
+        },
+        {
+          "name": "Page title",
+          "type": "FRAME",
+          "id": "6001:38109"
+        },
+        {
+          "name": "Page title",
+          "type": "INSTANCE",
+          "id": "6001:38014"
+        },
+        {
+          "name": "Page title",
+          "type": "INSTANCE",
+          "id": "6001:38053"
+        },
+        {
+          "name": "Knowledge",
+          "type": "FRAME",
+          "id": "1658:35330"
+        },
+        {
+          "name": "Capabilities",
+          "type": "FRAME",
+          "id": "1658:35349"
+        },
+        {
+          "name": "Topics",
+          "type": "FRAME",
+          "id": "2230:7297"
+        },
+        {
+          "name": "Icon",
+          "type": "INSTANCE",
+          "id": "5116:36706"
+        },
+        {
+          "name": "Suggested prompts",
+          "type": "FRAME",
+          "id": "1658:35368"
+        },
+        {
+          "name": "CA",
+          "type": "GROUP",
+          "id": "1951:23359"
+        },
+        {
+          "name": "DA",
+          "type": "GROUP",
+          "id": "1951:23373"
+        },
+        {
+          "name": "Instructions+Manual Save",
+          "type": "FRAME",
+          "id": "3159:26219"
+        },
+        {
+          "name": "Headline+Manual Save",
+          "type": "FRAME",
+          "id": "3170:27889"
+        },
+        {
+          "name": "Instructions + Components",
+          "type": "FRAME",
+          "id": "5118:40877"
+        },
+        {
+          "name": "Button",
+          "type": "INSTANCE",
+          "id": "5686:20517"
+        },
+        {
+          "name": "Button",
+          "type": "INSTANCE",
+          "id": "5686:20518"
+        },
+        {
+          "name": "Button",
+          "type": "INSTANCE",
+          "id": "5686:20519"
+        },
+        {
+          "name": "Button",
+          "type": "INSTANCE",
+          "id": "5686:20520"
+        },
+        {
+          "name": "Button",
+          "type": "INSTANCE",
+          "id": "5724:20222"
+        },
+        {
+          "name": "Button.Component",
+          "type": "INSTANCE",
+          "id": "5757:11557"
+        },
+        {
+          "name": "Frame 2147236988",
+          "type": "FRAME",
+          "id": "5998:24019"
+        },
+        {
+          "name": "title group",
+          "type": "FRAME",
+          "id": "6001:38085"
+        },
+        {
+          "name": "Section header/commands",
+          "type": "FRAME",
+          "id": "6248:18190"
+        },
+        {
+          "name": "Component list",
+          "type": "FRAME",
+          "id": "6248:18294"
+        }
+      ]
+    },
+    {
+      "name": "↳ 🟡 Home page",
+      "id": "1660:23098",
+      "frameCount": 3,
+      "frames": [
+        {
+          "name": "Core screens",
+          "type": "FRAME",
+          "id": "1660:23099"
+        },
+        {
+          "name": "Home page",
+          "type": "INSTANCE",
+          "id": "1984:42409"
+        },
+        {
+          "name": "Headline",
+          "type": "FRAME",
+          "id": "1660:24736"
+        }
+      ]
+    },
+    {
+      "name": "↳ 🟡 Helper Agent",
+      "id": "53:41973",
+      "frameCount": 4,
+      "frames": [
+        {
+          "name": "Component",
+          "type": "FRAME",
+          "id": "1660:25593"
+        },
+        {
+          "name": "Component",
+          "type": "FRAME",
+          "id": "1875:1315"
+        },
+        {
+          "name": "Component",
+          "type": "FRAME",
+          "id": "3365:14639"
+        },
+        {
+          "name": "Email conversation",
+          "type": "FRAME",
+          "id": "4003:6523"
+        }
+      ]
+    },
+    {
+      "name": "↳ 🟡 Test",
+      "id": "2:718",
+      "frameCount": 2,
+      "frames": [
+        {
+          "name": "Core screens",
+          "type": "FRAME",
+          "id": "1660:33998"
+        },
+        {
+          "name": "Component",
+          "type": "FRAME",
+          "id": "1660:34017"
+        }
+      ]
+    },
+    {
+      "name": "↳ 🟡 Activity",
+      "id": "2944:29375",
+      "frameCount": 10,
+      "frames": [
+        {
+          "name": "Core screens",
+          "type": "FRAME",
+          "id": "2944:29376"
+        },
+        {
+          "name": "Component",
+          "type": "FRAME",
+          "id": "2944:29395"
+        },
+        {
+          "name": "Component",
+          "type": "FRAME",
+          "id": "3140:25841"
+        },
+        {
+          "name": "Component",
+          "type": "FRAME",
+          "id": "2954:22328"
+        },
+        {
+          "name": "Component",
+          "type": "FRAME",
+          "id": "4661:8477"
+        },
+        {
+          "name": "Core screens",
+          "type": "FRAME",
+          "id": "2955:29895"
+        },
+        {
+          "name": "Core screens",
+          "type": "FRAME",
+          "id": "4344:23365"
+        },
+        {
+          "name": "Activity map/Node examples",
+          "type": "INSTANCE",
+          "id": "4128:17134"
+        },
+        {
+          "name": "CoTs",
+          "type": "FRAME",
+          "id": "4344:45733"
+        },
+        {
+          "name": "This is a test view of what your users will see when they interact with your agent.",
+          "type": "TEXT",
+          "id": "4774:26639"
+        }
+      ]
+    },
+    {
+      "name": "↳ 🟡 Publish & Share ",
+      "id": "2:719",
+      "frameCount": 3,
+      "frames": [
+        {
+          "name": "Core screens",
+          "type": "FRAME",
+          "id": "1660:34188"
+        },
+        {
+          "name": "Publish dialog",
+          "type": "FRAME",
+          "id": "1660:34207"
+        },
+        {
+          "name": "Publish dialog.Error states",
+          "type": "FRAME",
+          "id": "4780:33297"
+        }
+      ]
+    },
+    {
+      "name": "↳ 🟡 Analytics",
+      "id": "2:720",
+      "frameCount": 4,
+      "frames": [
+        {
+          "name": "Screen view",
+          "type": "FRAME",
+          "id": "5:179128"
+        },
+        {
+          "name": "Shell",
+          "type": "FRAME",
+          "id": "268:203894"
+        },
+        {
+          "name": "Shell",
+          "type": "FRAME",
+          "id": "268:206909"
+        },
+        {
+          "name": "Components ",
+          "type": "FRAME",
+          "id": "5:179135"
+        }
+      ]
+    },
+    {
+      "name": "↳ 🔴 Evaluate",
+      "id": "1309:14345",
+      "frameCount": 0,
+      "frames": []
+    },
+    {
+      "name": "↳ 🔴 Authoring canvas",
+      "id": "2:721",
+      "frameCount": 2,
+      "frames": [
+        {
+          "name": "Screen view",
+          "type": "FRAME",
+          "id": "5:179218"
+        },
+        {
+          "name": "Components ",
+          "type": "FRAME",
+          "id": "5:179225"
+        }
+      ]
+    },
+    {
+      "name": "↳ 🔴 Multi-modal",
+      "id": "2:724",
+      "frameCount": 2,
+      "frames": [
+        {
+          "name": "Screen view",
+          "type": "FRAME",
+          "id": "5:179308"
+        },
+        {
+          "name": "Components ",
+          "type": "FRAME",
+          "id": "5:179315"
+        }
+      ]
+    },
+    {
+      "name": "↳ Icons",
+      "id": "5281:37176",
+      "frameCount": 2,
+      "frames": [
+        {
+          "name": "Component list",
+          "type": "SECTION",
+          "id": "5281:37179"
+        },
+        {
+          "name": "Left nav",
+          "type": "SECTION",
+          "id": "5490:20194"
+        }
+      ]
+    },
+    {
+      "name": "↳ Other",
+      "id": "203:88596",
+      "frameCount": 7,
+      "frames": [
+        {
+          "name": "DataGrid cell - Medium",
+          "type": "COMPONENT_SET",
+          "id": "2901:17740"
+        },
+        {
+          "name": "Content header",
+          "type": "COMPONENT_SET",
+          "id": "2901:17786"
+        },
+        {
+          "name": "DataGrid cell - Smaller",
+          "type": "COMPONENT_SET",
+          "id": "2901:17811"
+        },
+        {
+          "name": "DataGrid cell - Large",
+          "type": "COMPONENT_SET",
+          "id": "2901:17857"
+        },
+        {
+          "name": "DataGrid cell - Small",
+          "type": "COMPONENT_SET",
+          "id": "2901:17914"
+        },
+        {
+          "name": "Cell action header",
+          "type": "COMPONENT_SET",
+          "id": "2901:17960"
+        },
+        {
+          "name": "Popup",
+          "type": "COMPONENT",
+          "id": "3597:22147"
+        }
+      ]
+    },
+    {
+      "name": "Specs (WIP)",
+      "id": "5857:13649",
+      "frameCount": 2,
+      "frames": [
+        {
+          "name": "L1 navigation",
+          "type": "INSTANCE",
+          "id": "5857:14566"
+        },
+        {
+          "name": "L1 navigation",
+          "type": "INSTANCE",
+          "id": "5857:14567"
+        }
+      ]
+    },
+    {
+      "name": "❌ Deprecated",
+      "id": "3159:7216",
+      "frameCount": 4,
+      "frames": [
+        {
+          "name": "Analytics",
+          "type": "FRAME",
+          "id": "2929:24486"
+        },
+        {
+          "name": "Instructions",
+          "type": "FRAME",
+          "id": "1658:35315"
+        },
+        {
+          "name": "Headline",
+          "type": "FRAME",
+          "id": "1658:35288"
+        },
+        {
+          "name": "L1 Nav",
+          "type": "SECTION",
+          "id": "5265:24896"
+        }
+      ]
+    },
+    {
+      "name": "🔥 Discussions",
+      "id": "3090:23880",
+      "frameCount": 12,
+      "frames": [
+        {
+          "name": "CEA header",
+          "type": "FRAME",
+          "id": "3090:23966"
+        },
+        {
+          "name": "DA March Header v-now",
+          "type": "FRAME",
+          "id": "3648:19254"
+        },
+        {
+          "name": "Header placement",
+          "type": "SECTION",
+          "id": "3871:15083"
+        },
+        {
+          "name": "Logo size",
+          "type": "SECTION",
+          "id": "3871:15309"
+        },
+        {
+          "name": "1/23 Updated direction",
+          "type": "SECTION",
+          "id": "3984:34603"
+        },
+        {
+          "name": "Components - Side navigation",
+          "type": "FRAME",
+          "id": "3991:35821"
+        },
+        {
+          "name": "Left nav",
+          "type": "SECTION",
+          "id": "4982:38420"
+        },
+        {
+          "name": ".Menu item",
+          "type": "COMPONENT_SET",
+          "id": "5394:32920"
+        },
+        {
+          "name": ".Header",
+          "type": "COMPONENT_SET",
+          "id": "5478:33962"
+        },
+        {
+          "name": ".Account",
+          "type": "COMPONENT_SET",
+          "id": "5478:33963"
+        },
+        {
+          "name": "L1 navigation",
+          "type": "COMPONENT_SET",
+          "id": "5480:45783"
+        },
+        {
+          "name": "L1 navigation",
+          "type": "INSTANCE",
+          "id": "5611:32752"
+        }
+      ]
+    }
+  ],
+  "componentMapping": {
+    "entries": {
+      "Copilot Studio shell": {
+        "react": "components/Layout.tsx",
+        "status": "mapped"
+      },
+      "L1 navigation": {
+        "react": "components/NavRail.tsx",
+        "status": "mapped"
+      },
+      "Rail item [L1 nav]": {
+        "react": "components/NavRail.tsx",
+        "status": "mapped"
+      },
+      "Full nav items [L1 nav]": {
+        "react": "components/NavRail.tsx",
+        "status": "mapped"
+      },
+      "Nav sections": {
+        "react": "components/NavRail.tsx",
+        "status": "mapped"
+      },
+      "Contextual Actions Set": {
+        "react": "components/NavRail.tsx",
+        "status": "mapped"
+      },
+      "Contextual actions items": {
+        "react": "components/NavRail.tsx",
+        "status": "mapped"
+      },
+      "Agent header": {
+        "react": "components/AgentHeader.tsx",
+        "status": "mapped"
+      },
+      "Agent name group": {
+        "react": "components/AgentHeader.tsx",
+        "status": "mapped"
+      },
+      "Agent icon": {
+        "react": "components/ui/AgentIcon.tsx",
+        "status": "mapped"
+      },
+      "Agent icons": {
+        "react": "components/ui/AgentIcon.tsx",
+        "status": "mapped"
+      },
+      "Status": {
+        "react": "components/ui/CopilotBadge.tsx",
+        "status": "mapped"
+      },
+      "Publish button": {
+        "react": null,
+        "status": "figma-only"
+      },
+      "More menu": {
+        "react": "components/ui/CopilotMenu.tsx",
+        "status": "mapped"
+      },
+      "TestButton": {
+        "react": null,
+        "status": "figma-only"
+      },
+      "Toggle.Element": {
+        "react": "components/ui/CopilotToggle.tsx",
+        "status": "mapped"
+      },
+      "Headline": {
+        "react": null,
+        "status": "review"
+      },
+      "Build content": {
+        "react": "pages/BuildPage.tsx",
+        "status": "mapped"
+      },
+      "Page title": {
+        "react": null,
+        "status": "review"
+      },
+      "Instructions": {
+        "react": "pages/build/InstructionsSection.tsx",
+        "status": "mapped"
+      },
+      "Instruction type": {
+        "react": "pages/build/InstructionsSection.tsx",
+        "status": "mapped"
+      },
+      "Instructions + Components": {
+        "react": "pages/build/",
+        "status": "mapped"
+      },
+      "Component": {
+        "react": "pages/build/",
+        "status": "mapped"
+      },
+      "Component pill": {
+        "react": "components/ui/CopilotBadge.tsx",
+        "status": "mapped"
+      },
+      "COMPONENTS": {
+        "react": "pages/ComponentsPage.tsx",
+        "status": "mapped"
+      },
+      "Content/DA.Components": {
+        "react": "pages/build/",
+        "status": "mapped"
+      },
+      "Content/CEA.Components": {
+        "react": "pages/build/",
+        "status": "mapped"
+      },
+      "Section header/commands": {
+        "react": null,
+        "status": "review"
+      },
+      "Knowledge / DA": {
+        "react": "pages/build/KnowledgeSection.tsx",
+        "status": "mapped"
+      },
+      "Topics": {
+        "react": "pages/build/TopicsSection.tsx",
+        "status": "mapped"
+      },
+      "Suggested prompts": {
+        "react": null,
+        "status": "review"
+      },
+      "⏺️ SearchBox": {
+        "react": "components/ui/CopilotInput.tsx",
+        "status": "mapped"
+      },
+      "KeyboardShortcut": {
+        "react": null,
+        "status": "figma-only"
+      },
+      "Menu": {
+        "react": "components/ui/CopilotMenu.tsx",
+        "status": "mapped"
+      },
+      "Helper agent": {
+        "react": "components/helper/",
+        "status": "mapped"
+      },
+      "Response Footer": {
+        "react": "components/helper/",
+        "status": "mapped"
+      },
+      "Response Footer/Response": {
+        "react": "components/helper/",
+        "status": "mapped"
+      },
+      "Message response/ Step": {
+        "react": "components/helper/",
+        "status": "mapped"
+      },
+      "Message response/ Connection": {
+        "react": "components/helper/",
+        "status": "mapped"
+      },
+      "Message response/ Doc links": {
+        "react": "components/helper/",
+        "status": "mapped"
+      },
+      "DataGrid cell - Medium": {
+        "react": "components/ui/CopilotTable.tsx",
+        "status": "mapped"
+      },
+      "DataGrid cell - Small": {
+        "react": "components/ui/CopilotTable.tsx",
+        "status": "mapped"
+      },
+      "DataGrid cell - Smaller": {
+        "react": "components/ui/CopilotTable.tsx",
+        "status": "mapped"
+      },
+      "DataGrid cell - Large": {
+        "react": "components/ui/CopilotTable.tsx",
+        "status": "mapped"
+      },
+      "Content header": {
+        "react": "components/ui/ContentCard.tsx",
+        "status": "mapped"
+      },
+      "Cell action header": {
+        "react": "components/ui/CopilotTable.tsx",
+        "status": "mapped"
+      },
+      "Activity map/Node/Icon": {
+        "react": null,
+        "status": "review"
+      },
+      "Activity map/Details pane/Building blocks/Source": {
+        "react": null,
+        "status": "review"
+      },
+      "Activity map/Details pane/Building blocksSource/details": {
+        "react": null,
+        "status": "review"
+      },
+      "Activity map/Details pane/CoT type": {
+        "react": null,
+        "status": "review"
+      },
+      "Activity map/Tool bar": {
+        "react": null,
+        "status": "review"
+      },
+      "Activity/DataGrid cell/Status": {
+        "react": null,
+        "status": "review"
+      },
+      "Activity/DataGrid cell/Type": {
+        "react": null,
+        "status": "review"
+      },
+      "Activity/DataGrid cell/Last step": {
+        "react": null,
+        "status": "review"
+      },
+      "Activity/DataGrid cell/Last step/Icons": {
+        "react": null,
+        "status": "review"
+      },
+      "Summary card/Activty": {
+        "react": null,
+        "status": "review"
+      },
+      "Drawer": {
+        "react": null,
+        "status": "review"
+      },
+      "Dialog.Publish CEA": {
+        "react": null,
+        "status": "figma-only"
+      },
+      "Dialog.Publish DA": {
+        "react": null,
+        "status": "figma-only"
+      },
+      "Dialog.RAI violation": {
+        "react": null,
+        "status": "figma-only"
+      },
+      "Content.RAI violations": {
+        "react": null,
+        "status": "figma-only"
+      },
+      "Content.Publish errors": {
+        "react": null,
+        "status": "figma-only"
+      },
+      "Analytics": {
+        "react": "pages/monitor/",
+        "status": "mapped"
+      },
+      "Popup": {
+        "react": "components/ui/CopilotTooltip.tsx",
+        "status": "mapped"
+      },
+      "Tab title - Temporary for CEA reskin": {
+        "react": "components/ui/CopilotUnderlineTabs.tsx",
+        "status": "mapped"
+      }
+    },
+    "counts": {
+      "mapped": 42,
+      "review": 15,
+      "figma-only": 8,
+      "code-only": 0
+    }
+  }
+}

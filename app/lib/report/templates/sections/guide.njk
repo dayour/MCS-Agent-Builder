@@ -1,0 +1,375 @@
+{# ── How-To Guide — Step-by-step MCS build instructions ──────── #}
+{# Prescriptive: tells the reader exactly how to recreate this    #}
+{# agent in Copilot Studio from scratch. Steps are conditional    #}
+{# on agent spec data; missing data shows a warning callout.      #}
+
+{% from "macros/cards.njk" import callout %}
+
+<div class="guide">
+  <p class="text-muted mb-4" style="font-size: 0.88rem; line-height: 1.5;">
+    This guide walks through building <strong>{{ overview.name }}</strong> in Microsoft Copilot Studio step by step.
+    Each section maps to a specific part of the agent configuration.
+  </p>
+
+  {# ── Step 1: Create the Agent ──────────────────────────────── #}
+  <section id="guide-create">
+    <div class="section-heading">
+      <h2><span class="guide-step">1</span> Create the Agent</h2>
+      <span class="toggle-icon">&#9662;</span>
+    </div>
+    <div class="section-body">
+      <ol class="guide-steps">
+        <li>Open <strong>Microsoft Copilot Studio</strong> at <code>copilotstudio.microsoft.com</code></li>
+        <li>Click <strong>Create</strong> &rarr; <strong>New agent</strong></li>
+        <li>Select <strong>Skip to configure</strong> (manual configuration)</li>
+        <li>Set the agent name to: <code>{{ overview.name }}</code></li>
+        {% if overview.description %}
+        <li>Set the description to:<br>
+          <div class="code-block" style="margin-top: 6px; font-size: 0.8rem;">{{ overview.description }}</div>
+        </li>
+        {% endif %}
+        <li>Click <strong>Create</strong></li>
+      </ol>
+
+      {% if architecture.pattern == "multi-agent" and architecture.childAgents | length > 0 %}
+      <div class="callout" style="border-left-color: var(--primary); margin-top: 12px;">
+        <strong>Multi-agent pattern:</strong> This design uses {{ architecture.childAgents | length }} child agent(s).
+        Create each child agent first, then create this orchestrator and connect them.
+        <br>Child agents: {% for ca in architecture.childAgents %}{{ ca.name }}{% if not loop.last %}, {% endif %}{% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </section>
+
+  {# ── Step 2: Set Instructions ──────────────────────────────── #}
+  <section id="guide-instructions">
+    <div class="section-heading">
+      <h2><span class="guide-step">2</span> Set Instructions</h2>
+      <span class="toggle-icon">&#9662;</span>
+    </div>
+    <div class="section-body">
+      {% if instructions %}
+      <ol class="guide-steps">
+        <li>In the agent editor, click <strong>Instructions</strong> (or navigate to the Instructions pane)</li>
+        <li>Replace the default instructions with the following:</li>
+      </ol>
+      <div class="code-block" style="margin-top: 8px; max-height: 400px;">{{ instructions }}</div>
+      <p class="text-muted mt-2" style="font-size: 0.82rem;">
+        Character count: ~{{ instructions | length | number }}. Copilot Studio supports up to 8,000 characters.
+      </p>
+      {% else %}
+      <div class="callout" style="border-left-color: var(--amber);">
+        <strong>Missing:</strong> No instructions have been defined yet. Run research to generate instructions before building.
+      </div>
+      {% endif %}
+    </div>
+  </section>
+
+  {# ── Step 3: Configure AI Model ────────────────────────────── #}
+  <section id="guide-model">
+    <div class="section-heading">
+      <h2><span class="guide-step">3</span> Configure AI Model</h2>
+      <span class="toggle-icon">&#9662;</span>
+    </div>
+    <div class="section-body">
+      <ol class="guide-steps">
+        <li>Go to <strong>Settings</strong> &rarr; <strong>Generative AI</strong></li>
+        <li>Under <em>How should your copilot interact with people?</em>, select <strong>Generative (preview)</strong></li>
+        <li>For best results, enable <strong>Use GPT-4o</strong> or the highest-tier model available</li>
+        <li>Click <strong>Save</strong></li>
+      </ol>
+    </div>
+  </section>
+
+  {# ── Step 4: Add Knowledge Sources ─────────────────────────── #}
+  <section id="guide-knowledge">
+    <div class="section-heading">
+      <h2><span class="guide-step">4</span> Add Knowledge Sources</h2>
+      <span class="subtitle">{{ knowledgeSources | length }} source(s)</span>
+      <span class="toggle-icon">&#9662;</span>
+    </div>
+    <div class="section-body">
+      {% if knowledgeSources | length > 0 %}
+      <ol class="guide-steps">
+        <li>In the agent editor, click <strong>Knowledge</strong> in the top bar</li>
+        <li>Click <strong>+ Add knowledge</strong></li>
+      </ol>
+
+      {% for ks in knowledgeSources %}
+      <div class="card accent-left accent-primary mb-2 mt-2">
+        <div class="font-semibold" style="font-size: 0.92rem;">{{ ks.name }}</div>
+        <div class="text-muted" style="font-size: 0.82rem; margin: 4px 0;">
+          Type: <strong>{{ ks.type }}</strong>
+          {% if ks.location %} &middot; Location: <code>{{ ks.location }}</code>{% endif %}
+        </div>
+        {% if ks.purpose %}
+        <div style="font-size: 0.85rem;">{{ ks.purpose }}</div>
+        {% endif %}
+        <div class="guide-how-to mt-2">
+          {% if ks.type == "SharePoint" or ks.type == "sharepoint" %}
+          <p class="text-muted" style="font-size: 0.82rem;">Select <strong>SharePoint</strong> &rarr; paste the site/library URL &rarr; click <strong>Add</strong></p>
+          {% elif ks.type == "Website" or ks.type == "website" or ks.type == "public-website" %}
+          <p class="text-muted" style="font-size: 0.82rem;">Select <strong>Public websites</strong> &rarr; enter the URL &rarr; click <strong>Add</strong></p>
+          {% elif ks.type == "File" or ks.type == "file" or ks.type == "files" %}
+          <p class="text-muted" style="font-size: 0.82rem;">Select <strong>Files</strong> &rarr; upload the document(s) &rarr; click <strong>Add</strong></p>
+          {% elif ks.type == "Dataverse" or ks.type == "dataverse" %}
+          <p class="text-muted" style="font-size: 0.82rem;">Select <strong>Dataverse</strong> &rarr; choose the table &rarr; configure columns &rarr; click <strong>Add</strong></p>
+          {% elif ks.type == "Graph" or ks.type == "graph-connector" or ks.type == "microsoft-graph" %}
+          <p class="text-muted" style="font-size: 0.82rem;">Select <strong>Microsoft Graph connector</strong> &rarr; choose the connection &rarr; click <strong>Add</strong></p>
+          {% else %}
+          <p class="text-muted" style="font-size: 0.82rem;">Select the appropriate source type and follow the setup wizard</p>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+
+      {% else %}
+      <div class="callout" style="border-left-color: var(--amber);">
+        <strong>None defined:</strong> No knowledge sources configured. The agent will rely solely on its instructions and built-in model knowledge.
+      </div>
+      {% endif %}
+    </div>
+  </section>
+
+  {# ── Step 5: Add Integrations / Tools ──────────────────────── #}
+  <section id="guide-tools">
+    <div class="section-heading">
+      <h2><span class="guide-step">5</span> Add Integrations &amp; Tools</h2>
+      <span class="subtitle">{{ integrations | length }} integration(s)</span>
+      <span class="toggle-icon">&#9662;</span>
+    </div>
+    <div class="section-body">
+      {% if integrations | length > 0 %}
+      <ol class="guide-steps">
+        <li>In the agent editor, click <strong>Actions</strong> in the top bar (or <strong>Tools</strong> &rarr; <strong>+ Add a tool</strong>)</li>
+      </ol>
+
+      {% for tool in integrations %}
+      <div class="card accent-left accent-primary mb-2 mt-2">
+        <div class="font-semibold" style="font-size: 0.92rem;">{{ tool.name }}</div>
+        <div class="text-muted" style="font-size: 0.82rem; margin: 4px 0;">
+          Type: <strong>{{ tool.type }}</strong> &middot; Auth: <strong>{{ tool.auth | safe_val }}</strong>
+        </div>
+        {% if tool.purpose %}
+        <div style="font-size: 0.85rem;">{{ tool.purpose }}</div>
+        {% endif %}
+        <div class="guide-how-to mt-2">
+          {% if tool.type == "mcp-server" or tool.type == "MCP Server" %}
+          <p class="text-muted" style="font-size: 0.82rem;">Go to <strong>Tools</strong> &rarr; <strong>+ Add a tool</strong> &rarr; <strong>MCP Server</strong> &rarr; search for &ldquo;{{ tool.name }}&rdquo; &rarr; <strong>Add</strong></p>
+          {% elif tool.type == "connector" or tool.type == "Connector" %}
+          <p class="text-muted" style="font-size: 0.82rem;">Go to <strong>Tools</strong> &rarr; <strong>+ Add a tool</strong> &rarr; search for &ldquo;{{ tool.name }}&rdquo; in connectors &rarr; select actions &rarr; <strong>Add</strong></p>
+          {% elif tool.type == "flow" or tool.type == "Power Automate flow" %}
+          <p class="text-muted" style="font-size: 0.82rem;">Go to <strong>Tools</strong> &rarr; <strong>+ Add a tool</strong> &rarr; <strong>Power Automate</strong> &rarr; select or create the flow &rarr; <strong>Add</strong></p>
+          {% elif tool.type == "http" or tool.type == "HTTP" or tool.type == "custom-api" %}
+          <p class="text-muted" style="font-size: 0.82rem;">Go to <strong>Tools</strong> &rarr; <strong>+ Add a tool</strong> &rarr; <strong>Custom connector</strong> or <strong>HTTP request</strong> &rarr; configure endpoint &rarr; <strong>Add</strong></p>
+          {% elif tool.type == "connected-agent" or tool.type == "agent" %}
+          <p class="text-muted" style="font-size: 0.82rem;">Go to <strong>Tools</strong> &rarr; <strong>+ Add a tool</strong> &rarr; <strong>Copilot</strong> &rarr; search for &ldquo;{{ tool.name }}&rdquo; &rarr; <strong>Add</strong></p>
+          {% else %}
+          <p class="text-muted" style="font-size: 0.82rem;">Go to <strong>Tools</strong> &rarr; <strong>+ Add a tool</strong> &rarr; search for &ldquo;{{ tool.name }}&rdquo; &rarr; follow the setup wizard</p>
+          {% endif %}
+
+          {% if tool.auth == "OAuth" or tool.auth == "oauth" %}
+          <p class="text-muted" style="font-size: 0.78rem; margin-top: 4px;">
+            &#9888; Requires OAuth connection setup: Client ID, Secret, and Redirect URI. Configure the connection reference after adding.
+          </p>
+          {% elif tool.auth == "API Key" or tool.auth == "api-key" %}
+          <p class="text-muted" style="font-size: 0.78rem; margin-top: 4px;">
+            &#9888; Requires an API key. You will be prompted to enter it when creating the connection.
+          </p>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+
+      {% else %}
+      <p class="text-muted" style="font-size: 0.85rem; font-style: italic;">No integrations or tools to configure.</p>
+      {% endif %}
+    </div>
+  </section>
+
+  {# ── Step 6: Create Topics ─────────────────────────────────── #}
+  <section id="guide-topics">
+    <div class="section-heading">
+      <h2><span class="guide-step">6</span> Create Conversation Topics</h2>
+      <span class="subtitle">{{ topics | length }} topic(s)</span>
+      <span class="toggle-icon">&#9662;</span>
+    </div>
+    <div class="section-body">
+      {% if topics | length > 0 %}
+      <ol class="guide-steps">
+        <li>In the agent editor, click <strong>Topics</strong> in the top bar</li>
+        <li>For each topic below, click <strong>+ Add a topic</strong> and configure as described</li>
+      </ol>
+
+      {% for t in topics %}
+      <div class="card accent-left {% if t.phase == 'MVP' %}accent-primary{% else %}accent-amber{% endif %} mb-2 mt-2">
+        <div class="flex items-center gap-2">
+          <span class="font-semibold" style="font-size: 0.92rem;">{{ t.name }}</span>
+          <span class="pill {{ t.phase | phase_class }}">{{ t.phase }}</span>
+          <span class="text-muted" style="font-size: 0.78rem;">{{ t.type }}</span>
+        </div>
+        {% if t.description %}
+        <p style="font-size: 0.85rem; margin: 6px 0;">{{ t.description }}</p>
+        {% endif %}
+
+        <div class="guide-how-to mt-2">
+          {% if t.triggerPhrases | length > 0 %}
+          <p class="text-muted" style="font-size: 0.82rem;"><strong>Trigger phrases:</strong></p>
+          <ul class="bullet-list" style="margin: 4px 0;">
+            {% for phrase in t.triggerPhrases %}
+            <li style="font-size: 0.82rem;">{{ phrase }}</li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+
+          {% if t.implements | length > 0 %}
+          <p class="text-muted" style="font-size: 0.82rem;"><strong>Implements:</strong> {{ t.implements | join(", ") }}</p>
+          {% endif %}
+
+          {% if t.connectedIntegrations | length > 0 %}
+          <p class="text-muted" style="font-size: 0.82rem;"><strong>Connected tools:</strong> {{ t.connectedIntegrations | join(", ") }}</p>
+          {% endif %}
+
+          {% if t.flowDescription %}
+          <p class="text-muted" style="font-size: 0.82rem; margin-top: 6px;"><strong>Flow logic:</strong></p>
+          <pre class="code-block" style="font-size: 0.75rem; max-height: 200px;">{{ t.flowDescription }}</pre>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+
+      {% else %}
+      <p class="text-muted" style="font-size: 0.85rem; font-style: italic;">
+        No custom topics defined. The agent will use generative orchestration to respond to all queries.
+      </p>
+      {% endif %}
+    </div>
+  </section>
+
+  {# ── Step 7: Configure Channels ────────────────────────────── #}
+  <section id="guide-channels">
+    <div class="section-heading">
+      <h2><span class="guide-step">7</span> Configure Channels</h2>
+      <span class="subtitle">{{ architecture.channels | length }} channel(s)</span>
+      <span class="toggle-icon">&#9662;</span>
+    </div>
+    <div class="section-body">
+      {% if architecture.channels | length > 0 %}
+      <ol class="guide-steps">
+        <li>Go to <strong>Settings</strong> &rarr; <strong>Channels</strong></li>
+        <li>Enable and configure each channel:</li>
+      </ol>
+
+      {% for ch in architecture.channels %}
+      <div class="card mb-2 mt-2">
+        <div class="font-semibold" style="font-size: 0.92rem;">{{ ch.name }}</div>
+        {% if ch.reason %}
+        <div class="text-muted" style="font-size: 0.82rem;">{{ ch.reason }}</div>
+        {% endif %}
+        <div class="guide-how-to mt-2">
+          {% if "Teams" in ch.name or "teams" in ch.name %}
+          <p class="text-muted" style="font-size: 0.82rem;">Click <strong>Microsoft Teams</strong> &rarr; <strong>Turn on Teams</strong> &rarr; follow the setup to publish to your organization</p>
+          {% elif "M365" in ch.name or "Copilot" in ch.name or "copilot" in ch.name %}
+          <p class="text-muted" style="font-size: 0.82rem;">Click <strong>Microsoft 365 Copilot</strong> &rarr; enable the channel &rarr; publish and manage availability in the Microsoft 365 admin center</p>
+          {% elif "Web" in ch.name or "web" in ch.name %}
+          <p class="text-muted" style="font-size: 0.82rem;">Click <strong>Custom website</strong> &rarr; copy the embed code &rarr; add to your website</p>
+          {% else %}
+          <p class="text-muted" style="font-size: 0.82rem;">Select the channel and follow the configuration wizard</p>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+
+      {% else %}
+      <div class="callout" style="border-left-color: var(--amber);">
+        <strong>None configured:</strong> No deployment channels specified. The agent will only be testable in the Copilot Studio test pane until channels are configured.
+      </div>
+      {% endif %}
+    </div>
+  </section>
+
+  {# ── Step 8: Configure Scope & Boundaries ──────────────────── #}
+  <section id="guide-scope">
+    <div class="section-heading">
+      <h2><span class="guide-step">8</span> Review Scope &amp; Boundaries</h2>
+      <span class="toggle-icon">&#9662;</span>
+    </div>
+    <div class="section-body">
+      <p style="font-size: 0.85rem; margin-bottom: 8px;">
+        Verify that the agent instructions include clear boundaries. These are already encoded in the instructions above,
+        but review them to ensure the agent will behave correctly:
+      </p>
+
+      {% if scope.handles | length > 0 %}
+      <h3 class="font-semibold mt-4 mb-2" style="font-size: 0.9rem; color: var(--green);">&#10003; Handles</h3>
+      <ul class="bullet-list">
+        {% for h in scope.handles %}
+        <li style="font-size: 0.85rem;">{{ h }}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+
+      {% if scope.declines | length > 0 %}
+      <h3 class="font-semibold mt-4 mb-2" style="font-size: 0.9rem; color: var(--amber);">&#9888; Politely Declines</h3>
+      <ul class="bullet-list">
+        {% for d in scope.declines %}
+        <li style="font-size: 0.85rem;">{{ d.topic }}{% if d.redirect %} &rarr; redirects to: {{ d.redirect }}{% endif %}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+
+      {% if scope.refuses | length > 0 %}
+      <h3 class="font-semibold mt-4 mb-2" style="font-size: 0.9rem; color: var(--red);">&#10005; Hard Refuses</h3>
+      <ul class="bullet-list">
+        {% for r in scope.refuses %}
+        <li style="font-size: 0.85rem;">{{ r.topic }}{% if r.reason %} &mdash; {{ r.reason }}{% endif %}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+
+      {% if scope.handles | length == 0 and scope.declines | length == 0 and scope.refuses | length == 0 %}
+      <div class="callout" style="border-left-color: var(--amber);">
+        <strong>Missing:</strong> No scope or boundaries defined. Consider adding boundaries before publishing to prevent off-topic responses.
+      </div>
+      {% endif %}
+    </div>
+  </section>
+
+  {# ── Step 9: Test & Publish ────────────────────────────────── #}
+  <section id="guide-publish">
+    <div class="section-heading">
+      <h2><span class="guide-step">9</span> Test &amp; Publish</h2>
+      <span class="toggle-icon">&#9662;</span>
+    </div>
+    <div class="section-body">
+      <ol class="guide-steps">
+        <li>Use the <strong>Test your agent</strong> pane in Copilot Studio to verify responses</li>
+        <li>Test key scenarios:
+          <ul class="bullet-list" style="margin-top: 4px;">
+            {% if capabilities | length > 0 %}
+            {% for cap in capabilities | batch(5) | first %}
+            <li style="font-size: 0.85rem;">{{ cap.name }}: {{ cap.description | truncate_text(80) }}</li>
+            {% endfor %}
+            {% if capabilities | length > 5 %}
+            <li style="font-size: 0.85rem;" class="text-muted">...and {{ capabilities | length - 5 }} more capabilities</li>
+            {% endif %}
+            {% else %}
+            <li style="font-size: 0.85rem;">Test basic question-answering with the agent</li>
+            {% endif %}
+          </ul>
+        </li>
+        <li>Test boundary scenarios: verify the agent declines out-of-scope requests</li>
+        <li>When satisfied, click <strong>Publish</strong> in the top-right corner</li>
+        <li>Confirm the publish and wait for deployment to complete</li>
+      </ol>
+
+      {% if metrics.totalTests > 0 %}
+      <div class="callout" style="border-left-color: var(--primary); margin-top: 12px;">
+        <strong>Eval tests available:</strong> {{ metrics.totalTests }} test cases are defined in the Evaluations tab.
+        Use these to systematically validate the agent before publishing.
+      </div>
+      {% endif %}
+    </div>
+  </section>
+
+</div>

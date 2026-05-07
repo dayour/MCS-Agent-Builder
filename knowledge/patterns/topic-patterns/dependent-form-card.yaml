@@ -1,0 +1,148 @@
+# Pattern: Dependent / Cascading Form Card (Teams Host Extension)
+# Trigger: OnRecognizedIntent (or mid-topic for data collection)
+# Shows: Form with cascading dropdowns — selecting a parent resets dependent children
+# Common in: location forms (country→city), org forms (dept→team), category forms
+#
+# Schema: 1.5 + Teams host extensions (valueChangedAction, Action.ResetInputs, conditionallyEnabled)
+# Channels: Teams desktop+mobile (dependent inputs + conditional buttons)
+# Fallback: For non-Teams channels, use separate Question nodes per field
+#
+# IMPORTANT: valueChangedAction + Action.ResetInputs + conditionallyEnabled are Teams-only.
+# On other channels, all inputs appear as independent fields.
+
+kind: AdaptiveDialog
+beginDialog:
+  kind: OnRecognizedIntent
+  id: main
+  intent:
+    displayName: "{{TOPIC_NAME}}"
+    triggerQueries:
+      - "{{TRIGGER_1}}"
+  actions:
+    - kind: Question
+      id: collectCascadingForm
+      interruptionPolicy:
+        allowInterruption: false
+      variable: init:Topic.formData
+      prompt:
+        text: "Please fill in the details:"
+        attachments:
+          - kind: AdaptiveCardTemplate
+            cardContent: |-
+              ={
+                type: "AdaptiveCard",
+                '$schema': "http://adaptivecards.io/schemas/adaptive-card.json",
+                version: "1.5",
+                body: [
+                  {
+                    type: "TextBlock",
+                    text: "{{FORM_TITLE}}",
+                    weight: "Bolder",
+                    size: "Medium"
+                  },
+                  {
+                    type: "Input.ChoiceSet",
+                    id: "department",
+                    label: "Department",
+                    placeholder: "Select department...",
+                    isRequired: true,
+                    errorMessage: "Please select a department",
+                    choices: [
+                      { title: "Engineering", value: "engineering" },
+                      { title: "Sales", value: "sales" },
+                      { title: "Marketing", value: "marketing" },
+                      { title: "Human Resources", value: "hr" },
+                      { title: "Finance", value: "finance" }
+                    ],
+                    valueChangedAction: {
+                      type: "Action.ResetInputs",
+                      targetInputIds: ["team", "approver"]
+                    }
+                  },
+                  {
+                    type: "Input.ChoiceSet",
+                    id: "team",
+                    label: "Team",
+                    placeholder: "Select team...",
+                    isRequired: true,
+                    errorMessage: "Please select a team",
+                    choices: [
+                      { title: "Platform", value: "platform" },
+                      { title: "Frontend", value: "frontend" },
+                      { title: "Backend", value: "backend" },
+                      { title: "DevOps", value: "devops" },
+                      { title: "QA", value: "qa" }
+                    ],
+                    valueChangedAction: {
+                      type: "Action.ResetInputs",
+                      targetInputIds: ["approver"]
+                    }
+                  },
+                  {
+                    type: "Input.ChoiceSet",
+                    id: "approver",
+                    label: "Approver",
+                    placeholder: "Select approver...",
+                    isRequired: true,
+                    errorMessage: "Please select an approver",
+                    choices: [
+                      { title: "Manager A", value: "manager_a" },
+                      { title: "Manager B", value: "manager_b" },
+                      { title: "Director C", value: "director_c" }
+                    ]
+                  },
+                  {
+                    type: "Input.Text",
+                    id: "reason",
+                    label: "Reason",
+                    placeholder: "Describe the request...",
+                    isMultiline: true,
+                    isRequired: true,
+                    errorMessage: "Please provide a reason"
+                  }
+                ],
+                actions: [
+                  {
+                    type: "Action.Submit",
+                    title: "Submit Request",
+                    conditionallyEnabled: true
+                  }
+                ]
+              }
+      entity: StringPrebuiltEntity
+
+    # Process submitted form
+    - kind: SendMessage
+      id: confirmSubmission
+      message:
+        - "Request submitted for {Topic.formData.department} → {Topic.formData.team}"
+
+# --- Variant: Dynamic choices from API (using Input.ChoiceSet with data.type) ---
+# For choices that come from an API, use the typeahead search pattern:
+#
+#   {
+#     type: "Input.ChoiceSet",
+#     id: "city",
+#     label: "City",
+#     "choices.data": {
+#       type: "Data.Query",
+#       dataset: "cities"
+#     },
+#     style: "filtered",
+#     isRequired: true
+#   }
+#
+# Requires a bot search handler or Power Automate flow to provide results.
+# See MS Learn "dynamic search" for the full pattern.
+
+# --- Variant: Country/Region/City cascade ---
+# Replace department/team/approver with geographic hierarchy:
+#
+#   { id: "country", label: "Country", valueChangedAction: { type: "Action.ResetInputs", targetInputIds: ["region", "city"] } },
+#   { id: "region", label: "Region", valueChangedAction: { type: "Action.ResetInputs", targetInputIds: ["city"] } },
+#   { id: "city", label: "City" }
+
+# --- Non-Teams fallback ---
+# For Web Chat / Omnichannel / M365 Copilot, replace the single card with
+# sequential Question nodes, each with its own entity and validation.
+# valueChangedAction and conditionallyEnabled do not work outside Teams.

@@ -86,12 +86,12 @@ if %ERRORLEVEL% neq 0 (
 )
 
 REM ---------------------------------------------------------------------------
-REM 5. Check GitHub CLI (optional — for GPT-5.4 reviews)
+REM 5. Check GitHub CLI (optional — for GPT-5.5 reviews)
 REM ---------------------------------------------------------------------------
 
 where gh >nul 2>&1
 if %ERRORLEVEL% neq 0 (
-    echo   [~] GitHub CLI not found. Optional — needed for GPT-5.4 dual reviews.
+    echo   [~] GitHub CLI not found. Optional — needed for GPT-5.5 dual reviews.
     echo       Install: winget install GitHub.cli
 ) else (
     echo   [OK] GitHub CLI found

@@ -1,0 +1,67 @@
+- generic [ref=e4]:
+  - generic [ref=e5]:
+    - img
+    - generic [ref=e6]:
+      - button "Copilot Studio Copilot Studio" [ref=e7]:
+        - img "Copilot Studio" [ref=e10]
+        - generic: Copilot Studio
+      - button [ref=e11]:
+        - img [ref=e12]
+    - navigation [ref=e14]:
+      - button "Home" [ref=e15]:
+        - img [ref=e18]
+        - generic [ref=e20]: Home
+      - button "My Projects" [ref=e21]:
+        - generic [ref=e24]:
+          - img [ref=e25]
+          - img [ref=e27]
+        - generic [ref=e29]: My Projects
+    - generic [ref=e30]:
+      - button "Feature flags" [ref=e31]:
+        - generic [ref=e33]:
+          - img [ref=e34]
+          - img [ref=e36]
+        - generic [ref=e38]: Feature flags (Internal only)
+      - button "Environment picker" [ref=e39]:
+        - generic [ref=e41]:
+          - img [ref=e42]
+          - img [ref=e44]
+        - generic [ref=e46]: Loading...
+      - generic [ref=e48]:
+        - button "Account menu for User" [ref=e49]:
+          - generic [ref=e51]: U
+          - generic [ref=e52]: User
+        - button [ref=e53]:
+          - img [ref=e55]
+        - button [ref=e57]:
+          - img [ref=e59]
+  - generic [ref=e63]:
+    - heading "Hey Avery, ready to transform?" [level=1] [ref=e65]:
+      - text: Hey Avery,
+      - text: ready to
+      - generic [ref=e66]: transform?
+    - generic [ref=e69]:
+      - generic [ref=e70]:
+        - generic [ref=e71]:
+          - combobox [ref=e72]
+          - generic: I
+        - generic [ref=e73]:
+          - button [ref=e74]:
+            - img [ref=e75]
+          - button [ref=e77]:
+            - img [ref=e78]
+      - paragraph [ref=e80]: AI-generated content may be incorrect
+    - heading "Or select what you'd like to build" [level=2] [ref=e81]
+    - generic [ref=e82]:
+      - button "AI Teammate AI Teammate Create a digital coworker with its own M365 identity for your team." [ref=e83] [cursor=pointer]:
+        - img "AI Teammate" [ref=e85]
+        - heading "AI Teammate" [level=3] [ref=e86]
+        - paragraph [ref=e87]: Create a digital coworker with its own M365 identity for your team.
+      - button "Agent Agent Create an AI agent to help answer questions and get stuff done." [ref=e88] [cursor=pointer]:
+        - img "Agent" [ref=e90]
+        - heading "Agent" [level=3] [ref=e91]
+        - paragraph [ref=e92]: Create an AI agent to help answer questions and get stuff done.
+      - button "Workflow Workflow Automate multi-step processes with triggers and actions." [ref=e93] [cursor=pointer]:
+        - img "Workflow" [ref=e95]
+        - heading "Workflow" [level=3] [ref=e96]
+        - paragraph [ref=e97]: Automate multi-step processes with triggers and actions.

@@ -16,6 +16,74 @@ Entry format:
 
 > **Note (2026-03-13):** Eval set names were renamed: safety → boundaries, functional → quality, resilience → edge-cases. Historical entries below use the original names.
 
+### Adaptive card cardContent PowerFx is topic-scoped — Global.* refs break the card {#bm-LSP-002} — 2026-04-28
+**Context:** Blackstone Market Research v7. After promoting Topic.target_ticker / Topic.template_choice / Topic.confirmed (and label vars) to Global.* in topic actions for cross-topic survival, the MCS UI started showing errors on both Pick Template and Build Comparables topics for the AdaptiveCard nodes.
+
+**Tried:** v7 references inside `cardContent: |- = { ... }` PowerFx — e.g. `text: "Pick a template for " & Global.target_label`, `text: "Confirm to populate the " & Global.template_label`. Validation passed locally (om-cli + LSP). MCS UI flagged the cards as errored.
+
+**Result:** PowerFx in `AdaptiveCardTemplate.cardContent` evaluates against a **topic-bound scope**. `Global.*` references don't resolve there even though they work fine in `condition:` / `value:` / `activity:` interpolation outside of the card. The card validator rejects (or runtime fails to bind) any `Global.foo` reference inside the cardContent body.
+
+**Better approach (v8 hybrid):**
+- Keep all card-content refs as `Topic.*` (do the SetVariable Switch/derive logic with Topic-scoped vars).
+- After card interactions complete (e.g. inside the `do_confirm` branch of the final ConditionGroup), append `kind: SetVariable` nodes that mirror `Topic.* → Global.*` so the values survive after the topic exits.
+- The agent's generative orchestration after topic exit reads `Global.*` cleanly.
+
+```yaml
+# IN-TOPIC: Topic-scoped (cardContent works)
+- kind: SetVariable
+  variable: Topic.target_label
+  value: =Switch(Topic.target_ticker, "CMG", "Chipotle Mexican Grill (CMG)", ...)
+- kind: Question
+  prompt:
+    attachments:
+      - kind: AdaptiveCardTemplate
+        cardContent: |-
+          ={ type: "AdaptiveCard", body: [
+            { type: "TextBlock", text: "Pick a template for " & Topic.target_label }
+          ]}
+
+# AT TOPIC END: mirror to Global for cross-topic survival
+- kind: SetVariable
+  variable: Global.target_ticker
+  value: =Topic.target_ticker
+- kind: SetVariable
+  variable: Global.target_label
+  value: =Topic.target_label
+```
+
+**Confirmed:** 1 build (Blackstone Market Research v7→v8) | Last confirmed: 2026-04-28
+**Related cache:** `knowledge/cache/adaptive-cards.md` (PowerFx in cards section needs an explicit note about Global.* not being supported in cardContent)
+**Tags:** #adaptive-card #powerfx #topic-scope #global-variable #scope-mirroring
+
+### LSP push hazard: phantom `actions/` dir + GptComponentMetadata silent deletion {#bm-LSP-001} — 2026-04-28
+**Context:** Blackstone Market Research v4 → v5 adaptive-card refactor. After several pull-edit-push cycles, the agent's GptComponentMetadata (componenttype=15) — which carries instructions, aISettings.model, conversationStarters, and the agent description — was silently deleted, causing the MCS UI to show "no description, model GPT-4.1, no instructions, no knowledge". Topics and the connector action were also tied up in cascading errors.
+
+**Two distinct LSP wrapper bugs surfaced together:**
+
+1. **Phantom `actions/` directory recreation**: `mcs-lsp pull` recreates a file at `actions/cr1a5_<bot_schema>.topic.<ActionName>.mcs.yml` even when the canonical action component already lives at `topics/<ActionName>.mcs.yml`. The phantom file's bot-schema-prefixed filename produces a >100 char schema name on the next push, triggering `[0x80044331:StringLengthTooLong] The length of the 'schemaname' attribute of the 'botcomponent' entity exceeded the maximum allowed length of '100'` and aborting the push.
+
+2. **`agent.mcs.yml` deletion when missing locally**: If `agent.mcs.yml` is absent from the workspace root at push time (e.g. after a manual cleanup or a pull cycle that doesn't refetch it), the LSP push interprets that as a delete intent and removes the GptComponentMetadata botcomponent record from Dataverse. There is no warning. The agent loses its instructions, model setting, conversationStarters, and the description column — the entire agent component header.
+
+**Tried:** Multiple variants of pull-then-push, no-op push, push with renamed action file, isolated topic push. All failed with StringLengthTooLong until the phantom `actions/` dir was deleted immediately before push.
+
+**Result (working procedure):**
+```bash
+# Always run as one command — nothing should run between rm and push
+rm -rf "<workspace>/actions" && node tools/mcs-lsp.js push --workspace "<workspace>"
+```
+
+**Recovery if GptComponentMetadata was deleted:** Reconstruct `agent.mcs.yml` with `kind: GptComponentMetadata` (the kind field gets stripped on push but is recovered from componenttype=15 internally), `aISettings.model.modelNameHint: GPT5Auto`, `conversationStarters: [...]`, and `instructions: |- ...`. Push. The botcomponent.description column is a separate Dataverse field — PATCH it explicitly via `/api/data/v9.2/botcomponents(<id>)` because the YAML `description:` line gets stripped by the LSP push serializer.
+
+**Better approach:**
+- Pre-push guard: scan the workspace for `agent.mcs.yml`. If missing, refuse to push and instruct user to pull first (a missing agent.mcs.yml almost certainly means workspace state is broken, not that the user wants to delete the agent header).
+- Pre-push cleanup: scan `actions/` for any file matching `<bot_schema>.topic.*` (bot-schema prefix in name) and delete — these are phantoms.
+- Post-push verification: query componenttype=15 record exists and has non-empty data field.
+- Add to mcs-lsp.js as `--safe-push` mode by default.
+
+**Confirmed:** 1 build (Blackstone Market Research v4→v5) | Last confirmed: 2026-04-28
+**Related cache:** `knowledge/patterns/dataverse-patterns.md` (componenttype=15 reference)
+**Tags:** #lsp #actions-dir #gpt-component-metadata #stringlengthtoolong #recovery
+
 ### Agent creation is fully headless: Dataverse POST + PvaProvision {#bm-001} — 2026-02-27
 **Context:** Tested full API agent creation pipeline — Dataverse POST + PvaProvision + LSP clone
 **Tried:** (1) `pac copilot create` — needs template YAML (~30% of config). (2) Playwright wizard. (3) Dataverse POST + PvaProvision.
@@ -251,14 +319,14 @@ Line 1 (`# Name:`) = GptComponent display name. Line 2 (`# ...`) = agent descrip
 **Related cache:** N/A (process change, not API pattern)
 **Tags:** #auth #environment #build-gate #pac-cli #verification
 
-### Knowledge file upload: POST works but file attach endpoints don't exist {#bm-023b} — 2026-03-06
+### Knowledge file upload: POST works but file attach endpoints don't exist {#bm-023b} — 2026-03-06 [SUPERSEDED by bm-047]
 **Context:** TestNorthwind build — uploading CommonFixes.csv as agent knowledge file
 **Tried:** (1) `POST /botcomponents` with componenttype=16 + `parentbotid@odata.bind` + schemaname → record created successfully. (2) `PATCH /botcomponents(<id>)/fileattachment` → HTTP 404. (3) `PATCH /botcomponents(<id>)/botcomponentfiledata` → HTTP 404. (4) Original helper used `_parentbotid_value` → "CRM does not support direct update of Entity Reference properties" error.
 **Result:** Knowledge component record is created in Dataverse, but no file upload endpoint exists on botcomponents. The `content` and `fileattachment` and `botcomponentfiledata` paths all return 404. This extends the bm-002 learning: even with correct navigation properties, raw POST creates records MCS doesn't fully recognize.
-**Better approach:** For file knowledge: use MCS UI to upload (user-guided manual step), or find the MCS-specific file upload API (not raw Dataverse). The `dataverse-helper.ps1` `Add-BotKnowledgeFile` function now uses `parentbotid@odata.bind` + `schemaname` (fixed from `_parentbotid_value`), but file attachment still needs the correct endpoint. For SharePoint/URL knowledge: LSP push works (`knowledge/*.mcs.yml`).
+**Better approach:** **SUPERSEDED — see bm-047.** The correct endpoint is `PATCH /botcomponents(<id>)/filedata` (not `/fileattachment` or `/botcomponentfiledata`) with `Content-Type: application/octet-stream` and `x-ms-file-name` header. The previous attempts failed because `filedata` is the file Virtual column, not `fileattachment`.
 **Confirmed:** 1 build(s) | Last confirmed: 2026-03-06
 **Related cache:** dataverse-patterns.md, knowledge-sources.md
-**Tags:** #knowledge #file-upload #dataverse #botcomponent #manual-step
+**Tags:** #knowledge #file-upload #dataverse #botcomponent #superseded
 
 ### Connectivity API doesn't resolve — blocks add-tool.js for tool configuration {#bm-024b} — 2026-03-06
 **Context:** TestNorthwind build — attempting to list connections and add tools
@@ -273,7 +341,7 @@ Line 1 (`# Name:`) = GptComponent display name. Line 2 (`# ...`) = agent descrip
 **Context:** TestNorthwind build — first pass skipped tools, knowledge, and custom topics entirely with rationalization "fictional data sources"
 **Tried:** Skipped 9 of 17 MVP items because external systems were fictional
 **Result:** Reconciliation showed 8/17 match — build was incomplete. Second pass attempted every item: 14 matched, 1 partial (placeholder topic), 4 blocked with specific errors documented.
-**Better approach:** ALWAYS attempt every MVP item in the brief, even in test builds. If an item fails, document: (1) what was tried, (2) the specific error, (3) what needs to happen to unblock it. A failed attempt with a clear error is infinitely more valuable than a silently skipped item. The build skill already says "never mark complete until verified" — extend this to "never skip without attempting."
+**Better approach:** ALWAYS attempt every MVP item in the agent spec, even in test builds. If an item fails, document: (1) what was tried, (2) the specific error, (3) what needs to happen to unblock it. A failed attempt with a clear error is infinitely more valuable than a silently skipped item. The build skill already says "never mark complete until verified" — extend this to "never skip without attempting."
 **Confirmed:** 1 build(s) | Last confirmed: 2026-03-06
 **Related cache:** N/A (process discipline)
 **Tags:** #build-discipline #reconciliation #skip-nothing #test-builds
@@ -321,10 +389,10 @@ Link to agent via YAML `InvokeFlowTaskAction` (NOT `InvokeFlowAction` — differ
 **Tags:** #operationId #connector #planner #publish #silent-failure
 
 ### Bing Web Search is a setting toggle, not a tool {#bm-023} — 2026-03-06
-**Context:** TestBriefing research — classified Bing Web Search as `type: "ai-tool"` in brief.json
+**Context:** TestBriefing research — classified Bing Web Search as `type: "ai-tool"` in agentspec.json
 **Tried:** Listed Bing Web Search as an integration with `type: "ai-tool"`
 **Result:** Confusion during build — tried to add it as a tool. It's actually a toggle in Settings > Generative AI (`gptCapabilities.webBrowsing: true`), not a tool/connector/MCP.
-**Better approach:** Use `type: "setting"` in brief.json for agent-level toggles. Added `"setting"` to brief template type options. Updated ai-tools-computer-use.md cache with "NOT tools" callout. Updated build skill Step 3b to handle `type: "setting"` integrations separately. The separate "Bing Search" Power Platform connector IS a tool — different from the grounding toggle.
+**Better approach:** Use `type: "setting"` in agentspec.json for agent-level toggles. Added `"setting"` to brief template type options. Updated ai-tools-computer-use.md cache with "NOT tools" callout. Updated build skill Step 3b to handle `type: "setting"` integrations separately. The separate "Bing Search" Power Platform connector IS a tool — different from the grounding toggle.
 **Confirmed:** 1 build(s) | Last confirmed: 2026-03-06
 **Related cache:** ai-tools-computer-use.md, knowledge-sources.md
 **Tags:** #bing #web-search #setting #not-a-tool #classification
@@ -375,7 +443,7 @@ Link to agent via YAML `InvokeFlowTaskAction` (NOT `InvokeFlowAction` — differ
 ### Adaptive cards require two-step topic creation: Gateway API text + LSP YAML push {#bm-029} — 2026-03-10
 **Context:** Fidelity FSC Incident Management — brief specified `outputFormat: "adaptive-card"` with `cardDesign` for Scope Boundary and Write Action Decline, plus bm-024 mandates welcome card for Conversation Start. Build created all topics with plain text, skipping cards entirely.
 **Tried:** `island-client.js createTopic` with `kind: "SendActivity"` — only supports plain text. The `SendMessage` handler has a stub comment ("caller should update data field with YAML after creation") but no implementation exists.
-**Result:** Three independent failures converged: (1) Build skill Step 4 never reads `outputFormat`/`cardDesign` from brief — treats them as documentation. (2) `createTopic` cannot create adaptive cards — silently downgrades to text. (3) Conversation Start welcome card not triggered by any build step.
+**Result:** Three independent failures converged: (1) Build skill Step 4 never reads `outputFormat`/`cardDesign` from agent spec — treats them as documentation. (2) `createTopic` cannot create adaptive cards — silently downgrades to text. (3) Conversation Start welcome card not triggered by any build step.
 **Better approach:** Two-step process for adaptive card topics:
   1. Create topic via Gateway API with TEXT PLACEHOLDER (`SendActivity` with fallback text)
   2. Pull workspace → edit topic `.mcs.yml` → replace `SendActivity` with `SendMessage` + `AdaptiveCardTemplate` → LSP push
@@ -402,7 +470,7 @@ Link to agent via YAML `InvokeFlowTaskAction` (NOT `InvokeFlowAction` — differ
 **Context:** Eval upload to MCS — replacing Dataverse POST componenttype=19 approach
 **Tried:** (1) Dataverse `POST /botcomponents` with componenttype=19 — creates records but cannot set `parentBotComponentId` (navigation property not supported on botcomponent entity). Test cases appear as orphaned records, not linked to an EvaluationSet. (2) Gateway API `makerevaluations/testcomponent` endpoint.
 **Result:** Gateway API works end-to-end. Three-step process: (1) Create EvaluationSet with graders → returns setId. (2) Create EvaluationData rows with `parentBotComponentId: setId` — the critical parent link. (3) Run eval via `POST makerevaluations` with `testSetId`. Grader mapping: GeneralQualityGrader, CompareMeaningGrader (with threshold), ContainsAllGrader, ContainsAnyGrader, ExactMatchGrader, TextSimilarityGrader. Supersedes bm-013 (Dataverse componenttype=19 approach).
-**Better approach:** Use `node tools/island-client.js upload-evals --env <envId> --bot <botId> --brief <path>` to upload all eval sets from brief.json, then `run-eval --set-id <id>` to trigger scoring. Endpoint: `POST /api/botmanagement/v2/environments/{envId}/bots/{botId}/makerevaluations/testcomponent?ApplyV2Migration=true`. This is now the ONLY method for eval upload — Dataverse POST is deprecated for this use case.
+**Better approach:** Use `node tools/island-client.js upload-evals --env <envId> --bot <botId> --brief <path>` to upload all eval sets from agentspec.json, then `run-eval --set-id <id>` to trigger scoring. Endpoint: `POST /api/botmanagement/v2/environments/{envId}/bots/{botId}/makerevaluations/testcomponent?ApplyV2Migration=true`. This is now the ONLY method for eval upload — Dataverse POST is deprecated for this use case.
 **Confirmed:** 1 build(s) | Last confirmed: 2026-03-06
 **Related cache:** island-gateway-api.md, eval-methods.md
 **Tags:** #eval #gateway-api #makerevaluations #headless #upload #test-cases #supersedes-bm-013
@@ -416,11 +484,11 @@ Link to agent via YAML `InvokeFlowTaskAction` (NOT `InvokeFlowAction` — differ
 **Related cache:** dataverse-patterns.md
 **Tags:** #dataverse #bots #select-quirk #top-parameter #odata #query-limitations
 
-### Update brief.json before GPT review — not after {#bm-031} — 2026-03-16
+### Update agentspec.json before GPT review — not after {#bm-031} — 2026-03-16
 **Context:** CDW Legal HR Policy Advisor build — GPT review flagged stale topic name references
 **Tried:** Pushed updated instructions to MCS (with corrected topic names), then ran GPT review via `multi-model-review.js review-instructions`
-**Result:** GPT reviewed brief.json instructions field (which still had old `/HighRiskScenarioEscalation` references) instead of the pushed version (`/High-Risk Scenario Guidance`). GPT flagged this as "critical" — a false alarm that wasted review credibility.
-**Better approach:** Always update the brief.json instructions field to match the pushed version BEFORE running GPT review. The sequence should be: (1) write instructions to agent.mcs.yml, (2) update brief.json instructions field to match, (3) push via LSP, (4) run GPT review. This ensures GPT reviews the canonical version.
+**Result:** GPT reviewed agentspec.json instructions field (which still had old `/HighRiskScenarioEscalation` references) instead of the pushed version (`/High-Risk Scenario Guidance`). GPT flagged this as "critical" — a false alarm that wasted review credibility.
+**Better approach:** Always update the agentspec.json instructions field to match the pushed version BEFORE running GPT review. The sequence should be: (1) write instructions to agent.mcs.yml, (2) update agentspec.json instructions field to match, (3) push via LSP, (4) run GPT review. This ensures GPT reviews the canonical version.
 **Confirmed:** 1 build(s) | Last confirmed: 2026-03-16
 **Related cache:** N/A (process)
 **Tags:** #gpt-review #brief #instructions #process #topic-names #sequence
@@ -486,3 +554,225 @@ Link to agent via YAML `InvokeFlowTaskAction` (NOT `InvokeFlowAction` — differ
 **Better approach:** Never include curly braces in instruction YAML text fields. Use URL-encoded equivalents (%7B/%7D), describe patterns in words instead of literal examples, or move complex URL templates to external documentation. This applies to all text fields in botcomponent data, not just instructions.
 **Confirmed:** 1 build(s) | Last confirmed: 2026-04-06
 **Tags:** #instructions #PowerFx #curly-braces #parse-error #encoding
+
+### Connected agents need TWO components — definition (type 15) AND invocation action (type 9) {#bm-042} — 2026-04-30
+**Context:** Multi-agent orchestrator wired to 3 children. Created ConnectedAgentDefinition components via direct Dataverse POST and via Island Gateway `connectedAgentDefinitionChanges` (per bm-012). Both reported success. PvaPublish status=Succeeded. But the orchestrator did NOT actually call the children at runtime — UI showed connected-agent slots empty.
+**Tried:** (1) Direct Dataverse POST of `componenttype=15` records with `kind: ConnectedAgentDefinition` data only. (2) Island Gateway `connectedAgentDefinitionChanges` API. Neither resulted in callable children. User had to manually re-add each child via the MCS UI "Agents" tab.
+**Result:** Manual UI add created NEW `componenttype=9` records with schema pattern `<orch_schema>.InvokeConnectedAgentTaskAction.<DisplayName>` containing:
+```yaml
+kind: TaskDialog
+modelDisplayName: <child name>
+modelDescription: <child description>
+action:
+  kind: InvokeConnectedAgentTaskAction
+  botSchemaName: <child_schema>
+  historyType:
+    kind: ConversationHistory
+```
+The original type-15 ConnectedAgentDefinition records remained but alone were insufficient. The type-9 records register each child as an INVOKABLE TOOL the orchestrator can dispatch.
+**Better approach:** When wiring a connected agent, create BOTH components in one transaction:
+1. **type=15** `ConnectedAgentDefinition` (registers the connection, makes child discoverable)
+2. **type=9** TaskDialog with `InvokeConnectedAgentTaskAction` (makes the child callable as a tool — this is what generative orchestration uses to dispatch).
+
+Schema name for the type-9 component: `<orch_schema>.InvokeConnectedAgentTaskAction.<PascalCaseName>` (max display-name chunk ~30 chars; longer names get truncated). Both records must be present BEFORE PvaPublish on the orchestrator. **Supersedes bm-012**: Island Gateway alone creates only the definition, not the invocation action — incomplete.
+**Prerequisites on the child (the agent being connected):**
+- `bot.configuration.isAgentConnectable: true` (Dataverse PATCH on configuration JSON)
+- `bot.authenticationmode = 2` (Microsoft auth)
+- Child must be published (PvaPublish + sync status Succeeded) before connection is wired
+**Confirmed:** 1 build(s) | Last confirmed: 2026-04-30
+**Related cache:** agent-lifecycle.md (Connected Agents section), api-capabilities.md
+**Tags:** #connected-agents #multi-agent #orchestrator #componenttype-9 #componenttype-15 #invoke-task-action #supersedes-bm-012
+
+### Flow tool topics need `outputs:` declaration + `connectionProperties.mode: Invoker` {#bm-043} — 2026-04-30
+**Context:** Wired a Power Automate flow as a tool on the orchestrator. Wrote a TaskDialog topic component with `inputs:` (AutomaticTaskInput entries describing each flow input) and `action: kind: InvokeFlowTaskAction flowId: <id>`. PvaPublish failed silently with `InvalidReferenceError: CloudFlow with id '<id>' not found`. Activating the flow (`statecode=1`) was not enough.
+**Tried:** (1) Set flow `statecode=1, statuscode=2` via Dataverse PATCH. (2) Topic with `inputs:` array of AutomaticTaskInput. (3) `kind: InvokeFlowAction` (DialogAction variant) inside an `OnRecognizedIntent`. All failed.
+**Result:** User had to open the flow in Power Automate maker, edit/save (re-publish), then add the agent topic action via MCS UI. The MCS UI created a much simpler component:
+```yaml
+kind: TaskDialog
+outputs:
+  - propertyName: text_file_url
+  - propertyName: text_file_name
+  - propertyName: text_status
+action:
+  kind: InvokeFlowTaskAction
+  flowId: <id>
+  connectionProperties:
+    $kind: ConnectionProperties
+    diagnostics:
+    mode: Invoker
+outputMode: All
+```
+Two key differences from my version: (a) NO `inputs:` section — generative orchestration auto-derives inputs from the flow's trigger schema and fills them from conversation context, (b) `connectionProperties.mode: Invoker` runs the flow in the END-USER's identity (not the maker's), required by enterprise security policies.
+**Better approach:** When adding a flow as an agent tool:
+1. Open the flow in Power Automate maker UI and click "Save" / "Publish" (Dataverse `statecode` PATCH alone does NOT register the agent linkage; the maker UI re-validates inputs/outputs and writes the agent association).
+2. Create the tool component with:
+   - `kind: TaskDialog`
+   - `outputs:` listing the flow's response properties (do NOT include `inputs:` — that's an old pattern)
+   - `action.kind: InvokeFlowTaskAction` + `flowId` + `connectionProperties.$kind: ConnectionProperties` + `connectionProperties.mode: Invoker` (always end-user creds for enterprise)
+   - `outputMode: All`
+3. Schema name: `<agent_schema>.action.<PascalCaseName>` (NOT `.topic.`).
+**Confirmed:** 1 build(s) | Last confirmed: 2026-04-30
+**Related cache:** agent-lifecycle.md, power-automate-integration.md
+**Tags:** #flow-tools #agent-flow #invoke-flow-task-action #connection-properties #invoker-mode #end-user-cred
+
+### Agent settings — required defaults for multi-agent + enterprise {#bm-044} — 2026-04-30
+**Context:** After programmatic agent creation, agents had `authenticationmode=1` (None) and missing AI settings. Direct Line worked but children didn't dispatch. User had to set every agent (orchestrator + children) to "Authenticate with Microsoft" via UI.
+**Tried:** Created agents via Dataverse POST with default settings — `authenticationmode=1`, `accesscontrolpolicy=2`, no `optInUseLatestModels`, no `isAgentConnectable`. Connected-agent dispatch was silent.
+**Result:** User-applied settings on every agent in the chain:
+- `authenticationmode = 2` (Microsoft auth — required for connected-agent dispatch and enterprise governance)
+- `authenticationconfiguration = {"$kind":"BotAuthenticationConfiguration"}`
+- `configuration.isAgentConnectable = true` (toggle "Let other agents connect to and use this one")
+- `configuration.aISettings.optInUseLatestModels = true` (latest model selection — currently routes to GPT 5.5 reasoning + Deep reasoning preview)
+- `configuration.aISettings.useModelKnowledge = false`
+- `configuration.aISettings.isFileAnalysisEnabled = false` (unless explicitly needed)
+- `configuration.aISettings.isSemanticSearchEnabled = false` (unless explicitly needed)
+- `configuration.aISettings.contentModeration = "Medium"`
+- For any tool with `connectionProperties`: `mode: Invoker` (NEVER `Maker` for production demos — runs as end-user not the agent author)
+**Better approach:** Bake these settings into agent-creation scripts as defaults. The minimum delta when promoting any agent to multi-agent: `authenticationmode=2 + isAgentConnectable=true + optInUseLatestModels=true`. PATCH the bot row's `configuration` JSON column atomically.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-04-30
+**Related cache:** agent-lifecycle.md, security-auth.md, limits-licensing.md
+**Tags:** #agent-settings #authentication #microsoft-auth #invoker-mode #multi-agent #enterprise-defaults
+
+### Generative orchestration only fills schema-required flow fields {#bm-049} — 2026-04-30
+**Context:** Sustainability orchestrator wired to Generate ESG IC Slide flow as a tool (TaskDialog + InvokeFlowTaskAction). Flow trigger schema had 10 input fields but only 2 marked `required` (text_company_name, text_esg_summary). Orchestrator instructions explicitly told it to pass all 10. Fired the demo: trigger body delivered to flow had ONLY the 2 required fields. The 4 material-factor commentaries, ticker, analyst name, review date, and `array_exposure_rows` (most critical) were silently dropped. Result: half-empty slide.
+**Tried:** (1) Detailed orchestrator instructions with field-by-field recipe + explicit "fill EVERY parameter" + concrete JSON examples for the array. Still only 2 fields delivered to flow. (2) Verified upstream child agents WERE called and DID produce relevant output in conversation. (3) Confirmed `useModelKnowledge: false` on the orchestrator (the recommended enterprise default per bm-011/bm-046). (4) Confirmed `recognizer.kind = GenerativeAIRecognizer`.
+**Result:** Generative orchestration is conservative about optional flow-trigger fields when `useModelKnowledge: false` — it appears to populate ONLY the schema-`required` fields and skip optional ones, even when instructions are emphatic. Instruction discipline alone is insufficient.
+**Better approach:** When designing a Power Automate flow that an orchestrator must call as a tool, mark EVERY input the agent is supposed to pass as `required` in the flow trigger schema. Optional inputs should only exist when the flow itself can default them server-side. Specifically:
+- For the slide flow: mark all 10 inputs required.
+- For agent-narration flows: keep only the truly optional ones (e.g. "language" with a server default) optional.
+- Combine with directive instructions ("fill EVERY parameter") for belt-and-braces.
+- For a more robust contract, **move data lookups into the flow itself** (Dataverse "List rows" action inside the flow, querying by the company name) — orchestrator passes only the company name, flow does the rest. This eliminates the brittle generative-orchestration array-construction step entirely.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-04-30
+**Related cache:** power-automate-integration.md, generative-orchestration.md
+**Tags:** #generative-orchestration #flow-trigger-schema #required-fields #use-model-knowledge #optional-field-omission #half-empty-slide
+
+### Default to the LATEST experimental model — never hardcode old hints in build scripts {#bm-051} — 2026-04-30
+**Context:** Across multiple iterations on the Sustainability multi-agent demo, every script I wrote defaulted to `modelNameHint: GPT5Auto` ($kind: CurrentModels). This is a Preview model from late 2025. The user pointed out: every time I created or updated an agent, the model silently regressed from their preferred latest experimental model back to GPT5Auto. Per `knowledge/cache/models.md` (last verified 2026-04-25), the current latest experimental is GPT-5.5 Reasoning (`modelNameHint: GPT55Reasoning`, `$kind: ExperimentalModels`).
+**Tried:** Hardcoded `GPT5Auto` in `create-children.js`, `replicate-agent.js`, `tmp/update-agent-instructions.js`, every PATCH script, and the `agent-lifecycle.md` cache template. Each script created or repaired an agent it would silently downgrade the model.
+**Result:** Hardcoded model defaults rot fast. MCS releases new experimental models every few weeks (GPT-5.2 → GPT-5.3 → GPT-5.4 → GPT-5.5 Reasoning all in 2026 wave 1). Hardcoded values in N scripts means N places to update on every refresh.
+**Better approach:** Created `knowledge/frameworks/latest-model.json` as the single source of truth for the default model + its `$kind`. All agent-creation scripts (`create-children.js`, `replicate-agent.js`, future scripts) read from this file. Update this file when you TAKE a `knowledge-cache` card from `/mcs-sync` after `models.md` drifts. Pattern:
+```js
+const _modelCfg = JSON.parse(fs.readFileSync('knowledge/frameworks/latest-model.json', 'utf8'));
+const _latestModel = { '$kind': _modelCfg.default.$kind, modelNameHint: _modelCfg.default.modelNameHint };
+// Use _latestModel in bot.configuration.aISettings.model
+```
+**ALSO update both layers when changing models:** `bot.configuration.aISettings.model` (runtime/Bot row JSON) AND the gpt.default component's YAML data field (`aISettings.model.kind` + `modelNameHint`). If only one is updated, they drift — and the YAML one is what the maker UI displays.
+**Convention for $kind:** `CurrentModels` for GA + Preview models (e.g. GPT5Chat, GPT5Reasoning, GPT5Auto). `ExperimentalModels` for experimental (e.g. GPT55Reasoning, Claude Opus 4.7). Pair with `optInUseLatestModels: true` so the agent floats forward as MS releases newer versions within the same tier.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-04-30
+**Related cache:** models.md, agent-lifecycle.md, frameworks/latest-model.json
+**Tags:** #model-selection #latest-model #experimental-models #framework-defaults #single-source-of-truth #model-rot
+
+### Power Automate flow PATCH ActiveUnpublished lock — clear by UI save (any modification works) {#bm-050b} — 2026-04-30
+**Context:** Same scenario as bm-050. After many failed PATCH attempts, the user added two throwaway test parameters via the UI Parameters tab and saved. Immediately after, programmatic Dataverse PATCH on `workflow.clientdata` succeeded (204). Removed the test parameters in the same PATCH that marked all 10 real parameters as required and fixed the URL binding.
+**Tried + Result:** ANY UI save event clears the ActiveUnpublished lock long enough for one PATCH to land. The "phantom" state isn't truly phantom — it's an internal version-tracking row that gets reset whenever maker UI commits. After my PATCH, an explicit `PublishXml` call commits the new published version cleanly.
+**Better approach:** When you need to update a published cloud flow programmatically and hit `ActiveUnpublished`:
+1. Have the user open the flow in maker UI and either Save (with no edits OR with a trivial edit like adding+removing a parameter) — this clears the lock.
+2. Programmatic PATCH on `workflow.clientdata` (Dataverse direct) within ~1 minute of the UI save lands successfully.
+3. Follow with `POST /PublishXml` with `ParameterXml: <importexportxml><workflows><workflow id="<id>"/></workflows></importexportxml>` to commit.
+4. Republish any agents that reference the flow so they pick up the new trigger schema.
+
+This **unblocks the bm-050 limitation**. The maker UI save is the trigger that clears the lock, but you don't need to make the actual edit through the UI — just trigger any save, then your API PATCH can do the real work.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-04-30
+**Related cache:** power-automate-integration.md, agent-lifecycle.md
+**Tags:** #power-automate #flow-update #active-unpublished #ui-save-unlock #patch-window #publishxml
+
+### Power Automate flow PATCH blocked by ActiveUnpublished — UI Save is the only way to clear {#bm-050} — 2026-04-30
+**Context:** Tried to programmatically update a Power Automate flow (Generate ESG IC Slide) to mark trigger fields required + fix the SharePoint Path expression. Both the Dataverse direct PATCH on workflows row and the Power Automate Service API PATCH returned 500 with `XrmApiServerError: ... Component Type: 29  Object Id: <flow-id>  CurrentState=ActiveUnpublished`.
+**Tried:** (1) Dataverse PATCH on workflows row with If-Match: * — 400 ActiveUnpublished. (2) Power Automate Service API PATCH (`PATCH /environments/{env}/flows/{flow}?api-version=2016-11-01` with `properties.definition`) — 500 ActiveUnpublished. (3) `PublishXml` action with workflow id in ParameterXml — 204 success, but next PATCH attempt still hit ActiveUnpublished. (4) `Microsoft.Dynamics.CRM.PublishWorkflow` bound action — 404 not found. (5) PAC CLI — no flow namespace. (6) Read back workflow row showed componentstate=0 (Published) and statecode=1/2 (Activated), yet PATCH said ActiveUnpublished.
+**Result:** Power Automate cloud flows have a phantom unpublished version state that the maker-UI Save button is the only reliable way to commit. PublishXml and bound publish actions don't clear it. Once any programmatic API PATCH is attempted (even a successful read), a new ActiveUnpublished context is created that blocks subsequent writes.
+**Better approach:** When you need to update a published cloud flow, do it BEFORE handing the flow to the user, OR have the user perform the maker-UI Save once after your changes (the API path you used to attempt the change creates the lock). For automation pipelines, deploy flow changes only via solution import (which handles the publish atomically) — never via incremental PATCH after a published version exists. Open question: is there a `/savePublishedVersion` or `/commit` endpoint on the Power Automate Service API that mirrors the maker-UI Save button? Worth filing for `tools/upstream-specs/contracts/`.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-04-30
+**Related cache:** power-automate-integration.md, agent-lifecycle.md
+**Tags:** #power-automate #flow-update #active-unpublished #maker-ui-save #patch-blocked #solution-import-workaround
+
+### SharePoint connector path must be site-relative when dataset is the site URL {#bm-048} — 2026-04-30
+**Context:** Generate ESG IC Slide flow. The `Get_template_file_content` action used `dataset = https://<tenant>.sharepoint.com/sites/DKTEST` and `path = /sites/DKTEST/Shared Documents/ESG-Templates/ESG-IC-Slide-Template.pptx`. PvaPublish on the agent succeeded; the file existed at exactly that server-relative path; but at runtime the action returned 404 (NotFound). Power Automate then surfaced the failure to the agent as "BadGateway / NoResponse from upstream server" — a misleading transport error.
+**Tried:** (1) Verified template file exists at `/sites/DKTEST/Shared Documents/ESG-Templates/ESG-IC-Slide-Template.pptx` via Graph (37,857 bytes — yes). (2) Replayed the Azure Function call directly with same payload — 0.8s success. (3) Fetched the flow run history — `Get_template_file_content` failed with `code=NotFound`, all subsequent actions skipped. (4) Compared with the MR agent's working flow — its SharePoint paths use **site-relative** form (no `/sites/<site>` prefix), e.g. `/Shared Documents/Blackstone/Generated/`.
+**Result:** When the SharePoint connector's `dataset` is the site URL (`https://.../sites/DKTEST`), the `path` parameter must be **site-relative** (start at `/Shared Documents/...`, NOT `/sites/DKTEST/Shared Documents/...`). The doubled prefix resolves on the connector backend as `/sites/DKTEST/sites/DKTEST/...` which doesn't exist. The misleading "BadGateway" error from Power Automate masks the actual cause.
+**Better approach:** When generating Power Automate cloud flows that use `shared_sharepointonline` actions:
+- Set `dataset` = full site URL (e.g. `https://<tenant>.sharepoint.com/sites/<SiteName>`)
+- Set `path` (or `folderPath`) = SITE-RELATIVE path with leading slash (e.g. `/Shared Documents/Folder/file.ext`) — NEVER include the `/sites/<SiteName>` prefix
+- Same rule for `GetFileContentByPath`, `CreateFile`, `GetFileMetadataByPath`, etc.
+- When debugging "BadGateway / NoResponse from upstream" errors from Power Automate flow actions, do not assume the upstream service (Azure Function, etc.) is the problem — fetch the flow run actions list (`/runs/<id>/actions?api-version=2016-11-01`) and check which action actually failed and with what code. The flow's error surfaced to the agent is often a generic wrapper over the real first-failure code.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-04-30
+**Related cache:** power-automate-integration.md, connectors.md
+**Tags:** #power-automate #sharepoint-connector #site-relative-path #bad-gateway-misleading #flow-debugging
+
+### Knowledge file upload IS programmable — use `filedata` virtual column with octet-stream {#bm-047} — 2026-04-30
+**Context:** Sustainability multi-agent demo. Children needed grounded knowledge but `useModelKnowledge: false` blocked instruction-only responses. SharePoint knowledge source worked but added a connection-authorization step in test chat. User asked for direct .md file attachment to each agent. Prior learning bm-023b said this wasn't programmable.
+**Tried:** (1) Re-checked botcomponent entity attributes via `GET /EntityDefinitions(LogicalName='botcomponent')/Attributes` and found `filedata` (type=Virtual) and `filedata_name` (type=String) — these ARE the file column pair on botcomponent (bm-023b missed them by querying for File-type attributes; Virtual is the correct AttributeType for Dataverse file columns). (2) Created componenttype=16 record with FileGroupKnowledgeSource YAML in `data` + `filedata_name: <filename>` set on creation. (3) PATCHed `/botcomponents(<id>)/filedata` with binary content and `Content-Type: application/octet-stream` + `x-ms-file-name: <filename>` headers.
+**Result:** PATCH returned 204 — file uploaded. Verified via fetch query showing `filedata_name` populated. Three children received their .md knowledge files (esg_company_data.md, revenue_exposure_data.md) via this API path. PvaPublish succeeded for all 4 agents. NO MCS UI step needed.
+**Better approach:** Knowledge files are stored as TWO related component types — `componenttype=14` for the actual file binary (one per file) and `componenttype=16` for the `FileGroupKnowledgeSource` that wraps them as searchable knowledge. The agent runtime needs both.
+
+```
+# Step 1 — Upload each file (componenttype=14, file column populated)
+POST /botcomponents
+{
+  "componenttype": 14,
+  "name": "<file.ext>",
+  "schemaname": "<botSchema>.file.<filename_no_dots>",
+  "filedata_name": "<file.ext>",
+  "parentbotid@odata.bind": "/bots(<botId>)"
+}
+
+PATCH /botcomponents(<id>)/filedata
+  Content-Type: application/octet-stream     # MUST be octet-stream (text/markdown returns 415)
+  x-ms-file-name: <file.ext>
+  <raw bytes>
+
+# Step 2 — Wrap them as a FileGroupKnowledgeSource (componenttype=16, NO filedata)
+POST /botcomponents
+{
+  "componenttype": 16,
+  "name": "Uploaded files",
+  "schemaname": "<botSchema>.knowledge.UploadedFiles",
+  "data": "kind: KnowledgeSourceConfiguration\nsource:\n  kind: FileGroupKnowledgeSource\n  instructions:\n    - kind: TextSegment\n      value: \"Reference data file. Search by ...\"\n",
+  "parentbotid@odata.bind": "/bots(<botId>)"
+}
+```
+
+**Important quirk discovered:** if you POST a single componenttype=16 record with BOTH the FileGroupKnowledgeSource YAML and a populated `filedata` column, PvaPublish silently re-types it to componenttype=14 and wipes the YAML. The two layers must be separate records — the type=14 file PLUS a type=16 wrapper that has no filedata of its own. The wrapper auto-discovers all file attachments on the parent bot.
+
+This makes file-based knowledge fully programmable, removes bm-023b's "manual UI upload required" workaround, and fixes the long-standing gap in `dataverse-helper.ps1` `Add-BotKnowledgeFile`.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-04-30
+**Related cache:** dataverse-patterns.md, knowledge-sources.md, agent-lifecycle.md
+**Tags:** #knowledge #file-upload #filedata-virtual-column #octet-stream #x-ms-file-name #supersedes-bm-023b
+
+### `useModelKnowledge: false` + zero knowledge sources/tools = mute agent {#bm-046} — 2026-04-30
+**Context:** Child agents in a multi-agent setup had `bot.configuration.aISettings.useModelKnowledge: false` (the "Allow ungrounded responses" UI toggle) per enterprise default. I removed Bing, file search, and other tools from the children, then embedded the mock Dataverse data inline in their gpt.default `instructions`. Expected the children to "narrate from the embedded data". Children went silent at runtime — the model refused to answer without a grounded source.
+**Tried:** Embedding cr1a5_esg_company / cr1a5_revenue_exposure data directly inside the children's instruction YAML, with explicit "If asked about X, return Y" rules, expecting the instruction context itself to act as grounding.
+**Result:** Instructions are NOT a grounded knowledge source — they are prompt context, and `useModelKnowledge: false` only allows responses backed by knowledge sources (componenttype=16) or tool-call results. With neither configured, the child cannot respond.
+**Better approach:** When `useModelKnowledge: false` (the recommended enterprise default per bm-011), every agent that needs to answer questions MUST have at least one of:
+  1. A knowledge source (componenttype=16 — SharePoint, file, public URL, Dataverse, custom)
+  2. A tool that returns data (flow tool, MCP tool, connector action)
+  3. The orchestrator's conversation history dispatched via `historyType: ConversationHistory` (only for connected agents that synthesize without their own data needs)
+
+For mock-data demos, the simplest reproducible path is to upload a Markdown file with the mock data to SharePoint and add a `SharePointSearchSource` knowledge component on the child. SharePointSearchSource accepts a site URL + optional `additionalSearchTerms` to focus discovery. The agent searches the file, finds matching content, and grounds its response. The Sustainability demo wires this with `additionalSearchTerms: esg_company_data` for ESG Research and `revenue_exposure_data` for Revenue Exposure.
+
+YAML for the type-16 component's `data` field:
+```yaml
+kind: KnowledgeSourceConfiguration
+source:
+  kind: SharePointSearchSource
+  site: https://<tenant>.sharepoint.com/sites/<SiteName>
+  cascadeShare: true
+  indexBehavior: EnabledWithFallback
+  additionalSearchTerms: <unique-keyword-from-file-name>
+```
+
+**Build-discipline rule (recommend adding to mcs-build SKILL):** before finishing Step 3 (tools/knowledge configuration), enforce: every agent with `useModelKnowledge: false` must have at least one knowledge source OR tool — otherwise abort and flag.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-04-30
+**Related cache:** agent-lifecycle.md, knowledge-sources.md
+**Tags:** #grounding #use-model-knowledge #knowledge-source #ungrounded-responses #componenttype-16 #sharepoint-search-source #multi-agent #mute-agent
+
+### Power Automate agent flow needs maker-UI re-publish to register agent linkage {#bm-045} — 2026-04-30
+**Context:** Created an agent flow programmatically (Dataverse POST with `category=5`, `modernflowtype=1`, `recognizer` field). Tried to register it as an agent tool via topic component. Publish failed with "CloudFlow not found" even though the flow existed in Dataverse and was activated.
+**Tried:** PATCH `workflows(<id>)` to `statecode=1, statuscode=2` (Activated). Confirmed flow was active. Added agent topic component referencing the flow ID. PvaPublish on agent → diagnostic error `InvalidReferenceError: CloudFlow with id '<flow-id>' not found`.
+**Result:** The Dataverse `workflows` row activation does NOT register the agent linkage. Power Automate maintains a separate "agent-flow registration" state visible only via the maker UI. User opened flow in https://make.powerautomate.com, clicked Save/Publish, then the agent could find the flow.
+**Better approach:** After programmatically creating an agent flow, the FINAL step must be a maker-UI publish (or an equivalent Power Platform Cloud Flow Designer API call — under investigation). Until that step, the flow is "headless ready" but NOT discoverable by agent tooling.
+- Symptom to watch for: PvaPublish `synchronizationstatus.lastFinishedPublishOperation.diagnosticDetails` containing `InvalidReferenceError: CloudFlow with id '<id>' not found` even though `GET workflows(<id>)` returns the flow.
+- Workaround: open https://make.powerautomate.com/environments/<env>/flows, find the flow, click Save (no edits needed) — this triggers the registration.
+- Open question: Is there a `PvaCreateContentSnapshot` or `flows-as-agent-tool/register` API that performs the linkage? File for `tools/upstream-specs/contracts/`.
+**Confirmed:** 1 build(s) | Last confirmed: 2026-04-30
+**Related cache:** agent-lifecycle.md, power-automate-integration.md
+**Tags:** #power-automate #agent-flow #flow-publish #agent-linkage #cloud-flow-not-found

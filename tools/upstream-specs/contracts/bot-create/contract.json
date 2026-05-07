@@ -1,0 +1,55 @@
+{
+  "surfaceId": "bot-create",
+  "method": "POST",
+  "urlPattern": "{dataverseUrl}/api/data/v9.2/bots?$select=botid",
+  "auth": "Dataverse bearer token (az account get-access-token --resource {dataverseUrl})",
+  "validationStrategy": "targeted-fixture-coverage",
+  "_strategyNote": "Per GPT review: the full BotConfiguration body is too complex and tenant-dependent for exact-parity. Contract uses schema-based coverage of discriminators + minimal required fields, not whole-payload equality.",
+  "kindDiscriminators": [
+    {
+      "path": "$.configuration.$kind",
+      "value": "BotConfiguration",
+      "_note": "Root discriminator. Server rejects without it."
+    },
+    {
+      "path": "$.configuration.settings['default-2.1.0'].content.capabilities.$kind",
+      "value": "GptCapabilities"
+    },
+    {
+      "path": "$.configuration.aISettings.$kind",
+      "value": "AISettings"
+    }
+  ],
+  "requiredFields": [
+    {"path": "$.name", "constraint": "non-empty string"},
+    {"path": "$.configuration.$kind", "constraint": "must equal 'BotConfiguration'"},
+    {"path": "$.configuration.settings['default-2.1.0'].content.displayName", "constraint": "non-empty string — this IS the agent name MCS shows"},
+    {"path": "$.configuration.settings['default-2.1.0'].content.instructions", "constraint": "string (empty allowed; populated later via LSP/Gateway)"},
+    {"path": "$.configuration.settings['default-2.1.0'].content.capabilities.$kind", "constraint": "must equal 'GptCapabilities'"},
+    {"path": "$.configuration.aISettings.$kind", "constraint": "must equal 'AISettings'"}
+  ],
+  "responseShape": "{ botid: string (guid) }",
+  "lastVerified": "2026-04-15",
+  "lastVerifiedBy": "HAR capture from MCS UI bot creation (bot dde31320-3039-f111-88b4-7c1e528d32a4 in dktest)",
+  "verificationSource": "knowledge/learnings/har-api-sequence-2026-04-15.md",
+  "typedAdapterRef": "app/lib/build-pipeline.js:stepCreate",
+  "knownQuirks": [
+    "Missing the settings.default-2.1.0.content block causes MCS to NEVER materialize the GptComponent — agent exists but has no orchestrator. Discovered via HAR diff 2026-04-15.",
+    "After creation, MUST call POST /powervirtualagents/bots/{id}/api/botcomponents with {\"Kind\":[\"BotEntity\"]} to trigger component materialization. Otherwise UI shows empty agent.",
+    "No PvaProvision call needed — rich configuration + PVA BotEntity call replaces the legacy provision step.",
+    "iconbase64 field accepts PNG base64; large icons (>50KB) may cause request failures on some gateway regions."
+  ],
+  "nonContractualFields": [
+    "$.configuration.categories (defaults to []; tenant-specific)",
+    "$.configuration.channels (defaults to []; populated post-create)",
+    "$.configuration.diagnostics (always returns []; internal telemetry)",
+    "$.iconbase64 (free-form base64; no shape constraint)",
+    "$.configuration.aISettings.optInUseLatestModels (bool; tenant policy)"
+  ],
+  "errorCases": [
+    {"status": 400, "reason": "Missing required BotConfiguration field", "example": "no configuration.$kind"},
+    {"status": 401, "reason": "Invalid or expired Dataverse bearer"},
+    {"status": 403, "reason": "User lacks Power Platform maker role on target env"},
+    {"status": 500, "reason": "Server rejects incomplete settings.default-2.1.0.content — agent creates but without GptComponent"}
+  ]
+}

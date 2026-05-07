@@ -1,0 +1,34 @@
+{
+  "surfaceId": "component-sync",
+  "method": "PUT",
+  "urlPattern": "{gatewayUrl}/api/botmanagement/v1/environments/{envId}/bots/{botId}/content/botcomponents",
+  "auth": "PVA token + Island Gateway headers (env-id, bot-id, tenant-id)",
+  "validationStrategy": "delta-envelope-shape",
+  "_strategyNote": "Component sync is a delta write — request carries componentDelta with per-component changes. Contract asserts envelope shape, not individual component content (those vary by agent design).",
+  "kindDiscriminators": [],
+  "requiredFields": [
+    {"path": "$.componentDelta", "constraint": "object with per-component changes"},
+    {"path": "$.componentDeltaToken", "constraint": "string or null (null for initial sync)"}
+  ],
+  "responseShape": "{ componentDeltaToken: string, components: Component[] }",
+  "lastVerified": "2026-04-15",
+  "lastVerifiedBy": "HAR capture from MCS UI (18 PUT operations observed during agent build)",
+  "verificationSource": "knowledge/learnings/har-api-sequence-2026-04-15.md",
+  "typedAdapterRef": "tools/island-client.js:updateComponents (via build-pipeline.stepComponents)",
+  "knownQuirks": [
+    "Initial sync uses componentDeltaToken: null. Subsequent syncs use the token returned by previous PUT/POST.",
+    "MCS returns a NEW componentDeltaToken in every response — callers must persist it for next delta write or they'll receive a full component dump.",
+    "Concurrent writes can race: if another actor (UI, second process) writes between your GET and PUT, you'll get a 409 Conflict. Re-pull and re-apply.",
+    "Component kinds include GptComponent, DialogComponent, KnowledgeSource, BotEntity — plus extensions not in the vendored schema."
+  ],
+  "nonContractualFields": [
+    "$.componentDelta[*].content — per-component free-form payload (depends on component kind)",
+    "response.components — list of all components in the bot (can be large, varies by agent design)",
+    "response.componentDeltaToken — opaque string; changes every response"
+  ],
+  "errorCases": [
+    {"status": 400, "reason": "Malformed componentDelta (missing required Component fields)"},
+    {"status": 409, "reason": "ConcurrencyVersionMismatch — token is stale. Re-pull before write."},
+    {"status": 401, "reason": "Invalid PVA token or missing Island Gateway headers"}
+  ]
+}

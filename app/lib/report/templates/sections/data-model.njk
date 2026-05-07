@@ -1,0 +1,107 @@
+{% from "macros/cards.njk" import phase_pill %}
+
+<section id="data-model">
+  <div class="section-heading">
+    <h2>Data Model &amp; Deployment Guide</h2>
+    <span class="subtitle">{{ dataModel | length }} entit{{ 'y' if dataModel | length == 1 else 'ies' }}</span>
+    <span class="toggle-icon">&#9662;</span>
+  </div>
+  <div class="section-body">
+    {% if dataModel | length > 0 %}
+
+    <div class="callout callout-info" style="margin-bottom: 1.5rem;">
+      <strong>Stub Tables</strong> — During development, external data sources are mimicked as Dataverse tables.
+      At deployment, replace each stub with the real connector. Instructions and topics reference business operations,
+      so the swap requires no rewriting — only connector configuration.
+    </div>
+
+    {% for entity in dataModel %}
+    <div class="entity-card" style="border: 1px solid var(--border); border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 1rem; background: var(--surface);">
+      <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+        <span style="font-size: 1rem; font-weight: 600; color: var(--text);">{{ entity.entity }}</span>
+        <span class="pill" style="background: #EEF2FF; color: #4F46E5; font-size: 0.7rem; padding: 2px 8px; border-radius: 99px;">{{ entity.source }}</span>
+        {% if entity.stubStatus == 'seeded' %}
+        <span class="pill" style="background: #ECFDF5; color: #059669; font-size: 0.7rem; padding: 2px 8px; border-radius: 99px;">Ready</span>
+        {% elif entity.stubStatus == 'created' %}
+        <span class="pill" style="background: #EFF6FF; color: #2563EB; font-size: 0.7rem; padding: 2px 8px; border-radius: 99px;">Created</span>
+        {% elif entity.stubStatus == 'failed' %}
+        <span class="pill" style="background: #FEF2F2; color: #DC2626; font-size: 0.7rem; padding: 2px 8px; border-radius: 99px;">Failed</span>
+        {% else %}
+        <span class="pill" style="background: #FFFBEB; color: #D97706; font-size: 0.7rem; padding: 2px 8px; border-radius: 99px;">Pending</span>
+        {% endif %}
+      </div>
+      <p style="font-size: 0.8rem; color: var(--text-subtle); margin: 0 0 0.75rem 0;">{{ entity.purpose }}</p>
+
+      {% if entity.integration %}
+      <div style="font-size: 0.75rem; color: var(--text-subtle); margin-bottom: 0.5rem;">
+        <strong>Swap with:</strong> {{ entity.integration }} connector ({{ entity.source }})
+      </div>
+      {% endif %}
+
+      {% if entity.operations | length > 0 %}
+      <div style="display: flex; gap: 0.25rem; margin-bottom: 0.75rem;">
+        {% for op in entity.operations %}
+        <span style="font-size: 0.65rem; font-weight: 500; padding: 2px 6px; border-radius: 4px; background: #ECFDF5; color: #059669;">{{ op }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% if entity.fields | length > 0 %}
+      <table class="data-table" style="font-size: 0.8rem;">
+        <thead>
+          <tr>
+            <th>Field</th>
+            <th>Type</th>
+            <th>Required</th>
+            <th>Source Field</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for f in entity.fields %}
+          <tr>
+            <td style="font-weight: 500;">{{ f.name }}</td>
+            <td>
+              <span style="font-size: 0.7rem; font-weight: 500; padding: 1px 6px; border-radius: 4px; background: #F3F4F6; color: #4B5563;">{{ f.type }}</span>
+              {% if f.values | length > 0 %}
+              <span style="font-size: 0.65rem; color: var(--text-subtle);"> ({{ f.values | join(', ') }})</span>
+              {% endif %}
+            </td>
+            <td>{% if f.required %}<span style="color: #DC2626; font-weight: 500;">Yes</span>{% else %}No{% endif %}</td>
+            <td class="cell-muted">{{ f.sourceField if f.sourceField else '—' }}</td>
+            <td class="cell-muted">{{ f.description }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+
+      {% if entity.dataverse %}
+      <div style="margin-top: 0.5rem; padding: 0.5rem 0.75rem; background: #F9FAFB; border-radius: 8px; font-size: 0.75rem; color: var(--text-subtle);">
+        <strong>Dataverse stub:</strong> <code>{{ entity.dataverse.logicalName }}</code>
+        → Entity set: <code>{{ entity.dataverse.entitySetName }}</code>
+        {% if entity.dataverse.rowsSeeded %} · {{ entity.dataverse.rowsSeeded }} sample rows{% endif %}
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+
+    <div class="callout callout-warning" style="margin-top: 1rem;">
+      <strong>Deployment checklist:</strong>
+      <ol style="margin: 0.5rem 0 0 1.25rem; padding: 0; font-size: 0.85rem;">
+        {% for entity in dataModel %}
+        <li style="margin-bottom: 0.25rem;">
+          Replace Dataverse stub <strong>{{ entity.entity }}</strong> with <strong>{{ entity.source }}</strong>
+          {% if entity.integration %} ({{ entity.integration }} connector){% endif %}
+        </li>
+        {% endfor %}
+        <li style="margin-bottom: 0.25rem;">Verify all field mappings match the real system's schema</li>
+        <li style="margin-bottom: 0.25rem;">Test agent with real data before publishing to users</li>
+      </ol>
+    </div>
+
+    {% else %}
+    <p class="text-muted" style="font-size: 0.85rem; font-style: italic;">No external data model — agent uses native M365/Dataverse data only.</p>
+    {% endif %}
+  </div>
+</section>

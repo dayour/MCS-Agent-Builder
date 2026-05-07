@@ -1,0 +1,28 @@
+{
+  "surfaceId": "pva-get-directline-endpoint",
+  "method": "POST",
+  "urlPattern": "{dataverseUrl}/api/data/v9.2/bots({botId})/Microsoft.Dynamics.CRM.PvaGetDirectLineEndpoint",
+  "auth": "Dataverse bearer token",
+  "validationStrategy": "empty-body-bound-action",
+  "_strategyNote": "Bound action; post empty body, expect 200 with { Endpoint: <url> }. Field is PascalCase (discovered 2026-04-17). Eval pipeline uses this to acquire the Direct Line token URL for a bot.",
+  "kindDiscriminators": [],
+  "requiredFields": [],
+  "requestBody": "{}",
+  "responseShape": "{ @odata.context: string, Endpoint: string (url) }",
+  "lastVerified": "2026-04-17",
+  "lastVerifiedBy": "Live on bot 6d143a89... via diagnose-direct-line.js; returned HTTP 200 with Endpoint=<string len=197>",
+  "typedAdapterRef": "app/lib/eval-pipeline.js:getDirectLineToken (primary path)",
+  "knownQuirks": [
+    "Response field is 'Endpoint' (PascalCase) — NOT 'endpointUrl' or 'endpoint'. Legacy parsers looking for other casing will silently fail.",
+    "Response includes @odata.context metadata (~116 chars). Not relevant to contract.",
+    "The returned Endpoint URL is a signed pre-authenticated URL — GET against it (no Authorization header) returns { token, conversationId, expires_in }.",
+    "For bots without Direct Line enabled, the bound action still returns 200 but the Endpoint may be absent or empty — verify before use."
+  ],
+  "nonContractualFields": [
+    "$.'@odata.context' (OData metadata URL)"
+  ],
+  "errorCases": [
+    {"status": 400, "reason": "Bot not eligible for Direct Line"},
+    {"status": 404, "reason": "Bot GUID not found"}
+  ]
+}

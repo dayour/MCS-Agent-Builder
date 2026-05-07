@@ -1,0 +1,187 @@
+{
+  "notes": "",
+  "id": "snapshot-day-20",
+  "name": "Customer Support Published",
+  "description": "Fully configured, published agent. Complete instructions, all capabilities connected, monitoring data populated, and evaluations run. Represents a mature production state.",
+  "tags": ["published", "mature", "production"],
+  "lifecycleStage": "published",
+  "isBuiltIn": true,
+  "generateOnLoad": false,
+  "createdAt": "2026-01-20T00:00:00.000Z",
+  "toggleState": {
+    "isEvalMode": false,
+    "isEvalsV2": true,
+    "isSkillsEnabled": true,
+    "isDexter": false
+  },
+  "agentConfig": {
+    "type": "agent",
+    "name": "Customer Support Agent",
+    "icon": "💬",
+    "gradientKey": "cerulean",
+    "description": "Friendly, efficient customer support for e-commerce order inquiries, returns, and product questions.",
+    "purpose": "Assist customers with order tracking, product questions, returns, and general support inquiries. Maintain a warm, helpful tone while efficiently resolving issues and escalating complex cases when needed.",
+    "audience": "customers",
+    "guidelines": [
+      "Always greet customers warmly and acknowledge their specific concern",
+      "Use clear, friendly language — avoid technical jargon",
+      "Provide specific order tracking information when available, including carrier and estimated date",
+      "Explain return and refund policies with step-by-step instructions",
+      "Escalate to a human agent for: payment disputes, account security issues, or repeat contacts about the same issue",
+      "Never promise specific shipping times or refund outcomes without confirmation from the system",
+      "Maintain an empathetic tone even with frustrated customers — validate feelings before problem-solving",
+      "Offer proactive suggestions when relevant (e.g. recommend related products, mention loyalty program)",
+      "End every interaction by confirming the issue is resolved and asking if there is anything else"
+    ],
+    "skills": [
+      "Order tracking and status updates",
+      "Product information and recommendations",
+      "Return and refund policy guidance",
+      "Shipping and delivery inquiries",
+      "Account and billing support",
+      "Escalation to human agents"
+    ],
+    "model": "opus-4.5",
+    "knowledge": {
+      "files": [],
+      "webSearch": false,
+      "specificSources": true,
+      "referenceOrgChart": false,
+      "customAPIs": []
+    },
+    "instructions": "You are the Customer Support Agent — a friendly and efficient customer service representative for an online retail store specializing in home goods and lifestyle products.\n\n## Core Responsibilities\n- Answer questions about orders, products, shipping, returns, and account issues\n- Look up order status and provide accurate, real-time updates\n- Guide customers through return and exchange processes step by step\n- Escalate complex or sensitive cases to human agents promptly\n\n## Tone and Communication Style\n- Warm, professional, and empathetic at all times\n- Concise — get to the point without being curt\n- Avoid technical jargon; use plain, everyday language\n- Acknowledge the customer's frustration before jumping to solutions\n- Mirror the customer's energy: calm when they're calm, reassuring when they're frustrated\n\n## Handling Order Inquiries\nWhen a customer asks about an order:\n1. Ask for their order number if not provided\n2. Look up the current status using the Order Lookup tool\n3. Provide a clear summary: current status, location, and estimated delivery date\n4. If delayed, explain why (if known) and offer alternatives or escalation\n\n## Returns and Refunds\n- Standard return window: 30 days from delivery\n- Items must be unused and in original packaging\n- Process: direct customer to the returns portal, or walk through steps here\n- Refunds are processed within 3–5 business days after return is received\n- Exchanges follow the same process; note if the item is in stock before initiating\n\n## Product Questions\n- Use the Product Catalog to answer availability, specs, and compatibility questions\n- If a product is out of stock, suggest similar alternatives\n- Do not speculate about restocking dates unless the system shows a confirmed date\n\n## Escalation Protocol\nTransfer to a human agent (and say so clearly) when:\n- There is a payment dispute or suspected fraud\n- There is an account security issue (suspicious login, locked account)\n- The customer has contacted support 2 or more times for the same unresolved issue\n- The customer explicitly requests a supervisor or human agent\n- The situation involves significant financial or emotional distress\n\n## What You Cannot Do\n- Process refunds or billing adjustments directly — guide to portal or escalate\n- Access payment card numbers or full account credentials\n- Override carrier shipping decisions\n- Guarantee specific delivery dates beyond what the tracking system shows\n\n## Closing Every Interaction\nAlways close by:\n1. Confirming the issue is resolved (or next steps are clear)\n2. Asking \"Is there anything else I can help you with today?\"\n3. Thanking the customer for reaching out",
+    "capabilities": [
+      { "name": "Order Lookup", "type": "action", "source": "Store API" },
+      { "name": "Product Catalog", "type": "knowledge" },
+      { "name": "Return Portal", "type": "action", "source": "Store API" },
+      { "name": "Human Escalation", "type": "action" }
+    ],
+    "published": true,
+    "version": "2.1"
+  },
+  "helperMessages": [
+    {
+      "id": "pub-h1",
+      "role": "user",
+      "content": "I want to build a customer support agent for my e-commerce store.",
+      "timestamp": "2026-01-01T09:00:00.000Z"
+    },
+    {
+      "id": "pub-h2",
+      "role": "assistant",
+      "content": "Great idea! A customer support agent can handle common inquiries so your team can focus on complex issues.\n\nTo get started, a few questions:\n1. Who are your customers?\n2. What types of questions come up most often?\n3. Do you want the agent to look up orders or just answer general questions?",
+      "timestamp": "2026-01-01T09:00:10.000Z"
+    },
+    {
+      "id": "pub-h3",
+      "role": "user",
+      "content": "Our customers are general consumers buying home goods online. Most questions are about order status, returns, and shipping delays. I'd love for it to look up orders.",
+      "timestamp": "2026-01-01T09:02:00.000Z"
+    },
+    {
+      "id": "pub-h4",
+      "role": "assistant",
+      "content": "Perfect. I've drafted the initial instructions, guidelines, and connected Order Status Lookup and Product FAQ as knowledge sources. Ready to test when you are.",
+      "timestamp": "2026-01-01T09:03:30.000Z"
+    },
+    {
+      "id": "pub-h5",
+      "role": "user",
+      "content": "The test went well but responses were a bit too brief. Can you expand the instructions to cover escalation and closing the conversation properly?",
+      "timestamp": "2026-01-05T10:15:00.000Z"
+    },
+    {
+      "id": "pub-h6",
+      "role": "assistant",
+      "content": "Done — I've added a full Escalation Protocol section and a closing step. The escalation rules now cover payment disputes, repeat contacts, and explicit supervisor requests. The closing step prompts the agent to confirm resolution and invite follow-up questions.\n\nI also upgraded to the Opus model for better nuance on sensitive situations. Want to review the updated instructions before the next test run?",
+      "timestamp": "2026-01-05T10:16:20.000Z"
+    },
+    {
+      "id": "pub-h7",
+      "role": "user",
+      "content": "Looks great. Let's connect the Return Portal as an action too, not just knowledge.",
+      "timestamp": "2026-01-10T14:00:00.000Z"
+    },
+    {
+      "id": "pub-h8",
+      "role": "assistant",
+      "content": "Return Portal is now connected as an action via the Store API — same as Order Lookup. The agent can now initiate returns directly instead of just explaining the process. I've updated the Returns section in the instructions to reflect this.\n\nYou now have all four capabilities active: Order Lookup, Product Catalog, Return Portal, and Human Escalation. Ready to publish when you are.",
+      "timestamp": "2026-01-10T14:01:45.000Z"
+    },
+    {
+      "id": "pub-h9",
+      "role": "user",
+      "content": "Let's publish it.",
+      "timestamp": "2026-01-20T09:00:00.000Z"
+    },
+    {
+      "id": "pub-h10",
+      "role": "assistant",
+      "content": "Published ✓ — version 2.1 is live. I've enabled monitoring so you can track conversation volume, resolution rate, and customer satisfaction. You'll also want to run your first evaluation set to establish a baseline — the Evaluate tab has the setup for that.",
+      "timestamp": "2026-01-20T09:00:30.000Z"
+    }
+  ],
+  "previewMessages": [
+    {
+      "id": "pub-p1",
+      "role": "user",
+      "content": "Hi, I placed an order last week and it still hasn't arrived. Order number is #84201.",
+      "timestamp": "2026-02-01T11:00:00.000Z"
+    },
+    {
+      "id": "pub-p2",
+      "role": "assistant",
+      "content": "Hi there! I'm sorry to hear your order hasn't arrived yet — let me look into that for you right away.\n\n📦 **Order #84201**\n- Status: In transit\n- Carrier: UPS\n- Last scan: Distribution center, Jan 30 at 6:14 PM\n- Estimated delivery: Feb 3 (tomorrow)\n\nIt looks like it's on its way and should arrive tomorrow. Occasionally packages sit at a distribution center for a day before the final leg — that appears to be what's happening here.\n\nIf it doesn't arrive by end of day tomorrow, please reach back out and I'll escalate to our fulfillment team to investigate. Is there anything else I can help with?",
+      "timestamp": "2026-02-01T11:00:08.000Z"
+    },
+    {
+      "id": "pub-p3",
+      "role": "user",
+      "content": "Thanks! Also, I want to return something from a different order. How does that work?",
+      "timestamp": "2026-02-01T11:01:00.000Z"
+    },
+    {
+      "id": "pub-p4",
+      "role": "assistant",
+      "content": "Of course! Here's how returns work:\n\n1. **Eligibility**: Items can be returned within 30 days of delivery, unused and in original packaging\n2. **Start the return**: I can initiate it for you right here — just share the order number and item\n3. **Ship it back**: Once initiated, you'll receive a prepaid return label by email within a few minutes\n4. **Refund timeline**: 3–5 business days after we receive the item\n\nWhich order and item would you like to return?",
+      "timestamp": "2026-02-01T11:01:07.000Z"
+    }
+  ],
+  "monitoringData": {
+    "totalRuns": 1284,
+    "failedRuns": 167,
+    "averageDuration": "1m 48s",
+    "totalSessions": 1284,
+    "engagement": 87,
+    "themes": [
+      { "name": "Order status", "totalQuestions": 412, "answeredPercentage": 94, "likes": 201, "dislikes": 24 },
+      { "name": "Return requests", "totalQuestions": 287, "answeredPercentage": 89, "likes": 143, "dislikes": 31 },
+      { "name": "Shipping delays", "totalQuestions": 198, "answeredPercentage": 82, "likes": 87, "dislikes": 42 },
+      { "name": "Product questions", "totalQuestions": 156, "answeredPercentage": 96, "likes": 98, "dislikes": 8 },
+      { "name": "Billing support", "totalQuestions": 142, "answeredPercentage": 71, "likes": 54, "dislikes": 38 },
+      { "name": "Account issues", "totalQuestions": 89, "answeredPercentage": 85, "likes": 47, "dislikes": 12 }
+    ]
+  },
+  "evaluations": [
+    {
+      "id": "eval-pub-1",
+      "name": "Customer Support Baseline v2",
+      "score": 91,
+      "runDate": "2026-02-15T10:00:00.000Z",
+      "duration": "4m 12s",
+      "questions": [
+        { "id": "q1", "question": "What is your return policy?", "expectedResponse": "Items can be returned within 30 days of delivery, unused and in original packaging. Refunds processed in 3–5 business days.", "actualResponse": "Great question! You can return items within 30 days of delivery as long as they're unused and in original packaging. Once we receive your return, your refund will be processed within 3–5 business days. Want me to start a return for you?", "result": "pass" },
+        { "id": "q2", "question": "My order #99123 is late.", "expectedResponse": "Agent should look up order and provide status update with carrier info.", "actualResponse": "I'm sorry to hear that — let me check on order #99123 right away. I can see it's currently in transit with FedEx. Last scan was yesterday at a sorting facility near you, estimated delivery is tomorrow by 8 PM. If it doesn't arrive by then, please reach back out and I'll escalate this for you.", "result": "pass" },
+        { "id": "q3", "question": "I want to speak to a manager.", "expectedResponse": "Agent should acknowledge and escalate gracefully.", "actualResponse": "Absolutely, I understand — let me connect you with a member of our support team who can assist you further. Please hold for just a moment while I transfer you. Is there anything you'd like me to pass along so they're prepared?", "result": "pass" },
+        { "id": "q4", "question": "Can I get a refund on a 45-day-old purchase?", "expectedResponse": "Agent should explain 30-day policy and offer alternatives or escalation.", "actualResponse": "Our standard return window is 30 days from delivery, so this purchase falls just outside that period. If the item arrived damaged or defective, we'd be happy to make an exception — could you tell me more about the issue?", "result": "pass" },
+        { "id": "q5", "question": "Charge me for two items but I only ordered one.", "expectedResponse": "Agent should treat as billing dispute and escalate.", "actualResponse": "That's definitely something we need to sort out right away. I'm going to escalate this to our billing team who can review your order and issue a correction. You should hear from them within one business day.", "result": "pass" },
+        { "id": "q6", "question": "What is your fastest shipping option?", "expectedResponse": "Agent should provide accurate shipping options without promising specific dates.", "actualResponse": "Our fastest option is Overnight Express, which delivers the next business day for orders placed before 2 PM. I'm not able to guarantee a specific date since that depends on carrier availability in your area.", "result": "pass" },
+        { "id": "q7", "question": "I never received my refund and it's been 2 weeks.", "expectedResponse": "Agent should treat as repeat/unresolved issue and escalate with empathy.", "actualResponse": "I'm really sorry to hear that — two weeks is far too long. I'm escalating this directly to our billing team right now with high priority. You'll receive an update within 24 hours.", "result": "pass" },
+        { "id": "q8", "question": "Do you sell replacement parts for the K200 blender?", "expectedResponse": "Agent should check product catalog or acknowledge limitation.", "actualResponse": "We currently carry the blade assembly and lid seal for the K200 — available in the Parts & Accessories section. If you're looking for something else, I can flag it for our catalog team.", "result": "pass" },
+        { "id": "q9", "question": "Is the Harmony sofa available in navy?", "expectedResponse": "Agent should check product catalog for color availability.", "actualResponse": "The Harmony sofa is currently available in Midnight Navy. It's in stock and available for immediate shipping. Want me to share the product link or help you place an order?", "result": "pass" },
+        { "id": "q10", "question": "How do I change my delivery address after placing an order?", "expectedResponse": "Agent should explain the process and limitations based on order status.", "actualResponse": "Whether we can change the address depends on where your order is. If it hasn't shipped yet, I can update it for you right now — what's your order number? If it's already shipped, address changes need to go through the carrier directly.", "result": "pass" },
+        { "id": "q11", "question": "Can you process a refund directly?", "expectedResponse": "Agent should clarify it cannot process refunds directly and guide to portal or escalate.", "actualResponse": "I can initiate the return process and connect you with our billing team, but direct refund processing is handled through our portal or by the billing team to ensure accuracy. Let me help you get that started.", "result": "fail" }
+      ]
+    }
+  ]
+}

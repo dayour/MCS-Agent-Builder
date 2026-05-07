@@ -155,8 +155,8 @@ POST /api/botmanagement/v2/environments/{envId}/bots/{botId}/makerevaluations?Ap
 #### CLI
 
 ```bash
-# Upload all eval sets from brief.json
-node tools/island-client.js upload-evals --env <envId> --bot <botId> --brief <path-to-brief.json>
+# Upload all eval sets from agentspec.json
+node tools/island-client.js upload-evals --env <envId> --bot <botId> --brief <path-to-agentspec.json>
 
 # Run evaluation on an uploaded set
 node tools/island-client.js run-eval --env <envId> --bot <botId> --set-id <setId>

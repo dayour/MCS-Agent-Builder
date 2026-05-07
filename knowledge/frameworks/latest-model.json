@@ -1,0 +1,34 @@
+{
+  "_description": "Single source of truth for the default model used by agent-creation scripts. Update by hand (or as part of a /mcs-sync TAKE on the knowledge-cache card for models.md) when MS releases a newer experimental/preview model. Last verified against knowledge/cache/models.md.",
+  "lastVerified": "2026-04-30",
+  "default": {
+    "$kind": "ExperimentalModels",
+    "modelNameHint": "GPT55Reasoning",
+    "displayName": "GPT-5.5 Reasoning",
+    "category": "Deep",
+    "status": "Experimental",
+    "availability": "US only (early access environment)"
+  },
+  "fallback_if_experimental_disabled": {
+    "$kind": "CurrentModels",
+    "modelNameHint": "GPT5Reasoning",
+    "displayName": "GPT-5 Reasoning",
+    "category": "Deep",
+    "status": "Preview",
+    "availability": "Europe + US natively; Preview cross-geo elsewhere"
+  },
+  "ga_safe": {
+    "$kind": "CurrentModels",
+    "modelNameHint": "GPT5Chat",
+    "displayName": "GPT-5 Chat",
+    "category": "General",
+    "status": "GA Global",
+    "availability": "All regions"
+  },
+  "_notes": [
+    "ExperimentalModels: requires admin enablement (experimental + external + cross-geo flags). NOT for prod.",
+    "CurrentModels: stable kinds — Preview and GA models.",
+    "When optInUseLatestModels=true, MCS auto-routes within the chosen $kind tier.",
+    "Always pair with optInUseLatestModels: true so the agent floats forward as MS releases new versions."
+  ]
+}

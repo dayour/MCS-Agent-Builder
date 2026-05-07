@@ -1,5 +1,5 @@
 /**
- * Shared GPT Client — GitHub Copilot API (GPT-5.4)
+ * Shared GPT Client — GitHub Copilot Responses API (GPT-5.x)
  *
  * Provides GPT chat completion via the GitHub Copilot Responses API.
  * Supports both non-streaming and streaming (SSE) modes.
@@ -7,17 +7,20 @@
  *
  * Auth: GitHub PAT with `copilot` scope, auto-detected via `gh auth token`.
  * Setup: `gh auth login` then `gh auth refresh --scopes copilot`
- * Works for anyone with GitHub Copilot — no Azure resources or API keys needed.
+ *
+ * Model resolution (priority):
+ *   1. Explicit options.model passed to chatCompletion/streamCompletion
+ *   2. GPT_MODEL_ID env var (skips discovery)
+ *   3. Discovered id via GET /models, filtered to main numeric family (gpt-N.M),
+ *      highest version wins. Cached for the session.
+ *   4. KNOWN_LATEST_GPT floor — bumped here when a new family ships, but the
+ *      resolver auto-picks newer ones without code changes.
  *
  * Exports:
- *   isConfigured()            Check if GPT is available
- *   chatCompletion(messages, options)  Send chat completion (GPT-5.4)
- *   streamCompletion(messages, options) Streaming chat completion (async generator)
- *   estimateTokens(text)      Rough token count (chars/4)
- *   estimateCost(usage)       USD cost estimate
- *   getUsageSummary()         Cumulative session stats
- *   resetUsage()              Reset counters
- *   getActiveMethod()         Returns 'copilot-api' or null
+ *   isConfigured(), chatCompletion, streamCompletion, streamToString,
+ *   estimateTokens, estimateCost, getUsageSummary, resetUsage, getActiveMethod,
+ *   resolveGptModelId, warmGptModelResolution, resetGptModelResolution,
+ *   getResolvedGptId, getGptModelInfo, KNOWN_LATEST_GPT
  */
 
 const https = require('https');
@@ -27,13 +30,29 @@ const { httpRequestWithRetry } = require('./http');
 
 // --- Copilot API constants ---
 const COPILOT_API_ENDPOINT = 'https://api.githubcopilot.com/responses';
-const COPILOT_DEFAULT_MODEL = 'gpt-5.4';
+const COPILOT_MODELS_ENDPOINT = 'https://api.githubcopilot.com/models';
 const COPILOT_HEADERS = {
     'Copilot-Integration-Id': 'vscode-chat',
     'Editor-Version': 'vscode/1.96.0'
 };
 
-// Pricing per 1M tokens (GPT-5.4 class)
+// --- Known-latest GPT model id ---
+// Bump when a new family lands (or set GPT_MODEL_ID env). Discovery probes the
+// `/models` endpoint and overrides this with whatever's actually offered, so
+// the floor only matters as a fallback when discovery is skipped or fails.
+const KNOWN_LATEST_GPT = process.env.GPT_MODEL_ID || 'gpt-5.5';
+
+// --- Discovery gate ---
+// Set GPT_SKIP_DISCOVERY=1 to disable runtime discovery (use KNOWN_LATEST_GPT
+// directly). GPT_MODEL_ID env override implicitly skips discovery.
+const SKIP_DISCOVERY = process.env.GPT_SKIP_DISCOVERY === '1' || !!process.env.GPT_MODEL_ID;
+const DISCOVERY_TIMEOUT_MS = parseInt(process.env.GPT_DISCOVERY_TIMEOUT_MS || '5000', 10);
+
+// --- Resolved id cache (session-scoped) ---
+let _resolvedGptId = null;
+let _resolvingGptPromise = null;
+
+// Pricing per 1M tokens (GPT-5.x class — uniform across the main family)
 const PRICING = {
     input: 2.50,   // $ per 1M input tokens
     output: 10.00  // $ per 1M output tokens
@@ -227,6 +246,144 @@ function resetUsage() {
     _cacheStats = { hits: 0, misses: 0 };
 }
 
+// ---------------------------------------------------------------------------
+// Model discovery — query /models, pick highest gpt-N.M, cache for session
+// ---------------------------------------------------------------------------
+
+/**
+ * Compare two version strings of shape "N.M" (or "N").
+ * Returns negative / 0 / positive — suitable for Array.sort.
+ */
+function compareGptVersions(a, b) {
+    const pa = String(a).split('.').map(n => parseInt(n, 10) || 0);
+    const pb = String(b).split('.').map(n => parseInt(n, 10) || 0);
+    const len = Math.max(pa.length, pb.length);
+    for (let i = 0; i < len; i++) {
+        const da = pa[i] || 0;
+        const db = pb[i] || 0;
+        if (da !== db) return da - db;
+    }
+    return 0;
+}
+
+/**
+ * Parse a gpt model id into { family, version } if it matches the main
+ * numeric family pattern (e.g., "gpt-5.5", "gpt-6.0", "gpt-7"). Skips
+ * specialised variants like `gpt-5-mini` and `gpt-5.3-codex` because they
+ * have different cost/quality/feature profiles.
+ */
+function parseMainFamilyGptId(id) {
+    if (typeof id !== 'string') return null;
+    const m = id.match(/^gpt-(\d+(?:\.\d+)?)$/i);
+    if (!m) return null;
+    return { family: 'gpt', version: m[1] };
+}
+
+/**
+ * Fetch /models and return the best main-family GPT id (highest version).
+ * Returns null on failure (caller should fall back to KNOWN_LATEST_GPT).
+ */
+async function discoverLatestGptId() {
+    const token = getGitHubToken();
+    if (!token) return null;
+    try {
+        const res = await httpRequestWithRetry('GET', COPILOT_MODELS_ENDPOINT, {
+            'Authorization': `Bearer ${token}`,
+            ...COPILOT_HEADERS
+        }, null, 0, DISCOVERY_TIMEOUT_MS);
+        if (res.status !== 200 || !res.data || !Array.isArray(res.data.data)) return null;
+        const candidates = res.data.data
+            .map(m => parseMainFamilyGptId(m.id))
+            .filter(Boolean)
+            .sort((a, b) => compareGptVersions(b.version, a.version));
+        if (candidates.length === 0) return null;
+        return `gpt-${candidates[0].version}`;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Resolve the GPT model id to send. Priority:
+ *   1. GPT_MODEL_ID env override (skips discovery)
+ *   2. Cached resolved id (session-scoped)
+ *   3. /models discovery
+ *   4. KNOWN_LATEST_GPT floor
+ *
+ * Concurrent callers share a single in-flight discovery via promise dedup.
+ * @returns {Promise<string>}
+ */
+async function resolveGptModelId() {
+    if (process.env.GPT_MODEL_ID) {
+        _resolvedGptId = process.env.GPT_MODEL_ID;
+        return _resolvedGptId;
+    }
+    if (_resolvedGptId) return _resolvedGptId;
+    if (SKIP_DISCOVERY || !isConfigured()) {
+        _resolvedGptId = KNOWN_LATEST_GPT;
+        return _resolvedGptId;
+    }
+    if (_resolvingGptPromise) return _resolvingGptPromise;
+
+    _resolvingGptPromise = (async () => {
+        const discovered = await discoverLatestGptId();
+        if (discovered) {
+            _resolvedGptId = discovered;
+            if (discovered !== KNOWN_LATEST_GPT) {
+                console.error(`  [openai] Auto-discovered newer GPT model: ${discovered} (floor was ${KNOWN_LATEST_GPT})`);
+            }
+            return discovered;
+        }
+        _resolvedGptId = KNOWN_LATEST_GPT;
+        return _resolvedGptId;
+    })();
+
+    try {
+        return await _resolvingGptPromise;
+    } finally {
+        _resolvingGptPromise = null;
+    }
+}
+
+/**
+ * Pre-warm GPT model resolution. Safe to call at server boot.
+ * Returns the resolved id, or null when GPT is unavailable.
+ */
+async function warmGptModelResolution() {
+    if (!isConfigured()) return null;
+    return resolveGptModelId();
+}
+
+/**
+ * Reset the discovery cache. Next call to resolveGptModelId() re-probes.
+ */
+function resetGptModelResolution() {
+    _resolvedGptId = null;
+    _resolvingGptPromise = null;
+}
+
+/**
+ * Synchronous getter for the cached resolved id. Returns null until
+ * resolveGptModelId() / warmGptModelResolution() has been awaited at least
+ * once. Useful for diagnostic endpoints that don't want to trigger discovery.
+ */
+function getResolvedGptId() {
+    return _resolvedGptId;
+}
+
+/**
+ * Diagnostic snapshot for `/api/models/catalog` and similar endpoints.
+ */
+function getGptModelInfo() {
+    return {
+        resolvedGptId: _resolvedGptId,
+        knownLatestGpt: KNOWN_LATEST_GPT,
+        envOverride: process.env.GPT_MODEL_ID || null,
+        skipDiscovery: SKIP_DISCOVERY,
+        copilotAvailable: isConfigured()
+    };
+}
+
 /**
  * Convert chat messages [{role, content}] to Responses API input format.
  * Maps 'system' → 'developer' (Responses API terminology).
@@ -272,7 +429,7 @@ function normalizeUsage(data) {
 }
 
 /**
- * Send a chat completion request to GPT-5.4 via GitHub Copilot API.
+ * Send a chat completion request to the latest GPT-5.x model via the GitHub Copilot Responses API.
  *
  * Features:
  *   - Auto-scales max_output_tokens when reasoning is medium/high (prevents empty responses)
@@ -283,7 +440,7 @@ function normalizeUsage(data) {
  * @param {object} [options]
  * @param {number} [options.maxTokens] - Max output tokens (auto-scaled by reasoning effort if not set)
  * @param {number} [options.timeout=60000] - Request timeout in ms
- * @param {string} [options.model] - Model override (default: gpt-5.4)
+ * @param {string} [options.model] - Model override; defaults to discovered latest GPT id
  * @param {string} [options.reasoningEffort] - Reasoning effort: 'none'|'low'|'medium'|'high'|'xhigh'. Scales timeout automatically.
  * @param {number} [options.retries=3] - Max retry attempts on 429/529/5xx
  * @param {boolean} [options.cache=true] - Enable response caching (default: true)
@@ -306,7 +463,7 @@ async function chatCompletion(messages, options = {}) {
     }
 
     const reasoningEffort = options.reasoningEffort ?? null;
-    const model = options.model || COPILOT_DEFAULT_MODEL;
+    const model = options.model || await resolveGptModelId();
     const useCache = options.cache !== false;
 
     // --- Auto-scale max_output_tokens based on reasoning effort ---
@@ -323,7 +480,7 @@ async function chatCompletion(messages, options = {}) {
     }
 
     // Scale timeout based on reasoning effort — high/xhigh need much more time.
-    // GPT-5.4 with high reasoning on large context can take 60-180s.
+    // GPT-5.x with high reasoning on large context can take 60-180s.
     // Previous 120s timeout caused cascading retry failures.
     const EFFORT_TIMEOUTS = { none: 60000, low: 90000, medium: 120000, high: 300000, xhigh: 600000 };
     const defaultTimeout = EFFORT_TIMEOUTS[reasoningEffort] ?? 90000;
@@ -393,7 +550,8 @@ async function chatCompletion(messages, options = {}) {
 }
 
 /**
- * Streaming chat completion via GPT-5.4 Responses API SSE.
+ * Streaming chat completion via the GitHub Copilot Responses API SSE
+ * (latest GPT-5.x by default; pass options.model to pin a specific id).
  * Returns an async generator yielding events:
  *   { type: 'text', text: string }       — incremental text delta
  *   { type: 'done', usage: object, cost: number } — stream complete
@@ -403,7 +561,7 @@ async function chatCompletion(messages, options = {}) {
  * @param {object} [options]
  * @param {number} [options.maxTokens] - Max output tokens (auto-scaled by reasoning effort if not set)
  * @param {number} [options.timeout=60000] - Request timeout in ms
- * @param {string} [options.model] - Model override (default: gpt-5.4)
+ * @param {string} [options.model] - Model override; defaults to discovered latest GPT id
  * @param {string} [options.reasoningEffort] - Reasoning effort: 'none'|'low'|'medium'|'high'|'xhigh'
  * @param {AbortSignal} [options.signal] - AbortSignal to cancel the stream
  * @returns {AsyncGenerator<{type: string, text?: string, usage?: object, cost?: number}>}
@@ -445,8 +603,9 @@ async function* streamCompletion(messages, options = {}) {
         throw err;
     }
 
+    const resolvedStreamModel = options.model || await resolveGptModelId();
     const body = JSON.stringify({
-        model: options.model || COPILOT_DEFAULT_MODEL,
+        model: resolvedStreamModel,
         input: toResponsesInput(messages),
         stream: true,
         ...(maxTokens ? { max_output_tokens: maxTokens } : {}),
@@ -632,5 +791,12 @@ module.exports = {
     estimateCost,
     getUsageSummary,
     resetUsage,
-    getActiveMethod
+    getActiveMethod,
+    // Model resolution
+    KNOWN_LATEST_GPT,
+    resolveGptModelId,
+    warmGptModelResolution,
+    resetGptModelResolution,
+    getResolvedGptId,
+    getGptModelInfo
 };

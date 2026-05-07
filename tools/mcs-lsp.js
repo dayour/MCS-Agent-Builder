@@ -910,7 +910,67 @@ async function verifyAndPatchBody(workspacePath) {
  * via Dataverse API since LSP does not sync comment headers.
  * Then verifies body content was synced, with Dataverse PATCH fallback.
  */
+/**
+ * Pre-push safety guard (bm-LSP-001):
+ *   1. Reject if `agent.mcs.yml` is missing — pushing without it silently deletes
+ *      the GptComponentMetadata botcomponent (instructions, model, conversationStarters).
+ *   2. Auto-clean phantom `actions/<bot_schema>.topic.*.mcs.yml` files that the LSP
+ *      pull resurrects — they trigger StringLengthTooLong because the bot-schema-prefixed
+ *      filename produces a >100 char schema name on push.
+ * Set `options.skipPreflight=true` (or env MCS_LSP_SKIP_PREFLIGHT=1) to bypass.
+ */
+function safePushPreflight(workspacePath) {
+    if (process.env.MCS_LSP_SKIP_PREFLIGHT === '1') return;
+
+    const agentYml = path.join(workspacePath, 'agent.mcs.yml');
+    const hasOtherWorkspaceFiles =
+        fs.existsSync(path.join(workspacePath, 'topics')) ||
+        fs.existsSync(path.join(workspacePath, 'settings.mcs.yml'));
+    if (hasOtherWorkspaceFiles && !fs.existsSync(agentYml)) {
+        throw new Error(
+            'Pre-push guard: agent.mcs.yml is missing from the workspace.\n' +
+            'Pushing now would silently delete the GptComponentMetadata botcomponent ' +
+            '(instructions, model, conversationStarters, description).\n' +
+            'Run `node tools/mcs-lsp.js pull` first, or restore agent.mcs.yml from a backup. ' +
+            'See bm-LSP-001 in knowledge/learnings/build-methods.md.\n' +
+            'To override: set MCS_LSP_SKIP_PREFLIGHT=1 (acknowledges intentional deletion).'
+        );
+    }
+
+    const actionsDir = path.join(workspacePath, 'actions');
+    if (fs.existsSync(actionsDir)) {
+        // Read connJson lazily — only when actions/ exists
+        let botSchema = null;
+        try {
+            const conn = readConnJson(workspacePath);
+            botSchema = conn?.componentDef?.schemaName || conn?.schemaName || null;
+        } catch (_) { /* best-effort */ }
+        const phantomPrefix = botSchema ? `${botSchema}.topic.` : null;
+        const entries = fs.readdirSync(actionsDir);
+        const phantoms = entries.filter(name =>
+            phantomPrefix
+                ? name.startsWith(phantomPrefix)
+                : /^cr[a-z0-9_]+\.topic\..+\.mcs\.yml$/i.test(name)
+        );
+        for (const f of phantoms) {
+            const full = path.join(actionsDir, f);
+            try {
+                fs.unlinkSync(full);
+                console.error(`[mcs-lsp preflight] Removed phantom action file: actions/${f}`);
+            } catch (e) {
+                console.error(`[mcs-lsp preflight] Could not remove phantom: ${full}: ${e.message}`);
+            }
+        }
+        // Remove now-empty actions/ to keep workspace tidy
+        try {
+            const remaining = fs.readdirSync(actionsDir);
+            if (remaining.length === 0) fs.rmdirSync(actionsDir);
+        } catch (_) { /* ignore */ }
+    }
+}
+
 async function push(workspacePath, options = {}) {
+    safePushPreflight(workspacePath);
     const connJson = readConnJson(workspacePath);
     const tokens = getTokens(connJson);
     const syncRequest = buildSyncRequest(workspacePath, connJson, tokens);

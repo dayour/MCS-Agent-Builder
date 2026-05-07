@@ -67,6 +67,7 @@ All inputs support: `isRequired`, `errorMessage`, `label` (v1.3+)
 - Formatting: `Text(Topic.date, "MMM dd, yyyy")`
 - Dynamic arrays: `ForAll(Topic.items, { type: "TextBlock", text: ThisRecord.Name })`
 - `'$schema'` needs single quotes (special character)
+- **Scope rule (bm-LSP-002):** `cardContent` PowerFx evaluates in a **topic-bound scope**. References to `Topic.*` and `System.*` resolve, but `Global.*` references **do not** and cause card validation/runtime errors. If you need a value to survive across topic boundaries AND appear inside a card, keep the card-side reference as `Topic.foo` and add a `SetVariable Global.foo = Topic.foo` mirror at the end of the topic. The agent's generative orchestration reads `Global.*` cleanly after topic exit.
 
 ## MCS Adaptive Card Pattern Library
 

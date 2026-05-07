@@ -1,0 +1,75 @@
+name: Verify upstream-typed adapters
+
+on:
+  push:
+    branches: [main, elevate-migration]
+    paths:
+      - 'tools/upstream-specs/**'
+      - 'tools/generated/**'
+      - 'tools/island-client.js'
+      - 'tools/lib/http.js'
+      - 'app/lib/__tests__/island-client.*'
+      - 'tsconfig.tools.json'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/verify-upstream.yml'
+  pull_request:
+    paths:
+      - 'tools/upstream-specs/**'
+      - 'tools/generated/**'
+      - 'tools/island-client.js'
+      - 'tools/lib/http.js'
+      - 'app/lib/__tests__/island-client.*'
+      - 'tsconfig.tools.json'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/verify-upstream.yml'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install minimal verify CLIs globally (skip ADO-hosted packages)
+        run: |
+          npm install -g --ignore-scripts \
+            typescript@6.0.3 \
+            openapi-typescript@7.13.0 \
+            swagger2openapi@7.0.8
+        # Why install globally instead of `npm ci`:
+        # The lockfile pins `microsoft-agents-objectmodel` to a private Azure DevOps
+        # feed (pkgs.dev.azure.com/msazure/_packaging/CCI-Dependency) which requires
+        # an AAD-issued token. CI runners don't have ADO credentials, so `npm ci`
+        # (and `npm install <pkg>` from this directory, which still reads
+        # package.json) fail with E401 / E404 on that package.
+        #
+        # `npm install -g <pkg>...` ignores the project's package.json and only
+        # installs the listed packages to the global prefix, where they're in
+        # PATH for the verify steps below. The test step uses node:test built-ins
+        # only and needs no npm packages at all.
+        #
+        # If a future verify step DOES need microsoft-agents-objectmodel, add
+        # an ADO PAT as a GitHub Secret and write ~/.npmrc before npm ci.
+        # See tools/upstream-specs/auth-ado-npm.js for the local auth pattern.
+
+      - name: Validate vendored spec provenance
+        run: npm run validate:mgmt-spec
+
+      - name: Assert generated types match regen output (drift detection)
+        run: npm run assert:regen-clean
+
+      - name: Typecheck generated mgmt-types.ts
+        run: npm run typecheck:tools
+
+      - name: Run adapter unit tests
+        # Unquoted glob so bash expands it before node sees it. node --test in
+        # Node 20 doesn't glob-expand quoted patterns reliably.
+        run: node --test app/lib/__tests__/island-client.*.test.js

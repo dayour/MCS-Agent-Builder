@@ -1,0 +1,66 @@
+{
+  "_comment": "Deterministic resolver maps used by app/lib/knowledge-resolver.js. Not extracted from cache files (these encode design decisions, not MCS-published facts). Review + edit here — do not edit the JS fallback copies. Loaded at server startup; knowledge-resolver falls back to inline defaults if this file is missing.",
+  "_last_verified": "2026-04-22",
+  "_schema": "1.0",
+
+  "workIqMap": {
+    "_comment": "M365 keyword → Work IQ server mapping. When /mcs-research matches a capability text against these keywords, the resolver boosts the matching Work IQ MCP server (Priority 1a). Add keywords here when new M365 surfaces ship Work IQ coverage (e.g., 'loop', 'whiteboard').",
+    "_copilotServer": { "server": "Work IQ Copilot", "operationId": "mcp_M365Copilot" },
+    "_userServer": { "server": "Work IQ User", "operationId": "mcp_MeServer" },
+    "copilot": [
+      "mail", "email", "outlook",
+      "calendar", "meeting", "schedule",
+      "teams", "chat", "channel",
+      "sharepoint", "onedrive", "files", "documents",
+      "word",
+      "m365 search", "copilot"
+    ],
+    "user": [
+      "user", "profile", "manager",
+      "direct reports", "org chart"
+    ]
+  },
+
+  "capabilityTypePatterns": {
+    "_comment": "Regex patterns for heuristic implementation-type detection. Order matters — first match wins for confidence boost. Edit here when new capability verbs emerge (e.g., 'approve', 'review', 'summarize').",
+    "patterns": [
+      {
+        "type": "knowledge",
+        "regex": "\\b(answer|explain|describe|faq|policy|knowledge|information|summarize)\\b",
+        "confidence": 0.6,
+        "reason": "Question-answering or info-retrieval verbs suggest a knowledge-source-backed topic"
+      },
+      {
+        "type": "flow",
+        "regex": "\\b(create|update|delete|submit|send|trigger|automate|schedule|batch|notify|alert|approve)\\b",
+        "confidence": 0.6,
+        "reason": "Write/action verbs suggest a Power Automate flow"
+      },
+      {
+        "type": "topic",
+        "regex": "\\b(route|triage|classify|hand.?off|escalate|transfer|assign)\\b",
+        "confidence": 0.6,
+        "reason": "Routing/decision verbs suggest a rule-based topic"
+      },
+      {
+        "type": "tool",
+        "regex": "\\b(search|lookup|query|retrieve|fetch|get|find)\\b",
+        "confidence": 0.55,
+        "reason": "Read-only data access verbs suggest a tool (MCP server or connector)"
+      }
+    ]
+  },
+
+  "priorityLadder": {
+    "_comment": "Mirror of knowledge/frameworks/component-selection.md priority ladder. Used by cheat sheet generation so the wizard LLM sees the ordering. Update when framework doc changes.",
+    "tiers": [
+      { "priority": "1a", "source": "Work IQ (2 servers)", "examples": "Work IQ Copilot + Work IQ User — covers all M365 data", "research": "cache only" },
+      { "priority": "1b", "source": "Other MCS Built-In MCP", "examples": "Dataverse, Dynamics 365, Fabric, GitHub, Learn Docs, Sentinel", "research": "cache only" },
+      { "priority": "2",  "source": "Power Platform",        "examples": "Power Automate flows, Dataverse, custom connectors", "research": "cache only" },
+      { "priority": "3",  "source": "Azure Services",        "examples": "Azure Functions, Azure AI, Azure Storage", "research": "cache + quick verify" },
+      { "priority": "4",  "source": "M365 Connectors",       "examples": "SharePoint, Outlook, Teams (only if Work IQ unavailable)", "research": "cache only" },
+      { "priority": "5",  "source": "Certified Premium",     "examples": "Dynamics 365, ServiceNow, Salesforce", "research": "cache + verify availability" },
+      { "priority": "6",  "source": "Third-Party / Custom",  "examples": "Custom MCP servers, HTTP endpoints, community tools", "research": "full live research required" }
+    ]
+  }
+}

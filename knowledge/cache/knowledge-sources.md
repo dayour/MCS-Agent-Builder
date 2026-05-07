@@ -1,8 +1,9 @@
 <!-- CACHE METADATA
-last_verified: 2026-04-07
-sources: [MS Learn (knowledge-copilot-studio, requirements-quotas, knowledge-file-groups, knowledge-real-time-connectors, knowledge-unstructured-data, custom-knowledge-sources, knowledge-azure-ai-search, planned-features, 2026wave1 release plan, whats-new Apr 2026), MCS UI snapshot, WebSearch Apr 2026, 2026 Wave 1 release plan, Dynamics 365 Blog Mar 2026, MCS Cat Blog (dynamic-knowledge-urls)]
+last_verified: 2026-04-27
+sources: [MS Learn (knowledge-copilot-studio [last-mod 2026-04-24], nlu-boost-conversations [last-mod 2026-04-24], requirements-quotas, knowledge-file-groups, knowledge-real-time-connectors, knowledge-unstructured-data, custom-knowledge-sources, knowledge-azure-ai-search, planned-features, 2026wave1 release plan, 2026wave1 change-history Apr 15/16/19 entries, whats-new [last-mod 2026-04-23], M365 Copilot release notes Apr 2 2025), MCS UI snapshot, WebSearch Apr 2026, 2026 Wave 1 release plan + live fetch 2026-04-22, Dynamics 365 Blog Mar 2026, MCS Cat Blog (dynamic-knowledge-urls)]
 confidence: high
 refresh_trigger: before_architecture
+apr_2026_update: "SharePoint lists as knowledge source Preview slipped Apr→May 2026, GA May 2026 (Apr 15). Multi-turn conversation eval GA slipped May→Jun 2026 (Apr 19). Credential oversharing detection Preview slipped to Jul 2026, GA Sep 2026 (Apr 16). Unified errors/warnings view Preview slipped to May 2026 (Apr 16). Core 5 knowledge source types + 'Allow ungrounded responses' behavior unchanged. 'Official sources' still incompatible with generative orchestration. Apr 27 re-verify: knowledge-copilot-studio + nlu-boost-conversations docs both refreshed Apr 24, 2026. Content unchanged from Apr 22 cache (5 supported sources, generative vs classic limits, web search, allow ungrounded, tenant graph grounding all confirmed)."
 -->
 # MCS Knowledge Source Types
 
@@ -33,7 +34,7 @@ refresh_trigger: before_architecture
 
 ### Search & Grounding Settings (NOT tools -- these are toggles)
 
-**These are agent-level settings, NOT tools/connectors.** In brief.json, use `type: "setting"` (not `"ai-tool"`). Enable via Settings > Generative AI or LSP push (`gptCapabilities` in `settings.mcs.yml`).
+**These are agent-level settings, NOT tools/connectors.** In agentspec.json, use `type: "setting"` (not `"ai-tool"`). Enable via Settings > Generative AI or LSP push (`gptCapabilities` in `settings.mcs.yml`).
 
 | Type | Description | Setup | Notes |
 |------|-------------|-------|-------|
@@ -340,7 +341,7 @@ Moderation levels range from **Lowest** to **Highest**. Topic-level settings tak
 | File groups | **GA** (Aug 2025) | GA May 2026 (enhancements) | Group files with variable-based instructions to guide agent answers. GA May 2026 per 2026w1 release plan refers to additional enhancements. |
 | **SharePoint lists as knowledge source** | Preview Apr 2026 | GA May 2026 | Real-time connection to SharePoint list data. ACL-enforced. Select from recent/my lists. Source: 2026w1 planned features. |
 | **Use your own model for generating responses** | Preview Mar 2026 | TBD | Bring custom models for generative answers |
-| **Configure triggers with end-user credentials** | Preview Apr 2026 | GA Jun 2026 | **Updated from previous dates (was Mar/May)** |
+| **Configure triggers with end-user credentials** | Preview Apr 2026 | GA Jul 2026 | **Updated: GA moved from Jun to Jul 2026 per 2026w1 planned features** |
 | **Use MCP-compliant tools in agent workflows** | Preview Apr 2026 | GA Oct 2026 | Broader MCP tool integration in workflows |
 | **Define custom metrics for analytics** | Preview Apr 2026 | GA May 2026 | Custom metrics for agent analytics |
 | **See evaluation results in real time** | Preview May 2026 | GA May 2026 | Live eval results |
@@ -373,3 +374,5 @@ Moderation levels range from **Lowest** to **Highest**. Topic-level settings tak
 - **Per-prompt content moderation** (Feb 2026): control hate/fairness, sexual, violence, self-harm sensitivity per prompt
 - **Mar 2026 check**: Azure AI Search GA, file groups GA, SharePoint lists Preview Apr 2026, custom MCP servers as knowledge Preview Mar 2026 / GA Apr 2026. No new knowledge source types added since last check. Real-time connectors remain Preview.
 - **Apr 2026 check**: "Allow ungrounded responses" is the new official name for controlling general knowledge usage (replaces older "Use general knowledge" toggle). Bing Custom Search now available as knowledge source in generative orchestration (Mar 2026). Dynamic knowledge URLs supported for public websites and SharePoint (Connector Powered by Work IQ). Agent evaluations now GA (Mar 2026). Multi-turn conversation tests added. Configure triggers with end-user credentials timeline shifted: Preview Apr 2026, GA Jun 2026. Custom MCP servers as knowledge renamed to "Use MCP-compliant tools in agent workflows" (Preview Apr 2026, GA Oct 2026). Federated Copilot connectors (MCP-based, no data copy) GA Apr/May 2026 for M365 Copilot (Canva, HubSpot, Linear, Intercom, Google Calendar, Google Contacts, Notion, S&P Global, Moody's, LSEG) -- these are M365 Copilot features, not directly added via Copilot Studio knowledge.
+- **Apr 13 2026 check**: Configure triggers with end-user credentials GA moved again: now Jul 2026 (was Jun). "Use single sign-on for non-Entra ID connections" removed from release plan entirely (deprioritized, will not be delivered -- Feb 27 2026). Enhanced SharePoint URL support confirmed live: file, folder, and site URLs now accepted (not just site URLs). SharePoint knowledge now available for autonomous agents. No new knowledge source types added since last check. 2026w1 change history shows only one date change for Copilot Studio knowledge: SharePoint lists preview moved to Apr 2026 (already tracked). Real-time connectors remain Preview. Databricks and Snowflake as knowledge sources removed from Dataverse release plan (deprioritized Sep 2025 -- already known).
+- **Apr 27 2026 check**: knowledge-copilot-studio + nlu-boost-conversations docs both refreshed Apr 24, 2026. Content matches Apr 22 cache exactly — same 5 supported sources, same generative vs classic limits, same Web Search behavior, same Allow ungrounded responses logic, same Tenant graph grounding requirements. No new source types. No limit changes. **Confirmed status:** "Allow ungrounded responses" remains the official setting name. "Official sources" still NOT compatible with generative orchestration. Bing Custom Search as agent-level knowledge source GA Mar 2026 (re-confirmed). Tenant graph grounding still requires "Authenticate with Microsoft" auth setting + M365 Copilot license in same tenant. Content moderation default High for agents, Moderate for prompts.

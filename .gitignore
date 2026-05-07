@@ -25,6 +25,65 @@ kickStartTemplate*.json
 # -----------------------------------------------------------------------------
 tools/session-config.json
 tools/om-cli/.source-hash
+tools/test-log.jsonl
+tools/session-log.jsonl
+tools/session-log.*.jsonl
+tools/live-smoke-evidence/
+# Hash-chained audit logs — contain approver names + reasons + spec hashes.
+# Kept local to the machine that wrote it; not committed.
+knowledge/learnings/eval-gate-overrides.jsonl
+knowledge/learnings/iterate-audit.jsonl
+knowledge/learnings/auto-merge-audit.jsonl
+tools/test-guard-audit.jsonl
+tools/bundles/
+tools/.watch-lock
+tools/.watch-state.json
+tools/.test-loop.pending.json
+tools/.test-loop.lock
+tools/.test-loop.last-result.json
+tools/.backend-verify.pending.json
+tools/.backend-verify.lock
+tools/.backend-verify.last-result.json
+tools/.iterate-session.json
+tools/.iterate-brief.json
+tools/build-log.jsonl
+tools/session-metrics.jsonl
+.claude/.qa-pending.lock
+.claude/.qa-pending.*.lock
+.claude/audit-pending.json
+# Accidental nested .claude dirs created when GPT helper runs from a subdir
+**/.claude/.gpt-session.json
+# One-shot debug snapshots written by dev scripts
+.tmp_*.json
+# Playwright MCP probe console + page logs (large, transient)
+.playwright-cli/
+# Per-developer build metrics for typed-vs-legacy adoption (see
+# knowledge/learnings/typed-adoption-cutover.md). Aggregate is local-only.
+tools/typed-adoption-stats.jsonl
+# HAR captures and persisted browser auth state (cookies + localStorage).
+# Both contain session secrets — never commit.
+tools/har-captures/
+tools/auth/
+
+# Local archive for rotated runtime artifacts (HAR captures, large session logs).
+# Preserved on disk for forensic value but never committed.
+tools/.archive/
+
+# Root-level debug / state snapshots written by dev scripts and HAR analysis.
+# Not tracked because they're per-developer transient state.
+bot-state*.json
+patch-payload*.json
+patch-data-*.json
+time-entry-bot.json
+
+# Playwright MCP probe results — test output, not checked in.
+app/frontend/e2e/mcp-probe-results.json
+
+# Sync orchestrator runtime state: raw upstream pulls and fingerprint snapshots.
+# Snapshots regenerate on every sync run and would churn git history.
+# Decisions (knowledge/sync/decisions/) and views (knowledge/sync/views/) ARE committed.
+knowledge/sync/snapshots/
+knowledge/sync/runs/
 
 # -----------------------------------------------------------------------------
 # Python
@@ -60,11 +119,18 @@ yarn-error.log*
 credentials.json
 secrets.json
 
+# Repo-level .npmrc would expose feed tokens. Auth for the Azure DevOps
+# feed lives only in the user-level ~/.npmrc (managed by `npm run auth:ado-npm`).
+.npmrc
+
 # -----------------------------------------------------------------------------
 # Claude Code - User Specific
 # -----------------------------------------------------------------------------
 # Local settings contain user-specific permissions - each user configures their own
 .claude/settings.local.json
+# Session-scoped state (written by hooks and scheduler, never committed)
+.claude/.gpt-session.json
+.claude/scheduled_tasks.lock
 
 # -----------------------------------------------------------------------------
 # Logs
@@ -82,11 +148,12 @@ app/dist/
 app/frontend/node_modules/
 
 # -----------------------------------------------------------------------------
-# Browser MCP - Session Data
+# Browser MCP - Session Data & Playwright Test Artifacts
 # -----------------------------------------------------------------------------
 .playwright-mcp/
 playwright-report/
 test-results/
+app/frontend/e2e/results.json
 
 # -----------------------------------------------------------------------------
 # IDE & Editor
@@ -122,3 +189,8 @@ learnings/
 !knowledge/learnings/
 docs/
 scripts/
+
+# -----------------------------------------------------------------------------
+# Sync probe artifacts (raw fetched HTML/text used for diff)
+# -----------------------------------------------------------------------------
+knowledge/docs-cache/

@@ -1,0 +1,118 @@
+{
+  "_comment": "Curated volatile MS Learn URLs. Probed by tools/sync-adapters/docs-manifest.js. Drift surfaced as TAKE/REJECT cards via /mcs-sync; the action plan tells the user which knowledge/cache/*.md files to update. All URLs verified via microsoft_docs_search MCP on date below.",
+  "_last_verified": "2026-04-22",
+  "docs": [
+    {
+      "url": "https://learn.microsoft.com/en-us/microsoft-copilot-studio/agent-node-workflow",
+      "category": "orchestration",
+      "appliesTo": ["triggers.md", "generative-orchestration.md"],
+      "priority": "high",
+      "reason": "Agent node in flows — multi-agent orchestration, evolving rapidly"
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/microsoft-copilot-studio/flows-overview",
+      "category": "flows",
+      "appliesTo": ["triggers.md", "solution-patterns.md", "power-automate-integration.md"],
+      "priority": "high",
+      "reason": "Agent flows GA — natural-language flow creation, agent-flow billing model, CMK constraints all changed recently"
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/microsoft-copilot-studio/agent-extend-action-mcp",
+      "category": "mcp",
+      "appliesTo": ["mcp-servers.md"],
+      "priority": "high",
+      "reason": "MCP is fastest-moving area; new MCP connectors added monthly (Dataverse, D365 ERP, D365 Sales, Sentinel, Graph Enterprise)"
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/microsoft-copilot-studio/advanced-connectors",
+      "category": "connectors",
+      "appliesTo": ["connectors.md"],
+      "priority": "high",
+      "reason": "1400+ connectors, premium/standard tier reshuffles, connectors-as-knowledge-source preview moves"
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/microsoft-copilot-studio/nlu-boost-conversations",
+      "category": "knowledge",
+      "appliesTo": ["knowledge-sources.md", "generative-orchestration.md", "instructions-authoring.md"],
+      "priority": "high",
+      "reason": "Canonical generative-answers URL. Classic vs generative orchestration behavior (4 vs 25 websites)"
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/microsoft-copilot-studio/authoring-triggers-about",
+      "category": "triggers",
+      "appliesTo": ["triggers.md"],
+      "priority": "high",
+      "reason": "Event triggers overview — core triggers reference"
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/microsoft-copilot-studio/publication-add-bot-to-microsoft-teams",
+      "category": "channels",
+      "appliesTo": ["channels.md"],
+      "priority": "medium",
+      "reason": "Teams + M365 Copilot channel config — tenant consent/auth flows change periodically"
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/microsoft-copilot-studio/adaptive-cards-overview",
+      "category": "adaptive-cards",
+      "appliesTo": ["adaptive-cards.md", "channels.md"],
+      "priority": "medium",
+      "reason": "Schema v1.6 canvas / v1.5 Teams. Native chart elements vary by channel (Teams desktop renders, mobile doesn't, MCS test chat doesn't)"
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/microsoft-copilot-studio/authoring-select-agent-model",
+      "category": "models",
+      "appliesTo": ["models.md"],
+      "priority": "high",
+      "reason": "Highest-churn area. GPT-5 + Claude Sonnet 4.5/4.6 + Claude Opus 4.6 GA, GPT-5.4 experimental, retired models get 1-month grace"
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/microsoft-copilot-studio/bring-your-own-model-prompts",
+      "category": "models",
+      "appliesTo": ["models.md"],
+      "priority": "medium",
+      "reason": "BYOM via Azure AI Foundry — model catalog changes"
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/microsoft-copilot-studio/knowledge-copilot-studio",
+      "category": "knowledge",
+      "appliesTo": ["knowledge-sources.md"],
+      "priority": "medium",
+      "reason": "Knowledge sources summary + 'Allow ungrounded responses' (general knowledge fallback control)"
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/microsoft-copilot-studio/authoring-variables-about",
+      "category": "powerfx",
+      "appliesTo": ["powerfx-variables.md"],
+      "priority": "low",
+      "reason": "Variables concept stable (4 scopes). Lower churn — 14-day cadence sufficient"
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/microsoft-copilot-studio/publication-connect-bot-to-custom-application",
+      "category": "channels",
+      "appliesTo": ["channels.md", "api-capabilities.md"],
+      "priority": "medium",
+      "reason": "Direct Line + custom channel config"
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/microsoft-copilot-studio/analytics-agent-evaluation-intro",
+      "category": "eval",
+      "appliesTo": ["eval-methods.md"],
+      "priority": "high",
+      "reason": "Agent evaluations GA March 2026. Multi-turn tests + 6 test methods (General quality, Compare meaning, Capability use, Keyword match, Text similarity, Exact match). Direct impact on eval-guide integration"
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/microsoft-copilot-studio/computer-use",
+      "category": "ai-tools",
+      "appliesTo": ["ai-tools-computer-use.md", "solution-patterns.md"],
+      "priority": "high",
+      "reason": "Preview since May 2025, GA target May 2026. OpenAI CUA + Claude Sonnet 4.5 support. Hosted vs BYO machine. US-only. 5 Copilot Credits/step"
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/microsoft-copilot-studio/whats-new",
+      "category": "announcements",
+      "appliesTo": ["models.md", "triggers.md", "mcp-servers.md", "connectors.md", "knowledge-sources.md", "channels.md", "eval-methods.md"],
+      "priority": "high",
+      "reason": "Monthly announcement hub — catches all changes (GA promotions, retirements, new previews)"
+    }
+  ]
+}

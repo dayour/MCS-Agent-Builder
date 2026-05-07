@@ -344,27 +344,20 @@ function Add-BotKnowledgeFile {
     $componentId = $newComponent.botcomponentid
     Write-Host "Created knowledge component: $componentId" -ForegroundColor Cyan
 
-    # Upload file via fileattachments endpoint (Dataverse file storage)
+    # Upload file via the `filedata` virtual file column on botcomponent
+    # CORRECT endpoint per bm-047 (supersedes bm-023b): /filedata, not /fileattachment or /botcomponentfiledata
     $fileBytes = [System.IO.File]::ReadAllBytes($FilePath)
     $uploadHeaders = $Ctx.Headers.Clone()
     $uploadHeaders['Content-Type'] = 'application/octet-stream'
     $uploadHeaders['x-ms-file-name'] = $fileName
 
     try {
-        Invoke-RestMethod -Uri "$($Ctx.OrgUrl)/api/data/v9.2/botcomponents($componentId)/fileattachment" `
+        Invoke-RestMethod -Uri "$($Ctx.OrgUrl)/api/data/v9.2/botcomponents($componentId)/filedata" `
             -Method PATCH -Body $fileBytes -Headers $uploadHeaders
-        Write-Host "File uploaded: $fileName ($($fileBytes.Length) bytes)" -ForegroundColor Green
+        Write-Host "File uploaded via filedata column: $fileName ($($fileBytes.Length) bytes)" -ForegroundColor Green
     } catch {
-        Write-Host "File upload via fileattachment failed: $($_.Exception.Message)" -ForegroundColor Yellow
-        Write-Host "Attempting upload via botcomponentfiledata..." -ForegroundColor Yellow
-        try {
-            Invoke-RestMethod -Uri "$($Ctx.OrgUrl)/api/data/v9.2/botcomponents($componentId)/botcomponentfiledata" `
-                -Method PATCH -Body $fileBytes -Headers $uploadHeaders
-            Write-Host "File uploaded via botcomponentfiledata: $fileName ($($fileBytes.Length) bytes)" -ForegroundColor Green
-        } catch {
-            Write-Host "File upload failed on both endpoints: $($_.Exception.Message)" -ForegroundColor Red
-            Write-Host "Component $componentId created but file not attached. Upload manually in MCS." -ForegroundColor Red
-        }
+        Write-Host "File upload failed: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "Component $componentId created but file not attached. Verify Content-Type=application/octet-stream and x-ms-file-name header." -ForegroundColor Red
     }
     return $componentId
 }

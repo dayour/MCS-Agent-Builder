@@ -2,7 +2,7 @@
 
 Automate end-to-end Microsoft Copilot Studio agent builds — from customer intake through architecture, build, evaluation, and automated fix loops.
 
-Two AI models work in parallel: **Claude** orchestrates, writes code, and executes against MCS APIs. **GPT-5.4** runs alongside as a second pair of eyes — reviewing every instruction, topic, brief, and eval score in real-time. Different models, different biases, better coverage.
+Two AI models work in parallel: **Claude** orchestrates, writes code, and executes against MCS APIs. **GPT-5.5** runs alongside as a second pair of eyes — reviewing every instruction, topic, spec, and eval score in real-time. Different models, different biases, better coverage.
 
 ---
 
@@ -37,7 +37,7 @@ mcs doctor
 # 2. Azure CLI — required for building agents
 az login --tenant YourTenant.onmicrosoft.com
 
-# 3. GitHub CLI — optional, enables GPT-5.4 dual reviews
+# 3. GitHub CLI — optional, enables GPT-5.5 dual reviews
 gh auth login
 gh auth refresh --scopes copilot
 ```
@@ -47,7 +47,7 @@ gh auth refresh --scopes copilot
 | Auth | What It Enables |
 |------|----------------|
 | Azure CLI (`az login`) | Dataverse access, agent creation, publishing, eval testing |
-| GitHub CLI (`gh auth`) | GPT-5.4 dual-model reviews (optional but recommended) |
+| GitHub CLI (`gh auth`) | GPT-5.5 dual-model reviews (optional but recommended) |
 | PAC CLI (`pac auth create`) | Power Platform solution ALM (optional, API fallback exists) |
 
 The dashboard will guide you through account and environment selection when you start your first build.
@@ -58,17 +58,17 @@ The dashboard will guide you through account and environment selection when you 
 
 ```
   Documents  ──>  Research  ──>  Guard  ──>  Build  ──>  Evaluate  ──>  Fix  ──>  Deploy  ──>  Observe
-  (SDR, reqs)     (brief.json)   (preflight)  (MCS API)  (Direct Line)   (auto)   (prod env)   (health)
+  (SDR, reqs)     (agentspec.json)   (preflight)  (MCS API)  (Direct Line)   (auto)   (prod env)   (health)
                        │                          │                                     │
                   GPT reviews                GPT scores                            Drift check
                   in parallel                in parallel                           (governance)
 ```
 
 1. **Upload** customer documents (SDR, requirements, notes)
-2. **Research** — Claude reads everything, identifies agents, researches MCS components, generates the full design (`brief.json`)
+2. **Research** — Claude reads everything, identifies agents, researches MCS components, generates the full design (`agentspec.json`)
 3. **Guard** — pre-build validation checks auth, environment, connections, knowledge, tools, and model availability
 4. **Build** — Claude builds the agent in Copilot Studio using a hybrid API stack
-5. **Evaluate** — automated tests run against the published agent, scored by both heuristics and GPT-5.4
+5. **Evaluate** — automated tests run against the published agent, scored by both heuristics and GPT-5.5
 6. **Fix** — if eval pass rate is below target, Claude classifies failures, fixes instructions/topics, and re-evaluates
 7. **Deploy** — promote from dev to production (agent-level or solution-level, with auto-rollback on smoke test failure)
 8. **Observe** — post-deploy health monitoring: synthetic conversations, latency, knowledge freshness, quality regression
@@ -86,16 +86,16 @@ The dashboard shows everything in real-time with an embedded Claude Code termina
 /mcs-eval ProjectName agentId            Run eval tests, write results
 /mcs-fix ProjectName agentId             Fix eval failures, re-evaluate
 /mcs-report ProjectName agentId          Generate reports (brief/build/customer/deployment)
-/mcs-refresh                             Refresh knowledge cache
+/mcs-sync                                Detect upstream drift across 8 sources; TAKE/REJECT triage
 ```
 
 ---
 
-## Dual-Model Review (Claude + GPT-5.4)
+## Dual-Model Review (Claude + GPT-5.5)
 
 Every non-trivial task gets two AI perspectives automatically:
 
-| What Happens | Claude | GPT-5.4 (parallel) |
+| What Happens | Claude | GPT-5.5 (parallel) |
 |-------------|--------|-------------------|
 | Instructions written | Writes them | Co-generates independently, PE merges |
 | Topic YAML generated | Generates it | Co-generates independently, TE merges |
@@ -131,8 +131,8 @@ Each build step uses the best tool — fully API-native, zero browser automation
 | **Island Gateway API** | Model catalog, component reads, routing, settings, eval upload |
 | **Flow Manager** | Power Automate flow CRUD + composition |
 | **Dataverse API** | File uploads, bot name, publish, security |
-| **Direct Line API** | Eval testing (+ GPT-5.4 scoring with `--gpt` flag) |
-| **GPT-5.4 Review** | 14-command review CLI: co-gen, review, scoring, final quality gate |
+| **Direct Line API** | Eval testing (+ GPT-5.5 scoring with `--gpt` flag) |
+| **GPT-5.5 Review** | 14-command review CLI: co-gen, review, scoring, final quality gate |
 
 ### YAML Validation Pipeline
 
@@ -143,13 +143,13 @@ Topic YAML goes through 4 layers before reaching Copilot Studio:
 | Pre-generation | `gen-constraints.py` | Missing required fields |
 | Structural | `om-cli.exe` | Unknown nodes, invalid structure (357 types) |
 | Semantic | `semantic-gates.py` | PowerFx errors, cross-refs, variable flow, channel compat |
-| Spec drift | `drift-detect.py` | Missing topics, trigger mismatches vs brief |
+| Spec drift | `drift-detect.py` | Missing topics, trigger mismatches vs agent spec |
 
 ---
 
 ## Agent Teams
 
-Complex builds use 7 AI teammates + GPT-5.4 that challenge each other's work:
+Complex builds use 7 AI teammates + GPT-5.5 that challenge each other's work:
 
 | Teammate | Role |
 |----------|------|
@@ -159,7 +159,7 @@ Complex builds use 7 AI teammates + GPT-5.4 that challenge each other's work:
 | **QA Challenger** | Reviews all outputs, challenges claims, generates eval sets |
 | **Flow Designer** | Designs Power Automate flow specs |
 | **Repo Auditor** | Validates repo integrity + finds dead code, duplication, bloat |
-| **GPT-5.4** | Parallel second opinion on every review (via Copilot API) |
+| **GPT-5.5** | Parallel second opinion on every review (via Copilot API) |
 
 You interact with the lead only. The lead delegates, teammates debate and iterate, then the lead executes validated outputs in Copilot Studio.
 
@@ -187,7 +187,7 @@ Run `mcs doctor` to check everything.
 | Node.js 20+ | Yes | Server and terminal |
 | Claude Code | Yes | AI agent that runs the builds |
 | Git | Optional | Version control (not required for end users) |
-| GitHub CLI + copilot scope | Optional | GPT-5.4 cross-model reviews |
+| GitHub CLI + copilot scope | Optional | GPT-5.5 cross-model reviews |
 | Azure CLI | Required | Dataverse authentication (`az account get-access-token`) |
 | PAC CLI | Optional | Power Platform operations |
 | .NET 10 Runtime | Optional | YAML validation (om-cli) |
@@ -202,7 +202,7 @@ Single Node.js process serves the dashboard (Express HTTP), REST API, and Claude
 ```
 app/
   server.js                   Express server (HTTP + WebSocket on one port)
-  lib/                        Readiness, documents, projects, workiq, brief-migrate, terminal, wizard, enrichment, build-runner, skill-runner, knowledge-resolver, meeting/
+  lib/                        Readiness, documents, projects, workiq, spec-migrate, terminal, wizard, enrichment, build-runner, skill-runner, knowledge-resolver, meeting/
   frontend/                   React + TypeScript SPA (Vite + shadcn/ui)
   dist/                       Pre-built frontend (ships with npm package)
 ```
@@ -228,32 +228,34 @@ bin/
 
 .claude/
   settings.json               MCP servers, permissions, Opus + high effort defaults
-  skills/                     16 skills (14 MCS workflow + 2 utility)
-  agents/                     7 AI teammate definitions
-  rules/                      Path-scoped rules (tool priority, build discipline, auto-refresh)
+  skills/                     13 skills (MCS workflow + iterate + feedback + playwright-cli)
+  agents/                     6 AI teammate definitions (flow-designer, prompt-engineer, qa-challenger, repo-auditor, research-analyst, topic-engineer)
+  hooks/                      9 hooks (8 wired: gpt-reminder, team-routing, frontend/backend-test-trigger, mcs-build-verify, session-start/end, test-loop-stop-check; 1 preserved-unwired: check-gpt-attestation)
+  rules/                      Path-scoped rules (tool priority, build discipline, iterate framework, gpt-co-generation)
 
 app/
-  server.js                   Express backend + WebSocket terminal (single port)
-  lib/                        Readiness, documents, projects, workiq, brief-migrate, terminal, wizard, enrichment, build-runner, skill-runner, knowledge-resolver, meeting/
+  server.js                   Express backend + dev-logger middleware (single port)
+  lib/                        documents, projects, workiq, spec-migrate, enrichment, build-runner, skill-runner, knowledge-resolver, dev-logger, chat/, helper/, report/
   frontend/                   React + TypeScript SPA (Vite + shadcn/ui)
 
 knowledge/
   cache/                      24 MCS capability cheat sheets (auto-refreshed)
-  learnings/                  Experience from past builds
+  learnings/                  Experience from past builds + audit logs
   patterns/                   YAML, Dataverse, solution patterns + 35 topic + 9 flow templates
-  frameworks/                 Decision frameworks + eval scenarios
+  frameworks/                 Decision frameworks + eval scenarios + auto-merge-denylist
+  sync/                       Sync orchestrator runtime: snapshots, decisions, views
+  research/                   Research notes
+  *.json                      index.json, docs-manifest.json, feature-map.json, figma-reference.json, sync-manifest.json, etc.
 
 tools/
-  lib/openai.js               GPT-5.4 client (GitHub Copilot Responses API)
+  lib/openai.js               GPT-5.5 client (GitHub Copilot Responses API)
   lib/http.js                 Shared HTTP + Azure CLI token helpers
   lib/graph-sharepoint.js     Graph API + SharePoint file download
   lib/flow-composer.js        Flow composition (builders, wiring, validation)
   lib/connector-schema.js     Connector schema discovery
-  multi-model-review.js       GPT review CLI (14 commands: co-gen, review, scoring, final gate)
+  multi-model-review.js       GPT review CLI (20 commands: co-gen, review, scoring, final gate)
   eval-scoring.js             Scoring module (7 methods, dual heuristic+GPT)
   direct-line-test.js         Direct Line eval runner
-  copilotstudio-test.js       Copilot Studio native eval runner
-  powercat-test.js            Power CAT test framework runner
   mcs-lsp.js                  MCS Language Server wrapper (push/pull/clone)
   island-client.js            Island Gateway API client
   flow-manager.js             Power Automate flow CRUD + composition
@@ -261,8 +263,23 @@ tools/
   solution-library.js         Team SharePoint solution library
   replicate-agent.js          Cross-environment agent replication
   upstream-check.js           Knowledge cache freshness checker
+  sync-orchestrator.js        Sync orchestrator (manifest-driven adapter dispatch)
+  sync-adapters/              Per-source sync adapters (knowledge-cache, elevate, eval-guide, etc.)
+  iterate-orchestrator.js     /iterate primitives (classify, lanes, verdict, audit)
+  auto-merge-gate.js          Final pre-merge gate
+  oracle-runner.js            False-green prevention wrapper
+  agentic-test-loop.js        Frontend test-fix-iterate loop
+  backend-verify.js           Backend lane verifier (contracts + types + unit + smoke)
+  pipeline-test-loop.js       Build pipeline verify-fix harness
+  mcs-build-loop.js           Build loop status + verifier
+  har-capture.js              HAR capture for diagnostic dumps
+  figma-pull.js               Figma library refresh
+  live-smoke-eval-gate.js     Live smoke eval gate
+  contract-parity.js          API contract parity test
+  diagnose-direct-line.js     Direct Line introspection
   pac-mcp-wrapper.js          PAC CLI MCP server adapter
   om-cli/                     ObjectModel CLI — YAML validation (357 types)
+  upstream-specs/             Upstream API spec ingest + parity
   gen-constraints.py          Pre-generation constraint checks
   drift-detect.py             Brief-to-YAML spec drift detection
   semantic-gates.py           Semantic validation (PowerFx, cross-refs, channels)
@@ -270,7 +287,7 @@ tools/
   git-hooks/                  Pre-commit and pre-push hooks
 
 start.js                      Process manager (spawns server, opens browser, handles updates)
-templates/                    brief.json schema + default-recommendations.json
+templates/                    agentspec.json schema + default-recommendations.json + brief.json (legacy)
 ```
 
 ---

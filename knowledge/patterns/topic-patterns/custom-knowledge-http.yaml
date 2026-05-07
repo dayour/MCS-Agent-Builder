@@ -1,0 +1,109 @@
+# Pattern: Custom Knowledge Source via HTTP (OnKnowledgeRequested)
+# Trigger: OnKnowledgeRequested (fires when knowledge search is needed)
+# Shows: Agent queries external API and returns results as knowledge snippets
+# Common in: agents with custom search APIs, external CMS, internal wikis, Elasticsearch
+#
+# Based on: MS Learn "Connect to custom knowledge sources" guidance
+# https://learn.microsoft.com/en-us/microsoft-copilot-studio/guidance/custom-knowledge-sources
+#
+# Schema: 1.5 (standard YAML, no Teams extensions)
+# Key: The topic intercepts the knowledge pipeline and provides custom snippets.
+# The agent's AI then summarizes these snippets as if they came from native knowledge.
+#
+# IMPORTANT:
+# - Maximum 15 snippets returned to the AI for summarization
+# - CreateSearchQuery rewrites the user query using conversation history
+# - System.SearchResults is the special variable the agent reads for knowledge
+# - This pattern works alongside native knowledge sources (agent checks both)
+
+kind: AdaptiveDialog
+beginDialog:
+  kind: OnKnowledgeRequested
+  id: main
+  actions:
+    # Step 1: Rewrite user query using conversation context
+    # Resolves references like "tell me more about that" → actual subject
+    - kind: CreateSearchQuery
+      id: createQuery
+      userInput: =System.Activity.Text
+      result: Topic.SearchQuery
+
+    # Step 2: Call external search API with optimized query
+    - kind: HttpRequest
+      id: callExternalSearch
+      method: POST
+      url: "{{SEARCH_API_URL}}"
+      headers:
+        Content-Type: application/json
+        Authorization: "Bearer {{API_KEY_OR_ENV_VAR}}"
+      body:
+        query: =Topic.SearchQuery.SearchQuery
+        top: 10
+        filters:
+          category: "{{CATEGORY_FILTER}}"
+      responseType: json
+      resultVariable: Topic.SearchResults
+
+    # Step 3: Transform API results into knowledge snippets
+    # Each snippet must have: Content (text), Title (optional), Url (optional)
+    - kind: SetVariable
+      id: transformResults
+      variable: init:Topic.KnowledgeSnippets
+      value: |-
+        =ForAll(
+          Topic.SearchResults.results,
+          {
+            Content: ThisRecord.body,
+            Title: ThisRecord.title,
+            Url: ThisRecord.url
+          }
+        )
+
+    # Step 4: Assign to System.SearchResults (agent reads this for AI summarization)
+    - kind: SetVariable
+      id: setSearchResults
+      variable: System.SearchResults
+      value: =Topic.KnowledgeSnippets
+
+# --- Variant: Multiple custom sources with classification ---
+# Use AutomaticTaskInput to classify which source to query:
+#
+#   - kind: AutomaticTaskInput
+#     id: classifySource
+#     variable: init:Topic.SourceCategory
+#     entity: StringPrebuiltEntity
+#     shouldPromptUser: false
+#     inputType:
+#       properties:
+#         SourceCategory:
+#           type: String
+#           description: "Which knowledge category? Options: hr_policies, it_support, product_docs"
+#
+# Then use ConditionGroup to route to the appropriate API.
+
+# --- Variant: Combine with native knowledge ---
+# This topic runs alongside native knowledge sources. If the external API returns
+# empty results, the agent falls back to native knowledge automatically.
+# To ONLY use custom knowledge: remove all native knowledge sources from the agent.
+
+# --- Query rewriting explanation ---
+# CreateSearchQuery uses the full conversation history to rewrite ambiguous queries:
+# User: "What's the return policy for electronics?"
+# Agent: "Electronics can be returned within 30 days..."
+# User: "What about furniture?"
+# CreateSearchQuery rewrites "What about furniture?" → "What is the return policy for furniture?"
+# Without CreateSearchQuery, the API would search for "What about furniture?" literally.
+
+# --- Error handling ---
+# Add a ConditionGroup after HttpRequest to check for errors:
+#
+#   - kind: ConditionGroup
+#     id: checkHttpError
+#     conditions:
+#       - id: httpError
+#         condition: =IsBlank(Topic.SearchResults) || Topic.SearchResults.statusCode >= 400
+#         actions:
+#           - kind: SetVariable
+#             id: emptyResults
+#             variable: System.SearchResults
+#             value: =Table({Content: "No results found from external search."})

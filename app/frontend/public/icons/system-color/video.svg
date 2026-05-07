@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="2.0 8.0 44.0 32.0"><svg x="22.5" y="12.066" width="21.5" height="23.868" viewBox="0 0 21.5 23.8677">
+<g id="Color 4">
+<path d="M0 11.9339L16.2332 0.608391C18.454 -0.940986 21.5 0.647975 21.5 3.35582V20.5119C21.5 23.2198 18.454 24.8087 16.2332 23.2594L0 11.9339Z" fill="url(#paint0_radial_496_4831)"/>
+<path d="M0 11.9339L16.2332 0.608391C18.454 -0.940986 21.5 0.647975 21.5 3.35582V20.5119C21.5 23.2198 18.454 24.8087 16.2332 23.2594L0 11.9339Z" fill="url(#paint1_linear_496_4831)" fill-opacity="0.75"/>
+</g>
+<defs>
+<radialGradient id="paint0_radial_496_4831" cx="0" cy="0" r="1" gradientTransform="matrix(10.3631 31.6131 -58.1723 33.2747 11.1369 -3.44549)" gradientUnits="userSpaceOnUse">
+<stop offset="0.0810009" stop-color="#F08AF4"/>
+<stop offset="0.393858" stop-color="#9C6CFE"/>
+<stop offset="1" stop-color="#4E44DB"/>
+</radialGradient>
+<linearGradient id="paint1_linear_496_4831" x1="5.03425" y1="11.9339" x2="21.4791" y2="11.3476" gradientUnits="userSpaceOnUse">
+<stop stop-color="#312A9A"/>
+<stop offset="1" stop-color="#312A9A" stop-opacity="0"/>
+</linearGradient>
+</defs>
+</svg><svg x="4.0" y="10.0" width="27" height="28" viewBox="0 0 27 28">
+<path id="Color 3" d="M0 6.25C0 2.79822 2.79822 0 6.25 0H20.75C24.2018 0 27 2.79822 27 6.25V21.75C27 25.2018 24.2018 28 20.75 28H6.25C2.79822 28 0 25.2018 0 21.75V6.25Z" fill="url(#paint0_radial_496_4849)"/>
+<defs>
+<radialGradient id="paint0_radial_496_4849" cx="0" cy="0" r="1" gradientTransform="matrix(31.0646 29.6335 -55.6869 71.4102 -4.90836 1.16649)" gradientUnits="userSpaceOnUse">
+<stop stop-color="#F08AF4"/>
+<stop offset="0.341244" stop-color="#9C6CFE"/>
+<stop offset="1" stop-color="#4E44DB"/>
+</radialGradient>
+</defs>
+</svg><svg x="8.0" y="26.0" width="18" height="8" viewBox="0 0 18 8">
+<path id="Color 2" opacity="0.5" d="M0 4C0 1.79086 1.79086 0 4 0H14C16.2091 0 18 1.79086 18 4C18 6.20914 16.2091 8 14 8H4C1.79086 8 0 6.20914 0 4Z" fill="url(#paint0_linear_496_4839)"/>
+<defs>
+<linearGradient id="paint0_linear_496_4839" x1="-0.408992" y1="-9.77006e-05" x2="2.30797" y2="10.6882" gradientUnits="userSpaceOnUse">
+<stop stop-color="#3B148A"/>
+<stop offset="1" stop-color="#4B20A0"/>
+</linearGradient>
+</defs>
+</svg><svg x="10.0" y="28.001" width="14" height="4.118" viewBox="0 0 14 4.11765">
+<g id="Color 1">
+<path d="M2.02574 0C0.906953 0 0 0.921767 0 2.05882C0 3.19588 0.906953 4.11765 2.02574 4.11765H6.07721C7.19599 4.11765 8.10294 3.19588 8.10294 2.05882C8.10294 0.921767 7.19599 0 6.07721 0H2.02574Z" fill="var(--fill-0, #BABAFF)"/>
+<path d="M11.9743 4.11765C13.0931 4.11765 14 3.19588 14 2.05882C14 0.921767 13.0931 0 11.9743 0C10.8555 0 9.94856 0.921767 9.94856 2.05882C9.94856 3.19588 10.8555 4.11765 11.9743 4.11765Z" fill="var(--fill-0, #BABAFF)"/>
+</g>
+</svg></svg>

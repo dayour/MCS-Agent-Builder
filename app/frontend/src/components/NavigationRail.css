@@ -1,0 +1,4 @@
+/* Tooltip styles for navigation rail */
+.nav-item:hover .nav-tooltip {
+  opacity: 1 !important;
+}

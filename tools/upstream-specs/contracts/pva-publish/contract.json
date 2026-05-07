@@ -1,0 +1,30 @@
+{
+  "surfaceId": "pva-publish",
+  "method": "POST",
+  "urlPattern": "{dataverseUrl}/api/data/v9.2/bots({botId})/Microsoft.Dynamics.CRM.PvaPublish",
+  "auth": "Dataverse bearer token",
+  "validationStrategy": "empty-body-bound-action",
+  "_strategyNote": "This is a Dataverse bound action with no payload. The 'contract' is: send empty body, expect 204 (or 200) on success. Known flakiness: freshly-created agents need a few seconds before the action is acceptable.",
+  "kindDiscriminators": [],
+  "requiredFields": [],
+  "requestBody": "{}",
+  "responseShape": "HTTP 204 No Content (success) or HTTP 4xx with OData error envelope (failure)",
+  "lastVerified": "2026-04-16",
+  "lastVerifiedBy": "Live verification via build-pipeline.stepPublish (retried 4x with backoff against freshly-created bots; success rate 100% when bot exists and instructions present)",
+  "typedAdapterRef": "app/lib/build-pipeline.js:stepPublish",
+  "knownQuirks": [
+    "Freshly created agents can return HTTP 400 on first publish — the build-pipeline retries 4x with 5s / 5s / 10s / 15s backoff. Race condition with component materialization.",
+    "Publishing an agent with empty instructions succeeds but the agent is unusable in test chat. No warning — must verify via LSP pull after publish.",
+    "Publishing BEFORE calling POST /powervirtualagents/bots/{id}/api/botcomponents with Kind:['BotEntity'] succeeds but GptComponent is not materialized → empty agent.",
+    "Response body on success is empty (204). Response body on failure is OData error envelope: { error: { code, message } }."
+  ],
+  "nonContractualFields": [
+    "Response timing — varies with tenant load, usually <2s but can be 30s+"
+  ],
+  "errorCases": [
+    {"status": 400, "reason": "Bot does not exist or publish preconditions unmet"},
+    {"status": 401, "reason": "Invalid or expired Dataverse bearer"},
+    {"status": 403, "reason": "User lacks publish permission on target env"},
+    {"status": 404, "reason": "Bot GUID not found in target env"}
+  ]
+}

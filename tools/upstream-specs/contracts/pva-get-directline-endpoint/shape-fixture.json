@@ -1,0 +1,20 @@
+{
+  "request": {
+    "method": "POST",
+    "url": "/api/data/v9.2/bots(<botId>)/Microsoft.Dynamics.CRM.PvaGetDirectLineEndpoint",
+    "headers": {
+      "content-type": "application/json",
+      "odata-maxversion": "4.0",
+      "odata-version": "4.0"
+    },
+    "body": {}
+  },
+  "response": {
+    "status": 200,
+    "headers": { "content-type": "application/json; odata.metadata=minimal" },
+    "body": {
+      "@odata.context": "<dataverseUrl>/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.PvaGetDirectLineEndpointResponse",
+      "Endpoint": "<signed-endpoint-url-approx-200-chars>"
+    }
+  }
+}

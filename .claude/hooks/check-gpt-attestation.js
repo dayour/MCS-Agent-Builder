@@ -1,37 +1,33 @@
 #!/usr/bin/env node
 /**
- * Stop hook: Enforce GPT co-generation on every interaction.
+ * Stop hook — enforce GPT co-generation bound to THIS turn.
  *
- * Two enforcement modes:
+ * Pairs with gpt-reminder.js. UserPromptSubmit writes a pending marker with:
+ *   { sessionId, turnId, promptHash, promptTimestamp }
+ * multi-model-review.js reads this marker on every call and tags its
+ * attestation entry with the same (turnId, promptHash) triple.
  *
- * 1. **Per-interaction** (default) — compares GPT attestation timestamps against
- *    the pending marker written by the UserPromptSubmit hook. Every user message
- *    must have a corresponding GPT call.
+ * This Stop hook blocks unless at least one attestation entry in the
+ * CURRENT session's attestation file has turnId === current-pending-turnId.
+ * No cross-session scan, no 10-minute burst pass, no timestamp-based grace.
  *
- * 2. **Burst mode** — after a high-value GPT call (challenge, diagnose, review-code,
- *    review-*, generate-*), subsequent interactions within 10 minutes get a pass.
- *    This prevents wasteful compliance-only fires during rapid implementation phases.
- *    Low-value `ask` calls satisfy the current interaction but don't open a burst window.
- *
- * Fallback: if no pending marker exists (first run, or marker was cleaned up),
- * uses a 5-minute grace window.
+ * Bypass conditions:
+ *   - CLAUDE_HEADLESS=1              (spawned PTY for skill execution)
+ *   - CLAUDE_GPT_HOOK_DEPTH >= 2     (recursion guard; see gpt-reminder.js)
+ *   - No attestation dir exists       (first run — be lenient)
+ *   - No pending marker for session   (turnId unknowable — fail open)
+ *   - GPT unavailable attestation     (status='unavailable' counts as attempted)
  */
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-// Commands that open a burst window (high-value patterns)
-const HIGH_VALUE_COMMANDS = new Set([
-  'challenge', 'diagnose',
-  'review-code', 'review-components', 'review-flow', 'review-merged',
-  'generate-instructions', 'generate-evals', 'generate-topics',
-  'generate-components', 'generate-flow', 'generate-fix',
-]);
-
-const BURST_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
-
-// Skip enforcement in headless mode (spawned PTY for skill execution)
 if (process.env.CLAUDE_HEADLESS === '1') {
+  process.exit(0);
+}
+
+const hookDepth = parseInt(process.env.CLAUDE_GPT_HOOK_DEPTH || '0', 10);
+if (hookDepth >= 2) {
   process.exit(0);
 }
 
@@ -42,7 +38,6 @@ process.stdin.on('end', () => {
   try {
     const input = JSON.parse(raw);
 
-    // Only enforce on Stop events
     if (input.hook_event_name !== 'Stop') {
       process.exit(0);
     }
@@ -51,71 +46,62 @@ process.stdin.on('end', () => {
     const attestDir = path.join(os.tmpdir(), 'claude-gpt-attestations');
 
     if (!fs.existsSync(attestDir)) {
-      // No attestation dir at all — first run, be lenient
       process.exit(0);
     }
 
-    // Read the pending marker to get the prompt timestamp for THIS interaction
+    // Read pending marker for THIS session only.
     const markerPath = path.join(attestDir, `pending-${sessionId}.json`);
-    let promptTimestamp = null;
-    if (fs.existsSync(markerPath)) {
-      try {
-        const marker = JSON.parse(fs.readFileSync(markerPath, 'utf8'));
-        promptTimestamp = new Date(marker.promptTimestamp);
-      } catch { /* corrupt — fall through to grace window */ }
-    }
-
-    // Collect invocations from ALL attestation files (not just this session).
-    // multi-model-review.js reads session ID from current-session.json, which
-    // can be overwritten by other Claude sessions. So GPT attestations may land
-    // in a different session's file. Scan all to find them.
-    let invocations = [];
-    try {
-      for (const name of fs.readdirSync(attestDir)) {
-        if (name.startsWith('pending-') || name === 'current-session.json') continue;
-        if (!name.endsWith('.json')) continue;
-        const p = path.join(attestDir, name);
-        try {
-          const data = JSON.parse(fs.readFileSync(p, 'utf8'));
-          if (data.invocations) invocations = invocations.concat(data.invocations);
-        } catch { /* corrupt — skip */ }
-      }
-    } catch { /* dir read error — invocations stays empty */ }
-
-    // ── Burst mode check ──────────────────────────────────────────
-    // If a high-value GPT call happened within the burst window, pass.
-    const burstCutoff = new Date(Date.now() - BURST_WINDOW_MS);
-    const recentHighValue = invocations.find(
-      inv => HIGH_VALUE_COMMANDS.has(inv.command) &&
-             inv.status === 'success' &&
-             new Date(inv.timestamp) > burstCutoff
-    );
-    if (recentHighValue) {
+    if (!fs.existsSync(markerPath)) {
+      // No marker — can't enforce turn binding. Fail open (lenient).
       process.exit(0);
     }
 
-    // ── Per-interaction check ─────────────────────────────────────
-    if (promptTimestamp) {
-      // Any GPT call (including ask) AFTER the pending marker timestamp?
-      const hasCallAfterPrompt = invocations.some(
-        inv => new Date(inv.timestamp) > promptTimestamp
-      );
-      if (hasCallAfterPrompt) {
-        process.exit(0);
-      }
-    } else {
-      // No pending marker — use 5-minute grace window as fallback
-      const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
-      const hasRecentCall = invocations.some(inv => new Date(inv.timestamp) > fiveMinAgo);
-      if (hasRecentCall) {
-        process.exit(0);
-      }
+    let marker;
+    try {
+      marker = JSON.parse(fs.readFileSync(markerPath, 'utf8'));
+    } catch {
+      process.exit(0); // corrupt marker — fail open
     }
 
-    // No GPT call for this interaction — block
+    const currentTurnId = marker.turnId;
+    const currentPromptHash = marker.promptHash;
+
+    // Marker has no binding identifiers (e.g., notification-style turns where
+    // UserPromptSubmit fires without a real user prompt). Can't enforce
+    // turn-binding, so fail open to match the lenient pattern above.
+    if (typeof currentTurnId !== 'number' && !currentPromptHash) {
+      process.exit(0);
+    }
+
+    // Read THIS session's attestation file only. No cross-session scan.
+    const attestPath = path.join(attestDir, `${sessionId}.json`);
+    let invocations = [];
+    if (fs.existsSync(attestPath)) {
+      try {
+        const data = JSON.parse(fs.readFileSync(attestPath, 'utf8'));
+        invocations = data.invocations || [];
+      } catch { /* corrupt — treat as empty */ }
+    }
+
+    // Pass if any invocation binds to the current turn.
+    // - turnId match is primary binding
+    // - promptHash match is secondary binding (survives if turnId lost)
+    // - status='unavailable' (GPT exit 3) counts as attempted
+    const matchesTurn = invocations.some(inv => {
+      if (inv.status === 'unavailable') return true;
+      if (typeof currentTurnId === 'number' && inv.turnId === currentTurnId) return true;
+      if (currentPromptHash && inv.promptHash === currentPromptHash) return true;
+      return false;
+    });
+
+    if (matchesTurn) {
+      process.exit(0);
+    }
+
+    // No GPT call bound to this turn — block.
     const output = {
       decision: 'block',
-      reason: '[GPT] No GPT call detected for this interaction. Fire: node tools/multi-model-review.js <command> before responding.',
+      reason: `[GPT] No GPT call detected for turn ${currentTurnId}. Fire: node tools/multi-model-review.js <command> before responding.`,
     };
     process.stdout.write(JSON.stringify(output));
   } catch {

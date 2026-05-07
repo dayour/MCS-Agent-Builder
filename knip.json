@@ -1,0 +1,86 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "start.js",
+    "bin/cli.js",
+    "bin/postinstall.js",
+    "app/server.js",
+    "app/lib/scheduler.js",
+    "tools/*.js!",
+    "tools/sync-adapters/*.js!",
+    "tools/git-hooks/*",
+    "tools/lib/*.js!",
+    "app/lib/__tests__/**/*.test.{js,ts}"
+  ],
+  "project": [
+    "app/lib/**/*.js",
+    "tools/**/*.js",
+    "bin/**/*.js",
+    "scripts/**/*.js"
+  ],
+  "ignore": [
+    "tools/om-cli/**",
+    "tools/upstream-specs/**",
+    "tools/generated/**",
+    "tools/.archive/**",
+    "tools/har-captures/**",
+    "tools/live-smoke-evidence/**",
+    "tools/bundles/**",
+    "Build-Guides/**",
+    "app/dist/**",
+    "**/*.d.ts",
+    "**/*.test.js",
+    "**/__tests__/**",
+    "knowledge/**",
+    "templates/**",
+    ".claude/**",
+    "app/lib/report/static/report.js",
+    "app/lib/report/static/report.css"
+  ],
+  "ignoreBinaries": [
+    "az",
+    "gh",
+    "pac",
+    "pwsh",
+    "powershell",
+    "node",
+    "npm",
+    "npx",
+    "git",
+    "playwright",
+    "claude"
+  ],
+  "ignoreDependencies": [
+    "@playwright/test",
+    "@playwright/cli",
+    "@playwright/mcp"
+  ],
+  "workspaces": {
+    ".": {
+      "entry": [
+        "start.js",
+        "bin/cli.js",
+        "bin/postinstall.js",
+        "app/server.js",
+        "tools/*.js!",
+        "tools/sync-adapters/*.js!"
+      ],
+      "project": [
+        "app/lib/**/*.js",
+        "tools/**/*.js",
+        "bin/**/*.js"
+      ]
+    },
+    "app/frontend": {
+      "entry": [
+        "src/main.tsx!",
+        "vite.config.{js,ts}",
+        "playwright.config.{js,ts}",
+        "e2e/**/*.spec.ts"
+      ],
+      "project": [
+        "src/**/*.{ts,tsx}"
+      ]
+    }
+  }
+}

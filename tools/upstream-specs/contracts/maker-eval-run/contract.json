@@ -1,0 +1,28 @@
+{
+  "surfaceId": "maker-eval-run",
+  "method": "POST",
+  "urlPattern": "{gatewayUrl}/api/botmanagement/v2/environments/{envId}/bots/{botId}/makerevaluations?ApplyV2Migration=true",
+  "auth": "PVA token + Island Gateway headers",
+  "validationStrategy": "eval-run-submit",
+  "_strategyNote": "Submits an evaluation run (different from testcomponent, which CREATES the test definition). Currently unused by our pipeline — we use Direct Line directly — but contracted because island-client.js exposes the URL builder.",
+  "kindDiscriminators": [],
+  "requiredFields": [
+    {"path": "$.testSetId", "constraint": "GUID of the test set to run"}
+  ],
+  "responseShape": "{ runId: string, status: 'queued'|'running'|'completed'|'failed' }",
+  "lastVerified": "2026-04-16",
+  "lastVerifiedBy": "island-client.js builds this URL but live verification deferred — not yet called in production pipelines",
+  "typedAdapterRef": "tools/island-client.js (URL builder at line ~1733)",
+  "knownQuirks": [
+    "ApplyV2Migration=true is PascalCase — Kestrel is case-insensitive but the UI sends Pascal; match for safety",
+    "Currently only exercised by the MCS UI; our pipeline uses Direct Line directly for faster turnaround",
+    "Result polling endpoint is separate — not yet contracted"
+  ],
+  "nonContractualFields": [
+    "$.metadata (optional caller-supplied key/value map)"
+  ],
+  "errorCases": [
+    {"status": 400, "reason": "testSetId not found or incomplete test set"},
+    {"status": 500, "reason": "Server cannot queue run — common when feature just enabled or test set has no graders"}
+  ]
+}

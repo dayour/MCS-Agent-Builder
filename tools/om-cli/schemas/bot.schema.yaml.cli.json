@@ -392,6 +392,9 @@
           "$ref": "#/definitions/RealtimeVoiceProcessingMode"
         },
         {
+          "$ref": "#/definitions/VoiceAgentModelType"
+        },
+        {
           "$ref": "#/definitions/BotSpeechSettings"
         },
         {
@@ -477,6 +480,9 @@
         },
         {
           "$ref": "#/definitions/SessionBasedRoiCalculationSettings"
+        },
+        {
+          "$ref": "#/definitions/ConversationStarter"
         },
         {
           "$ref": "#/definitions/BotAuthenticationConfiguration"
@@ -821,6 +827,9 @@
           "$ref": "#/definitions/GptComponentMetadata"
         },
         {
+          "$ref": "#/definitions/DeclarativeSkillMetadata"
+        },
+        {
           "$ref": "#/definitions/GptCapabilities"
         },
         {
@@ -828,9 +837,6 @@
         },
         {
           "$ref": "#/definitions/TenantFineTunedModelDetails"
-        },
-        {
-          "$ref": "#/definitions/ConversationStarter"
         },
         {
           "$ref": "#/definitions/RecurrenceTrigger"
@@ -983,6 +989,9 @@
           "$ref": "#/definitions/AzureAISearchSource"
         },
         {
+          "$ref": "#/definitions/AzureFoundryIQSource"
+        },
+        {
           "$ref": "#/definitions/GraphConnectorSearchSource"
         },
         {
@@ -1068,6 +1077,9 @@
         },
         {
           "$ref": "#/definitions/VoiceTypeBase"
+        },
+        {
+          "$ref": "#/definitions/LanguageVoiceSetting"
         },
         {
           "$ref": "#/definitions/DigitalVoiceSettings"
@@ -1484,27 +1496,7 @@
         "title": "DialogBase",
         "type": "object",
         "x-base-ref": "#/definitions/LocalizableContentContainer",
-        "x-abstract": true,
-        "properties": {
-          "confirmation": {
-            "title": "Confirmation",
-            "description": "Provide a prompt that the user will see to confirm the dialog being executed.",
-            "$ref": "#/definitions/ResponseTemplate"
-          },
-          "response": {
-            "title": "Response",
-            "description": "Optional response template",
-            "$ref": "#/definitions/ResponseTemplate"
-          },
-          "inputs": {
-            "title": "Inputs",
-            "description": "Provide slot filling metadata for the dialog inputs.",
-            "type": "array",
-            "items": {
-              "$ref": "#/definitions/TaskInput"
-            }
-          }
-        }
+        "x-abstract": true
       },
       "oneOf": [
         {
@@ -2823,6 +2815,9 @@
           "$ref": "#/definitions/AzureAISearchSource"
         },
         {
+          "$ref": "#/definitions/AzureFoundryIQSource"
+        },
+        {
           "$ref": "#/definitions/GraphConnectorSearchSource"
         },
         {
@@ -3963,7 +3958,27 @@
         "title": "ToolDialogBase",
         "type": "object",
         "x-base-ref": "#/definitions/DialogBase",
-        "x-abstract": true
+        "x-abstract": true,
+        "properties": {
+          "confirmation": {
+            "title": "Confirmation",
+            "description": "Provide a prompt that the user will see to confirm the dialog being executed.",
+            "$ref": "#/definitions/ResponseTemplate"
+          },
+          "response": {
+            "title": "Response",
+            "description": "Optional response template",
+            "$ref": "#/definitions/ResponseTemplate"
+          },
+          "inputs": {
+            "title": "Inputs",
+            "description": "Provide slot filling metadata for the dialog inputs.",
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/TaskInput"
+            }
+          }
+        }
       },
       "oneOf": [
         {
@@ -6242,6 +6257,18 @@
               "description": "Controls how ambiguous date/time values are resolved",
               "default": "PromptForDisambiguation",
               "$ref": "#/definitions/AmbiguousDateTimeResolutionBehavior"
+            },
+            "regionalDateFormat": {
+              "title": "Date format",
+              "description": "Choose the regional date format for parsing and display.",
+              "default": "US",
+              "$ref": "#/definitions/RegionalDateFormat"
+            },
+            "expectedInputFormat": {
+              "title": "Expected input format",
+              "description": "Define which date components are expected from the user.",
+              "default": "FullDate",
+              "$ref": "#/definitions/DateInputFormat"
             }
           },
           "required": [
@@ -8202,6 +8229,10 @@
           "title": "LobAppId",
           "type": "string"
         },
+        "lobShareLink": {
+          "title": "LobShareLink",
+          "type": "string"
+        },
         "lastSharingUpdateDateTimeUtc": {
           "title": "LastSharingUpdateDateTimeUtc",
           "type": "string"
@@ -8281,6 +8312,11 @@
           "title": "VoiceProcessingMode",
           "description": "Represents the mode of voice used by the agent, classic or realtime.",
           "$ref": "#/definitions/VoiceProcessingModeBase"
+        },
+        "realtimeVoiceModel": {
+          "title": "RealtimeVoiceModel",
+          "description": "The GPT model to use for realtime voice processing mode",
+          "$ref": "#/definitions/VoiceAgentModelType"
         },
         "botSpeechSettings": {
           "title": "BotSpeechSettings",
@@ -8431,6 +8467,25 @@
       "properties": {
         "kind": {
           "const": "RealtimeVoiceProcessingMode"
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
+    "VoiceAgentModelType": {
+      "title": "VoiceAgentModelType",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/BotElement",
+      "properties": {
+        "kind": {
+          "const": "VoiceAgentModelType"
+        },
+        "model": {
+          "title": "Model",
+          "description": "Model name",
+          "type": "string"
         }
       },
       "required": [
@@ -9008,6 +9063,12 @@
           "description": "Include test data in analytics",
           "default": false,
           "type": "boolean"
+        },
+        "isSentimentAnalysisEnabled": {
+          "title": "IsSentimentAnalysisEnabled",
+          "description": "Enables sentiment analysis in Analytics",
+          "default": true,
+          "type": "boolean"
         }
       },
       "required": [
@@ -9090,6 +9151,32 @@
         "kind"
       ]
     },
+    "ConversationStarter": {
+      "title": "ConversationStarter",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/BotElement",
+      "properties": {
+        "kind": {
+          "const": "ConversationStarter"
+        },
+        "title": {
+          "title": "Title",
+          "description": "Title for the conversation starter",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "description": "Text that will be sent when the conversation starter is selected",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "title",
+        "text"
+      ]
+    },
     "BotAuthenticationConfiguration": {
       "title": "BotAuthenticationConfiguration",
       "type": "object",
@@ -9151,6 +9238,10 @@
         },
         "naturalLanguageModelURN": {
           "title": "NaturalLanguageModelURN",
+          "type": "string"
+        },
+        "customLexiconModelURN": {
+          "title": "CustomLexiconModelURN",
           "type": "string"
         },
         "modelProfile": {
@@ -9536,6 +9627,11 @@
       "properties": {
         "kind": {
           "const": "BotComponentCollectionConfiguration"
+        },
+        "collectionType": {
+          "title": "CollectionType",
+          "default": "AgentComponents",
+          "$ref": "#/definitions/BotComponentCollectionType"
         },
         "primaryLanguage": {
           "title": "PrimaryLanguage",
@@ -10078,6 +10174,24 @@
       "properties": {
         "kind": {
           "const": "AdaptiveDialog"
+        },
+        "confirmation": {
+          "title": "Confirmation",
+          "description": "Provide a prompt that the user will see to confirm the dialog being executed.",
+          "$ref": "#/definitions/ResponseTemplate"
+        },
+        "response": {
+          "title": "Response",
+          "description": "Optional response template",
+          "$ref": "#/definitions/ResponseTemplate"
+        },
+        "inputs": {
+          "title": "Inputs",
+          "description": "Provide slot filling metadata for the dialog inputs.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/TaskInput"
+          }
         },
         "modelDisplayName": {
           "title": "Model Display Name",
@@ -12879,6 +12993,13 @@
             "$ref": "#/definitions/TaskAction"
           }
         },
+        "declarativeSkillsMetadata": {
+          "title": "DeclarativeSkillsMetadata",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/DeclarativeSkillMetadata"
+          }
+        },
         "knowledgeSources": {
           "title": "Search knowledge sources",
           "description": "Get search results from the knowledge sources using selected mode.",
@@ -12910,6 +13031,38 @@
         "aISettings": {
           "title": "AISettings",
           "$ref": "#/definitions/AISettings"
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
+    "DeclarativeSkillMetadata": {
+      "title": "DeclarativeSkillMetadata",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/BotElement",
+      "properties": {
+        "kind": {
+          "const": "DeclarativeSkillMetadata"
+        },
+        "skillId": {
+          "title": "SkillId",
+          "description": "Skill Id",
+          "type": "string"
+        },
+        "scopes": {
+          "title": "Scopes",
+          "description": "Scopes for the skill",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "publishedStorageId": {
+          "title": "PublishedStorageId",
+          "description": "Storage Id reference for the skill",
+          "type": "string"
         }
       },
       "required": [
@@ -13041,32 +13194,6 @@
       },
       "required": [
         "kind"
-      ]
-    },
-    "ConversationStarter": {
-      "title": "ConversationStarter",
-      "type": "object",
-      "additionalProperties": false,
-      "x-base-ref": "#/definitions/BotElement",
-      "properties": {
-        "kind": {
-          "const": "ConversationStarter"
-        },
-        "title": {
-          "title": "Title",
-          "description": "Title for the conversation starter",
-          "type": "string"
-        },
-        "text": {
-          "title": "Text",
-          "description": "Text that will be sent when the conversation starter is selected",
-          "type": "string"
-        }
-      },
-      "required": [
-        "kind",
-        "title",
-        "text"
       ]
     },
     "RecurrenceTrigger": {
@@ -14260,6 +14387,31 @@
         "indexName"
       ]
     },
+    "AzureFoundryIQSource": {
+      "title": "Azure Foundry IQ",
+      "description": "Retrieve knowledge from an Azure Foundry IQ knowledge base via MCP protocol.",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/KnowledgeSource",
+      "properties": {
+        "kind": {
+          "const": "AzureFoundryIQSource"
+        },
+        "connectionReference": {
+          "title": "ConnectionReference",
+          "type": "string"
+        },
+        "knowledgeBaseName": {
+          "title": "Knowledge base name",
+          "description": "The name of the Foundry IQ knowledge base to query.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "knowledgeBaseName"
+      ]
+    },
     "GraphConnectorSearchSource": {
       "title": "Search substrate external items configured with graph connector.",
       "description": "Get search results from specified graph connector(s).",
@@ -14962,6 +15114,14 @@
           "title": "VoiceFont",
           "$ref": "#/definitions/VoiceTypeBase"
         },
+        "languageVoiceSettings": {
+          "title": "Language voice settings",
+          "description": "Per-language voice font overrides. For each language present here, the bound VoiceFont fully replaces the parent VoiceFont. Languages not listed fall back to the parent VoiceFont. Each Language value must appear at most once.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/LanguageVoiceSetting"
+          }
+        },
         "turnDetection": {
           "title": "Decide user has stopped speaking",
           "default": "SilenceBasedVoiceActivityDetection",
@@ -15147,6 +15307,58 @@
               "$ref": "#/definitions/NumberExpression"
             }
           ]
+        },
+        "voicePitch": {
+          "title": "Voice pitch",
+          "description": "Enable the maker to select the voice pitch.",
+          "default": 1,
+          "anyOf": [
+            {
+              "const": 0.25
+            },
+            {
+              "const": 0.5
+            },
+            {
+              "const": 0.75
+            },
+            {
+              "const": 1
+            },
+            {
+              "const": 1.25
+            },
+            {
+              "const": 1.5
+            },
+            {
+              "$role": "expression",
+              "$ref": "#/definitions/NumberExpression"
+            }
+          ]
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
+    "LanguageVoiceSetting": {
+      "title": "Language voice setting",
+      "description": "Voice font overrides scoped to a specific language.",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/BotElement",
+      "properties": {
+        "kind": {
+          "const": "LanguageVoiceSetting"
+        },
+        "language": {
+          "title": "Language",
+          "$ref": "#/definitions/Language"
+        },
+        "voiceFont": {
+          "title": "VoiceFont",
+          "$ref": "#/definitions/VoiceTypeBase"
         }
       },
       "required": [
@@ -15240,6 +15452,14 @@
               "$ref": "#/definitions/DigitalListeningMode"
             }
           ]
+        },
+        "languageVoiceSettings": {
+          "title": "Language voice settings",
+          "description": "Per-language voice font overrides. For each language present here, the bound VoiceFont fully replaces the parent VoiceFont. Languages not listed fall back to the parent VoiceFont. Each Language value must appear at most once.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/LanguageVoiceSetting"
+          }
         }
       },
       "required": [
@@ -17325,6 +17545,21 @@
         }
       ]
     },
+    "DeclarativeSkillScope": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Agent",
+          "description": "Skill is scoped to the agent",
+          "const": "Agent"
+        },
+        {
+          "title": "Copilot",
+          "description": "Skill is exposed to Copilot",
+          "const": "Copilot"
+        }
+      ]
+    },
     "GraphConnectorItemType": {
       "type": "string",
       "oneOf": [
@@ -17478,6 +17713,32 @@
         {
           "title": "Environment",
           "const": "Environment"
+        }
+      ]
+    },
+    "BotComponentCollectionType": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "AgentComponents",
+          "const": "AgentComponents"
+        },
+        {
+          "title": "EvaluationArtifacts",
+          "const": "EvaluationArtifacts"
+        }
+      ]
+    },
+    "AgentOutputFormat": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Text",
+          "const": "Text"
+        },
+        {
+          "title": "JsonSchema",
+          "const": "JsonSchema"
         }
       ]
     },
@@ -18303,6 +18564,18 @@
         {
           "title": "Kazakh",
           "const": 1087
+        },
+        {
+          "title": "Serbian_Cyrillic",
+          "const": 3098
+        },
+        {
+          "title": "Serbian_Latin",
+          "const": 2074
+        },
+        {
+          "title": "Malaysian",
+          "const": 1086
         }
       ]
     },
@@ -18622,6 +18895,56 @@
         {
           "title": "Format with only numerals",
           "const": "NumberAsDigits"
+        }
+      ]
+    },
+    "RegionalDateFormat": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "US (MM/DD/YYYY)",
+          "description": "United States date format: month/day/year.",
+          "const": "US"
+        },
+        {
+          "title": "EU (DD/MM/YYYY)",
+          "description": "European date format: day/month/year.",
+          "const": "EU"
+        }
+      ]
+    },
+    "DateInputFormat": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "MM/DD/YYYY (or DD/MM/YYYY)",
+          "description": "All date components are required (default). Displays as DD/MM/YYYY when RegionalDateFormat is EU.",
+          "const": "FullDate"
+        },
+        {
+          "title": "DD (MM, YY optional)",
+          "description": "Only the day is required; month and year are optional.",
+          "const": "DayOnly"
+        },
+        {
+          "title": "MM (DD, YY optional)",
+          "description": "Only the month is required; day and year are optional.",
+          "const": "MonthOnly"
+        },
+        {
+          "title": "YY (DD, MM optional)",
+          "description": "Only the year is required; day and month are optional.",
+          "const": "YearOnly"
+        },
+        {
+          "title": "MM/DD (or DD/MM)",
+          "description": "Month and day are required; year is optional. Displays as DD/MM (YY optional) when RegionalDateFormat is EU.",
+          "const": "DayMonth"
+        },
+        {
+          "title": "MM/YY (DD optional)",
+          "description": "Month and year are required; day is optional.",
+          "const": "MonthYear"
         }
       ]
     },
@@ -19130,6 +19453,10 @@
           "const": "SignInRequiredWithManualAuthentication"
         },
         {
+          "title": "InvalidEvaluationCollectionSchemaName",
+          "const": "InvalidEvaluationCollectionSchemaName"
+        },
+        {
           "title": "SynonymsNotUnique",
           "const": "SynonymsNotUnique"
         },
@@ -19328,6 +19655,10 @@
         {
           "title": "TooManyAzureAISearchSources",
           "const": "TooManyAzureAISearchSources"
+        },
+        {
+          "title": "TooManyAzureFoundryIQSources",
+          "const": "TooManyAzureFoundryIQSources"
         },
         {
           "title": "FederatedStructuredSearchSourceNotConfigured",

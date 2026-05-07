@@ -1,0 +1,13 @@
+{
+  "request": {
+    "method": "POST",
+    "url": "/powervirtualagents/bots/<botId>/api/botcomponents?api-version=2022-03-01-preview",
+    "headers": { "content-type": "application/json" },
+    "body": { "Kind": ["BotEntity"] }
+  },
+  "response": {
+    "status": 200,
+    "headers": {},
+    "body": null
+  }
+}

@@ -1,0 +1,165 @@
+{
+  "_description": "Registry of all MCS API contracts. Auto-discoverable by tools/contract-parity.js. Each entry MUST exist as contracts/<surfaceId>/ with contract.json, shape-fixture.json, parity.test.js.",
+  "schemaVersion": 1,
+  "lastFullRun": null,
+  "contracts": [
+    {
+      "surfaceId": "maker-eval-testcomponent",
+      "method": "POST",
+      "path": "/api/botmanagement/v2/environments/{envId}/bots/{botId}/makerevaluations/testcomponent",
+      "criticality": "high",
+      "owner": "build-pipeline (eval set creation)",
+      "lastVerified": "2026-04-17",
+      "verificationSource": "HAR capture (bot 63ec2f13-d139-f111-88b4-7c1e528d32a4, dktest)",
+      "typedAdapter": "tools/island-client.js:makerEvalUpdateTestComponents",
+      "tests": "app/lib/__tests__/island-client.updateTestComponents.test.js",
+      "runbook": "tools/upstream-specs/maker-eval-write.md"
+    },
+    {
+      "surfaceId": "dialogs-list",
+      "method": "GET",
+      "path": "/api/botauthoring/v1/environments/{envId}/bots/{botId}/dialogs",
+      "criticality": "medium",
+      "owner": "list-bot-dialogs (read path)",
+      "lastVerified": "2026-04-16",
+      "verificationSource": "Live shadow-mode parity (dktest, Daily Briefing bot)",
+      "typedAdapter": "tools/island-client.js:listDialogs",
+      "tests": "app/lib/__tests__/island-client.listDialogs.test.js",
+      "knownGap": "Typed adapter returns 0 dialogs vs legacy 25; endpoint is curated to Regular/System published dialogs only — see commit 60915f92"
+    },
+    {
+      "surfaceId": "bot-create",
+      "method": "POST",
+      "path": "/api/data/v9.2/bots",
+      "criticality": "critical",
+      "owner": "build-pipeline.stepCreate (agent creation)",
+      "lastVerified": "2026-04-15",
+      "verificationSource": "HAR capture (bot dde31320-3039-f111-88b4-7c1e528d32a4 creation, dktest)",
+      "typedAdapter": "app/lib/build-pipeline.js:stepCreate",
+      "validationStrategy": "targeted-fixture-coverage",
+      "knownQuirk": "Missing settings.default-2.1.0.content block silently creates bot without GptComponent (no orchestrator). Discovered via HAR diff 2026-04-15."
+    },
+    {
+      "surfaceId": "pva-publish",
+      "method": "POST",
+      "path": "/api/data/v9.2/bots({botId})/Microsoft.Dynamics.CRM.PvaPublish",
+      "criticality": "high",
+      "owner": "build-pipeline.stepPublish",
+      "lastVerified": "2026-04-16",
+      "verificationSource": "Live retried builds via stepPublish (4x backoff, 100% success when bot exists)",
+      "typedAdapter": "app/lib/build-pipeline.js:stepPublish",
+      "validationStrategy": "empty-body-bound-action",
+      "knownQuirk": "Freshly-created agents return 400 on first publish; retry with 5s/5s/10s/15s backoff."
+    },
+    {
+      "surfaceId": "component-sync",
+      "method": "PUT",
+      "path": "/api/botmanagement/v1/environments/{envId}/bots/{botId}/content/botcomponents",
+      "criticality": "high",
+      "owner": "build-pipeline.stepComponents / LSP push",
+      "lastVerified": "2026-04-15",
+      "verificationSource": "HAR capture (18 PUT operations observed during one agent build)",
+      "typedAdapter": "tools/island-client.js:updateComponents",
+      "validationStrategy": "delta-envelope-shape",
+      "knownQuirk": "ConcurrencyVersionMismatch (409) on stale componentDeltaToken — must re-pull before write."
+    },
+    {
+      "surfaceId": "bot-read",
+      "method": "GET",
+      "path": "/api/data/v9.2/bots({botId})",
+      "criticality": "high",
+      "owner": "build-pipeline.stepVerify + eval-pipeline.getDirectLineToken",
+      "lastVerified": "2026-04-17",
+      "verificationSource": "Live via diagnose-direct-line.js",
+      "typedAdapter": "N/A (direct Dataverse GET)",
+      "validationStrategy": "envelope-shape"
+    },
+    {
+      "surfaceId": "bot-query",
+      "method": "GET",
+      "path": "/api/data/v9.2/bots?$filter=...",
+      "criticality": "medium",
+      "owner": "build-pipeline.stepCreate (existence check)",
+      "lastVerified": "2026-04-17",
+      "verificationSource": "Used across multiple build-pipeline paths",
+      "validationStrategy": "odata-collection-envelope"
+    },
+    {
+      "surfaceId": "pva-get-directline-endpoint",
+      "method": "POST",
+      "path": "/api/data/v9.2/bots({botId})/Microsoft.Dynamics.CRM.PvaGetDirectLineEndpoint",
+      "criticality": "critical",
+      "owner": "eval-pipeline.getDirectLineToken (primary path)",
+      "lastVerified": "2026-04-17",
+      "verificationSource": "Live via diagnose-direct-line.js — returns { Endpoint: <url> } PascalCase",
+      "typedAdapter": "app/lib/eval-pipeline.js:getDirectLineToken",
+      "validationStrategy": "empty-body-bound-action",
+      "knownQuirk": "Response field is PascalCase 'Endpoint' — legacy parsers looking for camelCase fail silently"
+    },
+    {
+      "surfaceId": "bot-components-materialize",
+      "method": "POST",
+      "path": "/powervirtualagents/bots/{botId}/api/botcomponents?api-version=2022-03-01-preview",
+      "criticality": "critical",
+      "owner": "build-pipeline.stepCreate (materialize step)",
+      "lastVerified": "2026-04-15",
+      "verificationSource": "HAR capture + required per har-api-sequence-2026-04-15.md",
+      "typedAdapter": "app/lib/build-pipeline.js:stepCreate",
+      "validationStrategy": "kind-filter-materialize",
+      "knownQuirk": "Missing this call creates a bot without GptComponent (empty agent) — #1 build-pipeline gotcha"
+    },
+    {
+      "surfaceId": "botcomponents-create",
+      "method": "POST",
+      "path": "/api/data/v9.2/botcomponents",
+      "criticality": "high",
+      "owner": "build-pipeline.stepComponents",
+      "lastVerified": "2026-04-16",
+      "verificationSource": "Direct Dataverse use across build-pipeline; componenttype 9 for topics, 19 for test components",
+      "validationStrategy": "component-row-with-type",
+      "knownQuirk": "Duplicate schemaname returns 412 (not 409); componenttype=9 is custom topic (confusingly NOT 1)"
+    },
+    {
+      "surfaceId": "connectionreferences-crud",
+      "method": "GET|POST",
+      "path": "/api/data/v9.2/connectionreferences",
+      "criticality": "high",
+      "owner": "build-pipeline.stepComponents (connector resolution)",
+      "lastVerified": "2026-04-16",
+      "verificationSource": "Used to resolve or create connection refs for connector tools",
+      "validationStrategy": "odata-collection-or-row"
+    },
+    {
+      "surfaceId": "botcomponents-link-connref",
+      "method": "PUT",
+      "path": "/api/data/v9.2/botcomponents({compId})/botcomponent_connectionreference/$ref",
+      "criticality": "high",
+      "owner": "build-pipeline.stepComponents (associate step)",
+      "lastVerified": "2026-04-16",
+      "verificationSource": "Required per bm-037 learning: MCS raw POST without this association leaves component orphaned",
+      "validationStrategy": "odata-n-m-association"
+    },
+    {
+      "surfaceId": "maker-eval-settings",
+      "method": "GET",
+      "path": "/api/botmanagement/v1/environments/{envId}/bots/{botId}/settings",
+      "criticality": "medium",
+      "owner": "readers/maker-eval.isEnabled (eval-pipeline preflight)",
+      "lastVerified": "2026-04-17",
+      "verificationSource": "Live via eval-pipeline.reportMakerEvalState (enabled=true observed on dktest)",
+      "typedAdapter": "app/lib/readers/maker-eval.js",
+      "validationStrategy": "settings-envelope-shape"
+    },
+    {
+      "surfaceId": "maker-eval-run",
+      "method": "POST",
+      "path": "/api/botmanagement/v2/environments/{envId}/bots/{botId}/makerevaluations?ApplyV2Migration=true",
+      "criticality": "medium",
+      "owner": "island-client.js URL builder (not yet invoked in production path)",
+      "lastVerified": "2026-04-16",
+      "verificationSource": "URL builder exists; we currently use Direct Line instead",
+      "validationStrategy": "eval-run-submit",
+      "knownGap": "Not yet exercised live — contract is schema-level only"
+    }
+  ]
+}

@@ -5,7 +5,7 @@
  * Usage:  node tools/build-knowledge-index.js [--output <path>]
  * Output: knowledge/index.json (default)
  *
- * Run automatically during /mcs-refresh or manually when cache files change.
+ * Run manually when cache files change. Surfaces drift through /mcs-sync.
  */
 
 const fs = require("fs");
@@ -507,6 +507,7 @@ function generateCheatSheet(index) {
   lines.push("Conversational: OnConversationStart, OnRecognizedIntent, OnUnknownIntent, OnMessageActivity, OnSystemRedirect");
   lines.push("Event (autonomous): SharePoint, OneDrive, Dataverse, Recurrence, Planner, Email, Custom connectors");
   lines.push("Advanced: OnPlanComplete, OnGeneratedResponse, OnKnowledgeRequested (custom knowledge)");
+  lines.push("Agent flow composition: Agent Node in Agent Flows (GA Mar 2026) — call a Copilot Studio agent inline from a flow step, agent reasons over data + uses tools + optional human-in-the-loop escalation. See knowledge/cache/power-automate-integration.md.");
   lines.push("");
 
   // Channels summary
@@ -516,20 +517,32 @@ function generateCheatSheet(index) {
   lines.push("Default for internal: Teams + M365 Copilot. External: Custom website/WhatsApp.");
   lines.push("");
 
-  // MCP servers summary (top ones)
+  // MCP servers summary — data-driven, grouped by status AND Microsoft-vs-third-party
   lines.push("## MCP Servers (prefer over connectors)");
-  const gaServers = index.components.mcpServers.filter((s) => s.status.includes("GA")).map((s) => s.name);
-  const previewServers = index.components.mcpServers.filter((s) => s.status.includes("Preview")).map((s) => s.name);
-  lines.push(`GA: ${gaServers.slice(0, 10).join(", ")}`);
-  lines.push(`Preview: ${previewServers.slice(0, 10).join(", ")}`);
+  const allMcp = index.components.mcpServers || [];
+  const isMicrosoftBuilt = (s) => /^(Microsoft |Dynamics |Fabric|Fin|GitHub$|ICM|Process Mining|Power Apps|Work IQ|Dataverse|Office 365)/i.test(s.name);
+  const gaMicrosoft = allMcp.filter((s) => /GA/i.test(s.status) && isMicrosoftBuilt(s)).map((s) => s.name);
+  const gaThirdParty = allMcp.filter((s) => /GA/i.test(s.status) && !isMicrosoftBuilt(s)).map((s) => s.name);
+  const previewMicrosoft = allMcp.filter((s) => /Preview/i.test(s.status) && isMicrosoftBuilt(s)).map((s) => s.name);
+  const previewThirdParty = allMcp.filter((s) => /Preview/i.test(s.status) && !isMicrosoftBuilt(s)).map((s) => s.name);
+  if (gaMicrosoft.length) lines.push(`GA (Microsoft-built): ${gaMicrosoft.slice(0, 15).join(", ")}`);
+  if (previewMicrosoft.length) lines.push(`Preview (Microsoft-built): ${previewMicrosoft.slice(0, 15).join(", ")}`);
+  if (gaThirdParty.length) lines.push(`GA (third-party): ${gaThirdParty.slice(0, 10).join(", ")}`);
+  if (previewThirdParty.length) lines.push(`Preview (third-party): ${previewThirdParty.slice(0, 12).join(", ")}`);
+  lines.push(`Work IQ (Priority 1a): single server set — adds cross-M365 coverage. Use for any M365 data access.`);
   lines.push("");
 
-  // Connectors summary
+  // Connectors summary — data-driven from cache
   lines.push("## Key Connectors");
-  lines.push("M365: SharePoint, Outlook, Teams, OneDrive, Planner, Excel Online (all standard)");
-  lines.push("Data: Dataverse (MCP preferred), SQL Server (premium), HTTP (premium), Azure Blob (premium)");
-  lines.push("Third-party: Salesforce, ServiceNow, Jira, Confluence, Zendesk, Snowflake (all premium)");
-  lines.push("Rule: If connector has MCP server, prefer the MCP server.");
+  const allConn = index.components.connectors || [];
+  const connStandardM365 = allConn.filter((c) => /Standard/i.test(c.tier || c.license || "") || /m365|office/i.test(c.name) || /SharePoint|Outlook|Teams|OneDrive|Planner|Excel/.test(c.name));
+  const connPremiumData = allConn.filter((c) => /Premium/i.test(c.tier || c.license || "") && /SQL|HTTP|Azure|Blob|Dataverse/i.test(c.name));
+  const connThirdParty = allConn.filter((c) => /Premium/i.test(c.tier || c.license || "") && !/SQL|HTTP|Azure|Blob|Dataverse/i.test(c.name));
+  const connNames = (list) => list.map((c) => c.name + (c.mcpAlternative ? " (MCP alt)" : "")).slice(0, 8).join(", ");
+  if (connStandardM365.length) lines.push(`M365 Standard: ${connNames(connStandardM365)}`);
+  if (connPremiumData.length) lines.push(`Data (Premium): ${connNames(connPremiumData)}`);
+  if (connThirdParty.length) lines.push(`Third-party (Premium): ${connNames(connThirdParty)}`);
+  lines.push(`Rule: if a connector has "(MCP alt)", prefer the MCP server over the connector. Total catalog: ${allConn.length} connectors indexed, 1400+ in Power Platform catalog.`);
   lines.push("");
 
   // Knowledge sources
@@ -540,12 +553,33 @@ function generateCheatSheet(index) {
   lines.push("Limits: 500 knowledge objects/agent, 25 source limit for gen orchestration (uploaded files exempt), 5 source types max");
   lines.push("");
 
-  // Models
+  // Models — data-driven from cache (so fresh refreshes propagate to wizard prompt)
   lines.push("## Models");
-  lines.push("Default: GPT-4.1 (GA, all regions). Best general: GPT-5 Chat (GA). Deep reasoning: GPT-5 Reasoning (Preview) or Claude Opus 4.6 (GA).");
-  lines.push("Anthropic: Claude Sonnet 4.5/4.6 (GA), Claude Opus 4.6 (GA). All cross-geo.");
-  lines.push("Auto-routing: GPT-5 Auto (Preview). Cost-effective: GPT-4.1 mini (prompt builder only).");
+  const models = index.components.models || [];
+  const formatModels = (filter) => models
+    .filter(filter)
+    .map((m) => `${m.name}${m.category ? ` [${m.category}]` : ""}`)
+    .join(", ");
+  const gaModels = formatModels((m) => /GA/i.test(m.status) && !/Retired/i.test(m.status));
+  const previewModels = formatModels((m) => /Preview/i.test(m.status) && !/Experimental/i.test(m.status));
+  const experimentalModels = formatModels((m) => /Experimental/i.test(m.status));
+  const retiredModels = formatModels((m) => /Retired/i.test(m.status));
+  lines.push(`GA: ${gaModels || "(none in index)"}`);
+  if (previewModels) lines.push(`Preview: ${previewModels}`);
+  if (experimentalModels) lines.push(`Experimental (US early-access, not for prod): ${experimentalModels}`);
+  if (retiredModels) lines.push(`Retired: ${retiredModels}`);
+  lines.push("Default: GPT-4.1 (GA, all regions). Preview/Experimental require admin enablement (preview + external-models + cross-geo).");
   lines.push("");
+
+  // Recent capability changes (from cache front-matter apr_2026_update fields)
+  const recentUpdates = (index._meta.recentUpdates || []).filter((u) => u && u.trim());
+  if (recentUpdates.length > 0) {
+    lines.push("## Recent Capability Updates (last refresh)");
+    for (const update of recentUpdates.slice(0, 8)) {
+      lines.push(`- ${update}`);
+    }
+    lines.push("");
+  }
 
   // First-party agents
   lines.push("## First-Party Agents (recommend before building)");
@@ -561,12 +595,27 @@ function generateCheatSheet(index) {
   }
   lines.push("");
 
+  // Priority ladder — data-driven from resolver-maps.json (single source of truth)
+  const resolverMapsPath = path.join(__dirname, "..", "knowledge", "resolver-maps.json");
+  try {
+    if (fs.existsSync(resolverMapsPath)) {
+      const rm = JSON.parse(fs.readFileSync(resolverMapsPath, "utf-8"));
+      const tiers = rm.priorityLadder?.tiers || [];
+      if (tiers.length > 0) {
+        lines.push("## Component Priority Ladder (Microsoft-first)");
+        for (const t of tiers) {
+          lines.push(`Priority ${t.priority}: ${t.source} — ${t.examples}${t.research ? ` [${t.research}]` : ""}`);
+        }
+        lines.push("");
+      }
+    }
+  } catch {}
+
   // Scoring quick reference
   lines.push("## Architecture Decisions");
   lines.push("Solution type: 5-factor score (0=not-recommended, 1-2=flow, 3=hybrid, 4-5=agent)");
   lines.push("Architecture: 6-factor score (0-2=single-agent, 3+=multi-agent)");
   lines.push("Build path: first-party-only → declarative-agent → custom-agent");
-  lines.push("Component priority: MCS built-in > Power Platform > Azure > M365 > Premium > Third-party");
 
   return lines.join("\n");
 }
@@ -583,6 +632,23 @@ function buildIndex() {
   // Track what we read
   const cacheFiles = fs.readdirSync(CACHE_DIR).filter((f) => f.endsWith(".md"));
   sourceFiles.push(...cacheFiles.map((f) => `knowledge/cache/${f}`));
+
+  // Extract per-file recent-update notes from cache frontmatter so they flow
+  // into the cheat sheet (which the wizard's system prompt embeds verbatim).
+  // Cache files use a dated field like `apr_2026_update` in the metadata block.
+  const recentUpdates = [];
+  for (const file of cacheFiles) {
+    try {
+      const content = fs.readFileSync(path.join(CACHE_DIR, file), "utf-8");
+      const meta = parseCacheMetadata(content);
+      // Pick up any *_update field (forward-compatible: next refresh adds a new key)
+      for (const [key, val] of Object.entries(meta)) {
+        if (/_update$/.test(key) && typeof val === "string" && val.trim()) {
+          recentUpdates.push(`${file.replace(".md", "")}: ${val.trim()}`);
+        }
+      }
+    } catch {}
+  }
 
   // Extract components
   console.log("  Extracting triggers...");
@@ -635,6 +701,7 @@ function buildIndex() {
         patterns: patterns.length,
         evalScenarios: Array.isArray(evalScenarios?.scenarios) ? evalScenarios.scenarios.length : 0,
       },
+      recentUpdates,
     },
     components: {
       triggers,

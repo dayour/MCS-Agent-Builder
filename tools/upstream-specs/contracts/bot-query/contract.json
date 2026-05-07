@@ -1,0 +1,28 @@
+{
+  "surfaceId": "bot-query",
+  "method": "GET",
+  "urlPattern": "{dataverseUrl}/api/data/v9.2/bots?$filter={odataFilter}&$select=botid,name,statuscode",
+  "auth": "Dataverse bearer token",
+  "validationStrategy": "odata-collection-envelope",
+  "kindDiscriminators": [],
+  "requiredFields": [
+    {"path": "$.value", "constraint": "array (may be empty)"}
+  ],
+  "responseShape": "{ @odata.context: string, value: Bot[] }",
+  "lastVerified": "2026-04-17",
+  "lastVerifiedBy": "build-pipeline.stepCreate uses this to check if agent with schemaName exists before creating",
+  "typedAdapterRef": "app/lib/build-pipeline.js:stepCreate (existence check)",
+  "knownQuirks": [
+    "$filter with schemaname eq '<name>' works; quoting must escape single quotes inside names",
+    "Empty array (value: []) indicates no match — NOT a 404",
+    "Querying without $select on the bot collection has returned 0 results in some tenants (see knowledge/learnings entries). Always $select explicitly."
+  ],
+  "nonContractualFields": [
+    "$.'@odata.nextLink' (paging — rare for bot collection, but can appear)",
+    "value[].versionnumber"
+  ],
+  "errorCases": [
+    {"status": 400, "reason": "Malformed $filter expression"},
+    {"status": 401, "reason": "Invalid bearer"}
+  ]
+}

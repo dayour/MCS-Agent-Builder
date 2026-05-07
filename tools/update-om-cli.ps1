@@ -16,9 +16,11 @@
 #>
 
 param(
-    [switch]$Force,        # Rebuild even if no source changes
-    [switch]$SkipStage     # Don't git-add the result
+    [switch]$Force         # Rebuild even if no source changes
 )
+# This script rebuilds the bundled om-cli binary. It NEVER stages or commits
+# files. The user reviews `git status` after a rebuild and commits manually.
+# Triggered manually or from /mcs-sync action plans — never from git hooks.
 
 $ErrorActionPreference = 'Stop'
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -164,19 +166,15 @@ $currentHash | Out-File -FilePath $hashFile -NoNewline -Encoding ascii
 Write-Ok "om-cli rebuilt from $($currentHash.Substring(0,8))"
 
 # ---------------------------------------------------------------------------
-# Step 5: Stage changes (unless --SkipStage)
+# Step 5: Report result. Staging/committing is the user's responsibility.
 # ---------------------------------------------------------------------------
 
-if (-not $SkipStage) {
-    Push-Location $repoRoot
-    $changes = (git diff --name-only -- tools/om-cli/ 2>$null | Out-String).Trim()
-    $untracked = (git ls-files --others --exclude-standard -- tools/om-cli/ 2>$null | Out-String).Trim()
-
-    if ($changes -or $untracked) {
-        git add tools/om-cli/ 2>$null
-        Write-Ok "Staged om-cli changes (commit with your next push)"
-    } else {
-        Write-Ok "No binary changes after rebuild"
-    }
-    Pop-Location
+Push-Location $repoRoot
+$changes = (git diff --name-only -- tools/om-cli/ 2>$null | Out-String).Trim()
+$untracked = (git ls-files --others --exclude-standard -- tools/om-cli/ 2>$null | Out-String).Trim()
+if ($changes -or $untracked) {
+    Write-Ok "om-cli rebuilt. Review `git status -- tools/om-cli/` and commit when ready."
+} else {
+    Write-Ok "No binary changes after rebuild"
 }
+Pop-Location

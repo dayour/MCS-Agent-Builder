@@ -31,7 +31,7 @@ ID format: ar-NNN (architecture)
 **Result:** Ambiguity: "Relevance Scoring" tagged `future` looked like a deferred feature, but it was actually zero-cost prompt guidance that should have been MVP. The PE wrote it anyway, creating a mismatch the build didn't catch.
 **Better approach:** Added `implementationType` field to capability schema: `prompt` (instructions only, zero-cost), `topic` (needs custom YAML), `tool` (needs connector/MCP), `knowledge` (needs knowledge source), `flow` (needs Power Automate). Benefits: (1) `prompt` capabilities can be auto-included in instructions regardless of phase. (2) `tool`/`flow` capabilities tagged `future` clearly explain WHY they're deferred. (3) Build Step 2 validation uses `implementationType` to skip false-positive warnings (future + prompt = expected). (4) Research Phase C uses it to classify topic needs.
 **Confirmed:** 1 build(s) | Last confirmed: 2026-02-27
-**Related cache:** templates/brief.json
+**Related cache:** templates/agentspec.json
 **Tags:** #schema #capabilities #implementationType #phase #architecture #brief
 
 ### implementationType "topic" for topic+flow hybrids {#ar-003} — 2026-03-16
@@ -40,5 +40,5 @@ ID format: ar-NNN (architecture)
 **Result:** Misleading classification. The primary implementation is a custom topic (OnRecognizedIntent trigger, deterministic SendActivity nodes for user notification, SetVariable for data capture, reporting channels message). The agent flow is one sub-action inside the topic (InvokeFlowTaskAction). Classifying as "flow" made it look like a headless automation rather than a conversational topic.
 **Better approach:** When a capability is primarily a custom topic that calls a flow internally, use `implementationType: "topic"`. The topic is the user-facing component that drives routing and conversation. Use `"flow"` only when the capability is primarily a headless Power Automate flow (scheduled batch processing, event-triggered automation with no conversational UI). Rule of thumb: if the capability has a topic entry in `conversations.topics`, its `implementationType` should be `"topic"` — the flow is an integration detail, not the implementation type.
 **Confirmed:** 1 build(s) | Last confirmed: 2026-03-16
-**Related cache:** templates/brief.json
+**Related cache:** templates/agentspec.json
 **Tags:** #schema #capabilities #implementationType #topic #flow #hybrid #architecture

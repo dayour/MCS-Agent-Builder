@@ -1,0 +1,18 @@
+{
+  "request": {
+    "method": "POST",
+    "url": "/api/botmanagement/v2/environments/<envId>/bots/<botId>/makerevaluations?ApplyV2Migration=true",
+    "headers": { "content-type": "application/json" },
+    "body": {
+      "testSetId": "<testSetGuid>"
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": { "content-type": "application/json" },
+    "body": {
+      "runId": "<runGuid>",
+      "status": "queued"
+    }
+  }
+}

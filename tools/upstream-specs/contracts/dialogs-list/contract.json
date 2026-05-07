@@ -1,0 +1,16 @@
+{
+  "surfaceId": "dialogs-list",
+  "method": "GET",
+  "urlPattern": "{gatewayUrl}/api/botauthoring/v1/environments/{envId}/bots/{botId}/dialogs",
+  "auth": "PVA token (sub 96ff4394-9197-43aa-b393-6a41652e21f8)",
+  "kindDiscriminators": [],
+  "responseShape": "PagedQueryResponseOfDialog: { value: Dialog[], nextLink?: string }",
+  "lastVerified": "2026-04-16",
+  "lastVerifiedBy": "Live shadow-mode parity vs legacy readComponents (dktest, Daily Briefing bot)",
+  "typedAdapterRef": "tools/island-client.js:listDialogs",
+  "typeRef": "tools/generated/mgmt-types.ts (PagedQueryResponseOfDialog)",
+  "knownQuirks": [
+    "Curated endpoint — returns only Regular/System published dialogs. NOT a 1:1 replacement for legacy readComponents + filter (which sees all DialogComponent rows including drafts).",
+    "Shadow-mode parity 2026-04-16: typed=0 vs legacy=25 on a real dktest bot. Documented gap. Use the reader's mode='legacy' for full coverage; 'typed' only when curated subset is the intent."
+  ]
+}

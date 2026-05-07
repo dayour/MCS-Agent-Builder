@@ -6,7 +6,7 @@
 
 ## Re-enrich Path (processingPath == "re-enrich")
 
-When `processingPath == "re-enrich"` (brief was edited, no new docs -- e.g., user answered open questions):
+When `processingPath == "re-enrich"` (spec was edited, no new docs -- e.g., user answered open questions):
 
 Phase A was skipped (no new docs to process). Go straight to:
 
@@ -34,7 +34,7 @@ Existing behavior -- full architecture scoring + parallel dispatch as described 
 Read `knowledge/learnings/architecture.md` and `knowledge/learnings/instructions.md` (if non-empty) before architecture scoring and instruction writing. Look for:
 - Architecture patterns that matched similar agent profiles (single vs multi-agent precedents)
 - Instruction patterns that improved quality (boundary language, tool reference patterns)
-- Present relevant learnings to PE alongside the brief data
+- Present relevant learnings to PE alongside the spec data
 
 Also read `knowledge/learnings/topics-triggers.md` and `knowledge/learnings/eval-testing.md` (if non-empty) before topic classification and eval generation. Look for:
 - Topic patterns that improved routing (trigger phrase strategies, "by agent" description patterns)
@@ -57,7 +57,7 @@ Score single vs multi-agent using the 6-factor framework:
 
 Also consider **Connected Agent** -- when the agent bridges to an external agent system (e.g., Azure AI Foundry agent). Rule out explicitly if not applicable.
 
-Update `brief.json architecture`:
+Update `agentspec.json architecture`:
 - `architecture.type` -- `"single-agent"`, `"multi-agent"`, `"connected-agent"`, or `"single-agent-with-connected-agents"` (UI normalizes the last to `connected-agent`)
 - `architecture.reason` -- 2-4 sentences explaining why this type was selected. Reference the score, the key factors that drove the decision, and why the other types were ruled out.
 - `architecture.factors` -- 6-factor object, each with `value` (true/false) and `reasoning` (1-2 sentences explaining why this factor scored the way it did, referencing the agent's specific capabilities and data)
@@ -137,7 +137,7 @@ Before model selection, verify that M365 integrations resolve to Work IQ:
 3. **Decision threshold:**
    - If the latest GA model is the obvious choice (general-purpose agent, no special requirements) -> auto-apply to `agent.recommendedModel`, no decision entry.
    - If meaningfully different options exist (e.g., GPT-4.1 vs GPT-5 Reasoning for a reasoning-heavy agent, or cost matters) -> create model decision with options.
-4. **Write to brief.json:** Set `agent.recommendedModel` to the selected/recommended model name. PE uses this for model-aware instruction writing.
+4. **Write to agentspec.json:** Set `agent.recommendedModel` to the selected/recommended model name. PE uses this for model-aware instruction writing.
 
 **Model decision format (when created):**
 ```json
@@ -163,7 +163,7 @@ Before dispatching teammates, the Lead classifies each capability's topic type. 
 - Is a hard boundary/decline/refuse scenario (instructions alone are unreliable -- need manual response topic)
 - Requires tool calls in a specific sequence
 - Requires channel-specific behavior (adaptive cards, quick replies)
-- Maps to a capability that the brief marks as requiring "structured" or "workflow" behavior
+- Maps to a capability that the spec marks as requiring "structured" or "workflow" behavior
 
 **Borderline cases:** When criteria are mixed, create a `topic-implementation` decision:
 
@@ -226,7 +226,7 @@ When classifying `implementationType` for capabilities, apply the topic+flow hyb
 
 Since instructions are now generic (no hardcoded URLs, no tool listing, no naming knowledge sources per MS best practices), routing comes from elsewhere. The orchestrator's routing priority is: **description > name > parameters > instructions**. This means:
 
-- Every capability in `brief.json.capabilities[]` should map to either a well-described knowledge source or a custom topic with a strong description
+- Every capability in `agentspec.json.capabilities[]` should map to either a well-described knowledge source or a custom topic with a strong description
 - Capabilities requiring specific behavior (multi-step workflows, structured data collection, hard boundaries) -> use custom topics, not generative orchestration alone
 - Capabilities handled by knowledge Q&A -> generative orchestration is fine, but the knowledge source description needs to be specific enough for routing
 - Topic descriptions are the #1 routing signal -- every custom topic's `description` field should clearly state when to use it and when not to use it
@@ -237,7 +237,7 @@ Spawn all teammates simultaneously. They do not depend on each other's output.
 
 ### Prompt Engineer -- write agent instructions
 
-- Input: full brief.json (Phases A+B complete), `knowledge/cache/instructions-authoring.md`, model selection from Step 1.5
+- Input: full agentspec.json (Phases A+B complete), `knowledge/cache/instructions-authoring.md`, model selection from Step 1.5
 - Output: instruction text (target 2,000-3,500 chars, max 8,000 chars hard limit)
 - Runs independently -- does not need QA or TE output
 
@@ -259,7 +259,7 @@ PE follows these rules:
 
 ### QA Challenger -- generate eval reference templates (3 default + custom)
 
-- Input: full brief.json (capabilities, boundaries, integrations, **pre-existing evalSets from preview stubs**), eval-scenarios library, topic-triggers + eval-testing learnings
+- Input: full agentspec.json (capabilities, boundaries, integrations, **pre-existing evalSets from preview stubs**), eval-scenarios library, topic-triggers + eval-testing learnings
 - Output: 3 eval sets (boundaries/quality/edge-cases) with 24-36 reference template tests + coverage report
 - These are **starter templates** that users review, edit, and finalize — not auto-run artifacts
 - Does not review instructions (Lead handles that inline in Step 3)
@@ -280,7 +280,7 @@ When `evalSets` already contain tests from the fast preview, QA must respect the
 - Dedup by intent: >70% keyword overlap between a new test and an existing test = same test. Keep existing, discard new.
 - Cap at 40-55 total tests (including stubs).
 - Never delete customer tests (`user-edited`, `user-added`).
-- When no stubs exist (legacy briefs or first run without `--fast`), generate all tests from scratch (backward compatible — current behavior).
+- When no stubs exist (legacy specs or first run without `--fast`), generate all tests from scratch (backward compatible — current behavior).
 
 **Eval set generation -- scenario-driven:** QA reads `knowledge/frameworks/eval-scenarios/index.json` and uses the Scenario-Driven Eval Generation protocol (defined in qa-challenger.md).
 
@@ -292,7 +292,7 @@ When `evalSets` already contain tests from the fast preview, QA must respect the
 
 Total target: 40-55 tests across all sets. Safety set should have at least 1 test per boundary refuse/decline, plus PII, prompt injection, and any domain-specific compliance tests.
 
-Each test MUST use the EvalTest schema from `templates/brief.json` (lines 239-253):
+Each test MUST use the EvalTest schema from `templates/agentspec.json` (lines 239-253):
 ```json
 { "question": "...", "expected": "...", "capability": "...", "methods": [...], "scenarioId": "...", "scenarioCategory": null, "coverageTag": null, "turns": null, "expectedTools": null, "toolThreshold": null, "lastResult": null }
 ```
@@ -307,13 +307,13 @@ After eval generation, QA reports coverage distribution (core-business/variation
 
 ### Flow Designer -- write flow specification (only if solutionType is "flow" or "hybrid")
 
-- Input: brief.json (capabilities where `implementationType == "flow"`), integrations, architecture
+- Input: agentspec.json (capabilities where `implementationType == "flow"`), integrations, architecture
 - Output: `flow-spec.md` with triggers, actions, connectors, data flow, flow-manager.js commands
 - Skip if `architecture.solutionType` is "agent" or not set
 
 ### Topic Engineer -- topic feasibility validation (only if custom topics exist)
 
-- Input: brief.json topics (classified by Lead in Step 1.5), capabilities, integrations, `knowledge/cache/adaptive-cards.md` + `knowledge/cache/conversation-design.md`
+- Input: agentspec.json topics (classified by Lead in Step 1.5), capabilities, integrations, `knowledge/cache/adaptive-cards.md` + `knowledge/cache/conversation-design.md`
 - Output: per-topic feasibility assessment (OK / SPLIT / caveats)
 - Skip if no custom topics (all generative)
 
@@ -333,7 +333,7 @@ TE reviews each proposed custom topic and produces a per-topic feasibility asses
 After all teammates return (or as each finishes):
 
 **3a. Apply PE instructions + inline review:**
-- Write instructions to brief.json
+- Write instructions to agentspec.json
 - Lead does inline instruction review (no separate QA spawn):
   1. Four-section structure present? (Identity + Capabilities + Boundaries + Response Style)
   2. No hardcoded URLs?
@@ -347,12 +347,12 @@ After all teammates return (or as each finishes):
 - If issues found: fix inline (minor) or re-spawn PE with specific fixes (rare)
 
 **3b. Apply QA eval sets:**
-- Write evalSets[] to brief.json
+- Write evalSets[] to agentspec.json
 - Write evalConfig -- `{ targetPassRate: 85, mode: "reference-templates" }`
 - Review coverage report -- flag gaps
 
 **3c. Apply TE recommendations:**
-- **OK** topics -> no change to brief
+- **OK** topics -> no change to spec
 - **SPLIT** recommendations -> update `conversations.topics[]` to reflect the split (add sub-topics, mark original as parent)
 - **Caveats** -> add to `conversations.topics[].notes` field
 
@@ -377,7 +377,7 @@ Generation rules:
 - Max 100 questions per CSV (MCS limit). If a set has > 100 tests, split into multiple CSVs.
 - `Tool use` cannot be specified in CSV -- add via MCS UI after import
 
-**3e. Write to brief.json:**
+**3e. Write to agentspec.json:**
 
 Write all build-ready data:
 - `instructions` -- full system prompt text (up to 8000 chars)
@@ -394,15 +394,15 @@ Write all build-ready data:
 
 ## Step 3.5: GPT Parallel Review
 
-After teammate reconciliation and before final output, fire GPT-5.4 reviews in parallel:
+After teammate reconciliation and before final output, fire GPT-5.5 reviews in parallel:
 
 ```bash
-node tools/multi-model-review.js review-brief --brief <path-to-brief.json>
-node tools/multi-model-review.js review-instructions --brief <path-to-brief.json>
+node tools/multi-model-review.js review-brief --brief <path-to-agentspec.json>
+node tools/multi-model-review.js review-instructions --brief <path-to-agentspec.json>
 # If solution type is hybrid/flow:
-node tools/multi-model-review.js review-flow --file <path-to-flow-spec.md> --brief <path-to-brief.json>
+node tools/multi-model-review.js review-flow --file <path-to-flow-spec.md> --brief <path-to-agentspec.json>
 # Component review (catches Microsoft-native alternatives, preview risks):
-node tools/multi-model-review.js review-components --brief <path-to-brief.json>
+node tools/multi-model-review.js review-components --brief <path-to-agentspec.json>
 ```
 
 What GPT reviews:
@@ -417,6 +417,6 @@ Merge protocol:
 - Flag divergence when opinions differ significantly
 - If GPT fails (exit code 3), proceed without it
 
-**Truncation artifacts:** GPT receives a condensed brief payload. Dismiss findings about "missing" instructions, eval tests, or boundaries shown as `[object Object]` -- these are serialization artifacts, not real gaps.
+**Truncation artifacts:** GPT receives a condensed spec payload. Dismiss findings about "missing" instructions, eval tests, or boundaries shown as `[object Object]` -- these are serialization artifacts, not real gaps.
 
 Apply fixes for actionable items (instruction ambiguity, phase misalignment, missing boundary paths) before writing final output. Note fixes in the terminal summary.

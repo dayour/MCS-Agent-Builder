@@ -1,0 +1,20 @@
+{
+  "_description": "Bot row GET response shape. configuration is shown as parsed object here; real responses may carry it as a JSON string — parsers must handle both.",
+  "request": {
+    "method": "GET",
+    "url": "/api/data/v9.2/bots(<botId>)",
+    "headers": { "odata-maxversion": "4.0", "odata-version": "4.0" }
+  },
+  "response": {
+    "status": 200,
+    "headers": { "content-type": "application/json; odata.metadata=minimal" },
+    "body": {
+      "@odata.context": "<dataverseUrl>/api/data/v9.2/$metadata#bots/$entity",
+      "botid": "<botId>",
+      "name": "<agentName>",
+      "configuration": "{\"$kind\":\"BotConfiguration\",\"settings\":{\"default-2.1.0\":{\"content\":{\"displayName\":\"<name>\",\"capabilities\":{\"$kind\":\"GptCapabilities\"}}}}}",
+      "statuscode": 1,
+      "versionnumber": 123456
+    }
+  }
+}

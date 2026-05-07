@@ -1,0 +1,43 @@
+<svg viewBox="8.0 8.0 32.0 31.0" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg x="23" y="13" width="2" height="3" viewBox="0 0 2 3" fill="none">
+<path id="Color 7" d="M0 0H2V3H0V0Z" fill="var(--fill-0, #70777D)"/></svg>
+<svg x="23" y="10" width="6" height="4" viewBox="0 0 6 4" fill="none">
+<path id="Color 6" d="M0 1C0 0.447715 0.447715 0 1 0H5C5.55228 0 6 0.447715 6 1V3C6 3.55228 5.55228 4 5 4H1C0.447715 4 0 3.55228 0 3V1Z" fill="var(--fill-0, #F83F54)"/></svg>
+<svg x="15" y="15" width="18" height="10" viewBox="0 0 18 10" fill="none">
+<g id="Color 5">
+<path d="M0 9C0 4.02944 4.02944 0 9 0C13.9706 0 18 4.02944 18 9V10H0V9Z" fill="url(#paint0_linear_488_760)"/>
+<path d="M0 9C0 4.02944 4.02944 0 9 0C13.9706 0 18 4.02944 18 9V10H0V9Z" fill="url(#paint1_radial_488_760)"/>
+</g>
+<defs>
+<linearGradient id="paint0_linear_488_760" x1="9" y1="0" x2="9" y2="10" gradientUnits="userSpaceOnUse">
+<stop stop-color="#FFC205"/>
+<stop offset="0.735" stop-color="#FFA43D"/>
+<stop offset="1" stop-color="#E67505"/>
+</linearGradient>
+<radialGradient id="paint1_radial_488_760" cx="0" cy="0" r="1" gradientTransform="matrix(-1.43768e-06 5.38462 -9.60611 -0.821174 15.3 1.53846)" gradientUnits="userSpaceOnUse">
+<stop stop-color="#FFD638"/>
+<stop offset="1" stop-color="#FFD638" stop-opacity="0"/>
+</radialGradient>
+</defs></svg>
+<svg x="10" y="24" width="28" height="13" viewBox="0 0 28 13" fill="none">
+<g id="Color 4">
+<path d="M0 3C0 1.34315 1.34315 0 3 0H25C26.6569 0 28 1.34315 28 3V12C28 12.5523 27.5523 13 27 13H1C0.447715 13 0 12.5523 0 12V3Z" fill="url(#paint0_linear_488_768)"/>
+<path d="M0 3C0 1.34315 1.34315 0 3 0H25C26.6569 0 28 1.34315 28 3V12C28 12.5523 27.5523 13 27 13H1C0.447715 13 0 12.5523 0 12V3Z" fill="url(#paint1_radial_488_768)" fill-opacity="0.6"/>
+</g>
+<defs>
+<linearGradient id="paint0_linear_488_768" x1="10.9375" y1="-1.47881e-07" x2="24.4184" y2="13.3602" gradientUnits="userSpaceOnUse">
+<stop stop-color="#AAB3BD"/>
+<stop offset="1" stop-color="#889096"/>
+</linearGradient>
+<radialGradient id="paint1_radial_488_768" cx="0" cy="0" r="1" gradientTransform="matrix(-0.874998 7.42857 -15.7243 -2.08587 26.25 -4.92605e-07)" gradientUnits="userSpaceOnUse">
+<stop stop-color="#FFB357"/>
+<stop offset="1" stop-color="#FFB357" stop-opacity="0"/>
+</radialGradient>
+</defs></svg>
+<svg x="21" y="30" width="6" height="7" viewBox="0 0 6 7" fill="none">
+<path id="Color 3" d="M0 1C0 0.447715 0.447715 0 1 0H5C5.55228 0 6 0.447715 6 1V7H0V1Z" fill="var(--fill-0, #55595E)"/></svg>
+<svg x="15" y="28" width="18" height="5" viewBox="0 0 18 4.99996" fill="none">
+<path id="Color 2" d="M1 0C1.55228 0 2 0.447716 2 1V3.99996C2 4.55224 1.55228 4.99996 1 4.99996C0.447715 4.99996 0 4.55224 0 3.99996V1C0 0.447716 0.447715 0 1 0ZM18 1C18 0.447716 17.5523 0 17 0C16.4477 0 16 0.447716 16 1V3.99996C16 4.55224 16.4477 4.99996 17 4.99996C17.5523 4.99996 18 4.55224 18 3.99996V1Z" fill="var(--fill-0, #63686E)"/></svg>
+<svg x="19" y="19" width="10" height="4" viewBox="0 0 10 4" fill="none">
+<path id="Color 1" d="M10 1C10 0.447715 9.55228 0 9 0C8.44772 0 8 0.447715 8 1V3C8 3.55228 8.44772 4 9 4C9.55228 4 10 3.55228 10 3V1ZM5 0C5.55229 0 6 0.447715 6 1V3C6 3.55228 5.55229 4 5 4C4.44771 4 4 3.55228 4 3V1C4 0.447715 4.44771 0 5 0ZM2 1C2 0.447715 1.55229 0 1 0C0.447715 0 0 0.447715 0 1V3C0 3.55228 0.447715 4 1 4C1.55229 4 2 3.55228 2 3V1Z" fill="var(--fill-0, #CA6407)"/></svg>
+</svg>

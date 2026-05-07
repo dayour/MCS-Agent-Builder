@@ -35,7 +35,7 @@ If `solutionType` is `"flow"` or `"not-recommended"`, skip architecture scoring 
 
 ## Required Output
 
-The architecture section in `brief.json` MUST include:
+The architecture section in `agentspec.json` MUST include:
 
 ### 1. `type` — Selected architecture type (kebab-case)
 One of: `"single-agent"`, `"single-agent-with-connected-agents"`, `"multi-agent"`, `"connected-agent"` (legacy alias for single-agent-with-connected-agents)

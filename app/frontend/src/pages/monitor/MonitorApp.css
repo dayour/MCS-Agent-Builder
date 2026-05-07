@@ -1,0 +1,224 @@
+/* ─── Elevate Monitor CSS ────────────────────────────────────────────────── */
+/* These rules require CSS features that Tailwind cannot express inline:      */
+/*   - Pseudo-element selectors (::webkit-scrollbar, ::after)                */
+/*   - CSS custom properties / Fluent design token overrides                 */
+/*   - @keyframes animations                                                 */
+/*   - @media print rules                                                    */
+/*   - Descendant selectors targeting Fluent UI class names                  */
+/* ─────────────────────────────────────────────────────────────────────────── */
+
+/* ─── Elevate monitor layout — make provider wrappers fill height ────────── */
+/* Only target the CopilotProvider wrapper, not Fluent portal containers    */
+.monitor-fluent-root,
+.monitor-fluent-root > :first-child {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ─── Overlay scrollbar — hidden until hover ─────── */
+.monitor-canvas-scroll {
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+}
+.monitor-canvas-scroll:hover {
+  scrollbar-width: thin;
+}
+/* Webkit: invisible by default, visible on hover */
+.monitor-canvas-scroll::-webkit-scrollbar {
+  width: 6px;
+  background: transparent;
+}
+.monitor-canvas-scroll::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 3px;
+}
+.monitor-canvas-scroll:hover::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.15);
+}
+.monitor-canvas-scroll:hover::-webkit-scrollbar-thumb:hover {
+  background: rgba(0,0,0,0.3);
+}
+
+/* Removed body scrollbar-gutter: stable — not needed inside Elevate's layout */
+
+/* Removed body overflow-hidden override — not needed inside Elevate's layout */
+
+/* ─── Side panel animations ──────────────────────────────────────────────── */
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ─── Elevate mode — matched to reference ───────────────────────────────── */
+/* .elevate-canvas = main content only. .elevate-mode = shell-wide (header, nav). */
+
+/* ── Override Fluent design tokens for compact sizing ── */
+.elevate-canvas {
+  color: #323130;
+  /* Shrink Fluent font sizes */
+  --fontSizeBase500: 16px;
+  --fontSizeBase400: 14px;
+  --fontSizeBase300: 12px;
+  --fontSizeBase200: 11px;
+  --fontSizeBase100: 10px;
+  /* Soften foreground colours */
+  --colorNeutralForeground1: #323130;
+  --colorNeutralForeground2: #484644;
+  --colorNeutralForeground3: #8a8886;
+  --colorNeutralForeground4: #a19f9d;
+  /* Uniform subtle strokes */
+  --colorNeutralStroke1: rgba(0, 0, 0, 0.04);
+  --colorNeutralStroke2: rgba(0, 0, 0, 0.04);
+  /* Grid clickable names — regular blue */
+  --gridCellNameColor: #0078d4;
+  --gridCellNameWeight: 400;
+  /* Grid compact sizing */
+  --gridHeaderHeight: 28px;
+  --gridHeaderBg: hsl(var(--surface-secondary));
+  --gridHeaderFontSize: 11px;
+  --gridRowHeight: 32px;
+  --gridCellFontSize: 11px;
+  --gridCellColor: hsl(var(--text-secondary));
+  /* Card & section compact spacing (via custom properties in styles.js) */
+  --cardPadding: 12px 14px;
+  --cardGap: 10px;
+  --sectionMargin: 10px;
+  --sectionHeaderMargin: 6px;
+  --captionFontSize: 11px;
+  --captionColor: hsl(var(--text-secondary));
+  --gridCardHeaderPadding: 10px 14px 4px 14px;
+  --infoBannerPadding: 8px 14px;
+  --infoBannerMinHeight: auto;
+}
+
+/* ── Page title ── */
+.elevate-canvas .fui-Title3 {
+  font-weight: 600 !important;
+  color: hsl(var(--text-primary)) !important;
+  font-size: 20px !important;
+}
+
+/* ── Cards — uniform border, 8px radius ── */
+.elevate-canvas .fui-Card {
+  border: 1px solid rgba(0, 0, 0, 0.04) !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+}
+
+/* ── Buttons — subtle, light ── */
+.elevate-canvas .fui-Button[class*="outline"] {
+  border-color: rgba(0, 0, 0, 0.04) !important;
+  color: hsl(var(--text-secondary)) !important;
+  font-size: 11px !important;
+  font-weight: 400 !important;
+  border-radius: 4px !important;
+  height: 26px !important;
+}
+
+/* ── Charts — tighter, no extra bottom space ── */
+.elevate-canvas [class*="chartContainer"] {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+.elevate-canvas .highcharts-react-container {
+  margin-bottom: 0 !important;
+}
+
+.elevate-canvas [data-highcharts-chart] {
+  margin-bottom: 0 !important;
+}
+
+/* ── Consistent 11px for all legends, axis labels, chart captions ── */
+.elevate-canvas .highcharts-legend-item span {
+  font-size: 11px !important;
+}
+
+.elevate-canvas .highcharts-axis-labels text,
+.elevate-canvas .highcharts-axis-labels span {
+  font-size: 11px !important;
+}
+
+/* ── Info icons — much smaller in elevate ── */
+.elevate-canvas svg[class*="Info"] {
+  width: 11px !important;
+  height: 11px !important;
+}
+
+/* ── Shell-level rules (header, nav) — on .elevate-mode ── */
+
+.elevate-mode [class*="agentHeader"] {
+  height: 40px !important;
+  min-height: 40px !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04) !important;
+}
+
+.elevate-mode [class*="agentName"] {
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  color: hsl(var(--text-primary)) !important;
+}
+
+.elevate-mode [class*="toggleItem"] {
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  height: 24px !important;
+  color: hsl(var(--text-secondary)) !important;
+}
+
+.elevate-mode [class*="toggleItemActive"] {
+  font-weight: 600 !important;
+  color: hsl(var(--text-primary)) !important;
+}
+
+.elevate-mode [class*="publishButton"] {
+  font-size: 12px !important;
+  height: 28px !important;
+  padding: 0 14px !important;
+  font-weight: 600 !important;
+}
+
+.elevate-mode [class*="leftNav"] {
+  border-right-color: rgba(0, 0, 0, 0.04) !important;
+}
+
+/* ─── Print / PDF export ────────────────────────────────────────────────── */
+@media print {
+  /* Hide non-content elements */
+  nav, header, button, .fui-MenuPopover, .fui-DialogSurface,
+  [class*="leftNav"], [class*="agentHeader"], [class*="sidePanel"] {
+    display: none !important;
+  }
+
+  /* Full-width content */
+  body, #root, main, [class*="shell"], [class*="main"], [class*="canvas"],
+  [class*="body"], [class*="contentWrapper"] {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+
+  /* Ensure cards print nicely */
+  .fui-Card {
+    break-inside: avoid;
+    box-shadow: none !important;
+    border: 1px solid hsl(var(--stroke-default)) !important;
+  }
+
+  /* Show charts */
+  svg, canvas {
+    max-width: 100% !important;
+  }
+}

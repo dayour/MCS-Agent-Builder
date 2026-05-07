@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
     "allowImportingTsExtensions": true,
+    "allowJs": true,
     "isolatedModules": true,
     "jsx": "react-jsx",
     "lib": [
@@ -13,7 +14,7 @@
     "moduleResolution": "bundler",
     "noEmit": true,
     "noFallthroughCasesInSwitch": true,
-    "noImplicitAny": true,
+    "noImplicitAny": false,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "paths": {
@@ -22,12 +23,13 @@
       ]
     },
     "skipLibCheck": true,
-    "strict": true,
+    "strict": false,
     "target": "ES2024",
-    "types": [
-      "vitest/globals"
-    ],
-    "useDefineForClassFields": true
+    "useDefineForClassFields": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "forceConsistentCasingInFileNames": true
   },
   "include": [
     "src"

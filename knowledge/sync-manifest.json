@@ -1,0 +1,227 @@
+{
+  "_comment": "Sync orchestrator source registry. Each entry describes one external dependency, its detection strategy, and what our framework depends on it for. tools/sync-orchestrator.js walks this list in DETECT/UNDERSTAND/DECIDE phases and emits ChangeRecords for human triage. No source is ever auto-applied to our code.",
+  "schemaVersion": 2,
+  "storage": {
+    "snapshots": "knowledge/sync/snapshots/",
+    "decisions": "knowledge/sync/decisions/",
+    "views": "knowledge/sync/views/",
+    "runs": "knowledge/sync/runs/"
+  },
+  "decisionClasses": {
+    "TAKE": "Accept the upstream change. The action plan describes downstream artifacts the user must update; the orchestrator never edits them itself.",
+    "REJECT": "Decline the change. Permanent for this changeId — if upstream moves again, the next run produces a fresh card."
+  },
+  "defaults": {
+    "triageTop": 10,
+    "priorityWeights": {
+      "impact": 40,
+      "breakingRisk": 25,
+      "confidence": 15,
+      "staleness": 10,
+      "opportunity": 10
+    }
+  },
+  "sources": [
+    {
+      "id": "knowledge-cache",
+      "class": "local_markdown_collection",
+      "name": "Knowledge cache (24 MS Learn cheat sheets)",
+      "adapter": "tools/sync-adapters/knowledge-cache.js",
+      "locator": {
+        "type": "glob",
+        "root": "knowledge/cache",
+        "pattern": "*.md"
+      },
+      "detector": {
+        "strategy": "content_hash_normalized",
+        "normalize": ["strip_frontmatter_dates", "collapse_whitespace", "lowercase"]
+      },
+      "understander": {
+        "strategy": "markdown_section_diff",
+        "signals": ["new_row_in_table", "status_change", "new_section", "deprecation_marker"]
+      },
+      "cadence": "weekly",
+      "defaultRecommendation": "TAKE",
+      "impacts": ["skills-patterns", "research-output", "component-selection"],
+      "owners": ["automation"]
+    },
+    {
+      "id": "upstream-repos",
+      "class": "github_repo_set",
+      "name": "Tracked GitHub repos (11 Microsoft + community)",
+      "adapter": "tools/sync-adapters/upstream-repos.js",
+      "locator": {
+        "type": "json_registry",
+        "path": "knowledge/upstream-repos.json"
+      },
+      "detector": {
+        "strategy": "commit_sha_plus_path_hash",
+        "freshness_days": 7
+      },
+      "understander": {
+        "strategy": "commit_classifier",
+        "signals": ["watchPath_match", "breaking_keyword", "schema_file_change"]
+      },
+      "cadence": "weekly",
+      "defaultRecommendation": "REJECT",
+      "impacts": ["knowledge-cache", "eval-generation", "yaml-patterns"],
+      "owners": ["automation"]
+    },
+    {
+      "id": "elevate",
+      "class": "readonly_upstream_ux",
+      "name": "bap-microsoft/Elevate (read-only UX research)",
+      "adapter": "tools/sync-adapters/elevate.js",
+      "locator": {
+        "type": "git_remote",
+        "remote": "elevate",
+        "branch": "main",
+        "trackingBranch": "elevate-upstream"
+      },
+      "detector": {
+        "strategy": "commit_sha_plus_tracked_path_tree_hash",
+        "trackedPaths": ["src/pages/", "src/components/", "src/hooks/", "src/context/", "src/utils/", "src/domains/", "src/types/", "src/config/", "src/styles/"]
+      },
+      "understander": {
+        "strategy": "path_mapper_plus_overlap_detector",
+        "pathMap": {
+          "src/": "app/frontend/src/"
+        }
+      },
+      "cadence": "weekly",
+      "defaultRecommendation": "REJECT",
+      "impacts": ["frontend-components", "frontend-pages", "design-tokens"],
+      "owners": ["frontend"]
+    },
+    {
+      "id": "eval-guide",
+      "class": "claude_plugin",
+      "name": "microsoft/eval-guide Claude Code plugin",
+      "adapter": "tools/sync-adapters/eval-guide.js",
+      "locator": {
+        "type": "github_repo",
+        "repo": "microsoft/eval-guide",
+        "paths": ["scenarios/", "scoring/", "triage/", "templates/", "docs/"]
+      },
+      "detector": {
+        "strategy": "commit_sha_plus_scenario_manifest_hash",
+        "freshness_days": 7
+      },
+      "understander": {
+        "strategy": "scenario_taxonomy_diff",
+        "signals": ["new_scenario_id", "threshold_change", "verdict_model_change", "scoring_method_change"]
+      },
+      "cadence": "weekly",
+      "defaultRecommendation": "TAKE",
+      "impacts": ["eval-pipeline", "eval-generation", "eval-triage"],
+      "owners": ["automation"]
+    },
+    {
+      "id": "mcp-servers",
+      "class": "mcp_capability_surface",
+      "name": "Local MCP servers (microsoft-learn, workiq, pac-cli, playwright)",
+      "adapter": "tools/sync-adapters/mcp-servers.js",
+      "locator": {
+        "type": "claude_settings",
+        "path": ".claude/settings.json",
+        "key": "mcpServers"
+      },
+      "detector": {
+        "strategy": "version_plus_tools_list_hash",
+        "probeEach": false
+      },
+      "understander": {
+        "strategy": "capability_diff",
+        "signals": ["new_tool_name", "removed_tool", "input_schema_change", "description_drift"]
+      },
+      "cadence": "weekly",
+      "defaultRecommendation": "REJECT",
+      "impacts": ["automation-tools", "research-pipeline", "build-pipeline"],
+      "owners": ["automation"]
+    },
+    {
+      "id": "om-cli",
+      "class": "external_binary",
+      "name": "om-cli (ObjectModel CLI binary, msazure.visualstudio.com)",
+      "adapter": "tools/sync-adapters/om-cli.js",
+      "locator": {
+        "type": "local_binary",
+        "binary": "tools/om-cli/om-cli.dll",
+        "sourceHashFile": "tools/om-cli/.source-hash",
+        "schemasDir": "tools/om-cli/schemas"
+      },
+      "detector": {
+        "strategy": "binary_hash_plus_source_stamp"
+      },
+      "understander": {
+        "strategy": "binary_drift_classifier",
+        "signals": ["source_sha_advanced", "unexpected_binary_drift", "schema_count_change"]
+      },
+      "cadence": "weekly",
+      "defaultRecommendation": "REJECT",
+      "impacts": ["mcs-lsp", "island-client", "yaml-validation"],
+      "owners": ["automation"]
+    },
+    {
+      "id": "docs-manifest",
+      "class": "ms_learn_url_set",
+      "name": "Curated MS Learn URLs (knowledge/docs-manifest.json)",
+      "adapter": "tools/sync-adapters/docs-manifest.js",
+      "locator": {
+        "type": "json_registry",
+        "path": "knowledge/docs-manifest.json"
+      },
+      "detector": {
+        "strategy": "per_url_content_hash",
+        "timeout_seconds": 30
+      },
+      "understander": {
+        "strategy": "doc_drift_classifier",
+        "signals": ["content_changed", "url_added", "url_removed"]
+      },
+      "cadence": "weekly",
+      "defaultRecommendation": "TAKE",
+      "impacts": ["knowledge-cache"],
+      "owners": ["automation"]
+    },
+    {
+      "id": "plugins",
+      "class": "claude_plugin_set",
+      "name": "Installed Claude Code plugins (excluding eval-guide)",
+      "adapter": "tools/sync-adapters/plugins.js",
+      "locator": {
+        "type": "user_state",
+        "path": "~/.claude/plugins/installed_plugins.json"
+      },
+      "detector": {
+        "strategy": "installed_plugin_sha_set"
+      },
+      "understander": {
+        "strategy": "plugin_diff_classifier",
+        "signals": ["plugin_added", "plugin_removed", "plugin_version_advanced"]
+      },
+      "cadence": "weekly",
+      "defaultRecommendation": "REJECT",
+      "impacts": ["claude-md-plugin-table", "skills-routing"],
+      "owners": ["automation"]
+    }
+  ],
+  "impactGraph": {
+    "_comment": "Directed edges: if <from> changes, review <to>. Used by understander to add transitive review items to triage cards.",
+    "edges": [
+      { "from": "eval-guide", "to": "eval-pipeline", "kind": "source_of", "strength": "high" },
+      { "from": "eval-guide", "to": "eval-generation", "kind": "schema_informs", "strength": "high" },
+      { "from": "knowledge-cache", "to": "skills-patterns", "kind": "guidance_informs", "strength": "medium" },
+      { "from": "knowledge-cache", "to": "research-output", "kind": "source_of", "strength": "high" },
+      { "from": "upstream-repos", "to": "knowledge-cache", "kind": "informs", "strength": "medium" },
+      { "from": "elevate", "to": "frontend-components", "kind": "design_constraint", "strength": "medium" },
+      { "from": "mcp-servers", "to": "automation-tools", "kind": "capability_informs", "strength": "high" },
+      { "from": "om-cli", "to": "mcs-lsp", "kind": "depends_on", "strength": "high" },
+      { "from": "om-cli", "to": "island-client", "kind": "depends_on", "strength": "medium" },
+      { "from": "om-cli", "to": "yaml-validation", "kind": "schema_informs", "strength": "high" },
+      { "from": "docs-manifest", "to": "knowledge-cache", "kind": "informs", "strength": "high" },
+      { "from": "plugins", "to": "claude-md-plugin-table", "kind": "documents", "strength": "high" },
+      { "from": "plugins", "to": "skills-routing", "kind": "informs", "strength": "medium" }
+    ]
+  }
+}

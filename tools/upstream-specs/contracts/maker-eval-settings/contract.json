@@ -1,0 +1,27 @@
+{
+  "surfaceId": "maker-eval-settings",
+  "method": "GET",
+  "urlPattern": "{gatewayUrl}/api/botmanagement/v1/environments/{envId}/bots/{botId}/settings",
+  "auth": "PVA token + Island Gateway headers",
+  "validationStrategy": "settings-envelope-shape",
+  "_strategyNote": "Reads bot-level settings including makerEval feature flag, used as preflight before the testcomponent write or evaluation run.",
+  "kindDiscriminators": [],
+  "requiredFields": [],
+  "responseShape": "{ ...bot settings including makerEvaluationEnabled: bool }",
+  "lastVerified": "2026-04-17",
+  "lastVerifiedBy": "Live via eval-pipeline.reportMakerEvalState preflight (shows 'enabled=true' on dktest bots)",
+  "typedAdapterRef": "app/lib/readers/maker-eval.js:isEnabled",
+  "knownQuirks": [
+    "makerEvaluationEnabled may be false on tenants without Maker Eval feature rolled out — degrade gracefully by falling back to Direct Line-only evaluation",
+    "Gateway region prefix (us-il104 / us-il301 / us-eu001 ...) depends on tenant home region — loadGatewayFromConfig resolves it",
+    "Response envelope includes many settings beyond makerEvaluation — treat all others as non-contractual"
+  ],
+  "nonContractualFields": [
+    "$ most fields (tenant/env-specific)"
+  ],
+  "errorCases": [
+    {"status": 401, "reason": "Invalid or missing PVA token"},
+    {"status": 403, "reason": "Gateway routing mismatch (wrong region)"},
+    {"status": 404, "reason": "Bot not found in this environment"}
+  ]
+}

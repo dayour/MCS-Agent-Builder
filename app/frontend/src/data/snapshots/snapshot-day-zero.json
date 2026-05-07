@@ -1,0 +1,47 @@
+{
+  "notes": "",
+  "id": "snapshot-day-zero",
+  "name": "Customer Support Day 0",
+  "description": "A brand-new agent with only a name. No instructions, guidelines, or skills. Shows the clean slate a user sees right after creating their first agent.",
+  "tags": ["blank", "starter", "onboarding"],
+  "lifecycleStage": "day-zero",
+  "isBuiltIn": true,
+  "generateOnLoad": false,
+  "createdAt": "2026-01-01T00:00:00.000Z",
+  "agentConfig": {
+    "type": "agent",
+    "name": "Customer Support Agent",
+    "icon": "💬",
+    "gradientKey": "cerulean",
+    "description": "",
+    "purpose": "",
+    "audience": null,
+    "guidelines": [],
+    "skills": [],
+    "model": "sonnet-4.5",
+    "knowledge": {
+      "files": [],
+      "webSearch": false,
+      "specificSources": false,
+      "referenceOrgChart": false,
+      "customAPIs": []
+    },
+    "instructions": "",
+    "capabilities": [],
+    "published": false
+  },
+  "helperMessages": [
+    {
+      "id": "day0-h1",
+      "role": "user",
+      "content": "I want to build a customer support agent for my e-commerce store.",
+      "timestamp": "2026-01-01T09:00:00.000Z"
+    },
+    {
+      "id": "day0-h2",
+      "role": "assistant",
+      "content": "Great idea! A customer support agent can handle common inquiries so your team can focus on complex issues.\n\nTo get started, let me ask a few questions:\n\n1. **Who are your customers?** (e.g. general consumers, business buyers, a specific segment)\n2. **What types of questions come up most often?** (order status, returns, product info, billing?)\n3. **Do you want the agent to take actions** — like looking up orders or initiating returns — or just answer questions?\n\nThe more I know about your support needs, the better I can help you shape this agent.",
+      "timestamp": "2026-01-01T09:00:10.000Z"
+    }
+  ]
+}

@@ -3,34 +3,6 @@
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
     "ENABLE_CLAUDE_CODE_SM_COMPACT": "1"
   },
-  "hooks": {
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"C:/Copilot 2/.claude/hooks/gpt-reminder.js\"",
-            "timeout": 5
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"C:/Copilot 2/.claude/hooks/check-gpt-attestation.js\"",
-            "timeout": 10,
-            "statusMessage": "Checking GPT co-generation compliance..."
-          }
-        ]
-      }
-    ]
-  },
-  "model": "opus[1m]",
-  "fastMode": true,
-  "effortLevel": "max",
   "permissions": {
     "allow": [
       "Bash(*)",
@@ -44,19 +16,114 @@
       "Task",
       "Skill(*)",
       "NotebookEdit",
-
       "Agent(*)",
-
       "mcp__microsoft-learn__*",
       "mcp__workiq__*",
       "mcp__pac-cli__*",
       "mcp__ide__*",
       "mcp__context7__*",
-      "mcp__plugin_context7_context7__*"
+      "mcp__plugin_context7_context7__*",
+      "mcp__playwright__*",
+      "mcp__plugin_figma_figma__*"
+    ],
+    "dangerouslySkipPermissions": true
+  },
+  "model": "opus[1m]",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"C:/Copilot 2/.claude/hooks/gpt-reminder.js\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"C:/Copilot 2/.claude/hooks/team-routing.js\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"C:/Copilot 2/.claude/hooks/team-routing.js\"",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "node \"C:/Copilot 2/.claude/hooks/frontend-test-trigger.js\"",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "node \"C:/Copilot 2/.claude/hooks/backend-test-trigger.js\"",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"C:/Copilot 2/.claude/hooks/mcs-build-verify.js\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"C:/Copilot 2/.claude/hooks/test-loop-stop-check.js\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"C:/Copilot 2/.claude/hooks/session-start.js\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"C:/Copilot 2/.claude/hooks/session-end.js\"",
+            "timeout": 5
+          }
+        ]
+      }
     ]
   },
+  "enabledPlugins": {
+    "swarm@swarms": true
+  },
+  "fastMode": true,
   "mcpServers": {
-
     "microsoft-learn": {
       "type": "http",
       "url": "https://learn.microsoft.com/api/mcp"
@@ -75,6 +142,22 @@
       "command": "node",
       "args": [
         "tools/pac-mcp-wrapper.js"
+      ]
+    },
+    "playwright": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "@playwright/mcp@0.0.70",
+        "--browser",
+        "msedge",
+        "--isolated",
+        "--allowed-origins",
+        "http://localhost:8080;http://localhost:8000",
+        "--caps",
+        "devtools",
+        "--viewport-size",
+        "1280x720"
       ]
     }
   }

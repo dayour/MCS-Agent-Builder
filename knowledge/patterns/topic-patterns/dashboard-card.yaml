@@ -1,0 +1,218 @@
+# Pattern: Dashboard / KPI Card with Charts (Teams Host Extension)
+# Trigger: OnRecognizedIntent (or mid-topic after data retrieval)
+# Shows: Multi-metric dashboard with charts, ratings, badges via Layout.AreaGrid
+# Common in: sales dashboards, team performance, service metrics, executive summaries
+#
+# Schema: 1.5 + Teams host extensions (Layout.AreaGrid, Chart.*, Rating, Badge)
+# Channels: Teams desktop (full), Teams mobile (partial — no charts, no CodeBlock)
+# Fallback: Include "fallback": "drop" on Teams-only elements for multi-channel
+#
+# IMPORTANT: This pattern uses Teams host extensions that ONLY render in Teams channel.
+# For multi-channel agents, use the standard variant (Option B) below.
+
+kind: AdaptiveDialog
+beginDialog:
+  kind: OnRecognizedIntent
+  id: main
+  intent:
+    displayName: "{{TOPIC_NAME}}"
+    triggerQueries:
+      - "{{TRIGGER_1}}"
+  actions:
+    # Assumes Topic.metrics populated by prior step (API call, knowledge search, etc.)
+    # Topic.metrics should contain: totalRevenue, revenueGrowth, customerSat,
+    # newCustomers, categoryData (array), trendData (array)
+
+    - kind: SendMessage
+      id: sendDashboardCard
+      message:
+        text: "Here's your dashboard:"
+        attachments:
+          - kind: AdaptiveCardTemplate
+            cardContent: |-
+              ={
+                type: "AdaptiveCard",
+                '$schema': "http://adaptivecards.io/schemas/adaptive-card.json",
+                version: "1.5",
+                body: [
+                  {
+                    type: "TextBlock",
+                    text: "{{DASHBOARD_TITLE}}",
+                    weight: "Bolder",
+                    size: "Large"
+                  },
+                  {
+                    type: "TextBlock",
+                    text: "Updated: " & Text(Now(), "MMM dd, yyyy h:mm AM/PM"),
+                    size: "Small",
+                    isSubtle: true,
+                    spacing: "None"
+                  },
+                  {
+                    type: "Container",
+                    separator: true,
+                    spacing: "Medium",
+                    layout: {
+                      type: "Layout.AreaGrid",
+                      columns: [
+                        { width: "1fr" },
+                        { width: "1fr" },
+                        { width: "1fr" }
+                      ],
+                      areas: [
+                        { name: "kpi1", column: 1 },
+                        { name: "kpi2", column: 2 },
+                        { name: "kpi3", column: 3 },
+                        { name: "chart1", column: 1, columnSpan: 2, row: 2 },
+                        { name: "chart2", column: 3, row: 2 }
+                      ]
+                    },
+                    items: [
+                      {
+                        type: "Container",
+                        'layout.area': "kpi1",
+                        showBorder: true,
+                        roundedCorners: true,
+                        items: [
+                          {
+                            type: "TextBlock",
+                            text: "Revenue",
+                            size: "Small",
+                            isSubtle: true
+                          },
+                          {
+                            type: "TextBlock",
+                            text: "$" & Text(Topic.metrics.totalRevenue, "#,##0"),
+                            weight: "Bolder",
+                            size: "ExtraLarge",
+                            spacing: "None"
+                          },
+                          {
+                            type: "TextBlock",
+                            text: If(Topic.metrics.revenueGrowth > 0, "↑ ", "↓ ") & Text(Topic.metrics.revenueGrowth, "0.0") & "%",
+                            color: If(Topic.metrics.revenueGrowth > 0, "Good", "Attention"),
+                            size: "Small",
+                            spacing: "None"
+                          }
+                        ]
+                      },
+                      {
+                        type: "Container",
+                        'layout.area': "kpi2",
+                        showBorder: true,
+                        roundedCorners: true,
+                        items: [
+                          {
+                            type: "TextBlock",
+                            text: "Customer Satisfaction",
+                            size: "Small",
+                            isSubtle: true
+                          },
+                          {
+                            type: "Rating",
+                            value: Topic.metrics.customerSat,
+                            max: 5,
+                            color: "Marigold",
+                            size: "Large",
+                            fallback: "drop"
+                          }
+                        ]
+                      },
+                      {
+                        type: "Container",
+                        'layout.area': "kpi3",
+                        showBorder: true,
+                        roundedCorners: true,
+                        items: [
+                          {
+                            type: "TextBlock",
+                            text: "New Customers",
+                            size: "Small",
+                            isSubtle: true
+                          },
+                          {
+                            type: "TextBlock",
+                            text: Text(Topic.metrics.newCustomers, "#,##0"),
+                            weight: "Bolder",
+                            size: "ExtraLarge",
+                            spacing: "None"
+                          }
+                        ]
+                      },
+                      {
+                        type: "Container",
+                        'layout.area': "chart1",
+                        showBorder: true,
+                        roundedCorners: true,
+                        items: [{
+                          type: "Chart.Line",
+                          title: "Revenue Trend",
+                          data: Topic.metrics.trendData,
+                          fallback: "drop"
+                        }]
+                      },
+                      {
+                        type: "Container",
+                        'layout.area': "chart2",
+                        showBorder: true,
+                        roundedCorners: true,
+                        items: [{
+                          type: "Chart.Donut",
+                          title: "By Category",
+                          data: Topic.metrics.categoryData,
+                          fallback: "drop"
+                        }]
+                      }
+                    ]
+                  }
+                ],
+                actions: [
+                  {
+                    type: "Action.Submit",
+                    title: "Refresh",
+                    data: { action: "refresh_dashboard" }
+                  },
+                  {
+                    type: "Action.OpenUrl",
+                    title: "Full Report",
+                    url: "{{REPORT_URL}}"
+                  }
+                ]
+              }
+
+# --- Option B: Standard cross-channel variant (no Teams extensions) ---
+# Replace AreaGrid with ColumnSet, Rating with FactSet, Charts with FactSet.
+# Use this when agent targets Web Chat, M365 Copilot, or Omnichannel.
+#
+#   body: [
+#     { type: "TextBlock", text: "Dashboard", weight: "Bolder", size: "Large" },
+#     {
+#       type: "ColumnSet",
+#       columns: [
+#         { type: "Column", width: "1", items: [
+#           { type: "TextBlock", text: "Revenue", isSubtle: true, size: "Small" },
+#           { type: "TextBlock", text: "$" & Text(Topic.metrics.totalRevenue, "#,##0"), weight: "Bolder", size: "ExtraLarge" }
+#         ]},
+#         { type: "Column", width: "1", items: [
+#           { type: "TextBlock", text: "Satisfaction", isSubtle: true, size: "Small" },
+#           { type: "TextBlock", text: Text(Topic.metrics.customerSat, "0.0") & " / 5.0", weight: "Bolder", size: "ExtraLarge" }
+#         ]},
+#         { type: "Column", width: "1", items: [
+#           { type: "TextBlock", text: "New Customers", isSubtle: true, size: "Small" },
+#           { type: "TextBlock", text: Text(Topic.metrics.newCustomers, "#,##0"), weight: "Bolder", size: "ExtraLarge" }
+#         ]}
+#       ]
+#     },
+#     { type: "FactSet", separator: true, facts: [
+#       { title: "Q1", value: "$" & Text(Topic.metrics.q1, "#,##0") },
+#       { title: "Q2", value: "$" & Text(Topic.metrics.q2, "#,##0") },
+#       { title: "Q3", value: "$" & Text(Topic.metrics.q3, "#,##0") },
+#       { title: "Q4", value: "$" & Text(Topic.metrics.q4, "#,##0") }
+#     ]}
+#   ]
+
+# --- Chart data shape reference ---
+# Chart.Line/Chart.VerticalBar: data: [{ legend: "Series", values: [{ x: "Jan", y: 100 }, ...] }]
+# Chart.Donut/Chart.Pie: data: [{ legend: "Category", value: 40, color: "categoricalBlue" }, ...]
+# Chart.Gauge: value: 75, segments: [{ legend: "Good", size: 60, color: "good" }, ...]
+# Chart.HorizontalBar: data: [{ x: 100, y: "Category" }]

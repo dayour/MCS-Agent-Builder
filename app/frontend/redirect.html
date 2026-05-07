@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authenticating…</title>
+    <style>
+        body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; padding: 24px; color: #242424; }
+        .msg { max-width: 480px; }
+        .err { color: #b91c1c; margin-top: 8px; display: none; }
+        .err.show { display: block; }
+        a { color: #464feb; }
+    </style>
+</head>
+<body>
+    <div class="msg">
+        <p id="status">Processing authentication…</p>
+        <p id="error" class="err">
+            We couldn't complete sign-in. <a id="back" href="/">Return to the app</a>.
+        </p>
+    </div>
+    <script type="module">
+        import { broadcastResponseToMainFrame } from "@azure/msal-browser/redirect-bridge";
+
+        const statusEl = document.getElementById("status");
+        const errorEl = document.getElementById("error");
+        const backLink = document.getElementById("back");
+        backLink.href = import.meta.env.BASE_URL || "/";
+
+        // If broadcast hasn't resolved in 15s, show a recovery path.
+        const fallbackTimer = setTimeout(() => {
+            statusEl.textContent = "Sign-in is taking longer than expected.";
+            errorEl.classList.add("show");
+        }, 15000);
+
+        broadcastResponseToMainFrame()
+            .then(() => clearTimeout(fallbackTimer))
+            .catch((error) => {
+                clearTimeout(fallbackTimer);
+                console.error("[MSAL redirect bridge] broadcast failed:", error);
+                statusEl.textContent = "Authentication response could not be delivered.";
+                errorEl.classList.add("show");
+            });
+    </script>
+</body>
+</html>

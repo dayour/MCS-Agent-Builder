@@ -12,6 +12,7 @@
 const fs = require("fs");
 const path = require("path");
 const { execSync } = require("child_process");
+const dev = require("./dev-logger");
 
 const BASE_DIR = path.resolve(__dirname, "../..");
 const BUILD_GUIDES = path.join(BASE_DIR, "Build-Guides");
@@ -149,18 +150,21 @@ function autoChainToEval(projectId, agentId, fromSkill) {
     return;
   }
 
-  // Preflight: check brief.json exists and has build status (for build→eval)
+  // Preflight: check agentspec.json exists and has build status (for build→eval)
   if (fromSkill === "build") {
-    const briefPath = path.join(BUILD_GUIDES, projectId, "agents", agentId, "brief.json");
+    const agentDir = path.join(BUILD_GUIDES, projectId, "agents", agentId);
+    const specFile = fs.existsSync(path.join(agentDir, "agentspec.json"))
+      ? path.join(agentDir, "agentspec.json")
+      : path.join(agentDir, "brief.json");
     try {
-      const brief = JSON.parse(fs.readFileSync(briefPath, "utf-8"));
+      const brief = JSON.parse(fs.readFileSync(specFile, "utf-8"));
       const bs = brief.buildStatus || {};
       if (!bs.status && !bs.mcsAgentId) {
         emitPipelineEvent(projectId, {
           type: "auto-chain-skipped",
           from: "build",
           to: "eval",
-          reason: "Build status not found in brief.json — build may not have completed fully",
+          reason: "Build status not found in agentspec.json — build may not have completed fully",
         });
         return;
       }
@@ -169,7 +173,7 @@ function autoChainToEval(projectId, agentId, fromSkill) {
         type: "auto-chain-skipped",
         from: "build",
         to: "eval",
-        reason: "Could not read brief.json for preflight check",
+        reason: "Could not read agentspec.json for preflight check",
       });
       return;
     }
@@ -202,7 +206,7 @@ function autoChainToEval(projectId, agentId, fromSkill) {
       jobId: evalJob.id,
     });
 
-    console.log(`[pipeline] Auto-chained ${fromSkill} → eval for ${projectId}/${agentId} (job ${evalJob.id})`);
+    dev.info("pipeline", `Auto-chained ${fromSkill} → eval for ${projectId}/${agentId} (job ${evalJob.id})`);
   } catch (err) {
     emitPipelineEvent(projectId, {
       type: "auto-chain-skipped",
@@ -210,12 +214,12 @@ function autoChainToEval(projectId, agentId, fromSkill) {
       to: "eval",
       reason: `Failed to start eval: ${err.message}`,
     });
-    console.error(`[pipeline] Auto-chain ${fromSkill} → eval failed:`, err.message);
+    dev.error("pipeline", `Auto-chain ${fromSkill} → eval failed`, err.message);
   }
 }
 
 /**
- * Read eval results from brief.json and emit eval-complete event.
+ * Read eval results from agentspec.json and emit eval-complete event.
  */
 function emitEvalComplete(projectId, agentId) {
   const THRESHOLDS = {
@@ -229,8 +233,11 @@ function emitEvalComplete(projectId, agentId) {
   let meetsThreshold = false;
 
   try {
-    const briefPath = path.join(BUILD_GUIDES, projectId, "agents", agentId, "brief.json");
-    const brief = JSON.parse(fs.readFileSync(briefPath, "utf-8"));
+    const agentDir = path.join(BUILD_GUIDES, projectId, "agents", agentId);
+    const specFile = fs.existsSync(path.join(agentDir, "agentspec.json"))
+      ? path.join(agentDir, "agentspec.json")
+      : path.join(agentDir, "brief.json");
+    const brief = JSON.parse(fs.readFileSync(specFile, "utf-8"));
     const sets = brief.evalSets?.sets || [];
 
     if (sets.length > 0) {
@@ -330,13 +337,15 @@ function packageAgent(projectId, agentId) {
 async function runPackage(job) {
   const { projectId, agentId } = job;
   const agentDir = path.join(BUILD_GUIDES, projectId, "agents", agentId);
-  const briefPath = path.join(agentDir, "brief.json");
+  const specFile = fs.existsSync(path.join(agentDir, "agentspec.json"))
+    ? path.join(agentDir, "agentspec.json")
+    : path.join(agentDir, "brief.json");
 
-  if (!fs.existsSync(briefPath)) {
-    throw new Error(`No brief.json found at ${briefPath}`);
+  if (!fs.existsSync(specFile)) {
+    throw new Error(`No agentspec.json found at ${path.join(agentDir, "agentspec.json")}`);
   }
 
-  const brief = JSON.parse(fs.readFileSync(briefPath, "utf-8"));
+  const brief = JSON.parse(fs.readFileSync(specFile, "utf-8"));
   const solutionName = brief.buildStatus?.solutionName;
   let zipPath = null;
   let sharePointUploaded = false;
@@ -360,7 +369,7 @@ async function runPackage(job) {
       zipPath = null;
     }
   } else {
-    updatePkgStep(job, "export", "skipped", "No solution name in brief — skipping export");
+    updatePkgStep(job, "export", "skipped", "No solution name in agentspec — skipping export");
   }
 
   // Step 2: Upload to SharePoint
@@ -426,7 +435,7 @@ async function runPackage(job) {
     result: job.result,
   });
 
-  console.log(`[pipeline] Package ${projectId}/${agentId}: ${job.status}${sharePointUploaded ? " (uploaded to SharePoint)" : " (local only)"}`);
+  dev.info("pipeline", `Package ${projectId}/${agentId}: ${job.status}${sharePointUploaded ? " (uploaded to SharePoint)" : " (local only)"}`);
 }
 
 function getPackageJob(jobId) {

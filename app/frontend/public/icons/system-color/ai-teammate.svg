@@ -1,0 +1,22 @@
+<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<circle cx="12" cy="12" r="12" fill="url(#dw-bg)"/>
+<path d="M12 0C15.4951 0 18.6399 1.49542 20.833 3.87988C20.4186 3.46234 19.9369 3.06423 19.4248 2.69531C17.005 0.952002 13.8642 2.67908 13.2793 5.60352L10.7207 18.3965C10.1358 21.3209 6.99496 23.048 4.5752 21.3047C4.05672 20.9311 3.56917 20.5278 3.15137 20.1045C1.19469 17.9693 0 15.1244 0 12C0 5.37258 5.37258 0 12 0Z" fill="url(#dw-swirl)"/>
+<path d="M12 0C15.4951 0 18.6399 1.49542 20.833 3.87988C20.4186 3.46234 19.9369 3.06423 19.4248 2.69531C17.005 0.952002 13.8642 2.67908 13.2793 5.60352L10.7207 18.3965C10.1358 21.3209 6.99496 23.048 4.5752 21.3047C4.05672 20.9311 3.56917 20.5278 3.15137 20.1045C1.19469 17.9693 0 15.1244 0 12C0 5.37258 5.37258 0 12 0Z" fill="url(#dw-overlay)"/>
+<defs>
+<radialGradient id="dw-bg" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(13.5 0.9) rotate(95.9315) scale(23.2243 15.5733)">
+<stop stop-color="#16BBDA"/>
+<stop offset="0.689536" stop-color="#52D17C"/>
+<stop offset="1" stop-color="#96EB76"/>
+</radialGradient>
+<radialGradient id="dw-swirl" cx="0" cy="0" r="1" gradientTransform="matrix(-18.2289 -12.7314 11.503 -16.8371 18.5182 18.4315)" gradientUnits="userSpaceOnUse">
+<stop stop-color="#2052CB"/>
+<stop offset="0.662725" stop-color="#0094F0"/>
+<stop offset="0.881247" stop-color="#16BBDA"/>
+<stop offset="1" stop-color="#43E5CA"/>
+</radialGradient>
+<linearGradient id="dw-overlay" x1="5.20825" y1="8.70018" x2="13.655" y2="13.4002" gradientUnits="userSpaceOnUse">
+<stop stop-color="#0094F0" stop-opacity="0"/>
+<stop offset="1" stop-color="#2052CB"/>
+</linearGradient>
+</defs>
+</svg>

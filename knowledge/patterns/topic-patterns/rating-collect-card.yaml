@@ -1,0 +1,127 @@
+# Pattern: Star Rating Collection Card (Teams Host Extension)
+# Trigger: OnRecognizedIntent or mid-topic (after service interaction)
+# Shows: Star rating input with optional half-steps + comment field
+# Common in: service quality, product reviews, satisfaction surveys, NPS
+#
+# Schema: 1.5 + Teams host extension (Input.Rating)
+# Channels: Teams desktop+mobile (star rating renders natively)
+# Fallback: On non-Teams channels, Input.Rating falls back — use Input.ChoiceSet variant
+#
+# IMPORTANT: Input.Rating is a Teams host extension. For multi-channel agents,
+# include the Input.ChoiceSet fallback variant (Option B).
+
+kind: AdaptiveDialog
+beginDialog:
+  kind: OnRecognizedIntent
+  id: main
+  intent:
+    displayName: "{{TOPIC_NAME}}"
+    triggerQueries:
+      - "{{TRIGGER_1}}"
+  actions:
+    - kind: Question
+      id: collectRating
+      interruptionPolicy:
+        allowInterruption: true
+      variable: init:Topic.ratingData
+      prompt:
+        text: "How would you rate your experience?"
+        attachments:
+          - kind: AdaptiveCardTemplate
+            cardContent: |-
+              ={
+                type: "AdaptiveCard",
+                '$schema': "http://adaptivecards.io/schemas/adaptive-card.json",
+                version: "1.5",
+                body: [
+                  {
+                    type: "TextBlock",
+                    text: "Rate Your Experience",
+                    weight: "Bolder",
+                    size: "Medium"
+                  },
+                  {
+                    type: "TextBlock",
+                    text: "{{RATING_CONTEXT}}",
+                    wrap: true,
+                    isSubtle: true,
+                    spacing: "None"
+                  },
+                  {
+                    type: "Input.Rating",
+                    id: "rating",
+                    label: "Your rating",
+                    max: 5,
+                    allowHalfSteps: true,
+                    color: "Marigold",
+                    isRequired: true,
+                    errorMessage: "Please provide a rating"
+                  },
+                  {
+                    type: "Input.Text",
+                    id: "comment",
+                    label: "Additional comments (optional)",
+                    placeholder: "What could we do better?",
+                    isMultiline: true
+                  }
+                ],
+                actions: [
+                  {
+                    type: "Action.Submit",
+                    title: "Submit Rating"
+                  }
+                ]
+              }
+      entity: StringPrebuiltEntity
+
+    # Route based on rating value
+    - kind: ConditionGroup
+      id: routeRating
+      conditions:
+        - id: highRating
+          condition: =Value(Topic.ratingData.rating) >= 4
+          actions:
+            - kind: SendMessage
+              id: thankHigh
+              message: "Thank you for the positive feedback! We're glad you had a great experience."
+        - id: lowRating
+          condition: =Value(Topic.ratingData.rating) < 3
+          actions:
+            - kind: SendMessage
+              id: thankLow
+              message: "We're sorry to hear that. Your feedback has been shared with our team for improvement."
+      elseActions:
+        - kind: SendMessage
+          id: thankMid
+          message: "Thank you for your feedback. We'll use it to continue improving."
+
+# --- Option B: Cross-channel fallback (Input.ChoiceSet instead of Input.Rating) ---
+# Use this when agent targets Web Chat, Omnichannel, or M365 Copilot.
+#
+#   {
+#     type: "Input.ChoiceSet",
+#     id: "rating",
+#     label: "Your rating",
+#     style: "expanded",
+#     isRequired: true,
+#     choices: [
+#       { title: "⭐ 1 - Poor", value: "1" },
+#       { title: "⭐⭐ 2 - Fair", value: "2" },
+#       { title: "⭐⭐⭐ 3 - Good", value: "3" },
+#       { title: "⭐⭐⭐⭐ 4 - Very Good", value: "4" },
+#       { title: "⭐⭐⭐⭐⭐ 5 - Excellent", value: "5" }
+#     ]
+#   }
+
+# --- Variant: Read-only rating display (no input) ---
+# Show existing ratings using the Rating body element:
+#
+#   {
+#     type: "Rating",
+#     value: Topic.averageRating,
+#     max: 5,
+#     count: Topic.totalReviews,
+#     color: "Marigold",
+#     size: "Large",
+#     fallback: "drop"
+#   }

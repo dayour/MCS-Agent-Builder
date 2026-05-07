@@ -1,0 +1,22 @@
+<svg width="160" height="120" viewBox="0 0 160 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="160" height="120" rx="12" fill="#F5F5F5"/>
+  <!-- Top left node -->
+  <circle cx="50" cy="25" r="7" fill="#F4A261"/>
+  <!-- Top right node -->
+  <circle cx="110" cy="25" r="7" fill="#E76F51"/>
+  <!-- Bottom node -->
+  <circle cx="80" cy="95" r="7" fill="#E9C46A"/>
+  <!-- Center hexagon -->
+  <path d="M80 45 L95 52.5 L95 67.5 L80 75 L65 67.5 L65 52.5 Z" fill="url(#hexGrad)" stroke="none"/>
+  <!-- Connection lines -->
+  <line x1="55" y1="28" x2="68" y2="48" stroke="#E9C46A" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="105" y1="28" x2="92" y2="48" stroke="#E76F51" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="80" y1="75" x2="80" y2="88" stroke="#E9C46A" stroke-width="2.5" stroke-linecap="round"/>
+  <defs>
+    <linearGradient id="hexGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#7C3AED;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#6366F1;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#3B82F6;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+</svg>

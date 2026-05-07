@@ -1,0 +1,45 @@
+<svg viewBox="1.5 1.0 33.0 35.0" fill="none" xmlns="http://www.w3.org/2000/svg">
+<!-- Layer 3 (back): Tubes + earpieces — cyan-blue, scaled 1.8x -->
+<svg x="1.5" y="1.6" width="19.8" height="22.4" viewBox="0 0 11 12.44" fill="none">
+<g id="Color 3">
+<path d="M2.75 2a.75.75 0 0 0-.75.75v5a4.5 4.5 0 0 0 3.75 4.44v.25a5.23 5.23 0 0 0 2.25.5 5.23 5.23 0 0 0 2.25-.5v-.25A4.5 4.5 0 0 0 11 7.75v-5a.75.75 0 0 0-.75-.75h-1.5a.75.75 0 0 0 0 1.5h.75v4.25a3 3 0 1 1-6 0V3.5h.75a.75.75 0 0 0 0-1.5h-1.5Z" fill="url(#paint0_linear_steth_tubes)"/>
+<path d="M2.75 2a.75.75 0 0 0-.75.75v5a4.5 4.5 0 0 0 3.75 4.44v.25a5.23 5.23 0 0 0 2.25.5 5.23 5.23 0 0 0 2.25-.5v-.25A4.5 4.5 0 0 0 11 7.75v-5a.75.75 0 0 0-.75-.75h-1.5a.75.75 0 0 0 0 1.5h.75v4.25a3 3 0 1 1-6 0V3.5h.75a.75.75 0 0 0 0-1.5h-1.5Z" fill="url(#paint1_radial_steth_tubes)" fill-opacity="0.4"/>
+</g>
+<defs>
+<linearGradient id="paint0_linear_steth_tubes" x1="2" y1="2" x2="11" y2="13" gradientUnits="userSpaceOnUse">
+<stop stop-color="#0FAFFF"/>
+<stop offset="1" stop-color="#0067BF"/>
+</linearGradient>
+<radialGradient id="paint1_radial_steth_tubes" cx="0" cy="0" r="1" gradientTransform="translate(6 2) rotate(90) scale(4 5)" gradientUnits="userSpaceOnUse">
+<stop stop-color="#2052CB"/>
+<stop offset="1" stop-color="#2052CB" stop-opacity="0"/>
+</radialGradient>
+</defs></svg>
+<!-- Layer 2: Lower loop — magenta/purple -->
+<svg x="5.4" y="19.8" width="19.8" height="14.4" viewBox="0 0 11 8" fill="none">
+<g id="Color 2">
+<path d="M0 0v.56a5.25 5.25 0 0 0 10.5 0V0h-1.5v.56a3.75 3.75 0 1 1-7.5 0V0H0Z" fill="url(#paint0_linear_steth_loop)"/>
+<path d="M0 0v.56a5.25 5.25 0 0 0 10.5 0V0h-1.5v.56a3.75 3.75 0 1 1-7.5 0V0H0Z" fill="url(#paint1_radial_steth_loop)" fill-opacity="0.35"/>
+</g>
+<defs>
+<linearGradient id="paint0_linear_steth_loop" x1="0" y1="0" x2="10.5" y2="8" gradientUnits="userSpaceOnUse">
+<stop stop-color="#CC23D1"/>
+<stop offset="1" stop-color="#9C6CFE"/>
+</linearGradient>
+<radialGradient id="paint1_radial_steth_loop" cx="0" cy="0" r="1" gradientTransform="translate(5.25 6) rotate(-90) scale(4 6)" gradientUnits="userSpaceOnUse">
+<stop stop-color="#5750E2"/>
+<stop offset="1" stop-color="#5750E2" stop-opacity="0"/>
+</radialGradient>
+</defs></svg>
+<!-- Layer 1 (front): Connector dot — warm orange accent -->
+<svg x="24.3" y="13" width="5.4" height="5.4" viewBox="0 0 3 3" fill="none">
+<g id="Color 1">
+<path d="M1.5 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z" fill="url(#paint0_radial_steth_dot)"/>
+</g>
+<defs>
+<radialGradient id="paint0_radial_steth_dot" cx="0" cy="0" r="1" gradientTransform="translate(1 0.5) scale(2.5 2.5)" gradientUnits="userSpaceOnUse">
+<stop stop-color="#FF6F47"/>
+<stop offset="1" stop-color="#FFCD0F"/>
+</radialGradient>
+</defs></svg>
+</svg>

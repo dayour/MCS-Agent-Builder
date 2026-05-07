@@ -14,6 +14,7 @@ const path = require("path");
 const { execFile } = require("child_process");
 const { promisify } = require("util");
 const execFileAsync = promisify(execFile);
+const dev = require("./dev-logger");
 
 // ---------------------------------------------------------------------------
 // Paths
@@ -60,7 +61,7 @@ function loadState() {
       state = JSON.parse(fs.readFileSync(STATE_FILE, "utf-8"));
     }
   } catch (err) {
-    console.warn("[scheduler] Failed to load state:", err.message);
+    dev.warn("scheduler", "Failed to load state", err.message);
   }
 }
 
@@ -69,7 +70,7 @@ function saveState() {
   try {
     fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
   } catch (err) {
-    console.warn("[scheduler] Failed to save state:", err.message);
+    dev.warn("scheduler", "Failed to save state", err.message);
   }
 }
 
@@ -136,11 +137,11 @@ async function refreshCacheTier(tierName, files, maxAgeDays) {
     const stale = checkCacheStaleness(files, maxAgeDays);
     if (stale.length === 0) {
       updateJobState(jobName, { running: false, lastSuccess: new Date().toISOString(), lastResult: "All files fresh" });
-      console.log(`[scheduler] ${jobName}: all ${files.length} files fresh`);
+      dev.info("scheduler", `${jobName}: all ${files.length} files fresh`);
       return { stale: [], refreshed: 0 };
     }
 
-    // Update file mtimes to mark as checked (content refresh needs LLM — flagged for /mcs-refresh)
+    // Update file mtimes to mark as checked (content refresh needs LLM — flagged for /mcs-sync)
     const cacheDir = path.join(KNOWLEDGE_DIR, "cache");
     for (const file of stale) {
       const filePath = path.join(cacheDir, file);
@@ -157,11 +158,11 @@ async function refreshCacheTier(tierName, files, maxAgeDays) {
       lastResult: `${stale.length}/${files.length} stale: ${stale.join(", ")}`,
       runCount: (state.jobs[jobName]?.runCount || 0) + 1,
     });
-    console.log(`[scheduler] ${jobName}: ${stale.length} stale files flagged — ${stale.join(", ")}`);
+    dev.info("scheduler", `${jobName}: ${stale.length} stale files flagged — ${stale.join(", ")}`);
     return { stale, refreshed: stale.length };
   } catch (err) {
     updateJobState(jobName, { running: false, lastError: err.message });
-    console.error(`[scheduler] ${jobName} failed:`, err.message);
+    dev.error("scheduler", `${jobName} failed`, err.message);
     return { error: err.message };
   }
 }
@@ -192,11 +193,11 @@ async function runUpstreamCheck() {
       lastResult: stdout.trim().slice(0, 500),
       runCount: (state.jobs[jobName]?.runCount || 0) + 1,
     });
-    console.log(`[scheduler] upstream-check completed`);
+    dev.info("scheduler", "upstream-check completed");
     return { output: stdout.trim() };
   } catch (err) {
     updateJobState(jobName, { running: false, lastError: err.message });
-    console.error(`[scheduler] upstream-check failed:`, err.message);
+    dev.error("scheduler", "upstream-check failed", err.message);
     return { error: err.message };
   }
 }
@@ -277,10 +278,10 @@ async function rebuildLearningsIndex() {
       lastResult: `${entries.length} files, ${index.totalEntries} entries indexed`,
       runCount: (state.jobs[jobName]?.runCount || 0) + 1,
     });
-    console.log(`[scheduler] learnings-index rebuilt: ${entries.length} files`);
+    dev.info("scheduler", `learnings-index rebuilt: ${entries.length} files`);
   } catch (err) {
     updateJobState(jobName, { running: false, lastError: err.message });
-    console.error(`[scheduler] learnings-index failed:`, err.message);
+    dev.error("scheduler", "learnings-index failed", err.message);
   } finally {
     _learningsRunning = false;
   }
@@ -312,10 +313,10 @@ async function refreshSolutionLibrary() {
       lastResult: stdout.trim().slice(0, 500) || "Completed",
       runCount: (state.jobs[jobName]?.runCount || 0) + 1,
     });
-    console.log(`[scheduler] solution-library refresh completed`);
+    dev.info("scheduler", "solution-library refresh completed");
   } catch (err) {
     updateJobState(jobName, { running: false, lastError: err.message });
-    console.error(`[scheduler] solution-library failed:`, err.message);
+    dev.error("scheduler", "solution-library failed", err.message);
   }
 }
 
@@ -366,7 +367,7 @@ function initScheduler() {
     }
   }
 
-  console.log("[scheduler] Initialized with 6 recurring jobs");
+  dev.info("scheduler", "Initialized with 6 recurring jobs");
   return _cronJobs;
 }
 

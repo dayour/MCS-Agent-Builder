@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/microsoft/MCS-Agent-Builder/iterate-review-schema",
+  "title": "Iterate Facilitator Review",
+  "description": "Structured output the qa-challenger sub-agent emits when invoked with MODE=iterate-review. The lead parses stdout as JSON and validates against this schema.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["score", "criticalFindings", "suggestions", "summary"],
+  "properties": {
+    "score": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10,
+      "description": "Overall quality score (1-10). Must be <9 if criticalFindings.length > 0."
+    },
+    "criticalFindings": {
+      "type": "array",
+      "description": "Issues that block merge. Empty array means no critical issues found.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["category", "summary", "fix"],
+        "properties": {
+          "category": {
+            "type": "string",
+            "enum": ["correctness", "security", "testing", "architecture", "regression-risk", "tooling-integrity"]
+          },
+          "file": { "type": "string", "description": "Repo-relative path (forward slashes)" },
+          "line": { "type": "integer", "minimum": 1 },
+          "summary": { "type": "string", "minLength": 5, "maxLength": 240 },
+          "evidence": { "type": "string", "description": "Exact code excerpt, test output, or reproducer." },
+          "fix": { "type": "string", "minLength": 5, "description": "Concrete remediation step the lead should take." }
+        }
+      }
+    },
+    "suggestions": {
+      "type": "array",
+      "description": "Non-blocking improvements. Lead applies at discretion.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["category", "summary", "fix"],
+        "properties": {
+          "category": {
+            "type": "string",
+            "enum": ["naming", "clarity", "dx", "performance", "docs", "consistency"]
+          },
+          "file": { "type": "string" },
+          "summary": { "type": "string", "minLength": 5, "maxLength": 240 },
+          "fix": { "type": "string", "minLength": 5 }
+        }
+      }
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 600,
+      "description": "Two-sentence overall assessment."
+    }
+  }
+}

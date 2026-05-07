@@ -1,0 +1,8 @@
+tools/generated/** linguist-generated=true
+tools/generated/**.ts linguist-vendored=false
+tools/upstream-specs/*.json linguist-vendored=true
+
+# Vendored upstream specs are hashed by validate.js for provenance.
+# Force LF so the hash is stable across Windows/Linux/CI checkouts.
+tools/upstream-specs/*.json text eol=lf
+tools/upstream-specs/contracts/*.json text eol=lf

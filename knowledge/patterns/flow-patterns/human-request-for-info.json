@@ -1,0 +1,119 @@
+{
+  "_meta": {
+    "name": "Human Request for Information (Agent Flow)",
+    "description": "Agent flow that pauses to collect structured data from a human via Outlook. Supports 5 input types: Text, Yes/No, Email, Number, Date. First responder's data flows to subsequent steps. Uses Human-in-the-loop connector.",
+    "category": "complete",
+    "placeholders": {
+      "{{RFI_TITLE}}": "Title for the request (e.g. 'Additional Information Needed')",
+      "{{RECIPIENT_EMAIL}}": "Email of person to request info from",
+      "{{RFI_MESSAGE}}": "Description of what info is needed and why",
+      "{{INPUT_PARAM}}": "Name of the input from the agent",
+      "{{CONN_REF_LOGICAL}}": "Connection reference for Human-in-the-loop connector"
+    },
+    "requires": ["shared_humanintheloop"],
+    "notes": [
+      "Currently Outlook only — Teams support planned but no timeline",
+      "Pauses the flow until the recipient responds",
+      "5 input types: Text, Yes/No, Email, Number, Date",
+      "First responder wins — subsequent responses are ignored",
+      "Agent flow returns to the agent after human provides info"
+    ]
+  },
+  "fragment": {
+    "triggers": {
+      "manual": {
+        "type": "Request",
+        "kind": "Skills",
+        "inputs": {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "{{INPUT_PARAM}}": {
+                "type": "string",
+                "description": "Context from the agent about what info is needed"
+              }
+            },
+            "required": ["{{INPUT_PARAM}}"]
+          }
+        }
+      }
+    },
+    "actions": {
+      "Request_information": {
+        "runAfter": {},
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_humanintheloop",
+            "operationId": "RequestForInformation",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_humanintheloop"
+          },
+          "parameters": {
+            "title": "{{RFI_TITLE}}",
+            "assignedTo": "{{RECIPIENT_EMAIL}}",
+            "requestMessage": "{{RFI_MESSAGE}}",
+            "inputs": [
+              {
+                "id": "explanation",
+                "label": "Please provide the details",
+                "type": "Text",
+                "isRequired": true,
+                "placeholder": "Enter your response..."
+              },
+              {
+                "id": "approved",
+                "label": "Do you approve this request?",
+                "type": "YesNo",
+                "isRequired": true
+              },
+              {
+                "id": "contactEmail",
+                "label": "Your contact email",
+                "type": "Email",
+                "isRequired": false,
+                "placeholder": "name@company.com"
+              }
+            ]
+          },
+          "authentication": "@parameters('$authentication')"
+        }
+      },
+      "Respond_to_agent": {
+        "runAfter": {
+          "Request_information": ["Succeeded"]
+        },
+        "type": "Response",
+        "kind": "Skills",
+        "inputs": {
+          "statusCode": 200,
+          "body": {
+            "explanation": "@body('Request_information')?['responses']?['explanation']",
+            "approved": "@body('Request_information')?['responses']?['approved']",
+            "contactEmail": "@body('Request_information')?['responses']?['contactEmail']",
+            "respondedBy": "@body('Request_information')?['respondedBy']"
+          },
+          "schema": {
+            "type": "object",
+            "properties": {
+              "explanation": { "type": "string" },
+              "approved": { "type": "string" },
+              "contactEmail": { "type": "string" },
+              "respondedBy": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "connectionReferences": {
+      "shared_humanintheloop": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "{{CONN_REF_LOGICAL}}"
+        },
+        "api": {
+          "name": "shared_humanintheloop"
+        }
+      }
+    }
+  }
+}

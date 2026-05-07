@@ -1,0 +1,4357 @@
+{
+  "definitions": {
+    "BotElement": {
+      "x-definition": {
+        "title": "BotElement",
+        "type": "object",
+        "x-abstract": true
+      },
+      "oneOf": [
+        {
+          "$ref": "#/definitions/DialogComponent"
+        },
+        {
+          "$ref": "#/definitions/BotEntity"
+        },
+        {
+          "$ref": "#/definitions/BotConfiguration"
+        },
+        {
+          "$ref": "#/definitions/CLICopilotRecognizer"
+        },
+        {
+          "$ref": "#/definitions/AgentSettings"
+        },
+        {
+          "$ref": "#/definitions/ModelConfig"
+        },
+        {
+          "$ref": "#/definitions/Instructions"
+        },
+        {
+          "$ref": "#/definitions/StaticSegment"
+        },
+        {
+          "$ref": "#/definitions/ReferenceSegment"
+        },
+        {
+          "$ref": "#/definitions/ToolReference"
+        },
+        {
+          "$ref": "#/definitions/KnowledgeReference"
+        },
+        {
+          "$ref": "#/definitions/SystemReference"
+        },
+        {
+          "$ref": "#/definitions/ConversationStarter"
+        },
+        {
+          "$ref": "#/definitions/TextAgentOutput"
+        },
+        {
+          "$ref": "#/definitions/StructuredAgentOutput"
+        },
+        {
+          "$ref": "#/definitions/ConnectorTool"
+        },
+        {
+          "$ref": "#/definitions/AgentToolInput"
+        },
+        {
+          "$ref": "#/definitions/AgentToolOutput"
+        },
+        {
+          "$ref": "#/definitions/McpTool"
+        },
+        {
+          "$ref": "#/definitions/WorkflowTool"
+        },
+        {
+          "$ref": "#/definitions/InlineAgentSkill"
+        },
+        {
+          "$ref": "#/definitions/SkillResource"
+        },
+        {
+          "$ref": "#/definitions/ConnectedAgentTool"
+        },
+        {
+          "$ref": "#/definitions/FileAttachmentComponent"
+        },
+        {
+          "$ref": "#/definitions/FileAttachmentComponentMetadata"
+        },
+        {
+          "$ref": "#/definitions/KnowledgeSourceComponent"
+        },
+        {
+          "$ref": "#/definitions/KnowledgeSourceConfiguration"
+        },
+        {
+          "$ref": "#/definitions/AzureFoundryIQSource"
+        },
+        {
+          "$ref": "#/definitions/DataverseStructuredSearchSource"
+        },
+        {
+          "$ref": "#/definitions/FederatedStructuredSearchSource"
+        },
+        {
+          "$ref": "#/definitions/FileKnowledgeSource"
+        },
+        {
+          "$ref": "#/definitions/SharePointKnowledgeSource"
+        },
+        {
+          "$ref": "#/definitions/WebsiteKnowledgeSource"
+        },
+        {
+          "$ref": "#/definitions/BotDefinition"
+        }
+      ]
+    },
+    "BotComponentBase": {
+      "x-definition": {
+        "title": "BotComponentBase",
+        "type": "object",
+        "x-base-ref": "#/definitions/SolutionComponent",
+        "x-abstract": true,
+        "properties": {
+          "displayName": {
+            "title": "DisplayName",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "parentBotComponentId": {
+            "title": "ParentBotComponentId",
+            "type": "string"
+          },
+          "parentBotId": {
+            "title": "ParentBotId",
+            "type": "string"
+          },
+          "parentBotComponentCollectionId": {
+            "title": "ParentBotComponentCollectionId",
+            "type": "string"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "shareContext": {
+            "title": "ShareContext",
+            "$ref": "#/definitions/ContentShareContext"
+          },
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "default": "Active",
+            "$ref": "#/definitions/StateCode"
+          },
+          "status": {
+            "title": "Status",
+            "$ref": "#/definitions/BotComponentStatusReason"
+          },
+          "publisherUniqueName": {
+            "title": "PublisherUniqueName",
+            "type": "string"
+          }
+        }
+      },
+      "oneOf": [
+        {
+          "$ref": "#/definitions/DialogComponent"
+        },
+        {
+          "$ref": "#/definitions/FileAttachmentComponent"
+        },
+        {
+          "$ref": "#/definitions/KnowledgeSourceComponent"
+        }
+      ]
+    },
+    "DataValue": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "array"
+        },
+        {
+          "type": "object"
+        }
+      ]
+    },
+    "DialogBase": {
+      "x-definition": {
+        "title": "DialogBase",
+        "type": "object",
+        "x-base-ref": "#/definitions/LocalizableContentContainer",
+        "x-abstract": true
+      },
+      "oneOf": [
+        {
+          "$ref": "#/definitions/ConnectorTool"
+        },
+        {
+          "$ref": "#/definitions/McpTool"
+        },
+        {
+          "$ref": "#/definitions/WorkflowTool"
+        },
+        {
+          "$ref": "#/definitions/InlineAgentSkill"
+        },
+        {
+          "$ref": "#/definitions/ConnectedAgentTool"
+        }
+      ]
+    },
+    "RecognizerBase": {
+      "x-definition": {
+        "title": "RecognizerBase",
+        "type": "object",
+        "x-base-ref": "#/definitions/BotElement",
+        "x-abstract": true
+      },
+      "oneOf": [
+        {
+          "$ref": "#/definitions/CLICopilotRecognizer"
+        }
+      ]
+    },
+    "AgentOutputSettings": {
+      "x-definition": {
+        "title": "AgentOutputSettings",
+        "type": "object",
+        "x-base-ref": "#/definitions/BotElement",
+        "x-abstract": true
+      },
+      "oneOf": [
+        {
+          "$ref": "#/definitions/TextAgentOutput"
+        },
+        {
+          "$ref": "#/definitions/StructuredAgentOutput"
+        }
+      ]
+    },
+    "InstructionSegmentBase": {
+      "x-definition": {
+        "title": "InstructionSegmentBase",
+        "type": "object",
+        "x-base-ref": "#/definitions/BotElement",
+        "x-abstract": true
+      },
+      "oneOf": [
+        {
+          "$ref": "#/definitions/StaticSegment"
+        },
+        {
+          "$ref": "#/definitions/ReferenceSegment"
+        }
+      ]
+    },
+    "ReferenceBase": {
+      "x-definition": {
+        "title": "ReferenceBase",
+        "type": "object",
+        "x-base-ref": "#/definitions/BotElement",
+        "x-abstract": true
+      },
+      "oneOf": [
+        {
+          "$ref": "#/definitions/ToolReference"
+        },
+        {
+          "$ref": "#/definitions/KnowledgeReference"
+        },
+        {
+          "$ref": "#/definitions/SystemReference"
+        }
+      ]
+    },
+    "LocalizableContentContainer": {
+      "x-definition": {
+        "title": "LocalizableContentContainer",
+        "type": "object",
+        "x-base-ref": "#/definitions/BotElement",
+        "x-abstract": true
+      },
+      "oneOf": [
+        {
+          "$ref": "#/definitions/ConnectorTool"
+        },
+        {
+          "$ref": "#/definitions/McpTool"
+        },
+        {
+          "$ref": "#/definitions/WorkflowTool"
+        },
+        {
+          "$ref": "#/definitions/InlineAgentSkill"
+        },
+        {
+          "$ref": "#/definitions/ConnectedAgentTool"
+        }
+      ]
+    },
+    "KnowledgeSource": {
+      "x-definition": {
+        "title": "KnowledgeSource",
+        "type": "object",
+        "x-base-ref": "#/definitions/BotElement",
+        "x-abstract": true,
+        "properties": {
+          "triggerCondition": {
+            "title": "Condition",
+            "description": "Decides whether the knowledge source should be used by the AI planner. Ignored when used explicitly from a topic.",
+            "$role": "expression",
+            "$ref": "#/definitions/BoolExpression"
+          }
+        }
+      },
+      "oneOf": [
+        {
+          "$ref": "#/definitions/AzureFoundryIQSource"
+        },
+        {
+          "$ref": "#/definitions/DataverseStructuredSearchSource"
+        },
+        {
+          "$ref": "#/definitions/FederatedStructuredSearchSource"
+        },
+        {
+          "$ref": "#/definitions/FileKnowledgeSource"
+        },
+        {
+          "$ref": "#/definitions/SharePointKnowledgeSource"
+        },
+        {
+          "$ref": "#/definitions/WebsiteKnowledgeSource"
+        }
+      ]
+    },
+    "DefinitionBase": {
+      "x-definition": {
+        "title": "DefinitionBase",
+        "type": "object",
+        "x-base-ref": "#/definitions/BotElement",
+        "x-abstract": true,
+        "properties": {
+          "components": {
+            "title": "Components",
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/BotComponentBase"
+            }
+          },
+          "environmentVariables": {
+            "title": "EnvironmentVariables",
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/EnvironmentVariableDefinition"
+            }
+          },
+          "flows": {
+            "title": "Flows",
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/CloudFlowDefinition"
+            }
+          },
+          "dataverseTableSearchs": {
+            "title": "DataverseTableSearchs",
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/DataverseTableSearchBase"
+            }
+          },
+          "dataverseTableSearchGlossaryConfigurations": {
+            "title": "DataverseTableSearchGlossaryConfigurations",
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/DataverseTableSearchGlossaryConfiguration"
+            }
+          },
+          "dataverseTableSearchEntityConfigurations": {
+            "title": "DataverseTableSearchEntityConfigurations",
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/DataverseTableSearchEntityConfiguration"
+            }
+          },
+          "dataverseTableSearchEntityColumnSynonyms": {
+            "title": "DataverseTableSearchEntityColumnSynonyms",
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/DataverseTableSearchEntityColumnSynonym"
+            }
+          },
+          "connectionReferences": {
+            "title": "ConnectionReferences",
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/ConnectionReference"
+            }
+          },
+          "connectorDefinitions": {
+            "title": "ConnectorDefinitions",
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/ConnectorDefinition"
+            }
+          },
+          "aIModelDefinitions": {
+            "title": "AIModelDefinitions",
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/AIModelDefinition"
+            }
+          },
+          "aIPluginOperations": {
+            "title": "AIPluginOperations",
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/AIPluginOperation"
+            }
+          },
+          "connectedAgentDefinitions": {
+            "title": "ConnectedAgentDefinitions",
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/ConnectedAgentDefinition"
+            }
+          }
+        }
+      },
+      "oneOf": [
+        {
+          "$ref": "#/definitions/BotDefinition"
+        }
+      ]
+    },
+    "SolutionComponent": {
+      "x-definition": {
+        "title": "SolutionComponent",
+        "type": "object",
+        "x-base-ref": "#/definitions/DataverseComponent",
+        "x-abstract": true,
+        "properties": {
+          "managedProperties": {
+            "title": "ManagedProperties",
+            "$ref": "#/definitions/ManagedProperties"
+          },
+          "auditInfo": {
+            "title": "AuditInfo",
+            "$ref": "#/definitions/AuditInfo"
+          }
+        }
+      },
+      "oneOf": [
+        {
+          "$ref": "#/definitions/DialogComponent"
+        },
+        {
+          "$ref": "#/definitions/BotEntity"
+        },
+        {
+          "$ref": "#/definitions/FileAttachmentComponent"
+        },
+        {
+          "$ref": "#/definitions/KnowledgeSourceComponent"
+        }
+      ]
+    },
+    "DataverseComponent": {
+      "x-definition": {
+        "title": "DataverseComponent",
+        "type": "object",
+        "x-base-ref": "#/definitions/BotElement",
+        "x-abstract": true,
+        "properties": {
+          "version": {
+            "title": "Version",
+            "type": "number"
+          }
+        }
+      },
+      "oneOf": [
+        {
+          "$ref": "#/definitions/DialogComponent"
+        },
+        {
+          "$ref": "#/definitions/BotEntity"
+        },
+        {
+          "$ref": "#/definitions/FileAttachmentComponent"
+        },
+        {
+          "$ref": "#/definitions/KnowledgeSourceComponent"
+        }
+      ]
+    },
+    "AgentToolBase": {
+      "x-definition": {
+        "title": "AgentToolBase",
+        "type": "object",
+        "x-base-ref": "#/definitions/DialogBase",
+        "x-abstract": true
+      },
+      "oneOf": [
+        {
+          "$ref": "#/definitions/ConnectorTool"
+        },
+        {
+          "$ref": "#/definitions/McpTool"
+        },
+        {
+          "$ref": "#/definitions/WorkflowTool"
+        },
+        {
+          "$ref": "#/definitions/InlineAgentSkill"
+        },
+        {
+          "$ref": "#/definitions/ConnectedAgentTool"
+        }
+      ]
+    },
+    "ConnectorToolBase": {
+      "x-definition": {
+        "title": "ConnectorToolBase",
+        "type": "object",
+        "x-base-ref": "#/definitions/AgentToolBase",
+        "x-abstract": true,
+        "properties": {
+          "connectorId": {
+            "title": "Connector",
+            "description": "The connector that backs this tool.",
+            "type": "string"
+          },
+          "authMode": {
+            "title": "Auth mode",
+            "description": "Which identity is used when invoking the tool.",
+            "default": "Maker",
+            "$ref": "#/definitions/ConnectionMode"
+          },
+          "connectionReference": {
+            "title": "Connection reference",
+            "description": "Logical name of the connection reference that holds the connection used to invoke the tool.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "connectorId"
+        ]
+      },
+      "oneOf": [
+        {
+          "$ref": "#/definitions/ConnectorTool"
+        },
+        {
+          "$ref": "#/definitions/McpTool"
+        }
+      ]
+    },
+    "AgentSkillBase": {
+      "x-definition": {
+        "title": "AgentSkillBase",
+        "type": "object",
+        "x-base-ref": "#/definitions/AgentToolBase",
+        "x-abstract": true
+      },
+      "oneOf": [
+        {
+          "$ref": "#/definitions/InlineAgentSkill"
+        }
+      ]
+    },
+    "AgentKnowledgeSourceBase": {
+      "x-definition": {
+        "title": "AgentKnowledgeSourceBase",
+        "type": "object",
+        "x-base-ref": "#/definitions/KnowledgeSource",
+        "x-abstract": true
+      },
+      "oneOf": [
+        {
+          "$ref": "#/definitions/FileKnowledgeSource"
+        },
+        {
+          "$ref": "#/definitions/SharePointKnowledgeSource"
+        },
+        {
+          "$ref": "#/definitions/WebsiteKnowledgeSource"
+        }
+      ]
+    },
+    "DialogComponent": {
+      "title": "DialogComponent",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/BotComponentBase",
+      "properties": {
+        "kind": {
+          "const": "DialogComponent"
+        },
+        "schemaName": {
+          "title": "SchemaName",
+          "type": "string"
+        },
+        "dialog": {
+          "title": "Dialog",
+          "$ref": "#/definitions/DialogBase",
+          "x-defaultDefinition": "#/definitions/AdaptiveDialog"
+        }
+      },
+      "required": [
+        "kind",
+        "schemaName",
+        "dialog"
+      ]
+    },
+    "BotEntity": {
+      "title": "BotEntity",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/SolutionComponent",
+      "properties": {
+        "kind": {
+          "const": "BotEntity"
+        },
+        "displayName": {
+          "title": "DisplayName",
+          "type": "string"
+        },
+        "schemaName": {
+          "title": "SchemaName",
+          "type": "string"
+        },
+        "componentIdUnique": {
+          "title": "ComponentIdUnique",
+          "type": "string"
+        },
+        "cdsBotId": {
+          "title": "CdsBotId",
+          "type": "string"
+        },
+        "accessControlPolicy": {
+          "title": "AccessControlPolicy",
+          "default": "Any",
+          "$ref": "#/definitions/BotAccessControlPolicy"
+        },
+        "authenticationMode": {
+          "title": "AuthenticationMode",
+          "default": "Unspecified",
+          "$ref": "#/definitions/BotAuthenticationMode"
+        },
+        "authenticationTrigger": {
+          "title": "AuthenticationTrigger",
+          "default": "AsNeeded",
+          "$ref": "#/definitions/BotAuthenticationTrigger"
+        },
+        "authorizedSecurityGroupIds": {
+          "title": "AuthorizedSecurityGroupIds",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "configuration": {
+          "title": "Configuration",
+          "$ref": "#/definitions/BotConfiguration"
+        },
+        "publishedOn": {
+          "title": "PublishedOn",
+          "type": "string"
+        },
+        "template": {
+          "title": "Template",
+          "type": "string"
+        },
+        "iconBase64": {
+          "title": "IconBase64",
+          "type": "string"
+        },
+        "language": {
+          "title": "Language",
+          "$ref": "#/definitions/Language"
+        },
+        "runtimeProvider": {
+          "title": "RuntimeProvider",
+          "default": "PowerVirtualAgents",
+          "$ref": "#/definitions/RuntimeProvider"
+        },
+        "providerConnectionReferenceId": {
+          "title": "ProviderConnectionReferenceId",
+          "type": "string"
+        },
+        "supportedLanguages": {
+          "title": "SupportedLanguages",
+          "type": "array",
+          "items": {
+            "type": "Language"
+          }
+        },
+        "state": {
+          "title": "State",
+          "default": "Active",
+          "$ref": "#/definitions/StateCode"
+        },
+        "status": {
+          "title": "Status",
+          "$ref": "#/definitions/ProvisioningStatus"
+        },
+        "origin": {
+          "title": "Origin",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "schemaName",
+        "cdsBotId"
+      ]
+    },
+    "BotConfiguration": {
+      "title": "BotConfiguration",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/BotElement",
+      "properties": {
+        "kind": {
+          "const": "BotConfiguration"
+        },
+        "settings": {
+          "title": "Settings",
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/DataValue"
+          }
+        },
+        "isTelephonyEnabled": {
+          "title": "Enable Telephony",
+          "description": "Set up your bot for voice-first channels like telephony.",
+          "default": false,
+          "type": "boolean"
+        },
+        "isAgentConnectable": {
+          "title": "Let other agents connect to and use this one",
+          "description": "Let agents work together to complete workflows",
+          "default": true,
+          "type": "boolean"
+        },
+        "publishOnCreate": {
+          "title": "PublishOnCreate",
+          "default": false,
+          "type": "boolean"
+        },
+        "publishOnImport": {
+          "title": "PublishOnImport",
+          "default": true,
+          "type": "boolean"
+        },
+        "isLightweightBot": {
+          "title": "IsLightweightBot",
+          "default": false,
+          "type": "boolean"
+        },
+        "recognizer": {
+          "title": "Recognizer",
+          "$ref": "#/definitions/RecognizerBase"
+        },
+        "agentSettings": {
+          "title": "Agent settings",
+          "description": "Settings for bots running on the CopilotStudioCLIAgent runtime. Null for bots that only run on the classic orchestrator.",
+          "$ref": "#/definitions/AgentSettings"
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
+    "CLICopilotRecognizer": {
+      "title": "CLICopilotRecognizer",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/RecognizerBase",
+      "properties": {
+        "kind": {
+          "const": "CLICopilotRecognizer"
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
+    "AgentSettings": {
+      "title": "AgentSettings",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/BotElement",
+      "properties": {
+        "kind": {
+          "const": "AgentSettings"
+        },
+        "version": {
+          "title": "Version",
+          "description": "Schema version of the agent definition payload.",
+          "type": "string"
+        },
+        "model": {
+          "title": "Model",
+          "description": "Model configuration the agent should use.",
+          "$ref": "#/definitions/ModelConfig"
+        },
+        "instructions": {
+          "title": "Instructions",
+          "description": "Ordered instruction segments that guide the agent.",
+          "$ref": "#/definitions/Instructions"
+        },
+        "greetingText": {
+          "title": "Greeting text",
+          "description": "Optional greeting message displayed to the user before conversation starters are shown.",
+          "type": "string"
+        },
+        "conversationStarters": {
+          "title": "ConversationStarters",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ConversationStarter"
+          }
+        },
+        "enableMemory": {
+          "title": "Enable memory",
+          "description": "Determines whether memory is enabled for the agent.",
+          "default": false,
+          "type": "boolean"
+        },
+        "enableTeammate": {
+          "title": "Enable teammate",
+          "description": "Determines whether teammate behavior is enabled for the agent.",
+          "default": false,
+          "type": "boolean"
+        },
+        "output": {
+          "title": "Output",
+          "description": "Output configuration for the agent. Determines whether the agent produces free-form text or structured output.",
+          "$ref": "#/definitions/AgentOutputSettings"
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
+    "ModelConfig": {
+      "title": "ModelConfig",
+      "description": "Model configuration for an agent.",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/BotElement",
+      "properties": {
+        "kind": {
+          "const": "ModelConfig"
+        },
+        "series": {
+          "title": "Series",
+          "description": "Model series the agent runtime should select a model from.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
+    "Instructions": {
+      "title": "Instructions",
+      "description": "Ordered set of instruction segments that guide the agent or one of its skills.",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/BotElement",
+      "properties": {
+        "kind": {
+          "const": "Instructions"
+        },
+        "segments": {
+          "title": "Segments",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/InstructionSegmentBase"
+          }
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
+    "StaticSegment": {
+      "title": "StaticSegment",
+      "description": "A literal piece of instruction text.",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/InstructionSegmentBase",
+      "properties": {
+        "kind": {
+          "const": "StaticSegment"
+        },
+        "value": {
+          "title": "Value",
+          "description": "Literal instruction text.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ]
+    },
+    "ReferenceSegment": {
+      "title": "ReferenceSegment",
+      "description": "An instruction segment that references another element of the agent (a tool, a knowledge source, or a system property).",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/InstructionSegmentBase",
+      "properties": {
+        "kind": {
+          "const": "ReferenceSegment"
+        },
+        "reference": {
+          "title": "Reference",
+          "description": "The referenced element.",
+          "$ref": "#/definitions/ReferenceBase"
+        }
+      },
+      "required": [
+        "kind",
+        "reference"
+      ]
+    },
+    "ToolReference": {
+      "title": "ToolReference",
+      "description": "Reference to a tool defined on the agent.",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/ReferenceBase",
+      "properties": {
+        "kind": {
+          "const": "ToolReference"
+        },
+        "name": {
+          "title": "Name",
+          "description": "Name of the referenced tool.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "name"
+      ]
+    },
+    "KnowledgeReference": {
+      "title": "KnowledgeReference",
+      "description": "Reference to a knowledge source defined on the agent.",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/ReferenceBase",
+      "properties": {
+        "kind": {
+          "const": "KnowledgeReference"
+        },
+        "name": {
+          "title": "Name",
+          "description": "Name of the referenced knowledge source.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "name"
+      ]
+    },
+    "SystemReference": {
+      "title": "SystemReference",
+      "description": "Reference to a well-known system-provided property (for example, the current user or the current date).",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/ReferenceBase",
+      "properties": {
+        "kind": {
+          "const": "SystemReference"
+        },
+        "property": {
+          "title": "Property",
+          "description": "Name of the referenced system property.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "property"
+      ]
+    },
+    "ConversationStarter": {
+      "title": "ConversationStarter",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/BotElement",
+      "properties": {
+        "kind": {
+          "const": "ConversationStarter"
+        },
+        "title": {
+          "title": "Title",
+          "description": "Title for the conversation starter",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "description": "Text that will be sent when the conversation starter is selected",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "title",
+        "text"
+      ]
+    },
+    "TextAgentOutput": {
+      "title": "TextAgentOutput",
+      "description": "Agent output that produces free-form text responses.",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/AgentOutputSettings",
+      "properties": {
+        "kind": {
+          "const": "TextAgentOutput"
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
+    "StructuredAgentOutput": {
+      "title": "StructuredAgentOutput",
+      "description": "Agent output that produces structured responses conforming to a JSON schema.",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/AgentOutputSettings",
+      "properties": {
+        "kind": {
+          "const": "StructuredAgentOutput"
+        },
+        "schema": {
+          "title": "Schema",
+          "description": "JSON schema defining the structure of the agent's output.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "schema"
+      ]
+    },
+    "ConnectorTool": {
+      "title": "ConnectorTool",
+      "description": "A tool backed by a single operation on a Power Platform connector.",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/ConnectorToolBase",
+      "properties": {
+        "kind": {
+          "const": "ConnectorTool"
+        },
+        "operationId": {
+          "title": "Operation",
+          "description": "Connector operation exposed as this tool.",
+          "type": "string"
+        },
+        "toolInputs": {
+          "title": "ToolInputs",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AgentToolInput"
+          }
+        },
+        "toolOutputs": {
+          "title": "ToolOutputs",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AgentToolOutput"
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "connectorId",
+        "operationId"
+      ]
+    },
+    "AgentToolInput": {
+      "title": "AgentToolInput",
+      "description": "A single input parameter of a tool.",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/BotElement",
+      "properties": {
+        "kind": {
+          "const": "AgentToolInput"
+        },
+        "name": {
+          "title": "Name",
+          "description": "Parameter name as exposed on the tool.",
+          "type": "string"
+        },
+        "displayName": {
+          "title": "Display name",
+          "description": "Human-friendly display name for the parameter.",
+          "type": "string"
+        },
+        "description": {
+          "title": "Description",
+          "description": "Description of the parameter surfaced to the planner.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "name"
+      ]
+    },
+    "AgentToolOutput": {
+      "title": "AgentToolOutput",
+      "description": "A single output parameter of a tool.",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/BotElement",
+      "properties": {
+        "kind": {
+          "const": "AgentToolOutput"
+        },
+        "name": {
+          "title": "Name",
+          "description": "Parameter name as exposed on the tool.",
+          "type": "string"
+        },
+        "displayName": {
+          "title": "Display name",
+          "description": "Human-friendly display name for the parameter.",
+          "type": "string"
+        },
+        "description": {
+          "title": "Description",
+          "description": "Description of the parameter surfaced to the planner.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "name"
+      ]
+    },
+    "McpTool": {
+      "title": "McpTool",
+      "description": "A tool backed by a Model Context Protocol server exposed as a connector.",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/ConnectorToolBase",
+      "properties": {
+        "kind": {
+          "const": "McpTool"
+        },
+        "allowedTools": {
+          "title": "AllowedTools",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "connectorId"
+      ]
+    },
+    "WorkflowTool": {
+      "title": "WorkflowTool",
+      "description": "A tool backed by a Power Automate cloud flow.",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/AgentToolBase",
+      "properties": {
+        "kind": {
+          "const": "WorkflowTool"
+        },
+        "workflowId": {
+          "title": "Workflow",
+          "description": "Identifier of the cloud flow backing this tool.",
+          "type": "string"
+        },
+        "toolInputs": {
+          "title": "ToolInputs",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AgentToolInput"
+          }
+        },
+        "toolOutputs": {
+          "title": "ToolOutputs",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AgentToolOutput"
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "workflowId"
+      ]
+    },
+    "InlineAgentSkill": {
+      "title": "InlineAgentSkill",
+      "description": "An agent skill whose content is stored inline on the component.",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/AgentSkillBase",
+      "properties": {
+        "kind": {
+          "const": "InlineAgentSkill"
+        },
+        "content": {
+          "title": "Content",
+          "description": "Skill definition content in markdown format. Materialized as SKILL.md in the sandbox.",
+          "type": "string"
+        },
+        "resources": {
+          "title": "Resources",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SkillResource"
+          }
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
+    "SkillResource": {
+      "title": "SkillResource",
+      "description": "A resource file associated with an agent skill, materialized in the sandbox.",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/BotElement",
+      "properties": {
+        "kind": {
+          "const": "SkillResource"
+        },
+        "path": {
+          "title": "Path",
+          "description": "Relative path within the skill directory (e.g. 'helper.py' or 'utils/parser.py').",
+          "type": "string"
+        },
+        "contentBase64": {
+          "title": "Content",
+          "description": "Base64-encoded file content. Populated by the Content API enrichment pipeline (Full mode only).",
+          "type": "string"
+        },
+        "contentType": {
+          "title": "Content Type",
+          "description": "MIME type of the resource file (e.g. 'application/x-python').",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
+    "ConnectedAgentTool": {
+      "title": "ConnectedAgentTool",
+      "description": "A tool that invokes a connected agent.",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/AgentToolBase",
+      "properties": {
+        "kind": {
+          "const": "ConnectedAgentTool"
+        },
+        "botSchemaName": {
+          "title": "Agent",
+          "description": "The schema name of the connected agent to invoke.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "botSchemaName"
+      ]
+    },
+    "FileAttachmentComponent": {
+      "title": "FileAttachmentComponent",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/BotComponentBase",
+      "properties": {
+        "kind": {
+          "const": "FileAttachmentComponent"
+        },
+        "schemaName": {
+          "title": "SchemaName",
+          "type": "string"
+        },
+        "metadata": {
+          "title": "Metadata",
+          "$ref": "#/definitions/FileAttachmentComponentMetadata"
+        }
+      },
+      "required": [
+        "kind",
+        "schemaName"
+      ]
+    },
+    "FileAttachmentComponentMetadata": {
+      "title": "Metadata",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/BotElement",
+      "properties": {
+        "kind": {
+          "const": "FileAttachmentComponentMetadata"
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
+    "KnowledgeSourceComponent": {
+      "title": "KnowledgeSourceComponent",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/BotComponentBase",
+      "properties": {
+        "kind": {
+          "const": "KnowledgeSourceComponent"
+        },
+        "schemaName": {
+          "title": "SchemaName",
+          "type": "string"
+        },
+        "configuration": {
+          "title": "Configuration",
+          "$ref": "#/definitions/KnowledgeSourceConfiguration"
+        }
+      },
+      "required": [
+        "kind",
+        "schemaName",
+        "configuration"
+      ]
+    },
+    "KnowledgeSourceConfiguration": {
+      "title": "KnowledgeSource Configuration",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/BotElement",
+      "properties": {
+        "kind": {
+          "const": "KnowledgeSourceConfiguration"
+        },
+        "source": {
+          "title": "Knowledge Source",
+          "description": "Definition of Knowledge Source.",
+          "$ref": "#/definitions/KnowledgeSource"
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
+    "AzureFoundryIQSource": {
+      "title": "Azure Foundry IQ",
+      "description": "Retrieve knowledge from an Azure Foundry IQ knowledge base via MCP protocol.",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/KnowledgeSource",
+      "properties": {
+        "kind": {
+          "const": "AzureFoundryIQSource"
+        },
+        "connectionReference": {
+          "title": "ConnectionReference",
+          "type": "string"
+        },
+        "knowledgeBaseName": {
+          "title": "Knowledge base name",
+          "description": "The name of the Foundry IQ knowledge base to query.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "knowledgeBaseName"
+      ]
+    },
+    "DataverseStructuredSearchSource": {
+      "title": "Search specified entities",
+      "description": "Get search results from specified entities.",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/KnowledgeSource",
+      "properties": {
+        "kind": {
+          "const": "DataverseStructuredSearchSource"
+        },
+        "skillConfiguration": {
+          "title": "SkillConfiguration",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
+    "FederatedStructuredSearchSource": {
+      "title": "Search federated sources in 3P",
+      "description": "Get search results from federated sources in 3P.",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/KnowledgeSource",
+      "properties": {
+        "kind": {
+          "const": "FederatedStructuredSearchSource"
+        },
+        "skillConfiguration": {
+          "title": "SkillConfiguration",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
+    "FileKnowledgeSource": {
+      "title": "FileKnowledgeSource",
+      "description": "Knowledge source backed by one or more uploaded files attached to the agent.",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/AgentKnowledgeSourceBase",
+      "properties": {
+        "kind": {
+          "const": "FileKnowledgeSource"
+        },
+        "schemaName": {
+          "title": "File",
+          "description": "Schema name of the FileAttachmentComponent that backs this knowledge source.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "schemaName"
+      ]
+    },
+    "SharePointKnowledgeSource": {
+      "title": "SharePointKnowledgeSource",
+      "description": "Knowledge source backed by a SharePoint site or document library.",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/AgentKnowledgeSourceBase",
+      "properties": {
+        "kind": {
+          "const": "SharePointKnowledgeSource"
+        },
+        "siteUrl": {
+          "title": "Site URL",
+          "description": "URL of the SharePoint site or document library used as a knowledge source.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "siteUrl"
+      ]
+    },
+    "WebsiteKnowledgeSource": {
+      "title": "WebsiteKnowledgeSource",
+      "description": "Knowledge source backed by a public website.",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/AgentKnowledgeSourceBase",
+      "properties": {
+        "kind": {
+          "const": "WebsiteKnowledgeSource"
+        },
+        "siteUrl": {
+          "title": "Site URL",
+          "description": "URL of the website used as a knowledge source.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "siteUrl"
+      ]
+    },
+    "BotDefinition": {
+      "title": "BotDefinition",
+      "type": "object",
+      "additionalProperties": false,
+      "x-base-ref": "#/definitions/DefinitionBase",
+      "properties": {
+        "kind": {
+          "const": "BotDefinition"
+        },
+        "publishedVersion": {
+          "title": "PublishedVersion",
+          "type": "string"
+        },
+        "forceUseVersion": {
+          "title": "ForceUseVersion",
+          "type": "boolean"
+        },
+        "entity": {
+          "title": "Entity",
+          "$ref": "#/definitions/BotEntity"
+        },
+        "connectedBots": {
+          "title": "ConnectedBots",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/BotEntity"
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "entity"
+      ]
+    },
+    "StateCode": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Active",
+          "const": "Active"
+        },
+        {
+          "title": "Inactive",
+          "const": "Inactive"
+        }
+      ]
+    },
+    "ProvisioningStatus": {
+      "type": "number",
+      "oneOf": [
+        {
+          "title": "Provisioned",
+          "const": 1
+        },
+        {
+          "title": "Deprovisioned",
+          "const": 2
+        },
+        {
+          "title": "Provisioning",
+          "const": 3
+        },
+        {
+          "title": "ProvisionFailed",
+          "const": 4
+        },
+        {
+          "title": "MissingLicense",
+          "const": 5
+        }
+      ]
+    },
+    "BotComponentStatusReason": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Active",
+          "const": "Active"
+        },
+        {
+          "title": "Inactive",
+          "const": "Inactive"
+        }
+      ]
+    },
+    "RuntimeProvider": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "PowerVirtualAgents",
+          "const": "PowerVirtualAgents"
+        },
+        {
+          "title": "NuanceMixShell",
+          "const": "NuanceMixShell"
+        }
+      ]
+    },
+    "EnvironmentVariableType": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "String",
+          "const": "String"
+        },
+        {
+          "title": "Number",
+          "const": "Number"
+        },
+        {
+          "title": "Boolean",
+          "const": "Boolean"
+        },
+        {
+          "title": "Json",
+          "const": "Json"
+        },
+        {
+          "title": "DataSource",
+          "const": "DataSource"
+        },
+        {
+          "title": "Secret",
+          "const": "Secret"
+        }
+      ]
+    },
+    "CloudFlowTriggerType": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Standard",
+          "const": "Standard"
+        },
+        {
+          "title": "Copilot",
+          "const": "Copilot"
+        }
+      ]
+    },
+    "CloudFlowConnectionType": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "EmbeddedOnly",
+          "const": "EmbeddedOnly"
+        },
+        {
+          "title": "InvokerOnly",
+          "const": "InvokerOnly"
+        },
+        {
+          "title": "EmbeddedAndInvoker",
+          "const": "EmbeddedAndInvoker"
+        },
+        {
+          "title": "NoConnections",
+          "const": "NoConnections"
+        }
+      ]
+    },
+    "ConnectorDefinitionType": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Solution",
+          "const": "Solution"
+        },
+        {
+          "title": "Environment",
+          "const": "Environment"
+        },
+        {
+          "title": "Public",
+          "const": "Public"
+        }
+      ]
+    },
+    "DeclarativeSkillScope": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Agent",
+          "description": "Skill is scoped to the agent",
+          "const": "Agent"
+        },
+        {
+          "title": "Copilot",
+          "description": "Skill is exposed to Copilot",
+          "const": "Copilot"
+        }
+      ]
+    },
+    "GraphConnectorItemType": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Item",
+          "const": "Item"
+        },
+        {
+          "title": "Container",
+          "const": "Container"
+        }
+      ]
+    },
+    "FileIndexingStatus": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "NotStarted",
+          "const": "NotStarted"
+        },
+        {
+          "title": "InProgress",
+          "const": "InProgress"
+        },
+        {
+          "title": "Completed",
+          "const": "Completed"
+        }
+      ]
+    },
+    "SensitivityLabelStatusCode": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "LabelFound",
+          "const": "LabelFound"
+        },
+        {
+          "title": "LabelNotFound",
+          "const": "LabelNotFound"
+        },
+        {
+          "title": "UnsupportedMediaType",
+          "const": "UnsupportedMediaType"
+        },
+        {
+          "title": "NotSupportedDueToEncryption",
+          "const": "NotSupportedDueToEncryption"
+        },
+        {
+          "title": "NotSupportedOther",
+          "const": "NotSupportedOther"
+        },
+        {
+          "title": "NotAuthorized",
+          "const": "NotAuthorized"
+        }
+      ]
+    },
+    "SharepointSourceType": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Site",
+          "const": "Site"
+        },
+        {
+          "title": "Folder",
+          "const": "Folder"
+        },
+        {
+          "title": "File",
+          "const": "File"
+        },
+        {
+          "title": "List",
+          "const": "List"
+        }
+      ]
+    },
+    "PartType": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "OneNotePart",
+          "const": "OneNotePart"
+        }
+      ]
+    },
+    "RecurrenceFrequency": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Minute",
+          "const": "Minute"
+        },
+        {
+          "title": "Day",
+          "const": "Day"
+        },
+        {
+          "title": "Hour",
+          "const": "Hour"
+        },
+        {
+          "title": "Month",
+          "const": "Month"
+        },
+        {
+          "title": "Week",
+          "const": "Week"
+        },
+        {
+          "title": "Year",
+          "const": "Year"
+        }
+      ]
+    },
+    "InitializationBehavior": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "UseDefault",
+          "const": "UseDefault"
+        },
+        {
+          "title": "ThrowError",
+          "const": "ThrowError"
+        },
+        {
+          "title": "Escalate",
+          "const": "Escalate"
+        }
+      ]
+    },
+    "VariableScope": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Dialog",
+          "const": "Dialog"
+        },
+        {
+          "title": "Conversation",
+          "const": "Conversation"
+        },
+        {
+          "title": "User",
+          "const": "User"
+        },
+        {
+          "title": "Environment",
+          "const": "Environment"
+        }
+      ]
+    },
+    "BotComponentCollectionType": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "AgentComponents",
+          "const": "AgentComponents"
+        },
+        {
+          "title": "EvaluationArtifacts",
+          "const": "EvaluationArtifacts"
+        }
+      ]
+    },
+    "AgentOutputFormat": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Text",
+          "const": "Text"
+        },
+        {
+          "title": "JsonSchema",
+          "const": "JsonSchema"
+        }
+      ]
+    },
+    "TopicStartBehavior": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Default behavior",
+          "description": "No special action taken when the topic starts.",
+          "const": "Default"
+        },
+        {
+          "title": "Cancel other topics",
+          "description": "Cancel all other topics before starting this topic.",
+          "const": "CancelOtherTopics"
+        },
+        {
+          "title": "Use latest published content and cancel other topics.",
+          "description": "Cancel all other topics before starting this topic. Look for the lastest published version, and apply it to this conversation.",
+          "const": "UseLatestPublishedContentAndCancelOtherTopics"
+        }
+      ]
+    },
+    "OnSelectIntentTriggerBehavior": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Default",
+          "description": "Does not trigger when a question is interrupted.",
+          "const": "Default"
+        },
+        {
+          "title": "Trigger on topics and questions",
+          "description": "Trigger either when multiple topics are matched, or when multiple potential topics are found when a question is interrupted.",
+          "const": "Always"
+        }
+      ]
+    },
+    "ConversationOutcome": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Resolved (confirmed)",
+          "description": "If the dialog action is reached then the current session is considered resolved for the purpose of analytics. The session ends immediately for the purpose of analytics.",
+          "const": "ResolvedConfirmed"
+        },
+        {
+          "title": "Resolved (implied)",
+          "description": "If the dialog action is reached and user didn't reply then we consider that the current session is in assumed resolved for the purpose of analytics.",
+          "const": "ResolvedImplied"
+        },
+        {
+          "title": "Escalated",
+          "description": "If the dialog action is reached then the current session is considered escalated for the purpose of analytics.",
+          "const": "Escalated"
+        }
+      ]
+    },
+    "ConnectionMode": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Maker-provided credentials",
+          "const": "Maker"
+        },
+        {
+          "title": "End user credentials",
+          "const": "Invoker"
+        }
+      ]
+    },
+    "SkipQuestionMode": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Ask question every time",
+          "const": "AlwaysAsk"
+        },
+        {
+          "title": "Skip on first turn only",
+          "const": "SkipOnFirstExecutionIfVariableHasValue"
+        },
+        {
+          "title": "Always skip",
+          "const": "AlwaysSkipIfVariableHasValue"
+        }
+      ]
+    },
+    "VariablesToClear": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Global variables for the current session",
+          "const": "ConversationScopedVariables"
+        },
+        {
+          "title": "Conversation history for the current session",
+          "const": "ConversationHistory"
+        },
+        {
+          "title": "Global variables carried between sessions",
+          "const": "UserScopedVariables"
+        },
+        {
+          "title": "All Global Variables",
+          "const": "AllGlobalVariables"
+        }
+      ]
+    },
+    "SignInReason": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Mandatory sign in triggered",
+          "const": "SignInRequired"
+        },
+        {
+          "title": "Security related variable used",
+          "const": "Initializer"
+        }
+      ]
+    },
+    "MultipleTopicsMatchedReason": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Interruption ",
+          "const": "Interruption"
+        },
+        {
+          "title": "Recognition",
+          "const": "Recognition"
+        }
+      ]
+    },
+    "TableChangeType": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Add item",
+          "const": "Add"
+        },
+        {
+          "title": "Take last item",
+          "const": "TakeLast"
+        },
+        {
+          "title": "Take first item",
+          "const": "TakeFirst"
+        },
+        {
+          "title": "Remove item",
+          "const": "Remove"
+        },
+        {
+          "title": "Clear all items",
+          "const": "Clear"
+        }
+      ]
+    },
+    "EventType": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Activity if unhandled",
+          "const": "ActivityIfUnhandled"
+        },
+        {
+          "title": "Activity",
+          "const": "Activity"
+        },
+        {
+          "title": "Dialog event",
+          "const": "DialogEvent"
+        }
+      ]
+    },
+    "HttpMethodType": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Get",
+          "const": "Get"
+        },
+        {
+          "title": "Post",
+          "const": "Post"
+        },
+        {
+          "title": "Patch",
+          "const": "Patch"
+        },
+        {
+          "title": "Put",
+          "const": "Put"
+        },
+        {
+          "title": "Delete",
+          "const": "Delete"
+        }
+      ]
+    },
+    "AutomaticTransferVariables": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Topic",
+          "description": "Variables from the current topic",
+          "const": "Topic"
+        },
+        {
+          "title": "Global",
+          "description": "Global variables",
+          "const": "Global"
+        },
+        {
+          "title": "All",
+          "description": "All variables",
+          "const": "All"
+        }
+      ]
+    },
+    "ModelApiType": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Chat",
+          "const": "Chat"
+        },
+        {
+          "title": "Responses",
+          "const": "Responses"
+        }
+      ]
+    },
+    "ModelProvider": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "OpenAI",
+          "const": "OpenAI"
+        },
+        {
+          "title": "Azure OpenAI",
+          "const": "AzureOpenAI"
+        },
+        {
+          "title": "Anthropic",
+          "const": "Anthropic"
+        },
+        {
+          "title": "Google Vertex AI",
+          "const": "GoogleVertexAI"
+        }
+      ]
+    },
+    "NetworkIsolationType": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Public Network",
+          "description": "Use public addresses and internet for network communication.",
+          "const": "PublicNetwork"
+        },
+        {
+          "title": "Virtual Network",
+          "description": "Use virtual network subnet delegated to the Power Platform.",
+          "const": "VirtualNetwork"
+        }
+      ]
+    },
+    "PublishResult": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Succeeded",
+          "const": "Succeeded"
+        },
+        {
+          "title": "Failed",
+          "const": "Failed"
+        }
+      ]
+    },
+    "ProvisioningState": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Provisioning",
+          "description": "The bot is currently provisioning",
+          "const": "Provisioning"
+        },
+        {
+          "title": "Provisioned",
+          "description": "The bot is fully provisioned including BCR resources.",
+          "const": "Provisioned"
+        },
+        {
+          "title": "ProvisionedWithoutRegistration",
+          "description": "The bot is provisioned but it doesn't have app and bot registration in azure.",
+          "const": "ProvisionedWithoutRegistration"
+        },
+        {
+          "title": "ContentReady",
+          "description": "The bot is content is ready for use. The bot is still provisioning.",
+          "const": "ContentReady"
+        },
+        {
+          "title": "ProvisionFailed",
+          "description": "The bot failed to provision",
+          "const": "ProvisionFailed"
+        }
+      ]
+    },
+    "SynchronizingState": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Synchronized",
+          "const": "Synchronized"
+        },
+        {
+          "title": "Synchronizing",
+          "const": "Synchronizing"
+        }
+      ]
+    },
+    "ContentModerationLevel": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Lowest",
+          "description": "Lowest moderation, allowing the bot to generate many responses, though they may include inaccuracies",
+          "const": "Minimum"
+        },
+        {
+          "title": "Low",
+          "description": "Bot generates most responses, but responses can have inaccuracies",
+          "const": "Low"
+        },
+        {
+          "title": "Medium",
+          "description": "Bot generates more responses, but responses may be less relevant",
+          "const": "Medium"
+        },
+        {
+          "title": "High",
+          "description": "Bot generates fewer responses, but responses are relevant",
+          "const": "High"
+        },
+        {
+          "title": "Highest",
+          "description": "Highest moderation, limiting the bot's responses to ensure only the most accurate and relevant content",
+          "const": "Maximum"
+        }
+      ]
+    },
+    "ToneType": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Friendly",
+          "description": "Warm, approachable, friendly, and open",
+          "const": "Friendly"
+        },
+        {
+          "title": "Confident",
+          "description": "Efficient, competent, secure, and reliable",
+          "const": "Confident"
+        },
+        {
+          "title": "Empathetic",
+          "description": "Understanding, compassionate, and sensitive",
+          "const": "Empathetic"
+        },
+        {
+          "title": "Conversational",
+          "description": "Clear, casual, easy to understand, and familiar",
+          "const": "Conversational"
+        },
+        {
+          "title": "Professional",
+          "description": "Respectful, knowledgable, neutral, and formal",
+          "const": "Professional"
+        },
+        {
+          "title": "Motivational",
+          "description": "Enthusiastic, cheerful, and positive",
+          "const": "Motivational"
+        }
+      ]
+    },
+    "DefaultResponseMode": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Auto",
+          "description": "Best model for the task",
+          "const": "Auto"
+        },
+        {
+          "title": "Think deeper",
+          "description": "Thinks longer for better answers",
+          "const": "ThinkDeeper"
+        },
+        {
+          "title": "Quick response",
+          "description": "Answers right away",
+          "const": "QuickResponse"
+        }
+      ]
+    },
+    "SharePointIndexBehavior": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Disabled",
+          "description": "Do not use any advanced indexing for SharePoint queries.",
+          "const": "Disabled"
+        },
+        {
+          "title": "EnabledWithFallback",
+          "description": "Use advanced indexing for SharePoint queries. If a user does not have access, fallback to a non-indexed query.",
+          "const": "EnabledWithFallback"
+        },
+        {
+          "title": "EnabledWithoutFallback",
+          "description": "Use advanced indexing for SharePoint queries. If a user does not have access, return no results.",
+          "const": "EnabledWithoutFallback"
+        }
+      ]
+    },
+    "TaskActionOutputMode": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "All",
+          "description": "All outputs from the action definition will be included",
+          "const": "All"
+        },
+        {
+          "title": "Specific",
+          "description": "User will specify which outputs should be included",
+          "const": "Specific"
+        }
+      ]
+    },
+    "TemplateResponseMode": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Strict",
+          "const": "Strict"
+        },
+        {
+          "title": "Generated",
+          "const": "Generated"
+        }
+      ]
+    },
+    "AgentMessageRole": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "User",
+          "const": "User"
+        },
+        {
+          "title": "Agent",
+          "const": "Agent"
+        }
+      ]
+    },
+    "AgentMessageContentType": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Text",
+          "const": "Text"
+        },
+        {
+          "title": "ImageFile",
+          "const": "ImageFile"
+        },
+        {
+          "title": "ImageUrl",
+          "const": "ImageUrl"
+        }
+      ]
+    },
+    "AgentMessageSortOrder": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "NewestFirst",
+          "const": "NewestFirst"
+        },
+        {
+          "title": "OldestFirst",
+          "const": "OldestFirst"
+        }
+      ]
+    },
+    "SensitivityLevel": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "None",
+          "const": "None"
+        },
+        {
+          "title": "Sensitive",
+          "const": "Sensitive"
+        }
+      ]
+    },
+    "ConnectorDynamicValuesCapability": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "List",
+          "const": "List"
+        },
+        {
+          "title": "FilePicker",
+          "const": "FilePicker"
+        }
+      ]
+    },
+    "PropertyVisibility": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Important",
+          "const": "Important"
+        },
+        {
+          "title": "Advanced",
+          "const": "Advanced"
+        },
+        {
+          "title": "Internal",
+          "const": "Internal"
+        }
+      ]
+    },
+    "AiSensitivityLevel": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "None",
+          "const": "None"
+        },
+        {
+          "title": "Low",
+          "const": "Low"
+        },
+        {
+          "title": "High",
+          "const": "High"
+        }
+      ]
+    },
+    "BotAccessControlPolicy": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Any",
+          "const": "Any"
+        },
+        {
+          "title": "ChatbotReaders",
+          "const": "ChatbotReaders"
+        },
+        {
+          "title": "GroupMembership",
+          "const": "GroupMembership"
+        },
+        {
+          "title": "AnyMultiTenant",
+          "const": "AnyMultiTenant"
+        }
+      ]
+    },
+    "BotAuthenticationMode": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Unspecified",
+          "const": "Unspecified"
+        },
+        {
+          "title": "None",
+          "const": "None"
+        },
+        {
+          "title": "Integrated",
+          "const": "Integrated"
+        },
+        {
+          "title": "CustomAzureActiveDirectory",
+          "const": "CustomAzureActiveDirectory"
+        },
+        {
+          "title": "GenericOAuth2",
+          "const": "GenericOAuth2"
+        }
+      ]
+    },
+    "BotAuthenticationTrigger": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "AsNeeded",
+          "const": "AsNeeded"
+        },
+        {
+          "title": "Always",
+          "const": "Always"
+        }
+      ]
+    },
+    "BotComponentReusePolicy": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "None",
+          "const": "None"
+        },
+        {
+          "title": "Private",
+          "const": "Private"
+        },
+        {
+          "title": "Public",
+          "const": "Public"
+        }
+      ]
+    },
+    "Language": {
+      "type": "number",
+      "oneOf": [
+        {
+          "title": "Arabic",
+          "const": 1025
+        },
+        {
+          "title": "Chinese_Simplified",
+          "const": 2052
+        },
+        {
+          "title": "Chinese_Traditional",
+          "const": 1028
+        },
+        {
+          "title": "Czech",
+          "const": 1029
+        },
+        {
+          "title": "Danish",
+          "const": 1030
+        },
+        {
+          "title": "Dutch",
+          "const": 1043
+        },
+        {
+          "title": "English",
+          "const": 1033
+        },
+        {
+          "title": "Finnish",
+          "const": 1035
+        },
+        {
+          "title": "French",
+          "const": 1036
+        },
+        {
+          "title": "German",
+          "const": 1031
+        },
+        {
+          "title": "Greek",
+          "const": 1032
+        },
+        {
+          "title": "Hindi",
+          "const": 1081
+        },
+        {
+          "title": "Indonesian",
+          "const": 1057
+        },
+        {
+          "title": "Italian",
+          "const": 1040
+        },
+        {
+          "title": "Japanese",
+          "const": 1041
+        },
+        {
+          "title": "Korean",
+          "const": 1042
+        },
+        {
+          "title": "Norwegian",
+          "const": 1044
+        },
+        {
+          "title": "Polish",
+          "const": 1045
+        },
+        {
+          "title": "Portuguese_Brazilian",
+          "const": 1046
+        },
+        {
+          "title": "Russian",
+          "const": 1049
+        },
+        {
+          "title": "Spanish",
+          "const": 1034
+        },
+        {
+          "title": "Thai",
+          "const": 1054
+        },
+        {
+          "title": "Swedish",
+          "const": 1053
+        },
+        {
+          "title": "Turkish",
+          "const": 1055
+        },
+        {
+          "title": "English_UK",
+          "const": 2057
+        },
+        {
+          "title": "French_Canada",
+          "const": 3084
+        },
+        {
+          "title": "Spanish_US",
+          "const": 21514
+        },
+        {
+          "title": "English_AU",
+          "const": 3081
+        },
+        {
+          "title": "Ukrainian",
+          "const": 1058
+        },
+        {
+          "title": "Hebrew",
+          "const": 1037
+        },
+        {
+          "title": "Portuguese_Portugal",
+          "const": 2070
+        },
+        {
+          "title": "Spanish_PR",
+          "const": 20490
+        },
+        {
+          "title": "Hungarian",
+          "const": 1038
+        },
+        {
+          "title": "Lithuanian",
+          "const": 1063
+        },
+        {
+          "title": "Romanian",
+          "const": 1048
+        },
+        {
+          "title": "Latvian",
+          "const": 1062
+        },
+        {
+          "title": "Estonian",
+          "const": 1061
+        },
+        {
+          "title": "Slovenian",
+          "const": 1060
+        },
+        {
+          "title": "Vietnamese",
+          "const": 1066
+        },
+        {
+          "title": "Croatian",
+          "const": 1050
+        },
+        {
+          "title": "Bulgarian",
+          "const": 1026
+        },
+        {
+          "title": "Slovak",
+          "const": 1051
+        },
+        {
+          "title": "Catalan",
+          "const": 1027
+        },
+        {
+          "title": "Basque",
+          "const": 1069
+        },
+        {
+          "title": "Galician",
+          "const": 1110
+        },
+        {
+          "title": "Kazakh",
+          "const": 1087
+        },
+        {
+          "title": "Serbian_Cyrillic",
+          "const": 3098
+        },
+        {
+          "title": "Serbian_Latin",
+          "const": 2074
+        },
+        {
+          "title": "Malaysian",
+          "const": 1086
+        }
+      ]
+    },
+    "ActivityImportance": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Low",
+          "const": "Low"
+        },
+        {
+          "title": "Normal",
+          "const": "Normal"
+        },
+        {
+          "title": "High",
+          "const": "High"
+        }
+      ]
+    },
+    "AttachmentLayout": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "List",
+          "const": "List"
+        },
+        {
+          "title": "Carousel",
+          "const": "Carousel"
+        }
+      ]
+    },
+    "InputHint": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "AcceptingInput",
+          "const": "AcceptingInput"
+        },
+        {
+          "title": "IgnoringInput",
+          "const": "IgnoringInput"
+        },
+        {
+          "title": "ExpectingInput",
+          "const": "ExpectingInput"
+        }
+      ]
+    },
+    "DtmfTerminationKey": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "#",
+          "const": "PoundKey"
+        },
+        {
+          "title": "*",
+          "const": "StarKey"
+        }
+      ]
+    },
+    "InterruptionEagernessLevel": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Low",
+          "const": "Low"
+        },
+        {
+          "title": "Medium",
+          "const": "Medium"
+        },
+        {
+          "title": "High",
+          "const": "High"
+        }
+      ]
+    },
+    "TurnDetectionType": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Based on sound (silence)",
+          "description": "Detect user has stopped speaking based on sound.",
+          "const": "SilenceBasedVoiceActivityDetection"
+        },
+        {
+          "title": "Based on sentence context",
+          "description": "Detect user has stopped speaking based on meaning.",
+          "const": "SemanticVoiceActivityDetection"
+        }
+      ]
+    },
+    "DigitalTurnDetectionType": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "None (push-to-talk)",
+          "description": "No speech start/end detection, best for push-to-talk scenarios.",
+          "const": "None"
+        },
+        {
+          "title": "Based on sound (silence)",
+          "description": "Detect user has stopped speaking based on sound.",
+          "const": "SilenceBasedVoiceActivityDetection"
+        },
+        {
+          "title": "Based on sentence context",
+          "description": "Detect user has stopped speaking based on meaning.",
+          "const": "SemanticVoiceActivityDetection"
+        }
+      ]
+    },
+    "DigitalNoiseReductionMode": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "None",
+          "const": "None"
+        },
+        {
+          "title": "Deep noise suppression",
+          "description": "Noise reduction filters out background noise so the input voice is clearer and more accurate.",
+          "const": "DeepNoiseSuppression"
+        }
+      ]
+    },
+    "DigitalListeningMode": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Always listening",
+          "description": "The agent is always listening for user input.",
+          "const": "AlwaysListening"
+        },
+        {
+          "title": "Push-to-talk",
+          "description": "The agent listens only when the user activates input.",
+          "const": "PushToTalk"
+        }
+      ]
+    },
+    "TableSearchType": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "DataverseSearch",
+          "const": "DataverseSearch"
+        },
+        {
+          "title": "FederatedSearch",
+          "const": "FederatedSearch"
+        }
+      ]
+    },
+    "DefaultValueMissingAction": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Hang Up",
+          "const": "HangUp"
+        },
+        {
+          "title": "Escalate",
+          "const": "Escalate"
+        },
+        {
+          "title": "Set variable to value",
+          "const": "SetValue"
+        },
+        {
+          "title": "Set variable to empty (no value)",
+          "const": "SetEmpty"
+        },
+        {
+          "title": "Redirect to a topic",
+          "const": "GoToDialog"
+        }
+      ]
+    },
+    "DtmfMappingKey": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "0",
+          "const": "Num0"
+        },
+        {
+          "title": "1",
+          "const": "Num1"
+        },
+        {
+          "title": "2",
+          "const": "Num2"
+        },
+        {
+          "title": "3",
+          "const": "Num3"
+        },
+        {
+          "title": "4",
+          "const": "Num4"
+        },
+        {
+          "title": "5",
+          "const": "Num5"
+        },
+        {
+          "title": "6",
+          "const": "Num6"
+        },
+        {
+          "title": "7",
+          "const": "Num7"
+        },
+        {
+          "title": "8",
+          "const": "Num8"
+        },
+        {
+          "title": "9",
+          "const": "Num9"
+        },
+        {
+          "title": "#",
+          "const": "PoundKey"
+        },
+        {
+          "title": "*",
+          "const": "StarKey"
+        }
+      ]
+    },
+    "DlpComponentType": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Flow",
+          "const": "Flow"
+        },
+        {
+          "title": "Skill",
+          "const": "Skill"
+        },
+        {
+          "title": "HttpRequest",
+          "const": "HttpRequest"
+        },
+        {
+          "title": "AnonymousAccess",
+          "const": "AnonymousAccess"
+        },
+        {
+          "title": "Channel",
+          "const": "Channel"
+        },
+        {
+          "title": "Connector",
+          "const": "Connector"
+        },
+        {
+          "title": "GenerativeAnswers",
+          "const": "GenerativeAnswers"
+        },
+        {
+          "title": "GenerativeActions",
+          "const": "GenerativeActions"
+        },
+        {
+          "title": "GenerativeBuilder",
+          "const": "GenerativeBuilder"
+        },
+        {
+          "title": "ApplicationInsights",
+          "const": "ApplicationInsights"
+        },
+        {
+          "title": "Knowledge",
+          "const": "Knowledge"
+        }
+      ]
+    },
+    "DataPolicyEvaluationViolationType": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "NotSpecified",
+          "const": "NotSpecified"
+        },
+        {
+          "title": "BlockedConnector",
+          "const": "BlockedConnector"
+        },
+        {
+          "title": "BusinessAndNonBusinessConnector",
+          "const": "BusinessAndNonBusinessConnector"
+        },
+        {
+          "title": "BlockedEndpoint",
+          "const": "BlockedEndpoint"
+        },
+        {
+          "title": "BlockedAction",
+          "const": "BlockedAction"
+        }
+      ]
+    },
+    "SpeechRecognitionFormatType": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Format with numerals and words",
+          "const": "Default"
+        },
+        {
+          "title": "Format with only numerals",
+          "const": "NumberAsDigits"
+        }
+      ]
+    },
+    "RegionalDateFormat": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "US (MM/DD/YYYY)",
+          "description": "United States date format: month/day/year.",
+          "const": "US"
+        },
+        {
+          "title": "EU (DD/MM/YYYY)",
+          "description": "European date format: day/month/year.",
+          "const": "EU"
+        }
+      ]
+    },
+    "DateInputFormat": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "MM/DD/YYYY (or DD/MM/YYYY)",
+          "description": "All date components are required (default). Displays as DD/MM/YYYY when RegionalDateFormat is EU.",
+          "const": "FullDate"
+        },
+        {
+          "title": "DD (MM, YY optional)",
+          "description": "Only the day is required; month and year are optional.",
+          "const": "DayOnly"
+        },
+        {
+          "title": "MM (DD, YY optional)",
+          "description": "Only the month is required; day and year are optional.",
+          "const": "MonthOnly"
+        },
+        {
+          "title": "YY (DD, MM optional)",
+          "description": "Only the year is required; day and month are optional.",
+          "const": "YearOnly"
+        },
+        {
+          "title": "MM/DD (or DD/MM)",
+          "description": "Month and day are required; year is optional. Displays as DD/MM (YY optional) when RegionalDateFormat is EU.",
+          "const": "DayMonth"
+        },
+        {
+          "title": "MM/YY (DD optional)",
+          "description": "Month and year are required; day is optional.",
+          "const": "MonthYear"
+        }
+      ]
+    },
+    "AmbiguousDateTimeResolutionBehavior": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Prompt for disambiguation",
+          "description": "When the recognized date/time is ambiguous, prompt the user to clarify (default behavior).",
+          "const": "PromptForDisambiguation"
+        },
+        {
+          "title": "Automatically select next occurrence",
+          "description": "When the recognized date/time is ambiguous, automatically pick the next matching occurrence relative to now.",
+          "const": "PreferFuture"
+        },
+        {
+          "title": "Automatically select previous occurrence",
+          "description": "When the recognized date/time is ambiguous, automatically pick the previous matching occurrence relative to now.",
+          "const": "PreferPast"
+        }
+      ]
+    },
+    "ParseValueErrorPolicy": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Throw error",
+          "description": "Runtime data that can't be parsed into the appropiate type will raise a Runtime Error",
+          "const": "ThrowError"
+        },
+        {
+          "title": "Default Blank",
+          "description": "Runtime data that can't be parsed into the appropiate type will be ignored and properties without values will be filled with null",
+          "const": "DefaultBlank"
+        }
+      ]
+    },
+    "ActivityType": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Contact relation update",
+          "const": "ContactRelationUpdate"
+        },
+        {
+          "title": "Conversation update",
+          "const": "ConversationUpdate"
+        },
+        {
+          "title": "End of conversation",
+          "const": "EndOfConversation"
+        },
+        {
+          "title": "Event",
+          "const": "Event"
+        },
+        {
+          "title": "Delay",
+          "const": "Delay"
+        },
+        {
+          "title": "Delete user data",
+          "const": "DeleteUserData"
+        },
+        {
+          "title": "Handoff",
+          "const": "Handoff"
+        },
+        {
+          "title": "Installation update",
+          "const": "InstallationUpdate"
+        },
+        {
+          "title": "Invoke",
+          "const": "Invoke"
+        },
+        {
+          "title": "Invoke response",
+          "const": "InvokeResponse"
+        },
+        {
+          "title": "Message",
+          "const": "Message"
+        },
+        {
+          "title": "Message delete",
+          "const": "MessageDelete"
+        },
+        {
+          "title": "Message reaction",
+          "const": "MessageReaction"
+        },
+        {
+          "title": "Message update",
+          "const": "MessageUpdate"
+        },
+        {
+          "title": "Suggestion",
+          "const": "Suggestion"
+        },
+        {
+          "title": "Trace",
+          "const": "Trace"
+        },
+        {
+          "title": "Typing",
+          "const": "Typing"
+        },
+        {
+          "title": "Command",
+          "const": "Command"
+        },
+        {
+          "title": "Command result",
+          "const": "CommandResult"
+        }
+      ]
+    },
+    "ChannelId": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Directline",
+          "const": "Directline"
+        },
+        {
+          "title": "Facebook",
+          "const": "Facebook"
+        },
+        {
+          "title": "MsTeams",
+          "const": "MsTeams"
+        },
+        {
+          "title": "Telephony",
+          "const": "Telephony"
+        },
+        {
+          "title": "Omnichannel",
+          "const": "Omnichannel"
+        },
+        {
+          "title": "Microsoft365Copilot",
+          "const": "Microsoft365Copilot"
+        },
+        {
+          "title": "Agents",
+          "const": "Agents"
+        },
+        {
+          "title": "MsTeamsPhone",
+          "const": "MsTeamsPhone"
+        }
+      ]
+    },
+    "PlanStepType": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Action",
+          "const": "Action"
+        },
+        {
+          "title": "Topic",
+          "const": "Topic"
+        },
+        {
+          "title": "Agent",
+          "const": "Agent"
+        },
+        {
+          "title": "KnowledgeSource",
+          "const": "KnowledgeSource"
+        },
+        {
+          "title": "BuiltIn",
+          "const": "BuiltIn"
+        }
+      ]
+    },
+    "InvocationSource": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "User",
+          "const": "User"
+        },
+        {
+          "title": "Agent",
+          "const": "Agent"
+        }
+      ]
+    },
+    "UserInputType": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Text",
+          "const": "Text"
+        },
+        {
+          "title": "Speech",
+          "const": "Speech"
+        },
+        {
+          "title": "DTMF",
+          "const": "DTMF"
+        }
+      ]
+    },
+    "GenerativeResponseOutputType": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Text only",
+          "description": "Store the textual output in the target variable.",
+          "const": "TextOnly"
+        },
+        {
+          "title": "Complete (recommended)",
+          "description": "Store the text output, the speech output and the citations in the response variable.",
+          "const": "FullResponse"
+        }
+      ]
+    },
+    "GenerativeModality": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Automatic",
+          "const": "Automatic"
+        },
+        {
+          "title": "Text",
+          "const": "Text"
+        },
+        {
+          "title": "Speech",
+          "const": "Speech"
+        },
+        {
+          "title": "TextAndSpeech",
+          "const": "TextAndSpeech"
+        }
+      ]
+    },
+    "BooleanConditionOperator": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "is equal to",
+          "const": "Equal"
+        },
+        {
+          "title": "is not equal to",
+          "const": "NotEqual"
+        },
+        {
+          "title": "is greater than",
+          "const": "Greater"
+        },
+        {
+          "title": "is greater than or equal to",
+          "const": "GreaterEqual"
+        },
+        {
+          "title": "is less than",
+          "const": "Less"
+        },
+        {
+          "title": "is less than or equal to",
+          "const": "LessEqual"
+        },
+        {
+          "title": "in",
+          "const": "In"
+        },
+        {
+          "title": "in (case sensitive)",
+          "const": "ExactIn"
+        },
+        {
+          "title": "is Blank",
+          "const": "IsBlank"
+        },
+        {
+          "title": "is not Blank",
+          "const": "IsNotBlank"
+        },
+        {
+          "title": "has no value (empty)",
+          "const": "IsEmpty"
+        },
+        {
+          "title": "has value",
+          "const": "IsNotEmpty"
+        }
+      ]
+    },
+    "SearchSummarizationConfigurationState": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "NotConfigured",
+          "const": "NotConfigured"
+        },
+        {
+          "title": "Configured",
+          "const": "Configured"
+        },
+        {
+          "title": "ConfiguredWithLegacyInfo",
+          "const": "ConfiguredWithLegacyInfo"
+        },
+        {
+          "title": "Customized",
+          "const": "Customized"
+        }
+      ]
+    },
+    "VariableAIVisibility": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "The variable can not be used in AI processing",
+          "const": "Hidden"
+        },
+        {
+          "title": "The variable can be used in AI processing",
+          "const": "UseInAIContext"
+        }
+      ]
+    },
+    "ToolDialogVariableContext": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Inputs",
+          "const": "Inputs"
+        },
+        {
+          "title": "Confirmation",
+          "const": "Confirmation"
+        },
+        {
+          "title": "Outputs",
+          "const": "Outputs"
+        }
+      ]
+    },
+    "TestActivitySourceType": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Manual",
+          "const": "Manual"
+        },
+        {
+          "title": "Generated",
+          "const": "Generated"
+        },
+        {
+          "title": "Edited",
+          "const": "Edited"
+        },
+        {
+          "title": "Imported",
+          "const": "Imported"
+        },
+        {
+          "title": "AnalyticsTheme",
+          "const": "AnalyticsTheme"
+        }
+      ]
+    },
+    "GraderOutcome": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Pass",
+          "const": "Pass"
+        },
+        {
+          "title": "Fail",
+          "const": "Fail"
+        }
+      ]
+    },
+    "ReferenceType": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Skill",
+          "const": "Skill"
+        },
+        {
+          "title": "CloudFlow",
+          "const": "CloudFlow"
+        },
+        {
+          "title": "AIModel",
+          "const": "AIModel"
+        },
+        {
+          "title": "Dialog",
+          "const": "Dialog"
+        },
+        {
+          "title": "Trigger",
+          "const": "Trigger"
+        },
+        {
+          "title": "Action",
+          "const": "Action"
+        },
+        {
+          "title": "EnvironmentVariable",
+          "const": "EnvironmentVariable"
+        },
+        {
+          "title": "Entity",
+          "const": "Entity"
+        },
+        {
+          "title": "ConnectionReference",
+          "const": "ConnectionReference"
+        },
+        {
+          "title": "Gpt",
+          "const": "Gpt"
+        },
+        {
+          "title": "File",
+          "const": "File"
+        },
+        {
+          "title": "Knowledge",
+          "const": "Knowledge"
+        }
+      ]
+    },
+    "InvalidReferenceErrorCode": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "NotFound",
+          "const": "NotFound"
+        },
+        {
+          "title": "Disabled",
+          "const": "Disabled"
+        },
+        {
+          "title": "InvalidKind",
+          "const": "InvalidKind"
+        }
+      ]
+    },
+    "ExpressionErrorCode": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "UnexpectedCharacter",
+          "const": "UnexpectedCharacter"
+        },
+        {
+          "title": "IdentifierNotRecognized",
+          "const": "IdentifierNotRecognized"
+        },
+        {
+          "title": "IncompatibleTypes",
+          "const": "IncompatibleTypes"
+        },
+        {
+          "title": "PowerFxError",
+          "const": "PowerFxError"
+        }
+      ]
+    },
+    "ValidationErrorCode": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "MissingRequiredProperty",
+          "const": "MissingRequiredProperty"
+        },
+        {
+          "title": "PropertyNotSupported",
+          "const": "PropertyNotSupported"
+        },
+        {
+          "title": "ElementNotSupported",
+          "const": "ElementNotSupported"
+        },
+        {
+          "title": "EmptyCollection",
+          "const": "EmptyCollection"
+        },
+        {
+          "title": "EmptyActions",
+          "const": "EmptyActions"
+        },
+        {
+          "title": "SignInRequiredWithManualAuthentication",
+          "const": "SignInRequiredWithManualAuthentication"
+        },
+        {
+          "title": "InvalidEvaluationCollectionSchemaName",
+          "const": "InvalidEvaluationCollectionSchemaName"
+        },
+        {
+          "title": "SynonymsNotUnique",
+          "const": "SynonymsNotUnique"
+        },
+        {
+          "title": "UnknownEnumValue",
+          "const": "UnknownEnumValue"
+        },
+        {
+          "title": "InvalidPropertyPath",
+          "const": "InvalidPropertyPath"
+        },
+        {
+          "title": "DisplayNameMustBeScalar",
+          "const": "DisplayNameMustBeScalar"
+        },
+        {
+          "title": "MissingDisplayName",
+          "const": "MissingDisplayName"
+        },
+        {
+          "title": "SynonymsMustBeArrayOfScalars",
+          "const": "SynonymsMustBeArrayOfScalars"
+        },
+        {
+          "title": "AuthenticationInputNotEnabled",
+          "const": "AuthenticationInputNotEnabled"
+        },
+        {
+          "title": "ManualAuthenticationInputNotEnabled",
+          "const": "ManualAuthenticationInputNotEnabled"
+        },
+        {
+          "title": "DuplicateItem",
+          "const": "DuplicateItem"
+        },
+        {
+          "title": "DuplicateVariableAssignment",
+          "const": "DuplicateVariableAssignment"
+        },
+        {
+          "title": "DuplicateActionId",
+          "const": "DuplicateActionId"
+        },
+        {
+          "title": "DuplicateConditionId",
+          "const": "DuplicateConditionId"
+        },
+        {
+          "title": "OverlappingTaskDialogInputPropertyPath",
+          "const": "OverlappingTaskDialogInputPropertyPath"
+        },
+        {
+          "title": "DuplicateTaskDialogInputPropertyPath",
+          "const": "DuplicateTaskDialogInputPropertyPath"
+        },
+        {
+          "title": "DuplicateDtmfKey",
+          "const": "DuplicateDtmfKey"
+        },
+        {
+          "title": "ValueCannotBeNegative",
+          "const": "ValueCannotBeNegative"
+        },
+        {
+          "title": "ConnectorDynamicTypeError",
+          "const": "ConnectorDynamicTypeError"
+        },
+        {
+          "title": "ConnectorNotSupported",
+          "const": "ConnectorNotSupported"
+        },
+        {
+          "title": "ConnectorActionNotSupported",
+          "const": "ConnectorActionNotSupported"
+        },
+        {
+          "title": "McpToolNotFound",
+          "const": "McpToolNotFound"
+        },
+        {
+          "title": "ConnectionNotSet",
+          "const": "ConnectionNotSet"
+        },
+        {
+          "title": "ConnectionDoesNotExist",
+          "const": "ConnectionDoesNotExist"
+        },
+        {
+          "title": "ConnectionNotShared",
+          "const": "ConnectionNotShared"
+        },
+        {
+          "title": "ReservedOptionSetName",
+          "const": "ReservedOptionSetName"
+        },
+        {
+          "title": "DuplicateOptionSetName",
+          "const": "DuplicateOptionSetName"
+        },
+        {
+          "title": "DuplicateMultiEntitySelection",
+          "const": "DuplicateMultiEntitySelection"
+        },
+        {
+          "title": "DuplicateMultiEntityPropertyName",
+          "const": "DuplicateMultiEntityPropertyName"
+        },
+        {
+          "title": "OneOfMultiEntityMinimumSelectedEntities",
+          "const": "OneOfMultiEntityMinimumSelectedEntities"
+        },
+        {
+          "title": "SameDTMFKeyAcrossSelectedMultiEntities",
+          "const": "SameDTMFKeyAcrossSelectedMultiEntities"
+        },
+        {
+          "title": "OptionSetNameHidesBuiltInName",
+          "const": "OptionSetNameHidesBuiltInName"
+        },
+        {
+          "title": "AdaptiveCardJsonParsingError",
+          "const": "AdaptiveCardJsonParsingError"
+        },
+        {
+          "title": "AdaptiveCardMissingActionSubmit",
+          "const": "AdaptiveCardMissingActionSubmit"
+        },
+        {
+          "title": "AdaptiveCardUseOfReservedKeyword",
+          "const": "AdaptiveCardUseOfReservedKeyword"
+        },
+        {
+          "title": "AdaptiveCardActionSubmitIdTypeMismatch",
+          "const": "AdaptiveCardActionSubmitIdTypeMismatch"
+        },
+        {
+          "title": "AdaptiveCardInputIsRequiredMissingErrorMessage",
+          "const": "AdaptiveCardInputIsRequiredMissingErrorMessage"
+        },
+        {
+          "title": "AdaptiveCardInputIsRequiredMissingLabel",
+          "const": "AdaptiveCardInputIsRequiredMissingLabel"
+        },
+        {
+          "title": "AdaptiveCardVersionNotSupported",
+          "const": "AdaptiveCardVersionNotSupported"
+        },
+        {
+          "title": "AdaptiveCardToggleInputMissingTitle",
+          "const": "AdaptiveCardToggleInputMissingTitle"
+        },
+        {
+          "title": "OpenAIDialogActionInvalidOutput",
+          "const": "OpenAIDialogActionInvalidOutput"
+        },
+        {
+          "title": "BingCustomSearchDataSourceInvalidCustomConfigurationId",
+          "const": "BingCustomSearchDataSourceInvalidCustomConfigurationId"
+        },
+        {
+          "title": "PublicSiteSearchDataSourceTooManySites",
+          "const": "PublicSiteSearchDataSourceTooManySites"
+        },
+        {
+          "title": "PublicSiteSearchDataSourceNotSupported",
+          "const": "PublicSiteSearchDataSourceNotSupported"
+        },
+        {
+          "title": "SharePointSearchDataSourceTooManySites",
+          "const": "SharePointSearchDataSourceTooManySites"
+        },
+        {
+          "title": "TooManyAzureOpenAIOnYourDataKnowledgeSources",
+          "const": "TooManyAzureOpenAIOnYourDataKnowledgeSources"
+        },
+        {
+          "title": "TooManyPublicSiteSearchSources",
+          "const": "TooManyPublicSiteSearchSources"
+        },
+        {
+          "title": "TooManyBingCustomSearchSources",
+          "const": "TooManyBingCustomSearchSources"
+        },
+        {
+          "title": "TooManyDataverseStructuredSearchSources",
+          "const": "TooManyDataverseStructuredSearchSources"
+        },
+        {
+          "title": "TooManyFederatedStructuredSearchSources",
+          "const": "TooManyFederatedStructuredSearchSources"
+        },
+        {
+          "title": "TooManyFederatedIngestionBasedSearchSources",
+          "const": "TooManyFederatedIngestionBasedSearchSources"
+        },
+        {
+          "title": "TooManyAzureAISearchSources",
+          "const": "TooManyAzureAISearchSources"
+        },
+        {
+          "title": "TooManyAzureFoundryIQSources",
+          "const": "TooManyAzureFoundryIQSources"
+        },
+        {
+          "title": "FederatedStructuredSearchSourceNotConfigured",
+          "const": "FederatedStructuredSearchSourceNotConfigured"
+        },
+        {
+          "title": "ExternalAgentTaskActionDoesNotAllowRedirect",
+          "const": "ExternalAgentTaskActionDoesNotAllowRedirect"
+        },
+        {
+          "title": "InvalidMakerConnectionReference",
+          "const": "InvalidMakerConnectionReference"
+        },
+        {
+          "title": "TooManyFabricAISkillsSearchSources",
+          "const": "TooManyFabricAISkillsSearchSources"
+        },
+        {
+          "title": "EnvironmentVariableMissingValue",
+          "const": "EnvironmentVariableMissingValue"
+        },
+        {
+          "title": "TemplateNotFound",
+          "const": "TemplateNotFound"
+        },
+        {
+          "title": "TemplateLanguageNotSupported",
+          "const": "TemplateLanguageNotSupported"
+        },
+        {
+          "title": "SynchronizationSystemError",
+          "const": "SynchronizationSystemError"
+        },
+        {
+          "title": "InvalidSipHeader",
+          "const": "InvalidSipHeader"
+        },
+        {
+          "title": "InvalidTransferPhoneNumber",
+          "const": "InvalidTransferPhoneNumber"
+        },
+        {
+          "title": "InvalidDtmfSequence",
+          "const": "InvalidDtmfSequence"
+        },
+        {
+          "title": "DtmfSequenceLengthExceeded",
+          "const": "DtmfSequenceLengthExceeded"
+        },
+        {
+          "title": "GptBlocked",
+          "const": "GptBlocked"
+        },
+        {
+          "title": "BingSearchBlocked",
+          "const": "BingSearchBlocked"
+        },
+        {
+          "title": "AdditionalInstructionsLengthGreaterThanMaxLengthAllowed",
+          "const": "AdditionalInstructionsLengthGreaterThanMaxLengthAllowed"
+        },
+        {
+          "title": "UserConnectionUnsupportedAuthentication",
+          "const": "UserConnectionUnsupportedAuthentication"
+        },
+        {
+          "title": "UserConnectionRequiresAuthentication",
+          "const": "UserConnectionRequiresAuthentication"
+        },
+        {
+          "title": "MustPromptUserWhenRequired",
+          "const": "MustPromptUserWhenRequired"
+        },
+        {
+          "title": "MaxCountExceeded",
+          "const": "MaxCountExceeded"
+        },
+        {
+          "title": "MinCountNotMet",
+          "const": "MinCountNotMet"
+        },
+        {
+          "title": "MaxLengthExceeded",
+          "const": "MaxLengthExceeded"
+        },
+        {
+          "title": "GraphConnectorSearchSourceTooManyConnections",
+          "const": "GraphConnectorSearchSourceTooManyConnections"
+        },
+        {
+          "title": "GraphConnectionNotSet",
+          "const": "GraphConnectionNotSet"
+        },
+        {
+          "title": "GptValidationMissingName",
+          "const": "GptValidationMissingName"
+        },
+        {
+          "title": "GptValidationMissingDescription",
+          "const": "GptValidationMissingDescription"
+        },
+        {
+          "title": "GptValidationMissingInstructions",
+          "const": "GptValidationMissingInstructions"
+        },
+        {
+          "title": "GptValidationOffensiveContent",
+          "const": "GptValidationOffensiveContent"
+        },
+        {
+          "title": "GptValidationJailbreakAttempted",
+          "const": "GptValidationJailbreakAttempted"
+        },
+        {
+          "title": "GptValidationRAIViolation",
+          "const": "GptValidationRAIViolation"
+        },
+        {
+          "title": "GptValidationUnknownFailure",
+          "const": "GptValidationUnknownFailure"
+        },
+        {
+          "title": "InvalidGuid",
+          "const": "InvalidGuid"
+        },
+        {
+          "title": "MakerConnectionIsUsed",
+          "const": "MakerConnectionIsUsed"
+        },
+        {
+          "title": "PublishWithAIFeaturesDisabled",
+          "const": "PublishWithAIFeaturesDisabled"
+        },
+        {
+          "title": "TemperatureShouldBeNonNegative",
+          "const": "TemperatureShouldBeNonNegative"
+        },
+        {
+          "title": "TopPMustBeBetweenZeroAndOne",
+          "const": "TopPMustBeBetweenZeroAndOne"
+        },
+        {
+          "title": "MaxTokensShouldBePositive",
+          "const": "MaxTokensShouldBePositive"
+        },
+        {
+          "title": "ChatMlSyntaxErrorEmptyMessageContent",
+          "const": "ChatMlSyntaxErrorEmptyMessageContent"
+        },
+        {
+          "title": "ChatMlSyntaxErrorExpectedEndTag",
+          "const": "ChatMlSyntaxErrorExpectedEndTag"
+        },
+        {
+          "title": "ChatMlSyntaxErrorInvalidMessageRole",
+          "const": "ChatMlSyntaxErrorInvalidMessageRole"
+        },
+        {
+          "title": "ChatMlSyntaxErrorExpectedStartTag",
+          "const": "ChatMlSyntaxErrorExpectedStartTag"
+        },
+        {
+          "title": "CustomModelMissingInstructions",
+          "const": "CustomModelMissingInstructions"
+        },
+        {
+          "title": "CustomModelMissingDataSourcesVariableUsage",
+          "const": "CustomModelMissingDataSourcesVariableUsage"
+        },
+        {
+          "title": "CustomModelMissingUserQueryVariableUsage",
+          "const": "CustomModelMissingUserQueryVariableUsage"
+        },
+        {
+          "title": "ExternalChatCompletionModelConfigurationInvalidInput",
+          "const": "ExternalChatCompletionModelConfigurationInvalidInput"
+        },
+        {
+          "title": "AnnotationMissingForEntitySample",
+          "const": "AnnotationMissingForEntitySample"
+        },
+        {
+          "title": "InvalidAnnotationForEntitySample",
+          "const": "InvalidAnnotationForEntitySample"
+        },
+        {
+          "title": "MultipleAnnotationsNotAllowedForEntitySample",
+          "const": "MultipleAnnotationsNotAllowedForEntitySample"
+        },
+        {
+          "title": "InvalidAnnotationForTopicSample",
+          "const": "InvalidAnnotationForTopicSample"
+        },
+        {
+          "title": "TriggerRecurrenceTooSmall",
+          "const": "TriggerRecurrenceTooSmall"
+        },
+        {
+          "title": "TriggerRecurrenceInvalidInput",
+          "const": "TriggerRecurrenceInvalidInput"
+        },
+        {
+          "title": "TriggerRecurrenceInMakerModeOnlySupportManualTaskInput",
+          "const": "TriggerRecurrenceInMakerModeOnlySupportManualTaskInput"
+        },
+        {
+          "title": "InvalidBindingSensitivityLevel",
+          "const": "InvalidBindingSensitivityLevel"
+        },
+        {
+          "title": "InvalidBindingOutput",
+          "const": "InvalidBindingOutput"
+        },
+        {
+          "title": "InvalidBindingInput",
+          "const": "InvalidBindingInput"
+        },
+        {
+          "title": "InvalidBindingInvokeAction",
+          "const": "InvalidBindingInvokeAction"
+        },
+        {
+          "title": "InvalidBinding",
+          "const": "InvalidBinding"
+        },
+        {
+          "title": "IncorrectTypeAssignment",
+          "const": "IncorrectTypeAssignment"
+        },
+        {
+          "title": "IncompatibleTypeComparison",
+          "const": "IncompatibleTypeComparison"
+        },
+        {
+          "title": "AgentDialogContainsActionsWithinTrigger",
+          "const": "AgentDialogContainsActionsWithinTrigger"
+        },
+        {
+          "title": "MakerAuthenticationIsBlocked",
+          "const": "MakerAuthenticationIsBlocked"
+        },
+        {
+          "title": "InvalidUrl",
+          "const": "InvalidUrl"
+        },
+        {
+          "title": "InvalidGraphConnectorPath",
+          "const": "InvalidGraphConnectorPath"
+        },
+        {
+          "title": "InvalidEmailAddress",
+          "const": "InvalidEmailAddress"
+        },
+        {
+          "title": "InvalidSipXHeaderName",
+          "const": "InvalidSipXHeaderName"
+        },
+        {
+          "title": "InvalidSipXHeaderValue",
+          "const": "InvalidSipXHeaderValue"
+        },
+        {
+          "title": "InvalidAppId",
+          "const": "InvalidAppId"
+        },
+        {
+          "title": "InvalidScopeUrl",
+          "const": "InvalidScopeUrl"
+        },
+        {
+          "title": "MissingAgentIdentity",
+          "const": "MissingAgentIdentity"
+        }
+      ]
+    },
+    "EnvironmentVariableSecretReadStatus": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Power virtual agents can read the secret successfully",
+          "const": "Success"
+        },
+        {
+          "title": "The bot was not allowlisted to read the secret",
+          "const": "BotForbidden"
+        },
+        {
+          "title": "'Power Virtual Agents Service' application doesn't have access to the Key Vault",
+          "const": "ServiceForbidden"
+        },
+        {
+          "title": "KeyVault or secret was not found",
+          "const": "NotFound"
+        },
+        {
+          "title": "Uknown service error",
+          "const": "InternalError"
+        }
+      ]
+    },
+    "DiagnosticType": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "BotElementError",
+          "const": "BotElementError"
+        },
+        {
+          "title": "BotElementWarning",
+          "const": "BotElementWarning"
+        },
+        {
+          "title": "All",
+          "const": "All"
+        }
+      ]
+    },
+    "SampleDataType": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Json",
+          "const": "Json"
+        },
+        {
+          "title": "Yaml",
+          "const": "Yaml"
+        }
+      ]
+    },
+    "WasmBrowserTelemetryLogLevel": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "Critical",
+          "const": "Critical"
+        },
+        {
+          "title": "Error",
+          "const": "Error"
+        },
+        {
+          "title": "Warning",
+          "const": "Warning"
+        },
+        {
+          "title": "Information",
+          "const": "Information"
+        },
+        {
+          "title": "Trace",
+          "const": "Trace"
+        },
+        {
+          "title": "Debug",
+          "const": "Debug"
+        }
+      ]
+    },
+    "WasmInvalidStateMessage": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "ContentIsNull",
+          "description": "Content is null",
+          "const": "ContentIsNull"
+        },
+        {
+          "title": "FormatIsNull",
+          "description": "Format is null",
+          "const": "FormatIsNull"
+        },
+        {
+          "title": "DialogActionIsNull",
+          "description": "Dialog action is null",
+          "const": "DialogActionIsNull"
+        },
+        {
+          "title": "SchemaIsNull",
+          "description": "SchemaName of the component to validate is null",
+          "const": "SchemaIsNull"
+        },
+        {
+          "title": "InvalidLanguageCode",
+          "description": "Invalid language code",
+          "const": "InvalidLanguageCode"
+        },
+        {
+          "title": "InvalidFormat",
+          "description": "Invalid format",
+          "const": "InvalidFormat"
+        },
+        {
+          "title": "ComponentNotFound",
+          "description": "Component for validation cannot be found",
+          "const": "ComponentNotFound"
+        },
+        {
+          "title": "DialogNotFound",
+          "description": "Dialog component not found",
+          "const": "DialogNotFound"
+        },
+        {
+          "title": "SkillNotFound",
+          "description": "Skill component not found",
+          "const": "SkillNotFound"
+        },
+        {
+          "title": "ActionNotFound",
+          "description": "ActionId not found",
+          "const": "ActionNotFound"
+        },
+        {
+          "title": "FlowNotFound",
+          "description": "Flow not found",
+          "const": "FlowNotFound"
+        },
+        {
+          "title": "InvokeSkillActionNotFound",
+          "description": "Invoke skill action not found",
+          "const": "InvokeSkillActionNotFound"
+        },
+        {
+          "title": "BotNotLoaded",
+          "description": "Bot was not loaded",
+          "const": "BotNotLoaded"
+        },
+        {
+          "title": "FeatureNotLoaded",
+          "description": "Features were not loaded",
+          "const": "FeatureNotLoaded"
+        },
+        {
+          "title": "ErrorGettingDynamicPlanToolDefinition",
+          "description": "Error getting dynamic plan tool definition",
+          "const": "ErrorGettingDynamicPlanToolDefinition"
+        },
+        {
+          "title": "TranslationsAppliedWithCurrentLanguage",
+          "description": "Translations have been applied by assigning CurrentLanguage. Changes to the content are not supported",
+          "const": "TranslationsAppliedWithCurrentLanguage"
+        }
+      ]
+    },
+    "SystemOptionSetName": {
+      "type": "string",
+      "oneOf": [
+        {
+          "title": "RecurrenceFrequency",
+          "const": "RecurrenceFrequency"
+        },
+        {
+          "title": "SkipQuestionMode",
+          "const": "SkipQuestionMode"
+        },
+        {
+          "title": "VariablesToClear",
+          "const": "VariablesToClear"
+        },
+        {
+          "title": "SignInReason",
+          "const": "SignInReason"
+        },
+        {
+          "title": "MultipleTopicsMatchedReason",
+          "const": "MultipleTopicsMatchedReason"
+        },
+        {
+          "title": "HttpMethod",
+          "const": "HttpMethod"
+        },
+        {
+          "title": "NetworkIsolationType",
+          "const": "NetworkIsolationType"
+        },
+        {
+          "title": "ContentModerationLevel",
+          "const": "ContentModerationLevel"
+        },
+        {
+          "title": "ToneType",
+          "const": "ToneType"
+        },
+        {
+          "title": "TemplateResponseMode",
+          "const": "TemplateResponseMode"
+        },
+        {
+          "title": "AgentMessageRole",
+          "const": "AgentMessageRole"
+        },
+        {
+          "title": "AgentMessageContentType",
+          "const": "AgentMessageContentType"
+        },
+        {
+          "title": "AgentMessageSortOrder",
+          "const": "AgentMessageSortOrder"
+        },
+        {
+          "title": "Locale",
+          "const": "Locale"
+        },
+        {
+          "title": "DTMFTerminationKey",
+          "const": "DTMFTerminationKey"
+        },
+        {
+          "title": "InterruptionEagernessLevel",
+          "const": "InterruptionEagernessLevel"
+        },
+        {
+          "title": "TurnDetectionType",
+          "const": "TurnDetectionType"
+        },
+        {
+          "title": "DigitalTurnDetectionType",
+          "description": "Turn detection options for digital voice agents. Separate from TurnDetectionType to keep IVR (telephony) and digital voice configurations independent.",
+          "const": "DigitalTurnDetectionType"
+        },
+        {
+          "title": "DigitalNoiseReductionMode",
+          "description": "Noise reduction mode for digital voice settings",
+          "const": "DigitalNoiseReductionMode"
+        },
+        {
+          "title": "DigitalListeningMode",
+          "description": "Listening mode for digital voice settings",
+          "const": "DigitalListeningMode"
+        },
+        {
+          "title": "DefaultValueMissingAction",
+          "const": "DefaultValueMissingAction"
+        },
+        {
+          "title": "ActivityType",
+          "const": "ActivityType"
+        },
+        {
+          "title": "ChannelId",
+          "const": "ChannelId"
+        },
+        {
+          "title": "PlanStepType",
+          "const": "PlanStepType"
+        },
+        {
+          "title": "InvocationSource",
+          "const": "InvocationSource"
+        },
+        {
+          "title": "UserInputType",
+          "const": "UserInputType"
+        }
+      ]
+    }
+  }
+}

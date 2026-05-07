@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="7.0 1.0 34.0 46.006"><svg x="15.0" y="28.975" width="18" height="16.031" viewBox="0 0 12 10.6874">
+<path id="Color 3" d="M0 0V9.68742C0 10.0477 0.193792 10.3801 0.507301 10.5576C0.82081 10.7351 1.20556 10.7303 1.5145 10.5449L6 7.85361L10.4855 10.5449C10.7944 10.7303 11.1792 10.7351 11.4927 10.5576C11.8062 10.3801 12 10.0477 12 9.68742V0C10.2533 1.07034 8.19869 1.68737 6 1.68737C3.80131 1.68737 1.74674 1.07034 0 0Z" fill="url(#paint0_radial_496_4249)"/>
+<defs>
+<radialGradient id="paint0_radial_496_4249" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(6 -1.66689) rotate(90) scale(16.8444 26.4886)">
+<stop stop-color="#163697"/>
+<stop offset="1" stop-color="#29C3FF"/>
+</radialGradient>
+</defs>
+</svg><svg x="9.0" y="3.0" width="30" height="30" viewBox="0 0 20 20">
+<path id="Color 2" d="M16 18.0007C14.3287 19.2561 12.2512 20 10 20C7.74879 20 5.67132 19.2561 4 18.0007C3.87748 17.9087 3.75714 17.8139 3.63907 17.7165C1.4166 15.8823 0 13.1066 0 10C0 4.47715 4.47715 0 10 0C15.5228 0 20 4.47715 20 10C20 13.2716 18.4289 16.1763 16 18.0007Z" fill="url(#paint0_radial_496_4243)"/>
+<defs>
+<radialGradient id="paint0_radial_496_4243" cx="0" cy="0" r="1" gradientTransform="matrix(61.4286 93.2143 -86.8479 41.9671 -43.2143 -70)" gradientUnits="userSpaceOnUse">
+<stop offset="0.771547" stop-color="#FFCD0F"/>
+<stop offset="0.990707" stop-color="#E67505"/>
+</radialGradient>
+</defs>
+</svg><svg x="16.5" y="10.498" width="15" height="14.325" viewBox="0 0 10 9.54729">
+<path id="Color 1" d="M5.33604 0.209077L6.67637 2.93028L9.67857 3.36411C9.98602 3.40853 10.1089 3.78635 9.88641 4.00314L7.71499 6.11892L8.22761 9.10855C8.2801 9.41469 7.95864 9.64804 7.68383 9.50328L5 8.08961L2.31617 9.50328C2.04123 9.64811 1.71967 9.41448 1.77244 9.10824L2.28758 6.11892L0.113746 4.0033C-0.108949 3.78657 0.0138756 3.40855 0.321431 3.36411L3.32363 2.93028L4.66396 0.209077C4.80126 -0.0696922 5.19874 -0.0696922 5.33604 0.209077Z" fill="url(#paint0_radial_496_4245)"/>
+<defs>
+<radialGradient id="paint0_radial_496_4245" cx="0" cy="0" r="1" gradientTransform="matrix(-5 -16.7077 24.2812 -6.62343 7.50002 9.54728)" gradientUnits="userSpaceOnUse">
+<stop stop-color="#B03111"/>
+<stop offset="1" stop-color="#E67505"/>
+</radialGradient>
+</defs>
+</svg></svg>

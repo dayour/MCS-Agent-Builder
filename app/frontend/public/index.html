@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/svg+xml" href="%PUBLIC_URL%/copilot-studio-logo.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#000000" />
+    <meta
+      name="description"
+      content="Web site created using create-react-app"
+    />
+    <!-- Preload Segoe UI Web fonts for faster rendering -->
+    <link rel="preload" href="https://static2.sharepointonline.com/files/fabric/assets/fonts/segoeui-westeuropean/segoeui-regular.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="https://static2.sharepointonline.com/files/fabric/assets/fonts/segoeui-westeuropean/segoeui-semibold.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
+    <!--
+      manifest.json provides metadata used when your web app is installed on a
+      user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
+    -->
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+    <!--
+      Notice the use of %PUBLIC_URL% in the tags above.
+      It will be replaced with the URL of the `public` folder during the build.
+      Only files inside the `public` folder can be referenced from the HTML.
+
+      Unlike "/favicon.ico" or "favicon.ico", "%PUBLIC_URL%/favicon.ico" will
+      work correctly both with client-side routing and a non-root public URL.
+      Learn how to configure a non-root public URL by running `npm run build`.
+    -->
+    <title>MCS Prototype</title>
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <script>
+      // Prevent the browser from opening dropped files as new tabs / navigating away.
+      // Must run before the React bundle so the listeners are in place immediately.
+      // capture:true fires before any target or bubble-phase handler.
+      document.addEventListener('dragover', function(e) { e.preventDefault(); }, true);
+      document.addEventListener('drop', function(e) { e.preventDefault(); }, true);
+    </script>
+    <div id="root"></div>
+    <script>
+      // Intercept webpack-dev-server's scary red error overlay and replace it
+      // with a calm, friendly message. The raw error text is preserved in a
+      // collapsible "Show details" section so developers can still troubleshoot.
+      // Only runs in development — webpack-dev-server overlay never exists in prod.
+      if (window.location.port) (function () {
+        var OVERLAY_ID = 'webpack-dev-server-client-overlay';
+        var FRIENDLY_ID = 'mcs-friendly-error-overlay';
+
+        function extractErrorText(iframe) {
+          try {
+            var doc = iframe.contentDocument || iframe.contentWindow.document;
+            return doc && doc.body ? doc.body.innerText : '';
+          } catch (e) {
+            return '';
+          }
+        }
+
+        function showFriendlyOverlay(iframe) {
+          if (document.getElementById(FRIENDLY_ID)) return;
+          iframe.style.display = 'none';
+
+          // Wait a tick so the iframe's content has time to render before we read it
+          setTimeout(function () {
+            var errorText = extractErrorText(iframe);
+
+            var overlay = document.createElement('div');
+            overlay.id = FRIENDLY_ID;
+            overlay.style.cssText = [
+              'position:fixed',
+              'inset:0',
+              'background:rgba(250,250,252,0.97)',
+              'z-index:2147483647',
+              'display:flex',
+              'align-items:center',
+              'justify-content:center',
+              'font-family:"Segoe UI",system-ui,sans-serif',
+            ].join(';');
+
+            overlay.innerHTML = [
+              '<div style="background:#fff;border-radius:16px;padding:40px 48px;max-width:480px;width:90%;box-shadow:0 8px 40px rgba(0,0,0,0.12);position:relative;text-align:center;">',
+
+              // Dismiss button
+              '  <button onclick="document.getElementById(\'' + FRIENDLY_ID + '\').remove()" aria-label="Dismiss" style="position:absolute;top:16px;right:16px;background:none;border:none;cursor:pointer;font-size:20px;color:#8a8a8a;line-height:1;padding:4px 8px;" title="Dismiss">&#x2715;</button>',
+
+              // Icon
+              '  <div style="width:56px;height:56px;border-radius:50%;background:#FFF4E5;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:28px;">&#x26A0;&#xFE0F;</div>',
+
+              // Heading
+              '  <h2 style="margin:0 0 10px;font-size:20px;font-weight:600;color:#1a1a1a;letter-spacing:-0.01em;">Prototype needs a restart</h2>',
+
+              // Body
+              '  <p style="margin:0 0 28px;font-size:14px;color:#5c5c5c;line-height:1.6;">',
+              '    A build issue was detected. This usually happens after pulling new updates.',
+              '    Go to your terminal, stop the server, and run <code style="background:#f0f0f0;padding:2px 7px;border-radius:5px;font-size:13px;font-family:\'Consolas\',monospace;">npm start</code> again.',
+              '  </p>',
+
+              // Refresh button
+              '  <button onclick="window.location.reload()" style="background:#464FEB;color:#fff;border:none;border-radius:8px;padding:10px 28px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:20px;">',
+              '    Try refreshing',
+              '  </button>',
+
+              // Collapsible error details
+              errorText ? [
+                '  <div style="margin-top:4px;">',
+                '    <button onclick="var d=document.getElementById(\'mcs-err-details\');var a=document.getElementById(\'mcs-err-arrow\');if(d.style.display===\'none\'){d.style.display=\'block\';a.textContent=\'▲\';}else{d.style.display=\'none\';a.textContent=\'▼\';}" style="background:none;border:none;cursor:pointer;font-size:13px;color:#8a8a8a;font-family:inherit;padding:4px 0;">',
+                '      <span id="mcs-err-arrow">▼</span> Show error details',
+                '    </button>',
+                '    <pre id="mcs-err-details" style="display:none;margin:10px 0 0;padding:14px;background:#f5f5f7;border-radius:8px;font-size:11px;line-height:1.5;text-align:left;overflow:auto;max-height:200px;white-space:pre-wrap;word-break:break-all;color:#333;font-family:\'Consolas\',monospace;">' + errorText.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</pre>',
+                '  </div>',
+              ].join('') : '',
+
+              '</div>',
+            ].join('');
+
+            document.body.appendChild(overlay);
+          }, 150);
+        }
+
+        // Watch for the webpack overlay iframe being injected or removed
+        var observer = new MutationObserver(function (mutations) {
+          mutations.forEach(function (mutation) {
+            mutation.addedNodes.forEach(function (node) {
+              if (node.id === OVERLAY_ID) {
+                showFriendlyOverlay(node);
+              }
+            });
+            // When webpack resolves errors it removes the overlay iframe —
+            // auto-dismiss our friendly overlay so the prototype isn't stuck.
+            mutation.removedNodes.forEach(function (node) {
+              if (node.id === OVERLAY_ID) {
+                var friendly = document.getElementById(FRIENDLY_ID);
+                if (friendly) friendly.remove();
+              }
+            });
+          });
+        });
+
+        document.addEventListener('DOMContentLoaded', function () {
+          observer.observe(document.body, { childList: true });
+          // In case it was already injected before DOMContentLoaded
+          var existing = document.getElementById(OVERLAY_ID);
+          if (existing) showFriendlyOverlay(existing);
+        });
+      })();
+    </script>
+    <!--
+      This HTML file is a template.
+      If you open it directly in the browser, you will see an empty page.
+
+      You can add webfonts, meta tags, or analytics to this file.
+      The build step will place the bundled scripts into the <body> tag.
+
+      To begin the development, run `npm start` or `yarn start`.
+      To create a production bundle, use `npm run build` or `yarn build`.
+    -->
+  </body>
+</html>

@@ -1,0 +1,113 @@
+# Pattern: Compound Action / Prompt Starter Card (Teams Host Extension)
+# Trigger: OnConversationStart or mid-topic (disambiguation, capability showcase)
+# Shows: Icon + title + description buttons matching Teams prompt-starter style
+# Common in: welcome messages, disambiguation, capability selection, agent overview
+#
+# Schema: 1.5 + Teams host extensions (CompoundButton, Icon)
+# Channels: Teams desktop+mobile (CompoundButton renders natively)
+# Fallback: On non-Teams channels, falls back to standard Action.Submit buttons
+#
+# IMPORTANT: CompoundButton and Icon are Teams host extensions.
+# The fallback variant (Option B) uses standard ColumnSet + Action.Submit.
+
+kind: AdaptiveDialog
+beginDialog:
+  kind: OnConversationStart
+  id: main
+  actions:
+    - kind: SendMessage
+      id: sendWelcomeCompound
+      message:
+        text: "Welcome! What can I help you with?"
+        attachments:
+          - kind: AdaptiveCardTemplate
+            cardContent: |-
+              ={
+                type: "AdaptiveCard",
+                '$schema': "http://adaptivecards.io/schemas/adaptive-card.json",
+                version: "1.5",
+                body: [
+                  {
+                    type: "TextBlock",
+                    text: "{{AGENT_NAME}}",
+                    weight: "Bolder",
+                    size: "Large"
+                  },
+                  {
+                    type: "TextBlock",
+                    text: "{{AGENT_DESCRIPTION}}",
+                    wrap: true,
+                    isSubtle: true,
+                    spacing: "None"
+                  },
+                  {
+                    type: "TextBlock",
+                    text: "Quick Actions",
+                    weight: "Bolder",
+                    separator: true,
+                    spacing: "Medium"
+                  },
+                  {
+                    type: "CompoundButton",
+                    icon: {
+                      type: "Icon",
+                      name: "Search",
+                      size: "xLarge",
+                      style: "Regular",
+                      color: "Accent"
+                    },
+                    title: "{{CAPABILITY_1_TITLE}}",
+                    description: "{{CAPABILITY_1_DESC}}",
+                    selectAction: {
+                      type: "Action.Submit",
+                      data: { action: "capability_1", text: "{{CAPABILITY_1_PROMPT}}" }
+                    },
+                    fallback: "drop"
+                  },
+                  {
+                    type: "CompoundButton",
+                    icon: {
+                      type: "Icon",
+                      name: "People",
+                      size: "xLarge",
+                      style: "Regular",
+                      color: "Accent"
+                    },
+                    title: "{{CAPABILITY_2_TITLE}}",
+                    description: "{{CAPABILITY_2_DESC}}",
+                    selectAction: {
+                      type: "Action.Submit",
+                      data: { action: "capability_2", text: "{{CAPABILITY_2_PROMPT}}" }
+                    },
+                    fallback: "drop"
+                  },
+                  {
+                    type: "CompoundButton",
+                    icon: {
+                      type: "Icon",
+                      name: "DocumentBulletList",
+                      size: "xLarge",
+                      style: "Regular",
+                      color: "Accent"
+                    },
+                    title: "{{CAPABILITY_3_TITLE}}",
+                    description: "{{CAPABILITY_3_DESC}}",
+                    selectAction: {
+                      type: "Action.Submit",
+                      data: { action: "capability_3", text: "{{CAPABILITY_3_PROMPT}}" }
+                    },
+                    fallback: "drop"
+                  }
+                ]
+              }
+
+# --- Option B: Standard cross-channel variant (ColumnSet + Action.Submit) ---
+# This is the existing welcome-card.yaml pattern. Use for multi-channel agents.
+# CompoundButton has no cross-channel equivalent — revert to simple buttons.
+
+# --- Fluent Icon Reference ---
+# Common Fluent icon names for agent capabilities:
+# Search, People, DocumentBulletList, CalendarLtr, Mail, Chat, Settings,
+# ShieldCheckmark, BookOpen, Lightbulb, Rocket, DataTrending, Headset,
+# MoneyHand, Organization, TaskListSquareLtr, Clipboard, Globe
+# Full list: https://react.fluentui.dev/?path=/docs/icons-catalog--docs

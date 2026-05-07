@@ -5,7 +5,8 @@
  * directly, gets streamed answers grounded in the loaded context.
  *
  * Model routing:
- *   - GPT-5.4 (default) — fast TTFT for live meeting use
+ *   - Latest GPT-5.x (default) — fast TTFT for live meeting use; the actual
+ *     id (gpt-5.5, gpt-5.6, ...) is resolved at send time by openai.js.
  *   - Claude Opus — fallback if GPT unavailable
  */
 
@@ -13,9 +14,10 @@ const EventEmitter = require('events');
 const gptApi = require('../../../tools/lib/openai');
 const anthropicApi = require('../../../tools/lib/anthropic');
 
-const DEFAULT_MODEL = 'gpt-5.4';
+// Family sentinel; openai.js resolves the actual id (e.g. gpt-5.5) at send time.
+const DEFAULT_MODEL = 'gpt';
 const MAX_HISTORY_MESSAGES = 20; // 10 turns (user + assistant)
-const MAX_ANSWER_TOKENS = 1000;
+const MAX_ANSWER_TOKENS = 4096;
 
 const SYSTEM_PROMPT_TEMPLATE = `You are an expert Microsoft Copilot Studio (MCS) consultant helping Kim answer questions during a live meeting. You have full project context and MCS knowledge loaded below.
 
@@ -32,10 +34,11 @@ const SYSTEM_PROMPT_TEMPLATE = `You are an expert Microsoft Copilot Studio (MCS)
 {CONTEXT}`;
 
 /**
- * Returns true if the model is a GPT model.
+ * Returns true if the model is a GPT model. Accepts both the family sentinel
+ * 'gpt' and concrete ids like 'gpt-5.5'.
  */
 function isGPTModel(model) {
-  return typeof model === 'string' && model.startsWith('gpt-');
+  return typeof model === 'string' && (model === 'gpt' || model.startsWith('gpt-'));
 }
 
 class ChatEngine extends EventEmitter {
@@ -188,7 +191,7 @@ class ChatEngine extends EventEmitter {
   }
 
   /**
-   * Stream via GPT-5.4. Falls back to Claude if GPT unavailable or fails at runtime.
+   * Stream via GPT-5.5. Falls back to Claude if GPT unavailable or fails at runtime.
    */
   async _streamGPT(messageId, messages, startTime, signal, onResult) {
     if (!gptApi.isConfigured()) {

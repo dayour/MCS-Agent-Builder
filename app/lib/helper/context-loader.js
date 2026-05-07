@@ -5,7 +5,7 @@
  * No LLM call — just fast file reads and structured concatenation.
  *
  * Sources:
- * 1. Customer Context — brief.json, uploaded docs
+ * 1. Customer Context — agentspec.json (or brief.json fallback), uploaded docs
  * 2. MCS Knowledge — knowledge/cache/*.md files (connectors, MCPs, triggers, etc.)
  * 3. Frameworks — component selection, architecture scoring
  * 4. Learnings — past build insights
@@ -20,6 +20,14 @@ const path = require('path');
 const { extractContent } = require('../documents');
 
 const MAX_DOC_CHARS = 20000; // Per-document truncation limit
+
+/**
+ * Resolve the spec file path: agentspec.json first, brief.json fallback.
+ */
+function resolveSpecFile(dir) {
+  const agentspec = path.join(dir, 'agentspec.json');
+  return fs.existsSync(agentspec) ? agentspec : path.join(dir, 'brief.json');
+}
 
 // Key knowledge cache files for MCS solutioning
 const MCS_KNOWLEDGE_FILES = [
@@ -74,19 +82,19 @@ async function loadContext(options) {
   // ── Section 1: Customer Context ────────────────────────────────────
   sections.push('# CUSTOMER CONTEXT\n');
 
-  // 1a. Load brief.json
+  // 1a. Load agentspec.json (falls back to brief.json)
   const briefPath = agentName
-    ? path.join(projectDir, 'agents', agentName, 'brief.json')
+    ? resolveSpecFile(path.join(projectDir, 'agents', agentName))
     : findBriefJson(projectDir);
   if (briefPath && fs.existsSync(briefPath)) {
     try {
       const brief = JSON.parse(fs.readFileSync(briefPath, 'utf-8'));
       sections.push(formatBrief(brief));
-      sources.push('brief.json');
+      sources.push(path.basename(briefPath));
     } catch { /* ignore parse errors */ }
   }
 
-  // 1b. Load all brief.json files from all agents (multi-agent projects)
+  // 1b. Load all agentspec.json files from all agents (multi-agent projects)
   const agentsDir = path.join(projectDir, 'agents');
   if (fs.existsSync(agentsDir)) {
     const agentDirs = fs.readdirSync(agentsDir).filter(f => {
@@ -94,14 +102,14 @@ async function loadContext(options) {
     });
     for (const dir of agentDirs) {
       if (dir === agentName) continue;
-      const otherBrief = path.join(agentsDir, dir, 'brief.json');
+      const otherBrief = resolveSpecFile(path.join(agentsDir, dir));
       if (briefPath && path.resolve(otherBrief) === path.resolve(briefPath)) continue;
       if (fs.existsSync(otherBrief)) {
         try {
           const brief = JSON.parse(fs.readFileSync(otherBrief, 'utf-8'));
           sections.push(`\n## Agent: ${dir}\n`);
           sections.push(formatBrief(brief));
-          sources.push(`agents/${dir}/brief.json`);
+          sources.push(`agents/${dir}/${path.basename(otherBrief)}`);
         } catch { /* skip */ }
       }
     }
@@ -197,7 +205,7 @@ function getSourcePaths(projectDir, agentName) {
   const paths = [];
 
   const briefPath = agentName
-    ? path.join(projectDir, 'agents', agentName, 'brief.json')
+    ? resolveSpecFile(path.join(projectDir, 'agents', agentName))
     : findBriefJson(projectDir);
   if (briefPath) paths.push(briefPath);
 
@@ -208,7 +216,7 @@ function getSourcePaths(projectDir, agentName) {
         try { return fs.statSync(path.join(agentsDir, f)).isDirectory(); } catch { return false; }
       });
       for (const d of dirs) {
-        const bp = path.join(agentsDir, d, 'brief.json');
+        const bp = resolveSpecFile(path.join(agentsDir, d));
         if (fs.existsSync(bp)) paths.push(bp);
       }
     } catch { /* skip */ }
@@ -268,7 +276,7 @@ function estimateTokenCount(text) {
 }
 
 /**
- * Format brief.json into readable text.
+ * Format agentspec data into readable text.
  */
 function formatBrief(brief) {
   const sections = [];
@@ -313,12 +321,16 @@ function formatBrief(brief) {
 }
 
 /**
- * Find brief.json in a project directory (searches agents/ subdirectories).
+ * Find agentspec.json (or brief.json fallback) in a project directory (searches agents/ subdirectories).
  */
 function findBriefJson(projectDir) {
-  const direct = path.join(projectDir, 'brief.json');
-  if (fs.existsSync(direct)) return direct;
+  // Check project root
+  const directSpec = path.join(projectDir, 'agentspec.json');
+  if (fs.existsSync(directSpec)) return directSpec;
+  const directBrief = path.join(projectDir, 'brief.json');
+  if (fs.existsSync(directBrief)) return directBrief;
 
+  // Check agents/ subdirectories
   const agentsDir = path.join(projectDir, 'agents');
   if (fs.existsSync(agentsDir)) {
     try {
@@ -326,6 +338,8 @@ function findBriefJson(projectDir) {
         fs.statSync(path.join(agentsDir, f)).isDirectory()
       );
       for (const agent of agents) {
+        const specPath = path.join(agentsDir, agent, 'agentspec.json');
+        if (fs.existsSync(specPath)) return specPath;
         const briefPath = path.join(agentsDir, agent, 'brief.json');
         if (fs.existsSync(briefPath)) return briefPath;
       }

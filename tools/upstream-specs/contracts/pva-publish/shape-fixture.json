@@ -1,0 +1,35 @@
+{
+  "_description": "Sanitized fixture for pva-publish bound action. Empty body, HTTP 204 on success. Includes one error case for documentation.",
+  "request": {
+    "method": "POST",
+    "url": "/api/data/v9.2/bots(<botId>)/Microsoft.Dynamics.CRM.PvaPublish",
+    "headers": {
+      "content-type": "application/json",
+      "odata-maxversion": "4.0",
+      "odata-version": "4.0"
+    },
+    "body": {}
+  },
+  "response": {
+    "status": 204,
+    "headers": {},
+    "body": null
+  },
+  "errorCase": {
+    "_description": "Publish attempted too soon after bot creation",
+    "request": {
+      "method": "POST",
+      "url": "/api/data/v9.2/bots(<botId>)/Microsoft.Dynamics.CRM.PvaPublish",
+      "body": {}
+    },
+    "response": {
+      "status": 400,
+      "body": {
+        "error": {
+          "code": "0x80048d05",
+          "message": "The publish operation could not be completed. The agent may still be provisioning."
+        }
+      }
+    }
+  }
+}

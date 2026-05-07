@@ -1,0 +1,124 @@
+{
+  "_meta": {
+    "name": "Agent-in-the-Loop (Flow Calls Agent)",
+    "description": "Agent flow with 'Run an agent' node: flow delegates complex reasoning to a published agent mid-flow. The agent uses its knowledge, tools, and instructions to process the request. Optional 'request human assistance when unsure'. GA Mar 2026.",
+    "category": "complete",
+    "placeholders": {
+      "{{AGENT_SCHEMA_NAME}}": "Schema name of the published agent to call",
+      "{{INPUT_PARAM}}": "Name of the input parameter from the trigger",
+      "{{AGENT_MESSAGE}}": "Message template to send to the agent (can use dynamic content)",
+      "{{OUTPUT_PROPERTY}}": "Name of the output returned to the calling flow/agent",
+      "{{CONN_REF_LOGICAL}}": "Connection reference for Copilot Studio connector"
+    },
+    "requires": ["shared_microsoftcopilotstudio"],
+    "notes": [
+      "The called agent must be PUBLISHED before it can be invoked",
+      "Agent uses its full capabilities (knowledge, tools, instructions) to process",
+      "Toggle 'Request human assistance when unsure' for safety-critical scenarios",
+      "This is the INVERSE of agent-flow-basic (which is agent-calls-flow)",
+      "For simple agent calls from cloud flows, use Execute Agent action instead",
+      "Agent node is only available in agent flows (not cloud flows)"
+    ]
+  },
+  "fragment": {
+    "triggers": {
+      "manual": {
+        "type": "Request",
+        "kind": "Skills",
+        "inputs": {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "{{INPUT_PARAM}}": {
+                "type": "string",
+                "description": "Data to send to the agent for processing"
+              }
+            },
+            "required": ["{{INPUT_PARAM}}"]
+          }
+        }
+      }
+    },
+    "actions": {
+      "Run_agent": {
+        "runAfter": {},
+        "type": "RunAgent",
+        "inputs": {
+          "agentSchemaName": "{{AGENT_SCHEMA_NAME}}",
+          "message": "{{AGENT_MESSAGE}}: @{triggerBody()?['{{INPUT_PARAM}}']}",
+          "requestHumanAssistance": false
+        },
+        "metadata": {
+          "notes": "Agent processes the message using its knowledge, tools, and instructions. Response contains the agent's reasoning result."
+        }
+      },
+      "Check_agent_response": {
+        "runAfter": {
+          "Run_agent": ["Succeeded"]
+        },
+        "type": "If",
+        "expression": {
+          "not": {
+            "equals": [
+              "@body('Run_agent')?['response']",
+              ""
+            ]
+          }
+        },
+        "actions": {
+          "Respond_with_agent_result": {
+            "type": "Response",
+            "kind": "Skills",
+            "inputs": {
+              "statusCode": 200,
+              "body": {
+                "{{OUTPUT_PROPERTY}}": "@body('Run_agent')?['response']",
+                "agentConfidence": "@body('Run_agent')?['confidence']"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "{{OUTPUT_PROPERTY}}": { "type": "string" },
+                  "agentConfidence": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "else": {
+          "actions": {
+            "Respond_fallback": {
+              "type": "Response",
+              "kind": "Skills",
+              "inputs": {
+                "statusCode": 200,
+                "body": {
+                  "{{OUTPUT_PROPERTY}}": "The agent was unable to process this request.",
+                  "agentConfidence": "low"
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "{{OUTPUT_PROPERTY}}": { "type": "string" },
+                    "agentConfidence": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "connectionReferences": {
+      "shared_microsoftcopilotstudio": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "{{CONN_REF_LOGICAL}}"
+        },
+        "api": {
+          "name": "shared_microsoftcopilotstudio"
+        }
+      }
+    }
+  }
+}

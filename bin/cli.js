@@ -511,14 +511,28 @@ function doctor() {
     return { ok: false, detail: "not found", fix: "Install .NET SDK + PAC CLI" };
   });
 
-  // 11. Frontend built
+  // 11. Claude Code permissions (headless)
+  check("Claude permissions", () => {
+    const claudeSettings = path.join(PKG_DIR, ".claude", "settings.json");
+    try {
+      const settings = JSON.parse(fs.readFileSync(claudeSettings, "utf8"));
+      if (settings.permissions?.dangerouslySkipPermissions) {
+        return { ok: true, detail: "auto-approve enabled (headless)" };
+      }
+      return { ok: false, detail: "manual approval required", fix: "npm run postinstall  (or add dangerouslySkipPermissions to .claude/settings.json)" };
+    } catch {
+      return { ok: false, detail: ".claude/settings.json missing", fix: "npm install" };
+    }
+  });
+
+  // 12. Frontend built
   check("Frontend (app/dist)", () => {
     const distIndex = path.join(PKG_DIR, "app", "dist", "index.html");
     if (fs.existsSync(distIndex)) return { ok: true, detail: "built" };
     return { ok: false, detail: "not built", fix: "npm run frontend:build" };
   });
 
-  // 12. Claude API (via Copilot passthrough)
+  // 13. Claude API (via Copilot passthrough)
   check("Claude API (Copilot)", () => {
     try {
       const api = require("../tools/lib/anthropic");
@@ -530,8 +544,8 @@ function doctor() {
     }
   });
 
-  // 13. GPT-5.4 review (optional — needs gh CLI + copilot scope)
-  check("GPT-5.4 review (optional)", () => {
+  // 14. GPT-5.5 review (optional — needs gh CLI + copilot scope)
+  check("GPT-5.5 review (optional)", () => {
     if (!cmdExists("gh")) return { ok: false, detail: "gh CLI not found", fix: "winget install GitHub.cli" };
     try {
       const status = run("gh auth status 2>&1");

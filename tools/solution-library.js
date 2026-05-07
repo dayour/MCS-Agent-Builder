@@ -736,13 +736,15 @@ function searchIndex(query) {
 
 async function uploadSolution(token, projectId, agentId, displayName) {
     const agentDir = path.join(REPO_ROOT, 'Build-Guides', projectId, 'agents', agentId);
-    const briefPath = path.join(agentDir, 'brief.json');
+    const specFile = fs.existsSync(path.join(agentDir, 'agentspec.json'))
+        ? path.join(agentDir, 'agentspec.json')
+        : path.join(agentDir, 'brief.json');
 
-    if (!fs.existsSync(briefPath)) {
-        throw new Error(`No brief.json found at ${briefPath}`);
+    if (!fs.existsSync(specFile)) {
+        throw new Error(`No agentspec.json or brief.json found at ${agentDir}`);
     }
 
-    const brief = JSON.parse(fs.readFileSync(briefPath, 'utf8'));
+    const brief = JSON.parse(fs.readFileSync(specFile, 'utf8'));
     const agentName = brief.agent ? brief.agent.displayName : agentId;
     const folderName = displayName || `${agentName} - ${projectId}`;
 
@@ -786,9 +788,10 @@ async function uploadSolution(token, projectId, agentId, displayName) {
         uploaded.push({ name: 'build-report.md', type: 'report', result });
     }
 
-    console.error(`Uploading brief.json...`);
-    const briefResult = await uploadFile(token, folderName, 'brief.json', briefPath);
-    uploaded.push({ name: 'brief.json', type: 'brief', result: briefResult });
+    const specFileName = path.basename(specFile);
+    console.error(`Uploading ${specFileName}...`);
+    const briefResult = await uploadFile(token, folderName, specFileName, specFile);
+    uploaded.push({ name: specFileName, type: 'brief', result: briefResult });
 
     // Generate and upload design-spec.md (human-readable spec card)
     const specContent = generateDesignSpec(brief);
@@ -842,10 +845,10 @@ async function uploadSolution(token, projectId, agentId, displayName) {
 // --- Design Spec Generation ---
 
 /**
- * Generate a human-readable design spec markdown from a brief.json object.
+ * Generate a human-readable design spec markdown from an agent spec object.
  * This is the "spec card" other team members see when browsing the SharePoint library.
  *
- * @param {object} brief - Parsed brief.json object
+ * @param {object} brief - Parsed agent spec (agentspec.json or brief.json) object
  * @returns {string} Markdown string
  */
 function generateDesignSpec(brief) {

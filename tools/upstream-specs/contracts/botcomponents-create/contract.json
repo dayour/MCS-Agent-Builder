@@ -1,0 +1,36 @@
+{
+  "surfaceId": "botcomponents-create",
+  "method": "POST",
+  "urlPattern": "{dataverseUrl}/api/data/v9.2/botcomponents",
+  "auth": "Dataverse bearer token",
+  "validationStrategy": "component-row-with-type",
+  "_strategyNote": "Creates a botcomponent row directly via Dataverse. Used by build-pipeline to create topic (componenttype=9), test (componenttype=19), or other component types that MCS can't seed via bot.configuration alone.",
+  "kindDiscriminators": [],
+  "requiredFields": [
+    {"path": "$.name", "constraint": "unique component display name"},
+    {"path": "$.schemaname", "constraint": "unique schema identifier (e.g. publisher_componentname)"},
+    {"path": "$.componenttype", "constraint": "integer enum: 9=custom topic, 15=GptComponent, 19=test component"},
+    {"path": "$['parentbotid@odata.bind']", "constraint": "bind to bots({botId})"}
+  ],
+  "responseShape": "201 Created with Location header + botcomponentid in response body",
+  "lastVerified": "2026-04-16",
+  "lastVerifiedBy": "Direct use in build-pipeline.stepComponents + build-pipeline has been tested against multiple live bots",
+  "typedAdapterRef": "app/lib/build-pipeline.js:stepComponents",
+  "knownQuirks": [
+    "componenttype=9 for custom topics (NOT 1 which is Botskill — common confusion)",
+    "componenttype=19 for MakerEval test components (via this Dataverse path as fallback)",
+    "Duplicate schemaname returns 412 Precondition Failed (not 409 Conflict)",
+    "parentbotid@odata.bind format: '/bots(<guid>)' — leading slash required",
+    "data column accepts JSON string; for GptComponent MCS UI doesn't render records created via raw POST — use LSP push or Island Gateway instead"
+  ],
+  "nonContractualFields": [
+    "$.createdon, modifiedon",
+    "$.owningteam / owninguser",
+    "$.data (component-specific opaque payload)"
+  ],
+  "errorCases": [
+    {"status": 412, "reason": "Duplicate schemaname on same parent bot"},
+    {"status": 400, "reason": "Missing required column (name, schemaname, componenttype)"},
+    {"status": 403, "reason": "User lacks botcomponent Create privilege"}
+  ]
+}

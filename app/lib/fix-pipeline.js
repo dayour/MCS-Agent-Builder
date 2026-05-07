@@ -3,7 +3,7 @@
  *
  * Reads eval failures, classifies root causes, generates targeted fixes,
  * applies them, and re-triggers eval:
- * 1. Read eval results from brief.json
+ * 1. Read eval results from agentspec.json
  * 2. Classify failures (Claude Opus analysis)
  * 3. Generate fixes (instruction edits, topic changes)
  * 4. Apply fixes via Island Gateway / LSP
@@ -21,7 +21,7 @@ const islandClient = require("../../tools/island-client");
 const { httpRequestWithRetry, getToken, getTenantId } = require("../../tools/lib/http");
 
 const PIPELINE_MODEL = "opus";
-const MAX_TOKENS = 16384;
+const MAX_TOKENS = 32768;
 const API_TIMEOUT = 300_000;
 
 // ---------------------------------------------------------------------------
@@ -86,14 +86,19 @@ function log(job, msg) {
   console.log(line.trimEnd());
 }
 
+function resolveSpecPath(agentDir) {
+  const agentspec = path.join(agentDir, "agentspec.json");
+  return fs.existsSync(agentspec) ? agentspec : path.join(agentDir, "brief.json");
+}
+
 function readBrief(agentDir) {
-  const p = path.join(agentDir, "brief.json");
+  const p = resolveSpecPath(agentDir);
   return fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, "utf-8")) : null;
 }
 
 function writeBrief(agentDir, brief) {
   brief.updated_at = new Date().toISOString();
-  fs.writeFileSync(path.join(agentDir, "brief.json"), JSON.stringify(brief, null, 2), "utf-8");
+  fs.writeFileSync(path.join(agentDir, "agentspec.json"), JSON.stringify(brief, null, 2), "utf-8");
 }
 
 async function callClaude(systemPrompt, userMessage) {
@@ -122,7 +127,7 @@ function extractJSON(text) {
 async function runPipeline(job, agentDir, baseDir) {
   try {
     const brief = readBrief(agentDir);
-    if (!brief) throw new Error("brief.json not found");
+    if (!brief) throw new Error("agentspec.json not found");
 
     // Step 1: Read eval results
     updateStep(job, "read", "running", "Analyzing eval failures");
@@ -324,7 +329,7 @@ ${instructionFixes.map((f) => `- ${f.fixDetail} (for: "${f.question}")`).join("\
 function startFixPipeline(projectId, agentId, baseDir) {
   if (!agentId) throw new Error("agentId required for fix");
   const agentDir = path.join(baseDir, "Build-Guides", projectId, "agents", agentId);
-  if (!fs.existsSync(path.join(agentDir, "brief.json"))) throw new Error("brief.json not found");
+  if (!fs.existsSync(path.join(agentDir, "agentspec.json")) && !fs.existsSync(path.join(agentDir, "brief.json"))) throw new Error("agentspec.json not found");
   if (!anthropicApi.isConfigured()) throw new Error("Claude API not configured");
 
   const job = createJob(projectId, agentId);

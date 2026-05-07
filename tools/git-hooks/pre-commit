@@ -6,6 +6,68 @@
 #
 # Bypass: MCS_CORE_DEV=1 git commit ...
 
+# Anti-gaming test-guard runs BEFORE maintainer bypass — applies to everyone.
+# Blocks commits that modify e2e/** or feature-map.json without explicit
+# "allow-test-change: <reason>" in the commit message or ALLOW_TEST_CHANGE env.
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
+if [ -n "$REPO_ROOT" ] && [ -f "$REPO_ROOT/tools/test-guard.js" ]; then
+  node "$REPO_ROOT/tools/test-guard.js" || exit 1
+fi
+
+# Sync view integrity guard — blocks commits that hand-edit generated files in
+# knowledge/sync/views/. The orchestrator embeds a sha256 content-hash marker
+# in every view; if the hash doesn't match the body, the file was edited by hand.
+# Bypass: MCS_SYNC_SKIP_VIEW_CHECK=1 git commit ...
+if [ "$MCS_SYNC_SKIP_VIEW_CHECK" != "1" ] && [ -n "$REPO_ROOT" ] && [ -f "$REPO_ROOT/tools/sync-orchestrator.js" ]; then
+  # Only check staged views to avoid scanning unchanged files
+  staged_views=$(git diff --cached --name-only --diff-filter=ACM -- 'knowledge/sync/views/*.md' 2>/dev/null)
+  if [ -n "$staged_views" ]; then
+    if ! node "$REPO_ROOT/tools/sync-orchestrator.js" verify-views $staged_views >/dev/null 2>&1; then
+      echo ""
+      echo "BLOCKED: hand-edit detected in knowledge/sync/views/"
+      node "$REPO_ROOT/tools/sync-orchestrator.js" verify-views $staged_views >&2
+      exit 1
+    fi
+  fi
+fi
+
+# Spec-store integrity guard — blocks new direct fs.writeFileSync calls to
+# agentspec.json files. After cleanup PR #29 (2026-05-05), every spec writer
+# must go through chatSpecStore.writeSpec / writeSpecLocked / withSpecLock so
+# the shared in-memory mutex prevents read-modify-write races between chat,
+# build-pipeline, research-pipeline, and enrichment.
+#
+# This catches regressions in the migrated callsites. The canonical writer
+# (app/lib/chat/spec-store.js) is exempt because it owns the underlying
+# fs.writeFileSync call.
+#
+# Bypass: MCS_SPEC_WRITE_SKIP=1 git commit ...
+if [ "$MCS_SPEC_WRITE_SKIP" != "1" ]; then
+  staged_code=$(git diff --cached --name-only --diff-filter=ACM -- 'app/lib/*.js' 'app/lib/**/*.js' 'app/server.js' 'tools/*.js' 'tools/lib/*.js' 2>/dev/null)
+  if [ -n "$staged_code" ]; then
+    offenders=""
+    for f in $staged_code; do
+      case "$f" in
+        app/lib/chat/spec-store.js) continue ;;
+      esac
+      if grep -nE 'fs\.writeFileSync\([^)]*agentspec\.json' "$f" > /dev/null 2>&1; then
+        line=$(grep -nE 'fs\.writeFileSync\([^)]*agentspec\.json' "$f" | head -1)
+        offenders="$offenders\n  $f: $line"
+      fi
+    done
+    if [ -n "$offenders" ]; then
+      echo "" >&2
+      echo "BLOCKED: direct fs.writeFileSync to agentspec.json detected." >&2
+      echo "Use chatSpecStore.writeSpec(agentDir, spec) or writeSpecLocked(agentDir, spec)." >&2
+      echo "See app/lib/chat/spec-store.js for the canonical writer." >&2
+      printf "%b\n" "$offenders" >&2
+      echo "" >&2
+      echo "Bypass (escape hatch): MCS_SPEC_WRITE_SKIP=1 git commit ..." >&2
+      exit 1
+    fi
+  fi
+fi
+
 # Auto-bypass for repo owner (use git var to catch auto-detected emails too)
 COMMITTER_EMAIL=$(git var GIT_COMMITTER_IDENT 2>/dev/null | sed 's/.*<\(.*\)>.*/\1/')
 case "$COMMITTER_EMAIL" in

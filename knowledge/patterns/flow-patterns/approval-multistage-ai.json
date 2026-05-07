@@ -1,0 +1,156 @@
+{
+  "_meta": {
+    "name": "Multistage Approval with AI (Agent Flow)",
+    "description": "Agent flow with Human-in-the-loop multistage approval: manual approval stage + AI evaluation stage + condition-based routing. For expense approvals, document reviews, leave requests. GA Mar 2026.",
+    "category": "complete",
+    "placeholders": {
+      "{{APPROVAL_TITLE}}": "Title for the approval (e.g. 'Expense Report Approval')",
+      "{{MANUAL_STAGE_APPROVER}}": "Email or Teams ID of the manual approver",
+      "{{AI_STAGE_MODEL}}": "AI model for evaluation (e.g. gpt-4o)",
+      "{{AI_STAGE_PROMPT}}": "Prompt for AI evaluation of the document/request",
+      "{{APPROVAL_THRESHOLD}}": "Score threshold for auto-approval (e.g. 0.8)",
+      "{{INPUT_PARAM}}": "Name of the input from the agent (e.g. requestDetails)",
+      "{{CONN_REF_LOGICAL}}": "Connection reference for Human-in-the-loop connector"
+    },
+    "requires": ["shared_humanintheloop"],
+    "notes": [
+      "Multistage approval ALM is NOT supported — importing requires recreating the approval",
+      "AI stages evaluate documents/images using configured AI model",
+      "Conditions auto-approve/reject based on AI evaluation score",
+      "Manual stages route to Teams/Outlook for human decision",
+      "Base64 document inputs supported for document review scenarios"
+    ]
+  },
+  "fragment": {
+    "triggers": {
+      "manual": {
+        "type": "Request",
+        "kind": "Skills",
+        "inputs": {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "{{INPUT_PARAM}}": {
+                "type": "string",
+                "description": "Request details from the agent"
+              },
+              "requestAmount": {
+                "type": "number",
+                "description": "Amount for approval (if applicable)"
+              }
+            },
+            "required": ["{{INPUT_PARAM}}"]
+          }
+        }
+      }
+    },
+    "actions": {
+      "Run_multistage_approval": {
+        "runAfter": {},
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_humanintheloop",
+            "operationId": "RunMultistageApproval",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_humanintheloop"
+          },
+          "parameters": {
+            "title": "{{APPROVAL_TITLE}}",
+            "stages": [
+              {
+                "type": "AI",
+                "model": "{{AI_STAGE_MODEL}}",
+                "prompt": "{{AI_STAGE_PROMPT}}",
+                "inputData": "@triggerBody()?['{{INPUT_PARAM}}']"
+              },
+              {
+                "type": "Manual",
+                "assignedTo": "{{MANUAL_STAGE_APPROVER}}",
+                "requestMessage": "Please review this request. AI evaluation score: @{body('Run_multistage_approval')?['stages']?[0]?['score']}"
+              }
+            ],
+            "conditions": [
+              {
+                "stage": 0,
+                "operator": "GreaterThan",
+                "value": "{{APPROVAL_THRESHOLD}}",
+                "action": "SkipToStage",
+                "targetStage": "approve"
+              }
+            ]
+          },
+          "authentication": "@parameters('$authentication')"
+        }
+      },
+      "Check_approval_result": {
+        "runAfter": {
+          "Run_multistage_approval": ["Succeeded"]
+        },
+        "type": "If",
+        "expression": {
+          "equals": [
+            "@body('Run_multistage_approval')?['outcome']",
+            "Approved"
+          ]
+        },
+        "actions": {
+          "Respond_approved": {
+            "type": "Response",
+            "kind": "Skills",
+            "inputs": {
+              "statusCode": 200,
+              "body": {
+                "status": "approved",
+                "message": "Your request has been approved.",
+                "approverComments": "@body('Run_multistage_approval')?['comments']"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": { "type": "string" },
+                  "message": { "type": "string" },
+                  "approverComments": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "else": {
+          "actions": {
+            "Respond_rejected": {
+              "type": "Response",
+              "kind": "Skills",
+              "inputs": {
+                "statusCode": 200,
+                "body": {
+                  "status": "rejected",
+                  "message": "Your request was not approved.",
+                  "reason": "@body('Run_multistage_approval')?['rejectionReason']"
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string" },
+                    "message": { "type": "string" },
+                    "reason": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "connectionReferences": {
+      "shared_humanintheloop": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "{{CONN_REF_LOGICAL}}"
+        },
+        "api": {
+          "name": "shared_humanintheloop"
+        }
+      }
+    }
+  }
+}

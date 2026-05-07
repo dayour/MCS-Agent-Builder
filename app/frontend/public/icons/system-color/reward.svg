@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="2.0 1.99 44.0 44.01"><svg x="30.0" y="4.01" width="14" height="19.3" viewBox="0 0 7 9.65">
+<path id="Color 4" d="M1 9.65L5.66208 7.20241C6.48473 6.77052 7 5.91804 7 4.98891V1.75C7 0.783502 6.2165 0 5.25 0H1L0 5L1 9.65Z" fill="url(#paint0_linear_496_4207)"/>
+<defs>
+<linearGradient id="paint0_linear_496_4207" x1="7" y1="0.858049" x2="-0.0337844" y2="8.30911" gradientUnits="userSpaceOnUse">
+<stop stop-color="#52D17C"/>
+<stop offset="1" stop-color="#1A7F7C"/>
+</linearGradient>
+</defs>
+</svg><svg x="4.0" y="3.99" width="14" height="19.3" viewBox="0 0 7 9.65">
+<path id="Color 3" d="M6 0H1.75C0.783501 0 0 0.783502 0 1.75V4.98891C0 5.91803 0.515271 6.77052 1.33792 7.20241L6 9.65L7 4.98891L6 0Z" fill="url(#paint0_linear_496_4217)"/>
+<defs>
+<linearGradient id="paint0_linear_496_4217" x1="-2.07127e-08" y1="2.59913" x2="7.06362" y2="7.27446" gradientUnits="userSpaceOnUse">
+<stop stop-color="#52D17C"/>
+<stop offset="1" stop-color="#1A7F7C"/>
+</linearGradient>
+</defs>
+</svg><svg x="16.0" y="3.997" width="16" height="23.046" viewBox="0 0 8 11.5235">
+<path id="Color 2" d="M0 9.65V0H8V9.65L4.81346 11.3229C4.30412 11.5903 3.69588 11.5903 3.18654 11.3229L0 9.65Z" fill="url(#paint0_linear_496_4203)"/>
+<defs>
+<linearGradient id="paint0_linear_496_4203" x1="4" y1="-1.44123" x2="7.6396" y2="10.4053" gradientUnits="userSpaceOnUse">
+<stop stop-color="#76EB95"/>
+<stop offset="1" stop-color="#1EC8B0"/>
+</linearGradient>
+</defs>
+</svg><svg x="14.0" y="24.0" width="20" height="20" viewBox="0 0 10 10">
+<path id="Color 1" d="M10 5C10 7.76142 7.76142 10 5 10C2.23858 10 0 7.76142 0 5C0 2.23858 2.23858 0 5 0C7.76142 0 10 2.23858 10 5Z" fill="url(#paint0_radial_496_4201)"/>
+<defs>
+<radialGradient id="paint0_radial_496_4201" cx="0" cy="0" r="1" gradientTransform="matrix(30.7143 46.6071 -43.424 20.9835 -21.6071 -35)" gradientUnits="userSpaceOnUse">
+<stop offset="0.771547" stop-color="#FFCD0F"/>
+<stop offset="0.990707" stop-color="#E67505"/>
+</radialGradient>
+</defs>
+</svg></svg>

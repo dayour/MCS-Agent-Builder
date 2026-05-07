@@ -122,20 +122,39 @@ async function createBot(dvUrl, token, agentName, schemaPrefix) {
 
     console.log(`  Creating bot "${agentName}" (schema: ${schemaName})...`);
 
+    // Per bm-044 + bm-051: enterprise + multi-agent + latest-model defaults baked in at creation.
+    //   - authenticationmode=2 (Microsoft auth — required for connected-agent dispatch + enterprise governance)
+    //   - configuration.isAgentConnectable=true (so this bot can be added as a connected agent)
+    //   - aISettings.optInUseLatestModels=true (auto-floats to newest within tier)
+    //   - aISettings.model = latest from knowledge/frameworks/latest-model.json (currently GPT55Reasoning)
+    //   - configuration.recognizer = GenerativeAIRecognizer (required for generative orchestration, bm-021)
+    // accesscontrolpolicy=2 (GroupMembership) is the MCS UI default for new agents.
+    const _modelCfg = JSON.parse(fs.readFileSync(path.join(__dirname, '../knowledge/frameworks/latest-model.json'), 'utf8'));
+    const _latestModel = { '$kind': _modelCfg.default.$kind, modelNameHint: _modelCfg.default.modelNameHint };
     const body = {
         name: agentName,
         schemaname: schemaName,
         language: 1033,
         runtimeprovider: 0,
-        authenticationmode: 1,
+        authenticationmode: 2,
         authenticationtrigger: 1,
-        accesscontrolpolicy: 0,
+        accesscontrolpolicy: 2,
+        authenticationconfiguration: JSON.stringify({ '$kind': 'BotAuthenticationConfiguration' }),
         configuration: JSON.stringify({
+            '$kind': 'BotConfiguration',
+            settings: { GenerativeActionsEnabled: true },
+            isAgentConnectable: true,
+            gPTSettings: { '$kind': 'GPTSettings', defaultSchemaName: `${schemaName}.gpt.default` },
             aISettings: {
-                model: { modelNameHint: 'GPT5Auto' },
-                contentModeration: 'Medium'
+                '$kind': 'AISettings',
+                useModelKnowledge: false,
+                isFileAnalysisEnabled: false,
+                isSemanticSearchEnabled: false,
+                contentModeration: 'Medium',
+                optInUseLatestModels: true,
+                model: _latestModel
             },
-            settings: { GenerativeActionsEnabled: true }
+            recognizer: { '$kind': 'GenerativeAIRecognizer' }
         })
     };
 

@@ -442,7 +442,7 @@ For **dual-use**: Design at fixed width, add `@media screen` overrides for respo
 ### Build Flow
 
 ```
-brief.json ──> report-generator.js
+agentspec.json ──> report-generator.js
                    |
                    ├── reads Nunjucks base template (report-base.njk)
                    ├── reads report-type template (brief-report.njk, customer-report.njk, etc.)

@@ -1,17 +1,21 @@
 # MCS Automation — Core Rules
 
-> **RULE ZERO — HARD STOP: Fire GPT-5.4 on every interaction. No exceptions.**
+> **RULE ZERO — Fire GPT-5.5 selectively, on the 5 value patterns. Not on every interaction.**
 >
-> Every user message triggers GPT co-generation via `node tools/multi-model-review.js`. This is enforced by hooks:
-> - **UserPromptSubmit hook** injects a reminder on every prompt
-> - **Stop hook** checks for attestation and blocks if GPT was not called
-> - **Attestation file** written by `multi-model-review.js` on every successful (or attempted) call
+> As of 2026-04-27, the universal Stop-hook enforcement was removed after data showed ~50% of GPT calls were low-value `ask` calls on routine turns where Claude has full repo context that GPT lacks. GPT itself rated universal firing as poor value-vs-latency. The framework is now opt-in:
+> - **UserPromptSubmit hook** still injects a soft reminder describing when to fire (advisory, not required)
+> - **Stop hook** is **unwired** (script preserved for easy revert)
+> - **`multi-model-review.js`** is unchanged — call it when one of the 5 patterns applies
 >
-> Pick the right command: `challenge` (before implementing), `ask` (design/questions), `review-code` (after code), `diagnose` (debugging), `generate-*` (MCS content). If GPT is unavailable (exit code 3), proceed alone — that counts as attempted. Full protocol: `.claude/rules/gpt-co-generation.md`
+> **When to fire** (high value): `challenge` before architecture/design decisions or risky/destructive actions; `diagnose` for hard or ambiguous bugs; `review-code` for non-trivial diffs (concurrency, persistence, migrations, security, public APIs); `generate-*` for MCS content where independent oracle generation matters; `review-merged` as the final pre-publish quality gate.
+>
+> **When to skip** (low value): routine Q&A, formatting, simple edits, conversational turns, repo-specific questions where Claude has context GPT can't get from a tightly-framed prompt.
+>
+> Full protocol + revert path: `.claude/rules/gpt-co-generation.md`
 
 Automate Microsoft Copilot Studio (MCS) agent creation using a hybrid build stack: PAC CLI for listing agents, MCS LSP Wrapper for component sync, Island Gateway API for model catalog and eval upload, Dataverse API for agent creation and publishing, Direct Line API for testing, and user-guided manual steps for new OAuth connections.
 
-Research Microsoft-first (MCS built-in > Power Platform > Azure > M365 connectors) because enterprise agents run best on the native stack. The **brief.json** is the single source of truth — everything flows from it.
+Research Microsoft-first (MCS built-in > Power Platform > Azure > M365 connectors) because enterprise agents run best on the native stack. The **agentspec.json** is the single source of truth — everything flows from it.
 
 ---
 
@@ -25,21 +29,37 @@ INIT → CONTEXT → RESEARCH → [SOLUTION TYPE GATE] → BUILD (includes guard
 |-------|---------|-----------|
 | `/mcs-init` | Create project folder structure | — |
 | `/mcs-context` | Pull M365 history via WorkIQ | — |
-| `/mcs-research` | Read docs, identify agents, research components, enrich brief.json + generate evals | Research |
+| `/mcs-research` | Read docs, identify agents, research components, enrich agentspec.json + generate evals | Research |
 | `/mcs-build` | Pre-build validation (guard) + build agent(s) in MCS via hybrid stack | Build |
-| `/mcs-eval` | Run eval tests, write results to brief.json | Evaluate |
+| `/mcs-eval` | Run eval tests, write results to agentspec.json | Evaluate |
 | `/mcs-fix` | Analyze eval failures, apply fixes, re-evaluate | Fix Failures |
-| `/mcs-refresh` | Refresh knowledge cache files | — |
-| `/mcs-report` | Generate reports (brief/build/customer/deployment) | — |
+| `/mcs-pipeline-test` | Run the build-pipeline verify-fix harness against the canonical kitchen-sink agent (framework engineering only — not for customer builds) | — |
+| `/mcs-sync` | Detect upstream drift across 8 sources, surface TAKE/REJECT triage | — |
+| `/mcs-report` | Generate combined HTML export (spec + evals + how-to guide) | — |
+| `/iterate` | Layer A autonomous orchestrator: classify → lane verifiers → fix loop → facilitator review (qa-challenger via Agent + worktree, score≥9) → multi-model-review review-merged → denylist-gated auto-merge. See `.claude/rules/iterate-framework.md` for the autonomy contract. | — |
+| `/mcs-iterate` | Layer B autonomous: `/mcs-build` → `/mcs-eval` → `/mcs-fix` → re-eval until SHIP, max 3 fix cycles. Reuses iterate-orchestrator audit + verdict primitives. | — |
 | `/feedback` | File bug reports or feature suggestions via GitHub CLI | Sidebar |
 
 Each skill has detailed instructions in its own `.claude/skills/*/SKILL.md`.
+
+### Commit routing — `/commit-push-pr` vs `/iterate`
+
+When changes are ready to ship, route by what changed:
+
+- **Doc-only** (`*.md`, `docs/**`, `knowledge/**`) → `/commit-push-pr` directly
+- **Code** (anywhere under `app/`, `tools/`, `bin/`, `.claude/hooks/`, `.github/`, `package.json`, configs, schemas, tests) → `/iterate` first; `/iterate` opens the PR
+- **Mixed (doc + code)** → `/iterate` (code portion gates)
+- **Hotfix flagged urgent** → `/commit-push-pr` allowed; document urgency in PR description
+
+Quick check: `git diff --name-only HEAD`. If every line matches `\.md$|^docs/|^knowledge/`, doc-only path. Otherwise `/iterate`.
+
+`/iterate` adds lane verifiers + facilitator review + GPT review-merged + audit entry before push. This is **advisory** — no CI gate enforces it. See `.claude/rules/commit-routing.md` for edge cases (mixed changes, reverts, generated files).
 
 ---
 
 ## Installed Plugins (Auto-Routing Rules)
 
-8 plugins installed from `claude-plugins-official`. MCS skills remain primary — plugins handle tooling, code quality, and developer experience.
+13 plugins installed (10 from `claude-plugins-official` + 1 from `microsoft/eval-guide` + `superpowers` + `claude-mem`). MCS skills remain primary — plugins handle tooling, code quality, developer experience, debugging, and cross-session memory.
 
 **Auto-firing (no manual invocation needed):**
 
@@ -50,6 +70,11 @@ Each skill has detailed instructions in its own `.claude/skills/*/SKILL.md`.
 | `frontend-design` | Frontend/UI work requested ("build a component", "redesign the dashboard") | Distinctive, production-grade UI generation with bold aesthetics. |
 | `skill-creator` | User asks to create, improve, or eval a skill | Skill authoring framework with built-in eval benchmarking. |
 | `claude-md-management` | User mentions CLAUDE.md quality, audit, or maintenance | Audits CLAUDE.md against codebase state, scores quality. |
+| `eval-guide` | `/mcs-research` Phase C (eval generation) or `/mcs-eval` (result interpretation) or `/mcs-fix` (triage) | Plans eval scenarios, generates test cases, interprets results (SHIP/ITERATE/BLOCK), triages failures. Source: `microsoft/eval-guide` marketplace. |
+| `figma` | User mentions Figma, shares a figma.com URL, or asks for design-to-code translation | Figma MCP server + skills (figma-use, figma-implement-design, figma-code-connect, figma-generate-design, figma-generate-library, figma-create-design-system-rules). |
+| `security-guidance` | User requests `/security-review` or flags security concerns on pending changes | Security review of pending branch changes, OWASP-style checks, dependency/secret scanning. |
+| `superpowers` | Layer A engineering: hard bugs (4-phase debug), TDD red-green-refactor on framework code, brainstorming new features. Triggered by description match on debugging/testing/planning prompts. | TDD enforcement, 4-phase systematic debugging (Hypothesize → Reproduce → Isolate → Fix), Socratic brainstorming. Layer A only — does NOT fire inside `/mcs-*` skills. |
+| `claude-mem` | All sessions — captures tool calls and prompts, surfaces relevant past context on session start. Cross-session recall via vector search. | Persistent transcript memory. Pair with `MEMORY.md` (curated insights). claude-mem = "what happened", `MEMORY.md` = "what we learned". Hooks self-register; ordering verified so `mcs-build-verify`, `frontend-test-trigger`, `team-routing` run BEFORE claude-mem PostToolUse capture. |
 
 **Routed by Claude (invoke automatically at these moments):**
 
@@ -60,26 +85,53 @@ Each skill has detailed instructions in its own `.claude/skills/*/SKILL.md`.
 | `session-report` | When user asks about token usage, costs, or session efficiency; or at end of long sessions | `/session-report` |
 | `claude-md-management` | At end of sessions that revealed missing CLAUDE.md context or after significant codebase changes | `/revise-claude-md` |
 
+> **`/ultrareview` deprecated 2026-05-04** — replaced by `multi-model-review.js review-merged` (free via Copilot Responses API). Reason: ultrareview's 3 free trial runs expire 2026-05-05, after which it bills $5–$20 per run with no unlimited tier. The new `/iterate` skill (see Workflow table) calls `review-merged` as the final pre-merge gate.
+
 **Routing priority:** MCS skills (`/mcs-*`) always take precedence over plugins. Plugins handle code-level work; MCS skills handle platform-level work.
+
+### Layer A vs Layer B Scoping
+
+Two distinct layers of work happen in this repo. Tools route differently:
+
+| Layer | Scope | Tools that fire |
+|-------|-------|----------------|
+| **A — Framework engineering** | `tools/`, `app/`, `.claude/`, dashboard, build-runner, LSP wrapper, hooks, frontend code | `superpowers` (debug/TDD/brainstorm), `code-review`, `commit-commands`, `frontend-design`, `figma`, `typescript-lsp`, `context7`, `claude-md-management`, `skill-creator`, `claude-mem`, `/iterate` (auto-test/review/merge orchestrator) |
+| **B — MCS automation** | `/mcs-*` skill invocations, work under `Build-Guides/`, agentspec.json edits, MCS API operations | MCS skills (own spec-driven loop, own verify-after-each-step, own retry/escalate). `claude-mem` still captures (cross-session pattern recall is valuable here). `superpowers-debug` fires only on step failures via the protocol below — not pre-emptively. `eval-guide` plugin fires inside `/mcs-research` Phase C, `/mcs-eval`, `/mcs-fix`. |
+
+When a request is ambiguous, the rule is: if user typed `/mcs-*` or files modified are under `Build-Guides/` → Layer B. Everything else → Layer A.
 
 ---
 
-## Dual Model Co-Generation (Hook-Enforced)
+## Dual Model Co-Generation (Selective, Advisory)
 
-Fire GPT-5.4 on **every interaction** — not just "non-trivial" tasks, **everything**. Enforced by three layers:
-1. **UserPromptSubmit hook** (`.claude/hooks/gpt-reminder.js`) — injects reminder on every prompt
-2. **Stop hook** (`.claude/hooks/check-gpt-attestation.js`) — blocks response if no attestation found
-3. **Attestation** — `multi-model-review.js` writes `$TMPDIR/claude-gpt-attestations/<session>.json` on every call
+Fire GPT-5.5 **only when one of the 5 value patterns applies** — not on every turn. The Stop-hook enforcement was removed on 2026-04-27 after usage data showed it was forcing low-value `ask` calls. The reminder hook is now informational.
 
-Skip only when GPT is unavailable (exit code 3) — the tool writes an "unavailable" attestation, satisfying the hook. Full protocol, commands, merge rules, and value patterns in `.claude/rules/gpt-co-generation.md`.
+| Pattern | Command | When |
+|---------|---------|------|
+| Spec attack | `challenge` | Before architecture/design decisions, risky implementations |
+| Design fork | `ask` (only when truly need a second design) | In parallel with Claude's own design |
+| Test oracle | `generate-evals`, `generate-instructions`, `generate-topics` | Independent generation from spec, no implementation seen |
+| Action guardrail | `challenge --context "action guardrail..."` | Before deploys, destructive ops, irreversible changes |
+| Failure triage | `diagnose` | Hard bugs after first-pass uncertainty |
+
+**When to call:**
+```bash
+node tools/multi-model-review.js --session-id <sid> challenge -q "..."
+```
+
+The UserPromptSubmit hook still tells you the session ID via the soft reminder. Pass `--session-id` so attestation entries bind correctly under multi-instance use.
+
+**Truncation auto-handled** — tool retries once with 2x budget + effort downgrade and surfaces `_truncated`/`_incompleteReason` in stdout JSON when clipped.
+
+Full protocol, skip criteria, merge rules, and revert path in `.claude/rules/gpt-co-generation.md`.
 
 ---
 
 ## Core Philosophy
 
-1. **Brief-driven build** — brief.json drives every build because a single source of truth prevents drift between design and execution. Fill gaps before building.
+1. **Spec-driven build** — agentspec.json drives every build because a single source of truth prevents drift between design and execution. Fill gaps before building.
 
-2. **Eval reference templates** — three eval sets (boundaries 100%, quality 85%, edge-cases 80%) generated as starter templates for users to review, edit, and finalize. Upload as reference — don't auto-iterate or auto-run.
+2. **Eval via eval-guide plugin** — three eval buckets (boundaries, quality, edge-cases) generated by the `eval-guide` plugin (`/eval-suite-planner` + `/eval-generator`). Verdict model: SHIP/ITERATE/BLOCK with risk-based thresholds (safety >=95%, core >=90%, edge >=70%). Upload as reference — don't auto-iterate or auto-run.
 
 3. **Multi-agent when justified** — score objectively using 6 factors (3+ = multi-agent) because premature decomposition adds complexity without quality gain.
 
@@ -95,14 +147,23 @@ Skip only when GPT is unavailable (exit code 3) — the tool writes an "unavaila
 
 ## Error Handling
 
-When something fails, stop and research broadly before retrying:
+When something fails, stop and research broadly before retrying. The protocol differs by attempt:
 
-1. Search for the error message + "Copilot Studio" via WebSearch
-2. Check MS Learn MCP for official troubleshooting
-3. Read back API state to verify what actually happened
-4. Log significant findings to `knowledge/learnings/`
-5. Retry with the researched approach — never the same failed approach twice
-6. After 2 failed approaches, escalate to the user
+**Attempt 1 (research → retry):**
+1. Query `claude-mem` for similar past failures across projects (vector search on the error message + the operation context). If a prior fix exists, prefer it.
+2. Search for the error message + "Copilot Studio" via WebSearch.
+3. Check MS Learn MCP for official troubleshooting.
+4. Read back API state to verify what actually happened.
+5. Retry with the researched approach — never the same failed approach twice.
+
+**Attempt 2 (systematic debug, NOT another generic retry):**
+6. Invoke `superpowers` 4-phase debug: **Hypothesize** (list candidate root causes — auth, payload schema, API contract, connector, model, timing), **Reproduce** (minimal repro outside the build pipeline if possible), **Isolate** (narrow to one layer with discriminating tests), **Fix** (apply targeted fix to the isolated cause).
+7. Log the isolated cause + fix to `knowledge/learnings/` so future builds (and future claude-mem queries) hit it on Attempt 1.
+
+**Attempt 3 (escalate):**
+8. If superpowers-debug doesn't isolate the cause in one cycle, escalate to the user with the hypothesis tree, what was tested, and what remains uncertain.
+
+This converts the prior "2 retries then escalate" into "1 retry, 1 systematic debug, then escalate" — same budget, structured isolation.
 
 ---
 
@@ -113,32 +174,37 @@ bin/
 ├── cli.js (mcs start/stop/health/doctor/update), postinstall.js
 
 .claude/
-├── settings.json, skills/ (9 skills), agents/ (6 teammates), rules/ (path-scoped), plugins (8 installed)
+├── settings.json, hooks/ (9 hooks: 8 wired + check-gpt-attestation preserved-unwired), skills/ (13 skills), agents/ (6 teammates: flow-designer, prompt-engineer, qa-challenger, repo-auditor, research-analyst, topic-engineer), rules/ (path-scoped), plugins (13 installed)
 
 app/
-├── server.js, lib/ (terminal, documents, projects, workiq, readiness, brief-migrate, enrichment, wizard, build-runner, skill-runner, knowledge-resolver, helper/), frontend/ (React + Vite + shadcn/ui)
+├── server.js, lib/ (documents, projects, workiq, readiness, spec-migrate, enrichment, build-runner, skill-runner, knowledge-resolver, dev-logger, chat/, helper/, report/), frontend/ (React + Vite + shadcn/ui)
 
 knowledge/
-├── cache/ (24 cheat sheets), patterns/ (YAML, Dataverse, topic, flow templates)
-├── frameworks/ (component selection, architecture scoring, eval scenarios)
-├── learnings/ (9 topic files + index.json), solutions/ (library index + cache)
+├── cache/ (24 cheat sheets + connector-schemas/), docs-cache/ (sync probe artifacts), patterns/ (YAML, Dataverse, topic, flow templates)
+├── frameworks/ (component selection, architecture scoring, eval scenarios, auto-merge-denylist)
+├── learnings/ (topic files + index.json + audit logs), solutions/ (library index + cache)
+├── research/, sync/ (snapshots, decisions, views), index.json, docs-manifest.json, feature-map.json, figma-reference.json, resolver-maps.json, sync-manifest.json, upstream-repos.json
 
 tools/
 ├── mcs-lsp.js, island-client.js, add-tool.js, flow-manager.js
 ├── direct-line-test.js, eval-scoring.js, multi-model-review.js
-├── solution-library.js, replicate-agent.js, dataverse-helper.ps1
-├── copilotstudio-test.js, powercat-test.js, upstream-check.js
+├── solution-library.js, dataverse-helper.ps1
+├── upstream-check.js, sync-orchestrator.js, sync-adapters/
 ├── pac-mcp-wrapper.js (PAC CLI MCP server adapter)
 ├── om-cli/ (YAML validation, 357 types), lib/ (http, openai, anthropic, graph-sharepoint, flow-composer, connector-schema)
 ├── gen-constraints.py, drift-detect.py, semantic-gates.py
 ├── git-hooks/ (pre-commit, pre-push), update-om-cli.ps1
+├── iterate-orchestrator.js, auto-merge-gate.js, oracle-runner.js, agentic-test-loop.js, backend-verify.js
+├── pipeline-test-loop.js, mcs-build-loop.js, har-capture.js, figma-pull.js
+├── live-smoke-eval-gate.js, batch-smoke-eval-gate.js, contract-parity.js, diagnose-direct-line.js
+├── upstream-specs/, generated/ (typed specs)
 
 templates/
-├── brief.json (schema), default-recommendations.json
+├── agentspec.json (schema), default-recommendations.json, brief.json (legacy spec fallback)
 
 start.js (process manager — spawns server, opens browser, handles updates)
 Build-Guides/[Project]/ (per-project work, gitignored)
-├── agents/[name]/ (brief.json, build-report.md, topics/, evals)
+├── agents/[name]/ (agentspec.json, build-report.md, topics/, evals)
 ├── docs/ (uploaded customer documents)
 ```
 
@@ -146,7 +212,7 @@ Build-Guides/[Project]/ (per-project work, gitignored)
 
 ## Key Principles
 
-1. **Brief is the blueprint** — brief.json drives the build
+1. **Spec is the blueprint** — agentspec.json drives the build
 2. **Evals drive quality** — boundaries gate then quality then edge-cases before publish
 3. **MVP first** — build what is possible now, plan what is blocked
 4. **Build specialists first** — children before orchestrator in multi-agent
@@ -173,11 +239,71 @@ Build-Guides/[Project]/ (per-project work, gitignored)
 | First-party agents inventory (capability matching) | `knowledge/cache/first-party-agents.md` |
 | Declarative agents cheat sheet (DA vs CA routing) | `knowledge/cache/declarative-agents.md` |
 | YAML patterns + topic templates | `knowledge/patterns/` |
-| Eval scenario library | `knowledge/frameworks/eval-scenarios/` |
+| Eval scenario library | `eval-guide` plugin (bucket mapping: `knowledge/frameworks/eval-scenarios/index.json`) |
 | Dataverse API patterns | `knowledge/patterns/dataverse-patterns.md` |
 | Solution patterns (naive-to-proven) | `knowledge/patterns/solution-patterns.md` |
+| Elevate upstream monitoring (read-only) | `knowledge/learnings/elevate-upstream-digest.md` + `tools/elevate-sync.js` |
+| **Publish-state matrix** (backend→UI) | `knowledge/frameworks/publish-state-matrix.md` |
+| **API contract registry** (sanitized HAR → parity tests) | `tools/upstream-specs/contracts/README.md` |
+| **Live-smoke runbook** (eval gate end-to-end) | `tools/upstream-specs/live-smoke-eval-gate-runbook.md` |
+| **Parallel sessions via worktrees** | `.claude/rules/parallel-sessions.md` + `tools/new-session.sh` / `tools/end-session.sh` |
+| **Frontend test-iterate loop** (honesty gate) | `.claude/rules/frontend-verification.md` + `tools/agentic-test-loop.js self-test` |
 
-Cache freshness: < 3 days = use as-is. 3-14 days = Tier 1 auto-refresh, Tier 2-3 flag. > 14 days = refresh immediately. After live research, update the cache file with findings and a new `last_verified` date. Upstream repos (`knowledge/upstream-repos.json`) checked on same 3-day cycle via `tools/upstream-check.js`.
+### Eval-as-publish-gate (shipped 2026-04-17)
+
+Build pipeline ends in `published-internal`. Promotion to `published-uat` requires eval verdict = SHIP. All else stays internal (user NOT visible). `evalConfig.skipGate=true` overrides only with `skipGateApprovedBy` + `skipGateReason` + `skipGateTicketRef` — hash-chained audit at `knowledge/learnings/eval-gate-overrides.jsonl`. Risk tiers: `demo` (80/50/50) / `internal` (90/60/60) / `production` (95/80/75). Feature flags in `knowledge/eval-gate-flags.json`.
+
+Commands:
+
+```bash
+npm run contracts:check          # Static parity of all 5 registered API contracts (pre-push gate)
+npm run contracts:list           # See registered contracts
+npm run gate:audit-verify        # Verify the skipGate override audit chain
+npm run gate:backfill            # Inventory + migrate pre-gate 'published' → 'published-internal'
+npm run gate:diagnose-direct-line --project <p> --agent <a>  # Introspect bot config without dumping values
+npm run gate:har-capture capture --url https://copilotstudio.preview.microsoft.com  # Auto-HAR replacement
+npm run smoke:eval-gate:preflight --project <p> --agent <a>  # Identity + env + non-prod checks
+npm run smoke:eval-gate --project <p> --agent <a> --confirm  # Live eval pipeline only
+npm run smoke:eval-gate:via-gate --project <p> --agent <a> --confirm  # Full stepEvalGate + promotion
+npm run smoke:eval-gate:batch                                        # Batch all 5 remaining backfilled agents (opt-in; ~7 min)
+```
+
+**Override path** (user-controlled — requires setting approval fields in agentspec.json):
+
+```json
+"evalConfig": {
+  "skipGate": true,
+  "skipGateApprovedBy": "your-name@microsoft.com",
+  "skipGateReason": ">=10-char reason explaining why eval gate is bypassed",
+  "skipGateTicketRef": "gh-issue-or-ticket-id"
+}
+```
+
+Then `npm run smoke:eval-gate:via-gate -- --project P --agent A --confirm` will promote to `published-uat` and append a hash-chained audit entry to `knowledge/learnings/eval-gate-overrides.jsonl` (gitignored).
+
+### Sync model (manual, one weekly entry point)
+
+All upstream tracking goes through `/mcs-sync`. There is no auto-cron, no session-start auto-fetch, and no auto-apply path. The build itself is the safety net — `/mcs-build` Check 0 refuses to proceed if Tier 1 cache is >14 days stale (override with `--allow-stale --stale-reason "<why>"`).
+
+**Primary workflow — type one thing:**
+
+```
+/mcs-sync                                                # detect drift across all 8 sources, render triage
+node tools/sync-orchestrator.js review                   # re-open the last triage without re-detecting
+node tools/sync-orchestrator.js decide <id> reject --reason "..."         # decline a card
+node tools/sync-orchestrator.js decide <id> take   --reason "..." --confirm  # accept and follow the action plan
+```
+
+**Sources covered (8):** `knowledge-cache`, `upstream-repos`, `elevate`, `eval-guide`, `mcp-servers`, `om-cli`, `docs-manifest`, `plugins`. Each registers an adapter under `tools/sync-adapters/` and a record in `knowledge/sync-manifest.json`.
+
+**Decisions — only two:**
+
+- **TAKE** — accept the change. The orchestrator prints the impact graph (what downstream artifacts the change touches) and writes an action plan markdown at `knowledge/sync/views/<runId>-actions.md`. The user works through the action plan manually; the orchestrator NEVER edits impacted artifacts itself.
+- **REJECT** — decline. Permanent for this `changeId`. If upstream moves again, the next sync run produces a fresh card.
+
+**Audit trail:** decisions append to hash-chained JSONL under `knowledge/sync/decisions/<source-id>/`. Generated views in `knowledge/sync/views/` carry an integrity marker; the pre-commit hook blocks hand-edits.
+
+Cache freshness thresholds (used by `/mcs-build` Check 0): < 3 days = fresh, 3-14 days = stale (warn), > 14 days = critical (blocks unless overridden). The `elevate` source in `tools/elevate-sync.js` monitors bap-microsoft/Elevate and is READ-ONLY — writes a classification digest only when invoked manually with `--digest`. Push URL is set to `DISABLED` and the pre-push hook blocks pushes to the `elevate` remote.
 
 ---
 
@@ -185,8 +311,8 @@ Cache freshness: < 3 days = use as-is. 3-14 days = Tier 1 auto-refresh, Tier 2-3
 
 These five rules apply everywhere and are restated here to counteract position bias:
 
-1. **brief.json is the single source of truth** — the dashboard reads it, skills read it, reports generate from it
-2. **Fire GPT-5.4 on EVERY interaction** — hook-enforced, no exceptions (see Rule Zero at top + `.claude/rules/gpt-co-generation.md`)
+1. **agentspec.json is the single source of truth** — the dashboard reads it, skills read it, reports generate from it
+2. **Fire GPT-5.5 selectively on the 5 value patterns** — advisory (not enforced) since 2026-04-27 (see Rule Zero at top + `.claude/rules/gpt-co-generation.md`)
 3. **Verify every build step via API read-back** before marking complete (see `.claude/rules/build-discipline.md`)
 4. **Research Microsoft-first** — use cache for M365-native, live research only for external systems
 5. **Attempt every MVP item** — a failed attempt with a clear error is more valuable than a silently skipped item

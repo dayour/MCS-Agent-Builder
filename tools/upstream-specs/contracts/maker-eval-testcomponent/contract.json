@@ -1,0 +1,40 @@
+{
+  "surfaceId": "maker-eval-testcomponent",
+  "method": "POST",
+  "urlPattern": "{gatewayUrl}/api/botmanagement/v2/environments/{envId}/bots/{botId}/makerevaluations/testcomponent?ApplyV2Migration=true",
+  "auth": "PVA token (sub 96ff4394-9197-43aa-b393-6a41652e21f8)",
+  "kindDiscriminators": [
+    {
+      "path": "$.testComponents[*].$kind",
+      "value": "MakerEvaluationUpdateTestComponent",
+      "_note": "Discovered via HAR diff 2026-04-17. Not present on the C# DTO. Server returns 500 if missing."
+    },
+    {
+      "path": "$.testComponents[*].component.$kind",
+      "value": "TestCaseComponent"
+    },
+    {
+      "path": "$.testComponents[*].component.definition.$kind",
+      "value": "EvaluationSet",
+      "_note": "Other variants (TestCaseDefinition, TestSetDefinition) all return 500."
+    }
+  ],
+  "requiredFields": [
+    {"path": "$.testComponents[*].operationType", "constraint": "enum: Add | Update | Delete"},
+    {"path": "$.testComponents[*].component.category", "constraint": "must equal 'Testing'"},
+    {"path": "$.testComponents[*].component.state", "constraint": "must equal 'Active'"},
+    {"path": "$.testComponents[*].component.definition.graders", "constraint": "non-empty array"}
+  ],
+  "responseShape": "{ addedComponentsIdsBySchemaName: Record<string,string> }",
+  "lastVerified": "2026-04-17",
+  "lastVerifiedBy": "HAR capture from MCS UI on bot 63ec2f13-d139-f111-88b4-7c1e528d32a4 (dktest)",
+  "typedAdapterRef": "tools/island-client.js:makerEvalUpdateTestComponents",
+  "typeRef": "tools/generated/maker-eval-types.ts",
+  "runbookRef": "tools/upstream-specs/maker-eval-write.md",
+  "knownQuirks": [
+    "Idempotent Add returns HTTP 500 on duplicate schemaName (server-side dedupe by schemaName). Safe to retry — server rejects duplicates rather than creating them.",
+    "Empty graders array returns HTTP 500 — at least one grader is required.",
+    "A lone EvaluationSet without child EvaluationData items does NOT appear in /makerevaluations/testsets even though the row is persisted.",
+    "Delete operation also returns 500 when called with the typed adapter — payload shape unknown, needs separate HAR capture. Cleanup currently uses Dataverse DELETE (204)."
+  ]
+}

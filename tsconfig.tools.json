@@ -1,0 +1,22 @@
+{
+  "_comment": "Validates that tools/generated/mgmt-types.ts is well-formed TypeScript. Does not type-check tools/*.js files — those have pre-existing patterns that would drown out real issues. IDE tools (VS Code TS server) pick up JSDoc typedefs in .js automatically.",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "noEmit": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "esModuleInterop": true
+  },
+  "include": [
+    "tools/generated/mgmt-types.ts",
+    "tools/generated/maker-eval-types.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "app/frontend",
+    "app/dist"
+  ]
+}

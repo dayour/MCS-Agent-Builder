@@ -87,6 +87,200 @@ Both `title` and `text` are **required**. Missing `title` → silent publish fai
 
 `PvaPublish`, `PvaPublishStatus`, `PvaProvision`, `PvaGetDirectLineEndpoint`, `PvaDeleteBot`, `PvaAuthorize`, `PvaCreateBotComponents`, `PvaCreateContentSnapshot`
 
+## Connected Agents (Multi-Agent Orchestration)
+
+Connecting a child agent as a connected agent of an orchestrator requires **TWO botcomponents**, NOT one. Creating only the type-15 ConnectedAgentDefinition makes the child *discoverable* but NOT *callable* — generative orchestration won't dispatch to it. The MCS UI's "Add agent" flow creates both. Programmatic creators must do the same. (Source: bm-042, supersedes bm-012.)
+
+### Component 1 of 2 — `componenttype=15` ConnectedAgentDefinition (registers connection)
+
+Schema name pattern: `<orch_schema>.connectedAgent.<child_short_name>`
+
+`data` field (YAML):
+```yaml
+kind: ConnectedAgentDefinition
+connectedAgentSchemaName: <child_schema>
+isAgentConnectable: true
+description: <one-line role>
+```
+
+### Component 2 of 2 — `componenttype=9` TaskDialog with InvokeConnectedAgentTaskAction (registers tool)
+
+Schema name pattern: `<orch_schema>.InvokeConnectedAgentTaskAction.<PascalCaseDisplayName>`
+
+`data` field (YAML):
+```yaml
+kind: TaskDialog
+modelDisplayName: <child display name>
+modelDescription: <child description used by router>
+action:
+  kind: InvokeConnectedAgentTaskAction
+  botSchemaName: <child_schema>
+  historyType:
+    kind: ConversationHistory
+```
+
+### Prerequisites on the child being connected
+
+| Setting | Required value | API |
+|---------|---------------|-----|
+| `bot.configuration.isAgentConnectable` | `true` | PATCH `configuration` JSON |
+| `bot.authenticationmode` | `2` (Microsoft auth) | PATCH bot row |
+| Bot status | Published (sync = Succeeded) | PvaPublish + verify `synchronizationstatus.lastFinishedPublishOperation.status` |
+
+### Order of operations
+1. Set child settings + publish each child (verify sync).
+2. POST both botcomponents (definition + invocation action) on the orchestrator.
+3. PvaPublish the orchestrator.
+4. Verify `synchronizationstatus.lastFinishedPublishOperation.status === "Succeeded"`.
+
+## Flow as Agent Tool (Power Automate cloud flow registered as a callable tool)
+
+Adding a Power Automate cloud flow as an agent tool requires **(a)** the flow be published in agent context, and **(b)** a topic component declaring the tool wrapper. Activating the workflow row alone (`statecode=1`) does NOT register the agent linkage. (Source: bm-043, bm-045.)
+
+### Step 1 — Re-publish the flow from Power Automate maker UI
+
+After programmatically creating the agent flow (`POST workflows` with `category=5`, `modernflowtype=1`, `recognizer`), open https://make.powerautomate.com → flows → find your flow → click Save. This triggers the agent-flow registration. **Without this step, PvaPublish on the agent will fail with `InvalidReferenceError: CloudFlow with id '<id>' not found` even though the flow exists in Dataverse.**
+
+### Step 2 — Create the topic component (`componenttype=9`)
+
+Schema name pattern: `<agent_schema>.action.<PascalCaseName>` (NOT `.topic.`)
+
+`data` field (YAML):
+```yaml
+kind: TaskDialog
+outputs:
+  - propertyName: text_file_url
+  - propertyName: text_file_name
+  - propertyName: text_status
+action:
+  kind: InvokeFlowTaskAction
+  flowId: <flow-guid>
+  connectionProperties:
+    $kind: ConnectionProperties
+    diagnostics:
+    mode: Invoker
+outputMode: All
+```
+
+### Critical fields
+
+| Field | Value | Why |
+|-------|-------|-----|
+| `kind` | `TaskDialog` | Tool-wrapper dialog (NOT `AdaptiveDialog`) |
+| `outputs:` (NOT `inputs:`) | List of flow output property names | Generative orchestration auto-derives inputs from flow trigger schema and fills from conversation context |
+| `connectionProperties.mode` | `Invoker` | Always end-user creds, NEVER `Maker` for production agents — required by enterprise security |
+| `connectionProperties.$kind` | `ConnectionProperties` | Required type tag |
+| `outputMode` | `All` | Surface all flow outputs to the agent / response |
+| Schema namespace | `.action.<Name>` | Distinct from system topics (`.topic.X`) |
+
+### Why `inputs:` (the old AutomaticTaskInput pattern) breaks publish
+
+A Question-style topic with explicit `Topic.X` variables binds via `output.binding: Topic.X: text_x`. Newer schemas validate the variable paths as expression identifiers and fail with `InvalidPropertyPath` because `Topic.X` is implicitly declared by `outputs:` instead. Use the modern `outputs:` form.
+
+## Knowledge File Upload — Programmable via `filedata` Virtual Column (bm-047, supersedes bm-023b)
+
+Uploading a file as agent knowledge IS fully API-programmable. Two component types are needed: `componenttype=14` for the file binary, plus `componenttype=16` `FileGroupKnowledgeSource` that wraps the files as searchable knowledge.
+
+```
+# Step 1: Upload each file (componenttype=14, with filedata virtual column)
+POST /api/data/v9.2/botcomponents
+{
+  "componenttype": 14,
+  "name": "<file.ext>",
+  "schemaname": "<botSchema>.file.<filename_no_dots>",
+  "filedata_name": "<file.ext>",
+  "parentbotid@odata.bind": "/bots(<botId>)"
+}
+
+PATCH /api/data/v9.2/botcomponents(<id>)/filedata
+Content-Type: application/octet-stream     # MUST be octet-stream — text/markdown returns 415
+x-ms-file-name: <file.ext>
+<raw file bytes>
+
+# Step 2: Wrap with FileGroupKnowledgeSource (componenttype=16, NO filedata)
+POST /api/data/v9.2/botcomponents
+{
+  "componenttype": 16,
+  "name": "Uploaded files",
+  "schemaname": "<botSchema>.knowledge.UploadedFiles",
+  "data": "kind: KnowledgeSourceConfiguration\nsource:\n  kind: FileGroupKnowledgeSource\n  instructions:\n    - kind: TextSegment\n      value: \"Reference data file. Search by company name to find rows.\"\n",
+  "parentbotid@odata.bind": "/bots(<botId>)"
+}
+```
+
+| Field | Why required |
+|-------|--------------|
+| `componenttype: 14` | File attachment type |
+| `componenttype: 16` | Knowledge Source wrapper type |
+| `data` YAML on type-16 | Defines `FileGroupKnowledgeSource`; the wrapper auto-discovers all file attachments on the parent bot |
+| `filedata_name` on type-14 | Persisted filename — must be set on creation |
+| `Content-Type: application/octet-stream` | Required — any other media type returns 415 |
+| `x-ms-file-name` | File-column header that names the upload |
+
+**Important quirk:** if you create a single componenttype=16 record with BOTH the FileGroupKnowledgeSource YAML AND a populated `filedata` column, PvaPublish silently re-types it to componenttype=14 and wipes the YAML. The two layers must be separate records.
+
+For multi-file knowledge: multiple type=14 records + ONE type=16 wrapper. The wrapper covers all files on the parent bot.
+
+## Grounding Discipline — `useModelKnowledge: false` Implications (bm-046)
+
+When `bot.configuration.aISettings.useModelKnowledge` is `false` (the "Allow ungrounded responses" UI toggle = OFF, the recommended enterprise default), the agent CANNOT answer from instruction text or general training data. It MUST be grounded in one of:
+
+1. A **knowledge source** (componenttype=16) — SharePoint, file, public URL, Dataverse, custom
+2. A **tool** that returns data (flow tool, MCP tool, connector action)
+3. **Conversation history** from an orchestrator dispatching via `historyType: ConversationHistory` (only valid for connected agents that synthesize from upstream)
+
+**Common mistake:** embedding mock data inside the agent's `instructions` YAML and expecting the agent to "narrate from instructions." Instructions are PROMPT CONTEXT, not a knowledge source — the model will refuse to answer with `useModelKnowledge: false`.
+
+**Quick fix for demos:** upload a Markdown file with the mock data to SharePoint, add a `SharePointSearchSource` knowledge component on the child, optionally use `additionalSearchTerms` to focus discovery. YAML:
+```yaml
+kind: KnowledgeSourceConfiguration
+source:
+  kind: SharePointSearchSource
+  site: https://<tenant>.sharepoint.com/sites/<SiteName>
+  cascadeShare: true
+  indexBehavior: EnabledWithFallback
+  additionalSearchTerms: <unique-keyword>
+```
+
+Rule: every agent with `useModelKnowledge: false` MUST have at least one knowledge source OR a data-returning tool, OR be a connected agent dispatched with `historyType: ConversationHistory`.
+
+## Required Bot Settings — Multi-Agent + Enterprise Defaults (bm-044)
+
+When creating any agent (orchestrator OR child) intended for multi-agent or enterprise use, set these on the bot row + `configuration` JSON BEFORE publishing:
+
+```jsonc
+// bot row columns
+// authenticationmode: 2  (Microsoft auth / Integrated)
+// authenticationconfiguration: '{"$kind":"BotAuthenticationConfiguration"}'
+
+// configuration JSON column
+{
+  "$kind": "BotConfiguration",
+  "settings": { "GenerativeActionsEnabled": true },
+  "isAgentConnectable": true,
+  "gPTSettings": { "$kind": "GPTSettings", "defaultSchemaName": "..." },
+  "aISettings": {
+    "$kind": "AISettings",
+    "useModelKnowledge": false,
+    "isFileAnalysisEnabled": false,
+    "isSemanticSearchEnabled": false,
+    "contentModeration": "Medium",
+    "optInUseLatestModels": true,
+    "model": { "$kind": "ExperimentalModels", "modelNameHint": "GPT55Reasoning" }   // latest per knowledge/frameworks/latest-model.json — updated when you TAKE a knowledge-cache card from /mcs-sync
+  },
+  "recognizer": { "$kind": "GenerativeAIRecognizer" }
+}
+```
+
+| Setting | Why required |
+|---------|--------------|
+| `authenticationmode = 2` | Microsoft auth — required for connected-agent dispatch and enterprise governance |
+| `isAgentConnectable: true` | Without this, the bot cannot be added as a connected agent by other orchestrators |
+| `optInUseLatestModels: true` | Auto-floats agent to the newest model within the chosen `$kind` tier as MS releases them |
+| `aISettings.model` | Read from `knowledge/frameworks/latest-model.json` so all build scripts share one source of truth. Current default: `ExperimentalModels / GPT55Reasoning` (GPT-5.5 Reasoning, Deep, Apr 2026). Updated when you TAKE a `knowledge-cache` card from `/mcs-sync`. NEVER hardcode an older model like `GPT5Auto` in new build scripts |
+| `recognizer.$kind = GenerativeAIRecognizer` | Required for generative orchestration (bm-021) |
+| `connectionProperties.mode: Invoker` (per tool) | End-user creds only — never `Maker` for production |
+
 ## Solution ALM
 
 - Export: `pac solution export --name "Name" --path "file.zip" [--managed]`

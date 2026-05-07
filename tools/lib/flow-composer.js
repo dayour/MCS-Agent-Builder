@@ -115,6 +115,26 @@ function buildHttpTrigger(method, schema) {
     return { manual: trigger };
 }
 
+/**
+ * Build a manual (button) trigger — the trigger shape used by agent flows
+ * that are callable as a tool by an MCS agent. Matches HAR's
+ *   { type: "Request", kind: "Button", inputs: { schema: {...} } }
+ *
+ * @param {object} [schema] - Input schema (defaults to empty object)
+ * @returns {object} Trigger definition keyed as `manual`
+ */
+function buildManualTrigger(schema) {
+    return {
+        manual: {
+            type: 'Request',
+            kind: 'Button',
+            inputs: {
+                schema: schema || { type: 'object', properties: {}, required: [] }
+            }
+        }
+    };
+}
+
 // --- Action Builders ---
 // Each returns { [actionName]: actionDefinition } for easy chaining.
 
@@ -179,6 +199,93 @@ function buildExecuteCopilotAction(name, copilotParam, connRef, message) {
             }
         }
     };
+}
+
+/**
+ * Build a "Run an agent" action — modern agent-flow primitive that invokes another
+ * MCS agent. Uses the shared_agentnode connector + InvokeAgent operation.
+ *
+ * Replaces the older shared_microsoftcopilotstudio + ExecuteCopilot path for
+ * agent-flow scenarios. Note: no `authentication` parameter — agent flows use
+ * runtimeSource "invoker" on connection references, which threads the caller's
+ * identity context through automatically.
+ *
+ * @param {string} name - Action name (e.g. "Run_an_agent")
+ * @param {string} agentLogicalName - Bot Dataverse logical name (e.g. "new_bot_8abe3236...").
+ *   This is the entity logical name, NOT the bot GUID with hyphens.
+ * @param {string} prompt - Prompt text to send to the agent (literal or @-expression)
+ * @param {object} [opts]
+ * @param {object} [opts.outputSchema] - JSON Schema for the structured response.
+ *   Defaults to {type:"object", properties:{}, additionalProperties:false}.
+ * @param {boolean} [opts.isHitlEscalationEnabled=true] - HITL escalation toggle
+ * @param {object} [opts.runAfter={}] - runAfter dependency map
+ * @param {object} [opts.extraParams] - Additional body/* parameters to merge in
+ * @returns {object} Single-entry action object
+ */
+function buildRunAnAgentAction(name, agentLogicalName, prompt, opts = {}) {
+    const {
+        outputSchema = { type: 'object', properties: {}, additionalProperties: false },
+        isHitlEscalationEnabled = true,
+        runAfter = {},
+        extraParams = {}
+    } = opts;
+    return {
+        [name]: {
+            type: 'OpenApiConnection',
+            inputs: {
+                parameters: {
+                    'body/agentId': agentLogicalName,
+                    'body/prompt': prompt,
+                    'body/isHitlEscalationEnabled': isHitlEscalationEnabled,
+                    'body/outputSchema': outputSchema,
+                    ...extraParams
+                },
+                host: {
+                    apiId: '/providers/Microsoft.PowerApps/apis/shared_agentnode',
+                    operationId: 'InvokeAgent',
+                    connectionName: 'shared_agentnode'
+                }
+            },
+            runAfter
+        }
+    };
+}
+
+/**
+ * Build a "Run AI Flow" action — invokes a category=7 AI flow as a tool.
+ *
+ * AI flows are typically thin wrappers around MCP connectors or other declarative
+ * tool definitions; the agent flow calls them via shared_aisteps + RunAIFlow.
+ *
+ * When the underlying tool is an MCP connector, pass `metadataOverride` so the
+ * designer renders the original connector's icon/name rather than the generic
+ * "Run AI Flow" tile. Maker UI sets this via operationInfoForMetadataOverride.
+ *
+ * @param {string} name - Action name (often the user-facing tool display name)
+ * @param {string} aiFlowId - The AI flow's Dataverse workflowid (GUID, hyphenated)
+ * @param {object} [opts]
+ * @param {object} [opts.metadataOverride] - { connectorId, operationId, type, tags[] }
+ * @param {object} [opts.runAfter={}] - runAfter dependency map
+ * @returns {object} Single-entry action object
+ */
+function buildRunAIFlowAction(name, aiFlowId, opts = {}) {
+    const { metadataOverride = null, runAfter = {} } = opts;
+    const action = {
+        type: 'OpenApiConnection',
+        inputs: {
+            parameters: { flowId: aiFlowId },
+            host: {
+                apiId: '/providers/Microsoft.PowerApps/apis/shared_aisteps',
+                operationId: 'RunAIFlow',
+                connectionName: 'shared_aisteps'
+            }
+        },
+        runAfter
+    };
+    if (metadataOverride) {
+        action.metadata = { operationInfoForMetadataOverride: metadataOverride };
+    }
+    return { [name]: action };
 }
 
 /**
@@ -476,10 +583,12 @@ function chainActions(actionsArray) {
  * @param {string} logicalName - Connection reference logical name from Dataverse
  * @returns {object} Single-entry connectionReferences object
  */
-function buildConnectionRef(connectorName, logicalName) {
+function buildConnectionRef(connectorName, logicalName, runtimeSource = 'embedded') {
+    // runtimeSource: 'embedded' (legacy cloud flows; flow runs as itself) vs
+    //                'invoker'  (agent flows; caller's identity threads through)
     return {
         [connectorName]: {
-            runtimeSource: 'embedded',
+            runtimeSource,
             connection: {
                 connectionReferenceLogicalName: logicalName
             },
@@ -488,6 +597,61 @@ function buildConnectionRef(connectorName, logicalName) {
             }
         }
     };
+}
+
+/**
+ * Build connection references for the modern agent-flow connector pair
+ * (shared_agentnode for "Run an agent", shared_aisteps for "Run AI Flow").
+ *
+ * Both use runtimeSource: 'invoker' so the caller's identity context flows
+ * through to the called agent / AI flow.
+ *
+ * @param {object} refs - { agentnode: 'logicalName', aisteps: 'logicalName' }
+ *   Either key is optional — pass only what your flow uses.
+ * @returns {object} connectionReferences-shaped object suitable for buildDefinition
+ */
+function buildAgentFlowConnectionRefs(refs = {}) {
+    const out = {};
+    if (refs.aisteps) Object.assign(out, buildConnectionRef('shared_aisteps', refs.aisteps, 'invoker'));
+    if (refs.agentnode) Object.assign(out, buildConnectionRef('shared_agentnode', refs.agentnode, 'invoker'));
+    return out;
+}
+
+/**
+ * Compose the clientdata shape for a category=7 AI flow.
+ *
+ * Unlike agent flows (Logic Apps WDL), AI flow clientdata is a small declarative
+ * tool descriptor: { definition: { plan, actions: { connectors: [...] } }, connectionReferences }.
+ * The platform compiles this into a real flow at runtime.
+ *
+ * @param {object} spec
+ * @param {string} [spec.plan=''] - Natural-language plan (often empty for MCP wrappers)
+ * @param {Array}  [spec.connectors=[]] - [{ apiName, operationId, displayName?, isSuggested?, connectionReference? }]
+ * @param {object} [spec.connectionReferences={}] - Same shape as agent-flow connRefs
+ * @returns {object} Object ready to be JSON.stringified into the workflow's clientdata column
+ */
+function composeAIFlow(spec = {}) {
+    const connectors = (spec.connectors || []).map((c) => {
+        const op = { operationId: c.operationId };
+        if (c.displayName !== undefined) op.displayName = c.displayName;
+        if (c.isSuggested !== undefined) op['x-ms-isSuggested'] = c.isSuggested;
+        const entry = {
+            api: { name: c.apiName },
+            operationsList: [op]
+        };
+        if (c.connectionReference) entry.connectionReference = c.connectionReference;
+        return entry;
+    });
+    const out = {
+        definition: {
+            plan: spec.plan || '',
+            actions: { connectors }
+        }
+    };
+    if (spec.connectionReferences && Object.keys(spec.connectionReferences).length > 0) {
+        out.connectionReferences = spec.connectionReferences;
+    }
+    return out;
 }
 
 /**
@@ -816,6 +980,8 @@ function buildTriggerFromSpec(triggerSpec) {
             return buildEventTrigger(triggerSpec.connector, triggerSpec.operationId, triggerSpec.params);
         case 'http':
             return buildHttpTrigger(triggerSpec.method, triggerSpec.schema);
+        case 'manual':
+            return buildManualTrigger(triggerSpec.schema || triggerSpec.inputSchema);
         default:
             throw new Error(`Unknown trigger type: ${triggerSpec.type}`);
     }
@@ -832,6 +998,16 @@ function buildActionsFromSpec(specActions) {
                 return buildConnectorAction(a.name, a.connector, a.operationId, a.params);
             case 'copilot':
                 return buildExecuteCopilotAction(a.name, a.copilotParam, a.connRef, a.message);
+            case 'runAnAgent':
+                return buildRunAnAgentAction(a.name, a.agentLogicalName, a.prompt, {
+                    outputSchema: a.outputSchema,
+                    isHitlEscalationEnabled: a.isHitlEscalationEnabled,
+                    extraParams: a.extraParams,
+                });
+            case 'runAIFlow':
+                return buildRunAIFlowAction(a.name, a.aiFlowId, {
+                    metadataOverride: a.metadataOverride,
+                });
             case 'response':
                 return buildResponseAction(a.name, a.body, a.schema);
             case 'compose':
@@ -890,10 +1066,13 @@ module.exports = {
     buildSkillsTrigger,
     buildEventTrigger,
     buildHttpTrigger,
+    buildManualTrigger,
 
     // Action builders
     buildConnectorAction,
     buildExecuteCopilotAction,
+    buildRunAnAgentAction,
+    buildRunAIFlowAction,
     buildResponseAction,
     buildComposeAction,
     buildParseJsonAction,
@@ -912,6 +1091,8 @@ module.exports = {
     // Wiring & assembly
     chainActions,
     buildConnectionRef,
+    buildAgentFlowConnectionRefs,
+    composeAIFlow,
     buildDefinition,
     buildWorkflowRecord,
 

@@ -1,16 +1,16 @@
 # Phase A: Document Comprehension & Agent Identification
 
-**Goal:** Read all project documents, build a unified understanding, identify every agent to build, and create brief.json stubs with informed open questions.
+**Goal:** Read all project documents, build a unified understanding, identify every agent to build, and create agentspec.json stubs with informed open questions.
 
 This is deep comprehension, not surface extraction.
 
 ## Incremental Path (processingPath == "incremental")
 
-When `processingPath == "incremental"`, Phase A operates on new/changed docs only, merging into the existing brief:
+When `processingPath == "incremental"`, Phase A operates on new/changed docs only, merging into the existing spec:
 
-1. **Read only `newDocs` + `changedDocs`** (not all docs). Also read each existing `brief.json` under `Build-Guides/{projectId}/agents/*/brief.json` for context.
-2. **Agent-scoped filtering:** If `scope = "agent"`, only process docs mapped to this agent in Step 0.4. Write changes only to this agent's brief.
-3. **Cross-reference** new content against existing brief fields. Look for: new systems, new capabilities, answers to existing open questions, contradictions with existing data.
+1. **Read only `newDocs` + `changedDocs`** (not all docs). Also read each existing `agentspec.json` under `Build-Guides/{projectId}/agents/*/agentspec.json` for context.
+2. **Agent-scoped filtering:** If `scope = "agent"`, only process docs mapped to this agent in Step 0.4. Write changes only to this agent's spec.
+3. **Cross-reference** new content against existing spec fields. Look for: new systems, new capabilities, answers to existing open questions, contradictions with existing data.
 4. **Check for new agents.** If new docs describe an agent not in `agents/`, the drastic threshold should have caught it in Phase 0 -- escalate to `processingPath = "full"` if missed.
 5. **Extract data only from new/changed docs.** Map to agents using the doc->agent mapping from Step 0.4.
 6. **Apply merge rules:**
@@ -25,14 +25,14 @@ Then proceed to Phase B (incremental).
 
 ## Full-Agent Path (processingPath == "full-agent")
 
-When `processingPath == "full-agent"` (manually created agent, empty brief):
+When `processingPath == "full-agent"` (manually created agent, empty spec):
 
 1. **Read all project docs** in `Build-Guides/{projectId}/docs/`, but only extract/write data for this specific agent.
 2. **Skip agent identification** -- agent already exists (user created it manually).
 3. **Score relevance** of each doc against this agent's name/description. Filter out clearly irrelevant docs.
 4. **Extract per-agent data** -- same as full path Step 4 below, but only for this one agent.
 5. **Create manifest entries** with `matchedAgents` for this agent.
-6. **Write brief.json stub** with all extracted data (same as full path Step 5).
+6. **Write agentspec.json stub** with all extracted data (same as full path Step 5).
 
 Then proceed to Phase B (full path -- this agent needs deep research).
 
@@ -78,7 +78,7 @@ From the unified understanding, identify distinct agents. Look for:
 
 This step runs for each agent candidate identified in Step 3. It uses the 5-factor framework from `knowledge/frameworks/solution-type-scoring.md`.
 
-Skip this step if `solutionTypeOverride: true` exists in the agent's existing brief (user clicked "Build as Agent Anyway" in the dashboard).
+Skip this step if `solutionTypeOverride: true` exists in the agent's existing spec (user clicked "Build as Agent Anyway" in the dashboard).
 
 #### Assessment Process
 
@@ -98,7 +98,7 @@ For each agent candidate:
    - **User Value of NL:** Do users gain clear value from natural language over structured UI?
    - **MCS Feasibility:** Does this fit within MCS technical constraints?
 
-3. **Write assessment to brief stub:**
+3. **Write assessment to spec stub:**
    - `architecture.solutionType` -- `"agent"`, `"flow"`, `"hybrid"`, or `"not-recommended"`
    - `architecture.solutionTypeScore` -- 0-5
    - `architecture.solutionTypeFactors` -- per-factor value + reasoning
@@ -111,12 +111,12 @@ For each agent candidate:
 |-------|-------------|---------------|
 | **4-5** | `agent` | Continue normally -- Steps 4-6 then Phases B+C |
 | **3** | Borderline | Continue with agent research. Create `solution-type` decision with `agent`, `hybrid`, and `flow` options. Pre-apply `hybrid`. |
-| **1-2** | `flow` | Write simplified brief: populate `business.*`, `agent.name/description`, `capabilities[]`, `recommendations[]`, `architecture.alternativeRecommendation`. Skip Phases B+C (no instructions, eval sets, or architecture scoring). |
-| **0** | `not-recommended` | Write minimal brief with alternative. Skip all deep research. |
+| **1-2** | `flow` | Write simplified spec: populate `business.*`, `agent.name/description`, `capabilities[]`, `recommendations[]`, `architecture.alternativeRecommendation`. Skip Phases B+C (no instructions, eval sets, or architecture scoring). |
+| **0** | `not-recommended` | Write minimal spec with alternative. Skip all deep research. |
 
-#### Simplified Brief (flow / not-recommended)
+#### Simplified Spec (flow / not-recommended)
 
-When `solutionType` is `flow` or `not-recommended`, the brief is intentionally minimal:
+When `solutionType` is `flow` or `not-recommended`, the spec is intentionally minimal:
 - `business.*` -- fully populated (problem statement, challenges, benefits)
 - `agent.name`, `agent.description` -- set for identification
 - `capabilities[]` -- all identified, with `implementationType` classifications
@@ -137,7 +137,7 @@ When presenting the Phase A summary (Step 6):
   **Score:** {N}/5 -> {solutionType}
   **Recommendation:** {alternativeRecommendation summary}
 
-  Simplified brief written. Full MCS research skipped -- this use case is better served by {alternative}.
+  Simplified spec written. Full MCS research skipped -- this use case is better served by {alternative}.
   ```
 
 ### Step 4: Extract Per-Agent Data & Generate Informed Open Questions
@@ -166,19 +166,19 @@ For each agent, extract what's in the documents and cross-reference against `kno
 - Doc mentions "proactive alerts" -> ask: "Should alerts use a Recurrence trigger polling every N hours, or an event-driven trigger from Power Automate?"
 - Doc mentions "write-back" -> flag: "Write operations require connector actions. Has the customer approved write access to [system]?"
 
-### Step 5: Create brief.json Stubs
+### Step 5: Create agentspec.json Stubs
 
 For each agent, create:
 ```
-Build-Guides/{projectId}/agents/{slug}/brief.json
+Build-Guides/{projectId}/agents/{slug}/agentspec.json
 ```
 
 Where `{slug}` is a kebab-case version of the agent name (e.g., "Incident Manager" -> "incident-manager").
 
-Follow the schema in `templates/brief.json`. Include only fields with extracted data + informed openQuestions.
+Follow the schema in `templates/agentspec.json`. Include only fields with extracted data + informed openQuestions.
 
 **If agents already exist** under `Build-Guides/{projectId}/agents/`:
-- Update their `brief.json` with new info from documents
+- Update their `agentspec.json` with new info from documents
 - Do not duplicate existing agents
 - Merge new data into existing fields
 

@@ -1,40 +1,10 @@
 # Alternative Eval Runners
 
-## CopilotStudio SDK Runner
-
-Alternative to Direct Line when SDK-based testing is preferred (streaming, Activity types, workspace auto-discovery).
-
-**Prerequisites:** `npm install @microsoft/agents-copilotstudio-client @microsoft/agents-activity @azure/msal-node` (optional -- lazy-loaded with install prompt).
-
-```bash
-# Auto-discover from agent workspace
-node tools/copilotstudio-test.js --agent-dir "Build-Guides/{projectId}/agents/{agentId}" --brief brief.json
-
-# Manual config
-node tools/copilotstudio-test.js --env <environmentId> --agent <schemaName> --tenant <tenantId> --brief brief.json
-```
-
-Token acquisition: MSAL interactive auth -> `https://api.powerplatform.com/.default` scope, with `az CLI` fallback.
-
-## Power CAT Kit Runner
-
-Enterprise server-side testing via Dataverse. Requires the Power CAT Copilot Studio Kit solution installed in the environment.
-
-```bash
-# List available configurations
-node tools/powercat-test.js list-configs --env <dataverseUrl>
-
-# List test sets for a config
-node tools/powercat-test.js list-sets --env <dataverseUrl> --config-id <guid>
-
-# Run tests (creates run, executes via bound action, polls, downloads results)
-node tools/powercat-test.js run --env <dataverseUrl> --config-id <guid> --set-id <guid> --threshold 0.85
-
-# Download results for a previous run
-node tools/powercat-test.js results --env <dataverseUrl> --run-id <guid> --csv results.csv
-```
-
-Results are tracked in Dataverse (`cat_copilottestruns`, `cat_copilottestresults`). Use `--brief <path>` to write run metadata to `brief.json.powerCatRuns[]`.
+> **Note (2026-05-05)**: The CopilotStudio SDK runner (`tools/copilotstudio-test.js`)
+> and Power CAT Kit runner (`tools/powercat-test.js`) were removed in cleanup PR #21.
+> Direct Line (`tools/direct-line-test.js`) and MCS Native Eval via Gateway API
+> (below) are now the supported runners. Restore the deleted tools from git
+> history (commit `b60da346`) if SDK or Kit-based runs are required.
 
 ## MCS Native Eval via Gateway API
 
@@ -44,19 +14,19 @@ Results are tracked in Dataverse (`cat_copilottestruns`, `cat_copilottestresults
 
 Upload eval sets to MCS Evaluation tab via the Island Gateway `makerevaluations` endpoint. This creates proper EvaluationSet + EvaluationData records with correct parent linking (which raw Dataverse POST cannot do).
 
-**Step 1: Upload eval sets from brief.json:**
+**Step 1: Upload eval sets from agentspec.json:**
 ```bash
 node tools/island-client.js upload-evals \
   --env <buildStatus.environmentId> \
   --bot <buildStatus.mcsAgentId> \
-  --brief "Build-Guides/{projectId}/agents/{agentId}/brief.json"
+  --brief "Build-Guides/{projectId}/agents/{agentId}/agentspec.json"
 ```
 
 This command:
-1. Reads `evalSets[]` from brief.json
+1. Reads `evalSets[]` from agentspec.json
 2. For each eval set, creates an EvaluationSet with graders via `POST /api/botmanagement/v2/environments/{envId}/bots/{botId}/makerevaluations/testcomponent?ApplyV2Migration=true`
 3. Creates EvaluationData rows for each test with `parentBotComponentId` linking to the set
-4. Returns the `setId` for each uploaded set -- persisted to `brief.json.evalSets[].mcsSetId`
+4. Returns the `setId` for each uploaded set -- persisted to `agentspec.json.evalSets[].mcsSetId`
 
 **Grader mapping (brief method names to Gateway API graders):**
 
@@ -107,7 +77,7 @@ After testing, report results or run the evaluation from the MCS Evaluation tab 
 For Gateway API-uploaded tests, the user runs the eval in MCS and reports results.
 For manual Test Chat testing, the user reports pass/fail per test.
 
-Write results to `brief.json.evalSets[].tests[].lastResult` when the user provides them:
+Write results to `agentspec.json.evalSets[].tests[].lastResult` when the user provides them:
 ```json
 {
   "lastResult": {
