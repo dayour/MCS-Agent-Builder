@@ -1,5 +1,7 @@
 # MCS Agent Builder
 
+> **Repo location:** this project now lives at [dayour/MCS-Agent-Builder](https://github.com/dayour/MCS-Agent-Builder). It was forked from `microsoft/MCS-Agent-Builder`; the `origin` link to the upstream Microsoft repo has been removed, and this fork is the canonical location for issues, PRs, and releases going forward.
+
 Automate end-to-end Microsoft Copilot Studio agent builds — from customer intake through architecture, build, evaluation, and automated fix loops.
 
 Two AI models work in parallel: **Claude** orchestrates, writes code, and executes against MCS APIs. **GPT-5.5** runs alongside as a second pair of eyes — reviewing every instruction, topic, spec, and eval score in real-time. Different models, different biases, better coverage.
@@ -292,6 +294,23 @@ templates/                    agentspec.json schema + default-recommendations.js
 
 ---
 
+## Recent Improvements & Fixes
+
+Changes made in this fork since diverging from upstream:
+
+| Area | Change | Why |
+|------|--------|-----|
+| Install reliability | `postinstall.js` and `start.js` now run `npm ci --legacy-peer-deps` instead of `npm install` for the root and `app/frontend` installs | `npm ci` installs exactly what's in the lockfile — reproducible installs, no silent drift |
+| Failure visibility | Frontend build/install failures now exit with a non-zero code instead of only printing a warning | A broken dashboard build used to fail silently; it now fails loudly so it gets fixed instead of shipped |
+| Dependency staleness detection | `depsStale()` in `start.js` now checks that every direct dependency actually exists on disk (not just a lockfile hash comparison) | A partially-deleted `node_modules` (e.g. after an interrupted install) used to pass the stale check and cause runtime errors |
+| Auto-update safety | Removed the `git stash` / `stash pop` path from `autoUpdate()`; local changes now simply skip the automatic update instead of being auto-stashed | Stash/pop around a live `git pull` risked silent conflicts and lost work on machines with uncommitted local edits |
+| ADO auth scoping | `tools/upstream-specs/auth-ado-npm.js` now resolves an explicit subscription in the expected Microsoft tenant before minting an access token, instead of trusting whichever Azure CLI subscription happens to be active | Closed a gap where a wrong-tenant `az` session could silently mint a token that looked valid but hit the wrong ADO feed |
+| Windows launch UX | Added `start-mcs-agent-builder.bat` | Locates a supported Node.js version (20-24) via `nvm-windows` and launches `start.js` without requiring the user to manage `PATH` manually |
+
+See commit history on `main` for full diffs.
+
+---
+
 ## Troubleshooting
 
 | Problem | Fix |
@@ -307,7 +326,7 @@ templates/                    agentspec.json schema + default-recommendations.js
 
 ## Feedback
 
-Click **Bug** or **Suggest** in the dashboard header. Claude creates a GitHub issue for you with auto-gathered context. Or file directly on [GitHub](https://github.com/microsoft/MCS-Agent-Builder/issues).
+Click **Bug** or **Suggest** in the dashboard header. Claude creates a GitHub issue for you with auto-gathered context. Or file directly on [GitHub](https://github.com/dayour/MCS-Agent-Builder/issues).
 
 ---
 
