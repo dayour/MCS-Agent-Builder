@@ -188,35 +188,17 @@ function autoUpdate() {
       encoding: "utf8", cwd: __dirname, timeout: 5000,
     }).trim();
 
-    let stashed = false;
     const status = execSync("git status --porcelain", {
       encoding: "utf8", cwd: __dirname, timeout: 10000,
     }).trim();
     if (status) {
-      try {
-        execSync('git stash push --quiet -m "auto-stash before update"', {
-          cwd: __dirname, stdio: "ignore", timeout: 10000,
-        });
-        stashed = true;
-        log("Stashed local changes.");
-      } catch {
-        warn("Could not stash local changes — skipping update.");
-        return false;
-      }
+      warn("Local changes detected — skipping automatic update to avoid merge conflicts.");
+      return false;
     }
 
     log(`${behind} new commit(s) available — updating...`);
     execSync("git pull --ff-only", { cwd: __dirname, stdio: "inherit", timeout: 60000 });
     log("Updated to latest version.");
-
-    if (stashed) {
-      try {
-        execSync("git stash pop --quiet", { cwd: __dirname, stdio: "ignore", timeout: 10000 });
-        log("Restored local changes.");
-      } catch {
-        warn("Could not restore local changes — run 'git stash pop' manually.");
-      }
-    }
 
     try {
       const changed = execSync(`git diff --name-only ${headBefore} HEAD`, {
@@ -261,15 +243,47 @@ function checkClaudeCode() {
 // ---------------------------------------------------------------------------
 
 function depsStale(dir) {
-  if (!fs.existsSync(path.join(dir, "node_modules"))) return true;
+  const nodeModules = path.join(dir, "node_modules");
+  if (!fs.existsSync(nodeModules)) return true;
 
   const pkgFile = path.join(dir, "package.json");
   const lockFile = path.join(dir, "package-lock.json");
-  const hashFile = path.join(dir, "node_modules", ".deps-hash");
+  const hashFile = path.join(nodeModules, ".deps-hash");
 
   let content = "";
-  try { content += fs.readFileSync(pkgFile, "utf8"); } catch { return true; }
-  try { content += fs.readFileSync(lockFile, "utf8"); } catch {}
+  try {
+    content += fs.readFileSync(pkgFile, "utf8");
+    const pkg = JSON.parse(content);
+    const directDependencies = {
+      ...pkg.dependencies,
+      ...pkg.devDependencies,
+    };
+    for (const name of Object.keys(directDependencies)) {
+      const packageDir = path.join(nodeModules, ...name.split("/"));
+      if (!fs.existsSync(path.join(packageDir, "package.json"))) return true;
+    }
+  } catch {
+    return true;
+  }
+  try {
+    const lockContent = fs.readFileSync(lockFile, "utf8");
+    content += lockContent;
+    const lock = JSON.parse(lockContent);
+    for (const [relativePath, metadata] of Object.entries(lock.packages || {})) {
+      if (
+        !relativePath ||
+        metadata.link ||
+        metadata.optional ||
+        metadata.devOptional ||
+        !relativePath.startsWith("node_modules/")
+      ) {
+        continue;
+      }
+      if (!fs.existsSync(path.join(dir, relativePath, "package.json"))) return true;
+    }
+  } catch {
+    return true;
+  }
   const currentHash = crypto.createHash("sha256").update(content).digest("hex").slice(0, 16);
 
   try { return fs.readFileSync(hashFile, "utf8").trim() !== currentHash; } catch { return true; }
@@ -289,13 +303,17 @@ function writeDepsHash(dir) {
 
 function ensureNodeModules() {
   if (depsStale(__dirname)) {
-    log("Dependencies out of date — running npm install...");
+    log("Dependencies out of date — running npm ci...");
     try {
-      execSync("npm install", { stdio: "inherit", cwd: __dirname, timeout: 120000 });
+      execSync("npm ci --legacy-peer-deps", {
+        stdio: "inherit",
+        cwd: __dirname,
+        timeout: 120000,
+      });
       writeDepsHash(__dirname);
-      log("npm install complete");
+      log("npm ci complete");
     } catch {
-      err("npm install failed");
+      err("npm ci failed");
       process.exit(1);
     }
   }
@@ -452,10 +470,11 @@ if (isGitRepo) {
   if (fs.existsSync(path.join(frontendDir, "package.json")) && depsStale(frontendDir)) {
     log("Frontend deps out of date — reinstalling...");
     try {
-      execSync("npm install --legacy-peer-deps", { stdio: "inherit", cwd: frontendDir, timeout: 120000 });
+      execSync("npm ci --legacy-peer-deps", { stdio: "inherit", cwd: frontendDir, timeout: 120000 });
       writeDepsHash(frontendDir);
-    } catch {
-      warn("npm install failed in app/frontend — frontend may not work");
+    } catch (e) {
+      err(`Frontend dependency install failed: ${e.message}`);
+      process.exit(1);
     }
     if (fs.existsSync(distIndex)) fs.unlinkSync(distIndex);
   }
@@ -496,8 +515,9 @@ if (isGitRepo) {
       try {
         execSync("npm run build", { stdio: "inherit", cwd: frontendDir, timeout: 120000 });
         log("Frontend build complete");
-      } catch {
-        warn("Frontend build failed — dashboard may show placeholder page");
+      } catch (e) {
+        err(`Frontend build failed: ${e.message}`);
+        process.exit(1);
       }
     }
   }

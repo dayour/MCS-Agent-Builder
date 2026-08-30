@@ -39,8 +39,26 @@ const FEED_REGISTRY_KEY = '//pkgs.dev.azure.com/msazure/_packaging/CCI-Dependenc
 const EXPECTED_TENANT = '72f988bf-86f1-41af-91ab-2d7cd011db47'; // Microsoft tenant
 const NPMRC_PATH = path.join(os.homedir(), '.npmrc');
 
-function getAzToken() {
-    const cmd = `az account get-access-token --resource ${ADO_RESOURCE} --query accessToken -o tsv`;
+function getExpectedTenantSubscription() {
+    try {
+        const accounts = JSON.parse(execSync('az account list --all -o json', {
+            encoding: 'utf8',
+            stdio: ['ignore', 'pipe', 'pipe']
+        }));
+        const account = accounts.find(
+            (candidate) => candidate.tenantId === EXPECTED_TENANT && candidate.state === 'Enabled'
+        );
+        if (!account || !/^[0-9a-f-]{36}$/i.test(account.id)) {
+            throw new Error(`no enabled subscription found for tenant ${EXPECTED_TENANT}`);
+        }
+        return account.id;
+    } catch (err) {
+        throw new Error(`az account lookup failed: ${err.message}. Try: az login --tenant ${EXPECTED_TENANT}`);
+    }
+}
+
+function getAzToken(subscriptionId) {
+    const cmd = `az account get-access-token --subscription ${subscriptionId} --resource ${ADO_RESOURCE} --query accessToken -o tsv`;
     try {
         const out = execSync(cmd, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
         if (!out || out.split('.').length !== 3) {
@@ -49,23 +67,6 @@ function getAzToken() {
         return out;
     } catch (err) {
         throw new Error(`az failed: ${err.message}. Try: az login --tenant ${EXPECTED_TENANT}`);
-    }
-}
-
-function checkTenant() {
-    try {
-        const tenant = execSync('az account show --query tenantId -o tsv', {
-            encoding: 'utf8',
-            stdio: ['ignore', 'pipe', 'pipe']
-        }).trim();
-        if (tenant !== EXPECTED_TENANT) {
-            console.error(
-                `[auth-ado-npm] WARNING: active tenant is ${tenant}, expected Microsoft tenant ${EXPECTED_TENANT}.`
-            );
-            console.error(`  Run: az account set --subscription <sub-in-microsoft-tenant>`);
-        }
-    } catch {
-        // Not fatal — getAzToken will fail with a clearer message if auth is broken.
     }
 }
 
@@ -100,8 +101,8 @@ function rewriteNpmrc(token) {
 }
 
 async function main() {
-    checkTenant();
-    const token = getAzToken();
+    const subscriptionId = getExpectedTenantSubscription();
+    const token = getAzToken(subscriptionId);
     await probeFeed(token);
     rewriteNpmrc(token);
     console.log(`[auth-ado-npm] OK: refreshed credentials for ${FEED_URL}`);

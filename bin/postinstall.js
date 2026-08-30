@@ -35,12 +35,17 @@ const distIndex = path.join(PKG_DIR, "app", "dist", "index.html");
 if (fs.existsSync(path.join(frontendDir, "package.json")) && !fs.existsSync(distIndex)) {
   log("Building frontend...");
   try {
-    execSync("npm install --no-audit --no-fund", { cwd: frontendDir, stdio: "inherit", timeout: 120000 });
+    execSync("npm ci --legacy-peer-deps --no-audit --no-fund", {
+      cwd: frontendDir,
+      stdio: "inherit",
+      timeout: 120000,
+    });
     execSync("npm run build", { cwd: frontendDir, stdio: "inherit", timeout: 120000 });
     ok("Frontend built");
   } catch {
     warn("Frontend build failed — dashboard may show a placeholder page.");
-    warn("Run manually: npm --prefix app/frontend install && npm --prefix app/frontend run build");
+    warn("Run manually: npm --prefix app/frontend ci --legacy-peer-deps && npm --prefix app/frontend run build");
+    process.exit(1);
   }
 } else if (fs.existsSync(distIndex)) {
   ok("Frontend already built");
