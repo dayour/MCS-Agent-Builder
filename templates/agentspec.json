@@ -423,6 +423,8 @@
   "evalConfig": {
     "_description": "Controls how the eval gate (build-pipeline.stepEvalGate) decides published-internal → published-uat promotion.",
     "mode": "reference-templates",
+    "transport": "direct-line",
+    "_transport_options": "direct-line (default; conversation token) | agents-sdk (Entra app JWT via COPILOT_STUDIO_JWT, environmentId + botSchemaName required)",
     "verdictModel": "eval-guide",
     "riskProfile": "medium-risk-customer-facing",
     "riskTier": "internal",

@@ -18,6 +18,7 @@ const fs = require("fs");
 const path = require("path");
 const { execSync } = require("child_process");
 const evalScoring = require("../../tools/eval-scoring");
+const { createCopilotStudioTransport } = require("../../tools/eval-transport");
 const { httpRequestWithRetry, getToken, getTenantId } = require("../../tools/lib/http");
 const makerEvalReader = require("./readers/maker-eval");
 const { buildHeaders, loadGatewayFromConfig } = require("../../tools/island-client");
@@ -40,7 +41,7 @@ const DEFAULT_STEPS = [
   { id: "report", label: "Generating report", status: "pending", detail: null },
 ];
 
-function createJob(projectId, agentId) {
+function createJob(projectId, agentId, opts = {}) {
   const id = `skill-eval-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
   const job = {
     id, skillType: "eval",
@@ -51,6 +52,7 @@ function createJob(projectId, agentId) {
     errors: [], rawLog: "", listeners: [],
     startedAt: new Date().toISOString(),
     completedAt: null, authPrompt: null,
+    opts,
   };
   _jobs.set(id, job);
   return job;
@@ -293,6 +295,45 @@ async function sendAndReceive(dlToken, conversationId, question, timeout = 30000
   return { conversationId, response: "[No response within timeout]", dlToken };
 }
 
+function getTransportName(brief, opts = {}) {
+  const name = opts.transport || brief.evalConfig?.transport || "direct-line";
+  if (name !== "direct-line" && name !== "agents-sdk") {
+    throw new Error(`Unknown eval transport "${name}"; use "direct-line" or "agents-sdk"`);
+  }
+  return name;
+}
+
+async function createEvalTransport(brief, buildStatus, transportName) {
+  if (transportName === "agents-sdk") {
+    return createCopilotStudioTransport({
+      environmentId: buildStatus.mcsEnvironmentId || buildStatus.environmentId,
+      schemaName: buildStatus.botSchemaName || buildStatus.schemaName || brief.schemaName,
+      jwt: process.env.COPILOT_STUDIO_JWT,
+      cloud: buildStatus.powerPlatformCloud,
+    });
+  }
+
+  const envUrl = buildStatus.dataverseUrl || buildStatus.orgUrl;
+  if (!envUrl) throw new Error("Agent not built — run /mcs-build first (need dataverseUrl)");
+  let dvToken;
+  try {
+    dvToken = execSync(`az account get-access-token --resource "${envUrl}" --query accessToken -o tsv`, {
+      encoding: "utf8", timeout: 15000,
+    }).trim();
+  } catch { throw new Error("Azure CLI auth failed — run: az login"); }
+
+  let dlToken = await getDirectLineToken(envUrl, dvToken, buildStatus.mcsAgentId);
+  return {
+    name: "direct-line",
+    async startConversation() { return null; },
+    async sendAndReceive(question, conversationId) {
+      const result = await sendAndReceive(dlToken, conversationId, question);
+      dlToken = result.dlToken;
+      return result;
+    },
+  };
+}
+
 // ---------------------------------------------------------------------------
 // MakerEvaluation preflight observability (Phase 3 wiring)
 // ---------------------------------------------------------------------------
@@ -366,37 +407,27 @@ async function runPipeline(job, agentDir) {
     // Step 2: Detect mode
     updateStep(job, "detect", "running", "Checking build status");
     const buildStatus = brief.buildStatus || {};
-    const botId = buildStatus.mcsAgentId;
-    const envUrl = buildStatus.dataverseUrl || buildStatus.orgUrl;
-    if (!botId || !envUrl) {
-      throw new Error("Agent not built — run /mcs-build first (need mcsAgentId and dataverseUrl)");
-    }
-    updateStep(job, "detect", "completed", "Direct Line API mode");
+    if (!buildStatus.mcsAgentId) throw new Error("Agent not built — run /mcs-build first (need mcsAgentId)");
+    const transportName = getTransportName(brief, job.opts);
+    updateStep(job, "detect", "completed", `${transportName} mode`);
 
-    // Step 3: Acquire token
-    updateStep(job, "token", "running", "Getting Direct Line token");
-    let dvToken;
-    try {
-      dvToken = execSync(`az account get-access-token --resource "${envUrl}" --query accessToken -o tsv`, {
-        encoding: "utf8", timeout: 15000,
-      }).trim();
-    } catch { throw new Error("Azure CLI auth failed — run: az login"); }
-
-    let dlToken = await getDirectLineToken(envUrl, dvToken, botId);
-    updateStep(job, "token", "completed", "Token acquired");
+    // Step 3: Prepare the selected transport's credentials and client.
+    updateStep(job, "token", "running", transportName === "agents-sdk" ? "Loading Azure AD JWT" : "Getting Direct Line token");
+    const transport = await createEvalTransport(brief, buildStatus, transportName);
+    updateStep(job, "token", "completed", transportName === "agents-sdk" ? "Azure AD JWT loaded" : "Token acquired");
 
     // Step 4: Run tests
     updateStep(job, "run", "running", `Running ${totalTests} tests`);
-    let conversationId = null;
+    let conversationId = await transport.startConversation();
     let completed = 0;
 
     for (const evalSet of evalSets) {
       for (const test of evalSet.tests || []) {
         try {
-          const result = await sendAndReceive(dlToken, conversationId, test.question);
+          const result = await transport.sendAndReceive(test.question, conversationId);
           conversationId = result.conversationId;
-          dlToken = result.dlToken;
           test._actualResponse = result.response;
+          test._toolInvocations = result.toolInvocations;
           completed++;
           updateStep(job, "run", "running", `${completed}/${totalTests} tests sent`);
         } catch (err) {
@@ -424,14 +455,14 @@ async function runPipeline(job, agentDir) {
         const methods = test.methods || evalSet.methods || [{ type: "General quality" }];
         try {
           const result = await evalScoring.evaluateAllMethodsAsync(
-            test._actualResponse, test.expected, methods, null, test.keywords
+            test._actualResponse, test.expected, methods, test._toolInvocations, test.keywords
           );
           test.lastResult = { pass: result.pass, score: result.score, methodResults: result.methodResults };
           if (result.pass) passed++; else failed++;
         } catch (err) {
           // Fallback to sync scoring
           const result = evalScoring.evaluateAllMethods(
-            test._actualResponse, test.expected, methods, null, test.keywords
+            test._actualResponse, test.expected, methods, test._toolInvocations, test.keywords
           );
           test.lastResult = { pass: result.pass, score: result.score, methodResults: result.methodResults };
           if (result.pass) passed++; else failed++;
@@ -440,6 +471,7 @@ async function runPipeline(job, agentDir) {
         // Clean up temp fields
         delete test._actualResponse;
         delete test._error;
+        delete test._toolInvocations;
       }
     }
     updateStep(job, "score", "completed", `${passed} passed, ${failed} failed`);
@@ -500,12 +532,12 @@ async function runPipeline(job, agentDir) {
 // Entry Point
 // ---------------------------------------------------------------------------
 
-function startEvalPipeline(projectId, agentId, baseDir) {
+function startEvalPipeline(projectId, agentId, baseDir, opts = {}) {
   if (!agentId) throw new Error("agentId required for eval");
   const agentDir = path.join(baseDir, "Build-Guides", projectId, "agents", agentId);
   if (!fs.existsSync(path.join(agentDir, "agentspec.json")) && !fs.existsSync(path.join(agentDir, "brief.json"))) throw new Error("agentspec.json not found");
 
-  const job = createJob(projectId, agentId);
+  const job = createJob(projectId, agentId, opts);
   console.log(`[eval-pipeline] Starting job ${job.id}: eval ${projectId}/${agentId}`);
   runPipeline(job, agentDir).catch((err) => completeJob(job, false, err.message));
   return job;
@@ -518,7 +550,7 @@ function startEvalPipeline(projectId, agentId, baseDir) {
  * instead of polling.
  */
 async function runEvalForBuild(projectId, agentId, baseDir, opts = {}) {
-  const job = startEvalPipeline(projectId, agentId, baseDir);
+  const job = startEvalPipeline(projectId, agentId, baseDir, opts);
   await new Promise((resolve) => {
     if (job.status !== "running") return resolve();
     const check = () => {
@@ -546,4 +578,4 @@ async function runEvalForBuild(projectId, agentId, baseDir, opts = {}) {
 function getJob(jobId) { return _jobs.get(jobId) || null; }
 function getJobLog(jobId) { const j = _jobs.get(jobId); return j ? j.rawLog : null; }
 
-module.exports = { startEvalPipeline, runEvalForBuild, computeVerdict, DEFAULT_THRESHOLDS, RISK_TIER_PRESETS, getJob, getJobLog };
+module.exports = { startEvalPipeline, runEvalForBuild, computeVerdict, DEFAULT_THRESHOLDS, RISK_TIER_PRESETS, getTransportName, createEvalTransport, getJob, getJobLog };

@@ -39,6 +39,7 @@ const ALLOW_PROD = args.includes("--allow-prod");
 // --via-gate: invoke full build-pipeline stepEvalGate (exercises promotion +
 // audit log write) rather than just runEvalForBuild. Proves SHIP→uat live.
 const VIA_GATE = args.includes("--via-gate");
+let TRANSPORT = argVal("--transport");
 const PROJECT = argVal("--project");
 const AGENT = argVal("--agent");
 
@@ -99,6 +100,15 @@ function preflight() {
   try { brief = JSON.parse(fs.readFileSync(specPath, "utf8")); }
   catch (e) { return step("agentspec.json parseable", false, e.message); }
   step("agentspec.json parseable", true);
+
+  TRANSPORT ||= brief.evalConfig?.transport || "direct-line";
+  if (TRANSPORT !== "direct-line" && TRANSPORT !== "agents-sdk") {
+    return step("eval transport", false, 'use --transport "direct-line" or "agents-sdk"');
+  }
+  if (TRANSPORT === "agents-sdk" && !process.env.COPILOT_STUDIO_JWT) {
+    return step("Agents SDK JWT", false, "set COPILOT_STUDIO_JWT from an Entra app with CopilotStudio.Copilots.Invoke permission");
+  }
+  step("eval transport", true, TRANSPORT);
 
   // 5. Agent is in a state where eval gate can run
   const status = brief.buildStatus?.status;
@@ -161,7 +171,7 @@ async function main() {
     console.log("\n[live-smoke] PREVIEW only. Re-run with --confirm to actually execute eval-pipeline against the target.");
     console.log(`           Target: ${PROJECT}/${AGENT} on ${EVIDENCE.preflight.target.dataverseUrl}`);
     console.log(`           Bot ID: ${EVIDENCE.preflight.target.botId}`);
-    console.log("           The eval pipeline will send test messages via Direct Line and record results.");
+    console.log(`           The eval pipeline will send test messages via ${TRANSPORT === "agents-sdk" ? "the Copilot Studio Agents SDK" : "Direct Line"} and record results.`);
     console.log("           No mutations are made to the agent design; only evalSets[].tests[].lastResult + evalGate are written.");
     EVIDENCE.result = { ok: true, mode: "preview" };
     writeEvidence();
@@ -173,6 +183,9 @@ async function main() {
   console.log(`\n[live-smoke] Executing eval pipeline — mode: ${mode}`);
   const agentDir = path.join(REPO_ROOT, "Build-Guides", PROJECT, "agents", AGENT);
   const before = JSON.parse(fs.readFileSync(path.join(agentDir, "agentspec.json"), "utf8"));
+  if (VIA_GATE && TRANSPORT !== (before.evalConfig?.transport || "direct-line")) {
+    throw new Error("--via-gate uses agentspec evalConfig.transport; remove --transport or update the agent spec");
+  }
   EVIDENCE.stateBefore = {
     status: before.buildStatus?.status,
     evalGate: before.evalGate || null,
@@ -220,6 +233,7 @@ async function main() {
       const result = await evalPipeline.runEvalForBuild(PROJECT, AGENT, REPO_ROOT, {
         riskTier: before.evalConfig?.riskTier,
         thresholds: before.evalConfig?.thresholds,
+        transport: TRANSPORT,
       });
       verdict = result.verdict?.verdict || "NONE";
       reason = result.verdict?.reason || result.error;
