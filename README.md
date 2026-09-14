@@ -48,7 +48,8 @@ gh auth refresh --scopes copilot
 
 | Auth | What It Enables |
 |------|----------------|
-| Azure CLI (`az login`) | Dataverse access, agent creation, publishing, eval testing |
+| Azure CLI (`az login`) | Dataverse access, agent creation, publishing, and Direct Line eval testing |
+| Entra app + JWT (optional) | Copilot Studio Agents SDK eval testing |
 | GitHub CLI (`gh auth`) | GPT-5.5 dual-model reviews (optional but recommended) |
 | PAC CLI (`pac auth create`) | Power Platform solution ALM (optional, API fallback exists) |
 
@@ -133,7 +134,8 @@ Each build step uses the best tool — fully API-native, zero browser automation
 | **Island Gateway API** | Model catalog, component reads, routing, settings, eval upload |
 | **Flow Manager** | Power Automate flow CRUD + composition |
 | **Dataverse API** | File uploads, bot name, publish, security |
-| **Direct Line API** | Eval testing (+ GPT-5.5 scoring with `--gpt` flag) |
+| **Direct Line API** | Default eval transport; fastest path today (+ GPT-5.5 scoring with `--gpt` flag) |
+| **Copilot Studio Agents SDK** | Optional Entra-authenticated eval transport for new integrations |
 | **GPT-5.5 Review** | 14-command review CLI: co-gen, review, scoring, final quality gate |
 
 ### YAML Validation Pipeline
@@ -191,9 +193,22 @@ Run `mcs doctor` to check everything.
 | Git | Optional | Version control (not required for end users) |
 | GitHub CLI + copilot scope | Optional | GPT-5.5 cross-model reviews |
 | Azure CLI | Required | Dataverse authentication (`az account get-access-token`) |
+| Entra app registration + Azure AD JWT | Optional | Required only for Agents SDK evals; grant `CopilotStudio.Copilots.Invoke` (delegated for user/OBO or application for service principal) and set `COPILOT_STUDIO_JWT` only in the eval process environment |
 | PAC CLI | Optional | Power Platform operations |
 | .NET 10 Runtime | Optional | YAML validation (om-cli) |
 | VS Code + MCS Extension | Optional | Headless LSP sync |
+
+### Eval transport authentication
+
+Direct Line remains the default and uses its conversation-scoped token endpoint. The optional Agents SDK runner uses an Azure AD JWT instead: create an Entra public/confidential app registration, grant **Power Platform API → CopilotStudio.Copilots.Invoke** (delegated for interactive/OBO use or application for service principals), obtain admin consent when required, and provide its JWT as `COPILOT_STUDIO_JWT`. It also needs the Copilot Studio environment ID and published agent schema name:
+
+```bash
+COPILOT_STUDIO_JWT=<azure-ad-jwt> node tools/copilotstudio-test.js \
+  --environment-id <environment-id> --schema-name <published-agent-schema-name> \
+  --brief <path-to-agentspec.json>
+```
+
+For the eval gate, set `"evalConfig": { "transport": "agents-sdk" }` in the agent spec, or use `npm run smoke:eval-gate -- --transport agents-sdk ...`. `mcs doctor` verifies that the SDK is installed and that an eval JWT is available; it cannot verify tenant-side app permissions.
 
 ---
 
