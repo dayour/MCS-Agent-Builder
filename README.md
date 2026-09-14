@@ -129,7 +129,8 @@ Each build step uses the best tool — fully API-native, zero browser automation
 | Tool | Handles |
 |------|---------|
 | **PAC CLI** | Listing agents, solution ALM |
-| **MCS LSP Wrapper** | Instructions, model, topics, knowledge sync |
+| **MCS LSP Wrapper** | API-native instructions, model, topics, and knowledge sync; the primary path for modern/multi-agent builds |
+| **Official Copilot Studio plugins** | Optional YAML harnesses: `skills-for-copilot-studio` complements STANDARD/topic-agent authoring and LSP validation; `copilot-studio-plugin` is the evaluation target for modern/enhanced agentic-loop projects |
 | **Island Gateway API** | Model catalog, component reads, routing, settings, eval upload |
 | **Flow Manager** | Power Automate flow CRUD + composition |
 | **Dataverse API** | File uploads, bot name, publish, security |
@@ -146,6 +147,36 @@ Topic YAML goes through 4 layers before reaching Copilot Studio:
 | Structural | `om-cli.exe` | Unknown nodes, invalid structure (357 types) |
 | Semantic | `semantic-gates.py` | PowerFx errors, cross-refs, variable flow, channel compat |
 | Spec drift | `drift-detect.py` | Missing topics, trigger mismatches vs agent spec |
+
+### Official YAML Harness Evaluation
+
+The experimental `microsoft/skills-for-copilot-studio` plugin is a complementary
+harness for **STANDARD** agents. It uses the Copilot Studio VS Code extension's
+LSP for clone/pull/push, requires pull before push, validates before push, and
+creates a draft; publication remains explicit. It overlaps with the MCS LSP
+Wrapper but does not replace its API-native sync or this repository's
+spec-driven multi-agent orchestration.
+
+The successor `microsoft/copilot-studio-plugin` is the more relevant target for
+modern/enhanced agentic-loop projects: it uses `pac copilot` for clone, pull,
+push, and publish. It is not a drop-in replacement for topic agents because
+modern agents do not support deterministic topics, Power Fx, or global/topic
+variables. Its manage workflow does not provide a standalone YAML validation
+gate, so retain the four-layer validation pipeline for generated content and
+drift checks. The official test harness can complement Direct Line release
+tests with draft PPAPI evaluations and batch/analysis workflows.
+
+| Existing layer | Official-harness assessment |
+|---|---|
+| `gen-constraints.py` | Retain: generation-time required-field constraints are independent of post-generation validation. |
+| `om-cli.exe` | Overlaps for STANDARD agents, whose harness uses the VS Code LSP; retain for API-native builds and an independent local gate. |
+| `semantic-gates.py` | Retain: the modern successor has no standalone validation gate, and this layer preserves project-specific Power Fx, channel, and variable-flow checks. |
+| `drift-detect.py` | Retain: neither harness compares cloud YAML to this repository's `agentspec.json`. |
+
+Both plugins describe themselves as experimental and require review of generated
+YAML. Track installed plugin revisions with `npm run sync`'s `plugins` source;
+track upstream behavior for both plugin repositories through its
+`upstream-repos` source, which produces TAKE/REJECT triage cards.
 
 ---
 
