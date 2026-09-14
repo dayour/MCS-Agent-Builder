@@ -48,7 +48,7 @@
     {
       "id": "upstream-repos",
       "class": "github_repo_set",
-      "name": "Tracked GitHub repos (11 Microsoft + community)",
+      "name": "Tracked GitHub repos (including official Copilot Studio plugins)",
       "adapter": "tools/sync-adapters/upstream-repos.js",
       "locator": {
         "type": "json_registry",
@@ -187,7 +187,7 @@
     {
       "id": "plugins",
       "class": "claude_plugin_set",
-      "name": "Installed Claude Code plugins (excluding eval-guide)",
+      "name": "Installed Claude Code plugins (including official Copilot Studio plugins; excluding eval-guide)",
       "adapter": "tools/sync-adapters/plugins.js",
       "locator": {
         "type": "user_state",
@@ -196,6 +196,10 @@
       "detector": {
         "strategy": "installed_plugin_sha_set"
       },
+      "trackedPlugins": [
+        "copilot-studio@skills-for-copilot-studio",
+        "mcs-assistant@copilot-studio-plugin"
+      ],
       "understander": {
         "strategy": "plugin_diff_classifier",
         "signals": ["plugin_added", "plugin_removed", "plugin_version_advanced"]

@@ -2,7 +2,10 @@
  * plugins adapter
  *
  * Detects updates to installed Claude Code plugins, excluding eval-guide
- * (handled by tools/sync-adapters/eval-guide.js). Reads
+ * (handled by tools/sync-adapters/eval-guide.js). The manifest's
+ * `trackedPlugins` identifies first-party plugins whose installed revisions
+ * must surface in the normal triage card. Their upstream repositories are
+ * monitored separately by the upstream-repos source. Reads
  * ~/.claude/plugins/installed_plugins.json which records {version,
  * gitCommitSha, lastUpdated} per plugin per marketplace.
  *
@@ -71,6 +74,8 @@ async function detect({ source, root }) {
     }
   }
   const lines = keys.map(k => `${k}:${perKey[k]}`);
+  const trackedPlugins = source.trackedPlugins || [];
+  const missingTrackedPlugins = trackedPlugins.filter(key => !(key in flat));
   return {
     fingerprint: {
       primary: sha256(lines.join('\n')),
@@ -78,7 +83,7 @@ async function detect({ source, root }) {
       version: `${keys.length} plugins`,
       timestamp: newestTs || new Date().toISOString(),
     },
-    meta: { count: keys.length, names: keys },
+    meta: { count: keys.length, names: keys, trackedPlugins, missingTrackedPlugins },
   };
 }
 
