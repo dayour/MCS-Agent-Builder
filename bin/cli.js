@@ -566,6 +566,23 @@ function doctor() {
     }
   });
 
+  // 15. Copilot Studio Agents SDK eval (optional)
+  check("Agents SDK eval (optional)", () => {
+    try {
+      require("@microsoft/agents-copilotstudio-client");
+    } catch {
+      return { ok: false, detail: "SDK not installed", fix: "npm install" };
+    }
+    if (!process.env.COPILOT_STUDIO_JWT) {
+      return {
+        ok: false,
+        detail: "SDK installed; Azure AD JWT not configured",
+        fix: "Create an Entra app with CopilotStudio.Copilots.Invoke permission, then set COPILOT_STUDIO_JWT for an eval run",
+      };
+    }
+    return { ok: true, detail: "SDK installed; Azure AD JWT configured" };
+  });
+
   // Print results
   const PASS = "\x1b[32mPASS\x1b[0m";
   const FAIL = "\x1b[31mFAIL\x1b[0m";

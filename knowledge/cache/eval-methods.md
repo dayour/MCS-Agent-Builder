@@ -358,14 +358,15 @@ Configuration in `evalConfig`: `targetPassRate` (overall, default 85%), `maxIter
 | **See evaluation results in real time** | Preview | May 2026 (planned) | View evaluation results as they stream in, rather than waiting for full completion. GA May 2026. |
 | **Evaluate agents for M365 Copilot** | Preview | Jul 2026 (planned) | Run evaluations on agents published to M365 Copilot from within Copilot Studio |
 
-## Future: M365 Agents SDK
+## M365 Agents SDK transport decision
 
-Microsoft recommends migrating from Direct Line to the **M365 Agents SDK** for new agent integrations. Key advantages:
-- Service principal auth (no manual token management)
+Microsoft recommends the **M365 Agents SDK** for new agent integrations. It is now available as a parallel eval transport through `@microsoft/agents-copilotstudio-client` 1.8.1; Direct Line remains the default because it is currently the fastest, simplest path.
+
+- Agents SDK requires an Entra app registration and Azure AD JWT with `CopilotStudio.Copilots.Invoke` (delegated or application as appropriate), plus environment ID and published agent schema name. This is intentionally distinct from Direct Line's conversation-scoped token.
 - Richer message types and streaming support
 - Better alignment with Microsoft 365 ecosystem
 
-**Current status (Mar 2026):** SDK is GA. Migration path is clear but not urgent — Direct Line remains functional. Consider for future eval runner v2.
+**Decision (Sep 2026):** retain Direct Line and add the SDK as an opt-in transport. `tools/eval-transport.js` defines the common conversation interface used by `app/lib/eval-pipeline.js`; scoring and eval-gate verdict policy consume normalized response/tool-invocation data and are transport-agnostic. Use `"evalConfig": { "transport": "agents-sdk" }` with `COPILOT_STUDIO_JWT` to opt in. Reassess the default when Microsoft publishes Direct Line retirement timing or the SDK path demonstrates equivalent operational speed.
 
 ## Multi-Turn Test Support (GA Mar 2026 — MCS Native)
 
