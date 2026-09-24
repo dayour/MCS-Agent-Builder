@@ -137,7 +137,14 @@
       "cadence": "weekly",
       "defaultRecommendation": "REJECT",
       "impacts": ["automation-tools", "research-pipeline", "build-pipeline"],
-      "owners": ["automation"]
+      "owners": ["automation"],
+      "pinnedVersions": {
+        "workiq": {
+          "package": "@microsoft/workiq",
+          "pinnedAt": "1.0.0",
+          "note": "Pinned 2026-09-14 after GA (was floating @latest, previously 0.5.0-preview1/2/3). Version bumps must flow through /mcs-sync triage (this adapter's isUnverifiable() check) rather than resolving silently on every npx invocation. When bumping, update both .claude/settings.json and .mcp.json workiq entries together."
+        }
+      }
     },
     {
       "id": "om-cli",
