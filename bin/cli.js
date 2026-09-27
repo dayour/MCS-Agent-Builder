@@ -481,8 +481,12 @@ function doctor() {
   check("PAC CLI (optional)", () => {
     if (!cmdExists("pac")) return { ok: false, detail: "not found", fix: "dotnet tool install --global Microsoft.PowerApps.CLI.Tool" };
     try {
-      const ver = run("pac --version");
-      return { ok: true, detail: `v${ver}` };
+      // PAC CLI 2.9+ removed the standalone `--version` flag (it now errors
+      // with "Not a valid command"). `pac help` still prints the version
+      // banner ("Version: x.y.z+hash (.NET ...)") on exit 0 across versions.
+      const out = run("pac help");
+      const match = out.match(/Version:\s*(\S+)/);
+      return { ok: true, detail: match ? `v${match[1]}` : "installed" };
     } catch {
       return { ok: true, detail: "installed" };
     }
