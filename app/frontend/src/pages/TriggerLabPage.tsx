@@ -2198,7 +2198,7 @@ Rules for markdown:
       // For Copilot runs: show just the one-line verdict (first line after ---).
       // For manual runs: show the full summary body.
       ...(fromHelperAgent
-        ? { makerAdvisory: firstSummaryLine.replace(/\*\*/g, '').replace(/[✅⚠️❌]/g, '').replace(/^(Pass|Mostly working|Needs work)\s*—?\s*/i, '').trim() || undefined }
+        ? { makerAdvisory: firstSummaryLine.replace(/\*\*/g, '').replace(/✅|⚠️|❌/g, '').replace(/^(Pass|Mostly working|Needs work)\s*—?\s*/i, '').trim() || undefined }
         : (summaryBody ? { makerAdvisory: summaryBody } : {})),
     });
     // All steps are pushed. Keep auto-scroll alive briefly so the final summary

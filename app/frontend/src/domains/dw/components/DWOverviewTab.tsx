@@ -528,7 +528,7 @@ export function TaskRow({ task, onTaskClick, onArtifactClick, animPhase, onConne
               key={c}
               title={`Open in ${c}`}
               className="flex-shrink-0 cursor-pointer rounded-full p-0.5 hover:bg-neutral-100 transition-colors"
-              onClick={e => { e.stopPropagation(); onConnectorClick ? onConnectorClick(c) : window.open(connectorOpenUrl(c), '_blank'); }}
+              onClick={e => { e.stopPropagation(); if (onConnectorClick) onConnectorClick(c); else window.open(connectorOpenUrl(c), '_blank'); }}
             >
               {getConnectorIcon(c, 'w-4 h-4')}
             </span>
