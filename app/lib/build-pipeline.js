@@ -149,14 +149,12 @@ const DV_HEADERS = (token) => ({
 async function stepManifest(job, brief, agentDir) {
   updateStep(job, "manifest", "running", "Writing Agent Plugins package");
   const { emitPlugin, pluginNameFromAgent } = require("./agent-plugins/generate");
-  const { PLUGIN_SCHEMA_ID } = require("./agent-plugins/validate");
+  const { PLUGIN_SCHEMA_ID, sanitizeCarriedAgentPlugin } = require("./agent-plugins/validate");
   try {
     const name = pluginNameFromAgent(brief.agent && brief.agent.name);
     const outDir = path.join(agentDir, "plugin", name);
     const emitted = emitPlugin(brief, outDir);
-    const previous = brief.agentPlugin && typeof brief.agentPlugin === "object" && !Array.isArray(brief.agentPlugin)
-      ? brief.agentPlugin
-      : {};
+    const previous = sanitizeCarriedAgentPlugin(brief.agentPlugin);
     brief.agentPlugin = {
       ...previous,
       directory: path.posix.join("plugin", name),

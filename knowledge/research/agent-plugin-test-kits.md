@@ -6,7 +6,7 @@ Rules: a command listed as **ran** was executed in this repo. A command listed a
 
 ## Ran in this repo
 
-The commands below were executed on commit `4acf877f461ee0ef109b7c91b3cea1fb6e4b4836`, the merge of `origin/main` (`da8b0a954b0d573f548c801e8d29941c3a180ecd`) into this branch. That tree's validator, fixtures, and tests match `main`. They were run again on `3e92ce8ae1c11eb0f94b6ea4da5edf0f4b595437`, the commit that corrected the behavior docs. On `3e92ce8` `npm run validate:manifests` printed the same gate lines as the transcript below and exited 0 (no npm upgrade notice on that run). `node --test app/lib/__tests__/agent-plugins-*.test.js` exited 0 with the same 19 names and `# pass 19` / `# fail 0`. Per-test `duration_ms` values changed. The log lines again reported two `agentspec is missing agent.name` failures and one write under `/tmp/plugin-step-*/plugin/order-status`. The commit that adds this paragraph changes this file and the review-loop skill only. The pull request comment quotes both commands run on that commit.
+The transcript below was captured on `4acf877f461ee0ef109b7c91b3cea1fb6e4b4836` and repeated on `3e92ce8ae1c11eb0f94b6ea4da5edf0f4b595437`. Neither commit is current `main`. `da8b0a954b0d573f548c801e8d29941c3a180ecd` was an older `origin/main` at the time of that note; it is not the base of this tree. Current `main` for the manifest fix-forward is `b7593fb57652591678d1aeb9bcc19738e903ffbe` (the squash of #18). The counts in the transcript (19 tests, 21 invalid fixtures) describe those older commits only.
 
 | Kit | Command | Result |
 |---|---|---|
@@ -84,9 +84,9 @@ The live TAP stream also printed three `[build-pipeline]` log lines and per-test
 
 This repo has no `npm run gate` script. Do not substitute `npm ci && npm run gate` from the darbotlabs note.
 
-The `ci` job in `.github/workflows/ci.yml` calls the gate. Its Validate manifests step runs `npm run validate:manifests` after install, build, lint, typecheck, and the other test scripts. There is no `.github/workflows/manifests.yml`.
+The `ci` job in `.github/workflows/ci.yml` is the only workflow that runs the gate. It pins Node 22 (`node-version: '22'`), installs with `npm ci --legacy-peer-deps`, and its Validate manifests step is exactly `npm run validate:manifests` (no `--if-present`) after install, build, lint, typecheck, and the other test scripts. There is no `.github/workflows/manifests.yml` and no Node 20 job. `engines` is `>=20`; CI pins 22 because `npm run test:unit` uses `node --experimental-strip-types`. `npm ci --legacy-peer-deps` is required because `openapi-typescript@7.13` peers on `typescript` ^5 and this repo pins `typescript` 6. `microsoft-agents-objectmodel` is not in `package.json` or the lockfile.
 
-`npm ci` was not run for the transcript above. The lockfile resolves `microsoft-agents-objectmodel` from a private Azure DevOps feed, and this environment has no token for it. The manifest gate and the agent-plugin unit tests do not need that install. Ajv is vendored.
+`npm ci` was not run for the transcript above. The manifest gate and the agent-plugin unit tests do not need that install. Ajv is vendored.
 
 ## Unverified external kits
 
