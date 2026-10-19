@@ -136,6 +136,8 @@ test("plugin identity comes from agentPlugin and an untyped url is not an MCP se
   assert.deepEqual(plugin.author, { name: "Retail Team", email: "team@example.com" });
   assert.equal(mcp.mcpServers["untyped"], undefined);
   assert.equal(mcp.mcpServers["orders-api"].url, "https://orders.example.com/mcp");
+  assert.ok(built.omitted.some((item) => item.name === "Untyped" && /no type/.test(item.reason)));
+  assert.match(built.files["specs/ORDER_STATUS.md"], /Untyped/);
 });
 
 test("a remote server cannot replace the stdio core", () => {
@@ -222,6 +224,18 @@ test("spec-core import warns on third-party packages and still refuses a bad nam
   assert.equal(fs.existsSync(forcedOut), true);
 });
 
+test("repository and author credential URLs are rejected at emit", () => {
+  const spec = sampleSpec();
+  spec.agentPlugin = {
+    repository: "https://user:secret@github.com/example/order-status",
+    author: { name: "Retail", url: "https://example.com/author?token=abcdef" },
+  };
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "plugin-identity-"));
+  assert.throws(() => emitPlugin(spec, path.join(parent, "order-status")), (err) => {
+    return err.code === "MANIFEST_INVALID" && /identity-secret/.test(err.message);
+  });
+});
+
 test("import --force does not copy credential headers into the agentspec", () => {
   const repo = path.join(__dirname, "..", "..", "..");
   const cli = path.join(repo, "bin", "cli.js");
@@ -238,6 +252,57 @@ test("import --force does not copy credential headers into the agentspec", () =>
   assert.equal(packed.includes("Authorization"), false);
   assert.equal(packed.includes("Bearer"), false);
   assert.equal(packed.includes("abcdefghijklmnop"), false);
+});
+
+test("import --force strips secret env values, credential query keys, and secret header values", () => {
+  const repo = path.join(__dirname, "..", "..", "..");
+  const cli = path.join(repo, "bin", "cli.js");
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "plugin-secret-import-"));
+  const plugin = path.join(parent, "credential-header");
+  fs.cpSync(path.join(repo, "schema", "fixtures", "invalid", "credential-header"), plugin, { recursive: true });
+  const token = `ghp_${"a".repeat(24)}`;
+  fs.writeFileSync(path.join(plugin, "mcp.json"), JSON.stringify({
+    $schema: "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+    mcpServers: {
+      remote: {
+        type: "streamable-http",
+        url: "https://example.com/mcp?code=supersecret&tenant=public",
+        headers: {
+          Authorization: "Bearer abcdefghijklmnop",
+          "X-Request-Id": token,
+          "X-Tenant": "retail",
+        },
+        env: {
+          REGION: "us",
+          API_TOKEN: "not-a-real-value",
+          PUBLIC: token,
+        },
+      },
+    },
+  }, null, 2));
+  const outSpec = path.join(parent, "forced.json");
+  const forced = spawnSync(process.execPath, [
+    cli, "manifest", "import",
+    "--dir", plugin,
+    "--out", outSpec,
+    "--force",
+  ], { encoding: "utf8" });
+  assert.equal(forced.status, 0, forced.stderr);
+  const packed = fs.readFileSync(outSpec, "utf8");
+  // Before: the agentspec kept the env secret, the code query, and the secret header value.
+  assert.equal(packed.includes("Authorization"), false);
+  assert.equal(packed.includes("Bearer"), false);
+  assert.equal(packed.includes("abcdefghijklmnop"), false);
+  assert.equal(packed.includes("ghp_"), false);
+  assert.equal(packed.includes("code="), false);
+  assert.equal(packed.includes("API_TOKEN"), false);
+  assert.equal(packed.includes("supersecret"), false);
+  // After: the public query key, header, and env value remain.
+  assert.match(packed, /tenant=public/);
+  assert.match(packed, /X-Tenant/);
+  assert.match(packed, /retail/);
+  assert.match(packed, /REGION/);
+  assert.match(packed, /"us"/);
 });
 
 test("--force help says it deletes the existing directory", () => {
@@ -312,4 +377,58 @@ test("manifest step keeps agentPlugin version and strict across rebuilds", async
   assert.ok(brief.agentPlugin.schema);
   assert.ok(brief.agentPlugin.validatedAt);
   assert.ok(Array.isArray(brief.agentPlugin.omitted));
+});
+
+test("manifest rebuild does not carry secret env values, query keys, or header values", async () => {
+  const { stepManifest } = require("../build-pipeline")._testables;
+  const agentDir = fs.mkdtempSync(path.join(os.tmpdir(), "plugin-carry-"));
+  const token = `ghp_${"b".repeat(24)}`;
+  const brief = sampleSpec();
+  brief.agentPlugin = {
+    version: "1.2.0",
+    strict: true,
+    note: "user",
+    mcpServers: {
+      keep: true,
+      remote: {
+        type: "streamable-http",
+        url: "https://example.com/mcp?code=supersecret&tenant=public",
+        headers: {
+          Authorization: "Bearer abcdefghijklmnop",
+          "X-Request-Id": token,
+          "X-Tenant": "retail",
+        },
+        env: {
+          REGION: "us",
+          API_TOKEN: "not-a-real-value",
+          PUBLIC: token,
+        },
+      },
+    },
+  };
+  const job = {
+    steps: [{ id: "manifest", status: "pending", detail: null }],
+    errors: [],
+    rawLog: "",
+    listeners: [],
+  };
+  await stepManifest(job, brief, agentDir);
+  await stepManifest(job, brief, agentDir);
+  const packed = JSON.stringify(brief.agentPlugin);
+  assert.equal(brief.agentPlugin.version, "1.2.0");
+  assert.equal(brief.agentPlugin.strict, true);
+  assert.equal(brief.agentPlugin.note, "user");
+  assert.equal(brief.agentPlugin.mcpServers.keep, true);
+  assert.equal(packed.includes("Authorization"), false);
+  assert.equal(packed.includes("Bearer"), false);
+  assert.equal(packed.includes("ghp_"), false);
+  assert.equal(packed.includes("code="), false);
+  assert.equal(packed.includes("API_TOKEN"), false);
+  assert.equal(packed.includes("supersecret"), false);
+  assert.match(brief.agentPlugin.mcpServers.remote.url, /tenant=public/);
+  assert.equal(brief.agentPlugin.mcpServers.remote.headers["X-Tenant"], "retail");
+  assert.equal(brief.agentPlugin.mcpServers.remote.headers["X-Request-Id"], undefined);
+  assert.equal(brief.agentPlugin.mcpServers.remote.env.REGION, "us");
+  assert.equal(brief.agentPlugin.mcpServers.remote.env.API_TOKEN, undefined);
+  assert.equal(brief.agentPlugin.mcpServers.remote.env.PUBLIC, undefined);
 });

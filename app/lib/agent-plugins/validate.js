@@ -189,6 +189,100 @@ function isCredentialHeaderName(name) {
   return false;
 }
 
+function isCredentialQueryName(name) {
+  return CREDENTIAL_QUERY.test(name) || /(?:^|[-_])key$/i.test(name) || SECRET_KEY.test(name);
+}
+
+function urlEmbedsCredentials(raw) {
+  if (typeof raw !== "string" || !raw.trim()) return false;
+  let url;
+  try {
+    url = new URL(raw);
+  } catch {
+    return false;
+  }
+  if (url.username || url.password) return true;
+  for (const param of url.searchParams.keys()) {
+    if (isCredentialQueryName(param)) return true;
+  }
+  return false;
+}
+
+function withoutCredentialQuery(raw) {
+  if (typeof raw !== "string" || !raw) return raw;
+  let url;
+  try {
+    url = new URL(raw);
+  } catch {
+    return raw;
+  }
+  let changed = false;
+  if (url.username || url.password) {
+    url.username = "";
+    url.password = "";
+    changed = true;
+  }
+  for (const param of [...url.searchParams.keys()]) {
+    if (isCredentialQueryName(param)) {
+      url.searchParams.delete(param);
+      changed = true;
+    }
+  }
+  return changed ? url.toString() : raw;
+}
+
+function sanitizeHeaders(headers) {
+  if (!headers || typeof headers !== "object" || Array.isArray(headers)) return undefined;
+  const kept = {};
+  for (const [name, value] of Object.entries(headers)) {
+    if (isCredentialHeaderName(name)) continue;
+    if (typeof value === "string" && SECRET_VALUE.test(value)) continue;
+    kept[name] = value;
+  }
+  return Object.keys(kept).length ? kept : undefined;
+}
+
+function sanitizeEnv(env) {
+  if (!env || typeof env !== "object" || Array.isArray(env)) return undefined;
+  const kept = {};
+  for (const [key, value] of Object.entries(env)) {
+    if (key === "PLUGIN_ROOT" || key === "PLUGIN_DATA" || SECRET_KEY.test(key)) continue;
+    if (typeof value === "string" && SECRET_VALUE.test(value)) continue;
+    kept[key] = value;
+  }
+  return Object.keys(kept).length ? kept : undefined;
+}
+
+function sanitizeMcpServers(servers) {
+  if (!servers || typeof servers !== "object" || Array.isArray(servers)) return servers;
+  const copy = {};
+  for (const [name, server] of Object.entries(servers)) {
+    if (!server || typeof server !== "object" || Array.isArray(server)) {
+      copy[name] = server;
+      continue;
+    }
+    const next = { ...server };
+    if (typeof next.url === "string") next.url = withoutCredentialQuery(next.url);
+    const headers = sanitizeHeaders(next.headers);
+    if (headers) next.headers = headers;
+    else delete next.headers;
+    const env = sanitizeEnv(next.env);
+    if (env) next.env = env;
+    else delete next.env;
+    copy[name] = next;
+  }
+  return copy;
+}
+
+function sanitizeCarriedAgentPlugin(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const next = { ...value };
+  if (next.mcpServers && typeof next.mcpServers === "object") {
+    next.mcpServers = sanitizeMcpServers(next.mcpServers);
+  }
+  return next;
+}
+
 function checkHeaders(file, pointer, headers) {
   const found = [];
   if (!headers || typeof headers !== "object" || Array.isArray(headers)) return found;
@@ -315,13 +409,23 @@ function evidenceLines(text) {
   const lines = [];
   let fence = null;
   for (const line of withoutComments.split(/\r?\n/)) {
-    const marker = line.match(/^\s*(`{3,}|~{3,})/);
-    if (marker) {
-      const kind = marker[1][0];
-      fence = fence === kind ? null : (fence || kind);
+    const marker = line.match(/^( {0,3})(`{3,}|~{3,})(.*)$/);
+    if (fence) {
+      const sameChar = marker && marker[2][0] === fence.char;
+      const longEnough = marker && marker[2].length >= fence.length;
+      const noInfo = marker && /^[ \t]*$/.test(marker[3]);
+      if (sameChar && longEnough && noInfo) fence = null;
       continue;
     }
-    if (!fence) lines.push(line);
+    if (/^(?: {4,}|\t)/.test(line)) continue;
+    if (marker) {
+      const info = marker[3];
+      if (!(marker[2][0] === "`" && info.includes("`"))) {
+        fence = { char: marker[2][0], length: marker[2].length };
+        continue;
+      }
+    }
+    lines.push(line);
   }
   return lines;
 }
@@ -331,37 +435,42 @@ function isFutureDate(iso) {
 }
 
 function levelRows(text, level) {
-  const row = new RegExp(String.raw`^\|\s*L${level}\s*\|\s*(pass|fail)\s*\|\s*(\d{4}-\d{2}-\d{2})\s*\|\s*([0-9a-fA-F]{7,64})\s*\|\s*$`);
+  const row = new RegExp(String.raw`^\|\s*L${level}\s*\|\s*(pass|fail(?:ed)?)\s*\|\s*(\d{4}-\d{2}-\d{2})\s*\|\s*([0-9a-fA-F]{7,64})\s*\|\s*$`, "i");
   const rows = [];
   for (const line of evidenceLines(text)) {
     const match = row.exec(line.trim());
     if (!match || !isCalendarDate(match[2])) continue;
-    rows.push({ result: match[1], date: match[2] });
+    rows.push({ result: /^pass$/i.test(match[1]) ? "pass" : "fail", date: match[2] });
   }
   return rows;
 }
 
-function hasLevelPassRecord(text, level) {
-  const rows = levelRows(text, level);
+function latestRowsPass(rows) {
   if (rows.length === 0 || rows.some((row) => isFutureDate(row.date))) return false;
   const latest = rows.reduce((max, row) => (row.date > max ? row.date : max), "");
   return rows.filter((row) => row.date === latest).every((row) => row.result === "pass");
+}
+
+function hasLevelPassRecord(text, level) {
+  const parts = Array.isArray(text) ? text : [text];
+  return latestRowsPass(parts.flatMap((part) => levelRows(part, level)));
 }
 
 function checkLevel(pluginRoot, extension) {
   const level = extension && extension.level;
   if (typeof level !== "number" || level <= 0) return [];
   const evidenceNames = ["CONFORMANCE.md", "ROADMAP.md"];
+  const parts = [];
   for (const name of evidenceNames) {
     const full = path.join(pluginRoot, name);
     if (!fs.existsSync(full)) continue;
-    const text = fs.readFileSync(full, "utf8");
-    if (hasLevelPassRecord(text, level)) return [];
+    parts.push(fs.readFileSync(full, "utf8"));
   }
+  if (hasLevelPassRecord(parts, level)) return [];
   return [violation(
     "plugin.json",
     "/extensions/com.grokbot/level",
-    `level ${level} needs the latest "| L${level} | pass|fail | <YYYY-MM-DD> | <sha> |" row in CONFORMANCE.md or ROADMAP.md to be pass, outside code fences and HTML comments, and not dated in the future`,
+    `level ${level} needs the latest "| L${level} | pass|fail|failed | <YYYY-MM-DD> | <sha> |" row across CONFORMANCE.md and ROADMAP.md combined to be pass, outside CommonMark fences and 4-space indented code and HTML comments, and not dated in the future`,
     "level-inflated",
   )];
 }
@@ -406,6 +515,12 @@ function validatePluginDir(dir, options) {
       violations.push(violation("plugin.json", pointer || "/", "string contains a secret", "manifest-secret"));
     }
   });
+  if (urlEmbedsCredentials(plugin.repository)) {
+    violations.push(violation("plugin.json", "/repository", "repository URL contains credentials", "identity-secret"));
+  }
+  if (plugin.author && typeof plugin.author === "object" && urlEmbedsCredentials(plugin.author.url)) {
+    violations.push(violation("plugin.json", "/author/url", "author URL contains credentials", "identity-secret"));
+  }
 
   const extensions = plugin.extensions;
   const grokbot = extensions && typeof extensions === "object" ? extensions[EXTENSION_NAMESPACE] : undefined;
@@ -573,4 +688,8 @@ module.exports = {
   schemaVersion,
   hasLevelPassRecord,
   isCredentialHeaderName,
+  sanitizeMcpServers,
+  sanitizeCarriedAgentPlugin,
+  urlEmbedsCredentials,
+  withoutCredentialQuery,
 };
