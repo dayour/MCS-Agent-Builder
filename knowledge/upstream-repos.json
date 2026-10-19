@@ -24,14 +24,16 @@
       "lastChecked": "2026-09-14",
       "lastCommitSha": null,
       "watchPaths": [
+        ".claude-plugin/",
         "agents/",
-        "skills/",
-        "templates/",
-        "schemas/",
-        "scripts/"
+        "commands/",
+        "hooks/",
+        "reference/",
+        "scripts/",
+        "skills/"
       ],
       "integratedDate": "2026-09-14",
-      "notes": "Evaluate for modern agentic-loop projects. Its installed-plugin version is also tracked by the plugins sync source. Watch PAC CLI requirements, agent layouts, migration behavior, validation, and testing guidance."
+      "notes": "Evaluate for modern agentic-loop projects. Its installed-plugin version is also tracked by the plugins sync source. Watch PAC CLI requirements, agent layouts, commands, hooks, and migration behavior. templates/ and schemas/ are not directories in this repo (confirmed against the GitHub tree on 2026-10-19)."
     },
     {
       "repo": "microsoft/eval-guide",

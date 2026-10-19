@@ -3,14 +3,18 @@
  *
  * Detects updates to installed Claude Code plugins, excluding eval-guide
  * (handled by tools/sync-adapters/eval-guide.js). The manifest's
- * `trackedPlugins` identifies first-party plugins whose installed revisions
- * must surface in the normal triage card. Their upstream repositories are
- * monitored separately by the upstream-repos source. Reads
+ * `trackedPlugins` names first-party plugins that must be installed. A
+ * missing name is part of the fingerprint (`missing-tracked:<sorted names>`).
+ * understand() then emits tracked_plugin_missing and recommends TAKE.
+ * Meta alone cannot open a card: the orchestrator skips understand when
+ * primary and secondary are unchanged. Upstream repositories are monitored
+ * separately by the upstream-repos source. Reads
  * ~/.claude/plugins/installed_plugins.json which records {version,
  * gitCommitSha, lastUpdated} per plugin per marketplace.
  *
  * Fingerprint shape:
- *   primary:   sha256 of sorted "<key>:<sha-or-version>" lines
+ *   primary:   sha256 of sorted "<key>:<sha-or-version>" lines, plus
+ *              "missing-tracked:<names>" when any tracked plugin is absent
  *   secondary: JSON {pluginKey -> sha-or-version}
  *   version:   "<count> plugins"
  *   timestamp: max(lastUpdated) ISO across plugins
@@ -39,6 +43,20 @@ function readInstalled() {
   }
 }
 
+function missingTrackedPlugins(trackedPlugins, installedKeys) {
+  const installed = new Set(installedKeys);
+  return [...new Set(trackedPlugins || [])]
+    .filter((key) => typeof key === 'string' && key.length > 0 && !installed.has(key))
+    .sort();
+}
+
+function pluginFingerprintLines(perKey, missing) {
+  const keys = Object.keys(perKey).sort();
+  const lines = keys.map((k) => `${k}:${perKey[k]}`);
+  if (missing.length > 0) lines.push(`missing-tracked:${missing.join(',')}`);
+  return lines;
+}
+
 function flatten(data) {
   const flat = {};
   const plugins = data?.plugins || {};
@@ -56,11 +74,8 @@ function flatten(data) {
   return flat;
 }
 
-async function detect({ source, root }) {
-  const installed = readInstalled();
-  if (installed.error) return { error: installed.error };
-
-  const flat = flatten(installed.data);
+function buildPluginDetection(source, data) {
+  const flat = flatten(data);
   const keys = Object.keys(flat).sort();
   if (keys.length === 0) return { error: 'no plugins installed (after excluding eval-guide)' };
 
@@ -73,9 +88,9 @@ async function detect({ source, root }) {
       newestTs = flat[key].lastUpdated;
     }
   }
-  const lines = keys.map(k => `${k}:${perKey[k]}`);
-  const trackedPlugins = source.trackedPlugins || [];
-  const missingTrackedPlugins = trackedPlugins.filter(key => !(key in flat));
+  const trackedPlugins = source?.trackedPlugins || [];
+  const missing = missingTrackedPlugins(trackedPlugins, keys);
+  const lines = pluginFingerprintLines(perKey, missing);
   return {
     fingerprint: {
       primary: sha256(lines.join('\n')),
@@ -83,8 +98,14 @@ async function detect({ source, root }) {
       version: `${keys.length} plugins`,
       timestamp: newestTs || new Date().toISOString(),
     },
-    meta: { count: keys.length, names: keys, trackedPlugins, missingTrackedPlugins },
+    meta: { count: keys.length, names: keys, trackedPlugins, missingTrackedPlugins: missing },
   };
+}
+
+async function detect({ source } = {}) {
+  const installed = readInstalled();
+  if (installed.error) return { error: installed.error };
+  return buildPluginDetection(source, installed.data);
 }
 
 async function understand({ source, before, after, root }) {
@@ -103,11 +124,15 @@ async function understand({ source, before, after, root }) {
     if (!(key in aMap)) removed.push(key);
   }
 
-  const meaningful = updated.length > 0 || added.length > 0 || removed.length > 0;
+  const missing = Array.isArray(after?.meta?.missingTrackedPlugins) ? after.meta.missingTrackedPlugins : [];
+  const meaningful = updated.length > 0 || added.length > 0 || removed.length > 0 || missing.length > 0;
   const evidence = [];
   for (const k of updated.slice(0, 5)) evidence.push({ type: 'plugin_updated', ref: k, excerpt: `${String(bMap[k]).slice(0, 12)} -> ${String(aMap[k]).slice(0, 12)}` });
   for (const k of added.slice(0, 5)) evidence.push({ type: 'plugin_added', ref: k });
   for (const k of removed.slice(0, 5)) evidence.push({ type: 'plugin_removed', ref: k });
+  if (missing.length > 0) {
+    evidence.push({ type: 'tracked_plugin_missing', ref: missing.join(','), excerpt: missing.join(', ') });
+  }
 
   let recommendation = 'REJECT';
   const planSteps = [];
@@ -122,6 +147,9 @@ async function understand({ source, before, after, root }) {
     }
     if (removed.length > 0) {
       planSteps.push(`Remove references to uninstalled plugin(s): ${removed.join(', ')}.`);
+    }
+    if (missing.length > 0) {
+      planSteps.push(`Install tracked plugin(s) missing from installed_plugins.json: ${missing.join(', ')}.`);
     }
     planSteps.push('Re-run sync to clear the card after edits.');
   } else {
@@ -140,16 +168,17 @@ async function understand({ source, before, after, root }) {
     recommendation,
     actionPlan: planSteps.join('\n'),
     evidence,
-    headline: buildHeadline({ updated, added, removed }),
-    why: [`updated=${updated.length}, added=${added.length}, removed=${removed.length}`],
+    headline: buildHeadline({ updated, added, removed, missing }),
+    why: [`updated=${updated.length}, added=${added.length}, removed=${removed.length}, missingTracked=${missing.length}`],
   };
 }
 
-function buildHeadline({ updated, added, removed }) {
+function buildHeadline({ updated, added, removed, missing }) {
   const parts = [];
   if (updated.length > 0) parts.push(`${updated.length} updated`);
   if (added.length > 0) parts.push(`${added.length} added`);
   if (removed.length > 0) parts.push(`${removed.length} removed`);
+  if (missing && missing.length > 0) parts.push(`${missing.length} tracked missing`);
   return `Plugins: ${parts.join(', ') || 'unchanged'}`;
 }
 
@@ -158,4 +187,10 @@ function safeParse(s) {
   try { return JSON.parse(s); } catch { return null; }
 }
 
-module.exports = { detect, understand };
+module.exports = {
+  detect,
+  understand,
+  buildPluginDetection,
+  missingTrackedPlugins,
+  pluginFingerprintLines,
+};
