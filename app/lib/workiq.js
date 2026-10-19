@@ -63,9 +63,25 @@ function isAuthError(error) {
  */
 function isEulaGate(text) {
   if (!text) return false;
-  const lower = String(text).toLowerCase();
+  const raw = String(text).trim();
+  // The 1.0.0 gate is a short banner. A real answer that mentions the
+  // license, or quotes the command inside a longer result, is still content.
+  if (raw.length === 0 || raw.length > 800) return false;
+  const lower = raw.toLowerCase();
   return lower.includes("accept the end user license")
-    || lower.includes("workiq accept-eula");
+    && lower.includes("workiq accept-eula");
+}
+
+function isEulaAcceptanceError(error) {
+  if (!error) return false;
+  return String(error).toLowerCase().includes("requires eula acceptance");
+}
+
+function workIQShouldRetry(result, attempt, maxRetries) {
+  if (!result?.error) return false;
+  if (isEulaAcceptanceError(result.error)) return false;
+  if (isAuthError(result.error)) return attempt === 0;
+  return attempt < maxRetries;
 }
 
 function classifyWorkIQResult(code, stdout, stderr) {
@@ -94,6 +110,7 @@ function classifyWorkIQResult(code, stdout, stderr) {
 /**
  * Run a WorkIQ query with automatic retries on failure.
  * Auth errors are retried once (token refresh race), other errors up to maxRetries.
+ * An EULA-acceptance error is returned immediately.
  * Supports an AbortController signal to cancel in-flight queries when another
  * query detects auth failure (kills the child process immediately).
  *
@@ -112,25 +129,13 @@ async function runWorkIQQueryWithRetry(question, timeoutMs = 120_000, maxRetries
 
     const result = await runWorkIQQuery(question, timeoutMs, signal);
 
-    // Success — return immediately
-    if (!result.error) return { ...result, authFailed: false };
-
-    // Auth error — retry once (token might be refreshing), then give up
-    if (isAuthError(result.error)) {
-      if (attempt === 0) {
-        await new Promise((r) => setTimeout(r, 3000));
-        continue;
-      }
-      return { ...result, authFailed: true };
+    // Success, or an EULA gate (it will not change on retry).
+    if (!workIQShouldRetry(result, attempt, maxRetries)) {
+      return { ...result, authFailed: !!(result.error && isAuthError(result.error)) };
     }
 
-    // Non-auth error — retry with backoff
-    if (attempt < maxRetries) {
-      await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
-      continue;
-    }
-
-    return { ...result, authFailed: false };
+    const delayMs = isAuthError(result.error) ? 3000 : 2000 * (attempt + 1);
+    await new Promise((r) => setTimeout(r, delayMs));
   }
 
   return { content: "", error: "All retry attempts exhausted", authFailed: false };
@@ -1359,6 +1364,8 @@ module.exports = {
   runQueriesBatched,
   isAuthError,
   isEulaGate,
+  isEulaAcceptanceError,
+  workIQShouldRetry,
   classifyWorkIQResult,
   buildQueries,
   deduplicateDocuments,

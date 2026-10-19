@@ -74,11 +74,8 @@ function flatten(data) {
   return flat;
 }
 
-async function detect({ source, installed: installedOverride } = {}) {
-  const installed = installedOverride ? { data: installedOverride } : readInstalled();
-  if (installed.error) return { error: installed.error };
-
-  const flat = flatten(installed.data);
+function buildPluginDetection(source, data) {
+  const flat = flatten(data);
   const keys = Object.keys(flat).sort();
   if (keys.length === 0) return { error: 'no plugins installed (after excluding eval-guide)' };
 
@@ -103,6 +100,12 @@ async function detect({ source, installed: installedOverride } = {}) {
     },
     meta: { count: keys.length, names: keys, trackedPlugins, missingTrackedPlugins: missing },
   };
+}
+
+async function detect({ source } = {}) {
+  const installed = readInstalled();
+  if (installed.error) return { error: installed.error };
+  return buildPluginDetection(source, installed.data);
 }
 
 async function understand({ source, before, after, root }) {
@@ -187,6 +190,7 @@ function safeParse(s) {
 module.exports = {
   detect,
   understand,
+  buildPluginDetection,
   missingTrackedPlugins,
   pluginFingerprintLines,
 };

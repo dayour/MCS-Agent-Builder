@@ -2,6 +2,7 @@
 
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const http = require('node:http');
 const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
@@ -46,14 +47,11 @@ test('a missing tracked plugin changes the fingerprint and recommends TAKE', asy
       'other@other': [{ version: '0.1.0', gitCommitSha: 'def', lastUpdated: '2026-10-02T00:00:00.000Z' }],
     },
   };
-  const missing = await plugins.detect({ source: { trackedPlugins: tracked }, installed });
-  const present = await plugins.detect({
-    source: { trackedPlugins: tracked },
-    installed: {
-      plugins: {
-        ...installed.plugins,
-        'mcs-assistant@copilot-studio-plugin': [{ version: '1.0.0', gitCommitSha: 'fff', lastUpdated: '2026-10-03T00:00:00.000Z' }],
-      },
+  const missing = plugins.buildPluginDetection({ trackedPlugins: tracked }, installed);
+  const present = plugins.buildPluginDetection({ trackedPlugins: tracked }, {
+    plugins: {
+      ...installed.plugins,
+      'mcs-assistant@copilot-studio-plugin': [{ version: '1.0.0', gitCommitSha: 'fff', lastUpdated: '2026-10-03T00:00:00.000Z' }],
     },
   });
 
@@ -164,6 +162,110 @@ test('a newer registry latest opens one TAKE card and a failed lookup reuses the
   assert.deepEqual(inSync.meta.registryDrift, []);
   const quiet = await mcp.understand({ after: inSync, before: { fingerprint: inSync.fingerprint } });
   assert.equal(quiet.recommendation, 'REJECT');
+});
+
+function withLocalServer(handler, run) {
+  return new Promise((resolve, reject) => {
+    const server = http.createServer(handler);
+    server.listen(0, '127.0.0.1', async () => {
+      try {
+        resolve(await run(server.address().port));
+      } catch (err) {
+        reject(err);
+      } finally {
+        server.closeAllConnections();
+        server.close();
+      }
+    });
+  });
+}
+
+function lookupLocal(port, timeoutMs, pathname = '/pkg') {
+  return mcp.lookupNpmLatest('@microsoft/workiq', timeoutMs, {
+    request: http.get,
+    url: `http://127.0.0.1:${port}${pathname}`,
+  });
+}
+
+test('lookupNpmLatest against a local server covers status, size, and deadline', async () => {
+  const ok = await withLocalServer((req, res) => {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ 'dist-tags': { latest: '1.2.3' } }));
+  }, (port) => lookupLocal(port, 2000));
+  assert.equal(ok, '1.2.3');
+
+  const tooBig = await withLocalServer((req, res) => {
+    res.writeHead(200);
+    const chunk = Buffer.alloc(256 * 1024, 0x61);
+    let sent = 0;
+    const writeMore = () => {
+      if (res.destroyed) return;
+      while (sent <= (2 * 1024 * 1024) + chunk.length) {
+        const canContinue = res.write(chunk);
+        sent += chunk.length;
+        if (!canContinue) {
+          res.once('drain', writeMore);
+          return;
+        }
+      }
+      res.end();
+    };
+    writeMore();
+  }, (port) => lookupLocal(port, 5000));
+  assert.equal(tooBig, null);
+
+  const silentStarted = Date.now();
+  const silent = await withLocalServer(() => {}, (port) => lookupLocal(port, 400));
+  const silentElapsed = Date.now() - silentStarted;
+  assert.equal(silent, null);
+  assert.ok(silentElapsed < 1500, `silent lookup took ${silentElapsed}ms`);
+
+  const dripStarted = Date.now();
+  const drip = await withLocalServer((req, res) => {
+    res.writeHead(200);
+    res.write('x');
+    const timer = setInterval(() => { res.write('x'); }, 3000);
+    res.on('close', () => clearInterval(timer));
+  }, (port) => lookupLocal(port, 5000));
+  const dripElapsed = Date.now() - dripStarted;
+  assert.equal(drip, null);
+  assert.ok(dripElapsed >= 4500, `drip resolved too fast (${dripElapsed}ms)`);
+  assert.ok(dripElapsed < 5500, `drip resolved too slow (${dripElapsed}ms)`);
+
+  const redirected = await withLocalServer((req, res) => {
+    if (req.url === '/target') {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ 'dist-tags': { latest: '9.9.9' } }));
+      return;
+    }
+    res.writeHead(302, { location: '/target' });
+    res.end();
+  }, (port) => lookupLocal(port, 2000, '/start'));
+  assert.equal(redirected, null);
+
+  const missing = await withLocalServer((req, res) => {
+    res.writeHead(404);
+    res.end('no such package');
+  }, (port) => lookupLocal(port, 2000));
+  assert.equal(missing, null);
+
+  const reset = await withLocalServer((req, res) => {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.write('{"dist-tags":{"latest":"1.0.1"');
+    res.destroy();
+  }, (port) => lookupLocal(port, 2000));
+  assert.equal(reset, null);
+});
+
+test('lookup hooks cannot leave loopback http', async () => {
+  let called = false;
+  const result = await mcp.lookupNpmLatest('@microsoft/workiq', 200, {
+    request: () => { called = true; },
+    url: 'https://registry.npmjs.org/@microsoft%2Fworkiq',
+  });
+  assert.equal(called, false);
+  assert.equal(result, null);
+  assert.equal(new URL(mcp.registryUrl('@microsoft/workiq')).hostname, 'registry.npmjs.org');
 });
 
 test('parseLatest ignores a non-version dist-tag', () => {

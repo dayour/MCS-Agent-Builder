@@ -9,12 +9,14 @@
  * Declared pins (source.pinnedVersions) are compared to the same server's
  * args in .claude/settings.json and .mcp.json. A mismatch is part of the
  * fingerprint. For each declared package, dist-tags.latest is read with an
- * HTTPS GET to registry.npmjs.org (no shell). A newer latest tag is stored
- * as a `registry:<package>@<latest>` secondary key so the next sync opens
- * one TAKE card. The pin is not edited. A failed lookup reuses the previous
- * registry key so an offline run does not flap. `isUnverifiable()` only
- * flags @latest or an unpinned npx command; a pinned version that has a
- * newer release is not unverifiable.
+ * HTTPS GET to registry.npmjs.org (no shell). A latest tag that differs from
+ * pinnedAt (not only a greater one) is stored as a
+ * `registry:<package>@<latest>` secondary key so the next sync opens one
+ * TAKE card. The pin is not edited. A failed lookup reuses the previous
+ * registry key so an offline run does not flap. The lookup has a total
+ * deadline, not only an idle timeout. `isUnverifiable()` only flags @latest
+ * or an unpinned npx command; a pinned version that has a different
+ * published release is not unverifiable.
  *
  * Normalization applied:
  *   - Keys lowercased, sorted
@@ -116,17 +118,39 @@ function parseLatest(text) {
   }
 }
 
-function lookupNpmLatest(packageName, timeoutMs = 5000) {
+function isLoopbackTestUrl(url) {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'http:' && (parsed.hostname === '127.0.0.1' || parsed.hostname === 'localhost');
+  } catch {
+    return false;
+  }
+}
+
+// hooks.request / hooks.url exist so tests can point a local http server at
+// this function. The default path never reads hooks and only GETs
+// https://registry.npmjs.org. A test URL that is not loopback http is refused.
+function lookupNpmLatest(packageName, timeoutMs = 5000, hooks) {
+  const testRequest = hooks && hooks.request;
   let url;
-  try { url = registryUrl(packageName); } catch { return Promise.resolve(null); }
+  if (testRequest) {
+    if (!isLoopbackTestUrl(hooks.url)) return Promise.resolve(null);
+    url = hooks.url;
+  } else {
+    try { url = registryUrl(packageName); } catch { return Promise.resolve(null); }
+  }
+  const request = testRequest || https.get;
+  const limit = Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 5000;
   return new Promise((resolve) => {
     let settled = false;
+    let deadlineTimer = null;
     const finish = (value) => {
       if (settled) return;
       settled = true;
+      clearTimeout(deadlineTimer);
       resolve(value);
     };
-    const req = https.get(url, {
+    const req = request(url, {
       headers: {
         accept: 'application/vnd.npm.install-v1+json',
         'user-agent': 'mcs-sync-mcp-pin-check',
@@ -141,24 +165,34 @@ function lookupNpmLatest(packageName, timeoutMs = 5000) {
       let size = 0;
       let tooBig = false;
       res.on('data', (chunk) => {
+        if (settled) return;
         size += chunk.length;
         if (size > 2 * 1024 * 1024) {
           tooBig = true;
           req.destroy();
+          finish(null);
           return;
         }
         chunks.push(chunk);
       });
       res.on('end', () => {
-        if (tooBig) { finish(null); return; }
+        if (tooBig || settled) return;
         finish(parseLatest(Buffer.concat(chunks).toString('utf8')));
       });
       res.on('error', () => finish(null));
     });
-    req.setTimeout(timeoutMs, () => {
+    // Idle timeout: reset by every byte. A slow drip never trips it.
+    req.setTimeout(limit, () => {
       req.destroy();
       finish(null);
     });
+    // Total deadline: not reset by bytes. Sync runs sources serially with
+    // no outer deadline, so this probe must bound itself.
+    deadlineTimer = setTimeout(() => {
+      req.destroy();
+      finish(null);
+    }, limit);
+    if (settled) clearTimeout(deadlineTimer);
     req.on('error', () => finish(null));
   });
 }
@@ -218,6 +252,7 @@ async function registryDriftKeys({ packageName, pinnedAt, prevSnapshot, lookup }
     latest = null;
   }
   if (typeof latest === 'string' && VERSION_RE.test(latest)) {
+    // Different from pinnedAt, including an older published tag. Not a semver compare.
     return latest === pinnedAt ? [] : [`registry:${packageName}@${latest}`];
   }
   return previousRegistryKeys(prevSnapshot, packageName);
@@ -429,7 +464,7 @@ function recommend({ addedServers, removedServers, changedServers, unverifiableH
     steps.push(`Align ${pinMismatches.map((m) => m.serverName).join(', ')} across .claude/settings.json, .mcp.json, and pinnedVersions. The adapter does not edit the pin.`);
   }
   if (driftCount > 0) {
-    steps.push(`Review registry drift (${registryDrift.join(', ')}). Update pinnedAt and both config files together only if you accept the newer release.`);
+    steps.push(`Review registry drift (${registryDrift.join(', ')}). Update pinnedAt and both config files together only if you accept that different release.`);
   }
   steps.push('Re-run sync to clear the card after edits.');
   return { recommendation: 'TAKE', actionPlan: steps.join('\n') };
@@ -458,4 +493,5 @@ module.exports = {
   registryDriftKeys,
   parseLatest,
   pinMismatchLine,
+  lookupNpmLatest,
 };
