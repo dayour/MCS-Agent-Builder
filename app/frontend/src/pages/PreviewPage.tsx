@@ -208,7 +208,8 @@ const VariablePanel: React.FC<{ groups: VariableGroup[]; onClose: () => void }> 
                         className="text-xs text-brand hover:underline mt-0.5 block px-0 py-0 h-auto"
                         onClick={() => setExpanded(prev => {
                           const next = new Set(prev);
-                          isExpanded ? next.delete(key) : next.add(key);
+                          if (isExpanded) next.delete(key);
+                          else next.add(key);
                           return next;
                         })}
                       >
@@ -606,7 +607,7 @@ export const PreviewPage: React.FC = () => {
     try {
       const saved = JSON.parse(getAgentStorage(agentConfig.id, 'activitySessions_v5') || 'null');
       if (saved?.length) return saved;
-    } catch {}
+    } catch { /* ignore */ }
     return [];
   });
 

@@ -107,23 +107,26 @@ const generateTestScore = (testMethod: string, quality: QualityLevel, caseData: 
       return Math.random() > 0.3 ? 'Pass' : 'Fail'
 
     case 'Compare meaning':
-    case 'Text similarity':
+    case 'Text similarity': {
       // Compare agent response to expected response
       const similarity = baseScore + (Math.random() * 0.2 - 0.1)
       return similarity > 0.7 ? 'Pass' : 'Fail'
+    }
 
-    case 'Keyword match':
+    case 'Keyword match': {
       // Check if required keywords are present
       const keywordMatchRate = keywordsUsed.length / (caseData.keywords?.length || 1)
       return keywordMatchRate > 0.5 ? 'Pass' : 'Fail'
+    }
 
-    case 'Tool use':
+    case 'Tool use': {
       // Check if correct tool/topic was used
       if (!caseData.toolUse || caseData.toolUse.length === 0) return 'Pass'
       const expectedNames = caseData.toolUse.map(t => t.name)
       const actualNames = actualToolsUsed.map(t => t.name)
       const toolMatch = expectedNames.some(name => actualNames.includes(name))
       return toolMatch ? 'Pass' : 'Fail'
+    }
 
     case 'Tone of voice':
     case 'Sentiment appropriateness':

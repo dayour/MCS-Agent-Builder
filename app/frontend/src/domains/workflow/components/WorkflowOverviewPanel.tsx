@@ -580,7 +580,8 @@ export const WorkflowOverviewPanel: React.FC<Props> = ({ ctx, hitlHelpers }) => 
         agentDescription={agentConfig.description}
         onSelect={(iconKey, gradientKey, imageData) => {
           const update = { iconKey, gradientKey, ...(imageData ? { iconImageData: imageData } : { iconImageData: null }) };
-          isAgentGlobalUndo ? updateWithHistory(update) : updateAgentConfig(update);
+          if (isAgentGlobalUndo) updateWithHistory(update);
+          else updateAgentConfig(update);
           setShowOverviewIconPicker(false);
         }}
       />

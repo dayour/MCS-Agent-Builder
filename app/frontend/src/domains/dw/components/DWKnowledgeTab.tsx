@@ -392,9 +392,8 @@ export const DWKnowledgeTab: React.FC = () => {
 
 
   const handleSaveInstructions = (value: string) => {
-    isAgentGlobalUndo
-      ? updateWithHistory({ instructions: value })
-      : updateAgentConfig({ instructions: value });
+    if (isAgentGlobalUndo) updateWithHistory({ instructions: value });
+    else updateAgentConfig({ instructions: value });
 
     // Keep Dexter worker in sync with local instructions
     if (isDexter && agentConfig.dexterWorkerId) {

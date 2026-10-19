@@ -801,9 +801,8 @@ export const AgentBuildPage: React.FC = () => {
     if (item.id.startsWith('cap-')) {
       const idx = parseInt(item.id.slice(4), 10);
       const newCaps = (agentConfig.capabilities || []).filter((_, i) => i !== idx);
-      isAgentGlobalUndo
-        ? updateWithHistory({ capabilities: newCaps })
-        : updateAgentConfig({ capabilities: newCaps });
+      if (isAgentGlobalUndo) updateWithHistory({ capabilities: newCaps });
+      else updateAgentConfig({ capabilities: newCaps });
       setNewlyAddedCapNames(prev => {
         const s = new Set(prev);
         s.delete(item.name);
@@ -916,9 +915,8 @@ export const AgentBuildPage: React.FC = () => {
     const deduped = newCapabilities.filter(c => !existingNames.has(c.name));
     if (deduped.length === 0) return 0;
     const merged = [...(agentConfig.capabilities || []), ...deduped];
-    isAgentGlobalUndo
-      ? updateWithHistory({ capabilities: merged })
-      : updateAgentConfig({ capabilities: merged });
+    if (isAgentGlobalUndo) updateWithHistory({ capabilities: merged });
+    else updateAgentConfig({ capabilities: merged });
     commitSave();
     const count = deduped.length;
     addToast({ variant: 'success', title: `${count} component${count > 1 ? 's' : ''} added`, message: `${count} component${count > 1 ? 's have' : ' has'} been added to your agent.` });
@@ -1444,7 +1442,8 @@ export const AgentBuildPage: React.FC = () => {
             onAdd={(tool) => {
               const newCap = { name: tool.label, type: 'connector' as const };
               const newCaps = [newCap, ...(agentConfig.capabilities || [])];
-              isAgentGlobalUndo ? updateWithHistory({ capabilities: newCaps }) : updateAgentConfig({ capabilities: newCaps });
+              if (isAgentGlobalUndo) updateWithHistory({ capabilities: newCaps });
+              else updateAgentConfig({ capabilities: newCaps });
               commitSave();
               setNewlyAddedCapNames(prev => { const s = new Set(prev); s.add(tool.label); return s; });
               panel.setActiveComponentTab('tools');
@@ -1453,7 +1452,8 @@ export const AgentBuildPage: React.FC = () => {
               const newCaps = (agentConfig.capabilities || []).filter(
                 (c) => !(c.type === 'connector' && c.name === tool.label)
               );
-              isAgentGlobalUndo ? updateWithHistory({ capabilities: newCaps }) : updateAgentConfig({ capabilities: newCaps });
+              if (isAgentGlobalUndo) updateWithHistory({ capabilities: newCaps });
+              else updateAgentConfig({ capabilities: newCaps });
               commitSave();
             }}
             onManage={(tool) => {
@@ -1488,7 +1488,8 @@ export const AgentBuildPage: React.FC = () => {
             onAdd={(mcpName) => {
               const newCap = { name: mcpName, type: 'connector' as const };
               const newCaps = [newCap, ...(agentConfig.capabilities || [])];
-              isAgentGlobalUndo ? updateWithHistory({ capabilities: newCaps }) : updateAgentConfig({ capabilities: newCaps });
+              if (isAgentGlobalUndo) updateWithHistory({ capabilities: newCaps });
+              else updateAgentConfig({ capabilities: newCaps });
               commitSave();
               setNewlyAddedCapNames(prev => { const s = new Set(prev); s.add(mcpName); return s; });
               panel.setActiveComponentTab('tools');
@@ -1513,7 +1514,8 @@ export const AgentBuildPage: React.FC = () => {
             onAdd={(apiName) => {
               const newCap = { name: apiName, type: 'connector' as const };
               const newCaps = [newCap, ...(agentConfig.capabilities || [])];
-              isAgentGlobalUndo ? updateWithHistory({ capabilities: newCaps }) : updateAgentConfig({ capabilities: newCaps });
+              if (isAgentGlobalUndo) updateWithHistory({ capabilities: newCaps });
+              else updateAgentConfig({ capabilities: newCaps });
               commitSave();
               setNewlyAddedCapNames(prev => { const s = new Set(prev); s.add(apiName); return s; });
               panel.setActiveComponentTab('tools');

@@ -254,7 +254,7 @@ export function prewarmScenarioCache(agentConfig: AgentConfig): void {
     // Fire-and-forget — also persist to agentStorage so TriggerLabPage finds it on mount
     generateScenarios(agentConfig).then(scenarios => {
       const fingerprint = (agentConfig.instructions || '').slice(0, 40);
-      try { setAgentStorage(agentConfig.id, 'triggerlab_v7', JSON.stringify({ fingerprint, scenarios })); } catch {}
+      try { setAgentStorage(agentConfig.id, 'triggerlab_v7', JSON.stringify({ fingerprint, scenarios })); } catch { /* ignore */ }
     });
   }
 }
