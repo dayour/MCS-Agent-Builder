@@ -29,6 +29,17 @@ export default tseslint.config(
       "react-hooks/use-memo": "off",
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
       "@typescript-eslint/no-unused-vars": "off",
+      // recommended enables this as an error. 229 existing sites predate CI;
+      // warn keeps them visible in the lint log without blocking the gate.
+      // New `any` still shows up. Do not turn the rule off.
+      "@typescript-eslint/no-explicit-any": "warn",
+    },
+  },
+  {
+    // Playwright fixtures are named `use`. They are not React hooks.
+    files: ["e2e/**/*.{ts,tsx}"],
+    rules: {
+      "react-hooks/rules-of-hooks": "off",
     },
   },
 );

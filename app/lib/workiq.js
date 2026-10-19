@@ -58,8 +58,59 @@ function isAuthError(error) {
 }
 
 /**
+ * WorkIQ 1.0.0 `ask` exits 0 and prints an EULA banner when the license
+ * has not been accepted. That banner is not customer context.
+ */
+function isEulaGate(text) {
+  if (!text) return false;
+  const raw = String(text).trim();
+  // The 1.0.0 gate is a short banner. A real answer that mentions the
+  // license, or quotes the command inside a longer result, is still content.
+  if (raw.length === 0 || raw.length > 800) return false;
+  const lower = raw.toLowerCase();
+  return lower.includes("accept the end user license")
+    && lower.includes("workiq accept-eula");
+}
+
+function isEulaAcceptanceError(error) {
+  if (!error) return false;
+  return String(error).toLowerCase().includes("requires eula acceptance");
+}
+
+function workIQShouldRetry(result, attempt, maxRetries) {
+  if (!result?.error) return false;
+  if (isEulaAcceptanceError(result.error)) return false;
+  if (isAuthError(result.error)) return attempt === 0;
+  return attempt < maxRetries;
+}
+
+function classifyWorkIQResult(code, stdout, stderr) {
+  const out = stdout || "";
+  const err = stderr || "";
+  const authInStderr = isAuthError(err);
+  const authInStdout = code !== 0 && isAuthError(out);
+  if (authInStderr || authInStdout) {
+    return {
+      content: "",
+      error: "WorkIQ not authenticated. Run `workiq ask -q \"test\"` in a terminal to sign in.",
+    };
+  }
+  if (isEulaGate(out) || isEulaGate(err)) {
+    return {
+      content: "",
+      error: "WorkIQ requires EULA acceptance. Run `workiq accept-eula` and retry.",
+    };
+  }
+  if (code !== 0 && !out.trim()) {
+    return { content: "", error: `WorkIQ exited with code ${code}: ${err.trim().slice(0, 200)}` };
+  }
+  return { content: out.trim(), error: null };
+}
+
+/**
  * Run a WorkIQ query with automatic retries on failure.
  * Auth errors are retried once (token refresh race), other errors up to maxRetries.
+ * An EULA-acceptance error is returned immediately.
  * Supports an AbortController signal to cancel in-flight queries when another
  * query detects auth failure (kills the child process immediately).
  *
@@ -78,25 +129,13 @@ async function runWorkIQQueryWithRetry(question, timeoutMs = 120_000, maxRetries
 
     const result = await runWorkIQQuery(question, timeoutMs, signal);
 
-    // Success — return immediately
-    if (!result.error) return { ...result, authFailed: false };
-
-    // Auth error — retry once (token might be refreshing), then give up
-    if (isAuthError(result.error)) {
-      if (attempt === 0) {
-        await new Promise((r) => setTimeout(r, 3000));
-        continue;
-      }
-      return { ...result, authFailed: true };
+    // Success, or an EULA gate (it will not change on retry).
+    if (!workIQShouldRetry(result, attempt, maxRetries)) {
+      return { ...result, authFailed: !!(result.error && isAuthError(result.error)) };
     }
 
-    // Non-auth error — retry with backoff
-    if (attempt < maxRetries) {
-      await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
-      continue;
-    }
-
-    return { ...result, authFailed: false };
+    const delayMs = isAuthError(result.error) ? 3000 : 2000 * (attempt + 1);
+    await new Promise((r) => setTimeout(r, delayMs));
   }
 
   return { content: "", error: "All retry attempts exhausted", authFailed: false };
@@ -225,26 +264,7 @@ function runWorkIQQuery(question, timeoutMs = 120_000, signal) {
       if (signal) signal.removeEventListener("abort", onAbort);
       if (killed) return; // already resolved via timeout or abort
 
-      // Use shared isAuthError() for both stderr and stdout to keep patterns in one place.
-      // stderr is always reliable. Only check stdout when exit code != 0
-      // (avoids false positives on content mentioning "authentication", "sign in", etc.)
-      const authInStderr = isAuthError(stderr);
-      const authInStdout = code !== 0 && isAuthError(stdout);
-
-      if (authInStderr || authInStdout) {
-        resolve({
-          content: "",
-          error: "WorkIQ not authenticated. Run `workiq ask -q \"test\"` in a terminal to sign in.",
-        });
-        return;
-      }
-
-      if (code !== 0 && !stdout.trim()) {
-        resolve({ content: "", error: `WorkIQ exited with code ${code}: ${stderr.trim().slice(0, 200)}` });
-        return;
-      }
-
-      resolve({ content: stdout.trim(), error: null });
+      resolve(classifyWorkIQResult(code, stdout, stderr));
     });
   });
 }
@@ -1343,6 +1363,10 @@ module.exports = {
   runWorkIQQueryWithRetry,
   runQueriesBatched,
   isAuthError,
+  isEulaGate,
+  isEulaAcceptanceError,
+  workIQShouldRetry,
+  classifyWorkIQResult,
   buildQueries,
   deduplicateDocuments,
   assembleContextFile,

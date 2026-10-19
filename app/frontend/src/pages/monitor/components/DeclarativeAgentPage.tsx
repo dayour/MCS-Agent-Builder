@@ -436,7 +436,7 @@ function DeclarativeAgentPage({
                     <CopilotButton
                       variant="ghost"
                       size="xs"
-                      onClick={(e) => { e.stopPropagation(); onTopicClick && onTopicClick(topic) }}
+                      onClick={(e) => { e.stopPropagation(); if (onTopicClick) onTopicClick(topic); }}
                     >
                       See details
                       <ChevronRight16Regular />

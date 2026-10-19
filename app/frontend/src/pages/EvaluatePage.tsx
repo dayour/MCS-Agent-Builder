@@ -1316,7 +1316,8 @@ const WorkflowEvaluatePage: React.FC = () => {
                             tabIndex={0}
                             onClick={() => setSelectedGraderIds(prev => {
                               const n = new Set(prev);
-                              n.has(grader.id) ? n.delete(grader.id) : n.add(grader.id);
+                              if (n.has(grader.id)) n.delete(grader.id);
+                              else n.add(grader.id);
                               return n;
                             })}
                             className="flex items-center gap-3 px-4 py-3 cursor-pointer"
@@ -1802,7 +1803,7 @@ const WorkflowEvaluatePage: React.FC = () => {
                           <div
                             role="button"
                             tabIndex={0}
-                            onClick={() => !isNotAssessed && setExpandedActionIds(prev => { const n = new Set(prev); n.has(action.id) ? n.delete(action.id) : n.add(action.id); return n; })}
+                            onClick={() => { if (!isNotAssessed) setExpandedActionIds(prev => { const n = new Set(prev); if (n.has(action.id)) n.delete(action.id); else n.add(action.id); return n; }); }}
                             className={`flex-1 flex flex-col px-4 py-3 mb-1.5 rounded-xl border transition-all ${cardStyle} ${isNotAssessed ? 'cursor-default' : 'cursor-pointer hover:brightness-95'}`}
                           >
                             <div className="flex items-center gap-2.5">

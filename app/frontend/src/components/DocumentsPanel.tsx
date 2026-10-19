@@ -121,7 +121,7 @@ export const DocumentsPanel: React.FC<DocumentsPanelProps> = ({ projectId, analy
               fetchedDocs = proj2.docs || fetchedDocs;
             }
           }
-        } catch {}
+        } catch { /* ignore */ }
       }
       setDocs(fetchedDocs);
     } catch (err) {

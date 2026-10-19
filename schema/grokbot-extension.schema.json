@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/darbotlabs/plugins/schema/grokbot-extension.schema.json",
+  "title": "Grok Bot extension for Agent Plugins 1.0.0 (extensions[\"com.grokbot\"])",
+  "type": "object",
+  "required": ["kind", "spec", "level", "capabilities", "approval", "secretsPolicy", "runtimes"],
+  "additionalProperties": false,
+  "properties": {
+    "kind": { "enum": ["credential-provider", "secret-store", "auth-method", "secret-sync", "channel"] },
+    "spec": { "type": "string", "pattern": "^specs/[A-Z0-9_]+\\.md$" },
+    "level": { "type": "integer", "minimum": 0, "maximum": 3, "description": "Highest ROADMAP level whose validation round passed (L0..L3)." },
+    "capabilities": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": { "enum": ["messaging", "meeting-join", "call", "media", "browser-fill", "totp-fill", "masked-secret", "sign", "decrypt", "certificate", "token-acquire", "mfa-push", "webauthn-relay", "secret-push", "env-sync", "vault-select", "audit"] }
+    },
+    "approval": {
+      "type": "object", "required": ["required", "scope"], "additionalProperties": false,
+      "properties": {
+        "required": { "const": true },
+        "scope": { "enum": ["per-use", "per-session", "per-plan"] },
+        "timeoutSeconds": { "type": "integer", "minimum": 10, "maximum": 900 }
+      }
+    },
+    "secretsPolicy": {
+      "type": "object", "required": ["plaintextToAgent"], "additionalProperties": false,
+      "properties": {
+        "plaintextToAgent": { "const": false },
+        "storage": { "enum": ["none", "broker-memory", "os-keychain", "provider"] },
+        "direction": { "enum": ["read", "write-only", "read-write"] }
+      }
+    },
+    "runtimes": {
+      "type": "object", "required": ["core"], "additionalProperties": false,
+      "properties": {
+        "core": { "enum": ["node-mcp-stdio", "dotnet-mcp-stdio"], "description": "dotnet-mcp-stdio only where the spec requires .NET (teams-agent365: app-hosted media is .NET-only)." },
+        "platforms": { "type": "array", "items": { "enum": ["windows", "linux", "macos"] } }
+      }
+    },
+    "bindings": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "node": { "type": "string" },
+        "python": { "type": "string" },
+        "powershell": { "type": "string" },
+        "dotnet": { "type": "string" }
+      }
+    },
+    "externalDependencies": { "type": "array", "items": { "type": "string" }, "description": "e.g. lpass, pass-cli, az, gh" }
+  }
+}

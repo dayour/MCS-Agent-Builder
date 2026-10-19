@@ -190,6 +190,7 @@ async function apiExecutor(plan, ctx) {
   // the same shape its step functions expect. Keep order in sync with
   // build-pipeline.runPipeline.
   const buildLegacySteps = [
+    { id: 'manifest',   label: 'Writing Agent Plugins package' },
     { id: 'auth',       label: 'Verifying credentials' },
     { id: 'create',     label: 'Creating agent' },
     { id: 'configure',  label: 'Configuring agent' },

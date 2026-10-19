@@ -19,7 +19,7 @@
   }
 })();
 
-/* eslint-disable import/first */
+// Imports stay below the registerProperty patch. import/first is not loaded.
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
