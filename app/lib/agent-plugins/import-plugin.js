@@ -5,7 +5,21 @@ const path = require("path");
 const { validatePluginDir, parseFrontmatter } = require("./validate");
 
 function readJson(file) {
-  return JSON.parse(fs.readFileSync(file, "utf8"));
+  let text;
+  try {
+    text = fs.readFileSync(file, "utf8");
+  } catch (err) {
+    const error = new Error(`cannot read ${file}: ${err.message}`);
+    error.code = "PLUGIN_READ";
+    throw error;
+  }
+  try {
+    return JSON.parse(text);
+  } catch (err) {
+    const error = new Error(`invalid JSON in ${file}: ${err.message}`);
+    error.code = "PLUGIN_JSON";
+    throw error;
+  }
 }
 
 function skillRecords(pluginRoot) {
@@ -30,7 +44,7 @@ function skillRecords(pluginRoot) {
 
 function importPlugin(dir) {
   const pluginRoot = path.resolve(dir);
-  const validation = validatePluginDir(pluginRoot);
+  const validation = validatePluginDir(pluginRoot, { profile: "import" });
   const pluginPath = path.join(pluginRoot, "plugin.json");
   const mcpPath = path.join(pluginRoot, "mcp.json");
   if (!fs.existsSync(pluginPath)) {

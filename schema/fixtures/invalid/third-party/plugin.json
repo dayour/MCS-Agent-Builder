@@ -1,0 +1,6 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "third-party",
+  "version": "1.0.0",
+  "description": "Third-party package with no grokbot extension."
+}

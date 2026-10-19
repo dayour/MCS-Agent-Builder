@@ -1,23 +1,32 @@
 "use strict";
 
+const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 const { redact } = require("./mcp-stdio-server");
-const { validatePluginDir, formatViolation, PLUGIN_SCHEMA_ID, MCP_SCHEMA_ID } = require("./validate");
+const { validatePluginDir, formatViolation, PLUGIN_SCHEMA_ID, MCP_SCHEMA_ID, isLoopback } = require("./validate");
 
 const SERVER_SOURCE = fs.readFileSync(path.join(__dirname, "mcp-stdio-server.js"));
 const NAME_PATTERN = /^(?!.*(?:--|\.\.))[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/;
+const PUBLIC_HEADER_NAMES = new Set([
+  "accept",
+  "accept-language",
+  "content-type",
+  "user-agent",
+  "x-tenant",
+  "x-request-id",
+  "x-correlation-id",
+]);
+const SECRET_VALUE = /(?:ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9]{16,}|AKIA[0-9A-Z]{16}|xox[baprs]-[A-Za-z0-9-]{10,}|Bearer\s+\S{8,}|-----BEGIN [A-Z ]*PRIVATE KEY-----)/;
 
 function pluginNameFromAgent(agentName) {
-  let slug = String(agentName || "").trim().toLowerCase();
+  const raw = String(agentName || "").trim();
+  let slug = raw.toLowerCase();
   slug = slug.replace(/[^a-z0-9.-]+/g, "-").replace(/([-.])\1+/g, "$1").replace(/^[-.]+|[-.]+$/g, "");
   if (slug.length > 64) slug = slug.slice(0, 64).replace(/[-.]+$/g, "");
-  if (!NAME_PATTERN.test(slug)) {
-    const error = new Error("agent.name does not produce a valid Agent Plugins name");
-    error.code = "PLUGIN_NAME";
-    throw error;
-  }
-  return slug;
+  if (NAME_PATTERN.test(slug)) return slug;
+  const digest = crypto.createHash("sha256").update(raw, "utf8").digest("hex").slice(0, 8);
+  return `agent-${digest}`;
 }
 
 function skillNameFromPlugin(name) {
@@ -56,27 +65,31 @@ function descriptionFor(spec, name) {
 function safeRemoteUrl(raw) {
   try {
     const url = new URL(raw);
-    if (url.username || url.password || url.hash) return null;
-    if (url.protocol === "https:") return url.toString();
-    const host = url.hostname.toLowerCase();
-    const loopback = host === "localhost" || host === "::1" || host.startsWith("127.");
-    if (url.protocol === "http:" && loopback) return url.toString();
+    if (url.username || url.password) return { url: null, reason: "remote MCP url contains user info" };
+    if (url.hash) return { url: null, reason: "remote MCP url contains a fragment" };
+    if (url.search) return { url: null, reason: "remote MCP url contains a query string" };
+    if (url.protocol === "https:") return { url: url.toString(), reason: null };
+    if (url.protocol === "http:" && isLoopback(url.hostname)) return { url: url.toString(), reason: null };
+    return { url: null, reason: "remote MCP url is not https (or loopback http) without credentials" };
   } catch {
-    return null;
+    return { url: null, reason: "remote MCP url is not an absolute URL" };
   }
-  return null;
 }
 
 function publicHeaders(headers) {
-  if (!headers || typeof headers !== "object" || Array.isArray(headers)) return undefined;
+  const dropped = [];
+  if (!headers || typeof headers !== "object" || Array.isArray(headers)) return { kept: undefined, dropped };
   const kept = {};
   for (const [name, value] of Object.entries(headers)) {
-    if (typeof value !== "string" || /[\r\n]/.test(value)) continue;
-    if (/authorization|cookie|api[-_]?key|token|secret/i.test(name)) continue;
-    if (/Bearer\s+\S{8,}|ghp_|sk-|AKIA/.test(value)) continue;
+    const lower = name.toLowerCase();
+    const allowed = PUBLIC_HEADER_NAMES.has(lower) && typeof value === "string" && !/[\r\n]/.test(value) && !SECRET_VALUE.test(value);
+    if (!allowed) {
+      dropped.push(name);
+      continue;
+    }
     kept[name] = value;
   }
-  return Object.keys(kept).length ? kept : undefined;
+  return { kept: Object.keys(kept).length ? kept : undefined, dropped };
 }
 
 function serverKey(name, used) {
@@ -92,26 +105,30 @@ function serverKey(name, used) {
   return key;
 }
 
-function selectedIntegrations(spec) {
+function selectedIntegrations(spec, pluginName) {
   const omitted = [];
   const servers = {};
-  const used = new Set();
+  const used = new Set(pluginName ? [pluginName] : []);
   const integrations = Array.isArray(spec.integrations) ? spec.integrations : [];
   for (const item of integrations) {
     if (!item || typeof item !== "object") continue;
     const rawUrl = item.url || item.endpoint || item.mcpUrl;
     if (!rawUrl) continue;
     if (item.type && item.type !== "mcp") continue;
-    const url = safeRemoteUrl(rawUrl);
-    if (!url) {
-      omitted.push({ name: item.name || rawUrl, reason: "remote MCP url is not https (or loopback http) without credentials" });
+    const label = item.name || "remote";
+    const decision = safeRemoteUrl(rawUrl);
+    if (!decision.url) {
+      omitted.push({ name: label, reason: decision.reason });
       continue;
     }
+    const { kept, dropped } = publicHeaders(item.headers);
+    if (dropped.length) {
+      omitted.push({ name: label, reason: `${dropped.length} header(s) omitted because they are not on the public allow-list` });
+    }
     const key = serverKey(item.name || "remote", used);
-    const headers = publicHeaders(item.headers);
-    servers[key] = headers
-      ? { type: "streamable-http", url, headers }
-      : { type: "streamable-http", url };
+    servers[key] = kept
+      ? { type: "streamable-http", url: decision.url, headers: kept }
+      : { type: "streamable-http", url: decision.url };
   }
   return { servers, omitted };
 }
@@ -150,7 +167,7 @@ function allowListModel(spec, pluginVersion) {
       purpose: item && item.purpose ? String(item.purpose) : "",
       authMethod: item && item.authMethod ? String(item.authMethod) : "",
       phase: item && item.phase ? String(item.phase) : "",
-      url: item && (item.url || item.endpoint) ? String(item.url || item.endpoint) : "",
+      url: item ? (safeRemoteUrl(String(item.url || item.endpoint || "")).url || "") : "",
     })).filter((item) => item.name),
     knowledge: (Array.isArray(spec.knowledge) ? spec.knowledge : []).map((item) => ({
       name: item && item.name ? String(item.name) : "",
@@ -178,7 +195,7 @@ function buildPackage(spec) {
     ? spec.agentPlugin.version.trim()
     : "0.1.0";
   const description = descriptionFor(spec, spec.agent.name);
-  const { servers, omitted } = selectedIntegrations(spec);
+  const { servers, omitted } = selectedIntegrations(spec, name);
   const model = allowListModel(spec, version);
   const plugin = {
     $schema: PLUGIN_SCHEMA_ID,
@@ -203,14 +220,14 @@ function buildPackage(spec) {
   };
   const mcp = {
     $schema: MCP_SCHEMA_ID,
-    mcpServers: Object.assign({
+    mcpServers: Object.assign({}, servers, {
       [name]: {
         type: "stdio",
         command: "node",
         args: ["${PLUGIN_ROOT}/core/dist/index.js"],
         cwd: "${PLUGIN_ROOT}",
       },
-    }, servers),
+    }),
   };
   const skillDoc = `---\nname: ${skill}\ndescription: ${JSON.stringify(description)}\n---\n\n# ${skill}\n\nRead the packaged Copilot Studio agent definition over the local stdio MCP server. The messaging capability is the conversational contract (channels, topics, instructions, and boundaries) stored in this plugin. This skill does not call Copilot Studio or Dataverse.\n\n## Instructions\n\n${model.instructions || "No instructions are stored in the packaged definition."}\n`;
   const specDoc = `# ${spec.agent.name}\n\nCapability: messaging.\n\nThis file is the com.grokbot spec for the packaged Copilot Studio agent. The messaging capability is the conversational contract served by the local MCP server: channels, topics, instructions, and boundaries from the agent definition.\n\n${description}\n\n${omitted.length ? `## Omitted remote MCP servers\n\n${omitted.map((item) => `- ${item.name}: ${item.reason}`).join("\n")}\n` : ""}`;
@@ -230,12 +247,38 @@ function buildPackage(spec) {
   };
 }
 
-function emitPlugin(spec, outDir) {
+function replaceablePlugin(dest, name) {
+  if (!fs.existsSync(dest)) return true;
+  let stat;
+  try {
+    stat = fs.statSync(dest);
+  } catch {
+    return false;
+  }
+  if (!stat.isDirectory()) return false;
+  const pluginPath = path.join(dest, "plugin.json");
+  const modelPath = path.join(dest, "agent-model.json");
+  if (!fs.existsSync(pluginPath) || !fs.existsSync(modelPath)) return false;
+  try {
+    const plugin = JSON.parse(fs.readFileSync(pluginPath, "utf8"));
+    return Boolean(plugin && plugin.name === name);
+  } catch {
+    return false;
+  }
+}
+
+function emitPlugin(spec, outDir, options) {
+  const force = Boolean(options && options.force);
   const built = buildPackage(spec);
   const dest = path.resolve(outDir);
   if (path.basename(dest) !== built.name) {
     const error = new Error(`output directory must be named ${built.name}`);
     error.code = "OUTPUT_NAME";
+    throw error;
+  }
+  if (fs.existsSync(dest) && !replaceablePlugin(dest, built.name) && !force) {
+    const error = new Error(`refusing to replace ${dest}; it is not a ${built.name} plugin with plugin.json and agent-model.json. Pass --force`);
+    error.code = "OUTPUT_EXISTS";
     throw error;
   }
   const parent = path.dirname(dest);
@@ -256,8 +299,21 @@ function emitPlugin(spec, outDir) {
       error.violations = validation.violations;
       throw error;
     }
-    fs.rmSync(dest, { recursive: true, force: true });
-    fs.renameSync(tmp, dest);
+    const backup = path.join(parent, `.${built.name}.bak-${crypto.randomBytes(4).toString("hex")}`);
+    let backedUp = false;
+    if (fs.existsSync(dest)) {
+      fs.renameSync(dest, backup);
+      backedUp = true;
+    }
+    try {
+      fs.renameSync(tmp, dest);
+    } catch (err) {
+      if (backedUp && !fs.existsSync(dest)) {
+        try { fs.renameSync(backup, dest); } catch { /* leave the backup in place */ }
+      }
+      throw err;
+    }
+    if (backedUp) fs.rmSync(backup, { recursive: true, force: true });
     fs.rmSync(stage, { recursive: true, force: true });
     return { name: built.name, outDir: dest, omitted: built.omitted, validation };
   } catch (err) {
@@ -269,6 +325,7 @@ function emitPlugin(spec, outDir) {
 module.exports = {
   pluginNameFromAgent,
   skillNameFromPlugin,
+  safeRemoteUrl,
   buildPackage,
   emitPlugin,
 };

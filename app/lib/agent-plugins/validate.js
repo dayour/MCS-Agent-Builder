@@ -26,6 +26,8 @@ const CREDENTIAL_HEADERS = new Set([
   "x-auth-token",
   "x-access-token",
 ]);
+const CREDENTIAL_QUERY = /^(?:code|key|sig|signature|token|api[-_]?key|access[-_]?token|id_token|refresh[-_]?token|secret|password|client[-_]?secret|subscription[-_]?key|functions[-_]?key)$/i;
+const IMPORT_WARNING_RULES = new Set(["extension-missing", "skill-missing", "mcp-missing"]);
 const SKILL_NAME = /^(?!.*--)[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/;
 
 let compiled;
@@ -108,19 +110,40 @@ function cwdEscapes(cwd) {
   return rest.split("/").some((part) => part === "..");
 }
 
+function realpathInside(pluginRoot, abs) {
+  const root = path.resolve(pluginRoot);
+  let rootReal;
+  try {
+    rootReal = fs.realpathSync(root);
+  } catch {
+    rootReal = root;
+  }
+  let targetReal;
+  try {
+    targetReal = fs.realpathSync(abs);
+  } catch (err) {
+    if (err && err.code === "ENOENT") return { missing: true, abs };
+    return { error: "path escapes the plugin root" };
+  }
+  if (targetReal !== rootReal && !targetReal.startsWith(rootReal + path.sep)) {
+    return { error: "path escapes the plugin root" };
+  }
+  return { abs: targetReal };
+}
+
 function resolvePackagePath(pluginRoot, ref) {
   if (typeof ref !== "string") return null;
   let relative = null;
   if (ref.startsWith("${PLUGIN_ROOT}/")) relative = ref.slice("${PLUGIN_ROOT}/".length);
   else if (ref.startsWith("./")) relative = ref.slice(2);
   else return null;
-  if (relative.includes("${") || relative.split("/").includes("..")) {
+  if (relative.includes("${") || relative.split(/[\\/]/).includes("..")) {
     return { error: "path escapes the plugin root" };
   }
   const root = path.resolve(pluginRoot);
   const abs = path.resolve(root, relative);
   if (abs !== root && !abs.startsWith(root + path.sep)) return { error: "path escapes the plugin root" };
-  return { abs };
+  return realpathInside(pluginRoot, abs);
 }
 
 function isLoopback(hostname) {
@@ -143,12 +166,27 @@ function checkRemoteUrl(file, pointer, raw) {
     found.push(violation(file, pointer, "remote url must not contain user info", "remote-url"));
   }
   if (url.hash) found.push(violation(file, pointer, "remote url must not contain a fragment", "remote-url"));
+  for (const param of url.searchParams.keys()) {
+    if (CREDENTIAL_QUERY.test(param) || /(?:^|[-_])key$/i.test(param) || SECRET_KEY.test(param)) {
+      found.push(violation(file, pointer, "remote url contains a credential query parameter", "remote-url"));
+      break;
+    }
+  }
   if (url.protocol !== "https:" && url.protocol !== "http:") {
     found.push(violation(file, pointer, "remote url must be http or https", "remote-url"));
   } else if (url.protocol === "http:" && !isLoopback(url.hostname)) {
     found.push(violation(file, pointer, "non-loopback remote url must use https", "remote-url"));
   }
   return found;
+}
+
+function isCredentialHeaderName(name) {
+  const lower = String(name || "").toLowerCase();
+  if (CREDENTIAL_HEADERS.has(lower)) return true;
+  if (SECRET_KEY.test(name)) return true;
+  if (/(?:^|[-_])key$/.test(lower)) return true;
+  if (lower.includes("subscription-key") || lower.includes("functions-key")) return true;
+  return false;
 }
 
 function checkHeaders(file, pointer, headers) {
@@ -168,7 +206,7 @@ function checkHeaders(file, pointer, headers) {
       found.push(violation(file, `${pointer}/${jsonPointerSegment(name)}`, "invalid HTTP header value", "header-secret"));
       continue;
     }
-    if (CREDENTIAL_HEADERS.has(lower) || SECRET_KEY.test(name) || SECRET_VALUE.test(value)) {
+    if (isCredentialHeaderName(name) || SECRET_VALUE.test(value)) {
       found.push(violation(file, `${pointer}/${jsonPointerSegment(name)}`, "header carries a credential", "header-secret"));
     }
   }
@@ -176,17 +214,21 @@ function checkHeaders(file, pointer, headers) {
 }
 
 function parseFrontmatter(text) {
-  const source = String(text || "").replace(/^\uFEFF/, "");
-  if (!source.startsWith("---\n") && !source.startsWith("---\r\n")) {
+  const source = String(text || "").replace(/^\uFEFF/, "").replace(/\r\n/g, "\n");
+  if (!source.startsWith("---\n")) {
     return { error: "SKILL.md is missing opening frontmatter" };
   }
-  const newline = source.indexOf("\n");
-  const end = source.indexOf("\n---", newline + 1);
+  const lines = source.split("\n");
+  let end = -1;
+  for (let cursor = 1; cursor < lines.length; cursor += 1) {
+    if (lines[cursor].trim() === "---") {
+      end = cursor;
+      break;
+    }
+  }
   if (end < 0) return { error: "SKILL.md frontmatter is unterminated" };
-  const block = source.slice(newline + 1, end).replace(/\r/g, "");
-  const lines = block.split("\n");
   const data = {};
-  for (let index = 0; index < lines.length; index += 1) {
+  for (let index = 1; index < end; index += 1) {
     const line = lines[index];
     if (!line.trim()) continue;
     const match = line.match(/^([A-Za-z][A-Za-z0-9_-]*):\s*(.*)$/);
@@ -197,7 +239,7 @@ function parseFrontmatter(text) {
       const folded = value.startsWith(">");
       const collected = [];
       index += 1;
-      while (index < lines.length && (lines[index].startsWith(" ") || lines[index].startsWith("\t") || !lines[index].trim())) {
+      while (index < end && (lines[index].startsWith(" ") || lines[index].startsWith("\t") || !lines[index].trim())) {
         collected.push(lines[index].trim());
         index += 1;
       }
@@ -207,10 +249,13 @@ function parseFrontmatter(text) {
       try {
         value = JSON.parse(value);
       } catch {
-        value = value.slice(1, -1);
+        value = value.endsWith('"') ? value.slice(1, -1) : value.slice(1);
       }
     } else if (value.startsWith("'") && value.endsWith("'")) {
-      value = value.slice(1, -1);
+      value = value.slice(1, -1).replace(/''/g, "'");
+    }
+    if (Object.prototype.hasOwnProperty.call(data, key)) {
+      return { error: `SKILL.md frontmatter repeats ${key}` };
     }
     data[key] = value;
   }
@@ -258,6 +303,21 @@ function checkSkills(pluginRoot) {
   return found;
 }
 
+function isCalendarDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+}
+
+function hasLevelPassRecord(text, level) {
+  const row = new RegExp(String.raw`^\|\s*L${level}\s*\|\s*pass\s*\|\s*(\d{4}-\d{2}-\d{2})\s*\|\s*([0-9a-fA-F]{7,64})\s*\|\s*$`);
+  return String(text || "").split(/\r?\n/).some((line) => {
+    const match = row.exec(line.trim());
+    return Boolean(match && isCalendarDate(match[1]));
+  });
+}
+
 function checkLevel(pluginRoot, extension) {
   const level = extension && extension.level;
   if (typeof level !== "number" || level <= 0) return [];
@@ -266,44 +326,47 @@ function checkLevel(pluginRoot, extension) {
     const full = path.join(pluginRoot, name);
     if (!fs.existsSync(full)) continue;
     const text = fs.readFileSync(full, "utf8");
-    const pattern = new RegExp(`(?:level\\s*[:=]?\\s*${level}|L${level})[\\s\\S]{0,240}pass`, "i");
-    if (pattern.test(text)) return [];
+    if (hasLevelPassRecord(text, level)) return [];
   }
   return [violation(
     "plugin.json",
     "/extensions/com.grokbot/level",
-    `level ${level} has no recorded validation-round pass in CONFORMANCE.md or ROADMAP.md`,
+    `level ${level} needs a table row "| L${level} | pass | <YYYY-MM-DD> | <sha> |" in CONFORMANCE.md or ROADMAP.md`,
     "level-inflated",
   )];
 }
 
 function checkInside(pluginRoot, relativePath) {
+  if (typeof relativePath !== "string" || !relativePath || path.isAbsolute(relativePath)) {
+    return { error: "path escapes the plugin root" };
+  }
+  if (relativePath.split(/[\\/]/).includes("..")) return { error: "path escapes the plugin root" };
   const root = path.resolve(pluginRoot);
   const abs = path.resolve(root, relativePath);
-  if (abs !== root && !abs.startsWith(root + path.sep)) return null;
-  return abs;
+  if (abs !== root && !abs.startsWith(root + path.sep)) return { error: "path escapes the plugin root" };
+  return realpathInside(pluginRoot, abs);
 }
 
-function validatePluginDir(dir) {
+function validatePluginDir(dir, options) {
   const violations = [];
   const pluginRoot = path.resolve(dir);
   const folderName = path.basename(pluginRoot);
   const pluginFile = path.join(pluginRoot, "plugin.json");
   const mcpFile = path.join(pluginRoot, "mcp.json");
   if (!fs.existsSync(pluginFile)) {
-    return { ok: false, violations: [violation("plugin.json", "/", "plugin.json is missing", "plugin-schema")] };
+    return finalizeValidation([violation("plugin.json", "/", "plugin.json is missing", "plugin-schema")], options && options.profile);
   }
   let plugin;
   let mcp;
   try {
     plugin = readJson(pluginFile);
   } catch (err) {
-    return { ok: false, violations: [violation("plugin.json", "/", `plugin.json is not valid JSON (${err.message})`, "plugin-schema")] };
+    return finalizeValidation([violation("plugin.json", "/", `plugin.json is not valid JSON (${err.message})`, "plugin-schema")], options && options.profile);
   }
   const validators = getValidators();
   violations.push(...schemaViolations("plugin.json", validators.plugin, plugin, "plugin-schema"));
   if (!plugin || typeof plugin !== "object" || Array.isArray(plugin)) {
-    return { ok: false, violations };
+    return finalizeValidation(violations, options && options.profile);
   }
   if (plugin.name !== folderName) {
     violations.push(violation("plugin.json", "/name", `name ${JSON.stringify(plugin.name)} does not equal folder ${folderName}`, "name-folder"));
@@ -322,10 +385,16 @@ function validatePluginDir(dir) {
     violations.push(...schemaViolations("plugin.json", validators.extension, grokbot, "extension-schema", "/extensions/com.grokbot"));
     if (typeof grokbot.spec === "string") {
       const specAbs = checkInside(pluginRoot, grokbot.spec);
-      if (!specAbs || !fs.existsSync(specAbs) || !fs.statSync(specAbs).isFile()) {
-        violations.push(violation("plugin.json", "/extensions/com.grokbot/spec", `spec file ${grokbot.spec} does not exist`, "spec-file"));
+      if (!specAbs || specAbs.error || specAbs.missing || !specAbs.abs || !fs.existsSync(specAbs.abs) || !fs.statSync(specAbs.abs).isFile()) {
+        const escaped = Boolean(specAbs && specAbs.error);
+        violations.push(violation(
+          "plugin.json",
+          "/extensions/com.grokbot/spec",
+          escaped ? `spec file ${grokbot.spec} resolves outside the plugin` : `spec file ${grokbot.spec} does not exist`,
+          escaped ? "path-escape" : "spec-file",
+        ));
       } else {
-        const specText = fs.readFileSync(specAbs, "utf8");
+        const specText = fs.readFileSync(specAbs.abs, "utf8");
         for (const capability of Array.isArray(grokbot.capabilities) ? grokbot.capabilities : []) {
           if (!specText.includes(capability)) {
             violations.push(violation(
@@ -349,13 +418,16 @@ function validatePluginDir(dir) {
     if (grokbot.bindings && typeof grokbot.bindings === "object") {
       for (const [runtime, bindingPath] of Object.entries(grokbot.bindings)) {
         if (typeof bindingPath !== "string") continue;
-        const abs = checkInside(pluginRoot, bindingPath);
-        if (!abs || bindingPath.startsWith("/") || bindingPath.split(/[\\/]/).includes("..") || !fs.existsSync(abs)) {
+        const located = checkInside(pluginRoot, bindingPath);
+        const escaped = Boolean(located && located.error);
+        if (!located || located.error || located.missing || !located.abs || !fs.existsSync(located.abs)) {
           violations.push(violation(
             "plugin.json",
             `/extensions/com.grokbot/bindings/${runtime}`,
-            `binding path ${bindingPath} does not exist inside the plugin`,
-            "binding-path",
+            escaped
+              ? `binding path ${bindingPath} resolves outside the plugin`
+              : `binding path ${bindingPath} does not exist inside the plugin`,
+            escaped ? "path-escape" : "binding-path",
           ));
         }
       }
@@ -364,7 +436,7 @@ function validatePluginDir(dir) {
   }
 
   if (!fs.existsSync(mcpFile)) {
-    violations.push(violation("mcp.json", "/", "mcp.json is missing", "mcp-schema"));
+    violations.push(violation("mcp.json", "/", "mcp.json is missing", "mcp-missing"));
   } else {
     try {
       mcp = readJson(mcpFile);
@@ -392,8 +464,13 @@ function validatePluginDir(dir) {
           violations.push(violation("mcp.json", `${base}/command`, "stdio command must be one executable token", "command-token"));
         } else if (String(server.command).startsWith("./")) {
           const resolved = resolvePackagePath(pluginRoot, server.command);
-          if (!resolved || resolved.error || !fs.existsSync(resolved.abs)) {
-            violations.push(violation("mcp.json", `${base}/command`, "relative command does not exist in the plugin", "core-path"));
+          if (!resolved || resolved.error || resolved.missing || !resolved.abs || !fs.existsSync(resolved.abs)) {
+            violations.push(violation(
+              "mcp.json",
+              `${base}/command`,
+              resolved && resolved.error ? "relative command resolves outside the plugin" : "relative command does not exist in the plugin",
+              resolved && resolved.error ? "path-escape" : "core-path",
+            ));
           }
         }
         if (server.cwd !== undefined && cwdEscapes(server.cwd)) {
@@ -413,8 +490,13 @@ function validatePluginDir(dir) {
           if (!arg.startsWith("./") && !arg.startsWith("${PLUGIN_ROOT}/")) continue;
           pointedAtCore = true;
           const resolved = resolvePackagePath(pluginRoot, arg);
-          if (!resolved || resolved.error || !fs.existsSync(resolved.abs) || !fs.statSync(resolved.abs).isFile()) {
-            violations.push(violation("mcp.json", `${base}/args/${index}`, "arg path does not exist inside the plugin", "core-path"));
+          if (!resolved || resolved.error || resolved.missing || !resolved.abs || !fs.existsSync(resolved.abs) || !fs.statSync(resolved.abs).isFile()) {
+            violations.push(violation(
+              "mcp.json",
+              `${base}/args/${index}`,
+              resolved && resolved.error ? "arg path resolves outside the plugin" : "arg path does not exist inside the plugin",
+              resolved && resolved.error ? "path-escape" : "core-path",
+            ));
           }
         }
         if (server.command === "node" && !pointedAtCore) {
@@ -429,7 +511,16 @@ function validatePluginDir(dir) {
   }
 
   violations.push(...checkSkills(pluginRoot));
-  return { ok: violations.length === 0, violations };
+  return finalizeValidation(violations, options && options.profile);
+}
+
+function finalizeValidation(violations, profile) {
+  if (profile !== "import") {
+    return { ok: violations.length === 0, violations, warnings: [], errors: violations.slice() };
+  }
+  const warnings = violations.filter((item) => IMPORT_WARNING_RULES.has(item.rule));
+  const errors = violations.filter((item) => !IMPORT_WARNING_RULES.has(item.rule));
+  return { ok: errors.length === 0, violations, warnings, errors };
 }
 
 function formatViolation(item) {
@@ -448,5 +539,7 @@ module.exports = {
   formatViolation,
   parseFrontmatter,
   isSingleTokenCommand,
+  isLoopback,
   schemaVersion,
+  hasLevelPassRecord,
 };
