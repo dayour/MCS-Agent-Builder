@@ -17,6 +17,8 @@ const {
   REPO_ROOT,
   parseFrontmatter,
   isSingleTokenCommand,
+  isLoopback,
+  hasLevelPassRecord,
 } = require("../agent-plugins/validate");
 const { handleRpc, callTool, loadModel } = require("../agent-plugins/mcp-stdio-server");
 
@@ -59,6 +61,13 @@ test("invalid fixtures fail on the rule they target", () => {
     "secret-sync-direction": "secret-sync-direction",
     "bad-skill": "skill-frontmatter",
     "plugin-root-env": "env-secret",
+    "apim-key-header": "header-secret",
+    "query-key": "remote-url",
+    "level-bypass": "level-inflated",
+    "level-not-passing": "level-inflated",
+    "level-failed-next": "level-inflated",
+    "symlink-escape": "path-escape",
+    "third-party": "extension-missing",
   };
   for (const [folder, rule] of Object.entries(expected)) {
     const found = rules(path.join(INVALID, folder));
@@ -78,6 +87,61 @@ test("skill frontmatter folds a multiline description", () => {
   const parsed = parseFrontmatter("---\nname: order-status\ndescription: >-\n  Read the packaged\n  agent definition.\n---\n\n# Body\n");
   assert.equal(parsed.data.name, "order-status");
   assert.equal(parsed.data.description, "Read the packaged agent definition.");
+  const quoted = parseFrontmatter("---\nname: 'order-status'\ndescription: \"Read the packaged agent.\"\n---\n\n# Body\n");
+  assert.equal(quoted.data.name, "order-status");
+  assert.equal(quoted.data.description, "Read the packaged agent.");
+  const repeated = parseFrontmatter("---\nname: order-status\nname: other\n---\n\n# Body\n");
+  assert.match(repeated.error, /repeats name/);
+});
+
+test("level evidence requires a structured pass row", () => {
+  assert.equal(hasLevelPassRecord("Level 3: we bypass all validation.", 3), false);
+  assert.equal(hasLevelPassRecord("Level 2 is not yet passing.", 2), false);
+  assert.equal(hasLevelPassRecord("L1 — failed. Next round will pass.", 1), false);
+  assert.equal(hasLevelPassRecord("| L1 | pass | 2026-10-19 | abcdef0123456789 |", 1), true);
+  assert.equal(hasLevelPassRecord("| L1 | passing | 2026-10-19 | abcdef0123456789 |", 1), false);
+  const phrases = {
+    "level-bypass": "Level 3: we bypass all validation.",
+    "level-not-passing": "Level 2 is not yet passing.",
+    "level-failed-next": "L1 — failed. Next round will pass.",
+  };
+  for (const [folder, phrase] of Object.entries(phrases)) {
+    const text = fs.readFileSync(path.join(INVALID, folder, "CONFORMANCE.md"), "utf8");
+    assert.equal(text.includes(phrase), true, folder);
+    assert.equal(rules(path.join(INVALID, folder)).has("level-inflated"), true, folder);
+  }
+  const accepted = validatePluginDir(path.join(REPO_ROOT, "schema", "fixtures", "valid", "level-pass"));
+  assert.equal(accepted.ok, true, JSON.stringify(accepted.violations));
+});
+
+test("symlink targets outside the plugin root are rejected", () => {
+  const outside = path.join(fs.mkdtempSync(path.join(require("os").tmpdir(), "plugin-outside-")), "outside.txt");
+  fs.writeFileSync(outside, "outside");
+  const copy = fs.mkdtempSync(path.join(require("os").tmpdir(), "plugin-link-"));
+  const plugin = path.join(copy, "order-status");
+  fs.cpSync(VALID, plugin, { recursive: true });
+  fs.rmSync(path.join(plugin, "specs", "ORDER_STATUS.md"));
+  fs.symlinkSync(outside, path.join(plugin, "specs", "ORDER_STATUS.md"));
+  fs.rmSync(path.join(plugin, "core", "dist", "index.js"));
+  fs.symlinkSync(outside, path.join(plugin, "core", "dist", "index.js"));
+  const pluginJson = JSON.parse(fs.readFileSync(path.join(plugin, "plugin.json"), "utf8"));
+  pluginJson.extensions["com.grokbot"].bindings = { node: "bindings/node/index.js" };
+  fs.writeFileSync(path.join(plugin, "plugin.json"), JSON.stringify(pluginJson, null, 2));
+  fs.mkdirSync(path.join(plugin, "bindings", "node"), { recursive: true });
+  fs.symlinkSync(outside, path.join(plugin, "bindings", "node", "index.js"));
+  const found = rules(plugin);
+  assert.equal(found.has("path-escape"), true, [...found].join(","));
+  assert.equal(isLoopback("127.0.0.1"), true);
+  assert.equal(isLoopback("127.evil.com"), false);
+});
+
+test("ajv loader restores Node's module path resolver", () => {
+  const Module = require("module");
+  const { loadAjv2020 } = require("../agent-plugins/load-ajv");
+  const before = Module._nodeModulePaths;
+  loadAjv2020();
+  assert.equal(Module._nodeModulePaths, before);
+  assert.equal(String(Module._nodeModulePaths).includes("resolveVendor"), false);
 });
 
 test("mcp server redacts secret fields and answers tools/call", () => {

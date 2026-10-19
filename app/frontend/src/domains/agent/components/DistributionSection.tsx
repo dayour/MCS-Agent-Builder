@@ -44,7 +44,8 @@ export function DistributionSection({ channel, agentConfig, appId, embedded }: D
     const updated = {
       triggerDistribution: { ...(agentConfig.triggerDistribution ?? {}), [channel]: { ...current, ...patch } },
     };
-    isAgentGlobalUndo ? updateWithHistory(updated) : updateAgentConfig(updated);
+    if (isAgentGlobalUndo) updateWithHistory(updated);
+    else updateAgentConfig(updated);
   };
 
   const toggleDistOption = (key: 'teammates' | 'everyone') => {
@@ -74,7 +75,8 @@ export function DistributionSection({ channel, agentConfig, appId, embedded }: D
       lastPublishedAt: new Date(),
     };
 
-    isAgentGlobalUndo ? updateWithHistory(updated) : updateAgentConfig(updated);
+    if (isAgentGlobalUndo) updateWithHistory(updated);
+    else updateAgentConfig(updated);
   };
 
   const channelLabel = channel === 'teams' ? 'Microsoft Teams' : 'Microsoft 365 Copilot';

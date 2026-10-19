@@ -168,7 +168,10 @@ async function stepManifest(job, brief, agentDir) {
     log(job, `Manifest written to ${outDir}`);
   } catch (err) {
     updateStep(job, "manifest", "failed", err.message);
-    throw err;
+    log(job, `Manifest step failed: ${err.message}`);
+    job.errors.push(err.message);
+    const strict = Boolean(brief.agentPlugin && brief.agentPlugin.strict);
+    if (strict) throw err;
   }
 }
 
@@ -1397,5 +1400,5 @@ module.exports = {
   getJobLog,
   listJobs,
   // _testables: internal steps exposed for fixture-based integration tests only
-  _testables: { stepEvalGate },
+  _testables: { stepEvalGate, stepManifest },
 };

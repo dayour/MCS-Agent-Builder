@@ -27,9 +27,10 @@ function packageIsResolvable() {
     }
 }
 
-// Skip entire file in CI environments where the Azure DevOps feed isn't
-// authenticated. Tests run in full on developer machines after
-// `npm run auth:ado-npm && npm install`.
+// Skip entire file in CI. The package is published only to a private Azure
+// DevOps feed, so it is not a package.json dependency (that made `npm ci`
+// fail on GitHub-hosted runners). Developer machines can still opt in with
+// `npm run auth:ado-npm && npm install microsoft-agents-objectmodel`.
 const skipAll = { skip: packageIsResolvable() ? false : 'microsoft-agents-objectmodel not installed — run `npm run auth:ado-npm && npm install`' };
 
 test('package is installed at the expected version', skipAll, () => {

@@ -324,12 +324,13 @@ export function useWorkflowPalettes(ctx: WorkflowCanvasState) {
     e.stopPropagation();
     setV1PaletteFavorites(prev => {
       const next = new Set(prev);
-      next.has(label) ? next.delete(label) : next.add(label);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
       return next;
     });
   };
   const togglePaletteSection = (id: string) => setV1PaletteCollapsed(prev => {
-    const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next;
+    const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next;
   });
 
   const starIcon = (filled: boolean) => (

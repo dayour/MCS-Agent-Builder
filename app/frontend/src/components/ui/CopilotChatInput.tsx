@@ -159,7 +159,7 @@ export const CopilotChatInput: React.FC<CopilotChatInputProps> = ({
     try {
       const stored = localStorage.getItem(HISTORY_KEY);
       if (stored) setPromptHistory(JSON.parse(stored));
-    } catch {}
+    } catch { /* ignore */ }
   }, []);
 
   // Close dropdown only when clicking outside the entire component
@@ -284,7 +284,7 @@ export const CopilotChatInput: React.FC<CopilotChatInputProps> = ({
     if (!trimmed) return;
     const updated = [trimmed, ...promptHistory.filter(p => p !== trimmed)].slice(0, MAX_HISTORY);
     setPromptHistory(updated);
-    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(updated)); } catch {}
+    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(updated)); } catch { /* ignore */ }
   };
 
   // Dropdown: shuffled featured prompts when empty, AI suggestions while typing.

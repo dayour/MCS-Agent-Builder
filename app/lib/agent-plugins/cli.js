@@ -27,13 +27,14 @@ function argValue(argv, flag) {
 function emitCommand(argv) {
   const specPath = argValue(argv, "--spec");
   const outParent = argValue(argv, "--out");
+  const force = argv.includes("--force");
   if (!specPath || !outParent) {
-    console.error("usage: manifest emit --spec <agentspec.json> --out <parent-dir>");
+    console.error("usage: manifest emit --spec <agentspec.json> --out <parent-dir> [--force]");
     process.exit(1);
   }
   const spec = readSpec(path.resolve(specPath));
   const name = pluginNameFromAgent(spec.agent && spec.agent.name);
-  const emitted = emitPlugin(spec, path.join(path.resolve(outParent), name));
+  const emitted = emitPlugin(spec, path.join(path.resolve(outParent), name), { force });
   console.log(`emitted ${emitted.outDir}`);
   if (emitted.omitted.length) {
     for (const item of emitted.omitted) console.log(`omitted ${item.name}: ${item.reason}`);
@@ -50,16 +51,23 @@ function importCommand(argv) {
     process.exit(1);
   }
   const imported = importPlugin(path.resolve(pluginDir));
-  if (!imported.validation.ok && !force) {
-    for (const item of imported.validation.violations) console.error(formatViolation(item));
-    console.error("import refused because the plugin is invalid; pass --force to write the agentspec anyway");
+  const warnings = imported.validation.warnings || [];
+  const errors = imported.validation.errors || [];
+  for (const item of warnings) console.error(`warning: ${formatViolation(item)}`);
+  if (errors.length && !force) {
+    for (const item of errors) console.error(formatViolation(item));
+    console.error("import refused because the plugin fails the core spec; pass --force to write the agentspec anyway");
     process.exit(1);
+  }
+  if (errors.length) {
+    for (const item of errors) console.error(formatViolation(item));
   }
   const dest = path.resolve(outFile);
   fs.mkdirSync(path.dirname(dest), { recursive: true });
   fs.writeFileSync(dest, `${JSON.stringify(imported.spec, null, 2)}\n`);
   console.log(`imported ${dest}`);
-  console.log(imported.validation.ok ? "manifest: valid" : "manifest: invalid (--force)");
+  console.log(errors.length ? "manifest: invalid (--force)" : "manifest: valid");
+  if (warnings.length) console.log(`warnings: ${warnings.length}`);
 }
 
 function validateCommand(argv) {
