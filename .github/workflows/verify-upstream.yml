@@ -45,20 +45,17 @@ jobs:
             openapi-typescript@7.13.0 \
             swagger2openapi@7.0.8
         # Why install globally instead of `npm ci`:
-        # The lockfile pins `microsoft-agents-objectmodel` to a private Azure DevOps
-        # feed (pkgs.dev.azure.com/msazure/_packaging/CCI-Dependency) which requires
-        # an AAD-issued token. CI runners don't have ADO credentials, so `npm ci`
-        # (and `npm install <pkg>` from this directory, which still reads
-        # package.json) fail with E401 / E404 on that package.
+        # This job only needs the three CLIs above. The test step uses node:test
+        # built-ins. `microsoft-agents-objectmodel` is not in package.json or
+        # the lockfile (it lives on a private Azure DevOps feed).
         #
         # `npm install -g <pkg>...` ignores the project's package.json and only
         # installs the listed packages to the global prefix, where they're in
-        # PATH for the verify steps below. The test step uses node:test built-ins
-        # only and needs no npm packages at all.
+        # PATH for the verify steps below.
         #
-        # If a future verify step DOES need microsoft-agents-objectmodel, add
-        # an ADO PAT as a GitHub Secret and write ~/.npmrc before npm ci.
-        # See tools/upstream-specs/auth-ado-npm.js for the local auth pattern.
+        # To opt in to that package locally:
+        #   npm run auth:ado-npm && npm install microsoft-agents-objectmodel
+        # See tools/upstream-specs/auth-ado-npm.js.
 
       - name: Validate vendored spec provenance
         run: npm run validate:mgmt-spec

@@ -2166,7 +2166,7 @@ Keep the whole response under 200 words. Do not ask questions. Do not suggest cr
           markPublished: () => {
             const publishUpdate = { published: true, lastPublishedAt: new Date() };
             if (isAgentGlobalUndo) updateWithHistory(publishUpdate);
-      else updateAgentConfig(publishUpdate);
+            else updateAgentConfig(publishUpdate);
           },
           markPendingApproval: () => {
             const triggerDistributionEntries = Object.entries(publishAgent.triggerDistribution ?? {});
@@ -2184,7 +2184,7 @@ Keep the whole response under 200 words. Do not ask questions. Do not suggest cr
 
             const approvalUpdate = { triggerDistribution };
             if (isAgentGlobalUndo) updateWithHistory(approvalUpdate);
-      else updateAgentConfig(approvalUpdate);
+            else updateAgentConfig(approvalUpdate);
           },
           composeSuccessMessage: () => composePostPublishMessage(
             capturedAgentName,

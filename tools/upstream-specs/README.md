@@ -67,11 +67,8 @@ directly instead of maintaining hand-rolled equivalents.
 Requires an `az` CLI login with a Microsoft-tenant account (`kimdennis@microsoft.com`-style).
 
 ```bash
-# Auth: fetches an Azure DevOps AAD token, writes it as _authToken in ~/.npmrc
-npm run auth:ado-npm
-
-# Install (pinned in package.json dependencies)
-npm install
+# The package is not in package.json or the lockfile. Opt in after auth:
+npm run auth:ado-npm && npm install microsoft-agents-objectmodel
 ```
 
 The auth script writes ONLY to `~/.npmrc` (user-level). The repo-level `.npmrc`
