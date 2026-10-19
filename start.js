@@ -18,7 +18,8 @@
  * For development with hot-reload: npm start  (runs scripts/dev.js)
  */
 
-const { spawn, execSync } = require("child_process");
+const { spawn, execSync, execFileSync } = require("child_process");
+const { assertGitRevision, assertPid, assertPort, runNpm } = require("./app/lib/argv-exec");
 const crypto = require("crypto");
 const http = require("http");
 const net = require("net");
@@ -63,9 +64,14 @@ function checkSingleInstance() {
         killPort(data.port);
         try { process.kill(data.pid, "SIGTERM"); } catch {}
         // Give it a moment to die
-        try { execSync(os.platform() === "win32"
-          ? `taskkill /F /PID ${data.pid}`
-          : `kill -9 ${data.pid}`, { stdio: "ignore", timeout: 5000 }); } catch {}
+        try {
+          const pid = assertPid(data.pid);
+          if (os.platform() === "win32") {
+            execFileSync("taskkill", ["/F", "/PID", pid], { stdio: "ignore", timeout: 5000, shell: false });
+          } else {
+            execFileSync("kill", ["-9", pid], { stdio: "ignore", timeout: 5000, shell: false });
+          }
+        } catch {}
       } catch {
         // Process already dead
       }
@@ -126,32 +132,35 @@ async function findPort() {
 function killPort(port) {
   try {
     if (os.platform() === "win32") {
-      const result = execSync(`netstat -ano -p TCP`, {
+      const safePort = assertPort(port);
+      const result = execFileSync("netstat", ["-ano", "-p", "TCP"], {
         encoding: "utf8",
         timeout: 5000,
+        shell: false,
       });
       const killed = new Set();
       for (const line of result.split("\n")) {
         // Anchor port match to colon boundary to avoid 8000 matching 18000
-        if (line.match(new RegExp(`[:.]${port}\\s`)) && line.includes(`:${port}`)) {
+        if (line.match(new RegExp(`[:.]${safePort}\\s`)) && line.includes(`:${safePort}`)) {
           const pid = line.trim().split(/\s+/).pop();
-          if (pid && /^\d+$/.test(pid) && pid !== "0" && !killed.has(pid)) {
-            try {
-              execSync(`taskkill /F /PID ${pid}`, { stdio: "ignore", timeout: 5000 });
-              log(`Killed process on port ${port} (pid ${pid})`);
-              killed.add(pid);
-            } catch {}
-          }
+          if (!pid || !/^[1-9]\d*$/.test(pid) || killed.has(pid)) continue;
+          try {
+            execFileSync("taskkill", ["/F", "/PID", assertPid(pid)], { stdio: "ignore", timeout: 5000, shell: false });
+            log(`Killed process on port ${safePort} (pid ${pid})`);
+            killed.add(pid);
+          } catch {}
         }
       }
     } else {
       try {
-        const pids = execSync(`lsof -ti:${port}`, { encoding: "utf8", timeout: 5000 }).trim();
+        const safePort = assertPort(port);
+        const pids = execFileSync("lsof", ["-ti", `:${safePort}`], { encoding: "utf8", timeout: 5000, shell: false }).trim();
         if (pids) {
-          for (const pid of pids.split(/\s+/).filter(p => /^\d+$/.test(p))) {
+          for (const pid of pids.split(/\s+/)) {
+            if (!/^[1-9]\d*$/.test(pid)) continue;
             try {
-              execSync(`kill -9 ${pid}`, { stdio: "ignore", timeout: 5000 });
-              log(`Killed stale process on port ${port} (pid ${pid})`);
+              execFileSync("kill", ["-9", assertPid(pid)], { stdio: "ignore", timeout: 5000, shell: false });
+              log(`Killed stale process on port ${safePort} (pid ${pid})`);
             } catch {}
           }
         }
@@ -201,8 +210,8 @@ function autoUpdate() {
     log("Updated to latest version.");
 
     try {
-      const changed = execSync(`git diff --name-only ${headBefore} HEAD`, {
-        encoding: "utf8", cwd: __dirname, timeout: 5000,
+      const changed = execFileSync("git", ["diff", "--name-only", assertGitRevision(headBefore.trim()), "HEAD"], {
+        encoding: "utf8", cwd: __dirname, timeout: 5000, shell: false,
       });
       if (/^package\.json$/m.test(changed) || /^package-lock\.json$/m.test(changed)) {
         log("Dependencies changed — will reinstall.");
@@ -231,8 +240,8 @@ function checkClaudeCode() {
   // when the embedded terminal feature was retired; the where/which probe
   // covers every supported scenario.
   try {
-    execSync(os.platform() === "win32" ? "where claude" : "which claude", {
-      stdio: "ignore", timeout: 5000,
+    execFileSync(os.platform() === "win32" ? "where" : "which", ["claude"], {
+      stdio: "ignore", timeout: 5000, shell: false,
     });
     return true;
   } catch { return false; }
@@ -427,21 +436,23 @@ function updateMcpDeps() {
   let updated = 0;
   for (const pkg of MCP_NPM_DEPS) {
     try {
-      const out = execSync(
-        `npm list -g ${pkg} --json 2>${os.platform() === "win32" ? "NUL" : "/dev/null"}`,
-        { encoding: "utf8", timeout: 10000 }
-      );
+      const out = runNpm(["list", "-g", pkg, "--json"], {
+        encoding: "utf8",
+        timeout: 10000,
+        stdio: ["pipe", "pipe", "ignore"],
+      });
       const currentVer = JSON.parse(out).dependencies?.[pkg]?.version;
 
-      const latest = execSync(
-        `npm view ${pkg} version`,
-        { encoding: "utf8", timeout: 10000 }
-      ).trim();
+      const latest = String(runNpm(["view", pkg, "version"], {
+        encoding: "utf8",
+        timeout: 10000,
+        stdio: ["pipe", "pipe", "ignore"],
+      }) || "").trim();
 
       if (!latest || latest === currentVer) continue;
 
       log(`Updating MCP: ${pkg} ${currentVer || "?"} \u2192 ${latest}...`);
-      execSync(`npm install -g ${pkg}@latest`, { stdio: "inherit", timeout: 60000 });
+      runNpm(["install", "-g", `${pkg}@latest`], { stdio: "inherit", timeout: 60000 });
       log(`${pkg} updated to ${latest}`);
       updated++;
     } catch {

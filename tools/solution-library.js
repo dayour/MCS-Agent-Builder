@@ -26,7 +26,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { execSync } = require('child_process');
+const { exportPacSolution, runPowerShellFile } = require('../app/lib/argv-exec');
 const {
     getGraphToken,
     listDriveItems,
@@ -374,13 +374,14 @@ async function extractAndParseSolution(zipPath, baseDir) {
     const extractDir = path.join(baseDir, '_extracted');
 
     if (fs.existsSync(extractDir)) {
-        execSync(`powershell -NoProfile -Command "Remove-Item -Recurse -Force '${extractDir}'"`, { stdio: 'pipe' });
+        fs.rmSync(extractDir, { recursive: true, force: true });
     }
 
     try {
-        execSync(
-            `powershell -NoProfile -Command "Expand-Archive -Path '${zipPath}' -DestinationPath '${extractDir}' -Force"`,
-            { stdio: 'pipe', timeout: 60000 }
+        runPowerShellFile(
+            "param([Parameter(Mandatory)][string]$ZipPath, [Parameter(Mandatory)][string]$DestinationPath)\r\nExpand-Archive -LiteralPath $ZipPath -DestinationPath $DestinationPath -Force\r\n",
+            ["-ZipPath", zipPath, "-DestinationPath", extractDir],
+            { stdio: "pipe", timeout: 60000 }
         );
     } catch (err) {
         return { error: `Failed to extract zip: ${err.message}`, solution: null, agents: [] };
@@ -390,7 +391,7 @@ async function extractAndParseSolution(zipPath, baseDir) {
     const customizations = parseCustomizationsXml(path.join(extractDir, 'customizations.xml'));
 
     try {
-        execSync(`powershell -NoProfile -Command "Remove-Item -Recurse -Force '${extractDir}'"`, { stdio: 'pipe' });
+        fs.rmSync(extractDir, { recursive: true, force: true });
     } catch { /* best effort cleanup */ }
 
     return {
@@ -407,7 +408,8 @@ function parseSolutionXml(filePath) {
 
     try {
         const psScript = `
-$xml = [xml](Get-Content -Raw '${filePath.replace(/'/g, "''")}')
+param([Parameter(Mandatory)][string]$Path)
+$xml = [xml](Get-Content -LiteralPath $Path -Raw)
 $sol = $xml.ImportExportXml.SolutionManifest
 @{
     uniqueName = $sol.UniqueName
@@ -417,14 +419,12 @@ $sol = $xml.ImportExportXml.SolutionManifest
     displayName = $sol.LocalizedNames.LocalizedName.'#text'
 } | ConvertTo-Json
 `;
-        const psTempFile = path.join(os.tmpdir(), `mcs-sol-${Date.now()}.ps1`);
-        fs.writeFileSync(psTempFile, psScript, 'utf8');
-        const result = execSync(
-            `powershell -NoProfile -ExecutionPolicy Bypass -File "${psTempFile}"`,
-            { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 15000 }
-        );
-        try { fs.unlinkSync(psTempFile); } catch { /* ok */ }
-        return JSON.parse(result.trim());
+        const result = runPowerShellFile(psScript, ["-Path", filePath], {
+            encoding: "utf8",
+            stdio: ["pipe", "pipe", "pipe"],
+            timeout: 15000,
+        });
+        return JSON.parse(String(result).trim());
     } catch {
         try {
             const content = fs.readFileSync(filePath, 'utf8');
@@ -458,7 +458,8 @@ function parseCustomizationsXml(filePath) {
     try {
         // Write PS script to temp file to avoid escaping issues
         const psScript = `
-$xml = [xml](Get-Content -Raw '${filePath.replace(/'/g, "''")}')
+param([Parameter(Mandatory)][string]$Path)
+$xml = [xml](Get-Content -LiteralPath $Path -Raw)
 $output = @{ agents = @(); componentTypes = @{}; connRefs = @(); envVars = @() }
 
 $entities = $xml.ImportExportXml.Entities.Entity
@@ -521,17 +522,13 @@ if ($envVarEntity) {
 
 $output | ConvertTo-Json -Depth 5
 `;
-        const psTempFile = path.join(os.tmpdir(), `mcs-parse-${Date.now()}.ps1`);
-        fs.writeFileSync(psTempFile, psScript, 'utf8');
+        const psResult = runPowerShellFile(psScript, ["-Path", filePath], {
+            encoding: "utf8",
+            stdio: ["pipe", "pipe", "pipe"],
+            timeout: 30000,
+        });
 
-        const psResult = execSync(
-            `powershell -NoProfile -ExecutionPolicy Bypass -File "${psTempFile}"`,
-            { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 30000 }
-        );
-
-        try { fs.unlinkSync(psTempFile); } catch { /* ok */ }
-
-        const parsed = JSON.parse(psResult.trim());
+        const parsed = JSON.parse(String(psResult).trim());
 
         const typeMap = {
             '0': 'topics', '1': 'skills', '2': 'triggers', '3': 'variables',
@@ -759,15 +756,7 @@ async function uploadSolution(token, projectId, agentId, displayName) {
         zipPath = path.join(exportDir, `${solutionName}.zip`);
 
         console.error(`Exporting solution "${solutionName}"...`);
-        try {
-            execSync(
-                `pac solution export --name "${solutionName}" --path "${zipPath}" --managed --overwrite`,
-                { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 120000 }
-            );
-        } catch (err) {
-            console.error(`  Warning: pac solution export failed — ${err.message}`);
-            zipPath = null;
-        }
+        exportPacSolution(solutionName, zipPath, { timeout: 120000 });
     }
 
     console.error(`Creating folder: ${folderName}`);

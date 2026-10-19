@@ -46,7 +46,8 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { spawn, execSync } = require('child_process');
+const { spawn, execSync, execFileSync } = require('child_process');
+const { assertGitRevision } = require('../app/lib/argv-exec');
 
 const ROOT = path.resolve(__dirname, '..');
 const TEST_LOOP = path.join(ROOT, 'tools', 'agentic-test-loop.js');
@@ -232,7 +233,11 @@ function getChangedFiles({ against } = {}) {
   } catch { /* git not available, return empty */ }
   if (against) {
     try {
-      const diff = execSync(`git diff --name-only ${against}...HEAD`, { cwd: ROOT, encoding: 'utf-8' });
+      const diff = execFileSync('git', ['diff', '--name-only', `${assertGitRevision(against)}...HEAD`], {
+        cwd: ROOT,
+        encoding: 'utf-8',
+        shell: false,
+      });
       for (const line of diff.split(/\r?\n/)) {
         if (line.trim() && !out.includes(line.trim())) out.push(line.trim());
       }

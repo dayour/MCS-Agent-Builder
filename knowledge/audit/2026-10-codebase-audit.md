@@ -15,17 +15,51 @@ Audit of `dayour/MCS-Agent-Builder` at `origin/main` `22de50a`. Findings below w
 ### A1 — Dataverse URL is interpolated into a shell command
 
 - Severity: **high**
-- Status: **partially fixed** on branch `cursor/shell-arg-hardening-d77a`
-- Evidence: `app/lib/build-pipeline.js` previously passed `az account get-access-token --resource "${envUrl}"` to `execSync`. `envUrl` is `brief.buildStatus.dataverseUrl`. That call, and `tools/lib/http.js` `getToken()` / `getTenantId()`, now go through `app/lib/az-token.js`. A resource must be an application-id GUID or an `https` URL with no user info, query, fragment, or path. On Windows the helper runs `cmd.exe /d /s /c az.cmd` only after every argument passes an allowlist that rejects `" & | < > ^ % !` and whitespace. `az` was not executed.
-- Still open: other `execSync` strings still interpolate an Azure resource or account query. `app/lib/eval-pipeline.js:320`, `tools/diagnose-direct-line.js:47`, `tools/flow-build.js:95`, and `tools/upstream-specs/auth-ado-npm.js:61` are examples. Those are not marked fixed.
+- Status: **closed**
+- Evidence: `app/lib/build-pipeline.js` and `tools/lib/http.js` `getToken()` / `getTenantId()` go through `app/lib/az-token.js` (merged in #13, `53ee1bc`). The remaining Azure calls do too: `app/lib/eval-pipeline.js` `azAccessToken(envUrl)`, `tools/diagnose-direct-line.js` `azAccessToken(envUrl)`, `tools/flow-build.js` `getAzToken` via `azAccessToken`, `tools/upstream-specs/auth-ado-npm.js` `runAz` for `account list` and `azAccessToken` with `--subscription`, and `app/lib/pipeline.js` for the Graph token. A resource must be an application-id GUID or an `https` URL with no user info, query, fragment, or path. On Windows the helper runs `cmd.exe /d /s /c az.cmd` only after every argument passes an allowlist. `az` was not executed.
+- Check: wrappers that build a shell string are included, not only a backtick sitting against `execSync`.
+
+```
+rg -n --pcre2 '(?<![\w.])(execSync|execAsync|exec|runSafe|run)\(\s*(`|[^)\n]*\+)' app tools bin start.js scripts
+```
+
+Real output on this head: no matches (rg exit 1).
+
+```
+rg -n --pcre2 '(?<![\w.])(execSync|execAsync|exec)\((?!\s*["'\''])' app tools bin start.js scripts
+```
+
+```
+tools/mcs-lsp.js:1291:                        tenantId = execSync(
+app/frontend/src/utils/helperAgent.ts:1054:  // NOTE: Use matchAll + single replace() to avoid the exec()+mutation bug where
+```
+
+Both hits are constants, not interpolated commands. `tools/mcs-lsp.js:1291-1293` is the literal `'az account show --query tenantId -o tsv'` continued on the next line. `app/frontend/src/utils/helperAgent.ts:1054` is a comment about `String.prototype` matching, not `child_process`.
+
+`tools/elevate-sync.js` `run` / `runSafe` (`tools/elevate-sync.js:54`, `:63`) call `execFileSync('git', args)` with `shell: false`. Refs and shas go through `assertGitRevision`. `git merge-base --is-ancestor` success is decided in JS; there is no `&& echo OK`. `bin/cli.js` doctor `run` (`bin/cli.js:380`) is `spawnSync` with an argument array and `shell: false`. `2>&1` is `mergeStderr`. `2>NUL` is `stdio` stderr `ignore`. On Windows, `az`, `pac`, `npm`, and `gh` go through `cmd.exe /d /s /c <name>.cmd`.
+
+These `execSync` calls stay because the command text is a constant:
+
+- `start.js:179` `git --version`
+- `start.js:183` `git fetch --quiet`
+- `start.js:190` `git rev-list --count HEAD..@{upstream}`
+- `start.js:196` `git rev-parse HEAD`
+- `start.js:200` `git status --porcelain`
+- `start.js:209` `git pull --ff-only`
+- `start.js:317` `npm ci --legacy-peer-deps`
+- `start.js:484` `npm ci --legacy-peer-deps` (frontend)
+- `start.js:527` `npm run build`
+- `bin/cli.js:125` and `bin/cli.js:207` `npm install -g mcs-agent-builder@latest`
+- `bin/postinstall.js:38` `npm ci --legacy-peer-deps --no-audit --no-fund`
+- `bin/postinstall.js:43` `npm run build`
+
+`scripts/dev.js:146` and `:220` spawn `cmd.exe` with a constant `/c` string (`npm run dev -- --host localhost --port 8080`, and `start` plus a fixed localhost URL). No interpolation. PIDs from `netstat` / `lsof` are accepted only when they match `^[1-9]\d*$` (`assertPid`). Ports go through `assertPort`. The git diff after pull uses `assertGitRevision` (`start.js` `git diff --name-only`).
 
 ### A2 — PowerShell cleanup interpolates a path
 
 - Severity: **medium**
-- Status: **partially fixed** on branch `cursor/shell-arg-hardening-d77a`
-- Evidence: `cleanupTempDir` calls `fs.rmSync` (`tools/solution-library.js:160`). The same file still interpolates into `execSync` at lines 377, 381, 393, 422, 527, and 763, including `pac solution export` at `:763`. Those call sites stay open.
-- Impact: a path or solution name containing a quote can break out of the shell string.
-- Fix: the remaining sites need an argument array only after each input is traced. Not applied beyond `cleanupTempDir`.
+- Status: **closed**
+- Evidence: `cleanupTempDir` and the extract-dir cleanup call `fs.rmSync` (`tools/solution-library.js:160`, `:377`, `:394`). `Expand-Archive` and the two XML parsers call `runPowerShellFile` (`app/lib/argv-exec.js`) with `powershell.exe` / `powershell`, `-File`, and the path as a script parameter (`tools/solution-library.js:381`, `:422`, `:525`). `pac solution export` is `exportPacSolution` (`tools/solution-library.js:759`). The script body does not interpolate the path. `az` and `pac` were not executed.
 
 ### A3 — Eval auto-chain calls a runner that always fails
 
@@ -94,7 +128,7 @@ Audit of `dayour/MCS-Agent-Builder` at `origin/main` `22de50a`. Findings below w
 
 A second read covered `app/server.js`, `app/lib/` (not the test files), `bin/`, `tools/` (not the internals of vendored `tools/om-cli/`), `scripts/`, `start.js`, and `.github/workflows/`. Anchors below were re-checked after merging `origin/main` `415af9c` (CI workflow #14). This is still not a line-by-line reading of every file. No fix in this section is applied on `main`.
 
-Items already listed above are not repeated. A1 is still open on `main`. `cursor/shell-arg-hardening-d77a` (PR #13) replaces the `build-pipeline.js` `az` call and the temp-dir `Remove-Item` with `spawnSync` / `fs.rmSync`. That branch is not merged. The other `execSync` sites in A2 are still open, including the `pac solution export` call at `tools/solution-library.js:763`.
+Items already listed above are not repeated. A1 and A2 are closed. PR #13 (`53ee1bc`) replaced the `build-pipeline.js` `az` call and the temp-dir `Remove-Item`. The later argv change closes the remaining A1 `az` calls and the A2 `solution-library.js` sites, including `pac solution export`.
 
 ### B1 — Mutating HTTP API has no session check
 
@@ -123,10 +157,8 @@ Items already listed above are not repeated. A1 is still open on `main`. `cursor
 ### B4 — `pac solution export` interpolates `solutionName`
 
 - Severity: **high**
-- Status: **open**
-- Evidence: `app/lib/pipeline.js:355-364` passes `` pac solution export --name "${solutionName}" --path "${zipPath}" `` to `execSync`. `solutionName` comes from the agentspec. The same pattern is at `tools/solution-library.js:763-765` (this is one of the untraced A2 sites).
-- Impact: a quote in `solutionName` is executed by the shell.
-- Fix: `spawnSync` with an argument array, and reject names that are not a single path segment. Not applied.
+- Status: **closed**
+- Evidence: `app/lib/pipeline.js` and `tools/solution-library.js` call `exportPacSolution` (`app/lib/argv-exec.js`). The name must match `^[A-Za-z][A-Za-z0-9_]{0,127}$`. Linux runs `pac` with an argument array and `shell: false`. Windows runs `cmd.exe /d /s /c pac.cmd` only after every argument, including the zip path, passes the same allowlist as `az`. A quote, slash, or `..` in the name throws before spawn. `pac` was not executed.
 
 ### B5 — Analyze API launches Claude with permission checks skipped
 
@@ -147,26 +179,20 @@ Items already listed above are not repeated. A1 is still open on `main`. `cursor
 ### B7 — `verify-ui.js` puts `--route` in a shell string
 
 - Severity: **high**
-- Status: **open**
-- Evidence: `tools/verify-ui.js:121-135` builds `npx ${args.join(' ')}` and passes it to `execSync`. `--route` is copied into that string.
-- Impact: shell metacharacters in `--route` run as commands.
-- Fix: `spawnSync` with an argument array and `shell: false`. Not applied.
+- Status: **closed**
+- Evidence: `tools/verify-ui.js` calls `runNpx` (`app/lib/argv-exec.js`) with an argument array and `shell: false`. On Windows that is `cmd.exe /d /s /c npx.cmd` after each argument passes the allowlist. A route character outside the allowlist throws before spawn. `npx` was not executed.
 
 ### B8 — `getToken()` interpolates the Dataverse URL and tenant
 
 - Severity: **high**
-- Status: **open**
-- Evidence: `tools/lib/http.js:138-142` runs `` az account get-access-token --resource ${resource}${tenantArg} `` through `execSync` with no timeout. Callers include `tools/flow-manager.js` (`--org`) and `tools/add-tool.js`. `tools/flow-build.js:94-96` has the same `az` call without a timeout.
-- Impact: a crafted org URL or tenant string breaks out of the command. A hung `az` process blocks the caller.
-- Fix: argument array, https-or-GUID check, and a timeout. Not applied. This is separate from A1, which is the copy inside `build-pipeline.js`.
+- Status: **closed**
+- Evidence: `tools/lib/http.js` `getToken()` uses `azAccessTokenJson` (merged in #13). `tools/flow-build.js` `getAzToken` uses `azAccessToken`, which checks https-or-GUID, rejects a bad tenant or subscription before spawn, and times out at 15 seconds. `az` was not executed.
 
 ### B9 — Direct Line sign-in URL is opened through the shell
 
 - Severity: **high**
-- Status: **open**
-- Evidence: `tools/direct-line-test.js:254-259` runs `start`, `open`, or `xdg-open` on `signIn.signInUrl` via `execSync`. The URL comes from the bot response.
-- Impact: a quote in that URL is executed by the shell. `start.js` already opens a browser with `spawn` and an argument array.
-- Fix: use that `spawn` pattern. Not applied.
+- Status: **closed**
+- Evidence: `tools/direct-line-test.js` calls `openInBrowser` (`app/lib/argv-exec.js`). The URL must be `https`. Windows uses `explorer.exe`, macOS `open`, and other platforms `xdg-open`, each with the URL as one argument and `shell: false`. A non-https URL throws before spawn.
 
 ### B10 — Solution download writes remote filenames as given
 
@@ -187,18 +213,14 @@ Items already listed above are not repeated. A1 is still open on `main`. `cursor
 ### B12 — Eval Direct Line fallback interpolates into PowerShell
 
 - Severity: **medium**
-- Status: **open**
-- Evidence: `app/lib/eval-pipeline.js:235-237` puts `envUrl` and `botId` inside single quotes in a `powershell -Command` string passed to `execSync`.
-- Impact: a single quote in either value breaks the PowerShell string when this fallback runs.
-- Fix: pass the script file and the values as arguments, not as one shell string. Not applied.
+- Status: **closed**
+- Evidence: `app/lib/eval-pipeline.js` writes a constant script and calls `runPowerShellFile` with `-Helper`, `-OrgUrl`, and `-BotId` as arguments. The org URL must be https with no userinfo, query, fragment, or path. The bot id must be a GUID. `powershell` was not executed.
 
 ### B13 — PAC profile sync interpolates the tenant domain
 
 - Severity: **medium**
-- Status: **open**
-- Evidence: `app/server.js:1531-1534` takes the domain from PAC `auth list` output and runs `` az login --tenant ${domain} --allow-no-subscriptions `` through `execAsync`.
-- Impact: unexpected characters in that domain field are executed by the shell.
-- Fix: validate the domain, then call `az` with an argument array. Not applied.
+- Status: **closed**
+- Evidence: `app/server.js` `runCliAsync` / `runArgv` call `execFile` with an argument array and `shell: false`. On Windows the command is `cmd.exe /d /s /c az.cmd` (or `pac.cmd` / `gh.cmd`) after `assertCliArg`. The profile-switch login is `runCliAsync("az", ["login", "--tenant", assertTenant(domain), "--allow-no-subscriptions"])`. The add-account and connect routes use the same array and reject a tenant that is not a GUID or domain. `az` was not executed.
 
 ### B14 — Pipeline and server use different Build-Guides roots
 

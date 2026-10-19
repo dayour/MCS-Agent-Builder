@@ -56,9 +56,14 @@ function killProcessTree(child, signal = 'SIGTERM') {
   if (!child || typeof child.pid !== 'number') return;
   if (process.platform === 'win32') {
     try {
-      const { execSync } = require('child_process');
+      const { execFileSync } = require('child_process');
       // /T = tree, /F = force; window suppressed via stdio:'ignore'.
-      execSync(`taskkill /pid ${child.pid} /T /F`, { stdio: 'ignore', timeout: 5000 });
+      if (!Number.isInteger(child.pid) || child.pid <= 0) return;
+      execFileSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], {
+        stdio: 'ignore',
+        timeout: 5000,
+        shell: false,
+      });
     } catch { /* already exited or missing — that's fine */ }
     return;
   }

@@ -16,7 +16,8 @@
 
 const fs = require("fs");
 const path = require("path");
-const { execSync } = require("child_process");
+const { azAccessToken, assertHttpsResource } = require("./az-token");
+const { runPowerShellFile } = require("./argv-exec");
 const evalScoring = require("../../tools/eval-scoring");
 const { createCopilotStudioTransport } = require("../../tools/eval-transport");
 const { httpRequestWithRetry, getToken, getTenantId } = require("../../tools/lib/http");
@@ -232,10 +233,26 @@ async function getDirectLineToken(envUrl, token, botId) {
   // Tertiary: PowerShell helper (legacy path — preserved for odd environments)
   if (!endpoint) {
     try {
-      const result = execSync(
-        `powershell -NoProfile -Command "& { . '${path.join(__dirname, "../../tools/dataverse-helper.ps1")}'; $ctx = Connect-Dataverse -OrgUrl '${envUrl}'; Get-DirectLineToken -Ctx $ctx -BotId '${botId}' }"`,
-        { encoding: "utf8", timeout: 30000 }
-      ).trim();
+      const orgUrl = assertHttpsResource(envUrl, "Dataverse URL");
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(botId)) {
+        throw new Error("bot id is not a GUID");
+      }
+      const helper = path.join(__dirname, "../../tools/dataverse-helper.ps1");
+      const script = [
+        "param(",
+        "  [Parameter(Mandatory)][string]$Helper,",
+        "  [Parameter(Mandatory)][string]$OrgUrl,",
+        "  [Parameter(Mandatory)][string]$BotId",
+        ")",
+        ". $Helper",
+        "$ctx = Connect-Dataverse -OrgUrl $OrgUrl",
+        "Get-DirectLineToken -Ctx $ctx -BotId $BotId",
+      ].join("\n");
+      const result = String(runPowerShellFile(script, [
+        "-Helper", helper,
+        "-OrgUrl", orgUrl,
+        "-BotId", botId,
+      ], { encoding: "utf8", timeout: 30000 })).trim();
       if (result && result.length > 20) {
         // Older helper returned a token directly; if so we don't need the fetch below
         if (result.startsWith("eyJ") || result.startsWith("{")) return result;
@@ -317,10 +334,11 @@ async function createEvalTransport(brief, buildStatus, transportName) {
   if (!envUrl) throw new Error("Agent not built — run /mcs-build first (need dataverseUrl)");
   let dvToken;
   try {
-    dvToken = execSync(`az account get-access-token --resource "${envUrl}" --query accessToken -o tsv`, {
-      encoding: "utf8", timeout: 15000,
-    }).trim();
-  } catch { throw new Error("Azure CLI auth failed — run: az login"); }
+    dvToken = azAccessToken(envUrl);
+  } catch (err) {
+    const message = err && err.message ? err.message : "Azure CLI auth failed. Run: az login";
+    throw new Error(message);
+  }
 
   let dlToken = await getDirectLineToken(envUrl, dvToken, buildStatus.mcsAgentId);
   return {
