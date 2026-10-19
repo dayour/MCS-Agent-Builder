@@ -12,7 +12,7 @@
 
 const fs = require("fs");
 const path = require("path");
-const { execSync } = require("child_process");
+const { azAccessToken, wrapAzAuthError } = require("./az-token");
 const islandClient = require("../../tools/island-client");
 const { httpRequestWithRetry, getToken, getTenantId } = require("../../tools/lib/http");
 const { recordBuildStats } = require("../../tools/typed-adoption-stats");
@@ -204,20 +204,15 @@ async function stepAuth(job, brief) {
   // Get Dataverse token
   let dvToken;
   try {
-    dvToken = execSync(`az account get-access-token --resource "${envUrl}" --query accessToken -o tsv`, {
-      encoding: "utf8", timeout: 15000,
-    }).trim();
+    dvToken = azAccessToken(envUrl);
   } catch (err) {
-    throw new Error(`Azure CLI auth failed: ${err.message}. Run: az login`);
+    throw wrapAzAuthError(err);
   }
-  if (!dvToken || dvToken.length < 20) throw new Error("Invalid Dataverse token");
 
   // Get PVA token for Island Gateway
   let pvaToken;
   try {
-    pvaToken = execSync('az account get-access-token --resource "96ff4394-9197-43aa-b393-6a41652e21f8" --query accessToken -o tsv', {
-      encoding: "utf8", timeout: 15000,
-    }).trim();
+    pvaToken = azAccessToken("96ff4394-9197-43aa-b393-6a41652e21f8");
   } catch {
     log(job, "PVA token failed — Island Gateway updates will use Dataverse fallback");
   }
@@ -1002,7 +997,7 @@ async function stepFlows(job, brief, agentDir, auth) {
     const hasAiTool = brief.flows.some((f) => f && f.kind === "ai-tool");
     if (hasAiTool) {
       try {
-        pvaToken = execSync(`az account get-access-token --resource "https://api.powerplatform.com" --query accessToken -o tsv`, { encoding: "utf8", timeout: 15000 }).trim();
+        pvaToken = azAccessToken("https://api.powerplatform.com");
       } catch (e) {
         throw new Error(`Could not obtain Power Platform token (needed for AI flow verifyPlan): ${e.message}`);
       }

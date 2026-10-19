@@ -16,7 +16,7 @@
 const https = require('https');
 const http = require('http');
 const { URL } = require('url');
-const { execSync } = require('child_process');
+const { azAccessTokenJson, azTenantId } = require('../../app/lib/az-token');
 
 // --- Defaults ---
 const DEFAULT_TIMEOUT_MS = 30000;
@@ -120,33 +120,40 @@ const TOKEN_REFRESH_BUFFER_MS = 120000; // refresh 2 min before expiry
 
 /**
  * Get an Azure CLI access token for a resource, with TTL-aware caching.
- * Returns a cached token if > 2 minutes remain before expiry.
- * Fetches fresh via `az account get-access-token` otherwise.
+ * Returns a cached token if > 2 minutes remain before the token's real expiresOn.
+ * Fetches fresh via `az account get-access-token -o json` otherwise.
  *
  * @param {string} resource - Token audience (URL or app ID)
  * @param {string} [tenant] - Optional tenant ID or domain. Use when the target resource
  *   is on a different tenant than the current az login (e.g., Microsoft SharePoint library
  *   while building in a customer tenant).
+ * @param {{platform?: string, spawnSync?: Function}} [runtime] - Test-only spawn override. Production callers omit it.
  * @returns {string} Access token
  */
-function getToken(resource, tenant) {
+function getToken(resource, tenant, runtime) {
     const cacheKey = tenant ? `${resource}@${tenant}` : resource;
     const cached = _tokenCache[cacheKey];
-    if (cached && cached.expiresAt > Date.now() + TOKEN_REFRESH_BUFFER_MS) {
+    // Reuse only while the token's real expiresOn is further out than the buffer.
+    if (cached && cached.expiresAt - TOKEN_REFRESH_BUFFER_MS > Date.now()) {
         return cached.token;
     }
-    const tenantArg = tenant ? ` --tenant ${tenant}` : '';
     try {
-        const result = execSync(
-            `az account get-access-token --resource ${resource}${tenantArg} -o json`,
-            { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
-        );
-        const parsed = JSON.parse(result);
+        const options = {};
+        if (tenant) options.tenant = tenant;
+        if (runtime && typeof runtime === 'object') {
+            if (runtime.platform) options.platform = runtime.platform;
+            if (typeof runtime.spawnSync === 'function') options.spawnSync = runtime.spawnSync;
+        }
+        const details = azAccessTokenJson(resource, options);
+        const expiresAt = new Date(details.expiresOn).getTime();
+        if (!Number.isFinite(expiresAt)) {
+            throw new Error('Azure CLI token response did not include a valid expiresOn');
+        }
         _tokenCache[cacheKey] = {
-            token: parsed.accessToken,
-            expiresAt: new Date(parsed.expiresOn).getTime()
+            token: details.accessToken,
+            expiresAt
         };
-        return parsed.accessToken;
+        return details.accessToken;
     } catch (err) {
         const tenantHint = tenant ? ` for tenant ${tenant}` : '';
         throw new Error(
@@ -171,11 +178,7 @@ function clearTokenCache() {
  */
 function getTenantId() {
     try {
-        const result = execSync(
-            'az account show --query tenantId -o tsv',
-            { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
-        );
-        return result.trim();
+        return azTenantId();
     } catch (err) {
         throw new Error(`Failed to get tenant ID from az CLI: ${err.stderr || err.message}`);
     }

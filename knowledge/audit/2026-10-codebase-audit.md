@@ -15,19 +15,17 @@ Audit of `dayour/MCS-Agent-Builder` at `origin/main` `22de50a`. Findings below w
 ### A1 — Dataverse URL is interpolated into a shell command
 
 - Severity: **high**
-- Status: **open**
-- Evidence: `app/lib/build-pipeline.js:177` builds `az account get-access-token --resource "${envUrl}"` and passes it to `execSync`. `envUrl` is `brief.buildStatus.dataverseUrl`, filled from the agentspec or `tools/session-config.json` (`app/lib/build-pipeline.js:197`).
-- Impact: a quote or shell metacharacter in that URL is executed by the shell. The token is then used as a bearer credential.
-- Fix: run `az` with an argument array (`spawnSync`) and reject a value that is not an `https` URL before calling it. Not applied in this commit.
-- A second `execSync` at `app/lib/build-pipeline.js:975` uses a constant resource URL. It is not injectable. It still goes through the shell.
+- Status: **partially fixed** on branch `cursor/shell-arg-hardening-d77a`
+- Evidence: `app/lib/build-pipeline.js` previously passed `az account get-access-token --resource "${envUrl}"` to `execSync`. `envUrl` is `brief.buildStatus.dataverseUrl`. That call, and `tools/lib/http.js` `getToken()` / `getTenantId()`, now go through `app/lib/az-token.js`. A resource must be an application-id GUID or an `https` URL with no user info, query, fragment, or path. On Windows the helper runs `cmd.exe /d /s /c az.cmd` only after every argument passes an allowlist that rejects `" & | < > ^ % !` and whitespace. `az` was not executed.
+- Still open: other `execSync` strings still interpolate an Azure resource or account query. `app/lib/eval-pipeline.js:320`, `tools/diagnose-direct-line.js:47`, `tools/flow-build.js:95`, and `tools/upstream-specs/auth-ado-npm.js:61` are examples. Those are not marked fixed.
 
 ### A2 — PowerShell cleanup interpolates a path
 
 - Severity: **medium**
-- Status: **open**
-- Evidence: `tools/solution-library.js:158-161` runs `powershell -Command "Remove-Item ... '${dir}'"`. The caller at `tools/solution-library.js:338` and `:366` passes `makeTempDir()`, which is `fs.mkdtempSync`. The same file has more interpolated `execSync` calls at lines 377, 381, 393, 422, 527, and 763. Those call sites were not each traced to their inputs.
-- Impact: a path containing a single quote breaks out of the PowerShell string. The temp-dir caller does not pass attacker text today.
-- Fix: delete with `fs.rmSync(dir, { recursive: true, force: true })`. Not applied in this commit. The other `execSync` sites need the same treatment only after each argument is traced.
+- Status: **partially fixed** on branch `cursor/shell-arg-hardening-d77a`
+- Evidence: `cleanupTempDir` calls `fs.rmSync` (`tools/solution-library.js:160`). The same file still interpolates into `execSync` at lines 377, 381, 393, 422, 527, and 763, including `pac solution export` at `:763`. Those call sites stay open.
+- Impact: a path or solution name containing a quote can break out of the shell string.
+- Fix: the remaining sites need an argument array only after each input is traced. Not applied beyond `cleanupTempDir`.
 
 ### A3 — Eval auto-chain calls a runner that always fails
 
