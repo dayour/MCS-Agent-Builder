@@ -30,8 +30,8 @@ function packageIsResolvable() {
 // Skip entire file in CI. The package is published only to a private Azure
 // DevOps feed, so it is not a package.json dependency (that made `npm ci`
 // fail on GitHub-hosted runners). Developer machines can still opt in with
-// `npm run auth:ado-npm && npm install microsoft-agents-objectmodel`.
-const skipAll = { skip: packageIsResolvable() ? false : 'microsoft-agents-objectmodel not installed — run `npm run auth:ado-npm && npm install microsoft-agents-objectmodel`' };
+// `npm run auth:ado-npm && npm install --no-save microsoft-agents-objectmodel`.
+const skipAll = { skip: packageIsResolvable() ? false : 'microsoft-agents-objectmodel not installed — run `npm run auth:ado-npm && npm install --no-save microsoft-agents-objectmodel`' };
 
 test('package is installed at the expected version', skipAll, () => {
     const pkg = require('microsoft-agents-objectmodel/package.json');

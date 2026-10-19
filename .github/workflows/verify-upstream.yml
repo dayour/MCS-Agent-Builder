@@ -53,8 +53,8 @@ jobs:
         # installs the listed packages to the global prefix, where they're in
         # PATH for the verify steps below.
         #
-        # To opt in to that package locally:
-        #   npm run auth:ado-npm && npm install microsoft-agents-objectmodel
+        # To opt in locally without writing it back into package.json or the lockfile:
+        #   npm run auth:ado-npm && npm install --no-save microsoft-agents-objectmodel
         # See tools/upstream-specs/auth-ado-npm.js.
 
       - name: Validate vendored spec provenance
