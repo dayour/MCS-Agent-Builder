@@ -213,7 +213,7 @@ Each one is code we'd otherwise have to rebuild in Node.js. `GetBotDefinitionAsG
 ### Phase 0 — Provenance + vendor path (week 0, no code changes)
 1. Confirm: `botmanagement.json` is OK for Microsoft-internal dev tooling use (likely fine — it's used by `BotDesigner.Nswag` internally).
 2. Pin a BotDesigner snapshot and an ObjectModel snapshot in `knowledge/upstream-repos.json`. Extend `tools/upstream-check.js` to track them.
-3. Install `ado-npm-auth`; verify we can `npm install microsoft-agents-objectmodel` from our repo.
+3. Install `ado-npm-auth`; verify we can `npm install --no-save microsoft-agents-objectmodel` from our repo.
 
 ### Phase 1a — TYPES ONLY (week 1, zero transport change)
 4. Copy `botmanagement.json` into `tools/upstream-specs/` with recorded commit-hash + fetch date + SHA-256 checksum. Vendored, no live fetch.
@@ -231,7 +231,7 @@ Each one is code we'd otherwise have to rebuild in Node.js. `GetBotDefinitionAsG
 12. **Rollback test** is part of pilot acceptance: confirm `MCS_USE_GENERATED_CLIENT=0` restores the old path in under 5 minutes end-to-end.
 
 ### Phase 1b — npm package adoption (week 2, separate CI validation)
-7. Configure `ado-npm-auth` in a branch. Verify `npm install microsoft-agents-objectmodel` succeeds locally and in CI.
+7. Configure `ado-npm-auth` in a branch. Verify `npm install --no-save microsoft-agents-objectmodel` succeeds locally and in CI.
 8. Add `microsoft-agents-objectmodel` as dependency in `app/frontend/package.json` and `package.json` (root) **behind a build-time flag**. Importing the package does not yet replace any local type.
 9. Stand up the compatibility matrix (`tools/upstream-specs/compat.md`) — pin `botmanagement.json` commit hash + `microsoft-agents-objectmodel` version.
 
@@ -317,7 +317,7 @@ node -e "const s=require('./botmanagement.json');for(const p of Object.keys(s.pa
 ### To test the npm package locally (Phase 1):
 ```bash
 npx ado-npm-auth -c .npmrc
-npm install microsoft-agents-objectmodel --registry https://pkgs.dev.azure.com/msazure/_packaging/CCI-Dependency/npm/registry/
+npm install --no-save microsoft-agents-objectmodel --registry https://pkgs.dev.azure.com/msazure/_packaging/CCI-Dependency/npm/registry/
 node -e "console.log(Object.keys(require('microsoft-agents-objectmodel')))"
 ```
 
