@@ -305,6 +305,67 @@ test("import --force strips secret env values, credential query keys, and secret
   assert.match(packed, /"us"/);
 });
 
+test("import --force strips credentials from repository, homepage, and author.url", () => {
+  const repo = path.join(__dirname, "..", "..", "..");
+  const cli = path.join(repo, "bin", "cli.js");
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "plugin-identity-url-"));
+  const plugin = path.join(parent, "order-status");
+  fs.cpSync(path.join(repo, "schema", "fixtures", "valid", "order-status"), plugin, { recursive: true });
+  const manifest = JSON.parse(fs.readFileSync(path.join(plugin, "plugin.json"), "utf8"));
+  manifest.repository = "https://x-access-token:s3cr3t@github.com/o/r?token=abc123";
+  manifest.homepage = "https://user:hunter2pass@example.com/?access_token=abc123";
+  manifest.author = { name: "Retail", url: "https://author.example/me?token=abc123" };
+  fs.writeFileSync(path.join(plugin, "plugin.json"), JSON.stringify(manifest, null, 2));
+  const outSpec = path.join(parent, "forced.json");
+  const forced = spawnSync(process.execPath, [
+    cli, "manifest", "import",
+    "--dir", plugin,
+    "--out", outSpec,
+    "--force",
+  ], { encoding: "utf8" });
+  assert.equal(forced.status, 0, forced.stderr);
+  const spec = JSON.parse(fs.readFileSync(outSpec, "utf8"));
+  const repository = new URL(spec.agentPlugin.repository);
+  assert.equal(repository.username, "");
+  assert.equal(repository.password, "");
+  assert.equal(repository.searchParams.has("token"), false);
+  assert.equal(spec.agentPlugin.repository.includes("token="), false);
+  assert.equal(spec.agentPlugin.repository.includes("x-access-token"), false);
+  const homepage = new URL(spec.agentPlugin.homepage);
+  assert.equal(homepage.username, "");
+  assert.equal(homepage.password, "");
+  assert.equal(homepage.searchParams.has("access_token"), false);
+  const author = new URL(spec.agentPlugin.author.url);
+  assert.equal(author.searchParams.has("token"), false);
+  assert.match(forced.stderr, /identity-secret/);
+});
+
+test("importing order-status leaves no ghp_ token and redacts nested model secrets", () => {
+  const repo = path.join(__dirname, "..", "..", "..");
+  const fixture = path.join(repo, "schema", "fixtures", "valid", "order-status");
+  const clean = importPlugin(fixture);
+  assert.equal(clean.validation.ok, true, JSON.stringify(clean.validation.errors));
+  assert.equal(JSON.stringify(clean.spec).includes("ghp_"), false);
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "plugin-model-secret-"));
+  const plugin = path.join(parent, "order-status");
+  fs.cpSync(fixture, plugin, { recursive: true });
+  const token = `ghp_${"c".repeat(24)}`;
+  const model = JSON.parse(fs.readFileSync(path.join(plugin, "agent-model.json"), "utf8"));
+  model.integrations[0].apiToken = token;
+  model.integrations[0].nested = { note: token, API_TOKEN: "kept-looking-key" };
+  model.integrations[0].purpose = "Read orders";
+  fs.writeFileSync(path.join(plugin, "agent-model.json"), JSON.stringify(model, null, 2));
+  const imported = importPlugin(plugin);
+  const packed = JSON.stringify(imported.spec);
+  assert.equal(packed.includes("ghp_"), false);
+  assert.equal(imported.spec.integrations[0].apiToken, "");
+  assert.equal(imported.spec.integrations[0].nested.note, "");
+  assert.equal(imported.spec.integrations[0].nested.API_TOKEN, undefined);
+  assert.equal(imported.spec.integrations[0].purpose, "Read orders");
+  assert.equal(imported.validation.ok, false);
+  assert.equal(imported.validation.errors.some((item) => item.rule === "manifest-secret"), true);
+});
+
 test("--force help says it deletes the existing directory", () => {
   const cli = path.join(__dirname, "..", "..", "..", "bin", "cli.js");
   const help = spawnSync(process.execPath, [cli, "-h"], { encoding: "utf8" });

@@ -231,6 +231,18 @@ function withoutCredentialQuery(raw) {
   return changed ? url.toString() : raw;
 }
 
+function redactSecretTree(value) {
+  if (typeof value === "string") return SECRET_VALUE.test(value) ? "" : value;
+  if (Array.isArray(value)) return value.map(redactSecretTree);
+  if (!value || typeof value !== "object") return value;
+  const next = {};
+  for (const [key, child] of Object.entries(value)) {
+    if (SECRET_KEY.test(key)) continue;
+    next[key] = redactSecretTree(child);
+  }
+  return next;
+}
+
 function sanitizeHeaders(headers) {
   if (!headers || typeof headers !== "object" || Array.isArray(headers)) return undefined;
   const kept = {};
@@ -435,18 +447,31 @@ function isFutureDate(iso) {
 }
 
 function levelRows(text, level) {
-  const row = new RegExp(String.raw`^\|\s*L${level}\s*\|\s*(pass|fail(?:ed)?)\s*\|\s*(\d{4}-\d{2}-\d{2})\s*\|\s*([0-9a-fA-F]{7,64})\s*\|\s*$`, "i");
+  const wellFormed = new RegExp(String.raw`^\|\s*L${level}\s*\|\s*(pass|fail(?:ed)?)\s*\|\s*(\d{4}-\d{2}-\d{2})\s*\|\s*([0-9a-fA-F]{7,64})\s*\|\s*$`, "i");
+  const levelLine = new RegExp(String.raw`^\|\s*L${level}\s*\|`, "i");
   const rows = [];
   for (const line of evidenceLines(text)) {
-    const match = row.exec(line.trim());
-    if (!match || !isCalendarDate(match[2])) continue;
-    rows.push({ result: /^pass$/i.test(match[1]) ? "pass" : "fail", date: match[2] });
+    const trimmed = line.trim();
+    const match = wellFormed.exec(trimmed);
+    if (match && isCalendarDate(match[2])) {
+      rows.push({ result: /^pass$/i.test(match[1]) ? "pass" : "fail", date: match[2] });
+      continue;
+    }
+    if (!levelLine.test(trimmed)) continue;
+    const cells = trimmed.split("|").slice(1, -1).map((cell) => cell.trim());
+    const dateCell = cells[2];
+    if (typeof dateCell === "string" && isCalendarDate(dateCell)) {
+      rows.push({ result: "fail", date: dateCell });
+    } else {
+      rows.push({ result: "fail", unordered: true });
+    }
   }
   return rows;
 }
 
 function latestRowsPass(rows) {
-  if (rows.length === 0 || rows.some((row) => isFutureDate(row.date))) return false;
+  if (rows.length === 0 || rows.some((row) => row.unordered)) return false;
+  if (rows.some((row) => isFutureDate(row.date))) return false;
   const latest = rows.reduce((max, row) => (row.date > max ? row.date : max), "");
   return rows.filter((row) => row.date === latest).every((row) => row.result === "pass");
 }
@@ -470,7 +495,7 @@ function checkLevel(pluginRoot, extension) {
   return [violation(
     "plugin.json",
     "/extensions/com.grokbot/level",
-    `level ${level} needs the latest "| L${level} | pass|fail|failed | <YYYY-MM-DD> | <sha> |" row across CONFORMANCE.md and ROADMAP.md combined to be pass, outside CommonMark fences and 4-space indented code and HTML comments, and not dated in the future`,
+    `level ${level} needs the latest well-formed "| L${level} | pass|fail|failed | <YYYY-MM-DD> | <sha> |" row across CONFORMANCE.md and ROADMAP.md combined to be pass. A | L${level} | row that is not that shape counts as not-pass. Fenced, 4-space indented, and HTML-comment rows do not count, and a future date fails`,
     "level-inflated",
   )];
 }
@@ -517,6 +542,9 @@ function validatePluginDir(dir, options) {
   });
   if (urlEmbedsCredentials(plugin.repository)) {
     violations.push(violation("plugin.json", "/repository", "repository URL contains credentials", "identity-secret"));
+  }
+  if (urlEmbedsCredentials(plugin.homepage)) {
+    violations.push(violation("plugin.json", "/homepage", "homepage URL contains credentials", "identity-secret"));
   }
   if (plugin.author && typeof plugin.author === "object" && urlEmbedsCredentials(plugin.author.url)) {
     violations.push(violation("plugin.json", "/author/url", "author URL contains credentials", "identity-secret"));
@@ -655,6 +683,20 @@ function validatePluginDir(dir, options) {
     }
   }
 
+  const modelFile = path.join(pluginRoot, "agent-model.json");
+  if (fs.existsSync(modelFile)) {
+    try {
+      const model = readJson(modelFile);
+      walkStrings(model, "", (pointer, value) => {
+        if (SECRET_VALUE.test(value)) {
+          violations.push(violation("agent-model.json", pointer || "/", "string contains a secret", "manifest-secret"));
+        }
+      });
+    } catch (err) {
+      violations.push(violation("agent-model.json", "/", `agent-model.json is not valid JSON (${err.message})`, "manifest-secret"));
+    }
+  }
+
   violations.push(...checkSkills(pluginRoot));
   return finalizeValidation(violations, options && options.profile);
 }
@@ -692,4 +734,5 @@ module.exports = {
   sanitizeCarriedAgentPlugin,
   urlEmbedsCredentials,
   withoutCredentialQuery,
+  redactSecretTree,
 };

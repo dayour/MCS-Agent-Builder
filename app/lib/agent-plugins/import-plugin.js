@@ -2,7 +2,7 @@
 
 const fs = require("fs");
 const path = require("path");
-const { validatePluginDir, parseFrontmatter, sanitizeMcpServers, withoutCredentialQuery } = require("./validate");
+const { validatePluginDir, parseFrontmatter, sanitizeMcpServers, withoutCredentialQuery, redactSecretTree } = require("./validate");
 
 function readJson(file) {
   let text;
@@ -69,7 +69,7 @@ function importPlugin(dir) {
     : (plugin.description || "");
   const integrations = model && Array.isArray(model.integrations) ? model.integrations.map((item) => {
     if (!item || typeof item !== "object") return item;
-    const next = { ...item };
+    const next = redactSecretTree(item);
     for (const key of ["url", "endpoint", "mcpUrl"]) {
       if (typeof next[key] === "string") next[key] = withoutCredentialQuery(next[key]);
     }
@@ -117,8 +117,14 @@ function importPlugin(dir) {
       version: plugin.version || "",
       description: plugin.description || "",
       license: plugin.license || "",
-      repository: plugin.repository || "",
-      homepage: plugin.homepage || "",
+      repository: typeof plugin.repository === "string" ? withoutCredentialQuery(plugin.repository) : "",
+      homepage: typeof plugin.homepage === "string" ? withoutCredentialQuery(plugin.homepage) : "",
+      author: plugin.author && typeof plugin.author === "object" && !Array.isArray(plugin.author)
+        ? {
+          ...plugin.author,
+          ...(typeof plugin.author.url === "string" ? { url: withoutCredentialQuery(plugin.author.url) } : {}),
+        }
+        : undefined,
       keywords: Array.isArray(plugin.keywords) ? plugin.keywords : [],
       schema: plugin.$schema,
       extension,

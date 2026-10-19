@@ -79,6 +79,9 @@ test("invalid fixtures fail on the rule they target", () => {
     "level-superseded": "level-inflated",
     "level-fenced": "level-inflated",
     "level-commented": "level-inflated",
+    "level-malformed": "level-inflated",
+    "homepage-credential": "identity-secret",
+    "model-secret": "manifest-secret",
     "symlink-escape": "path-escape",
     "third-party": "extension-missing",
   };
@@ -187,6 +190,18 @@ test("CommonMark fences close on the same marker at equal or greater length, and
   assert.equal(hasLevelPassRecord(indentedMarker, 1), true);
   const longerCloser = `\`\`\`\n${levelRow("fail", utcDay(-30))}\n\`\`\`\`\n${pass}\n`;
   assert.equal(hasLevelPassRecord(longerCloser, 1), true);
+});
+
+test("a malformed level row counts as not-pass", () => {
+  const earlier = utcDay(-30);
+  const later = utcDay(-1);
+  const pass = levelRow("pass", earlier);
+  assert.equal(hasLevelPassRecord(`${pass}\n| L1 | FAILING | ${later} | abcdef1 |`, 1), false);
+  assert.equal(hasLevelPassRecord(`${pass}\n| L1 | fail | ${later} | abcdef1 | notes |`, 1), false);
+  assert.equal(hasLevelPassRecord(`${pass}\n| L1 | fail | ${later} | - |`, 1), false);
+  assert.equal(hasLevelPassRecord(`${pass}\n| L1 | fail | 2020-02-30 | abcdef1 |`, 1), false);
+  assert.equal(hasLevelPassRecord(`| L1 | FAILING | ${earlier} | abcdef1 |\n${levelRow("pass", later)}`, 1), true);
+  assert.equal(rules(path.join(INVALID, "level-malformed")).has("level-inflated"), true);
 });
 
 test("repository and author URLs that embed credentials are rejected", () => {
