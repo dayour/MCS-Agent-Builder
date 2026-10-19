@@ -30,6 +30,7 @@ function emitCommand(argv) {
   const force = argv.includes("--force");
   if (!specPath || !outParent) {
     console.error("usage: manifest emit --spec <agentspec.json> --out <parent-dir> [--force]");
+    console.error("--force deletes the existing output directory");
     process.exit(1);
   }
   const spec = readSpec(path.resolve(specPath));

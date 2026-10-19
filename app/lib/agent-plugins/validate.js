@@ -310,12 +310,42 @@ function isCalendarDate(value) {
   return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
 }
 
-function hasLevelPassRecord(text, level) {
-  const row = new RegExp(String.raw`^\|\s*L${level}\s*\|\s*pass\s*\|\s*(\d{4}-\d{2}-\d{2})\s*\|\s*([0-9a-fA-F]{7,64})\s*\|\s*$`);
-  return String(text || "").split(/\r?\n/).some((line) => {
+function evidenceLines(text) {
+  const withoutComments = String(text || "").replace(/<!--[\s\S]*?(?:-->|$)/g, "");
+  const lines = [];
+  let fence = null;
+  for (const line of withoutComments.split(/\r?\n/)) {
+    const marker = line.match(/^\s*(`{3,}|~{3,})/);
+    if (marker) {
+      const kind = marker[1][0];
+      fence = fence === kind ? null : (fence || kind);
+      continue;
+    }
+    if (!fence) lines.push(line);
+  }
+  return lines;
+}
+
+function isFutureDate(iso) {
+  return iso > new Date().toISOString().slice(0, 10);
+}
+
+function levelRows(text, level) {
+  const row = new RegExp(String.raw`^\|\s*L${level}\s*\|\s*(pass|fail)\s*\|\s*(\d{4}-\d{2}-\d{2})\s*\|\s*([0-9a-fA-F]{7,64})\s*\|\s*$`);
+  const rows = [];
+  for (const line of evidenceLines(text)) {
     const match = row.exec(line.trim());
-    return Boolean(match && isCalendarDate(match[1]));
-  });
+    if (!match || !isCalendarDate(match[2])) continue;
+    rows.push({ result: match[1], date: match[2] });
+  }
+  return rows;
+}
+
+function hasLevelPassRecord(text, level) {
+  const rows = levelRows(text, level);
+  if (rows.length === 0 || rows.some((row) => isFutureDate(row.date))) return false;
+  const latest = rows.reduce((max, row) => (row.date > max ? row.date : max), "");
+  return rows.filter((row) => row.date === latest).every((row) => row.result === "pass");
 }
 
 function checkLevel(pluginRoot, extension) {
@@ -331,7 +361,7 @@ function checkLevel(pluginRoot, extension) {
   return [violation(
     "plugin.json",
     "/extensions/com.grokbot/level",
-    `level ${level} needs a table row "| L${level} | pass | <YYYY-MM-DD> | <sha> |" in CONFORMANCE.md or ROADMAP.md`,
+    `level ${level} needs the latest "| L${level} | pass|fail | <YYYY-MM-DD> | <sha> |" row in CONFORMANCE.md or ROADMAP.md to be pass, outside code fences and HTML comments, and not dated in the future`,
     "level-inflated",
   )];
 }
@@ -542,4 +572,5 @@ module.exports = {
   isLoopback,
   schemaVersion,
   hasLevelPassRecord,
+  isCredentialHeaderName,
 };

@@ -112,9 +112,9 @@ function selectedIntegrations(spec, pluginName) {
   const integrations = Array.isArray(spec.integrations) ? spec.integrations : [];
   for (const item of integrations) {
     if (!item || typeof item !== "object") continue;
+    if (item.type !== "mcp") continue;
     const rawUrl = item.url || item.endpoint || item.mcpUrl;
     if (!rawUrl) continue;
-    if (item.type && item.type !== "mcp") continue;
     const label = item.name || "remote";
     const decision = safeRemoteUrl(rawUrl);
     if (!decision.url) {
@@ -182,6 +182,21 @@ function allowListModel(spec, pluginVersion) {
   });
 }
 
+function pluginIdentity(spec) {
+  const meta = spec.agentPlugin && typeof spec.agentPlugin === "object" ? spec.agentPlugin : {};
+  const extra = {};
+  if (meta.author && typeof meta.author === "object" && !Array.isArray(meta.author)) {
+    const author = {};
+    if (typeof meta.author.name === "string" && meta.author.name.trim()) author.name = meta.author.name.trim();
+    if (typeof meta.author.email === "string" && meta.author.email.trim()) author.email = meta.author.email.trim();
+    if (typeof meta.author.url === "string" && meta.author.url.trim()) author.url = meta.author.url.trim();
+    if (author.name) extra.author = author;
+  }
+  if (typeof meta.license === "string" && meta.license.trim()) extra.license = meta.license.trim();
+  if (typeof meta.repository === "string" && meta.repository.trim()) extra.repository = meta.repository.trim();
+  return extra;
+}
+
 function buildPackage(spec) {
   if (!spec || typeof spec !== "object" || !spec.agent || !spec.agent.name) {
     const error = new Error("agentspec is missing agent.name");
@@ -202,9 +217,7 @@ function buildPackage(spec) {
     name,
     version,
     description,
-    author: { name: "MCS Agent Builder" },
-    license: "MIT",
-    repository: "https://github.com/dayour/MCS-Agent-Builder",
+    ...pluginIdentity(spec),
     keywords: ["copilot-studio", skill],
     extensions: {
       "com.grokbot": {

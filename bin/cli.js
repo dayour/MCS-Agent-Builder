@@ -637,6 +637,7 @@ function showHelp() {
 
   \x1b[1mManifest:\x1b[0m
     manifest emit --spec <agentspec.json> --out <parent-dir> [--force]
+      --force deletes the existing output directory
     manifest import --dir <plugin-dir> --out <agentspec.json> [--force]
     manifest validate <plugin-dir>...
 

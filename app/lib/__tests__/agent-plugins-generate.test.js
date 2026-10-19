@@ -47,6 +47,9 @@ test("emit writes a valid package and import round-trips the model without secre
   assert.equal(plugin.extensions["com.grokbot"].approval.required, true);
   assert.equal(plugin.extensions["com.grokbot"].secretsPolicy.plaintextToAgent, false);
   assert.equal(plugin.extensions["com.grokbot"].level, 0);
+  assert.equal(plugin.license, undefined);
+  assert.equal(plugin.author, undefined);
+  assert.equal(plugin.repository, undefined);
   assert.equal(mcp.mcpServers["order-status"].command, "node");
   assert.equal(mcp.mcpServers["order-status"].args[0], "${PLUGIN_ROOT}/core/dist/index.js");
   assert.equal(mcp.mcpServers["orders-api"].url, "https://orders.example.com/mcp");
@@ -112,6 +115,27 @@ test("credential headers and query strings are omitted from the package", () => 
   assert.equal(packed.includes("code="), false);
   assert.equal(packed.includes("supersecret"), false);
   assert.ok(emitted.omitted.some((item) => item.name === "Apim" && /query string/.test(item.reason)));
+});
+
+test("plugin identity comes from agentPlugin and an untyped url is not an MCP server", () => {
+  const spec = sampleSpec();
+  spec.agentPlugin = {
+    license: "Apache-2.0",
+    repository: "https://example.com/order-status",
+    author: { name: "Retail Team", email: "team@example.com" },
+  };
+  spec.integrations = [
+    { name: "Untyped", purpose: "Skip", url: "https://untyped.example.com/mcp" },
+    { name: "Orders API", type: "mcp", purpose: "Read orders", url: "https://orders.example.com/mcp" },
+  ];
+  const built = require("../agent-plugins/generate").buildPackage(spec);
+  const plugin = JSON.parse(built.files["plugin.json"]);
+  const mcp = JSON.parse(built.files["mcp.json"]);
+  assert.equal(plugin.license, "Apache-2.0");
+  assert.equal(plugin.repository, "https://example.com/order-status");
+  assert.deepEqual(plugin.author, { name: "Retail Team", email: "team@example.com" });
+  assert.equal(mcp.mcpServers["untyped"], undefined);
+  assert.equal(mcp.mcpServers["orders-api"].url, "https://orders.example.com/mcp");
 });
 
 test("a remote server cannot replace the stdio core", () => {
@@ -198,6 +222,34 @@ test("spec-core import warns on third-party packages and still refuses a bad nam
   assert.equal(fs.existsSync(forcedOut), true);
 });
 
+test("import --force does not copy credential headers into the agentspec", () => {
+  const repo = path.join(__dirname, "..", "..", "..");
+  const cli = path.join(repo, "bin", "cli.js");
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "plugin-headers-"));
+  const outSpec = path.join(parent, "forced.json");
+  const forced = spawnSync(process.execPath, [
+    cli, "manifest", "import",
+    "--dir", path.join(repo, "schema", "fixtures", "invalid", "credential-header"),
+    "--out", outSpec,
+    "--force",
+  ], { encoding: "utf8" });
+  assert.equal(forced.status, 0, forced.stderr);
+  const packed = fs.readFileSync(outSpec, "utf8");
+  assert.equal(packed.includes("Authorization"), false);
+  assert.equal(packed.includes("Bearer"), false);
+  assert.equal(packed.includes("abcdefghijklmnop"), false);
+});
+
+test("--force help says it deletes the existing directory", () => {
+  const cli = path.join(__dirname, "..", "..", "..", "bin", "cli.js");
+  const help = spawnSync(process.execPath, [cli, "-h"], { encoding: "utf8" });
+  assert.equal(help.status, 0, help.stderr);
+  assert.match(help.stdout, /--force deletes the existing output directory/);
+  const usage = spawnSync(process.execPath, [cli, "manifest", "emit"], { encoding: "utf8" });
+  assert.notEqual(usage.status, 0);
+  assert.match(usage.stderr, /--force deletes the existing output directory/);
+});
+
 test("invalid plugin JSON raises a coded error", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "plugin-json-"));
   fs.writeFileSync(path.join(dir, "plugin.json"), "{");
@@ -217,11 +269,47 @@ test("manifest step failure is logged and does not stop the pipeline unless stri
   await stepManifest(loose, { agent: {} }, agentDir);
   assert.equal(loose.steps[0].status, "failed");
   assert.match(loose.rawLog, /Manifest step failed/);
+  assert.equal(loose.errors.length, 1);
   const strict = job();
   await assert.rejects(() => stepManifest(strict, { agent: {}, agentPlugin: { strict: true } }, agentDir));
   assert.equal(strict.steps[0].status, "failed");
+  assert.deepEqual(strict.errors, []);
   const ok = job();
   await stepManifest(ok, sampleSpec(), agentDir);
   assert.equal(ok.steps[0].status, "completed");
   assert.equal(fs.existsSync(path.join(agentDir, "plugin", "order-status", "plugin.json")), true);
+});
+
+test("manifest step keeps agentPlugin version and strict across rebuilds", async () => {
+  const { stepManifest } = require("../build-pipeline")._testables;
+  const agentDir = fs.mkdtempSync(path.join(os.tmpdir(), "plugin-merge-"));
+  const brief = sampleSpec();
+  brief.agentPlugin = {
+    version: "1.2.0",
+    strict: true,
+    extension: { kind: "channel" },
+    mcpServers: { keep: true },
+    note: "user",
+  };
+  const makeJob = () => ({
+    steps: [{ id: "manifest", status: "pending", detail: null }],
+    errors: [],
+    rawLog: "",
+    listeners: [],
+  });
+  await stepManifest(makeJob(), brief, agentDir);
+  await stepManifest(makeJob(), brief, agentDir);
+  const pluginPath = path.join(agentDir, "plugin", "order-status", "plugin.json");
+  const plugin = JSON.parse(fs.readFileSync(pluginPath, "utf8"));
+  assert.equal(plugin.version, "1.2.0");
+  assert.equal(brief.agentPlugin.version, "1.2.0");
+  assert.equal(brief.agentPlugin.strict, true);
+  assert.deepEqual(brief.agentPlugin.extension, { kind: "channel" });
+  assert.deepEqual(brief.agentPlugin.mcpServers, { keep: true });
+  assert.equal(brief.agentPlugin.note, "user");
+  assert.equal(brief.agentPlugin.name, "order-status");
+  assert.equal(brief.agentPlugin.directory, "plugin/order-status");
+  assert.ok(brief.agentPlugin.schema);
+  assert.ok(brief.agentPlugin.validatedAt);
+  assert.ok(Array.isArray(brief.agentPlugin.omitted));
 });

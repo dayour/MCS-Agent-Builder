@@ -154,7 +154,11 @@ async function stepManifest(job, brief, agentDir) {
     const name = pluginNameFromAgent(brief.agent && brief.agent.name);
     const outDir = path.join(agentDir, "plugin", name);
     const emitted = emitPlugin(brief, outDir);
+    const previous = brief.agentPlugin && typeof brief.agentPlugin === "object" && !Array.isArray(brief.agentPlugin)
+      ? brief.agentPlugin
+      : {};
     brief.agentPlugin = {
+      ...previous,
       directory: path.posix.join("plugin", name),
       name: emitted.name,
       schema: PLUGIN_SCHEMA_ID,
@@ -169,9 +173,9 @@ async function stepManifest(job, brief, agentDir) {
   } catch (err) {
     updateStep(job, "manifest", "failed", err.message);
     log(job, `Manifest step failed: ${err.message}`);
-    job.errors.push(err.message);
     const strict = Boolean(brief.agentPlugin && brief.agentPlugin.strict);
     if (strict) throw err;
+    job.errors.push(err.message);
   }
 }
 

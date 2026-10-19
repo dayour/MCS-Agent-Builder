@@ -2,7 +2,7 @@
 
 const fs = require("fs");
 const path = require("path");
-const { validatePluginDir, parseFrontmatter } = require("./validate");
+const { validatePluginDir, parseFrontmatter, isCredentialHeaderName } = require("./validate");
 
 function readJson(file) {
   let text;
@@ -42,6 +42,27 @@ function skillRecords(pluginRoot) {
   return records;
 }
 
+function withoutCredentialHeaders(servers) {
+  const copy = {};
+  for (const [name, server] of Object.entries(servers)) {
+    if (!server || typeof server !== "object" || Array.isArray(server)) {
+      copy[name] = server;
+      continue;
+    }
+    const next = { ...server };
+    if (next.headers && typeof next.headers === "object" && !Array.isArray(next.headers)) {
+      const headers = {};
+      for (const [header, value] of Object.entries(next.headers)) {
+        if (!isCredentialHeaderName(header)) headers[header] = value;
+      }
+      if (Object.keys(headers).length) next.headers = headers;
+      else delete next.headers;
+    }
+    copy[name] = next;
+  }
+  return copy;
+}
+
 function importPlugin(dir) {
   const pluginRoot = path.resolve(dir);
   const validation = validatePluginDir(pluginRoot, { profile: "import" });
@@ -69,7 +90,7 @@ function importPlugin(dir) {
     : (plugin.description || "");
   const integrations = model && Array.isArray(model.integrations) ? model.integrations.slice() : [];
   const knownUrls = new Set(integrations.map((item) => item && (item.url || item.endpoint)).filter(Boolean));
-  const servers = mcp.mcpServers && typeof mcp.mcpServers === "object" ? mcp.mcpServers : {};
+  const servers = withoutCredentialHeaders(mcp.mcpServers && typeof mcp.mcpServers === "object" ? mcp.mcpServers : {});
   for (const [serverName, server] of Object.entries(servers)) {
     if (!server || (server.type !== "streamable-http" && server.type !== "sse")) continue;
     if (!server.url || knownUrls.has(server.url)) continue;

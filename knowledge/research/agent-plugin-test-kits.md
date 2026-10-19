@@ -84,10 +84,7 @@ The live TAP stream also printed three `[build-pipeline]` log lines and per-test
 
 This repo has no `npm run gate` script. Do not substitute `npm ci && npm run gate` from the darbotlabs note.
 
-Two workflows on `main` call the gate:
-
-- `.github/workflows/manifests.yml` runs on `pull_request`. It checks out the repo, sets up Node 20, runs `node tools/validate-manifests.js --gate`, then `node --test app/lib/__tests__/agent-plugins-*.test.js`. It does not run `npm ci`.
-- `.github/workflows/ci.yml:51-52` runs `npm run validate:manifests --if-present` after install, build, lint, typecheck, and the other test scripts.
+The `ci` job in `.github/workflows/ci.yml` calls the gate. Its Validate manifests step runs `npm run validate:manifests` after install, build, lint, typecheck, and the other test scripts. There is no `.github/workflows/manifests.yml`.
 
 `npm ci` was not run for the transcript above. The lockfile resolves `microsoft-agents-objectmodel` from a private Azure DevOps feed, and this environment has no token for it. The manifest gate and the agent-plugin unit tests do not need that install. Ajv is vendored.
 
