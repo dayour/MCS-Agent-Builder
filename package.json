@@ -34,6 +34,7 @@
     "dev": "node scripts/dev.js",
     "frontend:dev": "npm --prefix app/frontend install --legacy-peer-deps && npm --prefix app/frontend run dev",
     "frontend:build": "npm --prefix app/frontend install --legacy-peer-deps && npm --prefix app/frontend run build",
+    "validate:manifests": "node tools/validate-manifests.js --gate",
     "validate:mgmt-spec": "node tools/upstream-specs/validate.js",
     "convert:mgmt-spec": "swagger2openapi tools/upstream-specs/botmanagement-2022-01-15.json --outfile tools/generated/botmanagement-openapi3.json --resolve --patch",
     "regen:mgmt-types": "npm run validate:mgmt-spec && npm run convert:mgmt-spec && openapi-typescript tools/generated/botmanagement-openapi3.json -o tools/generated/mgmt-types.ts",

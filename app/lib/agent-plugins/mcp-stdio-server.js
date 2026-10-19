@@ -292,6 +292,9 @@ function main() {
   process.stdin.on("error", () => {
     process.exitCode = 1;
   });
+  process.stdin.on("end", () => {
+    process.exit(process.exitCode || 0);
+  });
 }
 
 if (require.main === module) main();
