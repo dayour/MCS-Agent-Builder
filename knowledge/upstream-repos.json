@@ -10,12 +10,28 @@
       "lastCommitSha": "3beca422796dd1e1c26f09aab1c4c5161cfcdce6",
       "watchPaths": [
         "skills/",
+        "agents/",
         "templates/",
         "reference/",
         "scripts/"
       ],
       "integratedDate": "2026-03-18",
-      "notes": "Full 5-phase integration. Watch for new skills, template changes, schema updates."
+      "notes": "Evaluate as the STANDARD-agent YAML harness. Its installed-plugin version is also tracked by the plugins sync source. Watch for new skills, agent guidance, template changes, schema updates, and validation/test behavior."
+    },
+    {
+      "repo": "microsoft/copilot-studio-plugin",
+      "description": "Successor experimental plugin for modern/enhanced Copilot Studio agents and classic-agent migration",
+      "lastChecked": "2026-09-14",
+      "lastCommitSha": null,
+      "watchPaths": [
+        "agents/",
+        "skills/",
+        "templates/",
+        "schemas/",
+        "scripts/"
+      ],
+      "integratedDate": "2026-09-14",
+      "notes": "Evaluate for modern agentic-loop projects. Its installed-plugin version is also tracked by the plugins sync source. Watch PAC CLI requirements, agent layouts, migration behavior, validation, and testing guidance."
     },
     {
       "repo": "microsoft/eval-guide",
