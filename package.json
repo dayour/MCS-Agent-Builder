@@ -20,6 +20,9 @@
     "tools/solution-library.js",
     "knowledge/",
     "templates/",
+    "schema/",
+    "tools/validate-manifests.js",
+    "tools/vendor/ajv-runtime/",
     "start.js",
     "README.md",
     "CHANGELOG.md"

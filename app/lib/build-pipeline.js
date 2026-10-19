@@ -26,6 +26,7 @@ const specStore = require("./chat/spec-store");
 const _jobs = new Map();
 
 const DEFAULT_STEPS = [
+  { id: "manifest", label: "Writing Agent Plugins package", status: "pending", detail: null },
   { id: "auth", label: "Verifying credentials", status: "pending", detail: null },
   { id: "create", label: "Creating agent", status: "pending", detail: null },
   { id: "configure", label: "Configuring agent", status: "pending", detail: null },
@@ -144,6 +145,32 @@ const DV_HEADERS = (token) => ({
 // ---------------------------------------------------------------------------
 // Step 1: Auth + Environment Resolution
 // ---------------------------------------------------------------------------
+
+async function stepManifest(job, brief, agentDir) {
+  updateStep(job, "manifest", "running", "Writing Agent Plugins package");
+  const { emitPlugin, pluginNameFromAgent } = require("./agent-plugins/generate");
+  const { PLUGIN_SCHEMA_ID } = require("./agent-plugins/validate");
+  try {
+    const name = pluginNameFromAgent(brief.agent && brief.agent.name);
+    const outDir = path.join(agentDir, "plugin", name);
+    const emitted = emitPlugin(brief, outDir);
+    brief.agentPlugin = {
+      directory: path.posix.join("plugin", name),
+      name: emitted.name,
+      schema: PLUGIN_SCHEMA_ID,
+      validatedAt: new Date().toISOString(),
+      omitted: emitted.omitted,
+    };
+    const detail = emitted.omitted.length
+      ? `${emitted.name} (${emitted.omitted.length} remote server(s) omitted)`
+      : emitted.name;
+    updateStep(job, "manifest", "completed", detail);
+    log(job, `Manifest written to ${outDir}`);
+  } catch (err) {
+    updateStep(job, "manifest", "failed", err.message);
+    throw err;
+  }
+}
 
 async function stepAuth(job, brief) {
   updateStep(job, "auth", "running", "Resolving environment and credentials");
@@ -1300,6 +1327,7 @@ async function runPipeline(job, agentDir) {
 
     if (!brief.agent?.name) throw new Error("Missing agent name (agent.name)");
 
+    await stepManifest(job, brief, agentDir);
     const auth = await stepAuth(job, brief);
     await stepCreate(job, brief, agentDir, auth);
     await stepConfigure(job, brief, auth);
