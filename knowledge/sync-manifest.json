@@ -142,7 +142,7 @@
         "workiq": {
           "package": "@microsoft/workiq",
           "pinnedAt": "1.0.0",
-          "note": "Pinned 2026-09-14 after GA (was floating @latest, previously 0.5.0-preview1/2/3). Version bumps must flow through /mcs-sync triage (this adapter's isUnverifiable() check) rather than resolving silently on every npx invocation. When bumping, update both .claude/settings.json and .mcp.json workiq entries together."
+          "note": "Pinned 2026-09-14 after GA (was floating @latest, previously 0.5.0-preview1/2/3). The mcp-servers adapter compares pinnedAt with the workiq args in both .claude/settings.json and .mcp.json, and reads dist-tags.latest from registry.npmjs.org. A mismatch or a newer latest tag changes the fingerprint and opens a TAKE card. The pin is not edited automatically. When bumping, update pinnedAt and both workiq entries together. isUnverifiable() only flags @latest or an unpinned npx command; it does not notice a newer release of an already-pinned version."
         }
       }
     },
