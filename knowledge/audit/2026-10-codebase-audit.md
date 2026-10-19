@@ -92,9 +92,9 @@ Audit of `dayour/MCS-Agent-Builder` at `origin/main` `22de50a`. Findings below w
 - External agent-plugin test kits were not run for this audit. See `knowledge/research/agent-plugin-test-kits.md` on the docs branch.
 - `npm audit fix` was not run.
 
-## Follow-up pass (2026-10-19, `a898b33`)
+## Follow-up pass (2026-10-19, re-anchored on `415af9c`)
 
-A second read covered `app/server.js`, `app/lib/` (not the test files), `bin/`, `tools/` (not the internals of vendored `tools/om-cli/`), `scripts/`, `start.js`, and `.github/workflows/`. Anchors below were re-checked on `origin/main` `a898b33`. This is still not a line-by-line reading of every file. No fix in this section is applied on `main`.
+A second read covered `app/server.js`, `app/lib/` (not the test files), `bin/`, `tools/` (not the internals of vendored `tools/om-cli/`), `scripts/`, `start.js`, and `.github/workflows/`. Anchors below were re-checked after merging `origin/main` `415af9c` (CI workflow #14). This is still not a line-by-line reading of every file. No fix in this section is applied on `main`.
 
 Items already listed above are not repeated. A1 is still open on `main`. `cursor/shell-arg-hardening-d77a` (PR #13) replaces the `build-pipeline.js` `az` call and the temp-dir `Remove-Item` with `spawnSync` / `fs.rmSync`. That branch is not merged. The other `execSync` sites in A2 are still open, including the `pac solution export` call at `tools/solution-library.js:763`.
 
@@ -114,13 +114,13 @@ Items already listed above are not repeated. A1 is still open on `main`. `cursor
 - Impact: a `..` segment in the id reads or writes outside the intended project directory.
 - Fix: one resolver that allows `^[\w-]+$` and checks the resolved path stays under `BUILD_GUIDES`. Not applied.
 
-### B3 — Chat spec store points at the wrong Build-Guides directory
+### B3 — Chat spec store ignores `resolveBuildGuides()`
 
-- Severity: **high**
+- Severity: **medium**
 - Status: **open**
-- Evidence: `app/lib/chat/spec-store.js:22` sets `BUILD_GUIDES` to `path.join(__dirname, '..', '..', '..', 'Build-Guides')`. From `app/lib/chat/` that is `/Build-Guides` on the volume root. `app/server.js` resolves Build-Guides from the repo root.
-- Impact: `/api/chat` spec reads and writes can hit a different tree than the dashboard.
-- Fix: use the same directory the server uses (`app/lib/chat` needs two `..` segments to reach the repo root, or a shared helper). Not applied.
+- Evidence: `app/lib/chat/spec-store.js:22` sets `BUILD_GUIDES` to `path.join(__dirname, '..', '..', '..', 'Build-Guides')`. From `app/lib/chat`, three `..` segments resolve to `<repo>/Build-Guides`. Checked with `node`: `path.join('/workspace/app/lib/chat', '..', '..', '..', 'Build-Guides')` is `/workspace/Build-Guides`. Two `..` segments resolve to `/workspace/app/Build-Guides` and would be the wrong directory. `app/server.js:59-77` `resolveBuildGuides()` prefers `process.env.BUILD_GUIDES`, then `buildGuidesPath` in `~/.mcs-agent-builder/config.json`, then `<repo>/Build-Guides` when that directory exists, else `~/MCS-Agent-Builder`. spec-store does not call it.
+- Impact: when the server is using the env var, the config file, or the home directory, `/api/chat` still reads and writes `<repo>/Build-Guides`.
+- Fix: share `resolveBuildGuides()` with spec-store. Do not remove a `..` segment. Not applied. Same gap as B14.
 
 ### B4 — `pac solution export` interpolates `solutionName`
 
@@ -142,8 +142,8 @@ Items already listed above are not repeated. A1 is still open on `main`. `cursor
 
 - Severity: **high**
 - Status: **open**, **needs owner**
-- Evidence: `bin/postinstall.js:69-72` sets `permissions.dangerouslySkipPermissions` to true in the project settings and in `~/.claude/settings.json` when the key is absent.
-- Impact: `npm install` changes Claude Code's permission behavior for the user account, not only this repo.
+- Evidence: `bin/postinstall.js:69-72` sets `permissions.dangerouslySkipPermissions` to true when the property is missing or explicitly `false` (`if (!settings.permissions.dangerouslySkipPermissions)`). Call sites are `:81` (project `.claude/settings.json`) and `:84-86` (user `~/.claude/settings.json`).
+- Impact: `npm install` turns the bypass on for the user account, including when a settings file had already set it to false.
 - Fix: **needs owner**. Removing the write changes install behavior that this package currently performs on purpose. Not changed here.
 
 ### B7 — `verify-ui.js` puts `--route` in a shell string
@@ -206,15 +206,15 @@ Items already listed above are not repeated. A1 is still open on `main`. `cursor
 
 - Severity: **medium**
 - Status: **open**
-- Evidence: `app/lib/pipeline.js:17-18` sets `BUILD_GUIDES` to `<repo>/Build-Guides`. `app/server.js` can point `BUILD_GUIDES` at another directory.
-- Impact: the auto-chain can read and write a different project tree than the API.
-- Fix: pass the server's directory into the pipeline. Not applied. Related to B3.
+- Evidence: `app/lib/pipeline.js:17-18` sets `BUILD_GUIDES` to `<repo>/Build-Guides`. `app/lib/chat/spec-store.js:22` does the same with three `..` segments (B3). `app/server.js:59-77` `resolveBuildGuides()` can select the env var, `~/.mcs-agent-builder/config.json`, or `~/MCS-Agent-Builder` instead.
+- Impact: the auto-chain and the chat spec store can read and write a different project tree than the API.
+- Fix: pass `resolveBuildGuides()` into the pipeline and spec-store. Not applied.
 
 ### B15 — Verify treats skipped checks as a green run
 
 - Severity: **medium**
 - Status: **open**
-- Evidence: `tools/pipeline-test-loop.js:218-219` sets status `green` when every result is `match` or `skipped`. `tools/verify-component.js:211-212` still returns `skipped` with `"verifier not yet implemented"` for instructions and model (A4).
+- Evidence: `tools/pipeline-test-loop.js:218-219` sets status `green` when every result is `match` or `skipped`. `tools/verify-component.js:211-213` returns `skipped` with `"verifier not yet implemented"` for instructions, model, and starters (A4). The stub list continues through `:221`.
 - Impact: a run can be reported green when those verifiers did not check anything.
 - Fix: do not count `skipped` as a pass unless the caller asked for a smoke run. Not applied. Implementing the verifiers themselves remains **needs owner** (A4).
 
@@ -230,8 +230,8 @@ Items already listed above are not repeated. A1 is still open on `main`. `cursor
 
 - Severity: **medium**
 - Status: **open**
-- Evidence: `tools/diagnose-direct-line.js:54-55` writes the response body to stderr when HTTP status is not 200. `tools/backend-verify.js:201-207` stores `srv.body` from `/api/readiness/credentials` in the result JSON.
-- Impact: a bot or readiness payload can land in logs or `tools/.backend-verify.last-result.json`.
+- Evidence: `tools/diagnose-direct-line.js:54-55` writes the response body to stderr when HTTP status is not 200. `tools/backend-verify.js:201-207` stores `srv.body` from `/api/readiness/credentials` in the failure `excerpt` only inside `if (!srv.ok)`. A successful probe does not keep the body.
+- Impact: a failed bot or readiness response can land in stderr or `tools/.backend-verify.last-result.json`. A passing probe does not copy `srv.body` into that file.
 - Fix: log status and a short error code only. Not applied. What the readiness route returns was not re-fetched live.
 
 ### B18 — Self-test mode reports green
@@ -262,8 +262,8 @@ Items already listed above are not repeated. A1 is still open on `main`. `cursor
 
 - Severity: **low**
 - Status: **open**
-- Evidence: `app/server.js:2261-2266` returns `rawLog` for a build job. `app/lib/build-pipeline.js` appends pipeline detail to that log.
-- Impact: a local caller who knows the job id can read environment URLs and bot ids from the log. Same bind limitation as B1.
+- Evidence: `app/server.js:2261-2266` is `GET /api/skill/log/:jobId`. It sends the string from `findJobLog()` (`:2094-2098`). That function asks `getJobLog` on every entry in `_pipelines` (`:2069-2085`: research, build, eval, fix, analyze, and the three hybrid pipelines) and then `skillRunner.getJobLog`. The route and `findJobLog` do not mention `rawLog`.
+- Impact: a local caller who knows a job id can read that pipeline's log text, for every registered pipeline, not only the build pipeline. Same bind limitation as B1.
 - Fix: same gate as B1, if that gate is added. Not applied.
 
-Workflows `publish.yml` and `verify-upstream.yml` were read. They do not interpolate untrusted input into `run:` scripts. `ci.yml` is not on this commit.
+Workflows `publish.yml`, `verify-upstream.yml`, and `ci.yml` (added on `main` in `415af9c`) were read. They do not interpolate untrusted input into `run:` scripts. `ci.yml` runs `npm ci --legacy-peer-deps`, `npm run frontend:build`, lint, typecheck, `npm test`, `npm run test:unit`, `node --test tools/__tests__/*.test.js`, and `npm run validate:manifests --if-present`.
