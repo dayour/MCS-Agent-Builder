@@ -157,7 +157,7 @@ function makeTempDir() {
  */
 function cleanupTempDir(dir) {
     try {
-        execSync(`powershell -NoProfile -Command "Remove-Item -Recurse -Force '${dir}'"`, { stdio: 'pipe' });
+        fs.rmSync(dir, { recursive: true, force: true });
     } catch { /* best effort */ }
 }
 

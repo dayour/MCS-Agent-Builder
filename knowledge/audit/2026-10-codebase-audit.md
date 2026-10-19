@@ -15,19 +15,15 @@ Audit of `dayour/MCS-Agent-Builder` at `origin/main` `22de50a`. Findings below w
 ### A1 — Dataverse URL is interpolated into a shell command
 
 - Severity: **high**
-- Status: **open**
-- Evidence: `app/lib/build-pipeline.js:177` builds `az account get-access-token --resource "${envUrl}"` and passes it to `execSync`. `envUrl` is `brief.buildStatus.dataverseUrl`, filled from the agentspec or `tools/session-config.json` (`app/lib/build-pipeline.js:197`).
-- Impact: a quote or shell metacharacter in that URL is executed by the shell. The token is then used as a bearer credential.
-- Fix: run `az` with an argument array (`spawnSync`) and reject a value that is not an `https` URL before calling it. Not applied in this commit.
-- A second `execSync` at `app/lib/build-pipeline.js:975` uses a constant resource URL. It is not injectable. It still goes through the shell.
+- Status: **fixed** on branch `cursor/shell-arg-hardening-d77a`
+- Evidence: previously `app/lib/build-pipeline.js` passed `az account get-access-token --resource "${envUrl}"` to `execSync`. `envUrl` is `brief.buildStatus.dataverseUrl`.
+- Fix: `app/lib/az-token.js` `azAccessToken()` uses `spawnSync` with an argument array. The resource must be `https` (no user info) or an application-id GUID. `app/lib/__tests__/az-token.test.js` covers the rejection cases. `az` was not executed.
 
 ### A2 — PowerShell cleanup interpolates a path
 
 - Severity: **medium**
-- Status: **open**
-- Evidence: `tools/solution-library.js:158-161` runs `powershell -Command "Remove-Item ... '${dir}'"`. The caller at `tools/solution-library.js:338` and `:366` passes `makeTempDir()`, which is `fs.mkdtempSync`. The same file has more interpolated `execSync` calls at lines 377, 381, 393, 422, 527, and 763. Those call sites were not each traced to their inputs.
-- Impact: a path containing a single quote breaks out of the PowerShell string. The temp-dir caller does not pass attacker text today.
-- Fix: delete with `fs.rmSync(dir, { recursive: true, force: true })`. Not applied in this commit. The other `execSync` sites need the same treatment only after each argument is traced.
+- Status: **partially fixed** on branch `cursor/shell-arg-hardening-d77a`
+- Evidence: `cleanupTempDir` no longer interpolates a path into PowerShell. It calls `fs.rmSync`. The same file still has interpolated `execSync` calls. Those call sites were not each traced, so they stay open.
 
 ### A3 — Eval auto-chain calls a runner that always fails
 
