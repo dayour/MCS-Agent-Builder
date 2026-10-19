@@ -6,12 +6,12 @@ Rules: a command listed as **ran** was executed in this repo. A command listed a
 
 ## Ran in this repo
 
-The commands below were executed on commit `4acf877f461ee0ef109b7c91b3cea1fb6e4b4836`, which is the merge of `origin/main` (`da8b0a954b0d573f548c801e8d29941c3a180ecd`) into this branch. That tree's validator, fixtures, and tests match `main`. The docs commit that records this transcript does not change those files. The pull request comment on the pushed head quotes the same two commands run again on that head.
+The commands below were executed on commit `4acf877f461ee0ef109b7c91b3cea1fb6e4b4836`, the merge of `origin/main` (`da8b0a954b0d573f548c801e8d29941c3a180ecd`) into this branch. That tree's validator, fixtures, and tests match `main`. They were run again on `3e92ce8ae1c11eb0f94b6ea4da5edf0f4b595437`, the commit that corrected the behavior docs. On `3e92ce8` `npm run validate:manifests` printed the same gate lines as the transcript below and exited 0 (no npm upgrade notice on that run). `node --test app/lib/__tests__/agent-plugins-*.test.js` exited 0 with the same 19 names and `# pass 19` / `# fail 0`. Per-test `duration_ms` values changed. The log lines again reported two `agentspec is missing agent.name` failures and one write under `/tmp/plugin-step-*/plugin/order-status`. The commit that adds this paragraph changes this file and the review-loop skill only. The pull request comment quotes both commands run on that commit.
 
 | Kit | Command | Result |
 |---|---|---|
-| Manifest gate | `npm run validate:manifests` | Exit 0 on `4acf877f461ee0ef109b7c91b3cea1fb6e4b4836`. Two valid fixtures passed. Twenty-one invalid fixtures were rejected. Transcript below. |
-| Unit tests | `node --test app/lib/__tests__/agent-plugins-*.test.js` | Exit 0 on that commit. 19 passed, 0 failed. Transcript below. |
+| Manifest gate | `npm run validate:manifests` | Exit 0 on `4acf877f461ee0ef109b7c91b3cea1fb6e4b4836` and again on `3e92ce8ae1c11eb0f94b6ea4da5edf0f4b595437`. Two valid fixtures passed. Twenty-one invalid fixtures were rejected. Transcript below. |
+| Unit tests | `node --test app/lib/__tests__/agent-plugins-*.test.js` | Exit 0 on both commits. 19 passed, 0 failed. Transcript below is the `4acf877` names and summary. The `3e92ce8` run had the same names and the same pass/fail counts. |
 | CLI | `node bin/cli.js manifest emit`, `manifest import`, `manifest validate` | The unit-test run above includes the subtests `cli emit and import print a valid manifest`, `emit refuses an unrelated directory unless --force`, `spec-core import warns on third-party packages and still refuses a bad name`, and `stdio command token rejects shell strings`. |
 
 `npm run validate:manifests` on `4acf877f461ee0ef109b7c91b3cea1fb6e4b4836`:
