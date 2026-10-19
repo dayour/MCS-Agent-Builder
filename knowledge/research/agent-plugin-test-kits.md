@@ -6,15 +6,90 @@ Rules: a command listed as **ran** was executed in this repo. A command listed a
 
 ## Ran in this repo
 
+The commands below were executed on commit `4acf877f461ee0ef109b7c91b3cea1fb6e4b4836`, which is the merge of `origin/main` (`da8b0a954b0d573f548c801e8d29941c3a180ecd`) into this branch. That tree's validator, fixtures, and tests match `main`. The docs commit that records this transcript does not change those files. The pull request comment on the pushed head quotes the same two commands run again on that head.
+
 | Kit | Command | Result |
 |---|---|---|
-| Manifest gate | `npm run validate:manifests` | Ran on commit `9ee7ac16760473399770eb341fc6a3506998067d`. One valid fixture passed. Fourteen invalid fixtures were rejected. |
-| Unit tests | `node --test app/lib/__tests__/agent-plugins-validate.test.js app/lib/__tests__/agent-plugins-generate.test.js` | Ran on that commit. 9 passed, 0 failed. |
-| CLI | `node bin/cli.js manifest emit`, `manifest import`, `manifest validate` | Covered by `agent-plugins-generate.test.js`, including a `command-token` failure on `schema/fixtures/invalid/shell-command`. |
+| Manifest gate | `npm run validate:manifests` | Exit 0 on `4acf877f461ee0ef109b7c91b3cea1fb6e4b4836`. Two valid fixtures passed. Twenty-one invalid fixtures were rejected. Transcript below. |
+| Unit tests | `node --test app/lib/__tests__/agent-plugins-*.test.js` | Exit 0 on that commit. 19 passed, 0 failed. Transcript below. |
+| CLI | `node bin/cli.js manifest emit`, `manifest import`, `manifest validate` | The unit-test run above includes the subtests `cli emit and import print a valid manifest`, `emit refuses an unrelated directory unless --force`, `spec-core import warns on third-party packages and still refuses a bad name`, and `stdio command token rejects shell strings`. |
 
-This repo has no `npm run gate` script. Do not substitute `npm ci && npm run gate` from the darbotlabs note. CI is expected to call `npm run validate:manifests --if-present` from `.github/workflows/ci.yml` when that workflow is on the branch. This docs change does not add a workflow.
+`npm run validate:manifests` on `4acf877f461ee0ef109b7c91b3cea1fb6e4b4836`:
 
-`npm ci` was not run. The lockfile resolves `microsoft-agents-objectmodel` from a private Azure DevOps feed, and this environment has no token for it. That is why Ajv is vendored.
+```
+> mcs-agent-builder@1.0.3 validate:manifests
+> node tools/validate-manifests.js --gate
+
+valid schema/fixtures/valid/level-pass
+valid schema/fixtures/valid/order-status
+rejected schema/fixtures/invalid/apim-key-header (header-secret, header-secret)
+rejected schema/fixtures/invalid/bad-name (plugin-schema, name-folder)
+rejected schema/fixtures/invalid/bad-skill (skill-frontmatter)
+rejected schema/fixtures/invalid/credential-header (manifest-secret, header-secret)
+rejected schema/fixtures/invalid/cwd-escape (cwd-containment)
+rejected schema/fixtures/invalid/extra-key (plugin-schema)
+rejected schema/fixtures/invalid/http-remote (remote-url)
+rejected schema/fixtures/invalid/inflated-level (level-inflated)
+rejected schema/fixtures/invalid/level-bypass (level-inflated)
+rejected schema/fixtures/invalid/level-failed-next (level-inflated)
+rejected schema/fixtures/invalid/level-not-passing (level-inflated)
+rejected schema/fixtures/invalid/missing-binding (binding-path)
+rejected schema/fixtures/invalid/missing-spec (spec-file)
+rejected schema/fixtures/invalid/name-mismatch (name-folder)
+rejected schema/fixtures/invalid/plugin-root-env (mcp-schema, mcp-schema, mcp-schema, mcp-schema, mcp-schema, mcp-schema, mcp-schema, mcp-schema, mcp-schema, mcp-schema, mcp-schema, mcp-schema, mcp-schema, mcp-schema, mcp-schema, env-secret)
+rejected schema/fixtures/invalid/query-key (remote-url)
+rejected schema/fixtures/invalid/secret-env (env-secret)
+rejected schema/fixtures/invalid/secret-sync-direction (secret-sync-direction)
+rejected schema/fixtures/invalid/shell-command (command-token)
+rejected schema/fixtures/invalid/symlink-escape (path-escape)
+rejected schema/fixtures/invalid/third-party (extension-missing, mcp-missing, skill-missing)
+manifests: 2 valid, 21 invalid rejected
+```
+
+npm also printed an upgrade notice (`10.9.9 -> 12.2.0`). That notice is not part of the gate result. Exit code was 0.
+
+`node --test app/lib/__tests__/agent-plugins-*.test.js` on the same commit:
+
+```
+TAP version 13
+ok 1 - emit writes a valid package and import round-trips the model without secrets
+ok 2 - cli emit and import print a valid manifest
+ok 3 - credential headers and query strings are omitted from the package
+ok 4 - a remote server cannot replace the stdio core
+ok 5 - emit refuses an unrelated directory unless --force
+ok 6 - non-latin names and non-loopback 127 hosts stay valid or omitted
+ok 7 - spec-core import warns on third-party packages and still refuses a bad name
+ok 8 - invalid plugin JSON raises a coded error
+ok 9 - manifest step failure is logged and does not stop the pipeline unless strict
+ok 10 - vendored schemas match provenance hashes and canonical ids
+ok 11 - valid order-status fixture passes
+ok 12 - invalid fixtures fail on the rule they target
+ok 13 - stdio command token rejects shell strings
+ok 14 - skill frontmatter folds a multiline description
+ok 15 - level evidence requires a structured pass row
+ok 16 - symlink targets outside the plugin root are rejected
+ok 17 - ajv loader restores Node's module path resolver
+ok 18 - mcp server redacts secret fields and answers tools/call
+ok 19 - mcp server stdio process lists tools
+# tests 19
+# suites 0
+# pass 19
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+```
+
+The live TAP stream also printed three `[build-pipeline]` log lines and per-test `duration_ms` blocks. The names and the summary counts above are the test result. Duration was about 655 ms. Exit code was 0.
+
+This repo has no `npm run gate` script. Do not substitute `npm ci && npm run gate` from the darbotlabs note.
+
+Two workflows on `main` call the gate:
+
+- `.github/workflows/manifests.yml` runs on `pull_request`. It checks out the repo, sets up Node 20, runs `node tools/validate-manifests.js --gate`, then `node --test app/lib/__tests__/agent-plugins-*.test.js`. It does not run `npm ci`.
+- `.github/workflows/ci.yml:51-52` runs `npm run validate:manifests --if-present` after install, build, lint, typecheck, and the other test scripts.
+
+`npm ci` was not run for the transcript above. The lockfile resolves `microsoft-agents-objectmodel` from a private Azure DevOps feed, and this environment has no token for it. The manifest gate and the agent-plugin unit tests do not need that install. Ajv is vendored.
 
 ## Unverified external kits
 
@@ -37,6 +112,6 @@ These rows are the 2026-10-19 note. They were **not** re-executed and their vend
 ## What to run on a review round
 
 1. `npm run validate:manifests`
-2. `node --test app/lib/__tests__/agent-plugins-validate.test.js app/lib/__tests__/agent-plugins-generate.test.js`
+2. `node --test app/lib/__tests__/agent-plugins-*.test.js`
 3. `node bin/cli.js manifest validate <plugin-dir>` on any package the change emitted
 4. External kits only after they are installed and the unverified mark above is replaced with command output
