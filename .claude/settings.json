@@ -133,7 +133,7 @@
       "command": "npx",
       "args": [
         "-y",
-        "@microsoft/workiq@latest",
+        "@microsoft/workiq@1.0.0",
         "mcp"
       ]
     },
