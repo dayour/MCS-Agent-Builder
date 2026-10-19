@@ -362,9 +362,8 @@ async function runPackage(job) {
       exportPacSolution(solutionName, zipPath, { timeout: 120_000 });
       updatePkgStep(job, "export", "completed", `Exported ${solutionName}.zip`);
     } catch (err) {
-      updatePkgStep(job, "export", "completed", `Export failed: ${err.message} — continuing without zip`);
-      job.errors.push(`Solution export failed: ${err.message}`);
-      zipPath = null;
+      updatePkgStep(job, "export", "failed", err.message);
+      throw err;
     }
   } else {
     updatePkgStep(job, "export", "skipped", "No solution name in agentspec — skipping export");

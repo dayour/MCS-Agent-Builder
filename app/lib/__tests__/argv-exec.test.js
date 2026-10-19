@@ -45,30 +45,47 @@ test("linux pac export uses an argument array and shell false", () => {
   assert.equal(capture.calls[0].options.windowsVerbatimArguments, false);
 });
 
-test("win32 pac export runs pac.cmd through cmd.exe after the allowlist", () => {
+test("win32 pac export quotes the zip path and keeps a OneDrive space", () => {
   const capture = { calls: [] };
-  exportPacSolution("Contoso_Agent", "C:\\temp\\Contoso_Agent.zip", {
+  exportPacSolution("Foo", "C:\\Users\\dayour\\OneDrive - Microsoft\\mcs\\x.zip", {
     platform: "win32",
     spawnSync: stubSpawn(capture),
   });
   assert.equal(capture.calls[0].command, "cmd.exe");
   assert.deepEqual(capture.calls[0].args, [
-    "/d", "/s", "/c", "pac.cmd",
-    "solution", "export", "--name", "Contoso_Agent", "--path", "C:/temp/Contoso_Agent.zip",
-    "--managed", "--overwrite",
+    "/d", "/s", "/c",
+    'pac.cmd solution export --name Foo --path "C:\\Users\\dayour\\OneDrive - Microsoft\\mcs\\x.zip" --managed --overwrite',
   ]);
   assert.equal(capture.calls[0].options.shell, false);
   assert.equal(capture.calls[0].options.windowsVerbatimArguments, true);
+
+  const plain = { calls: [] };
+  exportPacSolution("Contoso_Agent", "C:\\temp\\Contoso_Agent.zip", {
+    platform: "win32",
+    spawnSync: stubSpawn(plain),
+  });
+  assert.equal(
+    plain.calls[0].args[3],
+    'pac.cmd solution export --name Contoso_Agent --path "C:\\temp\\Contoso_Agent.zip" --managed --overwrite',
+  );
 });
 
-test("a quoted solution name or a win32 path outside the allowlist does not spawn", () => {
+test("a quoted solution name or a pac path metacharacter does not spawn", () => {
   let spawned = false;
   const spawnSync = () => {
     spawned = true;
     return { status: 0, stdout: "" };
   };
-  assert.throws(() => exportPacSolution('Contoso" & calc', "/tmp/x.zip", { platform: "linux", spawnSync }));
-  assert.throws(() => exportPacSolution("Contoso_Agent", "C:/Users/A B/x.zip", { platform: "win32", spawnSync }));
+  assert.throws(
+    () => exportPacSolution('Contoso" & calc', "/tmp/x.zip", { platform: "linux", spawnSync }),
+    (err) => err.code === "SOLUTION_NAME",
+  );
+  for (const zipPath of ['C:\\temp\\a"b.zip', "C:\\temp\\a%b.zip", "C:\\temp\\a!b.zip", "C:\\temp\\a^b.zip"]) {
+    assert.throws(
+      () => exportPacSolution("Contoso_Agent", zipPath, { platform: "win32", spawnSync }),
+      (err) => err.code === "SOLUTION_PATH" && /pac solution export/.test(err.message),
+    );
+  }
   assert.equal(spawned, false);
 });
 
@@ -192,6 +209,33 @@ test("openInBrowser passes an https URL as one argument", () => {
     execFileSync() { spawned = true; },
   }), (err) => err.code === "BROWSER_URL");
   assert.equal(spawned, false);
+});
+
+test("explorer.exe exit code 1 is success and any other code is not", () => {
+  openInBrowser("https://example.test/a", {
+    platform: "win32",
+    execFileSync() {
+      const error = new Error("Command failed: explorer.exe");
+      error.status = 1;
+      throw error;
+    },
+  });
+  assert.throws(() => openInBrowser("https://example.test/a", {
+    platform: "linux",
+    execFileSync() {
+      const error = new Error("Command failed: xdg-open");
+      error.status = 1;
+      throw error;
+    },
+  }));
+  assert.throws(() => openInBrowser("https://example.test/a", {
+    platform: "win32",
+    execFileSync() {
+      const error = new Error("Command failed: explorer.exe");
+      error.status = 2;
+      throw error;
+    },
+  }));
 });
 
 test("git revisions reject shell metacharacters", () => {

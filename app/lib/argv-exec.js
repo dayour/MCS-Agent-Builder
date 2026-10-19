@@ -84,20 +84,46 @@ function runCmdShim(name, args, options) {
   return spawnChecked(name, safeArgs, options, false);
 }
 
-function exportPacSolution(solutionName, zipPath, options) {
-  const name = assertSolutionName(solutionName);
-  if (typeof zipPath !== "string" || zipPath.length === 0 || /[\0\r\n]/.test(zipPath)) {
-    const error = new Error("solution zip path is empty");
+function assertPacZipPath(zipPath) {
+  if (typeof zipPath !== "string" || zipPath.length === 0 || /["%!\^\0\r\n]/.test(zipPath)) {
+    const error = new Error("pac solution export path contains a forbidden character");
     error.code = "SOLUTION_PATH";
     throw error;
   }
-  const platform = (options && options.platform) || process.platform;
-  const args = ["solution", "export", "--name", name, "--path", zipPath, "--managed", "--overwrite"];
-  if (platform === "win32") {
-    args[5] = assertCliArg(zipPath.replace(/\\/g, "/"));
-    return runCmdShim("pac", args, options);
+  return zipPath;
+}
+
+function assertPid(value) {
+  const text = String(value == null ? "" : value).trim();
+  if (!/^[1-9]\d*$/.test(text)) {
+    const error = new Error("pid must be a positive integer");
+    error.code = "PID";
+    throw error;
   }
-  return runDirect("pac", args, options);
+  return text;
+}
+
+function assertPort(value) {
+  const port = Number(value);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    const error = new Error("port must be an integer from 1 to 65535");
+    error.code = "PORT";
+    throw error;
+  }
+  return port;
+}
+
+function exportPacSolution(solutionName, zipPath, options) {
+  const name = assertSolutionName(solutionName);
+  const zip = assertPacZipPath(zipPath);
+  const platform = (options && options.platform) || process.platform;
+  if (platform === "win32") {
+    const commandLine = [
+      "pac.cmd", "solution", "export", "--name", name, "--path", `"${zip}"`, "--managed", "--overwrite",
+    ].join(" ");
+    return spawnChecked("cmd.exe", ["/d", "/s", "/c", commandLine], options, true);
+  }
+  return runDirect("pac", ["solution", "export", "--name", name, "--path", zip, "--managed", "--overwrite"], options);
 }
 
 function runNpm(args, options) {
@@ -168,16 +194,24 @@ function openInBrowser(url, options) {
   const platform = (options && options.platform) || process.platform;
   const command = platform === "win32" ? "explorer.exe" : platform === "darwin" ? "open" : "xdg-open";
   const execFile = (options && options.execFileSync) || execFileSync;
-  return execFile(command, [url], {
-    stdio: "ignore",
-    timeout: 15000,
-    shell: false,
-  });
+  try {
+    return execFile(command, [url], {
+      stdio: "ignore",
+      timeout: 15000,
+      shell: false,
+    });
+  } catch (err) {
+    if (command === "explorer.exe" && err && err.status === 1) return "";
+    throw err;
+  }
 }
 
 module.exports = {
   assertGitRevision,
   assertNpmArg,
+  assertPacZipPath,
+  assertPid,
+  assertPort,
   assertSolutionName,
   exportPacSolution,
   openInBrowser,

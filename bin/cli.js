@@ -12,7 +12,7 @@
  * Flags --start, --stop, --restart, --health, --doctor also accepted.
  */
 
-const { spawn, execSync } = require("child_process");
+const { spawn, spawnSync, execSync, execFileSync } = require("child_process");
 const { runNpm } = require("../app/lib/argv-exec");
 const http = require("http");
 const path = require("path");
@@ -377,14 +377,37 @@ function doctor() {
     }
   }
 
-  function run(cmd) {
-    return execSync(cmd, { encoding: "utf8", timeout: 15000, stdio: "pipe" }).trim();
+  function run(file, args, options) {
+    const winShim = process.platform === "win32" && ["az", "pac", "npm", "gh"].includes(file);
+    const result = spawnSync(
+      winShim ? "cmd.exe" : file,
+      winShim ? ["/d", "/s", "/c", `${file}.cmd`, ...args] : args,
+      {
+        encoding: "utf8",
+        timeout: 15000,
+        shell: false,
+        windowsVerbatimArguments: winShim,
+        stdio: (options && options.stdio) || "pipe",
+      },
+    );
+    if (result.error) throw result.error;
+    const stdout = String(result.stdout || "");
+    const stderr = String(result.stderr || "");
+    if (result.status !== 0) {
+      const error = new Error((stderr || stdout).trim() || `${file} exited ${result.status}`);
+      error.status = result.status;
+      error.stdout = stdout;
+      error.stderr = stderr;
+      throw error;
+    }
+    return ((options && options.mergeStderr) ? stdout + stderr : stdout).trim();
   }
 
   function cmdExists(cmd) {
+    if (cmd !== "python" && cmd !== "python3" && cmd !== "git") return false;
     try {
       const which = os.platform() === "win32" ? "where" : "which";
-      run(`${which} ${cmd}`);
+      run(which, [cmd]);
       return true;
     } catch { return false; }
   }
@@ -402,7 +425,7 @@ function doctor() {
     for (const cmd of ["python", "python3"]) {
       if (!cmdExists(cmd)) continue;
       try {
-        const ver = run(`${cmd} -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"`);
+        const ver = run(cmd, ["-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"]);
         const [maj, min] = ver.split(".").map(Number);
         if (maj > 3 || (maj === 3 && min >= 10)) return { ok: true, detail: `v${ver} (${cmd})` };
         return { ok: false, detail: `v${ver} (too old)`, fix: "Run start.cmd or: winget install Python.Python.3.12" };
@@ -414,7 +437,7 @@ function doctor() {
   // 3. Git
   check("Git", () => {
     if (!cmdExists("git")) return { ok: false, detail: "not found", fix: "Run start.cmd or: winget install Git.Git" };
-    const ver = run("git --version").replace("git version ", "");
+    const ver = run("git", ["--version"]).replace("git version ", "");
     return { ok: true, detail: `v${ver}` };
   });
 
@@ -459,8 +482,8 @@ function doctor() {
   check("Azure CLI (optional)", () => {
     if (!cmdExists("az")) return { ok: false, detail: "not found", fix: "winget install Microsoft.AzureCLI" };
     try {
-      const ver = run('az version --output tsv --query "\\"azure-cli\\""');
-      return { ok: true, detail: `v${ver}` };
+      const ver = JSON.parse(run("az", ["version", "--output", "json"]))["azure-cli"];
+      return { ok: true, detail: ver ? `v${ver}` : "installed" };
     } catch {
       return { ok: true, detail: "installed (version check failed)" };
     }
@@ -469,7 +492,7 @@ function doctor() {
   // 7. .NET 10 runtime (optional — for om-cli)
   check(".NET 10 runtime (optional)", () => {
     try {
-      const runtimes = run("dotnet --list-runtimes");
+      const runtimes = run("dotnet", ["--list-runtimes"]);
       if (runtimes.includes("Microsoft.NETCore.App 10.")) {
         const match = runtimes.match(/Microsoft\.NETCore\.App (10\.\d+\.\d+)/);
         return { ok: true, detail: match ? `v${match[1]}` : "v10.x" };
@@ -487,7 +510,7 @@ function doctor() {
       // PAC CLI 2.9+ removed the standalone `--version` flag (it now errors
       // with "Not a valid command"). `pac help` still prints the version
       // banner ("Version: x.y.z+hash (.NET ...)") on exit 0 across versions.
-      const out = run("pac help");
+      const out = run("pac", ["help"]);
       const match = out.match(/Version:\s*(\S+)/);
       return { ok: true, detail: match ? `v${match[1]}` : "installed" };
     } catch {
@@ -498,7 +521,7 @@ function doctor() {
   // 9. MCP: WorkIQ
   check("MCP: WorkIQ", () => {
     try {
-      const out = run("npm list -g @microsoft/workiq --json 2>" + (os.platform() === "win32" ? "NUL" : "/dev/null"));
+      const out = run("npm", ["list", "-g", "@microsoft/workiq", "--json"], { stdio: ["pipe", "pipe", "ignore"] });
       const ver = JSON.parse(out).dependencies?.["@microsoft/workiq"]?.version;
       if (ver) return { ok: true, detail: `v${ver}` };
       return { ok: false, detail: "not installed", fix: "npm install -g @microsoft/workiq" };
@@ -555,7 +578,7 @@ function doctor() {
   check("GPT-5.5 review (optional)", () => {
     if (!cmdExists("gh")) return { ok: false, detail: "gh CLI not found", fix: "winget install GitHub.cli" };
     try {
-      const status = run("gh auth status 2>&1");
+      const status = run("gh", ["auth", "status"], { mergeStderr: true });
       if (!status.includes("Logged in")) return { ok: false, detail: "gh not logged in", fix: "gh auth login" };
       if (!status.includes("'copilot'") && !status.includes('"copilot"')) {
         return { ok: false, detail: "missing copilot scope", fix: "gh auth refresh --scopes copilot" };

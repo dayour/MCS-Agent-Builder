@@ -18,7 +18,8 @@
  *   → builds frontend, serves pre-built SPA from app/dist/ on single port
  */
 
-const { spawn, execSync } = require("child_process");
+const { spawn, execFileSync } = require("child_process");
+const { assertPid, assertPort, runNpm } = require("../app/lib/argv-exec");
 const http = require("http");
 const path = require("path");
 const fs = require("fs");
@@ -31,7 +32,6 @@ const BACKEND_LOG = path.join(ROOT, "app", ".dev-server.log");
 const VITE_CACHE = path.join(FRONTEND_DIR, "node_modules", ".vite");
 
 const isWin = os.platform() === "win32";
-const npmCmd = isWin ? "npm.cmd" : "npm";
 
 const DEV_URL = "http://localhost:8080";
 
@@ -53,25 +53,40 @@ if (fs.existsSync(VITE_CACHE)) {
 // Previous dev sessions (or Claude's verification) may leave servers running.
 // Kill them so the fresh spawn doesn't hit EADDRINUSE.
 function freePort(port) {
+  let safePort;
+  try {
+    safePort = assertPort(port);
+  } catch {
+    return;
+  }
   try {
     if (isWin) {
-      const out = execSync(`netstat -ano | findstr ":${port}.*LISTEN"`, { encoding: "utf-8", windowsHide: true }).trim();
-      const pids = [...new Set(out.split("\n").map(l => l.trim().split(/\s+/).pop()).filter(Boolean))];
-      for (const pid of pids) {
-        if (pid === "0" || pid === String(process.pid)) continue;
-        try {
-          execSync(`taskkill /F /PID ${pid}`, { windowsHide: true, stdio: "pipe" });
-          console.log(`\x1b[33m[cleanup]\x1b[0m Killed stale process on :${port} (PID ${pid})\x1b[0m`);
-        } catch { /* already dead */ }
-      }
-    } else {
-      const out = execSync(`lsof -ti :${port}`, { encoding: "utf-8" }).trim();
-      const pids = [...new Set(out.split("\n").filter(Boolean))];
+      const out = execFileSync("netstat", ["-ano", "-p", "TCP"], {
+        encoding: "utf-8",
+        windowsHide: true,
+        shell: false,
+      });
+      const pids = [...new Set(
+        out.split("\n")
+          .filter((line) => line.includes(`:${safePort}`) && /LISTEN/i.test(line))
+          .map((line) => line.trim().split(/\s+/).pop())
+          .filter((pid) => pid && /^[1-9]\d*$/.test(pid)),
+      )];
       for (const pid of pids) {
         if (pid === String(process.pid)) continue;
         try {
-          process.kill(Number(pid), "SIGTERM");
-          console.log(`\x1b[33m[cleanup]\x1b[0m Killed stale process on :${port} (PID ${pid})\x1b[0m`);
+          execFileSync("taskkill", ["/F", "/PID", assertPid(pid)], { windowsHide: true, stdio: "pipe", shell: false });
+          console.log(`\x1b[33m[cleanup]\x1b[0m Killed stale process on :${safePort} (PID ${pid})\x1b[0m`);
+        } catch { /* already dead */ }
+      }
+    } else {
+      const out = execFileSync("lsof", ["-ti", `:${safePort}`], { encoding: "utf-8", shell: false }).trim();
+      const pids = [...new Set(out.split("\n").filter(Boolean))];
+      for (const pid of pids) {
+        if (!/^[1-9]\d*$/.test(pid) || pid === String(process.pid)) continue;
+        try {
+          process.kill(Number(assertPid(pid)), "SIGTERM");
+          console.log(`\x1b[33m[cleanup]\x1b[0m Killed stale process on :${safePort} (PID ${pid})\x1b[0m`);
         } catch { /* already dead */ }
       }
     }
@@ -85,10 +100,9 @@ freePort(8080);
 if (!fs.existsSync(path.join(FRONTEND_DIR, "node_modules"))) {
   console.log("\x1b[33m[setup]\x1b[0m Installing frontend dependencies...");
   try {
-    execSync(`${npmCmd} install --legacy-peer-deps`, {
+    runNpm(["install", "--legacy-peer-deps"], {
       cwd: FRONTEND_DIR,
       stdio: "inherit",
-      shell: true,
     });
     console.log("\x1b[32m[setup]\x1b[0m Frontend dependencies installed.\n");
   } catch (e) {

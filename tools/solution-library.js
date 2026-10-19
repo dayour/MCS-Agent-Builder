@@ -756,12 +756,7 @@ async function uploadSolution(token, projectId, agentId, displayName) {
         zipPath = path.join(exportDir, `${solutionName}.zip`);
 
         console.error(`Exporting solution "${solutionName}"...`);
-        try {
-            exportPacSolution(solutionName, zipPath, { timeout: 120000 });
-        } catch (err) {
-            console.error(`  Warning: pac solution export failed — ${err.message}`);
-            zipPath = null;
-        }
+        exportPacSolution(solutionName, zipPath, { timeout: 120000 });
     }
 
     console.error(`Creating folder: ${folderName}`);
