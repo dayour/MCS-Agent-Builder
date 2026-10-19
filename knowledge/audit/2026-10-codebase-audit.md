@@ -77,12 +77,10 @@ Audit of `dayour/MCS-Agent-Builder` at `origin/main` `22de50a`. Findings below w
 
 ### A9 — Lockfile vulnerabilities
 
-- Severity: **high** (one critical advisory in the tree)
-- Status: **open**
-- Evidence: `npm audit --package-lock-only` on 2026-10-19, exit code 1. 19 advisories: 1 critical, 11 high, 6 moderate, 1 low.
-- Critical: `proxy-addr` (IP spoofing via IPv4-mapped IPv6 trust).
-- High names reported: `@xmldom/xmldom`, `brace-expansion`, `js-yaml`, `microsoft-agents-objectmodel`, `multer`, `nanoid`, `path-to-regexp`, `smol-toml`, `source-map-js`, `undici`, `xlsx`.
-- Fix: **needs owner** for a lockfile update. `npm ci` cannot be run here because `microsoft-agents-objectmodel` resolves from `pkgs.dev.azure.com` (see `.github/workflows/verify-upstream.yml`). An upgrade was not applied and was not verified.
+- Severity: **high** (one critical advisory in the production tree)
+- Status: **closed** for the production critical and high advisories
+- Evidence: `npm audit --omit=dev` after the lockfile update reports 3 moderate and no critical or high. `proxy-addr` is 2.0.8. `@xmldom/xmldom` is 0.8.15, `multer` is 2.4.0, `path-to-regexp` is 8.4.2, `source-map-js` is 1.2.2, and `undici` is 7.30.1. `xlsx` is 0.20.3 from `https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz` because the npm registry copy stops at 0.18.5 and has no patched release. `excelToCsv` still uses `readFile` and `sheet_to_csv`.
+- Remaining: `mammoth` depends on `argparse` and `sprintf-js`. That chain is moderate. `npm audit fix --force` would install `mammoth@0.3.29`, a breaking downgrade, so it was not applied.
 
 ## Not claimed
 
