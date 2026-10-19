@@ -77,7 +77,12 @@ test("invalid fixtures fail on the rule they target", () => {
     "level-not-passing": "level-inflated",
     "level-failed-next": "level-inflated",
     "level-superseded": "level-inflated",
+    "level-cross-file": "level-inflated",
+    "level-status-fail": "level-inflated",
+    "level-status-failed": "level-inflated",
     "level-fenced": "level-inflated",
+    "level-long-fence": "level-inflated",
+    "level-indented": "level-inflated",
     "level-commented": "level-inflated",
     "level-malformed": "level-inflated",
     "homepage-credential": "identity-secret",
@@ -160,6 +165,14 @@ test("latest level row is evaluated across CONFORMANCE.md and ROADMAP.md combine
   const accepted = stage(levelRow("fail", earlier), levelRow("pass", later));
   const result = validatePluginDir(accepted);
   assert.equal(result.ok, true, JSON.stringify(result.violations));
+  const cross = path.join(INVALID, "level-cross-file");
+  const conformance = fs.readFileSync(path.join(cross, "CONFORMANCE.md"), "utf8");
+  const roadmap = fs.readFileSync(path.join(cross, "ROADMAP.md"), "utf8");
+  assert.match(conformance, /\| L1 \| pass \| 2020-09-01 \| abcdef0 \|/);
+  assert.match(conformance, /\| L1 \| fail \| 2020-10-18 \| abcdef0 \|/);
+  assert.match(roadmap, /\| L1 \| pass \| 2020-09-01 \| abcdef0 \|/);
+  assert.equal(hasLevelPassRecord([conformance, roadmap], 1), false);
+  assert.equal(rules(cross).has("level-inflated"), true);
 });
 
 test("level pass and fail match without case, and failed is a failing row", () => {
@@ -167,7 +180,11 @@ test("level pass and fail match without case, and failed is a failing row", () =
   const later = utcDay(-1);
   // Before: "Failed" was not a row, so the earlier pass was the latest result.
   assert.equal(hasLevelPassRecord(`${levelRow("pass", earlier)}\n${levelRow("Failed", later)}`, 1), false);
+  assert.equal(hasLevelPassRecord(`${levelRow("pass", earlier)}\n${levelRow("FAIL", later)}`, 1), false);
+  assert.equal(hasLevelPassRecord(`${levelRow("pass", earlier)}\n${levelRow("failed", later)}`, 1), false);
   assert.equal(hasLevelPassRecord(`${levelRow("FAIL", earlier)}\n${levelRow("failed", later)}`, 1), false);
+  assert.equal(fs.readFileSync(path.join(INVALID, "level-status-fail", "CONFORMANCE.md"), "utf8").includes("| L1 | FAIL | 2020-10-18 | abcdef0 |"), true);
+  assert.equal(fs.readFileSync(path.join(INVALID, "level-status-failed", "CONFORMANCE.md"), "utf8").includes("| L1 | failed | 2020-10-18 | abcdef0 |"), true);
   // After: PASS is a pass row, including when the earlier result is FAIL.
   assert.equal(hasLevelPassRecord(`${levelRow("FAIL", earlier)}\n${levelRow("PASS", later)}`, 1), true);
   assert.equal(hasLevelPassRecord(levelRow("Pass", later), 1), true);
@@ -190,6 +207,14 @@ test("CommonMark fences close on the same marker at equal or greater length, and
   assert.equal(hasLevelPassRecord(indentedMarker, 1), true);
   const longerCloser = `\`\`\`\n${levelRow("fail", utcDay(-30))}\n\`\`\`\`\n${pass}\n`;
   assert.equal(hasLevelPassRecord(longerCloser, 1), true);
+  const longFence = fs.readFileSync(path.join(INVALID, "level-long-fence", "CONFORMANCE.md"), "utf8");
+  assert.equal(longFence.includes("````\n```\n| L1 | pass | 2020-10-01 | abcdef0 |\n````"), true);
+  assert.equal(hasLevelPassRecord(longFence, 1), false);
+  assert.equal(rules(path.join(INVALID, "level-long-fence")).has("level-inflated"), true);
+  const indented = fs.readFileSync(path.join(INVALID, "level-indented", "CONFORMANCE.md"), "utf8");
+  assert.match(indented, /\n    \| L1 \| pass \| 2020-10-01 \| abcdef0 \|\n/);
+  assert.equal(hasLevelPassRecord(indented, 1), false);
+  assert.equal(rules(path.join(INVALID, "level-indented")).has("level-inflated"), true);
 });
 
 test("a malformed level row counts as not-pass", () => {

@@ -84,9 +84,9 @@ The live TAP stream also printed three `[build-pipeline]` log lines and per-test
 
 This repo has no `npm run gate` script. Do not substitute `npm ci && npm run gate` from the darbotlabs note.
 
-The `ci` job in `.github/workflows/ci.yml` calls the gate. Its Validate manifests step runs `npm run validate:manifests` after install, build, lint, typecheck, and the other test scripts. There is no `.github/workflows/manifests.yml`.
+The `ci` job in `.github/workflows/ci.yml` is the only workflow that runs the gate. It pins Node 22 (`node-version: '22'`), installs with `npm ci --legacy-peer-deps`, and its Validate manifests step is exactly `npm run validate:manifests` (no `--if-present`) after install, build, lint, typecheck, and the other test scripts. There is no `.github/workflows/manifests.yml` and no Node 20 job. `engines` is `>=20`; CI pins 22 because `npm run test:unit` uses `node --experimental-strip-types`. `npm ci --legacy-peer-deps` is required because `openapi-typescript@7.13` peers on `typescript` ^5 and this repo pins `typescript` 6. `microsoft-agents-objectmodel` is not in `package.json` or the lockfile.
 
-`npm ci` was not run for the transcript above. The lockfile resolves `microsoft-agents-objectmodel` from a private Azure DevOps feed, and this environment has no token for it. The manifest gate and the agent-plugin unit tests do not need that install. Ajv is vendored.
+`npm ci` was not run for the transcript above. The manifest gate and the agent-plugin unit tests do not need that install. Ajv is vendored.
 
 ## Unverified external kits
 
