@@ -16,7 +16,7 @@
 const https = require('https');
 const http = require('http');
 const { URL } = require('url');
-const { execSync } = require('child_process');
+const { azAccessToken, azTenantId } = require('../../app/lib/az-token');
 
 // --- Defaults ---
 const DEFAULT_TIMEOUT_MS = 30000;
@@ -135,18 +135,13 @@ function getToken(resource, tenant) {
     if (cached && cached.expiresAt > Date.now() + TOKEN_REFRESH_BUFFER_MS) {
         return cached.token;
     }
-    const tenantArg = tenant ? ` --tenant ${tenant}` : '';
     try {
-        const result = execSync(
-            `az account get-access-token --resource ${resource}${tenantArg} -o json`,
-            { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
-        );
-        const parsed = JSON.parse(result);
+        const token = azAccessToken(resource, tenant ? { tenant } : undefined);
         _tokenCache[cacheKey] = {
-            token: parsed.accessToken,
-            expiresAt: new Date(parsed.expiresOn).getTime()
+            token,
+            expiresAt: Date.now() + (50 * 60 * 1000)
         };
-        return parsed.accessToken;
+        return token;
     } catch (err) {
         const tenantHint = tenant ? ` for tenant ${tenant}` : '';
         throw new Error(
@@ -171,11 +166,7 @@ function clearTokenCache() {
  */
 function getTenantId() {
     try {
-        const result = execSync(
-            'az account show --query tenantId -o tsv',
-            { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
-        );
-        return result.trim();
+        return azTenantId();
     } catch (err) {
         throw new Error(`Failed to get tenant ID from az CLI: ${err.stderr || err.message}`);
     }

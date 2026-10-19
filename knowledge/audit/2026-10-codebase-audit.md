@@ -15,15 +15,17 @@ Audit of `dayour/MCS-Agent-Builder` at `origin/main` `22de50a`. Findings below w
 ### A1 — Dataverse URL is interpolated into a shell command
 
 - Severity: **high**
-- Status: **fixed** on branch `cursor/shell-arg-hardening-d77a`
-- Evidence: previously `app/lib/build-pipeline.js` passed `az account get-access-token --resource "${envUrl}"` to `execSync`. `envUrl` is `brief.buildStatus.dataverseUrl`.
-- Fix: `app/lib/az-token.js` `azAccessToken()` uses `spawnSync` with an argument array. The resource must be `https` (no user info) or an application-id GUID. `app/lib/__tests__/az-token.test.js` covers the rejection cases. `az` was not executed.
+- Status: **partially fixed** on branch `cursor/shell-arg-hardening-d77a`
+- Evidence: `app/lib/build-pipeline.js` previously passed `az account get-access-token --resource "${envUrl}"` to `execSync`. `envUrl` is `brief.buildStatus.dataverseUrl`. That call, and `tools/lib/http.js` `getToken()` / `getTenantId()`, now go through `app/lib/az-token.js`. A resource must be an application-id GUID or an `https` URL with no user info, query, fragment, or path. On Windows the helper runs `cmd.exe /d /s /c az.cmd` only after every argument passes an allowlist that rejects `" & | < > ^ % !` and whitespace. `az` was not executed.
+- Still open: other `execSync` strings still interpolate an Azure resource or account query. `app/lib/eval-pipeline.js:320`, `tools/diagnose-direct-line.js:47`, `tools/flow-build.js:95`, and `tools/upstream-specs/auth-ado-npm.js:61` are examples. Those are not marked fixed.
 
 ### A2 — PowerShell cleanup interpolates a path
 
 - Severity: **medium**
 - Status: **partially fixed** on branch `cursor/shell-arg-hardening-d77a`
-- Evidence: `cleanupTempDir` no longer interpolates a path into PowerShell. It calls `fs.rmSync`. The same file still has interpolated `execSync` calls. Those call sites were not each traced, so they stay open.
+- Evidence: `cleanupTempDir` calls `fs.rmSync` (`tools/solution-library.js:160`). The same file still interpolates into `execSync` at lines 377, 381, 393, 422, 527, and 763, including `pac solution export` at `:763`. Those call sites stay open.
+- Impact: a path or solution name containing a quote can break out of the shell string.
+- Fix: the remaining sites need an argument array only after each input is traced. Not applied beyond `cleanupTempDir`.
 
 ### A3 — Eval auto-chain calls a runner that always fails
 
