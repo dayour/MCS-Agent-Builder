@@ -66,6 +66,9 @@ test("invalid fixtures fail on the rule they target", () => {
     "level-bypass": "level-inflated",
     "level-not-passing": "level-inflated",
     "level-failed-next": "level-inflated",
+    "level-superseded": "level-inflated",
+    "level-fenced": "level-inflated",
+    "level-commented": "level-inflated",
     "symlink-escape": "path-escape",
     "third-party": "extension-missing",
   };
@@ -100,6 +103,11 @@ test("level evidence requires a structured pass row", () => {
   assert.equal(hasLevelPassRecord("L1 — failed. Next round will pass.", 1), false);
   assert.equal(hasLevelPassRecord("| L1 | pass | 2026-10-19 | abcdef0123456789 |", 1), true);
   assert.equal(hasLevelPassRecord("| L1 | passing | 2026-10-19 | abcdef0123456789 |", 1), false);
+  assert.equal(hasLevelPassRecord("| L1 | pass | 2026-09-01 | abcdef0123456789 |\n| L1 | fail | 2026-10-19 | abcdef0123456789 |", 1), false);
+  assert.equal(hasLevelPassRecord("| L1 | fail | 2026-09-01 | abcdef0123456789 |\n| L1 | pass | 2026-10-19 | abcdef0123456789 |", 1), true);
+  assert.equal(hasLevelPassRecord("```\n| L1 | pass | 2026-10-19 | abcdef0123456789 |\n```\n", 1), false);
+  assert.equal(hasLevelPassRecord("<!-- | L1 | pass | 2026-10-19 | abcdef0123456789 | -->", 1), false);
+  assert.equal(hasLevelPassRecord("| L1 | pass | 2099-12-31 | abcdef0123456789 |", 1), false);
   const phrases = {
     "level-bypass": "Level 3: we bypass all validation.",
     "level-not-passing": "Level 2 is not yet passing.",
