@@ -631,8 +631,14 @@ function showHelp() {
     health      Check if the dashboard is running
     doctor      Check all prerequisites
     update      Update to the latest version
+    manifest    Emit, import, or validate an Agent Plugins package
     -v          Show version
     -h          Show this help
+
+  \x1b[1mManifest:\x1b[0m
+    manifest emit --spec <agentspec.json> --out <parent-dir> [--force]
+    manifest import --dir <plugin-dir> --out <agentspec.json> [--force]
+    manifest validate <plugin-dir>...
 
   \x1b[1mAliases:\x1b[0m  mcs, mcsab, mcs-agent-builder
 `);
@@ -680,6 +686,9 @@ switch (command) {
   case "update":
   case "upgrade":
     updatePackage();
+    break;
+  case "manifest":
+    require("../app/lib/agent-plugins/cli").main(process.argv.slice(3));
     break;
   case "version":
   case "v":

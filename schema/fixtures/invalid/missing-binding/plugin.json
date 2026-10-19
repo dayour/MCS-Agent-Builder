@@ -1,0 +1,43 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "missing-binding",
+  "version": "0.1.0",
+  "description": "Packaged Copilot Studio agent definition served over local stdio.",
+  "author": {
+    "name": "MCS Agent Builder"
+  },
+  "license": "MIT",
+  "repository": "https://github.com/dayour/MCS-Agent-Builder",
+  "keywords": [
+    "copilot-studio"
+  ],
+  "extensions": {
+    "com.grokbot": {
+      "kind": "channel",
+      "spec": "specs/ORDER_STATUS.md",
+      "level": 0,
+      "capabilities": [
+        "messaging"
+      ],
+      "approval": {
+        "required": true,
+        "scope": "per-use"
+      },
+      "secretsPolicy": {
+        "plaintextToAgent": false,
+        "storage": "none"
+      },
+      "runtimes": {
+        "core": "node-mcp-stdio",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows"
+        ]
+      },
+      "bindings": {
+        "node": "bindings/node/index.js"
+      }
+    }
+  }
+}

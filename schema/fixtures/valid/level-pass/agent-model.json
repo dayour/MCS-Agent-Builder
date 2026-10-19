@@ -1,0 +1,55 @@
+{
+  "pluginVersion": "0.1.0",
+  "agent": {
+    "name": "Order status",
+    "description": "Answers order status questions.",
+    "persona": "Direct"
+  },
+  "instructions": "Tell the customer the packaged order state.",
+  "capabilities": [
+    {
+      "name": "Look up order status",
+      "description": "Read the packaged order state.",
+      "phase": "mvp"
+    }
+  ],
+  "conversations": {
+    "topics": [
+      {
+        "name": "Order lookup",
+        "description": "Asks for an order number."
+      }
+    ]
+  },
+  "boundaries": {
+    "handle": [
+      "order status"
+    ],
+    "decline": [],
+    "refuse": [
+      "payment changes"
+    ]
+  },
+  "integrations": [
+    {
+      "name": "Orders",
+      "type": "connector",
+      "purpose": "Read orders",
+      "apiToken": "ghp_abcdefghijklmnopqrstuvwxyz0123456789"
+    }
+  ],
+  "knowledge": [
+    {
+      "name": "Policy",
+      "type": "Uploaded files"
+    }
+  ],
+  "architecture": {
+    "channels": [
+      {
+        "name": "Microsoft Teams",
+        "reason": "Where customers ask"
+      }
+    ]
+  }
+}
