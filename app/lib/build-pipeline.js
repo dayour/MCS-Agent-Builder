@@ -12,7 +12,7 @@
 
 const fs = require("fs");
 const path = require("path");
-const { azAccessToken } = require("./az-token");
+const { azAccessToken, wrapAzAuthError } = require("./az-token");
 const islandClient = require("../../tools/island-client");
 const { httpRequestWithRetry, getToken, getTenantId } = require("../../tools/lib/http");
 const { recordBuildStats } = require("../../tools/typed-adoption-stats");
@@ -206,7 +206,7 @@ async function stepAuth(job, brief) {
   try {
     dvToken = azAccessToken(envUrl);
   } catch (err) {
-    throw new Error(err.message.includes("Azure CLI") ? err.message : `Azure CLI auth failed: ${err.message}. Run: az login`);
+    throw wrapAzAuthError(err);
   }
 
   // Get PVA token for Island Gateway
