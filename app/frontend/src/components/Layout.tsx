@@ -1619,9 +1619,11 @@ export const Layout: React.FC = () => {
 
               if (!response.ok) {
                 if (response.status === 404) {
-                  isNewNotifications ? addToast({ variant: 'warning', title: 'No results found', message: 'Run npm run test:e2e to generate evaluation results.' }) : alert('No evaluation results found. Run npm run test:e2e to generate results.');
+                  if (isNewNotifications) addToast({ variant: 'warning', title: 'No results found', message: 'Run npm run test:e2e to generate evaluation results.' });
+                  else alert('No evaluation results found. Run npm run test:e2e to generate results.');
                 } else {
-                  isNewNotifications ? addToast({ variant: 'error', title: 'Error loading results', message: 'Please try again.' }) : alert('Error loading evaluation results. Please try again.');
+                  if (isNewNotifications) addToast({ variant: 'error', title: 'Error loading results', message: 'Please try again.' });
+                  else alert('Error loading evaluation results. Please try again.');
                 }
                 return;
               }
@@ -1630,7 +1632,8 @@ export const Layout: React.FC = () => {
               window.open(`http://localhost:3005/eval-results/${data.filename}`, '_blank');
             } catch (error) {
               console.error('Error opening eval results:', error);
-              isNewNotifications ? addToast({ variant: 'error', title: 'Error loading results', message: 'Check that the server is running.' }) : alert('Error loading evaluation results. Please check that the server is running.');
+              if (isNewNotifications) addToast({ variant: 'error', title: 'Error loading results', message: 'Check that the server is running.' });
+              else alert('Error loading evaluation results. Please check that the server is running.');
             }
           }}
           className="fixed bottom-6 right-6 px-4 py-3 bg-brand-purple hover:bg-purple-700 text-white rounded-lg shadow-lg hover:scale-105 transition-all flex items-center gap-2 z-50"

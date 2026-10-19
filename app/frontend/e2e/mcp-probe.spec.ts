@@ -21,7 +21,7 @@ const RESULTS_PATH = path.resolve(__dirnameLocal, 'mcp-probe-results.json');
 const FEATURE = process.env.FEATURE || '';
 const TEST_RUN_ID = process.env.TEST_RUN_ID || `probe-${Date.now().toString(36)}`;
 const ALLOWED_ACTIONS = new Set(['navigate', 'snapshot', 'verify_text', 'console', 'click']);
-const SAFE_SELECTOR_RE = /^[\[\]a-zA-Z0-9_\-=:'" .#>,*()^$~|]+$/;
+const SAFE_SELECTOR_RE = /^[[\]a-zA-Z0-9_\-=:'" .#>,*()^$~|]+$/;
 const DEFAULT_STEP_TIMEOUT = 10_000;
 
 type Check = {

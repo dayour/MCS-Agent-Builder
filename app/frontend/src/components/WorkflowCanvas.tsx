@@ -1713,7 +1713,7 @@ export const WorkflowCanvas: React.FC = () => {
                         <CopilotButton
                           variant="ghost"
                           size="sm"
-                          onClick={e => { e.stopPropagation(); setV1FavoriteConnectors(prev => { const next = new Set(prev); isFav ? next.delete(c) : next.add(c); return next; }); }}
+                          onClick={e => { e.stopPropagation(); setV1FavoriteConnectors(prev => { const next = new Set(prev); if (isFav) next.delete(c); else next.add(c); return next; }); }}
                           className={`flex-shrink-0 transition-colors p-1 rounded ${isFav ? 'text-amber-400 hover:text-amber-500' : 'text-gray-200 hover:text-gray-400 opacity-0 group-hover:opacity-100'}`}
                           title={isFav ? 'Remove from favorites' : 'Add to favorites'}
                         >

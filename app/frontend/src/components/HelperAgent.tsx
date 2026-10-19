@@ -183,7 +183,7 @@ try {
     }
     if (changed) localStorage.setItem('agentHelperMessages', JSON.stringify(data));
   }
-} catch {}
+} catch { /* ignore */ }
 
 interface HelperAgentProps {
   isExpanded?: boolean;
@@ -854,8 +854,8 @@ export const HelperAgent: React.FC<HelperAgentProps> = ({ isExpanded = false }) 
     if (isAgentChange) {
       lastScenarioOptionsRef.current = [];
       lastScenarioRef.current = null;
-      try { sessionStorage.removeItem('last_autotest_scenario_list'); } catch {}
-      try { sessionStorage.removeItem('last_autotest_scenario'); } catch {}
+      try { sessionStorage.removeItem('last_autotest_scenario_list'); } catch { /* ignore */ }
+      try { sessionStorage.removeItem('last_autotest_scenario'); } catch { /* ignore */ }
     }
   }, [agentConfig.id]);
 
@@ -1388,7 +1388,7 @@ export const HelperAgent: React.FC<HelperAgentProps> = ({ isExpanded = false }) 
         timeout,
       ]);
       lastScenarioOptionsRef.current = scenarios;
-      try { sessionStorage.setItem('last_autotest_scenario_list', JSON.stringify(scenarios)); } catch {}
+      try { sessionStorage.setItem('last_autotest_scenario_list', JSON.stringify(scenarios)); } catch { /* ignore */ }
       setScenarioOptions(scenarios);
 
       // Post the scenario list as an e2e-* message (gets cleaned up on rerun).
@@ -1419,8 +1419,8 @@ export const HelperAgent: React.FC<HelperAgentProps> = ({ isExpanded = false }) 
   };
 
   const handleScenarioSelect = (scenario: AgentScenario) => {
-    try { sessionStorage.setItem('autotest_scenario', JSON.stringify(scenario)); } catch {}
-    try { sessionStorage.setItem('last_autotest_scenario', JSON.stringify(scenario)); } catch {}
+    try { sessionStorage.setItem('autotest_scenario', JSON.stringify(scenario)); } catch { /* ignore */ }
+    try { sessionStorage.setItem('last_autotest_scenario', JSON.stringify(scenario)); } catch { /* ignore */ }
     setScenarioOptions(null);
     lastScenarioRef.current = scenario;
 
@@ -1453,7 +1453,7 @@ export const HelperAgent: React.FC<HelperAgentProps> = ({ isExpanded = false }) 
     const ts = Date.now();
     // Write the token BEFORE dispatching the event / navigating so TriggerLab always
     // captures the latest value at the start of its runAutoTest call.
-    try { sessionStorage.setItem('active_test_run_token', String(ts)); } catch {}
+    try { sessionStorage.setItem('active_test_run_token', String(ts)); } catch { /* ignore */ }
     if (alreadyOnPreview) {
       // Dispatch directly — bypasses the navigate→searchParams→sessionStorage chain which
       // is unreliable for same-page reruns. TriggerLabPage listens for this event.
@@ -1691,7 +1691,7 @@ Keep under 200 words. Do not restart or rerun any tests. Do not ask to run a new
       addHelperMessage(userMessage);
       pendingFixRef.current = null;
       // Supersede any running autotest by writing a new token
-      try { sessionStorage.setItem('active_test_run_token', `cancelled-${Date.now()}`); } catch {}
+      try { sessionStorage.setItem('active_test_run_token', `cancelled-${Date.now()}`); } catch { /* ignore */ }
       window.dispatchEvent(new CustomEvent('elevate:stop-test'));
       // Clean up the "Running simulation" streaming message
       removeStreamingMessagesForAgent(agentConfig.id);
@@ -2165,7 +2165,8 @@ Keep the whole response under 200 words. Do not ask questions. Do not suggest cr
           updateMessage: updateHelperMessageForAgent,
           markPublished: () => {
             const publishUpdate = { published: true, lastPublishedAt: new Date() };
-            isAgentGlobalUndo ? updateWithHistory(publishUpdate) : updateAgentConfig(publishUpdate);
+            if (isAgentGlobalUndo) updateWithHistory(publishUpdate);
+      else updateAgentConfig(publishUpdate);
           },
           markPendingApproval: () => {
             const triggerDistributionEntries = Object.entries(publishAgent.triggerDistribution ?? {});
@@ -2182,7 +2183,8 @@ Keep the whole response under 200 words. Do not ask questions. Do not suggest cr
             );
 
             const approvalUpdate = { triggerDistribution };
-            isAgentGlobalUndo ? updateWithHistory(approvalUpdate) : updateAgentConfig(approvalUpdate);
+            if (isAgentGlobalUndo) updateWithHistory(approvalUpdate);
+      else updateAgentConfig(approvalUpdate);
           },
           composeSuccessMessage: () => composePostPublishMessage(
             capturedAgentName,

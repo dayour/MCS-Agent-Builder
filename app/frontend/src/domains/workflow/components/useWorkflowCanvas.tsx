@@ -71,7 +71,8 @@ export function useWorkflowCanvas() {
     const description = descInputValue.trim();
     if (name) {
       const update = { name, description };
-      isAgentGlobalUndo ? updateWithHistory(update) : updateAgentConfig(update);
+      if (isAgentGlobalUndo) updateWithHistory(update);
+      else updateAgentConfig(update);
     }
     setIsEditingHeader(false);
   };

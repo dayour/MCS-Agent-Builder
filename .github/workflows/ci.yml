@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Setup Node.js
+        # engines is >=20. test:unit runs TypeScript tests with
+        # node --experimental-strip-types, which needs Node 22.
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        # npm ci ignores legacy-peer-deps from .npmrc (npm/cli#5229).
+        # The flag is required: openapi-typescript@7.13 peers on typescript ^5
+        # while this repo pins typescript 6, and no release accepts typescript 6.
+        run: npm ci --legacy-peer-deps
+
+      - name: Build
+        run: npm run frontend:build
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: |
+          npm run typecheck:tools
+          npm --prefix app/frontend run typecheck
+
+      - name: Test
+        run: |
+          npm test
+          npm run test:unit
+          node --test tools/__tests__/*.test.js
+
+      - name: Validate manifests
+        run: npm run validate:manifests --if-present
