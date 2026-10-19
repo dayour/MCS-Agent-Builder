@@ -38,7 +38,7 @@
  */
 const fs = require('fs');
 const path = require('path');
-const { execSync, spawnSync } = require('child_process');
+const { execFileSync, spawnSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
 const orchestrator = require('./iterate-orchestrator');
@@ -106,10 +106,11 @@ function getPrInfo(prRef) {
   try {
     const args = ['pr', 'view', String(ref.number), '--json', 'number,title,labels,state,statusCheckRollup,mergeable,mergeStateStatus,headRefName,headRefOid,baseRefName,baseRefOid,mergeCommit,url'];
     if (ref.repo) args.push('--repo', ref.repo);
-    const out = execSync(`gh ${args.map((a) => `"${a.replace(/"/g, '\\"')}"`).join(' ')}`, {
+    const out = execFileSync('gh', args, {
       cwd: ROOT,
       encoding: 'utf-8',
       timeout: 15000,
+      shell: false,
     });
     return JSON.parse(out);
   } catch (err) {

@@ -6,7 +6,8 @@
  * consolidated markdown file with a document version map for deduplication.
  */
 
-const { spawn, execSync } = require("child_process");
+const { spawn, execFileSync } = require("child_process");
+const { runWin32Shim } = require("./argv-exec");
 const fs = require("fs");
 const path = require("path");
 const { getToken } = require("../../tools/lib/http");
@@ -21,10 +22,12 @@ const { downloadFile, GRAPH_BASE } = require("../../tools/lib/graph-sharepoint")
  */
 async function isWorkIQAvailable() {
   try {
-    const bin = process.platform === "win32"
-      ? path.join(process.env.APPDATA || "", "npm", "workiq.cmd")
-      : "workiq";
-    execSync(`"${bin}" --version`, { stdio: "ignore", timeout: 5000, shell: true });
+    if (process.platform === "win32") {
+      const bin = path.join(process.env.APPDATA || "", "npm", "workiq.cmd");
+      runWin32Shim(bin, ["--version"], { stdio: "ignore", timeout: 5000 });
+    } else {
+      execFileSync("workiq", ["--version"], { stdio: "ignore", timeout: 5000, shell: false });
+    }
     return true;
   } catch {
     return false;

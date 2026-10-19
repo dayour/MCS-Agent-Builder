@@ -24,6 +24,7 @@
 const fs = require("fs");
 const path = require("path");
 
+const { azAccessToken } = require("../app/lib/az-token");
 const flowManager = require("./flow-manager");
 const composer = require("./lib/flow-composer");
 const { runFlowsBuild } = require("../app/lib/flow-build-runner");
@@ -88,14 +89,8 @@ function usage() {
 }
 
 async function getAzToken(resource) {
-    // Use execSync (shell-based) so Windows resolves az.cmd via PATHEXT.
-    const { execSync } = require("child_process");
     try {
-        const out = execSync(
-            `az account get-access-token --resource "${resource}" --query accessToken -o tsv`,
-            { encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }
-        );
-        const tok = out.trim();
+        const tok = azAccessToken(resource);
         if (!tok || tok.length < 100) throw new Error("Token returned was empty or too short");
         return tok;
     } catch (e) {

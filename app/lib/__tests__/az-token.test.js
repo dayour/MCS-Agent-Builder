@@ -265,6 +265,29 @@ test("auth failures carry AZ_AUTH and are not double-wrapped", () => {
   assert.match(fromSpawn.message, /^Azure CLI auth failed: spawn az ENOENT\. Run: az login$/);
 });
 
+test("azAccessToken passes --subscription through the allowlist", () => {
+  const capture = { calls: [] };
+  const subscription = "11111111-2222-3333-4444-555555555555";
+  azAccessToken("499b84ac-1321-427f-aa17-267ca6975798", {
+    platform: "linux",
+    subscription,
+    spawnSync: stubSpawn(capture),
+  });
+  assert.deepEqual(capture.calls[0].args.slice(-2), ["--subscription", subscription]);
+  assert.equal(capture.calls[0].options.shell, false);
+
+  let spawned = false;
+  assert.throws(() => azAccessToken("499b84ac-1321-427f-aa17-267ca6975798", {
+    platform: "win32",
+    subscription: "11111111-2222-3333-4444-555555555555 & calc",
+    spawnSync() {
+      spawned = true;
+      return { status: 0, stdout: TOKEN };
+    },
+  }), (err) => err.code === "AZ_ARG");
+  assert.equal(spawned, false);
+});
+
 test("azTenantId uses the same allowlisted spawn", () => {
   const capture = { calls: [] };
   const spawn = (command, args, options) => {

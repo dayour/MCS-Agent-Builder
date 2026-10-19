@@ -11,7 +11,8 @@
 
 const fs = require("fs");
 const path = require("path");
-const { execSync } = require("child_process");
+const { azAccessToken } = require("./az-token");
+const { exportPacSolution } = require("./argv-exec");
 const dev = require("./dev-logger");
 
 const BASE_DIR = path.resolve(__dirname, "../..");
@@ -358,10 +359,7 @@ async function runPackage(job) {
     zipPath = path.join(exportDir, `${solutionName}.zip`);
 
     try {
-      execSync(
-        `pac solution export --name "${solutionName}" --path "${zipPath}" --managed --overwrite`,
-        { encoding: "utf8", stdio: ["pipe", "pipe", "pipe"], timeout: 120_000 },
-      );
+      exportPacSolution(solutionName, zipPath, { timeout: 120_000 });
       updatePkgStep(job, "export", "completed", `Exported ${solutionName}.zip`);
     } catch (err) {
       updatePkgStep(job, "export", "completed", `Export failed: ${err.message} — continuing without zip`);
@@ -376,13 +374,9 @@ async function runPackage(job) {
   updatePkgStep(job, "upload", "running");
   try {
     const solLib = require("../../tools/solution-library");
-    const { execSync: execSyncChild } = require("child_process");
 
     // Get Graph token for SharePoint
-    const tokenResult = execSyncChild(
-      'az account get-access-token --resource "https://graph.microsoft.com" --query accessToken -o tsv',
-      { encoding: "utf8", timeout: 30_000 },
-    ).trim();
+    const tokenResult = azAccessToken("https://graph.microsoft.com");
 
     if (!tokenResult || tokenResult.length < 20) {
       throw new Error("Could not get Graph API token — is az CLI logged in?");

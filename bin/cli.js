@@ -13,6 +13,7 @@
  */
 
 const { spawn, execSync } = require("child_process");
+const { runNpm } = require("../app/lib/argv-exec");
 const http = require("http");
 const path = require("path");
 const fs = require("fs");
@@ -160,8 +161,10 @@ async function updateMcpDeps() {
   let updated = 0;
   for (const pkg of MCP_NPM_DEPS) {
     try {
-      const installed = execSync(`npm list -g ${pkg} --json 2>` + (os.platform() === "win32" ? "NUL" : "/dev/null"), {
-        encoding: "utf8", timeout: 10000,
+      const installed = runNpm(["list", "-g", pkg, "--json"], {
+        encoding: "utf8",
+        timeout: 10000,
+        stdio: ["pipe", "pipe", "ignore"],
       });
       const currentVer = JSON.parse(installed).dependencies?.[pkg]?.version;
 
@@ -182,7 +185,7 @@ async function updateMcpDeps() {
       if (!latest || latest === currentVer) continue;
 
       log(`Updating ${pkg} ${currentVer || "?"} \u2192 ${latest}...`);
-      execSync(`npm install -g ${pkg}@latest`, { stdio: "inherit", timeout: 60000 });
+      runNpm(["install", "-g", `${pkg}@latest`], { stdio: "inherit", timeout: 60000 });
       log(`${pkg} updated to ${latest}`);
       updated++;
     } catch {
