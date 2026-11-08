@@ -38,7 +38,7 @@
  */
 
 const http = require('http');
-const { execSync, spawnSync, spawn } = require('child_process');
+const { execSync, execFileSync, spawnSync, spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -184,13 +184,13 @@ function performAutoCommit(plan) {
   try {
     // Stage files explicitly (not git add -A — don't pick up secrets/temp files).
     for (const f of toStage) {
-      execSync(`git add -- "${f}"`, { cwd: ROOT, encoding: 'utf-8' });
+      execFileSync('git', ['add', '--', f], { cwd: ROOT, encoding: 'utf-8', shell: false });
     }
     // Use stdin for commit message to avoid shell quoting pitfalls across Windows/Unix.
     const tmpMsgFile = path.join(ROOT, '.git', 'AGENTIC_COMMIT_MSG.tmp');
     fs.writeFileSync(tmpMsgFile, msg);
     try {
-      execSync(`git commit -F "${tmpMsgFile}"`, { cwd: ROOT, encoding: 'utf-8' });
+      execFileSync('git', ['commit', '-F', tmpMsgFile], { cwd: ROOT, encoding: 'utf-8', shell: false });
     } finally {
       try { fs.unlinkSync(tmpMsgFile); } catch { /* ignore */ }
     }
@@ -1549,10 +1549,14 @@ async function cmdScreenshot(route) {
 
   try {
     // Use Playwright CLI for a quick screenshot
-    execSync(
-      `npx playwright screenshot --browser msedge --viewport-size 1280,720 "${url}" "${outFile}"`,
-      { cwd: FRONTEND_DIR, encoding: 'utf-8', timeout: 30_000 }
-    );
+    execFileSync(process.execPath, [
+      path.join(FRONTEND_DIR, 'node_modules', 'playwright', 'cli.js'),
+      'screenshot',
+      '--browser', 'msedge',
+      '--viewport-size', '1280,720',
+      url,
+      outFile,
+    ], { cwd: FRONTEND_DIR, encoding: 'utf-8', timeout: 30_000, shell: false });
     console.log(JSON.stringify({ status: 'ok', route, screenshot: outFile }, null, 2));
   } catch (err) {
     console.log(JSON.stringify({

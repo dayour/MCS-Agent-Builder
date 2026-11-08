@@ -24,9 +24,10 @@
  *   1 = new commits found (informational, non-error)
  *   2 = error (remote unreachable, force-push detected, IO failure)
  */
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const { assertGitRevision } = require('../app/lib/argv-exec');
 
 const REPO_ROOT = path.dirname(__dirname);
 
@@ -50,12 +51,21 @@ const PATH_MAP = [
   { from: 'src/styles/',     to: 'app/frontend/src/styles/' },
 ];
 
-function run(cmd) {
-  return execSync(cmd, { encoding: 'utf8', cwd: REPO_ROOT, stdio: ['pipe', 'pipe', 'pipe'] }).trim();
+function run(args) {
+  return execFileSync('git', args, {
+    encoding: 'utf8',
+    cwd: REPO_ROOT,
+    stdio: ['pipe', 'pipe', 'pipe'],
+    shell: false,
+  }).trim();
 }
 
-function runSafe(cmd) {
-  try { return run(cmd); } catch { return ''; }
+function runSafe(args) {
+  try { return run(args); } catch { return ''; }
+}
+
+function gitRev(value) {
+  return assertGitRevision(value);
 }
 
 // ── Safety: sanitize upstream content before writing to local files ────────
@@ -108,7 +118,7 @@ function ourRepoHas(relPath) {
 // ── Fetch + force-push detection ─────────────────────────────────────────
 function fetchUpstream() {
   try {
-    run(`git fetch ${REMOTE} main --no-tags --quiet`);
+    run(['fetch', gitRev(REMOTE), 'main', '--no-tags', '--quiet']);
     return true;
   } catch {
     console.error(`[Elevate Sync] Failed to fetch ${REMOTE}. Configure with:`);
@@ -121,8 +131,12 @@ function fetchUpstream() {
 // upstream rebased or force-pushed. Surface this — don't silently reprocess.
 function detectForcePush(prevSha, newSha) {
   if (!prevSha || prevSha === newSha) return false;
-  const isDescendant = runSafe(`git merge-base --is-ancestor ${prevSha} ${newSha} && echo OK`);
-  return isDescendant !== 'OK';
+  try {
+    run(['merge-base', '--is-ancestor', gitRev(prevSha), gitRev(newSha)]);
+    return false;
+  } catch {
+    return true;
+  }
 }
 
 // ── Digest formatting ────────────────────────────────────────────────────
@@ -214,17 +228,17 @@ function main() {
 
   if (!fetchUpstream()) process.exit(2);
 
-  const remoteHead = runSafe(`git rev-parse ${UPSTREAM_REF}`);
+  const remoteHead = runSafe(['rev-parse', gitRev(UPSTREAM_REF)]);
   if (!remoteHead) {
     console.error(`[Elevate Sync] Cannot resolve ${UPSTREAM_REF}.`);
     process.exit(2);
   }
 
   // Ensure elevate-upstream tracking branch exists (create from elevate/main if not).
-  let localHead = runSafe(`git rev-parse ${UPSTREAM_BRANCH}`);
+  let localHead = runSafe(['rev-parse', gitRev(UPSTREAM_BRANCH)]);
   if (!localHead) {
-    runSafe(`git branch ${UPSTREAM_BRANCH} ${UPSTREAM_REF}`);
-    localHead = runSafe(`git rev-parse ${UPSTREAM_BRANCH}`);
+    runSafe(['branch', gitRev(UPSTREAM_BRANCH), gitRev(UPSTREAM_REF)]);
+    localHead = runSafe(['rev-parse', gitRev(UPSTREAM_BRANCH)]);
   }
 
   if (localHead === remoteHead) {
@@ -244,7 +258,7 @@ function main() {
   }
 
   // Collect new commits (oldest → newest) since our tracking tip.
-  const log = runSafe(`git log --pretty=format:%H%x1f%an%x1f%ai%x1f%s ${UPSTREAM_BRANCH}..${UPSTREAM_REF}`);
+  const log = runSafe(['log', '--pretty=format:%H%x1f%an%x1f%ai%x1f%s', gitRev(`${UPSTREAM_BRANCH}..${UPSTREAM_REF}`)]);
   const commits = log
     .split('\n')
     .filter(Boolean)
@@ -276,7 +290,10 @@ function main() {
     const capped = newCommits.slice(-MAX_COMMITS_PER_RUN);
 
     const sections = capped.map(c => {
-      const filesRaw = runSafe(`git show --name-only --pretty=format: ${c.sha}`);
+      let filesRaw = '';
+      try {
+        filesRaw = run(['show', '--name-only', '--pretty=format:', gitRev(c.sha)]);
+      } catch { /* skip a sha that git will not show */ }
       const files = filesRaw.split('\n').filter(Boolean);
       return buildCommitSection(
         c.sha,
@@ -307,7 +324,7 @@ function main() {
 
   // Advance tracking branch only if --update was requested AND fast-forward is safe.
   if (doUpdate) {
-    runSafe(`git branch -f ${UPSTREAM_BRANCH} ${UPSTREAM_REF}`);
+    runSafe(['branch', '-f', gitRev(UPSTREAM_BRANCH), gitRev(UPSTREAM_REF)]);
     if (!isJson) console.log(`[Elevate Sync] ${UPSTREAM_BRANCH} fast-forwarded to ${remoteHead.slice(0, 8)}`);
   } else if (!isJson) {
     console.log(`[Elevate Sync] Run with --update to fast-forward ${UPSTREAM_BRANCH}.`);

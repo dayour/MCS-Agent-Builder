@@ -21,9 +21,10 @@ const express = require("express");
 const http = require("http");
 const cors = require("cors");
 const multer = require("multer");
-const { execFileSync, exec } = require("child_process");
+const { execFileSync, execFile } = require("child_process");
 const { promisify } = require("util");
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
+const { assertCliArg, assertTenant } = require("./lib/az-token");
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
@@ -1214,16 +1215,31 @@ app.get("/api/package/status/:jobId", (req, res) => {
 let _credCache = { data: null, ts: 0 };
 const CRED_CACHE_TTL = 30000;
 
-/** Run a CLI command asynchronously (non-blocking). Returns stdout or throws.
- *  Uses exec (shell) because az/pac are .cmd wrappers on Windows.
- *  Args are always hardcoded constants — no user input passes through. */
-async function runCliAsync(cmd, args, timeoutMs = 10000) {
-  const command = [cmd, ...args].join(" ");
-  const { stdout } = await execAsync(command, {
+/** Run a CLI command asynchronously. Arguments stay an array. On Windows, az/pac/gh
+ *  are .cmd shims, so cmd.exe /d /s /c runs the shim after every argument passes
+ *  the allowlist. shell stays false. */
+async function runCliCapture(cmd, args, timeoutMs = 10000) {
+  const safeCmd = assertCliArg(cmd);
+  const safeArgs = args.map((arg) => assertCliArg(String(arg)));
+  const options = {
     timeout: timeoutMs,
     windowsHide: true,
     encoding: "utf-8",
-  });
+    shell: false,
+    maxBuffer: 10 * 1024 * 1024,
+  };
+  if (process.platform === "win32") {
+    return execFileAsync(
+      "cmd.exe",
+      ["/d", "/s", "/c", `${safeCmd}.cmd`, ...safeArgs],
+      { ...options, windowsVerbatimArguments: true },
+    );
+  }
+  return execFileAsync(safeCmd, safeArgs, options);
+}
+
+async function runCliAsync(cmd, args, timeoutMs = 10000) {
+  const { stdout } = await runCliCapture(cmd, args, timeoutMs);
   return stdout;
 }
 
@@ -1264,7 +1280,7 @@ async function gatherCredentials() {
     // PAC CLI auth profiles
     runCliAsync("pac", ["auth", "list"], 10000),
     // GitHub CLI auth status (outputs to stderr, so capture both)
-    execAsync("gh auth status", { timeout: 10000, windowsHide: true, encoding: "utf-8" })
+    runCliCapture("gh", ["auth", "status"], 10000)
       .then(({ stdout, stderr }) => (stderr || stdout || "")),
   ]);
 
@@ -1276,8 +1292,8 @@ async function gatherCredentials() {
       // Try to get display name from Azure AD (Graph API)
       let displayName = null;
       try {
-        const { stdout } = await execAsync('az ad signed-in-user show --query displayName -o tsv', { timeout: 15000 });
-        displayName = stdout.trim() || null;
+        const stdout = await runCliAsync("az", ["ad", "signed-in-user", "show", "--query", "displayName", "-o", "tsv"], 15000);
+        displayName = String(stdout || "").trim() || null;
       } catch {}
       // Fallback: parse from email
       if (!displayName) {
@@ -1531,7 +1547,7 @@ app.post("/api/auth/switch-profile", async (req, res) => {
       const domain = activeUser.split("@")[1];
       if (domain) {
         try {
-          await execAsync(`az login --tenant ${domain} --allow-no-subscriptions`, { timeout: 120000 });
+          await runCliAsync("az", ["login", "--tenant", assertTenant(domain), "--allow-no-subscriptions"], 120000);
           azSwitched = true;
         } catch {
           // az login may fail if token is stale — user may need to re-auth
@@ -2483,13 +2499,14 @@ app.get("/api/eval-results/latest", (_req, res) => {
 // Auth management — sign out, add account, connect tool
 // ---------------------------------------------------------------------------
 
-// Helper: run shell command safely (handles .cmd shims on Windows)
-async function runShell(cmd, timeoutMs = 15000) {
+// Helper: run a CLI with an argument array. .cmd shims go through runCliAsync.
+async function runArgv(cmd, args, timeoutMs = 15000) {
   try {
-    const { stdout, stderr } = await execAsync(cmd, { timeout: timeoutMs });
-    return { ok: true, stdout: stdout.trim(), stderr: stderr.trim() };
+    const stdout = await runCliAsync(cmd, args, timeoutMs);
+    return { ok: true, stdout: String(stdout || "").trim(), stderr: "" };
   } catch (err) {
-    return { ok: false, error: err.stderr?.trim() || err.message };
+    const stderr = err && err.stderr ? String(err.stderr).trim() : "";
+    return { ok: false, error: stderr || err.message };
   }
 }
 
@@ -2497,9 +2514,9 @@ async function runShell(cmd, timeoutMs = 15000) {
 app.post("/api/auth/sign-out", async (_req, res) => {
   const results = {};
   const tasks = [
-    runShell("az logout").then(r => { results.az = r.ok ? "signed out" : r.error; }),
-    runShell("gh auth logout --hostname github.com -y").then(r => { results.gh = r.ok ? "signed out" : r.error; }),
-    runShell("pac auth clear").then(r => { results.pac = r.ok ? "signed out" : r.error; }),
+    runArgv("az", ["logout"]).then(r => { results.az = r.ok ? "signed out" : r.error; }),
+    runArgv("gh", ["auth", "logout", "--hostname", "github.com", "-y"]).then(r => { results.gh = r.ok ? "signed out" : r.error; }),
+    runArgv("pac", ["auth", "clear"]).then(r => { results.pac = r.ok ? "signed out" : r.error; }),
   ];
   await Promise.allSettled(tasks);
   // Invalidate caches
@@ -2523,9 +2540,15 @@ app.post("/api/auth/add-account", async (req, res) => {
   const steps = [];
 
   if (tool === "az" || tool === "all") {
-    const tenantArg = tenant ? ` --tenant ${tenant}` : "";
+    let loginArgs;
+    try {
+      loginArgs = ["login", "--allow-no-subscriptions"];
+      if (tenant) loginArgs.push("--tenant", assertTenant(tenant));
+    } catch (err) {
+      return res.status(400).json({ detail: err.message });
+    }
     steps.push(
-      runShell(`az login${tenantArg}`, 120000)
+      runArgv("az", loginArgs, 120000)
         .then(r => { results.az = r.ok ? "authenticated" : r.error; })
     );
   }
@@ -2533,14 +2556,14 @@ app.post("/api/auth/add-account", async (req, res) => {
   if (tool === "gh" || tool === "all") {
     // gh auth login needs interactive terminal — use device flow
     steps.push(
-      runShell("gh auth login --hostname github.com --git-protocol https --web", 120000)
+      runArgv("gh", ["auth", "login", "--hostname", "github.com", "--git-protocol", "https", "--web"], 120000)
         .then(r => { results.gh = r.ok ? "authenticated" : r.error; })
     );
   }
 
   if (tool === "pac" || tool === "all") {
     steps.push(
-      runShell("pac auth create", 120000)
+      runArgv("pac", ["auth", "create"], 120000)
         .then(r => { results.pac = r.ok ? "authenticated" : r.error; })
     );
   }
@@ -2563,19 +2586,20 @@ app.post("/api/auth/connect", async (req, res) => {
     let result;
     switch (tool) {
       case "az": {
-        const tenantArg = tenant ? ` --tenant ${tenant}` : "";
-        result = await runShell(`az login${tenantArg}`, 120000);
+        const loginArgs = ["login", "--allow-no-subscriptions"];
+        if (tenant) loginArgs.push("--tenant", assertTenant(tenant));
+        result = await runArgv("az", loginArgs, 120000);
         break;
       }
       case "gh":
-        result = await runShell("gh auth login --hostname github.com --git-protocol https --web", 120000);
+        result = await runArgv("gh", ["auth", "login", "--hostname", "github.com", "--git-protocol", "https", "--web"], 120000);
         break;
       case "pac":
-        result = await runShell("pac auth create", 120000);
+        result = await runArgv("pac", ["auth", "create"], 120000);
         break;
       case "dataverse": {
         // Verify Dataverse connectivity using current pac environment
-        result = await runShell("pac env who", 15000);
+        result = await runArgv("pac", ["env", "who"], 15000);
         break;
       }
       default:
@@ -2587,7 +2611,8 @@ app.post("/api/auth/connect", async (req, res) => {
 
     res.json({ ok: result.ok, tool, detail: result.ok ? "Connected" : result.error });
   } catch (err) {
-    res.status(500).json({ detail: err.message });
+    const status = err && /Azure tenant/.test(err.message) ? 400 : 500;
+    res.status(status).json({ detail: err.message });
   }
 });
 

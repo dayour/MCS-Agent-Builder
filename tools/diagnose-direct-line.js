@@ -19,8 +19,8 @@
 
 const fs = require("fs");
 const path = require("path");
-const { execSync } = require("child_process");
 const { httpRequestWithRetry } = require("./lib/http");
+const { azAccessToken } = require("../app/lib/az-token");
 
 const REPO_ROOT = path.resolve(__dirname, "..");
 const args = process.argv.slice(2);
@@ -44,7 +44,7 @@ async function main() {
   console.log(`[diagnose] Target: bot ${botId} on ${envUrl}`);
 
   // Acquire Dataverse token via az (no live config dumped to stdout)
-  const token = execSync(`az account get-access-token --resource "${envUrl}" --query accessToken -o tsv`, { encoding: "utf8", timeout: 15000 }).trim();
+  const token = azAccessToken(envUrl);
 
   const resp = await httpRequestWithRetry("GET",
     `${envUrl}/api/data/v9.2/bots(${botId})`,

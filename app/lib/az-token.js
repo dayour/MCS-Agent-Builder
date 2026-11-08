@@ -68,7 +68,7 @@ function runAz(args, options) {
   const invocation = buildAzInvocation(args, platform);
   const result = spawn(invocation.command, invocation.args, {
     encoding: "utf8",
-    timeout: 15000,
+    timeout: (options && options.timeout) || 15000,
     shell: false,
     windowsVerbatimArguments: invocation.windowsVerbatimArguments,
   });
@@ -87,27 +87,30 @@ function runAz(args, options) {
   return String(result.stdout || "");
 }
 
-function tokenArgs(resource, tenant, output) {
+function tokenArgs(resource, tenant, output, subscription) {
   if (output !== "tsv" && output !== "json") {
     throw new Error("Azure CLI output must be tsv or json");
   }
   const args = ["account", "get-access-token", "--resource", resolveResource(resource)];
   if (output === "tsv") args.push("--query", "accessToken");
   args.push("-o", output);
+  if (subscription) args.push("--subscription", assertCliArg(subscription));
   if (tenant) args.push("--tenant", assertTenant(tenant));
   return args;
 }
 
 function azAccessToken(resource, options) {
   const tenant = options && options.tenant;
-  const token = runAz(tokenArgs(resource, tenant, "tsv"), options).trim();
+  const subscription = options && options.subscription;
+  const token = runAz(tokenArgs(resource, tenant, "tsv", subscription), options).trim();
   if (!token || token.length < 20) throw new Error("Invalid Azure access token");
   return token;
 }
 
 function azAccessTokenJson(resource, options) {
   const tenant = options && options.tenant;
-  const raw = runAz(tokenArgs(resource, tenant, "json"), options).trim();
+  const subscription = options && options.subscription;
+  const raw = runAz(tokenArgs(resource, tenant, "json", subscription), options).trim();
   let parsed;
   try {
     parsed = JSON.parse(raw);
@@ -143,6 +146,7 @@ module.exports = {
   assertHttpsResource,
   assertTenant,
   buildAzInvocation,
+  runAz,
   azAccessToken,
   azAccessTokenJson,
   azTenantId,

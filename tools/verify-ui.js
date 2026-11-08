@@ -20,7 +20,8 @@
  */
 
 const http = require('http');
-const { execSync, spawn } = require('child_process');
+const { spawn } = require('child_process');
+const { runNpx } = require('../app/lib/argv-exec');
 const path = require('path');
 const fs = require('fs');
 
@@ -132,7 +133,7 @@ function runTests(opts) {
   }
 
   try {
-    const output = execSync(`npx ${args.join(' ')}`, {
+    const output = runNpx(args, {
       cwd: FRONTEND_DIR,
       encoding: 'utf-8',
       stdio: opts.verbose ? 'inherit' : 'pipe',

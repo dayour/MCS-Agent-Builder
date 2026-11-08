@@ -250,14 +250,8 @@ async function handleInteractiveSignIn(client, signIn, timeoutMs) {
 
         // Try to open in browser
         try {
-            const { execSync } = require('child_process');
-            if (process.platform === 'win32') {
-                execSync(`start "" "${signIn.signInUrl}"`, { stdio: 'ignore' });
-            } else if (process.platform === 'darwin') {
-                execSync(`open "${signIn.signInUrl}"`, { stdio: 'ignore' });
-            } else {
-                execSync(`xdg-open "${signIn.signInUrl}"`, { stdio: 'ignore' });
-            }
+            const { openInBrowser } = require('../app/lib/argv-exec');
+            openInBrowser(signIn.signInUrl);
             console.log('  (Browser opened — complete sign-in there)');
         } catch {
             console.log('  (Open the URL above in your browser to sign in)');

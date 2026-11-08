@@ -30,8 +30,8 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { execSync } = require('node:child_process');
 const https = require('node:https');
+const { azAccessToken, runAz } = require('../../app/lib/az-token');
 
 const ADO_RESOURCE = '499b84ac-1321-427f-aa17-267ca6975798';
 const FEED_URL = 'https://pkgs.dev.azure.com/msazure/_packaging/CCI-Dependency/npm/registry/';
@@ -41,10 +41,7 @@ const NPMRC_PATH = path.join(os.homedir(), '.npmrc');
 
 function getExpectedTenantSubscription() {
     try {
-        const accounts = JSON.parse(execSync('az account list --all -o json', {
-            encoding: 'utf8',
-            stdio: ['ignore', 'pipe', 'pipe']
-        }));
+        const accounts = JSON.parse(runAz(['account', 'list', '--all', '-o', 'json']));
         const account = accounts.find(
             (candidate) => candidate.tenantId === EXPECTED_TENANT && candidate.state === 'Enabled'
         );
@@ -58,9 +55,8 @@ function getExpectedTenantSubscription() {
 }
 
 function getAzToken(subscriptionId) {
-    const cmd = `az account get-access-token --subscription ${subscriptionId} --resource ${ADO_RESOURCE} --query accessToken -o tsv`;
     try {
-        const out = execSync(cmd, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+        const out = azAccessToken(ADO_RESOURCE, { subscription: subscriptionId });
         if (!out || out.split('.').length !== 3) {
             throw new Error('az returned no JWT token — is az login current?');
         }
