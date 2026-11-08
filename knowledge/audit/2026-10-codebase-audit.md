@@ -264,4 +264,4 @@ Items already listed above are not repeated. A1 is still open on `main`. `cursor
 - Impact: a local caller who knows a job id can read that pipeline's log text, for every registered pipeline, not only the build pipeline. Same bind limitation as B1.
 - Fix: same gate as B1, if that gate is added. Not applied.
 
-Workflows `publish.yml`, `verify-upstream.yml`, and `ci.yml` (added on `main` in `415af9c`) were read. They do not interpolate untrusted input into `run:` scripts. `ci.yml` runs `npm ci --legacy-peer-deps`, `npm run frontend:build`, lint, typecheck, `npm test`, `npm run test:unit`, `node --test tools/__tests__/*.test.js`, and `npm run validate:manifests --if-present`.
+Workflows `publish.yml`, `verify-upstream.yml`, and `ci.yml` (added on `main` in `415af9c`) were read. They do not interpolate untrusted input into `run:` scripts. `ci.yml` runs `npm ci --legacy-peer-deps`, `npm run frontend:build`, lint, typecheck, `npm test`, `npm run test:unit`, `node --test tools/__tests__/*.test.js`, and `npm run validate:manifests`.

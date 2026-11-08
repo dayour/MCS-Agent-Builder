@@ -53,4 +53,4 @@ jobs:
           node --test tools/__tests__/*.test.js
 
       - name: Validate manifests
-        run: npm run validate:manifests --if-present
+        run: npm run validate:manifests

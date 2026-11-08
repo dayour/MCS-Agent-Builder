@@ -34,8 +34,7 @@
     {
       "name": "Orders",
       "type": "connector",
-      "purpose": "Read orders",
-      "apiToken": "ghp_abcdefghijklmnopqrstuvwxyz0123456789"
+      "purpose": "Read orders"
     }
   ],
   "knowledge": [

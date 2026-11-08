@@ -23,7 +23,17 @@ const {
 const { handleRpc, callTool, loadModel } = require("../agent-plugins/mcp-stdio-server");
 
 const VALID = path.join(REPO_ROOT, "schema", "fixtures", "valid", "order-status");
+const LEVEL_PASS = path.join(REPO_ROOT, "schema", "fixtures", "valid", "level-pass");
 const INVALID = path.join(REPO_ROOT, "schema", "fixtures", "invalid");
+
+function utcDay(offset) {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + offset)).toISOString().slice(0, 10);
+}
+
+function levelRow(result, date) {
+  return `| L1 | ${result} | ${date} | abcdef0123456789 |`;
+}
 
 function rules(dir) {
   return new Set(validatePluginDir(dir).violations.map((item) => item.rule));
@@ -67,8 +77,16 @@ test("invalid fixtures fail on the rule they target", () => {
     "level-not-passing": "level-inflated",
     "level-failed-next": "level-inflated",
     "level-superseded": "level-inflated",
+    "level-cross-file": "level-inflated",
+    "level-status-fail": "level-inflated",
+    "level-status-failed": "level-inflated",
     "level-fenced": "level-inflated",
+    "level-long-fence": "level-inflated",
+    "level-indented": "level-inflated",
     "level-commented": "level-inflated",
+    "level-malformed": "level-inflated",
+    "homepage-credential": "identity-secret",
+    "model-secret": "manifest-secret",
     "symlink-escape": "path-escape",
     "third-party": "extension-missing",
   };
@@ -101,13 +119,16 @@ test("level evidence requires a structured pass row", () => {
   assert.equal(hasLevelPassRecord("Level 3: we bypass all validation.", 3), false);
   assert.equal(hasLevelPassRecord("Level 2 is not yet passing.", 2), false);
   assert.equal(hasLevelPassRecord("L1 — failed. Next round will pass.", 1), false);
-  assert.equal(hasLevelPassRecord("| L1 | pass | 2026-10-19 | abcdef0123456789 |", 1), true);
-  assert.equal(hasLevelPassRecord("| L1 | passing | 2026-10-19 | abcdef0123456789 |", 1), false);
-  assert.equal(hasLevelPassRecord("| L1 | pass | 2026-09-01 | abcdef0123456789 |\n| L1 | fail | 2026-10-19 | abcdef0123456789 |", 1), false);
-  assert.equal(hasLevelPassRecord("| L1 | fail | 2026-09-01 | abcdef0123456789 |\n| L1 | pass | 2026-10-19 | abcdef0123456789 |", 1), true);
-  assert.equal(hasLevelPassRecord("```\n| L1 | pass | 2026-10-19 | abcdef0123456789 |\n```\n", 1), false);
-  assert.equal(hasLevelPassRecord("<!-- | L1 | pass | 2026-10-19 | abcdef0123456789 | -->", 1), false);
-  assert.equal(hasLevelPassRecord("| L1 | pass | 2099-12-31 | abcdef0123456789 |", 1), false);
+  const earlier = utcDay(-30);
+  const later = utcDay(-1);
+  assert.equal(hasLevelPassRecord(levelRow("pass", later), 1), true);
+  assert.equal(hasLevelPassRecord(levelRow("passing", later), 1), false);
+  assert.equal(hasLevelPassRecord(`${levelRow("pass", earlier)}\n${levelRow("fail", later)}`, 1), false);
+  assert.equal(hasLevelPassRecord(`${levelRow("fail", earlier)}\n${levelRow("pass", later)}`, 1), true);
+  assert.equal(hasLevelPassRecord(`\`\`\`\n${levelRow("pass", later)}\n\`\`\`\n`, 1), false);
+  assert.equal(hasLevelPassRecord(`<!-- ${levelRow("pass", later)} -->`, 1), false);
+  assert.equal(hasLevelPassRecord(levelRow("pass", utcDay(1)), 1), false);
+  assert.equal(fs.readFileSync(path.join(LEVEL_PASS, "CONFORMANCE.md"), "utf8").includes("2020-01-15"), true);
   const phrases = {
     "level-bypass": "Level 3: we bypass all validation.",
     "level-not-passing": "Level 2 is not yet passing.",
@@ -118,8 +139,109 @@ test("level evidence requires a structured pass row", () => {
     assert.equal(text.includes(phrase), true, folder);
     assert.equal(rules(path.join(INVALID, folder)).has("level-inflated"), true, folder);
   }
-  const accepted = validatePluginDir(path.join(REPO_ROOT, "schema", "fixtures", "valid", "level-pass"));
+  const accepted = validatePluginDir(LEVEL_PASS);
   assert.equal(accepted.ok, true, JSON.stringify(accepted.violations));
+});
+
+test("latest level row is evaluated across CONFORMANCE.md and ROADMAP.md combined", () => {
+  const earlier = utcDay(-30);
+  const later = utcDay(-1);
+  const stage = (conformance, roadmap) => {
+    const plugin = path.join(fs.mkdtempSync(path.join(require("os").tmpdir(), "level-combo-")), "level-pass");
+    fs.cpSync(LEVEL_PASS, plugin, { recursive: true });
+    fs.writeFileSync(path.join(plugin, "CONFORMANCE.md"), `${conformance}\n`);
+    fs.writeFileSync(path.join(plugin, "ROADMAP.md"), `${roadmap}\n`);
+    return plugin;
+  };
+  // Before: each file was judged alone, so ROADMAP's pass accepted the package
+  // even though CONFORMANCE had a later fail.
+  assert.equal(hasLevelPassRecord(levelRow("pass", earlier), 1), true);
+  const rejected = stage(
+    `${levelRow("pass", earlier)}\n${levelRow("fail", later)}`,
+    levelRow("pass", earlier),
+  );
+  assert.equal(rules(rejected).has("level-inflated"), true, [...rules(rejected)].join(","));
+  // After: the later pass can live in the other file and still counts.
+  const accepted = stage(levelRow("fail", earlier), levelRow("pass", later));
+  const result = validatePluginDir(accepted);
+  assert.equal(result.ok, true, JSON.stringify(result.violations));
+  const cross = path.join(INVALID, "level-cross-file");
+  const conformance = fs.readFileSync(path.join(cross, "CONFORMANCE.md"), "utf8");
+  const roadmap = fs.readFileSync(path.join(cross, "ROADMAP.md"), "utf8");
+  assert.match(conformance, /\| L1 \| pass \| 2020-09-01 \| abcdef0 \|/);
+  assert.match(conformance, /\| L1 \| fail \| 2020-10-18 \| abcdef0 \|/);
+  assert.match(roadmap, /\| L1 \| pass \| 2020-09-01 \| abcdef0 \|/);
+  assert.equal(hasLevelPassRecord([conformance, roadmap], 1), false);
+  assert.equal(rules(cross).has("level-inflated"), true);
+});
+
+test("level pass and fail match without case, and failed is a failing row", () => {
+  const earlier = utcDay(-30);
+  const later = utcDay(-1);
+  // Before: "Failed" was not a row, so the earlier pass was the latest result.
+  assert.equal(hasLevelPassRecord(`${levelRow("pass", earlier)}\n${levelRow("Failed", later)}`, 1), false);
+  assert.equal(hasLevelPassRecord(`${levelRow("pass", earlier)}\n${levelRow("FAIL", later)}`, 1), false);
+  assert.equal(hasLevelPassRecord(`${levelRow("pass", earlier)}\n${levelRow("failed", later)}`, 1), false);
+  assert.equal(hasLevelPassRecord(`${levelRow("FAIL", earlier)}\n${levelRow("failed", later)}`, 1), false);
+  assert.equal(fs.readFileSync(path.join(INVALID, "level-status-fail", "CONFORMANCE.md"), "utf8").includes("| L1 | FAIL | 2020-10-18 | abcdef0 |"), true);
+  assert.equal(fs.readFileSync(path.join(INVALID, "level-status-failed", "CONFORMANCE.md"), "utf8").includes("| L1 | failed | 2020-10-18 | abcdef0 |"), true);
+  // After: PASS is a pass row, including when the earlier result is FAIL.
+  assert.equal(hasLevelPassRecord(`${levelRow("FAIL", earlier)}\n${levelRow("PASS", later)}`, 1), true);
+  assert.equal(hasLevelPassRecord(levelRow("Pass", later), 1), true);
+});
+
+test("CommonMark fences close on the same marker at equal or greater length, and indented code is ignored", () => {
+  const day = utcDay(-1);
+  const pass = levelRow("pass", day);
+  // Before: a shorter ``` closed a ```` fence, so the pass row after it counted.
+  const shorterCloser = `\`\`\`\`\n${levelRow("fail", day)}\n\`\`\`\n${pass}\n`;
+  assert.equal(hasLevelPassRecord(shorterCloser, 1), false);
+  const tildeDoesNotClose = `\`\`\`\n${pass}\n~~~\n`;
+  assert.equal(hasLevelPassRecord(tildeDoesNotClose, 1), false);
+  // Before: trimming the line made this indented pass row count.
+  assert.equal(hasLevelPassRecord(`    ${pass}\n`, 1), false);
+  // After: a real closing fence reveals the later pass, and a 4-space fence marker does not hide it.
+  const closed = `\`\`\`\n${levelRow("fail", utcDay(-30))}\n\`\`\`\n${pass}\n`;
+  assert.equal(hasLevelPassRecord(closed, 1), true);
+  const indentedMarker = `    \`\`\`\n${pass}\n`;
+  assert.equal(hasLevelPassRecord(indentedMarker, 1), true);
+  const longerCloser = `\`\`\`\n${levelRow("fail", utcDay(-30))}\n\`\`\`\`\n${pass}\n`;
+  assert.equal(hasLevelPassRecord(longerCloser, 1), true);
+  const longFence = fs.readFileSync(path.join(INVALID, "level-long-fence", "CONFORMANCE.md"), "utf8");
+  assert.equal(longFence.includes("````\n```\n| L1 | pass | 2020-10-01 | abcdef0 |\n````"), true);
+  assert.equal(hasLevelPassRecord(longFence, 1), false);
+  assert.equal(rules(path.join(INVALID, "level-long-fence")).has("level-inflated"), true);
+  const indented = fs.readFileSync(path.join(INVALID, "level-indented", "CONFORMANCE.md"), "utf8");
+  assert.match(indented, /\n    \| L1 \| pass \| 2020-10-01 \| abcdef0 \|\n/);
+  assert.equal(hasLevelPassRecord(indented, 1), false);
+  assert.equal(rules(path.join(INVALID, "level-indented")).has("level-inflated"), true);
+});
+
+test("a malformed level row counts as not-pass", () => {
+  const earlier = utcDay(-30);
+  const later = utcDay(-1);
+  const pass = levelRow("pass", earlier);
+  assert.equal(hasLevelPassRecord(`${pass}\n| L1 | FAILING | ${later} | abcdef1 |`, 1), false);
+  assert.equal(hasLevelPassRecord(`${pass}\n| L1 | fail | ${later} | abcdef1 | notes |`, 1), false);
+  assert.equal(hasLevelPassRecord(`${pass}\n| L1 | fail | ${later} | - |`, 1), false);
+  assert.equal(hasLevelPassRecord(`${pass}\n| L1 | fail | 2020-02-30 | abcdef1 |`, 1), false);
+  assert.equal(hasLevelPassRecord(`| L1 | FAILING | ${earlier} | abcdef1 |\n${levelRow("pass", later)}`, 1), true);
+  assert.equal(rules(path.join(INVALID, "level-malformed")).has("level-inflated"), true);
+});
+
+test("repository and author URLs that embed credentials are rejected", () => {
+  const plugin = path.join(fs.mkdtempSync(path.join(require("os").tmpdir(), "identity-url-")), "order-status");
+  fs.cpSync(VALID, plugin, { recursive: true });
+  const pluginJsonPath = path.join(plugin, "plugin.json");
+  const pluginJson = JSON.parse(fs.readFileSync(pluginJsonPath, "utf8"));
+  pluginJson.repository = "https://user:secret@github.com/example/order-status";
+  pluginJson.author = { name: "Retail", url: "https://example.com/author?token=abcdef" };
+  fs.writeFileSync(pluginJsonPath, JSON.stringify(pluginJson, null, 2));
+  const found = validatePluginDir(plugin);
+  const identity = found.violations.filter((item) => item.rule === "identity-secret");
+  assert.equal(identity.length, 2, JSON.stringify(found.violations));
+  assert.ok(identity.some((item) => item.pointer === "/repository"));
+  assert.ok(identity.some((item) => item.pointer === "/author/url"));
 });
 
 test("symlink targets outside the plugin root are rejected", () => {

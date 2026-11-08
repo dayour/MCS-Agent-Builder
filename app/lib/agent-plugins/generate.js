@@ -112,7 +112,15 @@ function selectedIntegrations(spec, pluginName) {
   const integrations = Array.isArray(spec.integrations) ? spec.integrations : [];
   for (const item of integrations) {
     if (!item || typeof item !== "object") continue;
-    if (item.type !== "mcp") continue;
+    if (item.type !== "mcp") {
+      if (item.type == null || String(item.type).trim() === "") {
+        omitted.push({
+          name: item.name || "integration",
+          reason: "integration has no type; only type mcp is packaged as a remote server",
+        });
+      }
+      continue;
+    }
     const rawUrl = item.url || item.endpoint || item.mcpUrl;
     if (!rawUrl) continue;
     const label = item.name || "remote";

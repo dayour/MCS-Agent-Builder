@@ -136,6 +136,8 @@ test("plugin identity comes from agentPlugin and an untyped url is not an MCP se
   assert.deepEqual(plugin.author, { name: "Retail Team", email: "team@example.com" });
   assert.equal(mcp.mcpServers["untyped"], undefined);
   assert.equal(mcp.mcpServers["orders-api"].url, "https://orders.example.com/mcp");
+  assert.ok(built.omitted.some((item) => item.name === "Untyped" && /no type/.test(item.reason)));
+  assert.match(built.files["specs/ORDER_STATUS.md"], /Untyped/);
 });
 
 test("a remote server cannot replace the stdio core", () => {
@@ -222,6 +224,18 @@ test("spec-core import warns on third-party packages and still refuses a bad nam
   assert.equal(fs.existsSync(forcedOut), true);
 });
 
+test("repository and author credential URLs are rejected at emit", () => {
+  const spec = sampleSpec();
+  spec.agentPlugin = {
+    repository: "https://user:secret@github.com/example/order-status",
+    author: { name: "Retail", url: "https://example.com/author?token=abcdef" },
+  };
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "plugin-identity-"));
+  assert.throws(() => emitPlugin(spec, path.join(parent, "order-status")), (err) => {
+    return err.code === "MANIFEST_INVALID" && /identity-secret/.test(err.message);
+  });
+});
+
 test("import --force does not copy credential headers into the agentspec", () => {
   const repo = path.join(__dirname, "..", "..", "..");
   const cli = path.join(repo, "bin", "cli.js");
@@ -238,6 +252,139 @@ test("import --force does not copy credential headers into the agentspec", () =>
   assert.equal(packed.includes("Authorization"), false);
   assert.equal(packed.includes("Bearer"), false);
   assert.equal(packed.includes("abcdefghijklmnop"), false);
+});
+
+test("import --force strips secret env values, credential query keys, and secret header values", () => {
+  const repo = path.join(__dirname, "..", "..", "..");
+  const cli = path.join(repo, "bin", "cli.js");
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "plugin-secret-import-"));
+  const plugin = path.join(parent, "credential-header");
+  fs.cpSync(path.join(repo, "schema", "fixtures", "invalid", "credential-header"), plugin, { recursive: true });
+  const token = `ghp_${"a".repeat(24)}`;
+  fs.writeFileSync(path.join(plugin, "mcp.json"), JSON.stringify({
+    $schema: "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+    mcpServers: {
+      remote: {
+        type: "streamable-http",
+        url: "https://example.com/mcp?code=supersecret&tenant=public",
+        headers: {
+          Authorization: "Bearer abcdefghijklmnop",
+          "X-Request-Id": token,
+          "X-Tenant": "retail",
+        },
+        env: {
+          REGION: "us",
+          API_TOKEN: "not-a-real-value",
+          PUBLIC: token,
+        },
+      },
+    },
+  }, null, 2));
+  const outSpec = path.join(parent, "forced.json");
+  const forced = spawnSync(process.execPath, [
+    cli, "manifest", "import",
+    "--dir", plugin,
+    "--out", outSpec,
+    "--force",
+  ], { encoding: "utf8" });
+  assert.equal(forced.status, 0, forced.stderr);
+  const packed = fs.readFileSync(outSpec, "utf8");
+  // Before: the agentspec kept the env secret, the code query, and the secret header value.
+  assert.equal(packed.includes("Authorization"), false);
+  assert.equal(packed.includes("Bearer"), false);
+  assert.equal(packed.includes("abcdefghijklmnop"), false);
+  assert.equal(packed.includes("ghp_"), false);
+  assert.equal(packed.includes("code="), false);
+  assert.equal(packed.includes("API_TOKEN"), false);
+  assert.equal(packed.includes("supersecret"), false);
+  // After: the public query key, header, and env value remain.
+  assert.match(packed, /tenant=public/);
+  assert.match(packed, /X-Tenant/);
+  assert.match(packed, /retail/);
+  assert.match(packed, /REGION/);
+  assert.match(packed, /"us"/);
+});
+
+test("emit rejects plugin.json URL fields that embed userinfo", () => {
+  const spec = sampleSpec();
+  spec.agentPlugin = {
+    repository: "https://deploy:p4ssw0rd@git.example.com/x",
+    author: { name: "Retail", url: "https://deploy:p4ssw0rd@git.example.com/x" },
+  };
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "plugin-identity-emit-"));
+  const dest = path.join(parent, "order-status");
+  assert.throws(() => emitPlugin(spec, dest), (err) => {
+    assert.equal(err.code, "MANIFEST_INVALID");
+    assert.match(err.message, /identity-secret/);
+    assert.match(err.message, /\/repository/);
+    assert.match(err.message, /\/author\/url/);
+    return true;
+  });
+  assert.equal(fs.existsSync(path.join(dest, "plugin.json")), false);
+  const leftover = fs.readdirSync(parent).join("\n");
+  assert.equal(leftover.includes("p4ssw0rd"), false, leftover);
+  assert.equal(leftover.includes(".plugin-stage-"), false, leftover);
+});
+
+test("import --force strips credentials from repository, homepage, and author.url", () => {
+  const repo = path.join(__dirname, "..", "..", "..");
+  const cli = path.join(repo, "bin", "cli.js");
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "plugin-identity-url-"));
+  const plugin = path.join(parent, "order-status");
+  fs.cpSync(path.join(repo, "schema", "fixtures", "valid", "order-status"), plugin, { recursive: true });
+  const manifest = JSON.parse(fs.readFileSync(path.join(plugin, "plugin.json"), "utf8"));
+  manifest.repository = "https://x-access-token:s3cr3t@github.com/o/r?token=abc123";
+  manifest.homepage = "https://user:hunter2pass@example.com/?access_token=abc123";
+  manifest.author = { name: "Retail", url: "https://author.example/me?token=abc123" };
+  fs.writeFileSync(path.join(plugin, "plugin.json"), JSON.stringify(manifest, null, 2));
+  const outSpec = path.join(parent, "forced.json");
+  const forced = spawnSync(process.execPath, [
+    cli, "manifest", "import",
+    "--dir", plugin,
+    "--out", outSpec,
+    "--force",
+  ], { encoding: "utf8" });
+  assert.equal(forced.status, 0, forced.stderr);
+  const spec = JSON.parse(fs.readFileSync(outSpec, "utf8"));
+  const repository = new URL(spec.agentPlugin.repository);
+  assert.equal(repository.username, "");
+  assert.equal(repository.password, "");
+  assert.equal(repository.searchParams.has("token"), false);
+  assert.equal(spec.agentPlugin.repository.includes("token="), false);
+  assert.equal(spec.agentPlugin.repository.includes("x-access-token"), false);
+  const homepage = new URL(spec.agentPlugin.homepage);
+  assert.equal(homepage.username, "");
+  assert.equal(homepage.password, "");
+  assert.equal(homepage.searchParams.has("access_token"), false);
+  const author = new URL(spec.agentPlugin.author.url);
+  assert.equal(author.searchParams.has("token"), false);
+  assert.match(forced.stderr, /identity-secret/);
+});
+
+test("importing order-status leaves no ghp_ token and redacts nested model secrets", () => {
+  const repo = path.join(__dirname, "..", "..", "..");
+  const fixture = path.join(repo, "schema", "fixtures", "valid", "order-status");
+  const clean = importPlugin(fixture);
+  assert.equal(clean.validation.ok, true, JSON.stringify(clean.validation.errors));
+  assert.equal(JSON.stringify(clean.spec).includes("ghp_"), false);
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "plugin-model-secret-"));
+  const plugin = path.join(parent, "order-status");
+  fs.cpSync(fixture, plugin, { recursive: true });
+  const token = `ghp_${"c".repeat(24)}`;
+  const model = JSON.parse(fs.readFileSync(path.join(plugin, "agent-model.json"), "utf8"));
+  model.integrations[0].apiToken = token;
+  model.integrations[0].nested = { note: token, API_TOKEN: "kept-looking-key" };
+  model.integrations[0].purpose = "Read orders";
+  fs.writeFileSync(path.join(plugin, "agent-model.json"), JSON.stringify(model, null, 2));
+  const imported = importPlugin(plugin);
+  const packed = JSON.stringify(imported.spec);
+  assert.equal(packed.includes("ghp_"), false);
+  assert.equal(imported.spec.integrations[0].apiToken, "");
+  assert.equal(imported.spec.integrations[0].nested.note, "");
+  assert.equal(imported.spec.integrations[0].nested.API_TOKEN, undefined);
+  assert.equal(imported.spec.integrations[0].purpose, "Read orders");
+  assert.equal(imported.validation.ok, false);
+  assert.equal(imported.validation.errors.some((item) => item.rule === "manifest-secret"), true);
 });
 
 test("--force help says it deletes the existing directory", () => {
@@ -312,4 +459,126 @@ test("manifest step keeps agentPlugin version and strict across rebuilds", async
   assert.ok(brief.agentPlugin.schema);
   assert.ok(brief.agentPlugin.validatedAt);
   assert.ok(Array.isArray(brief.agentPlugin.omitted));
+});
+
+test("manifest rebuild does not carry secret env values, query keys, or header values", async () => {
+  const { stepManifest } = require("../build-pipeline")._testables;
+  const agentDir = fs.mkdtempSync(path.join(os.tmpdir(), "plugin-carry-"));
+  const token = `ghp_${"b".repeat(24)}`;
+  const brief = sampleSpec();
+  brief.agentPlugin = {
+    version: "1.2.0",
+    strict: true,
+    note: "user",
+    mcpServers: {
+      keep: true,
+      remote: {
+        type: "streamable-http",
+        url: "https://example.com/mcp?code=supersecret&tenant=public",
+        headers: {
+          Authorization: "Bearer abcdefghijklmnop",
+          "X-Request-Id": token,
+          "X-Tenant": "retail",
+        },
+        env: {
+          REGION: "us",
+          API_TOKEN: "not-a-real-value",
+          PUBLIC: token,
+        },
+      },
+    },
+  };
+  const job = {
+    steps: [{ id: "manifest", status: "pending", detail: null }],
+    errors: [],
+    rawLog: "",
+    listeners: [],
+  };
+  await stepManifest(job, brief, agentDir);
+  await stepManifest(job, brief, agentDir);
+  const packed = JSON.stringify(brief.agentPlugin);
+  assert.equal(brief.agentPlugin.version, "1.2.0");
+  assert.equal(brief.agentPlugin.strict, true);
+  assert.equal(brief.agentPlugin.note, "user");
+  assert.equal(brief.agentPlugin.mcpServers.keep, true);
+  assert.equal(packed.includes("Authorization"), false);
+  assert.equal(packed.includes("Bearer"), false);
+  assert.equal(packed.includes("ghp_"), false);
+  assert.equal(packed.includes("code="), false);
+  assert.equal(packed.includes("API_TOKEN"), false);
+  assert.equal(packed.includes("supersecret"), false);
+  assert.match(brief.agentPlugin.mcpServers.remote.url, /tenant=public/);
+  assert.equal(brief.agentPlugin.mcpServers.remote.headers["X-Tenant"], "retail");
+  assert.equal(brief.agentPlugin.mcpServers.remote.headers["X-Request-Id"], undefined);
+  assert.equal(brief.agentPlugin.mcpServers.remote.env.REGION, "us");
+  assert.equal(brief.agentPlugin.mcpServers.remote.env.API_TOKEN, undefined);
+  assert.equal(brief.agentPlugin.mcpServers.remote.env.PUBLIC, undefined);
+});
+
+test("import --force of secret-env, query-key, and a secret-valued allowed header writes no secrets, and a rebuild does not keep them", async () => {
+  const { stepManifest } = require("../build-pipeline")._testables;
+  const repo = path.join(__dirname, "..", "..", "..");
+  const cli = path.join(repo, "bin", "cli.js");
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "plugin-fixture-secrets-"));
+  const bearer = "Bearer abcdefghijklmnop";
+
+  function forceImport(dir) {
+    const outSpec = path.join(parent, `${path.basename(dir)}.agentspec.json`);
+    const forced = spawnSync(process.execPath, [
+      cli, "manifest", "import",
+      "--dir", dir,
+      "--out", outSpec,
+      "--force",
+    ], { encoding: "utf8" });
+    assert.equal(forced.status, 0, forced.stderr);
+    return JSON.parse(fs.readFileSync(outSpec, "utf8"));
+  }
+
+  const secretEnv = forceImport(path.join(repo, "schema", "fixtures", "invalid", "secret-env"));
+  const secretPacked = JSON.stringify(secretEnv);
+  assert.equal(secretPacked.includes("API_TOKEN"), false);
+  assert.equal(secretPacked.includes("not-a-real-value"), false);
+
+  const queryKey = forceImport(path.join(repo, "schema", "fixtures", "invalid", "query-key"));
+  const queryPacked = JSON.stringify(queryKey);
+  assert.equal(queryPacked.includes("code="), false);
+  assert.equal(queryPacked.includes("?code"), false);
+  assert.equal(queryKey.integrations[0].url, "https://example.com/mcp");
+
+  const headerDir = path.join(parent, "query-key");
+  fs.cpSync(path.join(repo, "schema", "fixtures", "invalid", "query-key"), headerDir, { recursive: true });
+  const mcp = JSON.parse(fs.readFileSync(path.join(headerDir, "mcp.json"), "utf8"));
+  mcp.mcpServers.remote.headers = { "X-Tenant": bearer };
+  fs.writeFileSync(path.join(headerDir, "mcp.json"), JSON.stringify(mcp, null, 2));
+  const headerSpec = forceImport(headerDir);
+  const headerPacked = JSON.stringify(headerSpec);
+  assert.equal(headerPacked.includes("Bearer"), false);
+  assert.equal(headerPacked.includes("abcdefghijklmnop"), false);
+  assert.equal(headerPacked.includes("code="), false);
+  assert.equal(headerSpec.agentPlugin.mcpServers.remote.headers, undefined);
+
+  async function rebuild(spec) {
+    const agentDir = fs.mkdtempSync(path.join(parent, "build-"));
+    const job = {
+      steps: [{ id: "manifest", status: "pending", detail: null }],
+      errors: [],
+      rawLog: "",
+      listeners: [],
+    };
+    await stepManifest(job, spec, agentDir);
+    assert.equal(job.steps[0].status, "completed", job.rawLog);
+    const carried = JSON.stringify(spec);
+    const emitted = fs.readFileSync(path.join(agentDir, "plugin", spec.agentPlugin.name, "mcp.json"), "utf8");
+    const model = fs.readFileSync(path.join(agentDir, "plugin", spec.agentPlugin.name, "agent-model.json"), "utf8");
+    const built = `${carried}\n${emitted}\n${model}`;
+    assert.equal(built.includes("API_TOKEN"), false, spec.agent.name);
+    assert.equal(built.includes("not-a-real-value"), false, spec.agent.name);
+    assert.equal(built.includes("code="), false, spec.agent.name);
+    assert.equal(built.includes("Bearer"), false, spec.agent.name);
+    assert.equal(built.includes("abcdefghijklmnop"), false, spec.agent.name);
+  }
+
+  await rebuild(secretEnv);
+  await rebuild(queryKey);
+  await rebuild(headerSpec);
 });
